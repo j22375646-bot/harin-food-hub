@@ -1,0 +1,5 @@
+import authModule from '../../../../lib/dashboard-auth.js';
+import clientModule from '../../../../lib/naver/client.js';
+export const runtime='nodejs'; export const dynamic='force-dynamic';
+function cookieValue(request){return request.headers.get('cookie')?.split(';').map(v=>v.trim()).find(v=>v.startsWith(`${authModule.COOKIE_NAME}=`))?.split('=').slice(1).join('=');}
+export async function GET(request){if(!authModule.verifySession(cookieValue(request)))return Response.json({ok:false,error:'Unauthorized'},{status:401});try{const result=await clientModule.request('GET','/ncc/campaigns');return Response.json({ok:true,connected:true,campaigns:result.data?.length||0});}catch(error){let diagnostics;try{const cfg=clientModule.config();diagnostics={customerIdLength:cfg.customerId.length,apiKeyLength:cfg.apiKey.length,secretKeyLength:cfg.secretKey.length,customerIdNumeric:/^\d+$/.test(cfg.customerId)};}catch{}return Response.json({ok:false,connected:false,error:error.message,diagnostics},{status:error.status||500});}}

@@ -1,0 +1,27 @@
+{
+  "name": "harin-cafe24-sync",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "start:legacy": "node cafe24-oauth-server.js",
+    "test": "node --test",
+    "sync:coupang:local": "node scripts/coupang-local-sync.js",
+    "worker:coupang:local": "node scripts/coupang-local-worker.js",
+    "ip:coupang:local": "node scripts/coupang-local-sync.js --ip-only"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.55.0",
+    "dotenv": "17.2.1",
+    "exceljs": "4.4.0",
+    "express": "5.1.0",
+    "next": "^16.3.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  }
+}

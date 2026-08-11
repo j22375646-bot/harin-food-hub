@@ -1,0 +1,12 @@
+.env
+.env*
+!.env.example
+node_modules/
+.next/
+.pnpm-store/
+.vercel/
+tmp/
+.tmp-sheet-analysis/
+.tools/
+supabase/.temp/
+*.log
