@@ -70,7 +70,7 @@ async function getDashboardData() {
     db.from('automation_runs').select('id,job_name,trigger_type,status,started_at,finished_at,attempt_count,result_json,error_message').order('started_at',{ascending:false}).limit(20),
     db.from('data_quality_checks').select('id,platform,dataset,status_code,severity,rows_checked,duplicate_count,message,remediation,checked_at').order('checked_at',{ascending:false}).limit(40),
     db.from('action_evaluations').select('id,action_id,metric_name,change_rate,outcome,explanation,evaluated_at').order('evaluated_at',{ascending:false}).limit(30),
-    db.from('alerts').select('id,platform,severity,title,message,status,created_at').eq('status','OPEN').order('created_at',{ascending:false}).limit(20),
+    db.from('alerts').select('id,source_type,platform,severity,title,message,status,created_at').eq('status','OPEN').order('created_at',{ascending:false}).limit(20),
     db.from('platform_events').select('id,platform,event_type,effective_date,title,description,analysis_impact,source_url,affects_comparison,created_by').order('effective_date',{ascending:false}).limit(30),
     db.from('product_costs').select('master_product_id,unit_cost,packaging_cost,other_unit_cost,notes,effective_from'),
     db.from('channel_cost_settings').select('platform,commission_rate,payment_fee_rate,default_shipping_cost,notes'),

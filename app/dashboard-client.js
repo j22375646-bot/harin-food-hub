@@ -88,6 +88,7 @@ function MainView({ platform, platformName, data, maxPv, maxRef }) {
   return <>
     <section className="hero"><div><span className="eyebrow">{platformName.toUpperCase()} · 통합 현황</span><h1>흩어진 채널 성과를<br/><em>한눈에 확인하세요.</em></h1><p>광고, 주문, 상품과 실행결정을 하나의 흐름으로 연결합니다.</p></div><div className="heroStatus"><span>마지막 수집 상태</span><strong>{syncs[0]?.status === 'SUCCESS' ? '정상 수집' : syncs[0]?.status || '확인 중'}</strong><small>{syncs[0]?.finished_at ? dateTime(syncs[0].finished_at) : '기록 없음'}</small></div></section>
     <ExecutiveSummary reports={data.reports} actions={actions}/>
+    <AnomalyBanner alerts={data.alerts||[]} platform={platform}/>
     <section className="kpiGrid"><Kpi tone="orange" icon="₩" label="Cafe24 결제 매출" value={won(kpis.sales)} sub={`${count(kpis.orders)}건 주문`}/><Kpi tone="blue" icon="#" label="주문수" value={`${count(kpis.orders)}건`} sub={`객단가 ${won(kpis.averageOrder)}`}/><Kpi tone="green" icon="V" label="방문자" value={`${count(kpis.visitors)}명`} sub={`전환율 ${kpis.conversion.toFixed(1)}%`}/><Kpi tone="purple" icon="P" label="페이지뷰" value={`${count(kpis.pageviews)}회`} sub={`판매 상품 ${count(kpis.products)}개`}/></section>
     <CafePanels traffic={traffic} referrers={referrers} topProducts={topProducts} recentOrders={recentOrders} maxPv={maxPv} maxRef={maxRef}/>
   </>;
@@ -106,6 +107,13 @@ function ExecutiveSummary({ reports, actions }) {
 
 function ExecutiveColumn({ tone, title, items }) {
   return <article className={tone}><b>{title}</b>{items.length ? items.slice(0, 3).map((item, index) => <p key={index}><em>{index + 1}</em><span>{item.title || item.target_name || item.body || item.reason}</span></p>) : <small>새 보고서에서 자동 계산됩니다.</small>}</article>;
+}
+
+function AnomalyBanner({ alerts, platform }) {
+  const target=platformReportName[platform];
+  const items=alerts.filter(item=>item.source_type==='ANOMALY'&&(platform==='all'||item.platform===target));
+  if(!items.length)return null;
+  return <section className="anomalyBanner"><header><div><span className="eyebrow">ANOMALY ALERT</span><h2>확인이 필요한 이상징후</h2></div><em>{items.length}건 감지</em></header><div className="anomalyBannerGrid">{items.slice(0,4).map(item=><article className={item.severity.toLowerCase()} key={item.id}><span>{item.platform}</span><b>{item.title}</b><small>{item.message}</small></article>)}</div><p>일일 자동보고서와 수동 재생성 모두 같은 서버 규칙으로 다시 계산합니다.</p></section>;
 }
 
 function PlatformDecisionMetrics({ platform, summary }) {
@@ -371,7 +379,7 @@ function CostManager({ masterProducts, productCosts, channelCostSettings }) {
 function ReportsView({ reports, actions, syncs }) { return <><section className="pageIntro reportIntro"><div><span className="eyebrow">REPORT & ACTION</span><h1>진단목록과 실행결정</h1><p>연결된 데이터를 분석해 버튼 한 번으로 보고서를 만듭니다.</p></div></section><AutomationPanel reports={reports} syncs={syncs}/><ManualAutomationButtons/><ReportGenerator/><section className="twoCol"><ReportList reports={reports}/><ActionPanel actions={actions}/></section><article className="panel"><PanelTitle tag="COLLECTION HISTORY" title="데이터 수집 이력" right="전체 플랫폼"/><SyncTable syncs={syncs}/></article></>;
 }
 
-function ManualAutomationButtons(){const [running,setRunning]=useState('');const [message,setMessage]=useState('');async function run(path,label){setRunning(path);setMessage(`${label} 처리 중…`);try{const response=await fetch(path,{method:'POST'});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'실행 실패');setMessage(`${label} 완료`);setTimeout(()=>window.location.reload(),800);}catch(error){setMessage(`확인 필요 · ${error.message}`);setRunning('');}}return <section className="manualAutomation"><button onClick={()=>run('/api/reports/daily','일일 보고서 재생성')} disabled={Boolean(running)}>{running==='/api/reports/daily'?'생성 중…':'일일 보고서 재생성'}</button><button onClick={()=>run('/api/actions/evaluate','액션 효과평가')} disabled={Boolean(running)}>{running==='/api/actions/evaluate'?'평가 중…':'액션 효과 지금 평가'}</button>{message&&<span>{message}</span>}</section>}
+function ManualAutomationButtons(){const [running,setRunning]=useState('');const [message,setMessage]=useState('');async function run(path,label){setRunning(path);setMessage(`${label} 처리 중…`);try{const response=await fetch(path,{method:'POST'});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'실행 실패');setMessage(`${label} 완료`);setTimeout(()=>window.location.reload(),800);}catch(error){setMessage(`확인 필요 · ${error.message}`);setRunning('');}}return <section className="manualAutomation"><button onClick={()=>run('/api/reports/daily','일일 보고서·이상징후 재생성')} disabled={Boolean(running)}>{running==='/api/reports/daily'?'생성 중…':'일일 보고서 + 이상징후 재계산'}</button><button onClick={()=>run('/api/actions/evaluate','액션 효과평가')} disabled={Boolean(running)}>{running==='/api/actions/evaluate'?'평가 중…':'액션 효과 지금 평가'}</button>{message&&<span>{message}</span>}</section>}
 
 function AutomationPanel({reports,syncs}){const lastSync=syncs[0];const scheduled=reports.find(item=>item.summary_json?.generation_mode==='SCHEDULED');return <section className="automationGrid"><article className="automationCard"><i className="autoGreen">D</i><div><span>매일 자동수집</span><b>오전 5:30</b><small>{lastSync?`최근 ${dateTime(lastSync.finished_at||lastSync.started_at)} · ${lastSync.status}`:'첫 실행 대기'}</small></div><em>ON</em></article><article className="automationCard"><i className="autoPurple">W</i><div><span>주간 자동보고서</span><b>월요일 오전 6:00</b><small>{scheduled?`최근 ${scheduled.period_start}~${scheduled.period_end}`:'첫 예약 실행 대기'}</small></div><em>ON</em></article><article className="automationCard"><i className="autoOrange">A</i><div><span>실행계획 자동진단</span><b>ROAS·전환·키워드</b><small>광고 설정은 직접 변경하지 않음</small></div><em>SAFE</em></article></section>}
 
