@@ -18,9 +18,19 @@ function settled(name, value) {
 export async function GET(request) {
   if (!authorized(request)) return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   const startedAt = new Date().toISOString();
-  const sync = await Promise.allSettled([syncModule.syncAllPlatforms({ triggerType: 'CRON' })]);
+  // Coupang requires the allow-listed home public IP, so its automatic sync is
+  // handled by the hidden Windows task at 08:10 KST. Vercel only collects the
+  // platforms that are safe to call from its dynamic outbound network.
+  const sync = await Promise.allSettled([
+    syncModule.syncCafe24('CRON'),
+    syncModule.syncNaver('CRON')
+  ]);
   const evaluation = await Promise.allSettled([runnerModule.runJob({ jobName: 'ACTION_EVALUATION', triggerType: 'CRON', maxAttempts: 1, work: () => evaluatorModule.evaluateActions({ minimumDays: 7 }) })]);
-  const jobs = [settled('ALL_PLATFORM_SYNC', sync[0]), settled('ACTION_EVALUATION', evaluation[0])];
+  const jobs = [
+    settled('CAFE24_SYNC', sync[0]),
+    settled('NAVER_SYNC', sync[1]),
+    settled('ACTION_EVALUATION', evaluation[0])
+  ];
   const ok = jobs.every(job => job.ok);
   return Response.json({ ok, started_at: startedAt, finished_at: new Date().toISOString(), jobs }, { status: ok ? 200 : 207 });
 }
