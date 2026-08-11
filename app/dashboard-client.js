@@ -144,17 +144,41 @@ function NaverSummary({ actions, naver }) {
 function ActionPanel({ actions }) {
   const [items, setItems] = useState(actions);
   const [updating, setUpdating] = useState('');
-  async function updateAction(id, status) {
+  const [editing, setEditing] = useState('');
+  const [message, setMessage] = useState('');
+  async function updateAction(id, patch) {
     setUpdating(id);
+    setMessage('');
     try {
-      const response = await fetch(`/api/actions/${id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status }) });
+      const response = await fetch(`/api/actions/${id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(patch) });
       const result = await response.json();
-      if (!response.ok || !result.ok) throw new Error(result.error || '상태 변경 실패');
-      setItems(current => current.map(item => item.id === id ? { ...item, status } : item));
-    } catch (error) { alert(error.message); }
+      if (!response.ok || !result.ok) throw new Error(result.error || '변경 실패');
+      setItems(current => current.map(item => item.id === id ? { ...item, ...result.action } : item));
+      setEditing('');
+      setMessage('액션 정보가 저장되었습니다.');
+    } catch (error) { setMessage(`확인 필요 · ${error.message}`); }
     finally { setUpdating(''); }
   }
-  return <article className="panel"><PanelTitle tag="ACTION" title="실행결정" right={`${items.length}건 저장`}/><div className="actionList interactive">{items.slice(0,7).map((a,i)=><div key={a.id}><b>{i+1}</b><span>{a.target_name}<small>{a.reason}</small>{a.evaluation&&<small className={`effect ${a.evaluation.outcome.toLowerCase()}`}>효과평가 · {a.evaluation.explanation}</small>}</span><div className="actionControls">{a.status==='PLANNED'?<><button disabled={updating===a.id} onClick={()=>updateAction(a.id,'EXECUTED')}>완료</button><button className="hold" disabled={updating===a.id} onClick={()=>updateAction(a.id,'ON_HOLD')}>보류</button><button className="cancel" disabled={updating===a.id} onClick={()=>updateAction(a.id,'CANCELLED')}>취소</button></>:a.status==='ON_HOLD'?<><button disabled={updating===a.id} onClick={()=>updateAction(a.id,'PLANNED')}>재개</button><em className="on_hold">보류됨</em></>:<em className={a.status.toLowerCase()}>{a.status==='EXECUTED'?'실행완료':a.status==='CANCELLED'?'취소됨':a.status==='REVIEWED'?'효과평가 완료':a.status}</em>}</div></div>)}</div></article>;
+  function holdAction(action) {
+    const reason = window.prompt('보류 사유를 입력하세요.', action.hold_reason || '재고·예산·데이터 확인 후 재검토');
+    if (reason === null) return;
+    updateAction(action.id, { status: 'ON_HOLD', hold_reason: reason });
+  }
+  return <article className="panel actionPanel"><PanelTitle tag="ACTION" title="실행결정" right={`${items.length}건 저장`}/>{message&&<div className="actionMessage">{message}</div>}<div className="actionList interactive">{items.slice(0,7).map((a,i)=><div className="actionItem" key={a.id}><b>{i+1}</b><div className="actionBody"><strong>{a.target_name}</strong><small>{a.reason}</small><ActionMeta action={a}/>{a.hold_reason&&a.status==='ON_HOLD'&&<small className="holdReason">보류 사유 · {a.hold_reason}</small>}{a.evaluation&&<small className={`effect ${a.evaluation.outcome.toLowerCase()}`}>효과평가 · {a.evaluation.explanation}</small>}{editing===a.id&&<ActionEditor action={a} disabled={updating===a.id} onCancel={()=>setEditing('')} onSave={patch=>updateAction(a.id,patch)}/>}</div><div className="actionControls"><button className="manage" disabled={updating===a.id} onClick={()=>setEditing(editing===a.id?'':a.id)}>관리</button>{a.status==='PLANNED'?<><button disabled={updating===a.id} onClick={()=>updateAction(a.id,{status:'EXECUTED'})}>완료</button><button className="hold" disabled={updating===a.id} onClick={()=>holdAction(a)}>보류</button><button className="cancel" disabled={updating===a.id} onClick={()=>updateAction(a.id,{status:'CANCELLED'})}>취소</button></>:a.status==='ON_HOLD'?<><button disabled={updating===a.id} onClick={()=>updateAction(a.id,{status:'PLANNED'})}>재개</button><em className="on_hold">보류됨</em></>:<em className={a.status.toLowerCase()}>{a.status==='EXECUTED'?'실행완료':a.status==='CANCELLED'?'취소됨':a.status==='REVIEWED'?'효과평가 완료':a.status}</em>}</div></div>)}</div></article>;
+}
+
+function ActionMeta({ action }) {
+  const today = new Date().toISOString().slice(0,10);
+  const overdue = action.due_at && action.due_at < today && !['EXECUTED','CANCELLED','REVIEWED'].includes(action.status);
+  const priorityLabels = { LOW:'낮음', MEDIUM:'보통', HIGH:'높음', URGENT:'긴급' };
+  return <span className="actionMeta"><em className={`priority ${String(action.priority||'MEDIUM').toLowerCase()}`}>{priorityLabels[action.priority]||'보통'}</em><em>{action.assignee?`담당 ${action.assignee}`:'담당자 미정'}</em><em className={overdue?'overdue':''}>{action.due_at?`${overdue?'기한초과':'기한'} ${action.due_at}`:'기한 미정'}</em></span>;
+}
+
+function ActionEditor({ action, disabled, onCancel, onSave }) {
+  const [priority,setPriority]=useState(action.priority||'MEDIUM');
+  const [assignee,setAssignee]=useState(action.assignee||'');
+  const [dueAt,setDueAt]=useState(action.due_at||'');
+  return <div className="actionEditor"><label>우선순위<select value={priority} onChange={event=>setPriority(event.target.value)}><option value="LOW">낮음</option><option value="MEDIUM">보통</option><option value="HIGH">높음</option><option value="URGENT">긴급</option></select></label><label>담당자<input value={assignee} maxLength={100} placeholder="담당자 이름" onChange={event=>setAssignee(event.target.value)}/></label><label>실행 기한<input type="date" value={dueAt} onChange={event=>setDueAt(event.target.value)}/></label><div><button type="button" className="secondary" disabled={disabled} onClick={onCancel}>취소</button><button type="button" disabled={disabled} onClick={()=>onSave({priority,assignee,due_at:dueAt})}>{disabled?'저장 중…':'저장'}</button></div></div>;
 }
 
 function CafePanels({ traffic, referrers, topProducts, recentOrders, maxPv, maxRef }) { return <>
