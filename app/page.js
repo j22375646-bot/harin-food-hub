@@ -3,6 +3,7 @@ import supabaseModule from '../lib/cafe24/supabase.js';
 import authModule from '../lib/dashboard-auth.js';
 import profitabilityModule from '../lib/analytics/profitability.js';
 import coupangMarketingModule from '../lib/coupang/marketing.js';
+import metricCalculator from '../lib/metrics/calculator.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -138,10 +139,16 @@ async function getDashboardData() {
   if(weekStart)weekStart.setDate(weekStart.getDate()-6);
   const recentNaver=weekStart?allNaverStats.filter(row=>new Date(`${row.date}T00:00:00`)>=weekStart&&row.date<=latestNaverDate):[];
   const naverTotals=recentNaver.reduce((sum,row)=>({impressions:sum.impressions+number(row.impressions),clicks:sum.clicks+number(row.clicks),cost:sum.cost+number(row.cost),conversions:sum.conversions+number(row.conversions),revenue:sum.revenue+number(row.conversion_revenue)}),{impressions:0,clicks:0,cost:0,conversions:0,revenue:0});
+  const targetRoasPercent=Number(process.env.NAVER_TARGET_ROAS_PERCENT||250);
+  const naverPerformance=metricCalculator.calculatePerformance({...naverTotals,targetRoasPercent});
+  const withAdMetrics=item=>({...item,metrics:metricCalculator.calculatePerformance({impressions:item.impressions,clicks:item.clicks,cost:item.cost,conversions:item.conversions,revenue:item.conversion_revenue??item.revenue,targetRoasPercent})});
+  keywordTop=keywordTop.map(withAdMetrics);
+  keywordWaste=keywordWaste.map(withAdMetrics);
   const cafe24CostSetting=(channelCostsResult.data||[]).find(item=>item.platform==='CAFE24')||{};
   const liveProfitability=profitabilityModule.calculateProfitability({items,productLinks:(channelsResult.data||[]).filter(item=>item.platform==='CAFE24'),productCosts:costsResult.data||[],channelSetting:cafe24CostSetting,adSpend:naverTotals.cost});
   const naverDailyMap=new Map(); const naverCampaignMap=new Map();
   for(const row of recentNaver){const day=naverDailyMap.get(row.date)||{date:row.date,cost:0,revenue:0,clicks:0,conversions:0};day.cost+=number(row.cost);day.revenue+=number(row.conversion_revenue);day.clicks+=number(row.clicks);day.conversions+=number(row.conversions);naverDailyMap.set(row.date,day);const item=naverCampaignMap.get(row.entity_id)||{id:row.entity_id,name:campaignNames.get(row.entity_id)||row.entity_id,cost:0,revenue:0,clicks:0,conversions:0,impressions:0};item.cost+=number(row.cost);item.revenue+=number(row.conversion_revenue);item.clicks+=number(row.clicks);item.conversions+=number(row.conversions);item.impressions+=number(row.impressions);naverCampaignMap.set(row.entity_id,item);}
+  const naverTopCampaigns=[...naverCampaignMap.values()].map(withAdMetrics).map(item=>({...item,roas:item.metrics.roasPercent})).sort((a,b)=>b.revenue-a.revenue).slice(0,8);
   const coupangProductItemMap = new Map((coupangProductItemsResult.data || []).map(item=>[String(item.vendor_item_id),item]));
   const coupangInventoryBase = (coupangInventoryResult.data || []).map(item=>({ ...item, productItem:coupangProductItemMap.get(String(item.vendor_item_id))||null }));
   const { items: coupangInventory, summary: inventoryMarketing } = coupangMarketingModule.buildInventoryMarketing(coupangInventoryBase);
@@ -269,7 +276,7 @@ async function getDashboardData() {
     productCosts: costsResult.data || [],
     channelCostSettings: channelCostsResult.data || [],
     liveProfitability,
-    naver: { campaigns:naverCampaignResult.data?.length||0, adgroups:naverGroupResult.count||0, keywords:naverKeywordResult.count||0, latestSync:naverSyncResult.data||null, periodStart:weekStart?dateOnly(weekStart.toISOString()):null, periodEnd:latestNaverDate, totals:{...naverTotals,roas:naverTotals.cost?naverTotals.revenue/naverTotals.cost*100:0,ctr:naverTotals.impressions?naverTotals.clicks/naverTotals.impressions*100:0}, daily:[...naverDailyMap.values()].sort((a,b)=>a.date.localeCompare(b.date)), topCampaigns:[...naverCampaignMap.values()].map(item=>({...item,roas:item.cost?item.revenue/item.cost*100:0})).sort((a,b)=>b.revenue-a.revenue).slice(0,8), keywordPeriod, keywordTop, keywordWaste },
+    naver: { campaigns:naverCampaignResult.data?.length||0, adgroups:naverGroupResult.count||0, keywords:naverKeywordResult.count||0, latestSync:naverSyncResult.data||null, periodStart:weekStart?dateOnly(weekStart.toISOString()):null, periodEnd:latestNaverDate, totals:{...naverTotals,roas:naverPerformance.roasPercent,ctr:naverPerformance.ctrPercent,metrics:naverPerformance}, daily:[...naverDailyMap.values()].sort((a,b)=>a.date.localeCompare(b.date)), topCampaigns:naverTopCampaigns, keywordPeriod, keywordTop, keywordWaste },
     coupang: {
       products: coupangProductsResult.data || [],
       productCount: coupangProductsResult.data?.length || 0,
