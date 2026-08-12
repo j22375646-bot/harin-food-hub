@@ -4,6 +4,7 @@ import authModule from '../lib/dashboard-auth.js';
 import profitabilityModule from '../lib/analytics/profitability.js';
 import coupangMarketingModule from '../lib/coupang/marketing.js';
 import metricCalculator from '../lib/metrics/calculator.js';
+import metricSnapshotModule from '../lib/metrics/snapshot.js';
 import pacingService from '../lib/analytics/pacing-service.js';
 import cafe24AnalyticsModule from '../lib/cafe24/analytics.js';
 import mappingService from '../lib/products/mapping-service.js';
@@ -320,8 +321,44 @@ async function getDashboardData() {
   const trustedNaverTopCampaigns=naverTopCampaigns.map(item=>({...item,metrics:financialTrustModule.applyBidGuideGate(item.metrics,financialTrust)}));
   const financialTrustToken=authModule.signFinancialTrust(financialTrust);
   const pacing = await pacingPromise;
+  const generatedAt = new Date().toISOString();
+  const cafe24LatestSync = (syncResult.data || []).find(item=>item.platform==='CAFE24') || null;
+  const coupangLatestSync = (syncResult.data || []).find(item=>item.platform==='COUPANG') || null;
+  const cafe24Dates = orders.map(item=>dateOnly(item.order_date)).filter(Boolean).sort();
+  const metricSnapshots = [
+    metricSnapshotModule.createMetricSnapshot({
+      id:'CAFE24_SALES', label:'Cafe24 매출', value:orders.length ? sales : null, unit:'KRW',
+      status:orders.length ? 'READY' : 'NO_DATA', sources:[{platform:'CAFE24',dataset:'cafe24_orders'}],
+      asOf:cafe24LatestSync?.finished_at, periodStart:cafe24Dates[0], periodEnd:cafe24Dates.at(-1),
+      formula:'sum(cafe24_orders.paid_amount)', sampleSize:orders.length
+    }),
+    metricSnapshotModule.createMetricSnapshot({
+      id:'NAVER_PAID_ROAS', label:'네이버 광고 ROAS', value:naverPerformance.status==='NO_DATA' ? null : naverPerformance.roasPercent, unit:'PERCENT',
+      status:naverPerformance.status==='READY' ? 'READY' : naverPerformance.status==='NO_DATA' ? 'NO_DATA' : 'PARTIAL',
+      sources:[{platform:'NAVER',dataset:'naver_stats_daily'}], asOf:naverSyncResult.data?.finished_at,
+      periodStart:weekStart?dateOnly(weekStart.toISOString()):null, periodEnd:latestNaverDate,
+      formula:'sum(conversion_revenue) / sum(cost) * 100', sampleSize:naverTotals.clicks,
+      reasons:naverPerformance.status==='INSUFFICIENT_SAMPLE' ? ['클릭 30회·전환 3건 미만'] : []
+    }),
+    metricSnapshotModule.createMetricSnapshot({
+      id:'COUPANG_SALES_30D', label:'쿠팡 30일 매출', value:rgOrders.length ? salesOverview.last30.revenue : null, unit:'KRW',
+      status:rgOrders.length ? 'READY' : 'NO_DATA', sources:[{platform:'COUPANG',dataset:'coupang_rg_orders',mode:'HOME_PC_API'}],
+      asOf:coupangLatestSync?.finished_at, periodStart:coupangDaily.at(-30)?.date || null, periodEnd:coupangDaily.at(-1)?.date || null,
+      formula:'sum(coupang_rg_orders.total_amount, last 30 days)', sampleSize:salesOverview.last30.orders
+    }),
+    metricSnapshotModule.createMetricSnapshot({
+      id:'CONTRIBUTION_PROFIT', label:'통합 기여이익', value:trustedProfitability.contribution_profit, unit:'KRW',
+      status:financialTrust.allowed?.contribution_profit ? 'READY' : 'BLOCKED',
+      sources:[{platform:'CAFE24',dataset:'cafe24_order_items'},{platform:'ALL',dataset:'product_costs'},{platform:'NAVER',dataset:'naver_stats_daily'}],
+      asOf:generatedAt, periodStart:cafe24Dates[0], periodEnd:cafe24Dates.at(-1),
+      formula:'net_sales - product_cost - channel_fee - shipping_cost - ad_spend',
+      formulaVersion:financialTrust.formula_version,
+      sampleSize:orders.length, reasons:(financialTrust.reasons||[]).map(item=>item.code)
+    })
+  ];
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt,
+    metricSnapshots,
     kpis: {
       sales,
       orders: orders.length,
@@ -376,7 +413,7 @@ async function getDashboardData() {
       grossSales: (coupangOrdersResult.data || []).reduce((sum,item)=>sum+number(item.gross_amount),0),
       settlementAmount: (coupangSettlementsResult.data || []).reduce((sum,item)=>sum+number(item.settlement_amount),0),
       fees: (coupangSettlementsResult.data || []).reduce((sum,item)=>sum+number(item.service_fee)+number(item.service_fee_vat),0),
-      latestSync: (syncResult.data || []).find(item=>item.platform==='COUPANG') || null,
+      latestSync: coupangLatestSync,
       latestRealtime: (syncResult.data || []).find(item=>item.platform==='COUPANG'&&item.job_type==='RG_REALTIME') || null,
       rgInventory: coupangInventory,
       rgInventoryCount: coupangInventory.length,

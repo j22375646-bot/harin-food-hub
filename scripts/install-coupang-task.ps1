@@ -1,5 +1,5 @@
 param(
-  [string]$DailyAt = '08:10',
+  [string]$DailyAt = '05:30',
   [switch]$RunNow
 )
 
@@ -26,15 +26,16 @@ $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interac
 
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $dailyTrigger -Settings $settings -Principal $principal -Description '하린식품 쿠팡 WING 데이터를 매일 한 번 숨김 상태로 자동 동기화합니다.' -Force | Out-Null
 
-$workerCommand = "& '$nodePath' '$workerScriptPath'"
+$workerCommand = "& '$nodePath' '$workerScriptPath' --watch --quiet"
 $workerAction = New-ScheduledTaskAction -Execute $powerShellPath -Argument ('-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -Command "{0}"' -f $workerCommand) -WorkingDirectory $projectRoot
-$workerTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date.AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 5) -RepetitionDuration (New-TimeSpan -Days 3650)
-Register-ScheduledTask -TaskName $workerTaskName -Action $workerAction -Trigger $workerTrigger -Settings $settings -Principal $principal -Description '하린식품 허브의 쿠팡 수동 동기화 요청만 5분마다 숨김 상태로 확인합니다.' -Force | Out-Null
+$workerTrigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+$workerSettings = New-ScheduledTaskSettingsSet -Hidden -StartWhenAvailable -MultipleInstances IgnoreNew -RestartCount 20 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit (New-TimeSpan -Seconds 0) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Register-ScheduledTask -TaskName $workerTaskName -Action $workerAction -Trigger $workerTrigger -Settings $workerSettings -Principal $principal -Description '하린식품 허브의 수동 쿠팡 수집 요청을 이벤트로 받아 숨김 상태에서 즉시 처리합니다.' -Force | Out-Null
 
 if ($RunNow) {
   Start-ScheduledTask -TaskName $taskName
-  Start-ScheduledTask -TaskName $workerTaskName
 }
+Start-ScheduledTask -TaskName $workerTaskName
 
 $task = Get-ScheduledTask -TaskName $taskName
 [pscustomobject]@{

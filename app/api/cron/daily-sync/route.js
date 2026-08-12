@@ -20,8 +20,8 @@ export async function GET(request) {
   if (!authorized(request)) return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   const startedAt = new Date().toISOString();
   // Coupang requires the allow-listed home public IP, so its automatic sync is
-  // handled by the hidden Windows task at 08:10 KST. Vercel only collects the
-  // platforms that are safe to call from its dynamic outbound network.
+  // handled by the hidden Windows task at 05:30 KST, aligned with this cron.
+  // Vercel only collects platforms safe to call from its dynamic outbound network.
   const sync = await Promise.allSettled([
     syncModule.syncCafe24('CRON'),
     syncModule.syncNaver('CRON')
