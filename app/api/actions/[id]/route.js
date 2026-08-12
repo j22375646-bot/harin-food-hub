@@ -1,6 +1,7 @@
 import authModule from '../../../../lib/dashboard-auth.js';
 import supabaseModule from '../../../../lib/cafe24/supabase.js';
 import updateModule from '../../../../lib/actions/update.js';
+import priorityModule from '../../../../lib/actions/priority-center.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,6 +19,15 @@ export async function PATCH(request, { params }) {
     const { id } = await params;
     const body = await request.json();
     const values = updateModule.buildActionUpdate(body);
+    if (values.status === 'EXECUTED') {
+      const current = await supabaseModule.getSupabase().from('actions')
+        .select('id,action_type,status')
+        .eq('id', id)
+        .single();
+      if (current.error) throw current.error;
+      const trustClaim = authModule.verifyFinancialTrust(body.financialTrustToken);
+      priorityModule.assertActionExecutionAllowed(current.data, trustClaim);
+    }
     const { data, error } = await supabaseModule.getSupabase().from('actions')
       .update(values)
       .eq('id', id)
@@ -26,6 +36,6 @@ export async function PATCH(request, { params }) {
     if (error) throw error;
     return Response.json({ ok: true, action: data });
   } catch (error) {
-    return Response.json({ ok: false, error: error.message }, { status: error.statusCode || 500 });
+    return Response.json({ ok: false, error: error.message, code:error.code || undefined }, { status: error.statusCode || 500 });
   }
 }

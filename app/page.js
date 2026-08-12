@@ -12,6 +12,7 @@ import productPerformance from '../lib/products/performance.js';
 import costCalibrationModule from '../lib/analytics/cost-calibration.js';
 import shippingRulesModule from '../lib/analytics/shipping-rules.js';
 import financialTrustModule from '../lib/analytics/financial-trust.js';
+import priorityCenterModule from '../lib/actions/priority-center.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -322,6 +323,19 @@ async function getDashboardData() {
   const financialTrustToken=authModule.signFinancialTrust(financialTrust);
   const pacing = await pacingPromise;
   const generatedAt = new Date().toISOString();
+  const actions = priorityCenterModule.enrichActions(
+    (actionsResult.data || []).map(action => ({ ...action, evaluation: (evaluationsResult.data || []).find(item => item.action_id === action.id) || null })),
+    financialTrust,
+    generatedAt
+  );
+  const priorityCenter = priorityCenterModule.buildPriorityCenter({
+    actions,
+    alerts:alertsResult.data || [],
+    qualityChecks:qaResult.data || [],
+    pacing,
+    financialTrust,
+    now:generatedAt
+  });
   const cafe24LatestSync = (syncResult.data || []).find(item=>item.platform==='CAFE24') || null;
   const coupangLatestSync = (syncResult.data || []).find(item=>item.platform==='COUPANG') || null;
   const cafe24Dates = orders.map(item=>dateOnly(item.order_date)).filter(Boolean).sort();
@@ -382,7 +396,8 @@ async function getDashboardData() {
     })),
     syncs: syncResult.data || [],
     reports: reportsResult.data || [],
-    actions: (actionsResult.data || []).map(action => ({ ...action, evaluation: (evaluationsResult.data || []).find(item => item.action_id === action.id) || null })),
+    actions,
+    priorityCenter,
     automationRuns: automationResult.data || [],
     qualityChecks: qaResult.data || [],
     alerts: alertsResult.data || [],
