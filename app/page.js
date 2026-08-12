@@ -5,6 +5,7 @@ import profitabilityModule from '../lib/analytics/profitability.js';
 import coupangMarketingModule from '../lib/coupang/marketing.js';
 import metricCalculator from '../lib/metrics/calculator.js';
 import pacingService from '../lib/analytics/pacing-service.js';
+import cafe24AnalyticsModule from '../lib/cafe24/analytics.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -54,10 +55,10 @@ async function getDashboardData() {
   const db = supabaseModule.getSupabase();
   const pacingPromise = pacingService.buildPacingDashboard({ db });
   const [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult] = await Promise.all([
-    db.from('cafe24_orders').select('order_id,order_date,paid_amount,raw_data').order('order_date', { ascending: false }).limit(200),
+    db.from('cafe24_orders').select('order_id,order_date,customer_id,paid_amount,order_price,raw_data').order('order_date', { ascending: false }).limit(1000),
     db.from('cafe24_order_items').select('order_id,product_name,quantity,unit_price,paid_amount,raw_data').limit(1000),
     db.from('cafe24_traffic_daily').select('date,visitors,pageviews,source_status,raw_data').order('date', { ascending: true }).limit(31),
-    db.from('cafe24_referrers_daily').select('date,source,visitors,orders,revenue').order('visitors', { ascending: false }).limit(12),
+    db.from('cafe24_referrers_daily').select('date,source,visitors,orders,revenue').order('visitors', { ascending: false }).limit(500),
     db.from('cafe24_products').select('external_product_no,product_name,price,selling,raw_data').order('updated_at', { ascending: false }).limit(100),
     db.from('sync_logs').select('id,platform,job_type,status,started_at,finished_at,rows_received,error_message,metadata').in('job_type', ['FETCH_ALL','FILE_IMPORT','RG_INVENTORY','RG_REALTIME']).order('started_at', { ascending: false }).limit(20),
     db.from('reports').select('id,platform,report_type,period_start,period_end,title,status,summary_json,created_at').order('period_end', { ascending: false }).order('created_at',{ascending:false}).limit(20),
@@ -133,6 +134,13 @@ async function getDashboardData() {
     .slice(0, 8);
   const sales = orders.reduce((sum, order) => sum + orderAmount(order), 0);
   const visitors = traffic.reduce((sum, row) => sum + row.visitors, 0);
+  const cafe24Analytics = cafe24AnalyticsModule.buildCafe24Analytics({
+    orders,
+    items,
+    traffic,
+    referrers: refsResult.data || [],
+    customerHistory: orders
+  });
 
   const campaignNames=new Map((naverCampaignResult.data||[]).map(item=>[item.ncc_campaign_id,item.name]));
   const allNaverStats=naverStatsResult.data||[];
@@ -259,6 +267,7 @@ async function getDashboardData() {
     traffic,
     referrers: refsResult.data || [],
     topProducts,
+    cafe24Analytics,
     recentOrders: orders.slice(0, 8).map(order => ({ id: order.order_id, date: order.order_date, amount: orderAmount(order), channel: order.raw_data?.order_place_name || '자사몰' })),
     products: (productsResult.data || []).slice(0, 8).map(product => ({
       id: product.external_product_no,
