@@ -42,3 +42,23 @@ test('매핑되지 않은 상품과 기간 밖 주문은 통합 성과에서 제
   assert.equal(result.items.length, 0);
   assert.equal(result.summary.revenue, 0);
 });
+
+test('플랫폼별 반품·도서산간 충당비를 통합 상품 공헌이익에 반영한다', () => {
+  const result = performance.buildUnifiedProductPerformance({
+    periodStart:'2026-08-01',periodEnd:'2026-08-07',
+    masterProducts:[{id:'M1',name:'국화차'}],
+    channelProducts:[{platform:'CAFE24',external_product_id:'P1',master_product_id:'M1'}],
+    cafe24Orders:[{order_id:'O1',order_date:'2026-08-02'}],
+    cafe24OrderItems:[{order_id:'O1',external_product_no:'P1',quantity:1,paid_amount:10000}],
+    productCosts:[{master_product_id:'M1',unit_cost:3000}],
+    channelCostSettings:[{platform:'CAFE24',default_shipping_cost:3000}],
+    channelShippingRules:[{platform:'CAFE24',return_shipping_cost:5000,return_rate:.1,remote_area_surcharge:4000,remote_area_rate:.05}]
+  });
+  const channel = result.items[0].channels.CAFE24;
+  assert.equal(channel.return_reserve,500);
+  assert.equal(channel.remote_area_reserve,200);
+  assert.equal(channel.fees,3700);
+  assert.equal(result.items[0].contribution_profit,3300);
+  assert.equal(result.summary.return_reserve,500);
+  assert.equal(result.summary.remote_area_reserve,200);
+});

@@ -9,6 +9,7 @@ import cafe24AnalyticsModule from '../lib/cafe24/analytics.js';
 import mappingService from '../lib/products/mapping-service.js';
 import productPerformance from '../lib/products/performance.js';
 import costCalibrationModule from '../lib/analytics/cost-calibration.js';
+import shippingRulesModule from '../lib/analytics/shipping-rules.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -57,7 +58,7 @@ function exchangeCaseView(item) {
 async function getDashboardData() {
   const db = supabaseModule.getSupabase();
   const pacingPromise = pacingService.buildPacingDashboard({ db });
-  const [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult] = await Promise.all([
+  const [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, shippingRulesResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult] = await Promise.all([
     db.from('cafe24_orders').select('order_id,order_date,customer_id,paid_amount,order_price,raw_data').order('order_date', { ascending: false }).limit(1000),
     db.from('cafe24_order_items').select('order_id,external_product_no,product_name,quantity,unit_price,paid_amount,raw_data').limit(1000),
     db.from('cafe24_traffic_daily').select('date,visitors,pageviews,source_status,raw_data').order('date', { ascending: true }).limit(31),
@@ -80,6 +81,7 @@ async function getDashboardData() {
     db.from('platform_events').select('id,platform,event_type,effective_date,title,description,analysis_impact,source_url,affects_comparison,created_by').order('effective_date',{ascending:false}).limit(30),
     db.from('product_costs').select('master_product_id,unit_cost,packaging_cost,other_unit_cost,notes,effective_from'),
     db.from('channel_cost_settings').select('platform,commission_rate,payment_fee_rate,default_shipping_cost,notes'),
+    db.from('channel_shipping_rules').select('platform,return_shipping_cost,return_rate,remote_area_surcharge,remote_area_rate,notes,updated_at'),
     db.from('coupang_products').select('seller_product_id,product_name,status,raw_data').order('updated_at',{ascending:false}).limit(100),
     db.from('coupang_orders').select('shipment_box_id,order_id,ordered_at,paid_at,status,gross_amount,raw_data').order('ordered_at',{ascending:false}).limit(2000),
     db.from('coupang_order_items').select('external_item_key,shipment_box_id,order_id,vendor_item_id,seller_product_id,product_name,quantity,unit_price,paid_amount,status,raw_data').limit(5000),
@@ -96,7 +98,7 @@ async function getDashboardData() {
     db.from('coupang_api_capabilities').select('feature_key,family,title,method,mode,status,risk_level,sync_frequency').order('family').order('title'),
     db.from('coupang_product_items').select('vendor_item_id,seller_product_id,item_name,sale_price,status,raw_data').limit(1000),
     db.from('coupang_rg_order_items').select('order_id,vendor_item_id,quantity,amount').limit(5000),
-    db.from('coupang_cost_transactions').select('source_type,transaction_type,event_date,recognition_date,order_id,vendor_item_id,sku_id,product_name,option_name,quantity,gross_sales,seller_discount,cost_amount,cost_vat,credit_amount').order('event_date',{ascending:false}).limit(10000),
+    db.from('coupang_cost_transactions').select('source_type,transaction_type,event_date,recognition_date,order_id,reference_id,vendor_item_id,sku_id,product_name,option_name,quantity,gross_sales,seller_discount,cost_amount,cost_vat,credit_amount,raw_data').order('event_date',{ascending:false}).limit(10000),
     db.from('coupang_cost_imports').select('id,file_name,source_types,status,input_rows,stored_rows,duplicate_rows,invalid_rows,gross_sales,cost_amount,cost_vat,credit_amount,period_start,period_end,imported_at').order('imported_at',{ascending:false}).limit(30),
     db.from('coupang_ad_daily_summary').select('*').order('date',{ascending:true}).limit(62),
     db.from('coupang_ad_keyword_summary').select('*').gt('revenue',0).order('revenue',{ascending:false}).limit(50),
@@ -105,7 +107,7 @@ async function getDashboardData() {
     db.from('coupang_ad_billing_daily').select('*').order('date',{ascending:true}).limit(100)
   ]);
 
-  const results = [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult];
+  const results = [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, shippingRulesResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult];
   const firstError = results.find(result => result.error)?.error;
   if (firstError) throw new Error(firstError.message);
   const keywordPeriodResult=await db.from('naver_keyword_stats').select('period_start,period_end').order('period_end',{ascending:false}).limit(1).maybeSingle();
@@ -158,7 +160,8 @@ async function getDashboardData() {
   keywordTop=keywordTop.map(withAdMetrics);
   keywordWaste=keywordWaste.map(withAdMetrics);
   const cafe24CostSetting=(channelCostsResult.data||[]).find(item=>item.platform==='CAFE24')||{};
-  const liveProfitability=profitabilityModule.calculateProfitability({items,productLinks:(channelsResult.data||[]).filter(item=>item.platform==='CAFE24'),productCosts:costsResult.data||[],channelSetting:cafe24CostSetting,adSpend:naverTotals.cost});
+  const cafe24ShippingRule=(shippingRulesResult.data||[]).find(item=>item.platform==='CAFE24')||{};
+  const liveProfitability=profitabilityModule.calculateProfitability({items,productLinks:(channelsResult.data||[]).filter(item=>item.platform==='CAFE24'),productCosts:costsResult.data||[],channelSetting:cafe24CostSetting,shippingRule:cafe24ShippingRule,adSpend:naverTotals.cost});
   const naverDailyMap=new Map(); const naverCampaignMap=new Map();
   for(const row of recentNaver){const day=naverDailyMap.get(row.date)||{date:row.date,cost:0,revenue:0,clicks:0,conversions:0};day.cost+=number(row.cost);day.revenue+=number(row.conversion_revenue);day.clicks+=number(row.clicks);day.conversions+=number(row.conversions);naverDailyMap.set(row.date,day);const item=naverCampaignMap.get(row.entity_id)||{id:row.entity_id,name:campaignNames.get(row.entity_id)||row.entity_id,cost:0,revenue:0,clicks:0,conversions:0,impressions:0};item.cost+=number(row.cost);item.revenue+=number(row.conversion_revenue);item.clicks+=number(row.clicks);item.conversions+=number(row.conversions);item.impressions+=number(row.impressions);naverCampaignMap.set(row.entity_id,item);}
   const naverTopCampaigns=[...naverCampaignMap.values()].map(withAdMetrics).map(item=>({...item,roas:item.metrics.roasPercent})).sort((a,b)=>b.revenue-a.revenue).slice(0,8);
@@ -189,6 +192,7 @@ async function getDashboardData() {
     costTransactions:coupangCostRows,
     currentSetting:(channelCostsResult.data||[]).find(item=>item.platform==='COUPANG')||{}
   });
+  const shippingRuleEvidence=shippingRulesModule.buildCoupangShippingEvidence({ returns:coupangReturnsResult.data||[], costTransactions:coupangCostRows });
   const effectiveChannelCostSettings=costCalibrationModule.withEffectiveChannelSettings(channelCostsResult.data||[],costCalibration);
   const costDates=coupangCostRows.flatMap(item=>[item.event_date,item.recognition_date].filter(Boolean)).sort();
   const costCategoryMap=new Map(); const costProductMap=new Map();
@@ -288,6 +292,7 @@ async function getDashboardData() {
     channelProducts:allChannelProducts,
     productCosts:costsResult.data || [],
     channelCostSettings:effectiveChannelCostSettings,
+    channelShippingRules:shippingRulesResult.data||[],
     cafe24Orders:ordersResult.data || [],
     cafe24OrderItems:itemsResult.data || [],
     coupangOrders:coupangOrdersResult.data || [],
@@ -333,6 +338,8 @@ async function getDashboardData() {
     unifiedProductPerformance,
     productCosts: costsResult.data || [],
     channelCostSettings: channelCostsResult.data || [],
+    channelShippingRules: shippingRulesResult.data || [],
+    shippingRuleEvidence,
     costCalibration,
     liveProfitability,
     pacing,

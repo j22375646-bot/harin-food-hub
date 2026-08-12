@@ -27,6 +27,20 @@ export async function PUT(request) {
       if (result.error) throw result.error;
       return Response.json({ ok:true, setting:result.data });
     }
+    if (body.type === 'SHIPPING_RULE') {
+      const returnShippingCost = amount(body.return_shipping_cost), returnRate = rate(body.return_rate), remoteAreaSurcharge = amount(body.remote_area_surcharge), remoteAreaRate = rate(body.remote_area_rate);
+      if (!['NAVER','CAFE24','COUPANG'].includes(body.platform) || [returnShippingCost, returnRate, remoteAreaSurcharge, remoteAreaRate].includes(null)) return Response.json({ ok:false, error:'반품·도서산간 규칙 입력값을 확인해주세요.' }, { status:400 });
+      const result = await db.from('channel_shipping_rules').upsert({
+        platform:body.platform,
+        return_shipping_cost:returnShippingCost,
+        return_rate:returnRate,
+        remote_area_surcharge:remoteAreaSurcharge,
+        remote_area_rate:remoteAreaRate,
+        notes:String(body.notes || '').slice(0,500)
+      }, { onConflict:'platform' }).select().single();
+      if (result.error) throw result.error;
+      return Response.json({ ok:true, rule:result.data });
+    }
     if (body.type === 'COUPANG_CALIBRATION_APPLY') {
       const result = await costCalibrationModule.applyCoupangCostCalibration({ db });
       return Response.json({ ok:true, ...result });
