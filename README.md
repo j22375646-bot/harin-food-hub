@@ -23,7 +23,7 @@ Local execution retains `/tmp/cafe24-token.json` for compatibility. Vercel (or `
 
 ## 쿠팡 수집 방식
 
-- 전체 자동수집: 집 PC 예약작업으로 매일 오전 8시 10분 1회
+- 전체 자동수집: Vercel이 매일 오전 5시 30분 요청을 등록하고 서울 고정 IP 서버가 처리
 - 수동수집: 허브 쿠팡 상단의 `쿠팡 데이터 수동 수집` 버튼
 - 수동 요청 확인: 서울 고정 IP 워커가 Realtime 이벤트로 즉시 확인하며, 요청이 없으면 쿠팡 API를 호출하지 않음
 - Vercel 자동수집: 매일 오전 5시 30분(KST)에 Cafe24·네이버를 동기화하고 쿠팡 수집 요청을 큐에 등록
