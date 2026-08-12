@@ -6,6 +6,8 @@ import coupangMarketingModule from '../lib/coupang/marketing.js';
 import metricCalculator from '../lib/metrics/calculator.js';
 import pacingService from '../lib/analytics/pacing-service.js';
 import cafe24AnalyticsModule from '../lib/cafe24/analytics.js';
+import mappingService from '../lib/products/mapping-service.js';
+import productPerformance from '../lib/products/performance.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -56,7 +58,7 @@ async function getDashboardData() {
   const pacingPromise = pacingService.buildPacingDashboard({ db });
   const [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult] = await Promise.all([
     db.from('cafe24_orders').select('order_id,order_date,customer_id,paid_amount,order_price,raw_data').order('order_date', { ascending: false }).limit(1000),
-    db.from('cafe24_order_items').select('order_id,product_name,quantity,unit_price,paid_amount,raw_data').limit(1000),
+    db.from('cafe24_order_items').select('order_id,external_product_no,product_name,quantity,unit_price,paid_amount,raw_data').limit(1000),
     db.from('cafe24_traffic_daily').select('date,visitors,pageviews,source_status,raw_data').order('date', { ascending: true }).limit(31),
     db.from('cafe24_referrers_daily').select('date,source,visitors,orders,revenue').order('visitors', { ascending: false }).limit(500),
     db.from('cafe24_products').select('external_product_no,product_name,price,selling,raw_data').order('updated_at', { ascending: false }).limit(100),
@@ -64,9 +66,9 @@ async function getDashboardData() {
     db.from('reports').select('id,platform,report_type,period_start,period_end,title,status,summary_json,version,supersedes_report_id,is_latest,revision_note,approved_at,approved_by,created_at').order('period_end', { ascending: false }).order('created_at',{ascending:false}).limit(80),
     db.from('actions').select('id,platform,target_type,target_name,action_type,reason,status,decided_at,executed_at,review_after,priority,assignee,due_at,hold_reason,review_result').order('decided_at', { ascending: false }).limit(30),
     db.from('master_products').select('id,name,selling_price,is_active').order('updated_at',{ascending:false}).limit(200),
-    db.from('channel_products').select('id,master_product_id,platform,external_product_id,external_product_name,selling_price,is_active').order('updated_at',{ascending:false}).limit(500),
+    db.from('channel_products').select('id,master_product_id,platform,external_product_id,external_product_name,selling_price,is_active,match_method,match_confidence,matched_at,matched_by').order('updated_at',{ascending:false}).limit(500),
     db.from('naver_campaigns').select('ncc_campaign_id,name,campaign_type,status,user_lock'),
-    db.from('naver_adgroups').select('*',{count:'exact',head:true}),
+    db.from('naver_adgroups').select('ncc_adgroup_id,ncc_campaign_id,name,status,user_lock',{count:'exact'}).limit(1000),
     db.from('naver_keywords').select('*',{count:'exact',head:true}),
     db.from('sync_logs').select('status,finished_at,error_message,metadata').eq('platform','NAVER').eq('job_type','FETCH_ALL').order('started_at',{ascending:false}).limit(1).maybeSingle(),
     db.from('naver_stats_daily').select('date,entity_id,impressions,clicks,cost,conversions,conversion_revenue').order('date',{ascending:false}).limit(1200),
@@ -79,7 +81,7 @@ async function getDashboardData() {
     db.from('channel_cost_settings').select('platform,commission_rate,payment_fee_rate,default_shipping_cost,notes'),
     db.from('coupang_products').select('seller_product_id,product_name,status,raw_data').order('updated_at',{ascending:false}).limit(100),
     db.from('coupang_orders').select('shipment_box_id,order_id,ordered_at,paid_at,status,gross_amount,raw_data').order('ordered_at',{ascending:false}).limit(2000),
-    db.from('coupang_order_items').select('external_item_key,shipment_box_id,order_id,vendor_item_id,product_name,quantity,unit_price,paid_amount,status,raw_data').limit(5000),
+    db.from('coupang_order_items').select('external_item_key,shipment_box_id,order_id,vendor_item_id,seller_product_id,product_name,quantity,unit_price,paid_amount,status,raw_data').limit(5000),
     db.from('coupang_settlements').select('order_id,vendor_item_id,recognition_date,sale_type,sale_amount,service_fee,service_fee_vat,settlement_amount,quantity').order('recognition_date',{ascending:false}).limit(5000),
     db.from('coupang_rg_inventory').select('vendor_item_id,external_sku_id,total_orderable_quantity,sales_last_30_days,average_daily_sales,days_of_stock,stock_status,snapshot_at').order('days_of_stock',{ascending:true,nullsFirst:false}).limit(500),
     db.from('coupang_sync_requests').select('id,request_type,status,requested_at,started_at,finished_at,error_message,attempt_count,next_attempt_at').order('requested_at',{ascending:false}).limit(10),
@@ -252,6 +254,41 @@ async function getDashboardData() {
     items:orderItemsByShipment.get(String(order.shipment_box_id))||[]
   }));
   const sellerActionRequired=sellerOperationalOrders.filter(order=>['ACCEPT','INSTRUCT'].includes(order.status)).length;
+  const mappingHistoryResult = await db.from('product_mapping_history').select('id,platform,external_product_id,external_product_name,previous_master_product_id,new_master_product_id,action,match_method,match_confidence,actor,created_at').order('created_at',{ascending:false}).limit(1000);
+  if (mappingHistoryResult.error) throw new Error(mappingHistoryResult.error.message);
+  const productMapping = mappingService.buildMappingDashboard({
+    masterProducts:(masterResult.data || []).filter(item=>item.is_active),
+    channelProducts:channelsResult.data || [],
+    coupangProducts:coupangProductsResult.data || [],
+    coupangProductItems:coupangProductItemsResult.data || [],
+    naverAdgroups:naverGroupResult.data || [],
+    naverCampaigns:naverCampaignResult.data || [],
+    history:mappingHistoryResult.data || []
+  });
+  const allChannelProducts = [
+    ...(channelsResult.data || []).filter(item=>item.platform==='CAFE24'),
+    ...productMapping.links
+  ];
+  const performanceEnd = keywordPeriod?.period_end || todayKey;
+  const performanceStartDate = new Date(`${performanceEnd}T00:00:00+09:00`);
+  performanceStartDate.setUTCDate(performanceStartDate.getUTCDate()-6);
+  const performanceStart = keywordPeriod?.period_start || seoulDate(performanceStartDate);
+  const unifiedProductPerformance = await productPerformance.loadUnifiedProductPerformance({
+    db,
+    periodStart:performanceStart,
+    periodEnd:performanceEnd,
+    masterProducts:masterResult.data || [],
+    channelProducts:allChannelProducts,
+    productCosts:costsResult.data || [],
+    channelCostSettings:channelCostsResult.data || [],
+    cafe24Orders:ordersResult.data || [],
+    cafe24OrderItems:itemsResult.data || [],
+    coupangOrders:coupangOrdersResult.data || [],
+    coupangOrderItems:coupangItemsResult.data || [],
+    coupangProductItems:coupangProductItemsResult.data || [],
+    coupangRgOrders:coupangRgOrdersResult.data || [],
+    coupangRgOrderItems:coupangRgOrderItemsResult.data || []
+  });
   const pacing = await pacingPromise;
   return {
     generatedAt: new Date().toISOString(),
@@ -284,7 +321,9 @@ async function getDashboardData() {
     alerts: alertsResult.data || [],
     platformEvents: eventsResult.data || [],
     masterProducts: masterResult.data || [],
-    channelProducts: channelsResult.data || [],
+    channelProducts: allChannelProducts,
+    productMapping,
+    unifiedProductPerformance,
     productCosts: costsResult.data || [],
     channelCostSettings: channelCostsResult.data || [],
     liveProfitability,

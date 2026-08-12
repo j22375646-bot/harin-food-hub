@@ -24,7 +24,7 @@ export async function POST(request) {
     const masters = missing.map(product => ({ name:product.product_name, selling_price:product.price, is_active:product.selling !== false }));
     const mastersResult = await db.from('master_products').insert(masters).select('id');
     if (mastersResult.error) throw mastersResult.error;
-    const channelRows = missing.map((product,index)=>({ master_product_id:mastersResult.data[index].id, platform:'CAFE24', external_product_id:product.external_product_no, external_product_name:product.product_name, selling_price:product.price, is_active:product.selling !== false, raw_data:product.raw_data }));
+    const channelRows = missing.map((product,index)=>({ master_product_id:mastersResult.data[index].id, platform:'CAFE24', external_product_id:product.external_product_no, external_product_name:product.product_name, selling_price:product.price, is_active:product.selling !== false, raw_data:product.raw_data, match_method:'SOURCE', match_confidence:1, matched_at:new Date().toISOString(), matched_by:'SYSTEM' }));
     const channelResult = await db.from('channel_products').upsert(channelRows,{onConflict:'platform,external_product_id'});
     if (channelResult.error) throw channelResult.error;
     return Response.json({ok:true,created:missing.length,linked:(channelsResult.data?.length||0)+missing.length,total:sourceResult.data?.length||0});
