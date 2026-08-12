@@ -8,6 +8,7 @@ import pacingService from '../lib/analytics/pacing-service.js';
 import cafe24AnalyticsModule from '../lib/cafe24/analytics.js';
 import mappingService from '../lib/products/mapping-service.js';
 import productPerformance from '../lib/products/performance.js';
+import costCalibrationModule from '../lib/analytics/cost-calibration.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -183,6 +184,12 @@ async function getDashboardData() {
   const sumCoupangPeriod=days=>coupangDaily.slice(-days).reduce((sum,day)=>({orders:sum.orders+day.orders,units:sum.units+day.units,revenue:sum.revenue+day.revenue}),{orders:0,units:0,revenue:0});
   const salesOverview={today:todayCoupang,last7:sumCoupangPeriod(7),last30:sumCoupangPeriod(30)};
   const coupangCostRows=coupangCostsResult.data||[];
+  const costCalibration=costCalibrationModule.calculateCoupangCostCalibration({
+    settlements:coupangSettlementsResult.data||[],
+    costTransactions:coupangCostRows,
+    currentSetting:(channelCostsResult.data||[]).find(item=>item.platform==='COUPANG')||{}
+  });
+  const effectiveChannelCostSettings=costCalibrationModule.withEffectiveChannelSettings(channelCostsResult.data||[],costCalibration);
   const costDates=coupangCostRows.flatMap(item=>[item.event_date,item.recognition_date].filter(Boolean)).sort();
   const costCategoryMap=new Map(); const costProductMap=new Map();
   for(const item of coupangCostRows){
@@ -280,7 +287,7 @@ async function getDashboardData() {
     masterProducts:masterResult.data || [],
     channelProducts:allChannelProducts,
     productCosts:costsResult.data || [],
-    channelCostSettings:channelCostsResult.data || [],
+    channelCostSettings:effectiveChannelCostSettings,
     cafe24Orders:ordersResult.data || [],
     cafe24OrderItems:itemsResult.data || [],
     coupangOrders:coupangOrdersResult.data || [],
@@ -326,6 +333,7 @@ async function getDashboardData() {
     unifiedProductPerformance,
     productCosts: costsResult.data || [],
     channelCostSettings: channelCostsResult.data || [],
+    costCalibration,
     liveProfitability,
     pacing,
     naver: { campaigns:naverCampaignResult.data?.length||0, adgroups:naverGroupResult.count||0, keywords:naverKeywordResult.count||0, latestSync:naverSyncResult.data||null, periodStart:weekStart?dateOnly(weekStart.toISOString()):null, periodEnd:latestNaverDate, totals:{...naverTotals,roas:naverPerformance.roasPercent,ctr:naverPerformance.ctrPercent,metrics:naverPerformance}, daily:[...naverDailyMap.values()].sort((a,b)=>a.date.localeCompare(b.date)), topCampaigns:naverTopCampaigns, keywordPeriod, keywordTop, keywordWaste },

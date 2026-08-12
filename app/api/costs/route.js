@@ -1,5 +1,6 @@
 import authModule from '../../../lib/dashboard-auth.js';
 import supabaseModule from '../../../lib/cafe24/supabase.js';
+import costCalibrationModule from '../../../lib/analytics/cost-calibration.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,6 +26,10 @@ export async function PUT(request) {
       const result = await db.from('channel_cost_settings').upsert({ platform:body.platform, commission_rate:commissionRate, payment_fee_rate:paymentFeeRate, default_shipping_cost:shippingCost, notes:String(body.notes || '').slice(0,500) }, { onConflict:'platform' }).select().single();
       if (result.error) throw result.error;
       return Response.json({ ok:true, setting:result.data });
+    }
+    if (body.type === 'COUPANG_CALIBRATION_APPLY') {
+      const result = await costCalibrationModule.applyCoupangCostCalibration({ db });
+      return Response.json({ ok:true, ...result });
     }
     return Response.json({ ok:false, error:'지원하지 않는 비용 설정입니다.' }, { status:400 });
   } catch (error) { return Response.json({ ok:false, error:error.message || '비용 저장 실패' }, { status:500 }); }
