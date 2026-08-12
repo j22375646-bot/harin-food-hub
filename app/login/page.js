@@ -24,7 +24,7 @@ export default async function LoginPage({ searchParams }) {
     <form action="/api/dashboard/login" method="post">
       <input type="hidden" name="next" value={nextPath.startsWith('/')&&!nextPath.startsWith('//')?nextPath:'/'} />
       <label htmlFor="password">비밀번호</label>
-      <input id="password" name="password" type="password" autoComplete="current-password" minLength="8" maxLength="200" required autoFocus placeholder="비밀번호 입력" />
+      <input id="password" name="password" type="password" inputMode="numeric" pattern="[0-9]{6}" autoComplete="current-password" minLength="6" maxLength="6" required autoFocus placeholder="6자리 비밀번호" />
       <button type="submit">허브 들어가기</button>
     </form>
     <small>로그인 상태는 이 기기에 12시간 동안 안전하게 유지됩니다.</small>

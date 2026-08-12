@@ -44,6 +44,8 @@ test('단일 OWNER 로그인은 계정 입력 없이 비밀번호만 받는다',
   const page=fs.readFileSync(path.resolve(__dirname,'../app/login/page.js'),'utf8');
   const route=fs.readFileSync(path.resolve(__dirname,'../app/api/dashboard/login/route.js'),'utf8');
   assert.doesNotMatch(page,/name="account"/);
+  assert.match(page,/minLength="6"/);
+  assert.match(page,/pattern="\[0-9\]\{6\}"/);
   assert.match(route,/account:'owner'/);
 });
 
