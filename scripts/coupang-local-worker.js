@@ -87,6 +87,9 @@ async function runOnce(db = getSupabase()) {
 
 async function watch(db = getSupabase()) {
   await processPending(db);
+  // Some Node WebSocket implementations unref their socket. Keep the hidden
+  // scheduled task alive without polling the database or running a collection.
+  const keepAlive = setInterval(() => {}, 60 * 1000);
   const channel = db.channel('harin-coupang-manual-requests')
     .on('postgres_changes', { event:'INSERT', schema:'public', table:'coupang_sync_requests' }, () => {
       processPending(db).catch(error => log(`EVENT_FAILED ${safeMessage(error)}`));
@@ -97,6 +100,7 @@ async function watch(db = getSupabase()) {
     });
   const shutdown = async signal => {
     log(`STOP ${signal}`);
+    clearInterval(keepAlive);
     await db.removeChannel(channel).catch(() => {});
     process.exit(0);
   };
