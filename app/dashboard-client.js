@@ -48,7 +48,7 @@ export default function Dashboard({ initialData }) {
     } catch (error) { setSyncMessage(`확인 필요 · ${error.message}`); setSyncing(false); }
   }
 
-  const nav = [['main','메인'],['collection','데이터수집'],['insight','인사이트'],['keyword','키워드'],['product','상품'],['reports','진단목록']];
+  const nav = [['main','메인'],['collection','데이터수집'],['insight','인사이트'],['keyword','키워드'],['product','상품'],['reports','진단목록'],['notifications',`알림 ${initialData.alerts.length||''}`]];
   const platformName = platform === 'naver' ? '네이버' : platform === 'coupang' ? '쿠팡' : platform === 'cafe24' ? 'Cafe24' : '전체';
 
   return <div className="shell">
@@ -78,6 +78,7 @@ export default function Dashboard({ initialData }) {
       {view==='keyword' && <PlatformKeywordView key={`keyword-${platform}`} platform={platform} data={initialData} />}
       {view==='product' && <PlatformProductView key={`product-${platform}`} platform={platform} data={initialData} />}
       {view==='reports' && <ReportsView reports={reports} actions={actions} syncs={syncs} />}
+      {view==='notifications' && <NotificationCenter reports={reports} />}
     </main>
     <footer>하린식품 광고·매출 통합 관리 허브 <span>·</span> 네이버 + 쿠팡 + Cafe24 + Supabase</footer>
   </div>;
@@ -109,6 +110,14 @@ function VersionedReportList({ reports }) {
       setTimeout(()=>window.location.reload(),700);
     }catch(error){setMessage(`확인 필요 · ${error.message}`);setBusy('');}
   }
+  async function sendReport(report){
+    setBusy(`${report.id}-SEND`);setMessage('보고서를 이메일로 발송하는 중입니다.');
+    try{
+      const response=await fetch('/api/notifications/send',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'REPORT',report_id:report.id})});
+      const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.delivery?.reason||result.delivery?.error||result.error||'발송 실패');
+      setMessage('보고서를 설정된 이메일로 발송했습니다.');setBusy('');
+    }catch(error){setMessage(`확인 필요 · ${error.message}`);setBusy('');}
+  }
   return <article className="panel versionedReports">
     <PanelTitle tag="REPORT ARCHIVE" title="보고서 이력·버전관리" right={`${groups.length}개 보고서 · ${reports.length}개 버전`}/>
     {message&&<div className="reportVersionMessage">{message}</div>}
@@ -124,13 +133,35 @@ function VersionedReportList({ reports }) {
         {open===group.key&&<div className="reportSeriesBody">
           <section className="reportVersionKpis"><span><small>운영점수</small><b>{summary.score??'-'}점</b></span><span><small>Cafe24 매출</small><b>{summary.cafe24?won(summary.cafe24.revenue):'-'}</b></span><span><small>네이버 ROAS</small><b>{summary.naver?`${num(summary.naver.roas).toFixed(1)}%`:'-'}</b></span><span><small>쿠팡 매출</small><b>{summary.coupang?won(summary.coupang.gross_sales):'-'}</b></span></section>
           {changeRows.length>0&&<section className="versionDelta"><b>직전 버전 대비</b>{changeRows.map(([key,item])=><span key={key}><small>{reportMetricLabel(key)}</small><em className={item.delta>0?'up':item.delta<0?'down':''}>{item.delta>0?'+':''}{reportMetricValue(key,item.delta)}</em></span>)}</section>}
-          <div className="reportOutputActions"><a href={`/api/reports/${r.id}/print`} target="_blank" rel="noreferrer">상세 보고서 · PDF/인쇄</a><a className="owner" href={`/api/reports/${r.id}/print?mode=owner`} target="_blank" rel="noreferrer">사장님 1페이지 · PDF/인쇄</a><a href={`/api/reports/${r.id}/download`}>HTML 저장</a>{!r.approved_at&&<button onClick={()=>action(r,'APPROVE')} disabled={Boolean(busy)}>{busy===`${r.id}-APPROVE`?'승인 중…':'최신본 승인'}</button>}</div>
+          <div className="reportOutputActions"><a href={`/api/reports/${r.id}/print`} target="_blank" rel="noreferrer">상세 보고서 · PDF/인쇄</a><a className="owner" href={`/api/reports/${r.id}/print?mode=owner`} target="_blank" rel="noreferrer">사장님 1페이지 · PDF/인쇄</a><a href={`/api/reports/${r.id}/download`}>HTML 저장</a><button className="emailReport" onClick={()=>sendReport(r)} disabled={Boolean(busy)}>{busy===`${r.id}-SEND`?'발송 중…':'이메일 발송'}</button>{!r.approved_at&&<button onClick={()=>action(r,'APPROVE')} disabled={Boolean(busy)}>{busy===`${r.id}-APPROVE`?'승인 중…':'최신본 승인'}</button>}</div>
           <button className="historyToggle" onClick={()=>setHistoryOpen(historyOpen===group.key?'':group.key)}>{historyOpen===group.key?'버전 이력 닫기':`과거 버전 ${group.count}개 보기`}</button>
           {historyOpen===group.key&&<div className="reportVersionTimeline">{group.versions.map(version=><div key={version.id}><span className="versionNumber">v{version.version||1}</span><section><b>{version.is_latest?'현재 최신본':version.approved_at?'당시 승인본':'보관본'}</b><small>{dateTime(version.created_at)} · {version.revision_note||'기존 보고서'}</small></section><div><a href={`/api/reports/${version.id}/print`} target="_blank" rel="noreferrer">열기</a>{!version.is_latest&&<button onClick={()=>action(version,'RESTORE')} disabled={Boolean(busy)}>{busy===`${version.id}-RESTORE`?'복원 중…':'이 버전 복원'}</button>}</div></div>)}</div>}
         </div>}
       </section>;
     })}</div>:<Empty>저장된 보고서가 없습니다.</Empty>}
   </article>;
+}
+
+function NotificationCenter({ reports }) {
+  const [data,setData]=useState(null),[form,setForm]=useState(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(''),[message,setMessage]=useState(''),[filter,setFilter]=useState('OPEN');
+  async function load(){setLoading(true);try{const response=await fetch('/api/notifications/settings');const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'알림센터 조회 실패');setData(result);setForm(result.settings);}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setLoading(false);}}
+  useEffect(()=>{load();},[]);
+  async function save(event){event.preventDefault();setBusy('SAVE');setMessage('설정을 저장하는 중입니다.');try{const response=await fetch('/api/notifications/settings',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(form)});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'저장 실패');setForm(result.settings);setData(current=>({...current,settings:result.settings}));setMessage('알림 설정을 저장했습니다.');}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setBusy('');}}
+  async function send(action,reportId){setBusy(action);setMessage('이메일을 발송하는 중입니다.');try{const response=await fetch('/api/notifications/send',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action,report_id:reportId})});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.delivery?.reason||result.delivery?.error||result.error||'발송 실패');setMessage('이메일 발송이 완료되었습니다.');await load();}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setBusy('');}}
+  async function updateAlert(id,action){setBusy(id);try{const response=await fetch(`/api/alerts/${id}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action})});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'처리 실패');await load();}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setBusy('');}}
+  if(loading&&!data)return <section className="notificationLoading">알림센터를 불러오는 중입니다…</section>;
+  const alerts=data?.alerts||[],deliveries=data?.deliveries||[],shown=filter==='ALL'?alerts:alerts.filter(item=>item.status===filter),latest=reports.find(item=>item.platform==='ALL'&&item.is_latest)||reports.find(item=>item.is_latest)||reports[0];
+  const openCount=alerts.filter(item=>item.status==='OPEN').length,errorCount=alerts.filter(item=>item.status==='OPEN'&&item.severity==='ERROR').length,failedCount=deliveries.filter(item=>item.status==='FAILED').length;
+  return <>
+    <section className="pageIntro notificationIntro"><div><span className="eyebrow">NOTIFICATION CENTER</span><h1>알림·보고서 자동 전달</h1><p>서버가 감지한 이상징후를 처리하고 일일·주간·월간 보고서 이메일 전달을 관리합니다.</p></div><div><button onClick={()=>send('TEST')} disabled={Boolean(busy)}>테스트 이메일</button><button className="primary" onClick={()=>latest&&send('REPORT',latest.id)} disabled={Boolean(busy)||!latest}>최신 보고서 지금 발송</button></div></section>
+    {message&&<div className="syncToast">{message}</div>}
+    <section className="notificationKpis"><article><small>열린 알림</small><b>{openCount}건</b><span>확인·처리 필요</span></article><article className="danger"><small>중요 오류</small><b>{errorCount}건</b><span>즉시 알림 대상</span></article><article><small>이메일 발송</small><b>{deliveries.filter(item=>item.status==='SENT').length}건</b><span>최근 50건 기준</span></article><article className={failedCount?'danger':''}><small>발송 실패</small><b>{failedCount}건</b><span>{data?.email_provider_configured?'발송 기록 점검':'서버 발송키 설정 필요'}</span></article></section>
+    <section className="notificationLayout">
+      <article className="panel notificationSettings"><PanelTitle tag="DELIVERY SETTING" title="자동 전달 설정" right={data?.email_provider_configured?'발송 서버 연결됨':'발송 서버 설정 필요'}/>{form&&<form onSubmit={save}><label className="emailField"><span>보고서 수신 이메일</span><input type="email" value={form.recipient_email||''} onChange={event=>setForm({...form,recipient_email:event.target.value})} placeholder="owner@example.com"/></label><label className="switchLine"><input type="checkbox" checked={form.email_enabled} onChange={event=>setForm({...form,email_enabled:event.target.checked})}/><span><b>이메일 자동 발송</b><small>Vercel 서버 비밀키로만 발송합니다.</small></span></label><div className="settingChecks"><label><input type="checkbox" checked={form.instant_alert_enabled} onChange={event=>setForm({...form,instant_alert_enabled:event.target.checked})}/>중요 이상징후 즉시</label><label><input type="checkbox" checked={form.daily_report_enabled} onChange={event=>setForm({...form,daily_report_enabled:event.target.checked})}/>일일 보고서</label><label><input type="checkbox" checked={form.weekly_report_enabled} onChange={event=>setForm({...form,weekly_report_enabled:event.target.checked})}/>주간 보고서</label><label><input type="checkbox" checked={form.monthly_report_enabled} onChange={event=>setForm({...form,monthly_report_enabled:event.target.checked})}/>월간 보고서</label></div><label className="severityField"><span>즉시 발송 최소 중요도</span><select value={form.minimum_severity} onChange={event=>setForm({...form,minimum_severity:event.target.value})}><option value="ERROR">오류만</option><option value="WARNING">경고 이상</option><option value="INFO">전체</option></select></label><button className="saveNotification" disabled={busy==='SAVE'}>{busy==='SAVE'?'저장 중…':'설정 저장'}</button></form>}<div className="providerGuide"><b>서버 환경변수</b><span>RESEND_API_KEY · REPORT_FROM_EMAIL</span><small>두 값은 브라우저나 DB에 저장하지 않습니다. 미설정 상태에서도 인앱 알림은 정상 작동합니다.</small></div></article>
+      <article className="panel alertCenter"><div className="alertCenterHead"><PanelTitle tag="IN-APP ALERT" title="이상징후·데이터 품질 알림" right={`${shown.length}건`}/><div>{['OPEN','ACKNOWLEDGED','RESOLVED','ALL'].map(item=><button className={filter===item?'active':''} onClick={()=>setFilter(item)} key={item}>{({OPEN:'열림',ACKNOWLEDGED:'확인',RESOLVED:'해결',ALL:'전체'})[item]}</button>)}</div></div><div className="alertCenterList">{shown.map(item=><article className={item.severity.toLowerCase()} key={item.id}><header><span>{item.platform} · {item.source_type}</span><em>{item.severity}</em></header><b>{item.title}</b><p>{item.message}</p><footer><small>{dateTime(item.created_at)} · {item.status}</small><div>{item.status==='OPEN'&&<button onClick={()=>updateAlert(item.id,'ACKNOWLEDGE')} disabled={busy===item.id}>확인</button>}{item.status!=='RESOLVED'&&<button className="resolve" onClick={()=>updateAlert(item.id,'RESOLVE')} disabled={busy===item.id}>해결</button>}{item.status==='RESOLVED'&&<button onClick={()=>updateAlert(item.id,'REOPEN')} disabled={busy===item.id}>다시 열기</button>}</div></footer></article>)}{!shown.length&&<Empty>이 상태의 알림이 없습니다.</Empty>}</div></article>
+    </section>
+    <article className="panel deliveryHistory"><div className="deliveryHistoryHead"><PanelTitle tag="DELIVERY LOG" title="이메일 발송 이력" right={`${deliveries.length}건`}/><button onClick={()=>send('ALERTS')} disabled={Boolean(busy)||!openCount}>열린 중요 알림 지금 발송</button></div><div className="deliveryTable"><div className="deliveryRow head"><span>시각</span><span>종류</span><span>제목</span><span>상태</span></div>{deliveries.map(item=><div className="deliveryRow" key={item.id}><span>{dateTime(item.sent_at||item.attempted_at)}</span><span>{item.event_type} · {item.trigger_type}</span><b>{item.subject}<small>{item.error_message||item.recipient||''}</small></b><em className={item.status.toLowerCase()}>{item.status}</em></div>)}</div>{!deliveries.length&&<Empty>아직 이메일 발송 시도가 없습니다.</Empty>}</article>
+  </>;
 }
 
 function MainView({ platform, platformName, data, maxPv, maxRef }) {
