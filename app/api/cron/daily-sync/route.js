@@ -1,6 +1,7 @@
 import syncModule from '../../../../lib/automation/sync-all.js';
 import evaluatorModule from '../../../../lib/actions/evaluator.js';
 import runnerModule from '../../../../lib/automation/job-runner.js';
+import experimentModule from '../../../../lib/experiments/service.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,11 +26,15 @@ export async function GET(request) {
     syncModule.syncCafe24('CRON'),
     syncModule.syncNaver('CRON')
   ]);
-  const evaluation = await Promise.allSettled([runnerModule.runJob({ jobName: 'ACTION_EVALUATION', triggerType: 'CRON', maxAttempts: 1, work: () => evaluatorModule.evaluateActions({ minimumDays: 7 }) })]);
+  const evaluation = await Promise.allSettled([
+    runnerModule.runJob({ jobName: 'ACTION_EVALUATION', triggerType: 'CRON', maxAttempts: 1, work: () => evaluatorModule.evaluateActions({ minimumDays: 7 }) }),
+    runnerModule.runJob({ jobName: 'AB_TEST_EVALUATION', triggerType: 'CRON', maxAttempts: 1, work: () => experimentModule.evaluateRunningTests({ automatic: true }) })
+  ]);
   const jobs = [
     settled('CAFE24_SYNC', sync[0]),
     settled('NAVER_SYNC', sync[1]),
-    settled('ACTION_EVALUATION', evaluation[0])
+    settled('ACTION_EVALUATION', evaluation[0]),
+    settled('AB_TEST_EVALUATION', evaluation[1])
   ];
   const ok = jobs.every(job => job.ok);
   return Response.json({ ok, started_at: startedAt, finished_at: new Date().toISOString(), jobs }, { status: ok ? 200 : 207 });
