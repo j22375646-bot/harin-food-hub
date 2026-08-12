@@ -33,8 +33,20 @@ test('Coupang queue inserts when no active request exists', async () => {
     ? chain({ data: null, error: null }, calls)
     : chain({ data: inserted, error: null }, calls) };
   const result = await queue.queueRequest(db, 'FULL');
-  assert.deepEqual(result, { queued: true, existing: false, request: inserted });
-  assert.deepEqual(calls.find(([method]) => method === 'insert')[1], { request_type: 'FULL', status: 'PENDING' });
+  assert.deepEqual(result, { queued: true, existing: false, deduplicated: false, request: inserted });
+  assert.deepEqual(calls.find(([method]) => method === 'insert')[1], {
+    request_type: 'FULL', status: 'PENDING', idempotency_key: null,
+    scheduled_for: null, kst_execution_date: null
+  });
+});
+
+test('Coupang queue reuses a completed request with the same KST execution key', async () => {
+  const calls = [];
+  const request = { id: 'done', request_type: 'FULL', status: 'SUCCESS' };
+  const db = { from: () => chain({ data: request, error: null }, calls) };
+  const result = await queue.queueRequest(db, 'FULL', { idempotencyKey: 'COUPANG_SYNC_REQUEST:KST:2026-08-13' });
+  assert.deepEqual(result, { queued: true, existing: true, deduplicated: true, request });
+  assert.equal(calls.some(([method]) => method === 'insert'), false);
 });
 
 test('fixed-IP worker refuses an unexpected outbound address', async () => {
@@ -56,7 +68,7 @@ test('daily cron queues Coupang and production data source is no longer HOME_PC'
   const cron = fs.readFileSync(path.join(root, 'app/api/cron/daily-sync/route.js'), 'utf8');
   const page = fs.readFileSync(path.join(root, 'app/page.js'), 'utf8');
   const workerSource = fs.readFileSync(path.join(root, 'scripts/coupang-local-worker.js'), 'utf8');
-  assert.match(cron, /queueRequest\(supabaseModule\.getSupabase\(\), 'FULL'\)/);
+  assert.match(cron, /queueRequest\(supabaseModule\.getSupabase\(\), 'FULL', runOptions\('COUPANG_SYNC_REQUEST'\)\)/);
   assert.match(page, /FIXED_IP_WORKER/);
   assert.doesNotMatch(`${page}\n${workerSource}`, /HOME_PC/);
 });
