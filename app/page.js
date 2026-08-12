@@ -342,7 +342,7 @@ async function getDashboardData() {
     }),
     metricSnapshotModule.createMetricSnapshot({
       id:'COUPANG_SALES_30D', label:'쿠팡 30일 매출', value:rgOrders.length ? salesOverview.last30.revenue : null, unit:'KRW',
-      status:rgOrders.length ? 'READY' : 'NO_DATA', sources:[{platform:'COUPANG',dataset:'coupang_rg_orders',mode:'HOME_PC_API'}],
+      status:rgOrders.length ? 'READY' : 'NO_DATA', sources:[{platform:'COUPANG',dataset:'coupang_rg_orders',mode:'FIXED_IP_WORKER'}],
       asOf:coupangLatestSync?.finished_at, periodStart:coupangDaily.at(-30)?.date || null, periodEnd:coupangDaily.at(-1)?.date || null,
       formula:'sum(coupang_rg_orders.total_amount, last 30 days)', sampleSize:salesOverview.last30.orders
     }),

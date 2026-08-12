@@ -15,6 +15,7 @@ const { syncRocketGrowthInventoryOnly, syncRocketGrowthRealtime } = require('../
 const logPath = path.join(root, 'tmp', 'coupang-local-worker.log');
 const watchMode = process.argv.includes('--watch');
 const quietMode = process.argv.includes('--quiet');
+const collectorId = String(process.env.COUPANG_COLLECTOR_ID || 'FIXED_IP_WORKER').trim();
 fs.mkdirSync(path.dirname(logPath), { recursive: true });
 
 function safeMessage(error) {
@@ -26,6 +27,23 @@ function log(message) {
   const line = `${new Date().toISOString()} ${message}`;
   fs.appendFileSync(logPath, `${line}\n`, 'utf8');
   if (!quietMode) process.stdout.write(`${line}\n`);
+}
+
+async function publicIp() {
+  const response = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(8000) });
+  if (!response.ok) throw new Error(`Public IP check failed: HTTP ${response.status}`);
+  const ip = String((await response.json()).ip || '').trim();
+  if (!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(ip)) throw new Error('Public IP check returned an invalid IPv4 address.');
+  return ip;
+}
+
+async function assertAllowedSourceIp() {
+  const expected = String(process.env.COUPANG_ALLOWED_SOURCE_IP || '').trim();
+  if (!expected) throw new Error('COUPANG_ALLOWED_SOURCE_IP is required for the fixed-IP worker.');
+  const actual = await publicIp();
+  if (actual !== expected) throw new Error(`Coupang source IP mismatch: actual=${actual} expected=${expected}`);
+  log(`SOURCE_IP_VERIFIED ip=${actual} collector=${collectorId}`);
+  return actual;
 }
 
 function scheduleRetry(db, retryAt) {
@@ -41,7 +59,7 @@ async function claimNext(db) {
   const pending = await db.from('coupang_sync_requests').select('id,request_type,attempt_count').eq('status', 'PENDING').or(`next_attempt_at.is.null,next_attempt_at.lte.${now}`).order('requested_at', { ascending: true }).limit(1).maybeSingle();
   if (pending.error) throw pending.error;
   if (!pending.data) return null;
-  const claimed = await db.from('coupang_sync_requests').update({ status: 'RUNNING', started_at: now, collector: 'HOME_PC', attempt_count: Number(pending.data.attempt_count || 0) + 1 }).eq('id', pending.data.id).eq('status', 'PENDING').select('id,request_type,attempt_count').maybeSingle();
+  const claimed = await db.from('coupang_sync_requests').update({ status: 'RUNNING', started_at: now, collector: collectorId, attempt_count: Number(pending.data.attempt_count || 0) + 1 }).eq('id', pending.data.id).eq('status', 'PENDING').select('id,request_type,attempt_count').maybeSingle();
   if (claimed.error) throw claimed.error;
   return claimed.data || null;
 }
@@ -111,6 +129,7 @@ async function watch(db = getSupabase()) {
 }
 
 async function main() {
+  await assertAllowedSourceIp();
   const db = getSupabase();
   return watchMode ? watch(db) : runOnce(db);
 }
@@ -120,4 +139,4 @@ if (require.main === module) main().catch(error => {
   process.exitCode = 1;
 });
 
-module.exports = { claimNext, processRequest, processPending, runOnce, scheduleRetry, watch };
+module.exports = { assertAllowedSourceIp, claimNext, processRequest, processPending, publicIp, runOnce, scheduleRetry, watch };

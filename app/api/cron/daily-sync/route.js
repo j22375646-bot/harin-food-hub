@@ -2,6 +2,8 @@ import syncModule from '../../../../lib/automation/sync-all.js';
 import evaluatorModule from '../../../../lib/actions/evaluator.js';
 import runnerModule from '../../../../lib/automation/job-runner.js';
 import experimentModule from '../../../../lib/experiments/service.js';
+import supabaseModule from '../../../../lib/cafe24/supabase.js';
+import queueModule from '../../../../lib/coupang/request-queue.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,12 +21,12 @@ function settled(name, value) {
 export async function GET(request) {
   if (!authorized(request)) return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   const startedAt = new Date().toISOString();
-  // Coupang requires the allow-listed home public IP, so its automatic sync is
-  // handled by the hidden Windows task at 05:30 KST, aligned with this cron.
-  // Vercel only collects platforms safe to call from its dynamic outbound network.
+  // Coupang API calls are queued here and executed by the Seoul fixed-IP worker.
+  // This keeps all platform collection aligned at 05:30 KST without using a home PC.
   const sync = await Promise.allSettled([
     syncModule.syncCafe24('CRON'),
-    syncModule.syncNaver('CRON')
+    syncModule.syncNaver('CRON'),
+    queueModule.queueRequest(supabaseModule.getSupabase(), 'FULL')
   ]);
   const evaluation = await Promise.allSettled([
     runnerModule.runJob({ jobName: 'ACTION_EVALUATION', triggerType: 'CRON', maxAttempts: 1, work: () => evaluatorModule.evaluateActions({ minimumDays: 7 }) }),
@@ -33,6 +35,7 @@ export async function GET(request) {
   const jobs = [
     settled('CAFE24_SYNC', sync[0]),
     settled('NAVER_SYNC', sync[1]),
+    settled('COUPANG_SYNC_QUEUED', sync[2]),
     settled('ACTION_EVALUATION', evaluation[0]),
     settled('AB_TEST_EVALUATION', evaluation[1])
   ];

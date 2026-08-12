@@ -16,6 +16,7 @@ const lockPath = path.join(tmpDir, 'coupang-local-sync.lock');
 const logPath = path.join(tmpDir, 'coupang-local-sync.log');
 const statusPath = path.join(tmpDir, 'coupang-local-status.json');
 const ipOnly = process.argv.includes('--ip-only');
+const collectorId = String(process.env.COUPANG_COLLECTOR_ID || 'FIXED_IP_WORKER').trim();
 
 fs.mkdirSync(tmpDir, { recursive: true });
 
@@ -70,7 +71,7 @@ async function recordIpMismatch(currentIp, expectedIp) {
   await db.from('sync_logs').insert({
     platform: 'COUPANG', job_type: 'LOCAL_IP_CHECK', status: 'FAILED', finished_at: new Date().toISOString(),
     error_message: '집 인터넷 공인 IP가 변경되어 쿠팡 WING 허용 IP 갱신이 필요합니다.',
-    metadata: { current_ip: currentIp, expected_ip: expectedIp, collector: 'HOME_PC' }
+    metadata: { current_ip: currentIp, expected_ip: expectedIp, collector: collectorId }
   });
 }
 

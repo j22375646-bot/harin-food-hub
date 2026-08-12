@@ -25,8 +25,8 @@ Local execution retains `/tmp/cafe24-token.json` for compatibility. Vercel (or `
 
 - 전체 자동수집: 집 PC 예약작업으로 매일 오전 8시 10분 1회
 - 수동수집: 허브 쿠팡 상단의 `쿠팡 데이터 수동 수집` 버튼
-- 수동 요청 확인: 숨김 워커가 5분 간격으로 요청 여부만 확인하며, 요청이 없으면 API를 호출하지 않음
-- Vercel 자동수집: 매일 오전 5시 30분(KST)에 Cafe24·네이버만 동기화
-- 쿠팡은 고정 IP 중복 호출을 막기 위해 Vercel Cron에서 제외하고 집 PC 수집기만 사용
+- 수동 요청 확인: 서울 고정 IP 워커가 Realtime 이벤트로 즉시 확인하며, 요청이 없으면 쿠팡 API를 호출하지 않음
+- Vercel 자동수집: 매일 오전 5시 30분(KST)에 Cafe24·네이버를 동기화하고 쿠팡 수집 요청을 큐에 등록
+- 쿠팡은 Vercel Cron이 수집 요청을 큐에 넣고 서울 고정 IP 워커(`harin-coupang-worker`, `13.124.12.17`)가 처리
 
 비밀키는 `.env`, `.env.local`, `.env.coupang.local`에만 저장하고 GitHub에는 올리지 않습니다. 필요한 변수 이름은 `.env.example`을 참고합니다.

@@ -12,8 +12,10 @@
     "start:legacy": "node cafe24-oauth-server.js",
     "test": "node --test",
     "sync:coupang:local": "node scripts/coupang-local-sync.js",
+    "sync:coupang:worker": "node scripts/coupang-local-sync.js",
     "costs:calibrate": "node scripts/refresh-cost-calibration.js",
     "worker:coupang:local": "node scripts/coupang-local-worker.js",
+    "worker:coupang": "node scripts/coupang-local-worker.js --watch --quiet",
     "ip:coupang:local": "node scripts/coupang-local-sync.js --ip-only"
   },
   "dependencies": {
