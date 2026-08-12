@@ -48,6 +48,9 @@ test('Cafe24 manual collection is POST-only and diagnostics require a session', 
   assert.doesNotMatch(sync, /export async function GET/);
   assert.match(status, /isAuthorized/);
   assert.match(connectionTest, /isAuthorized/);
+  const ignore = fs.readFileSync(path.join(root,'.vercelignore'),'utf8');
+  assert.match(ignore, /^\/test$/m);
+  assert.doesNotMatch(ignore, /^test$/m);
 });
 
 test('Cafe24 diagnostic routes reject unauthenticated requests before external access', async () => {
