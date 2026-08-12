@@ -1,5 +1,6 @@
 import authModule from '../../../../lib/dashboard-auth.js';
 import scheduleModule from '../../../../lib/automation/report-scheduler.js';
+import pacingService from '../../../../lib/analytics/pacing-service.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,7 +14,8 @@ export async function POST(request) {
   if (!authModule.verifySession(cookieValue(request))) return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   try {
     const result = await scheduleModule.generateDaily({ triggerType: 'MANUAL', deduplicate: false });
-    return Response.json({ ok: true, ...result });
+    const pacing = await pacingService.buildPacingDashboard({ persistSnapshots:true });
+    return Response.json({ ok: true, ...result, pacing:{ month:pacing.month, snapshots:pacing.snapshots } });
   } catch (error) {
     return Response.json({ ok: false, error: error.message }, { status: 500 });
   }

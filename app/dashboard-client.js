@@ -68,6 +68,7 @@ export default function Dashboard({ initialData }) {
       </section>
       {syncMessage && <div className="syncToast">{syncMessage}</div>}
 
+      {view==='main' && <BusinessPacingPanel platform={platform} pacing={initialData.pacing}/>}
       {view==='main' && <MainView platform={platform} platformName={platformName} data={initialData} maxPv={maxPv} maxRef={maxRef} />}
       {view==='collection' && <CollectionView syncs={syncs} products={products} kpis={kpis} runSync={runSync} syncing={syncing} naver={initialData.naver} coupang={initialData.coupang} automationRuns={initialData.automationRuns} qualityChecks={initialData.qualityChecks} alerts={initialData.alerts} />}
       {view==='insight' && <DecisionOverview key={`decision-${platform}`} platform={platform} reports={reports} platformEvents={initialData.platformEvents||[]} />}
@@ -114,6 +115,30 @@ function AnomalyBanner({ alerts, platform }) {
   const items=alerts.filter(item=>item.source_type==='ANOMALY'&&(platform==='all'||item.platform===target));
   if(!items.length)return null;
   return <section className="anomalyBanner"><header><div><span className="eyebrow">ANOMALY ALERT</span><h2>확인이 필요한 이상징후</h2></div><em>{items.length}건 감지</em></header><div className="anomalyBannerGrid">{items.slice(0,4).map(item=><article className={item.severity.toLowerCase()} key={item.id}><span>{item.platform}</span><b>{item.title}</b><small>{item.message}</small></article>)}</div><p>일일 자동보고서와 수동 재생성 모두 같은 서버 규칙으로 다시 계산합니다.</p></section>;
+}
+
+function BusinessPacingPanel({ platform, pacing={} }) {
+  const targetPlatform=platformReportName[platform];
+  const initial=(pacing.items||[]).find(item=>item.platform===targetPlatform)||(pacing.items||[])[0]||{};
+  const [item,setItem]=useState(initial);
+  const [editing,setEditing]=useState(false);
+  const [saving,setSaving]=useState(false);
+  const [message,setMessage]=useState('');
+  const [form,setForm]=useState({revenueTarget:Math.round(num(initial.revenueTarget)),adBudget:Math.round(num(initial.adBudget)),targetRoas:Math.round(num(initial.targetRoas||250)),notes:''});
+  useEffect(()=>{const next=(pacing.items||[]).find(row=>row.platform===targetPlatform)||(pacing.items||[])[0]||{};setItem(next);setForm({revenueTarget:Math.round(num(next.revenueTarget)),adBudget:Math.round(num(next.adBudget)),targetRoas:Math.round(num(next.targetRoas||250)),notes:''});},[targetPlatform,pacing]);
+  async function save(event){event.preventDefault();setSaving(true);setMessage('서버 계산 중…');try{const response=await fetch('/api/targets',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({month:pacing.month,platform:targetPlatform,...form})});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'저장 실패');setItem(result.pacing);setMessage('저장 완료 · 오늘 스냅샷도 갱신했습니다.');setEditing(false);}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setSaving(false);}}
+  const statusLabel={ON_TRACK:'목표 속도 정상',WATCH:'속도 점검',AT_RISK:'월말 목표 위험',TARGET_REQUIRED:'목표 입력 필요'}[item.status]||'계산 대기';
+  const revenueProgress=item.revenueProgressRate==null?0:Math.min(100,num(item.revenueProgressRate));
+  const budgetProgress=item.budgetUsageRate==null?0:Math.min(100,num(item.budgetUsageRate));
+  const comparisons=platform==='all'?(pacing.items||[]).filter(row=>row.platform!=='ALL'):[];
+  return <section className={`pacingPanel ${String(item.status||'TARGET_REQUIRED').toLowerCase()}`}>
+    <header><div><span className="eyebrow">MONTHLY TARGET · SERVER FORECAST</span><h2>{platformLabel[platform]} 월 목표·예산 페이싱</h2><small>{pacing.month} · {item.elapsedDays||0}/{item.daysInMonth||0}일 경과 · {pacing.asOf} 기준</small></div><div className="pacingStatus"><em>{statusLabel}</em><button onClick={()=>setEditing(value=>!value)}>{editing?'입력 닫기':'목표·예산 설정'}</button></div></header>
+    <div className="pacingMetricGrid"><article><small>현재 매출</small><strong>{won(item.revenueActual)}</strong><span>월말 예상 {won(item.revenueForecast)}</span></article><article><small>월 매출목표</small><strong>{item.revenueTarget?won(item.revenueTarget):'입력 필요'}</strong><span>{item.revenueTarget?`달성률 ${num(item.revenueProgressRate).toFixed(1)}%`:'예측은 계속 계산됩니다.'}</span></article><article><small>현재 광고비</small><strong>{won(item.adSpendActual)}</strong><span>월말 예상 {won(item.adSpendForecast)}</span></article><article><small>월 광고예산</small><strong>{item.adBudget?won(item.adBudget):'입력 필요'}</strong><span>{item.adBudget?`잔여 ${won(item.budgetRemaining)}`:'플랫폼별로 따로 설정 가능'}</span></article><article><small>남은 날 하루 매출</small><strong>{item.revenueTarget?won(item.requiredDailyRevenue):'-'}</strong><span>목표 달성에 필요한 일매출</span></article><article><small>남은 날 권장 광고비</small><strong>{item.adBudget?won(item.recommendedDailySpend):'-'}</strong><span>예산 초과 방지 일할액</span></article></div>
+    <div className="pacingBars"><div><span><b>매출 목표 진행</b><em>{item.revenueProgressRate==null?'목표 미설정':`${num(item.revenueProgressRate).toFixed(1)}%`}</em></span><i><u style={{width:`${revenueProgress}%`}}/></i><small>오늘까지 기대 진도 {num(item.expectedProgressRate).toFixed(1)}% · 속도지수 {item.revenuePacingRate==null?'-':`${num(item.revenuePacingRate).toFixed(0)}%`}</small></div><div><span><b>광고예산 소진</b><em>{item.budgetUsageRate==null?'예산 미설정':`${num(item.budgetUsageRate).toFixed(1)}%`}</em></span><i><u style={{width:`${budgetProgress}%`}}/></i><small>현재 ROAS {item.actualRoas==null?'-':`${num(item.actualRoas).toFixed(1)}%`} · 목표 {num(item.targetRoas||250).toFixed(0)}%</small></div></div>
+    {comparisons.length>0&&<div className="platformPacingStrip">{comparisons.map(row=><article className={String(row.status).toLowerCase()} key={row.platform}><span>{row.platform}</span><b>{won(row.revenueActual)}</b><small>예상 {won(row.revenueForecast)} · 광고 {won(row.adSpendActual)}</small><em>{{ON_TRACK:'정상',WATCH:'점검',AT_RISK:'위험',TARGET_REQUIRED:'목표 필요'}[row.status]}</em></article>)}</div>}
+    {editing&&<form className="pacingForm" onSubmit={save}><label><span>월 매출목표</span><input type="number" min="0" step="10000" value={form.revenueTarget} onChange={event=>setForm({...form,revenueTarget:event.target.value})}/></label><label><span>월 광고예산</span><input type="number" min="0" step="10000" value={form.adBudget} onChange={event=>setForm({...form,adBudget:event.target.value})}/></label><label><span>목표 ROAS %</span><input type="number" min="0" step="10" value={form.targetRoas} onChange={event=>setForm({...form,targetRoas:event.target.value})}/></label><label className="pacingNotes"><span>메모</span><input maxLength="500" placeholder="예: 추석 프로모션 반영" value={form.notes} onChange={event=>setForm({...form,notes:event.target.value})}/></label><button disabled={saving}>{saving?'계산 중…':'저장하고 재계산'}</button></form>}
+    {message&&<p className="pacingMessage">{message}</p>}
+  </section>;
 }
 
 function PlatformDecisionMetrics({ platform, summary }) {

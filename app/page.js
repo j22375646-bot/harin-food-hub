@@ -4,6 +4,7 @@ import authModule from '../lib/dashboard-auth.js';
 import profitabilityModule from '../lib/analytics/profitability.js';
 import coupangMarketingModule from '../lib/coupang/marketing.js';
 import metricCalculator from '../lib/metrics/calculator.js';
+import pacingService from '../lib/analytics/pacing-service.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -51,6 +52,7 @@ function exchangeCaseView(item) {
 
 async function getDashboardData() {
   const db = supabaseModule.getSupabase();
+  const pacingPromise = pacingService.buildPacingDashboard({ db });
   const [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult] = await Promise.all([
     db.from('cafe24_orders').select('order_id,order_date,paid_amount,raw_data').order('order_date', { ascending: false }).limit(200),
     db.from('cafe24_order_items').select('order_id,product_name,quantity,unit_price,paid_amount,raw_data').limit(1000),
@@ -242,6 +244,7 @@ async function getDashboardData() {
     items:orderItemsByShipment.get(String(order.shipment_box_id))||[]
   }));
   const sellerActionRequired=sellerOperationalOrders.filter(order=>['ACCEPT','INSTRUCT'].includes(order.status)).length;
+  const pacing = await pacingPromise;
   return {
     generatedAt: new Date().toISOString(),
     kpis: {
@@ -276,6 +279,7 @@ async function getDashboardData() {
     productCosts: costsResult.data || [],
     channelCostSettings: channelCostsResult.data || [],
     liveProfitability,
+    pacing,
     naver: { campaigns:naverCampaignResult.data?.length||0, adgroups:naverGroupResult.count||0, keywords:naverKeywordResult.count||0, latestSync:naverSyncResult.data||null, periodStart:weekStart?dateOnly(weekStart.toISOString()):null, periodEnd:latestNaverDate, totals:{...naverTotals,roas:naverPerformance.roasPercent,ctr:naverPerformance.ctrPercent,metrics:naverPerformance}, daily:[...naverDailyMap.values()].sort((a,b)=>a.date.localeCompare(b.date)), topCampaigns:naverTopCampaigns, keywordPeriod, keywordTop, keywordWaste },
     coupang: {
       products: coupangProductsResult.data || [],

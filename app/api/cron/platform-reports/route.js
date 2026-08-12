@@ -1,4 +1,5 @@
 import scheduleModule from '../../../../lib/automation/report-scheduler.js';
+import pacingService from '../../../../lib/analytics/pacing-service.js';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -10,6 +11,7 @@ export async function GET(request){
   try{
     const daily=await scheduleModule.generateDaily({triggerType:'CRON'});let monthly=null;
     if(scheduleModule.isFirstDayKst())monthly=await scheduleModule.generateMonthly({triggerType:'CRON'});
-    return Response.json({ok:true,daily,monthly,finished_at:new Date().toISOString()});
+    const pacing=await pacingService.buildPacingDashboard({persistSnapshots:true});
+    return Response.json({ok:true,daily,monthly,pacing:{month:pacing.month,snapshots:pacing.snapshots},finished_at:new Date().toISOString()});
   }catch(error){console.error('[platform reports cron]',error);return Response.json({ok:false,error:error.message||'플랫폼별 보고서 생성 실패'},{status:500});}
 }
