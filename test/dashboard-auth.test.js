@@ -5,7 +5,6 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const auth = require('../lib/dashboard-auth.js');
-const users = require('../lib/dashboard-users.js');
 
 function withSecret(run) {
   const previous = process.env.DASHBOARD_SESSION_SECRET;
@@ -41,17 +40,16 @@ test('개인 세션은 사용자·역할·12시간 만료를 서명하고 위조
   assert.equal(auth.parseSession(token,Date.now()+120_000),null);
 }));
 
-test('계정 입력은 역할·계정명·강한 초기 비밀번호를 검증한다', () => {
-  assert.deepEqual(users.validateAccount({username:'operator.1',email:'OPS@example.com',displayName:'운영 담당',role:'OPERATOR',password:'a-secure-password'}),{
-    username:'operator.1',email:'ops@example.com',displayName:'운영 담당',role:'OPERATOR',password:'a-secure-password'
-  });
-  assert.throws(()=>users.validateAccount({username:'X',email:'bad',displayName:'A',role:'ADMIN',password:'short'},{passwordRequired:true}));
+test('단일 OWNER 로그인은 계정 입력 없이 비밀번호만 받는다', () => {
+  const page=fs.readFileSync(path.resolve(__dirname,'../app/login/page.js'),'utf8');
+  const route=fs.readFileSync(path.resolve(__dirname,'../app/api/dashboard/login/route.js'),'utf8');
+  assert.doesNotMatch(page,/name="account"/);
+  assert.match(route,/account:'owner'/);
 });
 
-test('RBAC Proxy는 조회자 변경과 OWNER 전용 작업, 다른 출처 요청을 차단한다', () => {
+test('단일 OWNER Proxy는 다른 역할과 다른 출처 요청을 차단한다', () => {
   const proxy=fs.readFileSync(path.resolve(__dirname,'../proxy.js'),'utf8');
-  assert.match(proxy,/session\.role === 'VIEWER'/);
-  assert.match(proxy,/OWNER_MUTATIONS/);
+  assert.match(proxy,/session\.role !== 'OWNER'/);
   assert.match(proxy,/CSRF_ORIGIN_MISMATCH/);
   assert.match(proxy,/x-harin-role/);
   assert.match(proxy,/validateSession/);

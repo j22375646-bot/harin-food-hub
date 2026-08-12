@@ -19,7 +19,7 @@ export async function POST(request) {
   const safeNext = nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : '/';
   try {
     const authenticated = await authModule.authenticateAccount({
-      account:form.get('account'),
+      account:'owner',
       password:form.get('password'),
       ip:sourceIp(request),
       userAgent:request.headers.get('user-agent')

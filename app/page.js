@@ -476,8 +476,8 @@ export default async function Home() {
   const currentUser = await authModule.validateSession(cookieStore.get(authModule.COOKIE_NAME)?.value).catch(()=>null);
   if (!currentUser) redirect('/login');
   try {
-    return <Dashboard initialData={await getDashboardData()} currentUser={currentUser} />;
+    return <Dashboard initialData={await getDashboardData()} />;
   } catch (error) {
-    return <Dashboard initialData={{ error: error.message }} currentUser={currentUser} />;
+    return <Dashboard initialData={{ error: error.message }} />;
   }
 }

@@ -48,7 +48,7 @@ function MetricProvenanceStrip({ snapshots=[] }) {
   return <section className="metricProvenance" aria-label="핵심 지표 출처와 상태"><div className="metricProvenanceTitle"><b>핵심 지표 신뢰도</b><span>출처 · 기준시각 · 계산식 버전</span></div><div className="metricProvenanceGrid">{snapshots.map(metric=><article key={metric.id} className={`metricSnapshot ${String(metric.status||'NO_DATA').toLowerCase()}`}><div><b>{metric.label}</b><em>{metricStatusLabel[metric.status]||metric.status}</em></div><p>{(metric.source||[]).map(item=>`${item.platform} · ${item.dataset}`).join(' + ')}</p><small>{metric.as_of?`${dateTime(metric.as_of)} 기준`:'기준시각 없음'} · {metric.formula?.version||'버전 없음'}</small></article>)}</div></section>;
 }
 
-export default function Dashboard({ initialData, currentUser }) {
+export default function Dashboard({ initialData }) {
   const [mounted, setMounted] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState('');
@@ -73,17 +73,16 @@ export default function Dashboard({ initialData, currentUser }) {
     } catch (error) { setSyncMessage(`확인 필요 · ${error.message}`); setSyncing(false); }
   }
 
-  const nav = [['main','메인'],['collection','데이터수집'],['insight','인사이트'],['keyword','키워드'],['product','상품'],['reports','진단목록'],...(currentUser.role==='OWNER'?[['changes','변경승인']]:[]),['experiments','실험실'],['notifications',`알림 ${initialData.alerts.length||''}`]];
+  const nav = [['main','메인'],['collection','데이터수집'],['insight','인사이트'],['keyword','키워드'],['product','상품'],['reports','진단목록'],['changes','변경승인'],['experiments','실험실'],['notifications',`알림 ${initialData.alerts.length||''}`]];
   const platformName = platform === 'naver' ? '네이버' : platform === 'coupang' ? '쿠팡' : platform === 'cafe24' ? 'Cafe24' : '전체';
 
   return <div className="shell">
     <header className="topbar">
       <div className="brand"><span className="brandMark">H</span><div><b>하린식품</b><small>광고·매출 통합 관리 허브</small></div></div>
-      <div className="headerActions"><span className="userRoleBadge"><b>{currentUser.displayName}</b><small>{currentUser.role}</small></span>{currentUser.role==='OWNER'&&<a className="accountButton" href="/admin/users">계정 관리</a>}<span className="live"><i /> Cafe24 연결됨</span>{currentUser.role!=='VIEWER'&&<button className="syncButton" onClick={runSync} disabled={syncing}>{syncing ? '동기화 중…' : '지금 동기화'}</button>}<form action="/api/dashboard/logout" method="post"><button className="logoutButton" type="submit">나가기</button></form></div>
+      <div className="headerActions"><span className="live"><i /> Cafe24 연결됨</span><button className="syncButton" onClick={runSync} disabled={syncing}>{syncing ? '동기화 중…' : '지금 동기화'}</button><form action="/api/dashboard/logout" method="post"><button className="logoutButton" type="submit">나가기</button></form></div>
     </header>
     <nav className="tabs" aria-label="허브 메뉴">{nav.map(([id,label])=><button key={id} className={view===id?'active':''} onClick={()=>setView(id)}>{label}</button>)}</nav>
     <main>
-      {currentUser.role==='VIEWER'&&<section className="readOnlyBanner" role="status"><b>조회 전용 계정</b><span>현재 계정은 데이터를 볼 수 있지만 수집·승인·주문·설정 변경은 서버에서 차단됩니다.</span></section>}
       <section className="platformSwitch" aria-label="플랫폼 선택">
         {[['all','allDot','전체'],['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡'],['cafe24','cafeDot','Cafe24']].map(([id,dot,label])=><button key={id} className={platform===id?'selected':''} onClick={()=>setPlatform(id)}><i className={dot}/>{label}</button>)}
         <span className="periodFilter">최근 7일 기준</span>
