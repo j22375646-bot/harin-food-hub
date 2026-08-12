@@ -11,6 +11,8 @@ require('dotenv').config({ path: path.join(root, '.env.local'), override: false,
 const { getSupabase } = require('../lib/cafe24/supabase.js');
 const { syncCoupang } = require('../lib/automation/sync-all.js');
 const { syncRocketGrowthInventoryOnly, syncRocketGrowthRealtime } = require('../lib/coupang/sync.js');
+const operationQueue = require('../lib/coupang/operation-queue.js');
+const coupangActions = require('../lib/coupang/actions.js');
 
 const logPath = path.join(root, 'tmp', 'coupang-local-worker.log');
 const watchMode = process.argv.includes('--watch');
@@ -97,29 +99,115 @@ async function processPending(db) {
   return processed;
 }
 
+async function claimNextOperation(db) {
+  const now = new Date().toISOString();
+  const pending = await db.from('coupang_operation_requests')
+    .select('id,operation_type,target_type,target_id,payload,attempt_count')
+    .eq('status', 'PENDING')
+    .or(`next_attempt_at.is.null,next_attempt_at.lte.${now}`)
+    .order('created_at', { ascending:true })
+    .limit(1)
+    .maybeSingle();
+  if (pending.error) throw pending.error;
+  if (!pending.data) return null;
+  const claimed = await db.from('coupang_operation_requests').update({
+    status:'RUNNING', started_at:now, collector:collectorId,
+    attempt_count:Number(pending.data.attempt_count || 0) + 1
+  }).eq('id', pending.data.id).eq('status', 'PENDING')
+    .select('id,operation_type,target_type,target_id,payload,attempt_count')
+    .maybeSingle();
+  if (claimed.error) throw claimed.error;
+  return claimed.data || null;
+}
+
+async function expirePendingOperations(db) {
+  const now = new Date().toISOString();
+  const expired = await db.from('coupang_operation_requests').update({
+    status:'FAILED', executed_at:now,
+    error_message:'고정 IP 서버 처리 기한이 지나 안전을 위해 실행하지 않았습니다. 다시 요청해주세요.'
+  }).eq('status', 'PENDING').lt('expires_at', now);
+  if (expired.error) throw expired.error;
+}
+
+async function dispatchOperation(request, payload, handlers = coupangActions, db = getSupabase()) {
+  if (request.operation_type === 'ORDER_DETAIL') return { order:await handlers.getOrderDetail(request.target_id) };
+  const options = { audit:{ db, id:request.id } };
+  if (request.target_type === 'ORDER') return handlers.executeOrderAction(request.operation_type, payload, options);
+  if (request.target_type === 'INQUIRY') return handlers.executeCsAction(request.operation_type, payload, options);
+  if (['RETURN', 'EXCHANGE'].includes(request.target_type)) return handlers.executeCaseAction(request.operation_type, payload, options);
+  throw new Error(`Unsupported Coupang operation target: ${request.target_type}`);
+}
+
+async function processOperationRequest(db, request) {
+  log(`OPERATION_START ${request.operation_type} ${request.id}`);
+  try {
+    const payload = operationQueue.open(request.payload);
+    const result = await dispatchOperation(request, payload, coupangActions, db);
+    const saved = await db.from('coupang_operation_requests').update({
+      status:'SUCCESS', result_json:operationQueue.seal(result), error_message:null,
+      executed_at:new Date().toISOString()
+    }).eq('id', request.id).eq('status', 'RUNNING');
+    if (saved.error) throw saved.error;
+    log(`OPERATION_SUCCESS ${request.operation_type} ${request.id}`);
+  } catch (error) {
+    const message = safeMessage(error);
+    await db.from('coupang_operation_requests').update({
+      status:'FAILED', error_message:message, executed_at:new Date().toISOString()
+    }).eq('id', request.id).eq('status', 'RUNNING');
+    log(`OPERATION_FAILED ${request.operation_type} ${request.id} ${message}`);
+  }
+}
+
+async function processPendingOperations(db) {
+  let processed = 0;
+  await expirePendingOperations(db);
+  while (true) {
+    const request = await claimNextOperation(db);
+    if (!request) break;
+    await processOperationRequest(db, request);
+    processed += 1;
+  }
+  return processed;
+}
+
+async function processAllPending(db) {
+  const syncRequests = await processPending(db);
+  const operationRequests = await processPendingOperations(db);
+  return syncRequests + operationRequests;
+}
+
 async function runOnce(db = getSupabase()) {
-  const processed = await processPending(db);
+  const processed = await processAllPending(db);
   if (!processed) log('IDLE_NO_MANUAL_REQUEST');
   return processed;
 }
 
 async function watch(db = getSupabase()) {
-  await processPending(db);
-  // Some Node WebSocket implementations unref their socket. Keep the hidden
-  // scheduled task alive without polling the database or running a collection.
-  const keepAlive = setInterval(() => {}, 60 * 1000);
+  await processAllPending(db);
+  // Realtime is the fast path. This quiet recovery pass only drains explicitly
+  // queued requests if a WebSocket event was missed; it never starts a
+  // collection unless a user or the daily scheduler already queued one.
+  const keepAlive = setInterval(() => {
+    processAllPending(db).catch(error => log(`RECOVERY_FAILED ${safeMessage(error)}`));
+  }, 60 * 1000);
   const channel = db.channel('harin-coupang-manual-requests')
     .on('postgres_changes', { event:'INSERT', schema:'public', table:'coupang_sync_requests' }, () => {
       processPending(db).catch(error => log(`EVENT_FAILED ${safeMessage(error)}`));
     })
     .subscribe((status, error) => {
       log(`REALTIME_${status}${error ? ` ${safeMessage(error)}` : ''}`);
-      if (status === 'SUBSCRIBED') processPending(db).catch(nextError => log(`RECOVERY_FAILED ${safeMessage(nextError)}`));
+      if (status === 'SUBSCRIBED') processAllPending(db).catch(nextError => log(`RECOVERY_FAILED ${safeMessage(nextError)}`));
     });
+  const operationChannel = db.channel('harin-coupang-operation-requests')
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'coupang_operation_requests' }, () => {
+      processPendingOperations(db).catch(error => log(`OPERATION_EVENT_FAILED ${safeMessage(error)}`));
+    })
+    .subscribe((status, error) => log(`OPERATION_REALTIME_${status}${error ? ` ${safeMessage(error)}` : ''}`));
   const shutdown = async signal => {
     log(`STOP ${signal}`);
     clearInterval(keepAlive);
     await db.removeChannel(channel).catch(() => {});
+    await db.removeChannel(operationChannel).catch(() => {});
     process.exit(0);
   };
   process.once('SIGINT', () => shutdown('SIGINT'));
@@ -139,4 +227,4 @@ if (require.main === module) main().catch(error => {
   process.exitCode = 1;
 });
 
-module.exports = { assertAllowedSourceIp, claimNext, processRequest, processPending, publicIp, runOnce, scheduleRetry, watch };
+module.exports = { assertAllowedSourceIp, claimNext, claimNextOperation, dispatchOperation, expirePendingOperations, processRequest, processOperationRequest, processPending, processPendingOperations, processAllPending, publicIp, runOnce, scheduleRetry, watch };
