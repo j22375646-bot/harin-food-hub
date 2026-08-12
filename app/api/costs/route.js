@@ -1,6 +1,7 @@
 import authModule from '../../../lib/dashboard-auth.js';
 import supabaseModule from '../../../lib/cafe24/supabase.js';
 import costCalibrationModule from '../../../lib/analytics/cost-calibration.js';
+import apiSafety from '../../../lib/api/safety.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,9 +11,9 @@ const amount = value => Number.isFinite(Number(value)) && Number(value) >= 0 ? N
 const rate = value => Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 100 ? Number(value) / 100 : null;
 
 export async function PUT(request) {
-  if (!authModule.verifySession(cookieValue(request))) return Response.json({ ok:false, error:'Unauthorized' }, { status:401 });
+  if (!authModule.verifySession(cookieValue(request))) return apiSafety.unauthorized();
   try {
-    const body = await request.json(), db = supabaseModule.getSupabase();
+    const body = await apiSafety.readJson(request), db = supabaseModule.getSupabase();
     if (body.type === 'PRODUCT') {
       const unitCost = amount(body.unit_cost), packagingCost = amount(body.packaging_cost), otherUnitCost = amount(body.other_unit_cost);
       if (!body.master_product_id || [unitCost, packagingCost, otherUnitCost].includes(null)) return Response.json({ ok:false, error:'원가 입력값을 확인해주세요.' }, { status:400 });
@@ -46,5 +47,5 @@ export async function PUT(request) {
       return Response.json({ ok:true, ...result });
     }
     return Response.json({ ok:false, error:'지원하지 않는 비용 설정입니다.' }, { status:400 });
-  } catch (error) { return Response.json({ ok:false, error:error.message || '비용 저장 실패' }, { status:500 }); }
+  } catch (error) { return apiSafety.inputErrorResponse(error) || apiSafety.json({ ok:false, error:error.message || '비용 저장 실패' }, { status:500 }); }
 }

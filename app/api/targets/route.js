@@ -1,5 +1,6 @@
 import authModule from '../../../lib/dashboard-auth.js';
 import pacingService from '../../../lib/analytics/pacing-service.js';
+import apiSafety from '../../../lib/api/safety.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -9,11 +10,11 @@ function cookieValue(request) {
 }
 
 export async function POST(request) {
-  if (!authModule.verifySession(cookieValue(request))) return Response.json({ ok:false, error:'Unauthorized' }, { status:401 });
+  if (!authModule.verifySession(cookieValue(request))) return apiSafety.unauthorized();
   try {
-    const result = await pacingService.saveTarget(await request.json());
-    return Response.json({ ok:true, ...result });
+    const result = await pacingService.saveTarget(await apiSafety.readJson(request));
+    return apiSafety.json({ ok:true, ...result });
   } catch (error) {
-    return Response.json({ ok:false, error:error.message || '목표·예산 저장 실패' }, { status:400 });
+    return apiSafety.inputErrorResponse(error) || apiSafety.json({ ok:false, error:error.message || '목표·예산 저장 실패' }, { status:400 });
   }
 }

@@ -1,5 +1,6 @@
 import authModule from '../../../../lib/dashboard-auth.js';
 import costImportModule from '../../../../lib/coupang/cost-file-import.js';
+import apiSafety from '../../../../lib/api/safety.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -7,6 +8,7 @@ export const maxDuration = 300;
 
 const MAX_FILE_BYTES = 20 * 1024 * 1024;
 const MAX_FILES = 20;
+const MAX_TOTAL_BYTES = 100 * 1024 * 1024;
 
 function cookieValue(request) {
   return request.headers.get('cookie')?.split(';').map(value => value.trim()).find(value => value.startsWith(`${authModule.COOKIE_NAME}=`))?.split('=').slice(1).join('=');
@@ -19,12 +21,14 @@ export async function POST(request) {
     const files = form.getAll('files').filter(file => file && typeof file.arrayBuffer === 'function');
     if (!files.length) return Response.json({ ok: false, error: '쿠팡 정산·비용 XLSX 파일을 선택해주세요.' }, { status: 400 });
     if (files.length > MAX_FILES) return Response.json({ ok: false, error: `한 번에 최대 ${MAX_FILES}개까지 올릴 수 있습니다.` }, { status: 400 });
+    if (files.reduce((sum, file) => sum + Number(file.size || 0), 0) > MAX_TOTAL_BYTES) return Response.json({ ok:false, error:'전체 파일 용량은 100MB 이하여야 합니다.' }, { status:413 });
     const results = [];
     for (const file of files) {
       if (!file.name.toLowerCase().endsWith('.xlsx')) { results.push({ fileName: file.name, ok: false, error: 'XLSX 파일만 지원합니다.' }); continue; }
       if (file.size > MAX_FILE_BYTES) { results.push({ fileName: file.name, ok: false, error: '파일은 20MB 이하여야 합니다.' }); continue; }
       try {
-        const result = await costImportModule.importCostFile({ buffer: Buffer.from(await file.arrayBuffer()), fileName: file.name });
+        const buffer = apiSafety.assertXlsx(Buffer.from(await file.arrayBuffer()), file.name);
+        const result = await costImportModule.importCostFile({ buffer, fileName: file.name });
         results.push({ fileName: file.name, ok: true, ...result });
       } catch (error) {
         results.push({ fileName: file.name, ok: false, error: error.message || '파일 처리 실패' });

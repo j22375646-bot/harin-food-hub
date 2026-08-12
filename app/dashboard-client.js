@@ -53,7 +53,7 @@ export default function Dashboard({ initialData }) {
   async function runSync() {
     setSyncing(true); setSyncMessage('Cafe24 데이터를 가져오는 중이에요…');
     try {
-      const response = await fetch('/api/cafe24/fetch-all');
+      const response = await fetch('/api/cafe24/fetch-all', { method:'POST' });
       const result = await response.json();
       if (!response.ok || !result.ok) throw new Error(result.error || '동기화 실패');
       setSyncMessage(`완료 · 상품 ${result.counts.products} · 주문 ${result.counts.orders} · 트래픽 ${result.counts.traffic}`);

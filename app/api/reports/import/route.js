@@ -1,5 +1,6 @@
 import authModule from '../../../../lib/dashboard-auth.js';
 import supabaseModule from '../../../../lib/cafe24/supabase.js';
+import apiSafety from '../../../../lib/api/safety.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,8 +40,12 @@ export async function POST(request) {
     const text = await file.text();
     const summary = reportSummary(text, file);
     const today = new Date().toISOString().slice(0, 10);
-    const periodStart = String(form.get('period_start') || '') || summary.dates[0] || today;
-    const periodEnd = String(form.get('period_end') || '') || summary.dates[1] || summary.dates[0] || today;
+    const requestedStart = String(form.get('period_start') || '');
+    const requestedEnd = String(form.get('period_end') || '');
+    if ((requestedStart && !apiSafety.isoDate(requestedStart)) || (requestedEnd && !apiSafety.isoDate(requestedEnd))) return apiSafety.json({ ok:false, error:'보고서 날짜 형식을 확인해주세요.' }, { status:400 });
+    const periodStart = apiSafety.isoDate(requestedStart) || summary.dates[0] || today;
+    const periodEnd = apiSafety.isoDate(requestedEnd) || summary.dates[1] || summary.dates[0] || today;
+    if (periodStart > periodEnd) return apiSafety.json({ ok:false, error:'보고서 기간을 확인해주세요.' }, { status:400 });
     const title = String(form.get('title') || '').trim() || file.name.replace(/\.[^.]+$/, '');
     const { data, error } = await supabaseModule.getSupabase().from('reports').insert({ platform, report_type: 'ADHOC', period_start: periodStart, period_end: periodEnd, title: title.slice(0, 200), status: 'FINAL', summary_json: summary, report_html: ['html', 'htm'].includes(extension) ? text : null }).select('id,title,platform,period_start,period_end,status').single();
     if (error) throw error;
