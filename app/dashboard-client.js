@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useEffect, useState } from 'react';
+import reportVersioning from '../lib/reports/versioning.js';
 
 const won = value => `${Math.round(Number(value || 0)).toLocaleString('ko-KR')}원`;
 const count = value => Number(value || 0).toLocaleString('ko-KR');
@@ -80,6 +81,56 @@ export default function Dashboard({ initialData }) {
     </main>
     <footer>하린식품 광고·매출 통합 관리 허브 <span>·</span> 네이버 + 쿠팡 + Cafe24 + Supabase</footer>
   </div>;
+}
+
+function reportMetricLabel(key) {
+  return {score:'운영점수',cafe24Revenue:'Cafe24 매출',naverSpend:'네이버 광고비',naverRoas:'네이버 ROAS',coupangSales:'쿠팡 매출',coupangAdSpend:'쿠팡 광고비',coupangAdRoas:'쿠팡 ROAS'}[key] || key;
+}
+
+function reportMetricValue(key,value) {
+  if(value==null)return '-';
+  if(key==='score')return `${num(value).toFixed(0)}점`;
+  if(key.toLowerCase().includes('roas'))return `${num(value).toFixed(1)}%`;
+  return won(value);
+}
+
+function VersionedReportList({ reports }) {
+  const groups=reportVersioning.groupVersions(reports);
+  const [open,setOpen]=useState('');
+  const [historyOpen,setHistoryOpen]=useState('');
+  const [busy,setBusy]=useState('');
+  const [message,setMessage]=useState('');
+  async function action(report,actionName){
+    setBusy(`${report.id}-${actionName}`);setMessage('');
+    try{
+      const response=await fetch(`/api/reports/${report.id}/action`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:actionName})});
+      const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'처리 실패');
+      setMessage(actionName==='APPROVE'?'최신 보고서를 승인했습니다.':'선택한 버전을 새 최신본으로 복원했습니다.');
+      setTimeout(()=>window.location.reload(),700);
+    }catch(error){setMessage(`확인 필요 · ${error.message}`);setBusy('');}
+  }
+  return <article className="panel versionedReports">
+    <PanelTitle tag="REPORT ARCHIVE" title="보고서 이력·버전관리" right={`${groups.length}개 보고서 · ${reports.length}개 버전`}/>
+    {message&&<div className="reportVersionMessage">{message}</div>}
+    {groups.length?<div className="reportSeriesList">{groups.map(group=>{
+      const r=group.latest,summary=r.summary_json||{},previous=group.versions[1];
+      const changes=previous?reportVersioning.compareVersions(r,previous):null;
+      const changeRows=changes?Object.entries(changes).filter(([,item])=>item.current!=null&&item.previous!=null).slice(0,4):[];
+      return <section className={`reportSeries ${open===group.key?'open':''}`} key={group.key}>
+        <button className="reportSeriesHead" onClick={()=>setOpen(open===group.key?'':group.key)}>
+          <div><span className={`platformBadge ${String(r.platform).toLowerCase()}`}>{r.platform}</span><b>{r.title}</b><small>{r.period_start} ~ {r.period_end} · {r.report_type}</small></div>
+          <div className="reportSeriesStatus"><em className={r.status==='APPROVED'?'approved':''}>{r.status==='APPROVED'?'승인본':'최신본'}</em><strong>v{r.version||1}</strong><span>{group.count}개 버전</span></div>
+        </button>
+        {open===group.key&&<div className="reportSeriesBody">
+          <section className="reportVersionKpis"><span><small>운영점수</small><b>{summary.score??'-'}점</b></span><span><small>Cafe24 매출</small><b>{summary.cafe24?won(summary.cafe24.revenue):'-'}</b></span><span><small>네이버 ROAS</small><b>{summary.naver?`${num(summary.naver.roas).toFixed(1)}%`:'-'}</b></span><span><small>쿠팡 매출</small><b>{summary.coupang?won(summary.coupang.gross_sales):'-'}</b></span></section>
+          {changeRows.length>0&&<section className="versionDelta"><b>직전 버전 대비</b>{changeRows.map(([key,item])=><span key={key}><small>{reportMetricLabel(key)}</small><em className={item.delta>0?'up':item.delta<0?'down':''}>{item.delta>0?'+':''}{reportMetricValue(key,item.delta)}</em></span>)}</section>}
+          <div className="reportOutputActions"><a href={`/api/reports/${r.id}/print`} target="_blank" rel="noreferrer">상세 보고서 · PDF/인쇄</a><a className="owner" href={`/api/reports/${r.id}/print?mode=owner`} target="_blank" rel="noreferrer">사장님 1페이지 · PDF/인쇄</a><a href={`/api/reports/${r.id}/download`}>HTML 저장</a>{r.status!=='APPROVED'&&<button onClick={()=>action(r,'APPROVE')} disabled={Boolean(busy)}>{busy===`${r.id}-APPROVE`?'승인 중…':'최신본 승인'}</button>}</div>
+          <button className="historyToggle" onClick={()=>setHistoryOpen(historyOpen===group.key?'':group.key)}>{historyOpen===group.key?'버전 이력 닫기':`과거 버전 ${group.count}개 보기`}</button>
+          {historyOpen===group.key&&<div className="reportVersionTimeline">{group.versions.map(version=><div key={version.id}><span className="versionNumber">v{version.version||1}</span><section><b>{version.is_latest?'현재 최신본':version.status==='APPROVED'?'당시 승인본':'보관본'}</b><small>{dateTime(version.created_at)} · {version.revision_note||'기존 보고서'}</small></section><div><a href={`/api/reports/${version.id}/print`} target="_blank" rel="noreferrer">열기</a>{!version.is_latest&&<button onClick={()=>action(version,'RESTORE')} disabled={Boolean(busy)}>{busy===`${version.id}-RESTORE`?'복원 중…':'이 버전 복원'}</button>}</div></div>)}</div>}
+        </div>}
+      </section>;
+    })}</div>:<Empty>저장된 보고서가 없습니다.</Empty>}
+  </article>;
 }
 
 function MainView({ platform, platformName, data, maxPv, maxRef }) {
@@ -418,7 +469,7 @@ function CostManager({ masterProducts, productCosts, channelCostSettings }) {
   return <article className="panel costPanel"><PanelTitle tag="PROFIT SETTINGS" title="원가·수수료·택배비" right="서버 계산"/><p className="costGuide">수수료는 퍼센트, 상품 비용과 배송비는 원 단위입니다. 저장 후 보고서를 재생성하면 상품별 공헌이익과 BE ROAS가 확정됩니다.</p><div className="channelCostRow"><b>Cafe24 공통비용</b><label>판매수수료 %<input type="number" min="0" max="100" step="0.01" value={channel.commission_rate} onChange={e=>setChannel({...channel,commission_rate:e.target.value})}/></label><label>결제수수료 %<input type="number" min="0" max="100" step="0.01" value={channel.payment_fee_rate} onChange={e=>setChannel({...channel,payment_fee_rate:e.target.value})}/></label><label>주문당 택배비<input type="number" min="0" step="100" value={channel.default_shipping_cost} onChange={e=>setChannel({...channel,default_shipping_cost:e.target.value})}/></label><button disabled={saving==='channel'} onClick={()=>save({type:'CHANNEL',platform:'CAFE24',...channel},'channel')}>공통비용 저장</button></div><div className="productCostTable"><div className="productCostHead"><span>기준상품</span><span>상품 원가</span><span>포장비</span><span>기타 단위비</span><span>저장</span></div>{masterProducts.slice(0,20).map(product=>{const row=rows[product.id]||{};return <div className="productCostRow" key={product.id}><b>{product.name}</b>{['unit_cost','packaging_cost','other_unit_cost'].map(field=><input key={field} type="number" min="0" step="100" value={row[field]??0} onChange={e=>setRows({...rows,[product.id]:{...row,[field]:e.target.value}})}/>)}<button disabled={saving===product.id} onClick={()=>save({type:'PRODUCT',master_product_id:product.id,...row},product.id)}>{saving===product.id?'저장 중':'저장'}</button></div>})}</div>{message&&<small className="costMessage">{message}</small>}</article>;
 }
 
-function ReportsView({ reports, actions, syncs }) { return <><section className="pageIntro reportIntro"><div><span className="eyebrow">REPORT & ACTION</span><h1>진단목록과 실행결정</h1><p>연결된 데이터를 분석해 버튼 한 번으로 보고서를 만듭니다.</p></div></section><AutomationPanel reports={reports} syncs={syncs}/><ManualAutomationButtons/><ReportGenerator/><section className="twoCol"><ReportList reports={reports}/><ActionPanel actions={actions}/></section><article className="panel"><PanelTitle tag="COLLECTION HISTORY" title="데이터 수집 이력" right="전체 플랫폼"/><SyncTable syncs={syncs}/></article></>;
+function ReportsView({ reports, actions, syncs }) { return <><section className="pageIntro reportIntro"><div><span className="eyebrow">REPORT & ACTION</span><h1>진단목록과 실행결정</h1><p>버전별 보고서를 보관하고, 승인·복원·사장님 요약·PDF 인쇄까지 한곳에서 처리합니다.</p></div></section><AutomationPanel reports={reports} syncs={syncs}/><ManualAutomationButtons/><ReportGenerator/><VersionedReportList reports={reports}/><ActionPanel actions={actions}/><article className="panel"><PanelTitle tag="COLLECTION HISTORY" title="데이터 수집 이력" right="전체 플랫폼"/><SyncTable syncs={syncs}/></article></>;
 }
 
 function ManualAutomationButtons(){const [running,setRunning]=useState('');const [message,setMessage]=useState('');async function run(path,label){setRunning(path);setMessage(`${label} 처리 중…`);try{const response=await fetch(path,{method:'POST'});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'실행 실패');setMessage(`${label} 완료`);setTimeout(()=>window.location.reload(),800);}catch(error){setMessage(`확인 필요 · ${error.message}`);setRunning('');}}return <section className="manualAutomation"><button onClick={()=>run('/api/reports/daily','일일 보고서·이상징후 재생성')} disabled={Boolean(running)}>{running==='/api/reports/daily'?'생성 중…':'일일 보고서 + 이상징후 재계산'}</button><button onClick={()=>run('/api/actions/evaluate','액션 효과평가')} disabled={Boolean(running)}>{running==='/api/actions/evaluate'?'평가 중…':'액션 효과 지금 평가'}</button>{message&&<span>{message}</span>}</section>}
