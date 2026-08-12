@@ -62,3 +62,19 @@ test('플랫폼별 반품·도서산간 충당비를 통합 상품 공헌이익�
   assert.equal(result.summary.return_reserve,500);
   assert.equal(result.summary.remote_area_reserve,200);
 });
+
+test('미귀속 쿠팡 광고비가 있으면 상품 ROAS와 공헌이익을 미산정 처리한다', () => {
+  const result = performance.buildUnifiedProductPerformance({
+    periodStart:'2026-08-01',periodEnd:'2026-08-07',
+    masterProducts:[{id:'M1',name:'국화차'}],
+    channelProducts:[{platform:'CAFE24',external_product_id:'P1',master_product_id:'M1'}],
+    cafe24Orders:[{order_id:'O1',order_date:'2026-08-02'}],
+    cafe24OrderItems:[{order_id:'O1',external_product_no:'P1',quantity:1,paid_amount:10000}],
+    productCosts:[{master_product_id:'M1',unit_cost:3000}],
+    coupangAdKeywords:[{keyword:'완전히 다른 상품',ad_spend:5000}]
+  });
+  assert.equal(result.financial_trust.status,'BLOCKED');
+  assert.equal(result.summary.contribution_profit,null);
+  assert.equal(result.items[0].contribution_profit,null);
+  assert.equal(result.items[0].roas,null);
+});

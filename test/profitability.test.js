@@ -23,8 +23,12 @@ test('marks incomplete product cost coverage without inventing zero-cost confide
   const result = calculateProfitability({items:[{order_id:'O1',external_product_no:'missing',product_name:'미설정',quantity:1,paid_amount:10000}]});
   assert.equal(result.cost_status,'COST_DATA_REQUIRED');
   assert.equal(result.cost_coverage_rate,0);
+  assert.equal(result.contribution_profit,null);
   assert.equal(result.break_even_roas,null);
+  assert.equal(result.missing_cost_products,1);
+  assert.equal(result.missing_cost_revenue,10000);
   assert.equal(result.products[0].cost_configured,false);
+  assert.equal(result.products[0].contribution_before_ads,null);
 });
 
 test('adds expected return and remote-area reserves without storing customer addresses', () => {

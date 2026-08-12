@@ -17,6 +17,10 @@ export async function POST(request) {
   if (!authModule.verifySession(cookieValue(request))) return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   try {
     const body = await request.json();
+    const trust = authModule.verifyFinancialTrust(body.financialTrustToken);
+    if (!trust?.allowed_cpc) {
+      return Response.json({ ok:false, error:'원가 반영률 95%와 광고비 귀속을 완료한 뒤 다시 계산하세요.', code:'FINANCIAL_TRUST_BLOCKED' }, { status:409 });
+    }
     const input = {
       averageOrderValue: positive(body.averageOrderValue),
       conversionRatePercent: positive(body.conversionRatePercent),

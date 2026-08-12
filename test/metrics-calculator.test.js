@@ -32,6 +32,15 @@ test('small samples are held instead of recommending a bid change', () => {
   assert.equal(result.recommendedAdjustmentRate, 0);
 });
 
+test('clicks and conversions must both meet the minimum sample', () => {
+  const conversionsOnly = calculator.calculatePerformance({ clicks: 3, cost: 3000, conversions: 4, revenue: 50000 });
+  const clicksOnly = calculator.calculatePerformance({ clicks: 40, cost: 40000, conversions: 2, revenue: 50000 });
+  const ready = calculator.calculatePerformance({ clicks: 30, cost: 30000, conversions: 3, revenue: 60000 });
+  assert.equal(conversionsOnly.status, 'INSUFFICIENT_SAMPLE');
+  assert.equal(clicksOnly.status, 'INSUFFICIENT_SAMPLE');
+  assert.equal(ready.status, 'READY');
+});
+
 test('zero traffic returns a no-data state without Infinity or NaN', () => {
   const result = calculator.calculatePerformance({ impressions: 0, clicks: 0, cost: 0, conversions: 0, revenue: 0 });
   assert.equal(result.status, 'NO_DATA');

@@ -10,6 +10,7 @@ import mappingService from '../lib/products/mapping-service.js';
 import productPerformance from '../lib/products/performance.js';
 import costCalibrationModule from '../lib/analytics/cost-calibration.js';
 import shippingRulesModule from '../lib/analytics/shipping-rules.js';
+import financialTrustModule from '../lib/analytics/financial-trust.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -301,6 +302,23 @@ async function getDashboardData() {
     coupangRgOrders:coupangRgOrdersResult.data || [],
     coupangRgOrderItems:coupangRgOrderItemsResult.data || []
   });
+  const coverageCandidates = [liveProfitability.cost_coverage_rate, unifiedProductPerformance.summary?.cost_coverage_rate]
+    .filter(value => value !== null && value !== undefined && value !== '')
+    .map(value => Number(value))
+    .filter(Number.isFinite);
+  const financialTrust = financialTrustModule.evaluateFinancialTrust({
+    costCoverageRate:coverageCandidates.length ? Math.min(...coverageCandidates) : null,
+    unassignedAdSpend:unifiedProductPerformance.summary?.coupang_ad_spend_unassigned,
+    missingCostProducts:Math.max(number(liveProfitability.missing_cost_products), number(unifiedProductPerformance.summary?.missing_cost_products)),
+    missingCostRevenue:Math.max(number(liveProfitability.missing_cost_revenue), number(unifiedProductPerformance.summary?.missing_cost_revenue))
+  });
+  const trustedProfitability = financialTrustModule.applyProfitabilityGate(liveProfitability, financialTrust);
+  const trustedProductPerformance = financialTrustModule.applyProductPerformanceGate(unifiedProductPerformance, financialTrust);
+  const trustedNaverPerformance = financialTrustModule.applyBidGuideGate(naverPerformance, financialTrust);
+  keywordTop=keywordTop.map(item=>({...item,metrics:financialTrustModule.applyBidGuideGate(item.metrics,financialTrust)}));
+  keywordWaste=keywordWaste.map(item=>({...item,metrics:financialTrustModule.applyBidGuideGate(item.metrics,financialTrust)}));
+  const trustedNaverTopCampaigns=naverTopCampaigns.map(item=>({...item,metrics:financialTrustModule.applyBidGuideGate(item.metrics,financialTrust)}));
+  const financialTrustToken=authModule.signFinancialTrust(financialTrust);
   const pacing = await pacingPromise;
   return {
     generatedAt: new Date().toISOString(),
@@ -335,15 +353,17 @@ async function getDashboardData() {
     masterProducts: masterResult.data || [],
     channelProducts: allChannelProducts,
     productMapping,
-    unifiedProductPerformance,
+    unifiedProductPerformance:trustedProductPerformance,
     productCosts: costsResult.data || [],
     channelCostSettings: channelCostsResult.data || [],
     channelShippingRules: shippingRulesResult.data || [],
     shippingRuleEvidence,
     costCalibration,
-    liveProfitability,
+    liveProfitability:trustedProfitability,
+    financialTrust,
+    financialTrustToken,
     pacing,
-    naver: { campaigns:naverCampaignResult.data?.length||0, adgroups:naverGroupResult.count||0, keywords:naverKeywordResult.count||0, latestSync:naverSyncResult.data||null, periodStart:weekStart?dateOnly(weekStart.toISOString()):null, periodEnd:latestNaverDate, totals:{...naverTotals,roas:naverPerformance.roasPercent,ctr:naverPerformance.ctrPercent,metrics:naverPerformance}, daily:[...naverDailyMap.values()].sort((a,b)=>a.date.localeCompare(b.date)), topCampaigns:naverTopCampaigns, keywordPeriod, keywordTop, keywordWaste },
+    naver: { campaigns:naverCampaignResult.data?.length||0, adgroups:naverGroupResult.count||0, keywords:naverKeywordResult.count||0, latestSync:naverSyncResult.data||null, periodStart:weekStart?dateOnly(weekStart.toISOString()):null, periodEnd:latestNaverDate, totals:{...naverTotals,roas:naverPerformance.roasPercent,ctr:naverPerformance.ctrPercent,metrics:trustedNaverPerformance}, daily:[...naverDailyMap.values()].sort((a,b)=>a.date.localeCompare(b.date)), topCampaigns:trustedNaverTopCampaigns, keywordPeriod, keywordTop, keywordWaste },
     coupang: {
       products: coupangProductsResult.data || [],
       productCount: coupangProductsResult.data?.length || 0,
