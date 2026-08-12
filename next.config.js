@@ -18,6 +18,14 @@ module.exports = {
           { key:'Pragma', value:'no-cache' },
           { key:'Expires', value:'0' }
         ]
+      },
+      {
+        source:'/:path(login|admin.*)',
+        headers:[
+          { key:'Cache-Control', value:'private, no-store, max-age=0, must-revalidate' },
+          { key:'Pragma', value:'no-cache' },
+          { key:'Expires', value:'0' }
+        ]
       }
     ];
   }

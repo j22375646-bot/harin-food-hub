@@ -473,10 +473,11 @@ async function getDashboardData() {
 
 export default async function Home() {
   const cookieStore = await cookies();
-  if (!authModule.verifySession(cookieStore.get(authModule.COOKIE_NAME)?.value)) redirect('/login');
+  const currentUser = await authModule.validateSession(cookieStore.get(authModule.COOKIE_NAME)?.value).catch(()=>null);
+  if (!currentUser) redirect('/login');
   try {
-    return <Dashboard initialData={await getDashboardData()} />;
+    return <Dashboard initialData={await getDashboardData()} currentUser={currentUser} />;
   } catch (error) {
-    return <Dashboard initialData={{ error: error.message }} />;
+    return <Dashboard initialData={{ error: error.message }} currentUser={currentUser} />;
   }
 }

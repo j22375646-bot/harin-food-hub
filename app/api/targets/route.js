@@ -11,7 +11,7 @@ export async function POST(request) {
     const body = await apiSafety.readJson(request);
     const result = await financialChanges.createPreview({ type:'BUSINESS_TARGET', ...body }, {
       idempotencyKey:request.headers.get('idempotency-key') || body.idempotency_key,
-      actor:'dashboard-session'
+      actor:authModule.requestActor(request)
     });
     return apiSafety.json({ ok:true, preview:true, ...result }, { status:result.reused ? 200 : 202 });
   } catch (error) {

@@ -54,7 +54,6 @@ test('Cafe24 manual collection is POST-only and diagnostics require a session', 
 });
 
 test('Cafe24 diagnostic routes reject unauthenticated requests before external access', async () => {
-  process.env.DASHBOARD_PASSWORD = 'test-password';
   const statusRoute = await import('../app/api/cafe24/status/route.js');
   const testRoute = await import('../app/api/cafe24/test/route.js');
   const request = new Request('https://example.com/api/cafe24/status');

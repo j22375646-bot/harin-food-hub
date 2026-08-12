@@ -1,10 +1,36 @@
 import authModule from '../../../../lib/dashboard-auth.js';
 import { NextResponse } from 'next/server';
+
 export const runtime = 'nodejs';
+
+function sourceIp(request) {
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+    || request.headers.get('x-real-ip')
+    || 'unknown';
+}
+
 export async function POST(request) {
+  const origin = request.headers.get('origin');
+  if (!origin || origin !== new URL(request.url).origin) {
+    return NextResponse.redirect(new URL('/login?error=invalid', request.url), 303);
+  }
   const form = await request.formData();
-  if (!authModule.verifyPassword(form.get('password'))) return NextResponse.redirect(new URL('/login?error=1', request.url), 303);
-  const response = NextResponse.redirect(new URL('/', request.url), 303);
-  response.cookies.set(authModule.COOKIE_NAME, authModule.sessionToken(), { httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: 2592000 });
-  return response;
+  const nextPath = String(form.get('next') || '/');
+  const safeNext = nextPath.startsWith('/') && !nextPath.startsWith('//') ? nextPath : '/';
+  try {
+    const authenticated = await authModule.authenticateAccount({
+      account:form.get('account'),
+      password:form.get('password'),
+      ip:sourceIp(request),
+      userAgent:request.headers.get('user-agent')
+    });
+    const response = NextResponse.redirect(new URL(safeNext, request.url), 303);
+    response.cookies.set(authModule.COOKIE_NAME, authenticated.token, authModule.sessionCookieOptions());
+    return response;
+  } catch (error) {
+    const login = new URL('/login', request.url);
+    login.searchParams.set('error', error.code === 'LOGIN_RATE_LIMITED' ? 'blocked' : 'invalid');
+    if (safeNext !== '/') login.searchParams.set('next', safeNext);
+    return NextResponse.redirect(login, 303);
+  }
 }

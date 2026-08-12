@@ -24,7 +24,7 @@ export async function GET(request) {
 export async function POST(request) {
   if (!authorized(request)) return Response.json({ ok:false, error:'Unauthorized' }, { status:401 });
   try {
-    const result = await mappingService.mutateMapping({ db:supabaseModule.getSupabase(), body:await request.json(), actor:'DASHBOARD' });
+    const result = await mappingService.mutateMapping({ db:supabaseModule.getSupabase(), body:await request.json(), actor:authModule.requestActor(request) });
     return Response.json({ ok:true, result });
   } catch (error) {
     const validation = /확인|찾지 못|지원하지/.test(error.message || '');
