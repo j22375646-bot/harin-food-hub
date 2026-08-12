@@ -21,7 +21,7 @@ export async function POST(request, { params }) {
   if (body.action === 'APPROVE') {
     if (!found.data.is_latest) return Response.json({ok:false,error:'최신 버전만 승인할 수 있습니다.'},{status:409});
     const approvedBy = String(body.approved_by || '관리자').trim().slice(0,50) || '관리자';
-    const updated = await db.from('reports').update({status:'APPROVED',approved_at:new Date().toISOString(),approved_by:approvedBy}).eq('id',id).select('id,status,approved_at,approved_by').single();
+    const updated = await db.from('reports').update({approved_at:new Date().toISOString(),approved_by:approvedBy}).eq('id',id).select('id,status,approved_at,approved_by').single();
     if (updated.error) return Response.json({ok:false,error:updated.error.message},{status:500});
     return Response.json({ok:true,report:updated.data});
   }
