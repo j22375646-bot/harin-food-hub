@@ -102,6 +102,30 @@ function MetricProvenanceStrip({ snapshots=[] }) {
   return <section className="metricProvenance" aria-label="핵심 지표 출처와 상태"><div className="metricProvenanceTitle"><b>핵심 지표 신뢰도</b><span>출처 · 기준시각 · 계산식 버전</span></div><div className="metricProvenanceGrid">{snapshots.map(metric=><article key={metric.id} className={`metricSnapshot ${String(metric.status||'NO_DATA').toLowerCase()}`}><div><b>{metric.label}</b><em>{metricStatusLabel[metric.status]||metric.status}</em></div><p>{(metric.source||[]).map(item=>`${item.platform} · ${item.dataset}`).join(' + ')}</p><small>{metric.as_of?`${dateTime(metric.as_of)} 기준`:'기준시각 없음'} · {metric.formula?.version||'버전 없음'}</small></article>)}</div></section>;
 }
 
+function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onOpenView }) {
+  const hasQuery=Boolean(query.trim());
+  const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(query.trim().toLowerCase()))})).filter(group=>group.items.length);
+  return <aside className="desktopSidebar" aria-label="허브 사이드바">
+    <div className="sidebarPhase"><span>현재 개발</span><b>10-2단계 · 메뉴 구조 개편</b></div>
+    <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true">⌕</i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴 이름 찾기" /></label>
+    <nav aria-label="허브 메뉴">
+      {visible.map(group=>{const expanded=hasQuery||openGroup===group.id;return <section className={`sidebarGroup${expanded?' expanded':''}`} key={group.id}>
+        <button type="button" className="sidebarGroupButton" aria-expanded={expanded} aria-controls={`sidebar-group-${group.id}`} onClick={()=>onOpenGroup(group.id)}><i>{group.icon}</i><span><b>{group.label}</b><small>{group.description}</small></span>{group.actionCount>0?<em aria-label={`확인할 항목 ${group.actionCount}개`}>{group.actionCount}</em>:null}<strong aria-hidden="true">{expanded?'−':'+'}</strong></button>
+        {expanded?<div className="sidebarItems" id={`sidebar-group-${group.id}`}>{group.items.map(item=><button type="button" key={item.id} className={`sidebarItem${view===item.id?' active':''}`} aria-current={view===item.id?'page':undefined} onClick={()=>onOpenView(item.id)}><i>{item.icon}</i><span><b>{item.label}</b><small>{item.description}</small></span>{item.badge>0?<em aria-label={`확인할 항목 ${item.badge}개`}>{item.badge}</em>:null}</button>)}</div>:null}
+      </section>})}
+      {!visible.length?<p className="sidebarNoResult">찾는 메뉴가 없습니다.</p>:null}
+    </nav>
+  </aside>;
+}
+
+function MobileMoreMenu({ groups, view, currentLabel, onOpenView }) {
+  return <details className="mobileMoreMenu"><summary>전체 기능 열기 <span>{currentLabel}</span></summary><div className="mobileGroupedMenu">{groups.map(group=><section key={group.id}><b>{group.label}</b><div>{group.items.map(item=><button type="button" key={item.id} className={view===item.id?'active':''} onClick={event=>{onOpenView(item.id);event.currentTarget.closest('details')?.removeAttribute('open');}}>{item.label}{item.badge>0?<em>{item.badge}</em>:null}</button>)}</div></section>)}</div></details>;
+}
+
+function BreadcrumbBar({ context, refreshedAt }) {
+  return <nav className="hubBreadcrumb" aria-label="현재 위치"><ol><li>{context.group.label}</li><li>{context.item.label}</li><li>{context.platform}</li></ol><span>{refreshedAt?`최근 갱신 ${dateTime(refreshedAt)}`:'최근 갱신 기록 없음'}</span></nav>;
+}
+
 export default function Dashboard({ initialData, initialState }) {
   const normalizedInitial=hubRoutesModule.normalizeHubState(initialState);
   const [mounted, setMounted] = useState(false);
@@ -111,11 +135,14 @@ export default function Dashboard({ initialData, initialState }) {
   const [view, setView] = useState(normalizedInitial.view);
   const [selectedProduct,setSelectedProduct]=useState(normalizedInitial.product);
   const [period,setPeriod]=useState(normalizedInitial.period);
+  const [openNavGroup,setOpenNavGroup]=useState(hubRoutesModule.groupForView(normalizedInitial.view));
+  const [navQuery,setNavQuery]=useState('');
   useEffect(() => setMounted(true), []);
   useEffect(()=>{
     const syncFromAddress=()=>{
       const next=hubRoutesModule.parseHubHref(window.location.href);
       setView(next.view);setPlatform(next.platform);setSelectedProduct(next.product);setPeriod(next.period);
+      setOpenNavGroup(hubRoutesModule.groupForView(next.view));
     };
     window.addEventListener('popstate',syncFromAddress);
     return ()=>window.removeEventListener('popstate',syncFromAddress);
@@ -138,13 +165,17 @@ export default function Dashboard({ initialData, initialState }) {
     } catch (error) { setSyncMessage(`확인 필요 · ${error.message}`); setSyncing(false); }
   }
 
-  const nav = hubRoutesModule.HUB_NAV.map(item=>({...item,label:item.id==='notifications'?`알림 ${initialData.alerts.length||''}`:item.label}));
+  const nav = hubRoutesModule.HUB_NAV.map(item=>({...item,badge:item.id==='notifications'?initialData.alerts.length||0:0}));
+  const navGroups=hubRoutesModule.HUB_NAV_GROUPS.map(group=>{const items=group.items.map(id=>nav.find(item=>item.id===id)).filter(Boolean);return {...group,items,actionCount:items.reduce((sum,item)=>sum+num(item.badge),0)};});
   const platformName = platform === 'naver' ? '네이버' : platform === 'coupang' ? '쿠팡' : platform === 'cafe24' ? 'Cafe24' : '전체';
+  const navContext=hubRoutesModule.navigationContext(view,platform);
+  const latestRefreshAt=syncs.find(item=>item.finished_at||item.started_at)?.finished_at||syncs.find(item=>item.finished_at||item.started_at)?.started_at||null;
   const selectedHealth=platform==='all'?null:initialData.dataHealth?.channels?.find(item=>item.platform===platform.toUpperCase());
   const channelUnavailable=Boolean(selectedHealth?.failedDatasets?.length);
   function navigate(next={},replace=false){
     const state=hubRoutesModule.normalizeHubState({view,platform,product:selectedProduct,period,...next});
     setView(state.view);setPlatform(state.platform);setSelectedProduct(state.product);setPeriod(state.period);
+    setOpenNavGroup(hubRoutesModule.groupForView(state.view));
     const href=hubRoutesModule.buildHubHref(state);
     const current=`${window.location.pathname}${window.location.search}`;
     window.history[replace||current===href?'replaceState':'pushState'](null,'',href);
@@ -157,9 +188,10 @@ export default function Dashboard({ initialData, initialState }) {
       <div className="brand"><span className="brandMark">H</span><div><b>하린식품</b><small>광고·매출 통합 관리 허브</small></div></div>
       <div className="headerActions"><span className="live"><i /> Cafe24 연결됨</span><button className="syncButton" onClick={runSync} disabled={syncing}>{syncing ? '동기화 중…' : '지금 동기화'}</button><form action="/api/dashboard/logout" method="post"><button className="logoutButton" type="submit">나가기</button></form></div>
     </header>
-    <nav className="desktopSidebar" aria-label="허브 메뉴"><div className="sidebarPhase"><span>현재 개발</span><b>9단계 · 이익 신뢰 회복</b></div>{nav.map(item=><button key={item.id} className={view===item.id?'active':''} onClick={()=>openView(item.id)}><i>{item.icon}</i><span><b>{item.label}</b><small>{item.description}</small></span></button>)}</nav>
+    <SidebarMenu groups={navGroups} view={view} openGroup={openNavGroup} query={navQuery} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onOpenView={openView}/>
     <main className="hubMain">
-      <details className="mobileMoreMenu"><summary>전체 기능 열기 <span>{nav.find(item=>item.id===view)?.label}</span></summary><div>{nav.map(item=><button key={item.id} className={view===item.id?'active':''} onClick={()=>openView(item.id)}>{item.label}</button>)}</div></details>
+      <MobileMoreMenu groups={navGroups} view={view} currentLabel={nav.find(item=>item.id===view)?.label} onOpenView={openView}/>
+      <BreadcrumbBar context={navContext} refreshedAt={latestRefreshAt}/>
       <section className="platformSwitch" aria-label="플랫폼 선택">
         {[['all','allDot','전체'],['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡'],['cafe24','cafeDot','Cafe24']].map(([id,dot,label])=><button key={id} className={platform===id?'selected':''} onClick={()=>selectPlatform(id)}><i className={dot}/>{label}</button>)}
         {view==='main'&&platform==='coupang'?<label className="periodFilter"><span>그래프 묶음</span><select value={period} onChange={event=>navigate({period:event.target.value},true)}><option value="DAY">일별</option><option value="WEEK">주별</option><option value="MONTH">월별</option></select></label>:<span className="periodFilter">최근 7일 기준</span>}
