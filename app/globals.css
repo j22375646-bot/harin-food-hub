@@ -498,12 +498,13 @@ html[data-font-scale="xlarge"] main th{font-size:15px!important}html[data-font-s
 @media(max-width:650px){.shippingWorkbench{padding:15px}.shippingWorkbench>header{flex-direction:column}.shippingWorkbench>header>b{width:100%;box-sizing:border-box}.shippingHelp>div{grid-template-columns:1fr}.shippingActions>*{width:100%;box-sizing:border-box}.invoiceWorkbench>header{grid-template-columns:1fr}.invoiceWorkbench>header>div{grid-column:auto}.invoiceWorkbench>div>label{grid-template-columns:1fr}.invoiceWorkbench>button{align-self:stretch}.shippingSelect span{display:none}.liveOrdersStatus{align-items:stretch;flex-direction:column}.liveOrdersStatus button{width:100%}.orderItemRow{grid-template-columns:1fr}.orderItemRow>strong{justify-self:start}.orderTotalQuantity{padding-top:0}.orderDeliveryInfo>div{grid-template-columns:1fr 1fr}.orderDeliveryInfo .deliveryAddress,.orderDeliveryInfo .deliveryMemo{grid-column:1/-1}.unifiedOrdersMore{width:100%;min-width:0}.timingDemoPanel>div{grid-template-columns:1fr}.orderTimingBadge small{display:none}}
 
 /* Phase 11-3 polish: one badge system and one readable type scale. */
-.unifiedOrdersCenter{--order-badge-height:32px;--order-label-size:11px;--order-body-size:13px}
+.unifiedOrdersCenter{--order-badge-height:32px;--order-badge-size:12px;--order-label-size:12px;--order-body-size:14px}
+html[data-font-scale="xlarge"] .unifiedOrdersCenter{--order-badge-height:34px;--order-badge-size:13px;--order-label-size:13px;--order-body-size:15px}
 .unifiedOrderCard{border-left-width:4px;box-shadow:0 8px 22px rgba(31,51,44,.055)}
 .unifiedOrderCardHeader{display:grid!important;grid-template-columns:minmax(0,1fr) auto;align-items:start!important;gap:12px;padding:16px!important;border-bottom:1px solid #edf1ef}
 .orderBadgeGroup,.orderStatusGroup{display:flex!important;align-items:center;flex-wrap:wrap;gap:8px!important}
 .orderStatusGroup{justify-content:flex-end}
-.unifiedOrderCard .shippingSelect,.unifiedOrderCard .channelBadge,.unifiedOrderCard .sellerDeliveryBadge,.unifiedOrderCard .fulfillmentBadge,.unifiedOrderCard .orderStageBadge,.unifiedOrderCard .orderTimingBadge{display:inline-flex;height:var(--order-badge-height);min-height:var(--order-badge-height);align-items:center;justify-content:center;box-sizing:border-box;border:0;border-radius:9px;padding:0 10px;font-size:var(--order-label-size);font-weight:900;line-height:1;white-space:nowrap}
+.unifiedOrderCard .shippingSelect,.unifiedOrderCard .channelBadge,.unifiedOrderCard .sellerDeliveryBadge,.unifiedOrderCard .fulfillmentBadge,.unifiedOrderCard .orderStageBadge,.unifiedOrderCard .orderTimingBadge{display:inline-flex;height:var(--order-badge-height);min-height:var(--order-badge-height);align-items:center;justify-content:center;box-sizing:border-box;border:0;border-radius:9px;padding:0 10px;font-size:var(--order-badge-size)!important;font-weight:900;line-height:1;white-space:nowrap}
 .unifiedOrderCard .shippingSelect{gap:6px;background:#e7f3ed;color:#1f684e}
 .unifiedOrderCard .shippingSelect input{width:15px;height:15px;flex:none}
 .unifiedOrderCard .shippingSelect.blocked{background:#eef1f2;color:#727a7e}
@@ -523,11 +524,11 @@ html[data-font-scale="xlarge"] main th{font-size:15px!important}html[data-font-s
 .orderTimingNotice.delayed{background:#fff1ef;color:#a33c33}
 .unifiedOrderCard>section{gap:9px;padding:14px 16px}
 .unifiedOrderCard>section>div{padding:11px 12px;border-radius:10px}
-.unifiedOrderCard section span,.orderItemRow small,.orderDeliveryInfo>div small{color:#748079;font-size:var(--order-label-size);font-weight:750;line-height:1.35}
+.unifiedOrderCard section span,.orderItemRow small,.orderDeliveryInfo>div small{color:#748079;font-size:var(--order-label-size)!important;font-weight:750;line-height:1.35}
 .unifiedOrderCard section b{margin-top:5px;overflow:visible;color:#26312c;font-size:var(--order-body-size);line-height:1.45;text-overflow:clip;white-space:normal;overflow-wrap:anywhere}
 .unifiedOrderProduct{gap:16px;padding:15px 16px}
 .orderItemRow{gap:14px;padding-bottom:11px}
-.orderItemRow b{font-size:var(--order-body-size);line-height:1.5}
+.orderItemRow b{font-size:var(--order-body-size)!important;line-height:1.5}
 .orderItemRow>strong,.orderTotalQuantity{font-size:var(--order-body-size)}
 .unifiedOrderProduct em{font-size:var(--order-label-size);line-height:1.45}
 .orderDeliveryInfo{margin:0 16px 16px;border-radius:11px}
@@ -535,7 +536,7 @@ html[data-font-scale="xlarge"] main th{font-size:15px!important}html[data-font-s
 .orderDeliveryInfo>header b{font-size:var(--order-body-size)}
 .orderDeliveryInfo>header small{font-size:var(--order-label-size)}
 .orderDeliveryInfo>div>span{gap:5px;padding:11px 12px}
-.orderDeliveryInfo>div b{font-size:var(--order-body-size);line-height:1.5}
+.orderDeliveryInfo>div b{font-size:var(--order-body-size)!important;line-height:1.5}
 .orderDeliveryInfo .deliveryAddress{min-height:0}
 .timingDemoPanel{border-color:#dce4eb;background:#f7f9fb}
 .timingDemoPanel>summary{min-height:70px;padding:0 18px}
