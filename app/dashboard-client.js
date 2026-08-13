@@ -1,7 +1,6 @@
 ﻿'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import reportVersioning from '../lib/reports/versioning.js';
 import { COUPANG_SECTION_HELP, getHubHelp } from '../lib/ui/help-content.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
@@ -104,7 +103,6 @@ function MetricProvenanceStrip({ snapshots=[] }) {
 }
 
 export default function Dashboard({ initialData, initialState }) {
-  const router = useRouter();
   const normalizedInitial=hubRoutesModule.normalizeHubState(initialState);
   const [mounted, setMounted] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -114,7 +112,14 @@ export default function Dashboard({ initialData, initialState }) {
   const [selectedProduct,setSelectedProduct]=useState(normalizedInitial.product);
   const [period,setPeriod]=useState(normalizedInitial.period);
   useEffect(() => setMounted(true), []);
-  useEffect(()=>{const next=hubRoutesModule.normalizeHubState(initialState);setView(next.view);setPlatform(next.platform);setSelectedProduct(next.product);setPeriod(next.period);},[initialState]);
+  useEffect(()=>{
+    const syncFromAddress=()=>{
+      const next=hubRoutesModule.parseHubHref(window.location.href);
+      setView(next.view);setPlatform(next.platform);setSelectedProduct(next.product);setPeriod(next.period);
+    };
+    window.addEventListener('popstate',syncFromAddress);
+    return ()=>window.removeEventListener('popstate',syncFromAddress);
+  },[]);
   if (!mounted) return <main className="loadingPage"><div className="loadingMark">H</div><p>운영 데이터를 불러오는 중이에요…</p></main>;
   if (initialData.error) return <main className="errorPage"><div><b>데이터를 불러오지 못했어요</b><p>{initialData.error}</p></div></main>;
 
@@ -140,7 +145,9 @@ export default function Dashboard({ initialData, initialState }) {
   function navigate(next={},replace=false){
     const state=hubRoutesModule.normalizeHubState({view,platform,product:selectedProduct,period,...next});
     setView(state.view);setPlatform(state.platform);setSelectedProduct(state.product);setPeriod(state.period);
-    router[replace?'replace':'push'](hubRoutesModule.buildHubHref(state),{scroll:false});
+    const href=hubRoutesModule.buildHubHref(state);
+    const current=`${window.location.pathname}${window.location.search}`;
+    window.history[replace||current===href?'replaceState':'pushState'](null,'',href);
   }
   const openView=id=>navigate({view:id,product:'ALL',period:'DAY'});
   const selectPlatform=id=>navigate({platform:id,product:id==='coupang'?selectedProduct:'ALL'},true);

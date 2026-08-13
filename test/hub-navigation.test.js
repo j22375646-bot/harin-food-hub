@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { HUB_NAV, normalizeHubState, buildHubHref } = require('../lib/navigation/hub-routes.js');
+const { HUB_NAV, normalizeHubState, buildHubHref, parseHubHref } = require('../lib/navigation/hub-routes.js');
 
 test('all nine hub functions have stable unique addresses', () => {
   assert.equal(HUB_NAV.length,9);
@@ -23,4 +23,12 @@ test('unknown URL state falls back safely', () => {
   assert.deepEqual(normalizeHubState({view:'admin',platform:'unknown',product:'../../secret',period:'YEAR'}),{
     view:'main',platform:'all',product:'secret',period:'DAY'
   });
+});
+
+test('visible hub addresses restore the matching client view', () => {
+  assert.deepEqual(parseHubHref('https://harin-cafe24-sync.vercel.app/products?platform=coupang&period=WEEK&product=123'), {
+    view:'product', platform:'coupang', period:'WEEK', product:'123'
+  });
+  assert.equal(parseHubHref('/approvals').view,'changes');
+  assert.equal(parseHubHref('/?view=notifications').view,'notifications');
 });
