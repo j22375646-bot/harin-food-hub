@@ -43,3 +43,10 @@ test('shipping writes and print output stay authenticated and channel-isolated',
   assert.match(printRoute,/apiSafety\.isAuthorized\(request,authModule\)/);
   assert.match(printRoute,/window\.print\(\)/);
 });
+
+test('orders center exposes phase 11-3B postal readiness without live parcel issuance',()=>{
+  const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
+  assert.match(center,/PHASE 11-3B · FIXED IP & SEED-128/);
+  assert.match(center,/고정 IP 연결 확인/);
+  assert.match(center,/실제 소포 접수·송장 발급은 아직 잠겨/);
+});

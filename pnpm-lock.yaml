@@ -23,6 +23,9 @@ importers:
       express:
         specifier: 5.1.0
         version: 5.1.0
+      kisa-seed:
+        specifier: 1.0.1
+        version: 1.0.1
       next:
         specifier: ^16.3.0
         version: 16.3.0(@types/node@26.2.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -592,6 +595,9 @@ packages:
 
   jszip@3.10.1:
     resolution: {integrity: sha512-xXDvecyTpGLrqFrvkrUSoxxfJI5AH7U8zxxtVclpsUtMCq4JQ290LY8AW5c7Ggnr/Y/oK+bQMbqK2qmtk3pN4g==}
+
+  kisa-seed@1.0.1:
+    resolution: {integrity: sha512-NaVmqDJVMBT/5b1nw4K0UXvUIxU6Ihgf9ziOAsQkuxQZ0iXnuNd5CWpDxzdSYeQxs47C9k2+fse8xA6vp+ra5Q==}
 
   lazystream@1.0.1:
     resolution: {integrity: sha512-b94GiNHQNy6JNTrt5w6zNyffMrNkXZb3KTkCZJb2V1xaEGCk093vkZ2jk3tpaeP33/OiXC+WvK9AxUebnf5nbw==}
@@ -1515,6 +1521,8 @@ snapshots:
       pako: 1.0.11
       readable-stream: 2.3.8
       setimmediate: 1.0.5
+
+  kisa-seed@1.0.1: {}
 
   lazystream@1.0.1:
     dependencies:

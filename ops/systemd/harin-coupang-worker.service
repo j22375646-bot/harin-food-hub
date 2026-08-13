@@ -1,5 +1,5 @@
 [Unit]
-Description=Harin Food Coupang fixed-IP worker
+Description=Harin Food channel fixed-IP worker (Coupang, Naver, ePost)
 After=network-online.target
 Wants=network-online.target
 

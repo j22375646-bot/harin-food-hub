@@ -126,6 +126,50 @@ async function loadDeliveryDetail(order){
   throw new Error('배송정보 자동 조회를 지원하지 않는 채널입니다.');
 }
 
+const EPOST_CHECK_KEYS=['fixedIp','apiKey','securityKey','contract','encryption'];
+
+function PostalConnectionPanel(){
+  const [state,setState]=useState({status:'LOADING',message:'최근 우체국 연결 상태를 확인하고 있습니다.'});
+  function apply(result){
+    if(result?.epost)return setState({status:result.epost.status,epost:result.epost,message:result.epost.readyForTest?'실제 테스트 송장 발급 전 준비가 끝났습니다.':'아래 확인 필요 항목을 고정 IP 서버에 설정하세요.'});
+    if(result?.pending)return setState({status:'PROBING',message:'서울 고정 IP 서버가 설정을 확인하고 있습니다.'});
+    if(result?.status==='NOT_CHECKED')return setState({status:'NOT_CHECKED',message:result.message});
+    setState({status:'FAILED',message:result?.error||'우체국 연결 상태를 확인하지 못했습니다.'});
+  }
+  useEffect(()=>{
+    let active=true;
+    fetch('/api/epost/status',{cache:'no-store'}).then(response=>response.json()).then(result=>active&&apply(result)).catch(error=>active&&setState({status:'FAILED',message:error.message}));
+    return()=>{active=false;};
+  },[]);
+  async function probe(){
+    setState(previous=>({...previous,status:'PROBING',message:'서울 고정 IP 서버가 인증키·계약정보·암호화를 확인하고 있습니다.'}));
+    try{
+      const response=await fetch('/api/epost/status',{method:'POST',cache:'no-store'});
+      const queued=await response.json();
+      if(!response.ok||!queued.ok)throw new Error(queued.error||'연결 확인 요청 실패');
+      const id=queued.request?.id;
+      if(!id)throw new Error('연결 확인 작업번호가 없습니다.');
+      for(let attempt=0;attempt<40;attempt+=1){
+        await wait(1500);
+        const pollResponse=await fetch(`/api/epost/status?requestId=${encodeURIComponent(id)}`,{cache:'no-store'});
+        const result=await pollResponse.json();
+        if(pollResponse.status===202)continue;
+        apply(result);return;
+      }
+      throw new Error('고정 IP 서버 응답이 늦습니다. 잠시 후 다시 확인해 주세요.');
+    }catch(error){setState({status:'FAILED',message:error.message});}
+  }
+  const epost=state.epost;
+  const ready=Boolean(epost?.readyForTest);
+  const busy=['LOADING','PROBING'].includes(state.status);
+  const title=busy?'연결 확인 중':ready?'11-3C 테스트 준비 완료':state.status==='NOT_CHECKED'?'연결 확인 전':'설정 확인 필요';
+  return <article className={`postalConnection ${ready?'ready':state.status.toLowerCase()}`} aria-live="polite">
+    <header><div><span>PHASE 11-3B · FIXED IP & SEED-128</span><h2>우체국 자동송장 연결</h2><p>인증키 원문은 화면이나 DB에 저장하지 않고, 서울 고정 IP 서버 안에서만 확인합니다.</p></div><b>{title}</b></header>
+    <div className="postalChecks">{EPOST_CHECK_KEYS.map(key=>{const check=epost?.checks?.[key];return <span className={!check?'waiting':check.ok?'ok':'needed'} key={key}><i>{check?.ok?'✓':'!'}</i><b>{check?.label||{fixedIp:'서울 고정 IP',apiKey:'우체국 인증키',securityKey:'SEED 보안키',contract:'계약 정보',encryption:'SEED-128 암호화'}[key]}</b><small>{check?.detail||'확인 대기'}</small></span>;})}</div>
+    <footer><div><b>{state.message}</b><small>실제 소포 접수·송장 발급은 아직 잠겨 있으며 11-3C에서 테스트 주문 1건으로 검증합니다.</small>{epost?.checkedAt?<small>마지막 확인 {dateTime(epost.checkedAt)}</small>:null}</div><button type="button" onClick={probe} disabled={busy}>{state.status==='PROBING'?'확인 중…':'고정 IP 연결 확인'}</button></footer>
+  </article>;
+}
+
 function ShippingWorkbench({ orders, selectedIds, invoices, setInvoices, actionResults, setActionResults }) {
   const selected=orders.filter(order=>selectedIds.has(order.hubOrderId));
   const [coupangCourier,setCoupangCourier]=useState('EPOST');
@@ -170,7 +214,7 @@ function ShippingWorkbench({ orders, selectedIds, invoices, setInvoices, actionR
     }catch(error){setMessage(`후보 확인 실패 · ${error.message}`);}finally{setBusy('');}
   }
   return <article className="shippingWorkbench">
-    <header><div><span>PHASE 11-3A · POSTAL SHIPPING UI</span><h2>포장·배송 작업대</h2><p>결제완료는 준비중으로 바꾸고, 준비중 주문은 13자리 우체국 송장을 전송합니다.</p></div><b>{selected.length}건 선택</b></header>
+    <header><div><span>PHASE 11-3B · POSTAL CONNECTION</span><h2>포장·배송 작업대</h2><p>결제완료는 준비중으로 바꾸고, 준비중 주문은 13자리 우체국 송장을 전송합니다.</p></div><b>{selected.length}건 선택</b></header>
     <details className="shippingHelp"><summary><b>이 작업대는 어떻게 쓰나요?</b><em>열기</em></summary><div><p><strong>1.</strong> 출고할 주문의 ‘작업 선택’을 누르세요.</p><p><strong>2.</strong> 먼저 상품준비중으로 바꾸고 포장명세서를 인쇄하세요.</p><p><strong>3.</strong> 포장이 끝나면 주문별 송장번호와 채널 배송사 코드를 넣고 전송하세요.</p><p><strong>예시:</strong> 같은 주소 주문이 2건이어도 쿠팡 정책을 확인하기 전에는 자동으로 합치지 않습니다.</p></div></details>
     <div className="shippingSelectionSummary"><span><small>결제완료</small><b>{count(paidTargets.length)}건</b></span><span><small>준비중·출고대기</small><b>{count(selected.length-paidTargets.length)}건</b></span><span><small>송장 입력완료</small><b>{count(invoiceTargets.length)}건</b></span></div>
     <div className="shippingActions"><button onClick={()=>run('PREPARE')} disabled={Boolean(busy)||!paidTargets.length}>{busy==='PREPARE'?'처리 중…':`결제완료 ${count(paidTargets.length)}건 상품준비중`}</button><a className={!selected.length?'disabled':''} href={selected.length?`/api/shipping/print?type=packing&ids=${encodeURIComponent(printIds)}`:'#'} target="_blank" rel="noreferrer">포장명세서</a><a className={!selected.length?'disabled':''} href={selected.length?`/api/shipping/print?type=dispatch&ids=${encodeURIComponent(printIds)}`:'#'} target="_blank" rel="noreferrer">출고목록 PDF</a><button className="secondary" onClick={findCandidates} disabled={Boolean(busy)||!selected.length}>{busy==='CANDIDATES'?'주소 확인 중…':'묶음배송 후보 찾기'}</button></div>
@@ -251,7 +295,7 @@ export default function UnifiedOrdersCenter({ center, children }) {
   function updateInvoice(order,value){setInvoiceDrafts(previous=>({...previous,[order.hubOrderId]:value}));if(value)selectOrder(order,true);}
   function selectBulk(checked){setSelectedIds(previous=>{const next=new Set(previous);bulkEligible.forEach(order=>checked?next.add(order.hubOrderId):next.delete(order.hubOrderId));return next;});}
   return <section className="unifiedOrdersCenter">
-    <section className="unifiedOrdersHero"><div><span>PHASE 11-3A · POSTAL SHIPPING UI</span><h1>통합 주문·배송센터</h1><p>쿠팡은 판매자배송 주문만 작업 목록에 표시하고, Cafe24와 함께 현재 포장·출고 상태를 확인합니다.</p></div><div><small>지금 처리 필요</small><b>{count(currentCenter.summary.actionRequired)}건</b><em>현재 진행중 {count(currentCenter.summary.visibleDefaultTotal)}건</em><em>최근 30일 배송완료 {count(currentCenter.stageCounts.DELIVERED)}건</em><em>로켓그로스 {count(currentCenter.summary.rocketGrowthStored)}건 · 별도 저장</em></div></section>
+    <section className="unifiedOrdersHero"><div><span>PHASE 11-3B · FIXED IP & SEED-128</span><h1>통합 주문·배송센터</h1><p>쿠팡은 판매자배송 주문만 작업 목록에 표시하고, Cafe24와 함께 현재 포장·출고 상태를 확인합니다.</p></div><div><small>지금 처리 필요</small><b>{count(currentCenter.summary.actionRequired)}건</b><em>현재 진행중 {count(currentCenter.summary.visibleDefaultTotal)}건</em><em>최근 30일 배송완료 {count(currentCenter.stageCounts.DELIVERED)}건</em><em>로켓그로스 {count(currentCenter.summary.rocketGrowthStored)}건 · 별도 저장</em></div></section>
     <article className={`liveOrdersStatus ${liveState.status.toLowerCase()}`} aria-live="polite"><div><span className="livePulse"/><span><b>{liveState.status==='LOADING'?'전체 플랫폼 수집 중':liveState.status==='READY'?'최신 상태 수집 완료':liveState.status==='PARTIAL'?'일부 채널 확인 필요':liveState.status==='FAILED'?'최신 상태 수집 실패':'1시간 자동수집'}</b><small>{liveState.message} · 작업화면 {currentCenter.summary.windowStart}~{currentCenter.summary.windowEnd}</small></span></div><button type="button" onClick={refreshLiveOrders} disabled={liveState.status==='LOADING'}>{liveState.status==='LOADING'?'수집 중…':'전체 플랫폼 수동수집'}</button></article>
     <details className="timingDemoPanel" open><summary><span><b>출고 뱃지 디자인 확인</b><small>아래 2건은 실제 주문·매출에 포함되지 않는 화면 샘플입니다.</small></span><em>샘플 접기</em></summary><div>{demoOrders.map(order=><OrderCard order={order} selected={false} onSelect={()=>{}} key={order.hubOrderId}/>)}</div></details>
     <div className="unifiedChannelStates">{currentCenter.channels.map(channel=><ChannelState channel={channel} key={channel.platform}/>)}</div>
@@ -259,6 +303,7 @@ export default function UnifiedOrdersCenter({ center, children }) {
     <article className="unifiedProcessPanel"><header><div><span>실시간 주문 흐름 · 배송완료 최근 30일</span><h2>배송완료는 5단계를 눌렀을 때만 표시됩니다</h2></div><button className={stage==='ALL'?'active':''} onClick={()=>setStage('ALL')}>진행중 전체 {count(currentCenter.summary.visibleDefaultTotal)}건</button></header><div className="unifiedOrderFlow">{currentCenter.stages.map((item,index)=><div key={item.id}><button className={stage===item.id?'active':''} onClick={()=>setStage(item.id)}><small>{index+1}. {item.label}</small><b>{count(currentCenter.stageCounts[item.id])}건</b><span>{item.id==='DELIVERED'?'최근 30일 · 클릭해서 보기':item.description}</span></button>{index<currentCenter.stages.length-1?<i>→</i>:null}</div>)}</div></article>
     <article className="unifiedOrderToolbar"><div><label><span>채널</span><select value={platform} onChange={event=>setPlatform(event.target.value)}>{Object.entries(CHANNEL_LABELS).map(([id,label])=><option value={id} key={id}>{label}</option>)}</select></label><label><span>주문 상태</span><select value={stage} onChange={event=>setStage(event.target.value)}><option value="ALL">진행중 전체</option>{currentCenter.stages.map(item=><option value={item.id} key={item.id}>{item.label}</option>)}</select></label><label className="orderSearch"><span>주문·상품 검색</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="허브번호·쇼핑몰번호·상품명"/></label><label><span>시작일</span><input type="date" value={startDate} onChange={event=>setStartDate(event.target.value)}/></label><label><span>종료일</span><input type="date" value={endDate} onChange={event=>setEndDate(event.target.value)}/></label></div><footer><label className="actionOnly"><input type="checkbox" checked={actionOnly} onChange={event=>setActionOnly(event.target.checked)}/><span>처리 필요만 보기</span></label><strong>{count(visible.length)}건 표시</strong><a href={exportHref}>엑셀 다운로드</a></footer></article>
     <article className="bulkShippingSelection"><label><input type="checkbox" checked={allBulkSelected} disabled={!bulkEligible.length} onChange={event=>selectBulk(event.target.checked)}/><span><b>결제완료·준비중 전체선택</b><small>현재 검색·채널 조건의 출고 가능 주문 {count(bulkEligible.length)}건</small></span></label><div><b>{count(bulkSelected)}건 선택됨</b><button type="button" onClick={()=>setSelectedIds(new Set())} disabled={!selectedIds.size}>전체 선택 해제</button></div></article>
+    <PostalConnectionPanel/>
     <ShippingWorkbench orders={currentCenter.orders} selectedIds={selectedIds} invoices={invoiceDrafts} setInvoices={setInvoiceDrafts} actionResults={shippingActionResults} setActionResults={setShippingActionResults}/>
     {currentCenter.summary.cancellations?<div className="unifiedCancelSummary"><b>출고 전에 확인할 취소·반품 요청 {count(currentCenter.summary.cancellations)}건</b><span>처리 완료된 요청은 숨기고, 현재 확인이 필요한 요청만 표시합니다.</span></div>:null}
     <div className="unifiedOrderList">{rendered.length?rendered.map(order=><OrderCard order={order} selected={selectedIds.has(order.hubOrderId)} onSelect={selectOrder} invoiceDraft={invoiceDrafts[order.hubOrderId]||''} onInvoiceChange={updateInvoice} actionState={shippingActionResults[order.hubOrderId]} key={`${order.platform}:${order.hubOrderId}`}/>):<div className="unifiedOrdersEmpty"><b>이 조건의 주문이 없습니다.</b><span>검색어나 기간을 지우고 다시 확인해보세요.</span></div>}</div>

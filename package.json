@@ -14,6 +14,7 @@
     "sync:coupang:worker": "node scripts/coupang-local-sync.js",
     "costs:calibrate": "node scripts/refresh-cost-calibration.js",
     "worker:coupang": "node scripts/coupang-local-worker.js --watch --quiet",
+    "worker:fixed-ip": "node scripts/coupang-local-worker.js --watch --quiet",
     "ip:coupang:worker": "node scripts/coupang-local-sync.js --ip-only"
   },
   "dependencies": {
@@ -22,6 +23,7 @@
     "dotenv": "17.2.1",
     "exceljs": "4.4.0",
     "express": "5.1.0",
+    "kisa-seed": "1.0.1",
     "next": "^16.3.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"

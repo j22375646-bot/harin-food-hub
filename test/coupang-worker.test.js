@@ -78,7 +78,7 @@ test('Coupang product changes remain locked until read verification is explicitl
   }
 });
 
-test('fixed-IP operation queue accepts product and Naver channel probes', () => {
+test('fixed-IP operation queue accepts product, Naver and ePost channel probes', () => {
   assert.deepEqual(
     require('../lib/coupang/operation-queue.js').validateRequest({ operationType:'PRODUCT_DETAIL', targetType:'PRODUCT', targetId:'123' }),
     { operationType:'PRODUCT_DETAIL', targetType:'PRODUCT', targetId:'123' }
@@ -86,6 +86,10 @@ test('fixed-IP operation queue accepts product and Naver channel probes', () => 
   assert.deepEqual(
     require('../lib/coupang/operation-queue.js').validateRequest({ operationType:'NAVER_COMMERCE_PROBE', targetType:'CHANNEL', targetId:'SMARTSTORE' }),
     { operationType:'NAVER_COMMERCE_PROBE', targetType:'CHANNEL', targetId:'SMARTSTORE' }
+  );
+  assert.deepEqual(
+    require('../lib/coupang/operation-queue.js').validateRequest({ operationType:'EPOST_CONFIG_PROBE', targetType:'CHANNEL', targetId:'EPOST' }),
+    { operationType:'EPOST_CONFIG_PROBE', targetType:'CHANNEL', targetId:'EPOST' }
   );
 });
 
