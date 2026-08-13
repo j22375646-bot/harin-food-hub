@@ -39,6 +39,7 @@ test('저장된 구성이 없으면 1개·2개·묶음 제안을 만들고 작�
   const result = growthCenter.buildGrowthCenter({
     masterProducts:[
       { id:'11111111-1111-4111-8111-111111111111', name:'일반 상품', selling_price:10000, is_active:true },
+      { id:'33333333-3333-4333-8333-333333333333', name:'하린 작수차 36g (1.2g x 30TB) x3 세트', selling_price:36000, is_active:true },
       { id:'22222222-2222-4222-8222-222222222222', name:'하린 작수차 36g (1.2g x 30TB)', selling_price:12000, is_active:true }
     ],
     productCosts:[],
