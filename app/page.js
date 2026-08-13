@@ -22,6 +22,7 @@ import marketingDiagnosisModule from '../lib/marketing/diagnosis.js';
 import retentionValidationModule from '../lib/customers/retention-validation.js';
 import channelCapabilitiesModule from '../lib/platforms/channel-capabilities.js';
 import unifiedOrdersModule from '../lib/orders/unified-orders.js';
+import unifiedCustomerServiceModule from '../lib/customer-service/unified-center.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -79,7 +80,7 @@ const VIEW_TABLES = {
     'naver_keyword_stats','coupang_ad_keyword_daily','business_targets','budget_snapshots'
   ],
   orders:['cafe24_orders','cafe24_order_items','coupang_orders','coupang_order_items','coupang_rg_orders','coupang_rg_order_items','coupang_returns'],
-  cs:['coupang_returns','coupang_exchanges','coupang_inquiries'],
+  cs:['cafe24_orders','cafe24_order_items','coupang_orders','coupang_order_items','coupang_returns','coupang_exchanges','coupang_inquiries','coupang_operation_requests'],
   inventory:['coupang_products','coupang_rg_inventory','coupang_item_inventory','coupang_product_items'],
   settlement:['coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_orders','coupang_rg_order_items','coupang_settlement_summaries','coupang_promotion_budgets','coupang_product_items','coupang_cost_transactions','coupang_cost_imports','channel_cost_settings','channel_shipping_rules'],
   collection:['cafe24_products','automation_runs','data_quality_checks','coupang_sync_requests','coupang_products','coupang_api_capabilities'],
@@ -196,6 +197,15 @@ async function getDashboardData(state) {
   ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
   queryIssues.push(...phase7Settled.issues);
   const [phase7ChangesResult,phase7AuditsResult,phase7ExperimentsResult]=phase7Settled.results;
+  const csAuditSettled=dataHealthModule.settleQueries(await Promise.allSettled([
+    db.from('coupang_operation_requests')
+      .select('id,operation_type,target_type,target_id,status,requested_at,executed_at,error_message')
+      .in('target_type',['INQUIRY','RETURN','EXCHANGE'])
+      .order('requested_at',{ascending:false})
+      .limit(300)
+  ]),[{platform:'COUPANG',dataset:'coupang_operation_requests_cs'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+  queryIssues.push(...csAuditSettled.issues);
+  const csOperationAudits=csAuditSettled.results[0].data||[];
   const keywordPeriodSettled=dataHealthModule.settleQueries(await Promise.allSettled([db.from('naver_keyword_stats').select('period_start,period_end').order('period_end',{ascending:false}).limit(1).maybeSingle()]),[{platform:'NAVER',dataset:'naver_keyword_stats_period'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
   queryIssues.push(...keywordPeriodSettled.issues);
   const keywordPeriodResult=keywordPeriodSettled.results[0];
@@ -556,12 +566,22 @@ async function getDashboardData(state) {
     coupangRgOrderItems:coupangRgOrderItemsResult.data || [], channelConnections:channelConnections.channels || [],
     unavailable:{ CAFE24:Boolean(ordersResult.unavailable), COUPANG:Boolean(coupangOrdersResult.unavailable && coupangRgOrdersResult.unavailable), NAVER:false }
   });
+  const coupangReturnViews=(coupangReturnsResult.data || []).map(returnCaseView);
+  const coupangExchangeViews=(coupangExchangesResult.data || []).map(exchangeCaseView);
+  const customerService=unifiedCustomerServiceModule.buildUnifiedCustomerService({
+    cafe24Orders:ordersResult.data || [], cafe24OrderItems:itemsResult.data || [],
+    coupangOrders:coupangOrdersResult.data || [], coupangOrderItems:coupangItemsResult.data || [],
+    coupangReturns:coupangReturnViews, coupangExchanges:coupangExchangeViews,
+    coupangInquiries:(coupangInquiriesResult.data || []).map(({raw_data,...item})=>item),
+    operationAudits:csOperationAudits, channelConnections:channelConnections.channels || []
+  });
   return {
     loadedView:view,
     generatedAt,
     dataHealth,
     channelConnections,
     unifiedOrders,
+    customerService,
     metricSnapshots,
     kpis: {
       sales,
@@ -640,9 +660,9 @@ async function getDashboardData(state) {
       salesOverview,
       orderHourly: coupangHourly,
       today: {...todayCoupang,averageOrder:todayCoupang.orders?todayCoupang.revenue/todayCoupang.orders:0,date:todayKey},
-      returns: (coupangReturnsResult.data || []).map(returnCaseView),
+      returns: coupangReturnViews,
       returnCount: coupangReturnsResult.data?.length || 0,
-      exchanges: (coupangExchangesResult.data || []).map(exchangeCaseView),
+      exchanges: coupangExchangeViews,
       exchangeCount: coupangExchangesResult.data?.length || 0,
       inquiries: (coupangInquiriesResult.data || []).map(({raw_data,...item})=>item),
       unansweredInquiries: (coupangInquiriesResult.data || []).filter(item=>!item.answered).length,
