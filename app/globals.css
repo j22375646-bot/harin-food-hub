@@ -361,3 +361,20 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .channelLegacyDetails>summary{padding:11px 14px}
   .channelLegacyDetails>div{padding:11px}
 }
+
+/* Phase 10-4 — orders, CS, inventory and settlement are independent work pages. */
+.coupangOperationPage,.coupangSalesCenter{display:flex;flex-direction:column;gap:18px}
+.coupangOperationIntro{display:flex;align-items:stretch;justify-content:space-between;gap:24px;margin:0;padding:28px;border:1px solid #dfe6e2;border-radius:20px;background:linear-gradient(135deg,#fff 0%,#f3f8f5 100%)}
+.coupangOperationIntro>div{max-width:760px}
+.coupangOperationIntro h1{margin:7px 0 9px}
+.coupangOperationIntro p{max-width:700px;margin:0;color:#68736d}
+.coupangOperationIntro>aside{display:flex;min-width:220px;flex-direction:column;justify-content:center;gap:5px;border-left:1px solid #dce5e0;padding-left:24px}
+.coupangOperationIntro>aside small{color:#758078}
+.coupangOperationIntro>aside b{color:#22664d;font-size:20px;line-height:1.35}
+.coupangOperationIntro>aside span{color:#6f7873;font-size:13px}
+.coupangSalesCenter>.coupangHero{margin-bottom:0}
+
+@media(max-width:760px){
+  .coupangOperationIntro{flex-direction:column;padding:21px}
+  .coupangOperationIntro>aside{min-width:0;border-top:1px solid #dce5e0;border-left:0;padding-top:16px;padding-left:0}
+}
