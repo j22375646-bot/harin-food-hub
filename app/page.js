@@ -17,6 +17,7 @@ import dataHealthModule from '../lib/dashboard/data-health.js';
 import coupangQueueHealthModule from '../lib/dashboard/coupang-queue-health.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
 import salesCommandCenterModule from '../lib/dashboard/sales-command-center.js';
+import marketingDiagnosisModule from '../lib/marketing/diagnosis.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -135,6 +136,22 @@ async function getDashboardData() {
   const keywordPeriod=keywordPeriodResult.data;
   let keywordTop=[],keywordWaste=[];
   if(keywordPeriod){const keywordStatsSettled=dataHealthModule.settleQueries(await Promise.allSettled([db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).order('conversion_revenue',{ascending:false}).limit(20),db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).eq('conversion_revenue',0).gt('cost',0).order('cost',{ascending:false}).limit(20)]),[{platform:'NAVER',dataset:'naver_keyword_stats_top'},{platform:'NAVER',dataset:'naver_keyword_stats_waste'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));queryIssues.push(...keywordStatsSettled.issues);keywordTop=keywordStatsSettled.results[0].data||[];keywordWaste=keywordStatsSettled.results[1].data||[];}
+  let marketingKeywordStats=[],marketingKeywordCatalog=[],marketingDetailChecklists=[];
+  if(keywordPeriod){
+    const marketingInputsSettled=dataHealthModule.settleQueries(await Promise.allSettled([
+      db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).order('impressions',{ascending:false}).limit(5000),
+      db.from('naver_keywords').select('ncc_keyword_id,ncc_adgroup_id,keyword').limit(5000),
+      db.from('product_detail_checklists').select('master_product_id,items,notes')
+    ]),[
+      {platform:'NAVER',dataset:'marketing_keyword_funnel'},
+      {platform:'NAVER',dataset:'marketing_keyword_catalog'},
+      {platform:'SHARED',dataset:'marketing_detail_readiness'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    queryIssues.push(...marketingInputsSettled.issues);
+    marketingKeywordStats=marketingInputsSettled.results[0].data||[];
+    marketingKeywordCatalog=marketingInputsSettled.results[1].data||[];
+    marketingDetailChecklists=marketingInputsSettled.results[2].data||[];
+  }
 
   const orders = ordersResult.data || [];
   const items = itemsResult.data || [];
@@ -303,6 +320,18 @@ async function getDashboardData() {
     ...(channelsResult.data || []).filter(item=>item.platform==='CAFE24'),
     ...productMapping.links
   ];
+  const marketingDiagnosis=marketingDiagnosisModule.buildMarketingDiagnosis({
+    keywordStats:marketingKeywordStats,
+    naverKeywords:marketingKeywordCatalog,
+    masterProducts:(masterResult.data||[]).filter(item=>item.is_active!==false),
+    channelProducts:allChannelProducts,
+    productItems:coupangProductItemsResult.data||[],
+    itemInventory:coupangItemInventoryResult.data||[],
+    rgInventory:coupangInventoryResult.data||[],
+    checklists:marketingDetailChecklists,
+    period:keywordPeriod,
+    targetRoas:targetRoasPercent
+  });
   const performanceEnd = keywordPeriod?.period_end || todayKey;
   const performanceStartDate = new Date(`${performanceEnd}T00:00:00+09:00`);
   performanceStartDate.setUTCDate(performanceStartDate.getUTCDate()-6);
@@ -468,7 +497,7 @@ async function getDashboardData() {
     financialTrust,
     financialTrustToken,
     pacing,
-    naver: { campaigns:naverCampaignResult.data?.length||0, adgroups:naverGroupResult.count||0, keywords:naverKeywordResult.count||0, latestSync:naverSyncResult.data||null, periodStart:weekStart?dateOnly(weekStart.toISOString()):null, periodEnd:latestNaverDate, totals:{...naverTotals,roas:naverPerformance.roasPercent,ctr:naverPerformance.ctrPercent,metrics:trustedNaverPerformance}, daily:[...naverDailyMap.values()].sort((a,b)=>a.date.localeCompare(b.date)), topCampaigns:trustedNaverTopCampaigns, keywordPeriod, keywordTop, keywordWaste },
+    naver: { campaigns:naverCampaignResult.data?.length||0, adgroups:naverGroupResult.count||0, keywords:naverKeywordResult.count||0, latestSync:naverSyncResult.data||null, periodStart:weekStart?dateOnly(weekStart.toISOString()):null, periodEnd:latestNaverDate, totals:{...naverTotals,roas:naverPerformance.roasPercent,ctr:naverPerformance.ctrPercent,metrics:trustedNaverPerformance}, daily:[...naverDailyMap.values()].sort((a,b)=>a.date.localeCompare(b.date)), topCampaigns:trustedNaverTopCampaigns, keywordPeriod, keywordTop, keywordWaste, marketingDiagnosis },
     coupang: {
       products: coupangProductsResult.data || [],
       productCount: coupangProductsResult.data?.length || 0,
