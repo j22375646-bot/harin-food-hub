@@ -23,6 +23,13 @@ test('짧은 이력은 휴면과 재구매 예정 고객을 0으로 만들지 �
   assert.equal(result.summary.dormant_customers,null);
 });
 
+test('조회한 90일 범위와 실제 주문 발생 범위를 구분한다',()=>{
+  const orders=[order('o1','a','2026-05-20'),order('o2','a','2026-08-08')];
+  const result=moduleUnderTest.buildCustomerRetention({orders,items:orders.map(row=>item(row.order_id)),orderHistoryPeriod:{start_date:'2026-05-16',end_date:'2026-08-13'},asOf:new Date('2026-08-13T00:00:00Z')});
+  assert.equal(result.period.days,90);
+  assert.equal(result.period.order_activity_days,81);
+});
+
 test('반복 간격이 충분하면 상품 주기와 예정·휴면 대상을 계산한다',()=>{
   const orders=[
     order('a1','a','2026-01-01'),order('a2','a','2026-01-31'),order('a3','a','2026-03-02'),order('a4','a','2026-04-01'),

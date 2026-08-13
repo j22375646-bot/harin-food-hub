@@ -385,6 +385,7 @@ async function getDashboardData() {
   const financialTrustToken=authModule.signFinancialTrust(financialTrust);
   const pacing = await pacingPromise;
   const generatedAt = new Date().toISOString();
+  const latestCafe24History=(syncResult.data||[]).find(item=>item.platform==='CAFE24'&&item.status==='SUCCESS'&&item.metadata?.order_period)?.metadata?.order_period||null;
   const retentionValidation=retentionValidationModule.buildRetentionValidation({
     orders:ordersResult.data||[],
     items:itemsResult.data||[],
@@ -396,6 +397,7 @@ async function getDashboardData() {
     financialChanges:phase7ChangesResult.data||[],
     financialAudits:phase7AuditsResult.data||[],
     automationRuns:automationResult.data||[],
+    orderHistoryPeriod:latestCafe24History,
     asOf:generatedAt
   });
   const dataHealth = dataHealthModule.buildDataHealth({

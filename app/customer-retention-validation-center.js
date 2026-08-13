@@ -32,7 +32,7 @@ function CustomerTab({customer}){
   const enough=summary.lifecycle_status==='READY';
   return <div className="phase7TabPanel">
     <section className={`phase7Coverage ${enough?'ready':'waiting'}`}>
-      <div><span>{enough?'판단 가능':'자료를 더 모으는 중'}</span><b>{customer?.period?.days||0}일 주문 이력 · 반복 간격 {number(summary.interval_samples)}개</b></div>
+      <div><span>{enough?'판단 가능':'자료를 더 모으는 중'}</span><b>{customer?.period?.days||0}일 조회 이력 · 주문 발생 {number(customer?.period?.order_activity_days)}일 범위 · 반복 간격 {number(summary.interval_samples)}개</b></div>
       <p>{enough?'재구매 예정과 휴면 가능 고객을 계산할 수 있습니다.':'최소 90일 주문 이력과 반복 구매 간격 3개가 쌓이기 전에는 휴면·재구매 예정 숫자를 억지로 만들지 않습니다.'}</p>
     </section>
 
