@@ -12,6 +12,7 @@ import productPerformance from '../lib/products/performance.js';
 import costCalibrationModule from '../lib/analytics/cost-calibration.js';
 import shippingRulesModule from '../lib/analytics/shipping-rules.js';
 import financialTrustModule from '../lib/analytics/financial-trust.js';
+import financialReadinessModule from '../lib/analytics/financial-readiness.js';
 import priorityCenterModule from '../lib/actions/priority-center.js';
 import dataHealthModule from '../lib/dashboard/data-health.js';
 import coupangQueueHealthModule from '../lib/dashboard/coupang-queue-health.js';
@@ -378,6 +379,13 @@ async function getDashboardData() {
   });
   const trustedProfitability = financialTrustModule.applyProfitabilityGate(liveProfitability, financialTrust);
   const trustedProductPerformance = financialTrustModule.applyProductPerformanceGate(unifiedProductPerformance, financialTrust);
+  const financialReadiness = financialReadinessModule.buildFinancialReadiness({
+    performance:unifiedProductPerformance,
+    financialTrust,
+    productCosts:costsResult.data||[],
+    channelCostSettings:effectiveChannelCostSettings,
+    channelShippingRules:shippingRulesResult.data||[]
+  });
   const trustedNaverPerformance = financialTrustModule.applyBidGuideGate(naverPerformance, financialTrust);
   keywordTop=keywordTop.map(item=>({...item,metrics:financialTrustModule.applyBidGuideGate(item.metrics,financialTrust)}));
   keywordWaste=keywordWaste.map(item=>({...item,metrics:financialTrustModule.applyBidGuideGate(item.metrics,financialTrust)}));
@@ -516,6 +524,7 @@ async function getDashboardData() {
     channelProducts: allChannelProducts,
     productMapping,
     unifiedProductPerformance:trustedProductPerformance,
+    financialReadiness,
     productCosts: costsResult.data || [],
     channelCostSettings: channelCostsResult.data || [],
     channelShippingRules: shippingRulesResult.data || [],

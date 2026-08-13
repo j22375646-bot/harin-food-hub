@@ -78,3 +78,17 @@ test('미귀속 쿠팡 광고비가 있으면 상품 ROAS와 공헌이익을 미
   assert.equal(result.items[0].contribution_profit,null);
   assert.equal(result.items[0].roas,null);
 });
+
+test('assigns Coupang ad spend directly through advertised option and linked seller product', () => {
+  const result = performance.buildUnifiedProductPerformance({
+    periodStart:'2026-08-01',periodEnd:'2026-08-07',
+    masterProducts:[{id:'M1',name:'작수차'}],
+    channelProducts:[{platform:'COUPANG',external_product_id:'S1',master_product_id:'M1'}],
+    coupangProductItems:[{vendor_item_id:'V1',seller_product_id:'S1'}],
+    coupangAdKeywords:[{advertised_option_id:'V1',keyword:'일반 검색어',ad_spend:3200}],
+    productCosts:[{master_product_id:'M1',unit_cost:1000}]
+  });
+  assert.equal(result.items[0].channels.COUPANG.ad_spend,3200);
+  assert.equal(result.summary.coupang_ad_spend_directly_assigned,3200);
+  assert.equal(result.summary.coupang_ad_spend_unassigned,0);
+});
