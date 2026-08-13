@@ -176,7 +176,7 @@ export default function Dashboard({ initialData, initialState }) {
       {view==='experiments' && <ExperimentLab />}
       {view==='notifications' && <NotificationCenter reports={reports} />}
     </main>
-    <nav className="mobileBottomNav" aria-label="모바일 주요 메뉴">{nav.filter(item=>['main','product','insight','notifications'].includes(item.id)).map(item=><button className={view===item.id?'active':''} onClick={()=>openView(item.id)} key={item.id}><i>{item.icon}</i><span>{item.id==='notifications'?'알림':item.label}</span></button>)}</nav>
+    <nav className="mobileBottomNav" aria-label="모바일 주요 메뉴">{['main','product','insight','notifications'].map(id=>nav.find(item=>item.id===id)).map(item=><button className={view===item.id?'active':''} onClick={()=>openView(item.id)} key={item.id}><i>{item.icon}</i><span>{item.id==='notifications'?'알림':item.label}</span></button>)}</nav>
     <footer>하린식품 광고·매출 통합 관리 허브 <span>·</span> 네이버 + 쿠팡 + Cafe24 + Supabase</footer>
   </div>;
 }
