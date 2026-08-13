@@ -15,6 +15,7 @@ import financialTrustModule from '../lib/analytics/financial-trust.js';
 import priorityCenterModule from '../lib/actions/priority-center.js';
 import dataHealthModule from '../lib/dashboard/data-health.js';
 import coupangQueueHealthModule from '../lib/dashboard/coupang-queue-health.js';
+import hubRoutesModule from '../lib/navigation/hub-routes.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -508,13 +509,14 @@ async function getDashboardData() {
   };
 }
 
-export default async function Home() {
+export default async function Home({ searchParams }) {
+  const initialState = hubRoutesModule.normalizeHubState(await searchParams);
   const cookieStore = await cookies();
   const currentUser = await authModule.validateSession(cookieStore.get(authModule.COOKIE_NAME)?.value).catch(()=>null);
   if (!currentUser) redirect('/login');
   try {
-    return <Dashboard initialData={await getDashboardData()} />;
+    return <Dashboard initialData={await getDashboardData()} initialState={initialState} />;
   } catch (error) {
-    return <Dashboard initialData={{ error: error.message }} />;
+    return <Dashboard initialData={{ error: error.message }} initialState={initialState} />;
   }
 }

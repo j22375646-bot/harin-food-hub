@@ -1,5 +1,7 @@
 'use strict';
 
+const { HUB_NAV } = require('./lib/navigation/hub-routes.js');
+
 const securityHeaders = [
   { key:'X-Content-Type-Options', value:'nosniff' },
   { key:'X-Frame-Options', value:'DENY' },
@@ -8,6 +10,9 @@ const securityHeaders = [
 ];
 
 module.exports = {
+  async rewrites() {
+    return HUB_NAV.filter(item=>item.href!=='/').map(item=>({ source:item.href, destination:`/?view=${item.id}` }));
+  },
   async headers() {
     return [
       { source:'/:path*', headers:securityHeaders },
