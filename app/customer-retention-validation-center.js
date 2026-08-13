@@ -89,6 +89,6 @@ export default function CustomerRetentionValidationCenter({data}){
     <header className="phase7Hero"><div><span>PHASE 7 · CUSTOMER &amp; VALIDATION</span><h1>고객·재구매·실행 검증센터</h1><p>다시 살 고객을 찾고, 실행한 일이 실제 매출과 이익을 개선했는지 확인합니다.</p></div><div className="phase7HeroBadge"><b>7단계</b><small>핵심 계획 마지막 단계</small></div></header>
     <details className="phase7Help"><summary><span><b>이 화면은 뭐예요?</b><small>처음이라면 쉬운 설명과 예시를 열어보세요.</small></span><em>도움말 열기</em></summary><div><p><b>고객·재구매</b>는 같은 고객의 주문 간격을 보고 다시 살 시기와 휴면 가능성을 찾습니다.</p><p><b>실행 결과</b>는 광고·상품 변경 전 기대효과와 위험, 실행 7일·14일 뒤 실제 숫자를 나란히 비교합니다.</p><p><b>예시</b> · 30일 주기 상품을 마지막으로 산 지 28일인 고객은 재구매 예정 후보입니다. 하지만 이력이 9일뿐이면 주기를 단정하지 않고 계산 대기로 둡니다.</p></div></details>
     <nav className="phase7Tabs" aria-label="7단계 화면 선택"><button type="button" className={tab==='customer'?'active':''} onClick={()=>setTab('customer')}>고객·재구매</button><button type="button" className={tab==='execution'?'active':''} onClick={()=>setTab('execution')}>실행 결과</button></nav>
-    {tab==='customer'?<CustomerTab customer={data.customer}/>:<ExecutionTab execution={data.execution}/>} 
+    {tab==='customer'?<CustomerTab customer={data.customer}/>:<ExecutionTab execution={data.execution}/>}
   </section>;
 }
