@@ -23,6 +23,7 @@ import retentionValidationModule from '../lib/customers/retention-validation.js'
 import channelCapabilitiesModule from '../lib/platforms/channel-capabilities.js';
 import unifiedOrdersModule from '../lib/orders/unified-orders.js';
 import unifiedCustomerServiceModule from '../lib/customer-service/unified-center.js';
+import customerServiceStore from '../lib/customer-service/store.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -80,7 +81,7 @@ const VIEW_TABLES = {
     'naver_keyword_stats','coupang_ad_keyword_daily','business_targets','budget_snapshots'
   ],
   orders:['cafe24_orders','cafe24_order_items','coupang_orders','coupang_order_items','coupang_rg_orders','coupang_rg_order_items','coupang_returns'],
-  cs:['cafe24_orders','cafe24_order_items','coupang_orders','coupang_order_items','coupang_returns','coupang_exchanges','coupang_inquiries','coupang_operation_requests'],
+  cs:['cafe24_orders','cafe24_order_items','coupang_orders','coupang_order_items','coupang_returns','coupang_exchanges','coupang_inquiries','coupang_operation_requests','customer_service_items'],
   inventory:['coupang_products','coupang_rg_inventory','coupang_item_inventory','coupang_product_items'],
   settlement:['coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_orders','coupang_rg_order_items','coupang_settlement_summaries','coupang_promotion_budgets','coupang_product_items','coupang_cost_transactions','coupang_cost_imports','channel_cost_settings','channel_shipping_rules'],
   collection:['cafe24_products','automation_runs','data_quality_checks','coupang_sync_requests','coupang_products','coupang_api_capabilities'],
@@ -139,7 +140,7 @@ async function getDashboardData(state) {
     db.from('cafe24_traffic_daily').select('date,visitors,pageviews,source_status,raw_data').order('date', { ascending: true }).limit(31),
     db.from('cafe24_referrers_daily').select('date,source,visitors,orders,revenue').order('visitors', { ascending: false }).limit(500),
     db.from('cafe24_products').select('external_product_no,product_name,price,selling,raw_data').order('updated_at', { ascending: false }).limit(100),
-    db.from('sync_logs').select('id,platform,job_type,status,started_at,finished_at,rows_received,error_message,metadata').in('job_type', ['FETCH_ALL','FILE_IMPORT','RG_INVENTORY','RG_REALTIME','LOCAL_IP_CHECK','COMMERCE_CONNECTION_TEST']).order('started_at', { ascending: false }).limit(30),
+    db.from('sync_logs').select('id,platform,job_type,status,started_at,finished_at,rows_received,error_message,metadata').in('job_type', ['FETCH_ALL','FILE_IMPORT','RG_INVENTORY','RG_REALTIME','LOCAL_IP_CHECK','COMMERCE_CONNECTION_TEST','CUSTOMER_SERVICE']).order('started_at', { ascending: false }).limit(50),
     db.from('reports').select('id,platform,report_type,period_start,period_end,title,status,summary_json,version,supersedes_report_id,is_latest,revision_note,approved_at,approved_by,created_at').order('period_end', { ascending: false }).order('created_at',{ascending:false}).limit(80),
     db.from('actions').select('id,platform,target_type,target_id,target_name,action_type,reason,status,before_value,after_value,decided_at,executed_at,review_after,priority,assignee,due_at,hold_reason,review_result,created_at').order('decided_at', { ascending: false }).limit(100),
     db.from('master_products').select('id,name,selling_price,is_active').order('updated_at',{ascending:false}).limit(200),
@@ -206,6 +207,14 @@ async function getDashboardData(state) {
   ]),[{platform:'COUPANG',dataset:'coupang_operation_requests_cs'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
   queryIssues.push(...csAuditSettled.issues);
   const csOperationAudits=csAuditSettled.results[0].data||[];
+  const channelCsSettled=dataHealthModule.settleQueries(await Promise.allSettled([
+    db.from('customer_service_items')
+      .select('id,source_key,platform,kind,source_id,source_subtype,status,completed,answered,order_id,product_id,occurred_at,title_envelope,content_envelope,raw_summary,source_updated_at,collected_at')
+      .order('occurred_at',{ascending:false})
+      .limit(1000)
+  ]),[{platform:'SHARED',dataset:'customer_service_items'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+  queryIssues.push(...channelCsSettled.issues);
+  const channelCsItems=customerServiceStore.hydrateRows(channelCsSettled.results[0].data||[]);
   const keywordPeriodSettled=dataHealthModule.settleQueries(await Promise.allSettled([db.from('naver_keyword_stats').select('period_start,period_end').order('period_end',{ascending:false}).limit(1).maybeSingle()]),[{platform:'NAVER',dataset:'naver_keyword_stats_period'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
   queryIssues.push(...keywordPeriodSettled.issues);
   const keywordPeriodResult=keywordPeriodSettled.results[0];
@@ -573,6 +582,10 @@ async function getDashboardData(state) {
     coupangOrders:coupangOrdersResult.data || [], coupangOrderItems:coupangItemsResult.data || [],
     coupangReturns:coupangReturnViews, coupangExchanges:coupangExchangeViews,
     coupangInquiries:(coupangInquiriesResult.data || []).map(({raw_data,...item})=>item),
+    channelItems:channelCsItems,
+    collectorPlatforms:[...new Set((syncResult.data || [])
+      .filter(item=>item.job_type==='CUSTOMER_SERVICE'&&['SUCCESS','PARTIAL'].includes(item.status))
+      .map(item=>item.platform))],
     operationAudits:csOperationAudits, channelConnections:channelConnections.channels || []
   });
   return {
