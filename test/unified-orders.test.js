@@ -149,19 +149,49 @@ test('live work window is separated from cumulative stored history',()=>{
     ],
     cafe24OrderItems:[
       {order_id:'CURRENT',external_item_id:'I-1',product_name:'Current',quantity:1,raw_data:{order_status:'N10'}},
-      {order_id:'OLD',external_item_id:'I-2',product_name:'Old',quantity:1,raw_data:{order_status:'N10'}}
+      {order_id:'OLD',external_item_id:'I-2',product_name:'Old',quantity:1,raw_data:{order_status:'N40'}}
     ]
   });
   assert.equal(center.summary.historyTotal,2);
   assert.equal(center.summary.total,1);
-  assert.equal(center.summary.windowDays,31);
+  assert.equal(center.summary.windowDays,30);
   assert.equal(center.orders[0].externalOrderId,'CURRENT');
+});
+
+test('old active work stays visible while completed deliveries are limited to 30 days',()=>{
+  const center=orders.buildUnifiedOrders({
+    asOf:'2026-08-14T00:00:00Z',
+    cafe24Orders:[
+      {order_id:'OLD-ACTIVE',order_date:'2026-05-15T01:00:00Z'},
+      {order_id:'DAY-30-DONE',order_date:'2026-07-16T01:00:00Z'},
+      {order_id:'DAY-31-DONE',order_date:'2026-07-15T01:00:00Z'}
+    ],
+    cafe24OrderItems:[
+      {order_id:'OLD-ACTIVE',external_item_id:'I-1',product_name:'Active',raw_data:{order_status:'N10'}},
+      {order_id:'DAY-30-DONE',external_item_id:'I-2',product_name:'Done',raw_data:{order_status:'N40'}},
+      {order_id:'DAY-31-DONE',external_item_id:'I-3',product_name:'Old done',raw_data:{order_status:'N40'}}
+    ]
+  });
+  assert.deepEqual(center.orders.map(order=>order.externalOrderId).sort(),['DAY-30-DONE','OLD-ACTIVE']);
+  assert.equal(center.summary.visibleDefaultTotal,1);
+  assert.equal(center.stageCounts.DELIVERED,1);
+});
+
+test('15시까지 오늘 주문은 당일출고, 다음 날까지 준비중이면 배송지연이다',()=>{
+  const sameDay=orders.fulfillmentTiming({orderedAt:'2026-08-14T14:59:00+09:00',stage:'PREPARING'},new Date('2026-08-14T06:00:00Z'));
+  const atCutoff=orders.fulfillmentTiming({orderedAt:'2026-08-14T15:00:00+09:00',stage:'PREPARING'},new Date('2026-08-14T06:01:00Z'));
+  const afterCutoff=orders.fulfillmentTiming({orderedAt:'2026-08-14T15:01:00+09:00',stage:'PREPARING'},new Date('2026-08-14T07:00:00Z'));
+  const delayed=orders.fulfillmentTiming({orderedAt:'2026-08-13T16:00:00+09:00',stage:'PREPARING'},new Date('2026-08-14T00:00:00Z'));
+  assert.equal(sameDay.timingBadge.type,'SAME_DAY');
+  assert.equal(atCutoff.timingBadge.type,'SAME_DAY');
+  assert.equal(afterCutoff.timingBadge,null);
+  assert.equal(delayed.timingBadge.type,'DELAYED');
 });
 
 test('live work window uses the Korea business date on a UTC deployment',()=>{
   const center=orders.buildUnifiedOrders({asOf:'2026-08-13T15:30:00Z'});
   assert.equal(center.summary.windowEnd,'2026-08-14');
-  assert.equal(center.summary.windowStart,'2026-07-15');
+  assert.equal(center.summary.windowStart,'2026-07-16');
 });
 
 test('orders center labels seller delivery and refreshes current channel status',()=>{
@@ -171,6 +201,10 @@ test('orders center labels seller delivery and refreshes current channel status'
   assert.match(center,/\/api\/orders\/live-refresh/);
   assert.match(center,/상품명/);
   assert.match(center,/기본 옵션/);
+  assert.match(center,/전체 플랫폼 수동수집/);
+  assert.match(center,/배송완료는 5단계를 눌렀을 때만 표시됩니다/);
+  assert.match(center,/당일출고/);
+  assert.match(center,/배송지연/);
   assert.doesNotMatch(center,/<section className=\{`orderDeliveryInfo/);
   assert.match(route,/ORDER_REALTIME/);
   assert.match(route,/apiSafety\.isAuthorized\(request,authModule\)/);

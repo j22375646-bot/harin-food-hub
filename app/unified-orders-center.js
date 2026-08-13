@@ -14,9 +14,10 @@ function ChannelState({ channel }) {
 }
 
 function DeliveryInfo({ order }) {
-  const [state,setState]=useState({status:'LOADING'});
+  const [state,setState]=useState(order.demo?{status:'READY',receiver:order.demoReceiver}:{status:'LOADING'});
   useEffect(()=>{
     let active=true;
+    if(order.demo)return ()=>{active=false;};
     if(order.platform==='NAVER'){
       setState({status:'UNAVAILABLE',error:'네이버 커머스 연결 후 자동 표시됩니다.'});
       return ()=>{active=false;};
@@ -34,14 +35,32 @@ function DeliveryInfo({ order }) {
   </div>;
 }
 
+function TimingBadge({ badge }) {
+  if(!badge)return null;
+  return <span className={`orderTimingBadge ${badge.type.toLowerCase()}`} title={badge.detail}><b>{badge.label}</b><small>{badge.detail}</small></span>;
+}
+
 function OrderCard({ order, selected, onSelect }) {
-  return <article className={`unifiedOrderCard${order.cancellationRequested?' cancelWarning':''}`}>
+  return <article className={`unifiedOrderCard${order.cancellationRequested?' cancelWarning':''}${order.demo?' demoOrderCard':''}`}>
     {order.cancellationRequested?<div className="orderCancelWarning"><b>출고 멈춤 · 취소/반품 요청 확인</b><span>출고 전에 해당 쇼핑몰에서 요청 상태를 먼저 확인하세요.</span></div>:null}
-    <header><div><label className={`shippingSelect${order.shippingEligible?'':' blocked'}`} title={order.shippingBlockedReason||'포장·배송 작업에 선택'}><input type="checkbox" checked={selected} disabled={!order.shippingEligible} onChange={event=>onSelect(order,event.target.checked)}/><span>{order.shippingEligible?'작업 선택':'선택 불가'}</span></label><span className={`channelBadge ${order.platform.toLowerCase()}`}>{order.channelLabel}</span>{order.platform==='COUPANG'&&order.fulfillment==='SELLER'?<span className="sellerDeliveryBadge">판매자배송</span>:null}{order.fulfillment==='ROCKET_GROWTH'?<span className="fulfillmentBadge">로켓그로스</span>:null}<strong>{STAGE_LABELS[order.stage]||'상태 확인'}</strong></div><b>{money(order.amount)}</b></header>
+    <header><div><label className={`shippingSelect${order.shippingEligible?'':' blocked'}`} title={order.shippingBlockedReason||'포장·배송 작업에 선택'}><input type="checkbox" checked={selected} disabled={!order.shippingEligible} onChange={event=>onSelect(order,event.target.checked)}/><span>{order.demo?'디자인 샘플':order.shippingEligible?'작업 선택':'선택 불가'}</span></label><span className={`channelBadge ${order.platform.toLowerCase()}`}>{order.channelLabel}</span>{order.platform==='COUPANG'&&order.fulfillment==='SELLER'?<span className="sellerDeliveryBadge">판매자배송</span>:null}{order.fulfillment==='ROCKET_GROWTH'?<span className="fulfillmentBadge">로켓그로스</span>:null}<strong>{STAGE_LABELS[order.stage]||'상태 확인'}</strong><TimingBadge badge={order.timingBadge}/></div><b>{money(order.amount)}</b></header>
     <section><div><span>허브 주문번호</span><b>{order.hubOrderId}</b></div><div><span>쇼핑몰 주문번호</span><b>{order.externalOrderId}</b></div><div><span>주문 시각</span><b>{dateTime(order.orderedAt)}</b></div></section>
     <div className="unifiedOrderProduct"><div className="orderItemRows">{order.items?.length?order.items.map((item,index)=><div className="orderItemRow" key={`${item.externalItemId||item.name}-${index}`}><span><small>상품명</small><b>{item.name}</b></span><span><small>옵션</small><b>{item.option||'기본 옵션'}</b></span><strong>{count(item.quantity)}개</strong></div>):<p>상품 상세는 다음 수집 때 자동으로 채워집니다.</p>}<em>{(order.packagingInstructions||[]).join(' · ')}</em></div><strong className="orderTotalQuantity">총 {order.quantity?`${count(order.quantity)}개`:'-'}</strong></div>
     <DeliveryInfo order={order}/>
   </article>;
+}
+
+function previousDate(value) {
+  const date=new Date(`${value}T00:00:00Z`);date.setUTCDate(date.getUTCDate()-1);return date.toISOString().slice(0,10);
+}
+
+function timingDemoOrders(businessDate) {
+  const yesterday=previousDate(businessDate);
+  const receiver={name:'홍길동',contact:'010-0000-0000',postCode:'12345',address:'서울시 샘플구 확인로 15',addressDetail:'디자인 확인용',message:'문 앞에 놓아주세요'};
+  return [
+    {demo:true,hubOrderId:'SAMPLE-SAME-DAY',platform:'CAFE24',channelLabel:'Cafe24',externalOrderId:'DESIGN-당일출고',orderedAt:`${businessDate}T00:10:00+09:00`,stage:'PREPARING',amount:23000,fulfillment:'SELLER',shippingEligible:false,shippingBlockedReason:'디자인 확인용 주문입니다.',timingBadge:{type:'SAME_DAY',label:'당일출고',detail:'오늘 15시까지 주문'},items:[{externalItemId:'SAMPLE-1',name:'하린식품 작두콩수세미차',option:'30티백 · 2개',quantity:2}],quantity:2,packagingInstructions:['2개 포장'],demoReceiver:receiver},
+    {demo:true,hubOrderId:'SAMPLE-DELAYED',platform:'COUPANG',channelLabel:'쿠팡',externalOrderId:'DESIGN-배송지연',orderedAt:`${yesterday}T10:20:00+09:00`,stage:'PREPARING',amount:38000,fulfillment:'SELLER',shippingEligible:false,shippingBlockedReason:'디자인 확인용 주문입니다.',timingBadge:{type:'DELAYED',label:'배송지연',detail:'주문 후 1일째 준비중'},items:[{externalItemId:'SAMPLE-2',name:'하린식품 국내산 우엉차',option:'50티백 · 1개',quantity:1}],quantity:1,packagingInstructions:['1개 포장'],demoReceiver:receiver}
+  ];
 }
 
 const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
@@ -146,9 +165,11 @@ export default function UnifiedOrdersCenter({ center, children }) {
   const [actionOnly,setActionOnly]=useState(false);
   const [selectedIds,setSelectedIds]=useState(()=>new Set());
   const [showCount,setShowCount]=useState(20);
+  const demoOrders=useMemo(()=>timingDemoOrders(currentCenter.summary.windowEnd),[currentCenter.summary.windowEnd]);
   const visible=useMemo(()=>currentCenter.orders.filter(order=>{
     const needle=query.trim().toLowerCase();
     if(platform!=='ALL'&&order.platform!==platform)return false;
+    if(stage==='ALL'&&order.stage==='DELIVERED')return false;
     if(stage!=='ALL'&&order.stage!==stage)return false;
     if(actionOnly&&!order.actionRequired)return false;
     const date=String(order.orderedAt||'').slice(0,10);
@@ -197,12 +218,13 @@ export default function UnifiedOrdersCenter({ center, children }) {
   const exportHref=`/api/orders/export${exportParams.size?`?${exportParams}`:''}`;
   function selectOrder(order,checked){setSelectedIds(previous=>{const next=new Set(previous);if(checked)next.add(order.hubOrderId);else next.delete(order.hubOrderId);return next;});}
   return <section className="unifiedOrdersCenter">
-    <section className="unifiedOrdersHero"><div><span>PHASE 11-3 · PACK & SHIP</span><h1>통합 주문·배송센터</h1><p>쿠팡은 판매자배송 주문만 작업 목록에 표시하고, Cafe24와 함께 현재 포장·출고 상태를 확인합니다.</p></div><div><small>지금 처리 필요</small><b>{count(currentCenter.summary.actionRequired)}건</b><em>최근 31일 작업화면 {count(currentCenter.summary.total)}건</em><em>누적 저장 {count(currentCenter.summary.historyTotal)}건</em><em>로켓그로스 {count(currentCenter.summary.rocketGrowthStored)}건 · 별도 저장</em></div></section>
+    <section className="unifiedOrdersHero"><div><span>PHASE 11-3 · PACK & SHIP</span><h1>통합 주문·배송센터</h1><p>쿠팡은 판매자배송 주문만 작업 목록에 표시하고, Cafe24와 함께 현재 포장·출고 상태를 확인합니다.</p></div><div><small>지금 처리 필요</small><b>{count(currentCenter.summary.actionRequired)}건</b><em>현재 진행중 {count(currentCenter.summary.visibleDefaultTotal)}건</em><em>최근 30일 배송완료 {count(currentCenter.stageCounts.DELIVERED)}건</em><em>로켓그로스 {count(currentCenter.summary.rocketGrowthStored)}건 · 별도 저장</em></div></section>
     <article className={`liveOrdersStatus ${liveState.status.toLowerCase()}`} aria-live="polite"><div><span className="livePulse"/><span><b>{liveState.status==='LOADING'?'전체 플랫폼 수집 중':liveState.status==='READY'?'최신 상태 수집 완료':liveState.status==='PARTIAL'?'일부 채널 확인 필요':liveState.status==='FAILED'?'최신 상태 수집 실패':'1시간 자동수집'}</b><small>{liveState.message} · 작업화면 {currentCenter.summary.windowStart}~{currentCenter.summary.windowEnd}</small></span></div><button type="button" onClick={refreshLiveOrders} disabled={liveState.status==='LOADING'}>{liveState.status==='LOADING'?'수집 중…':'전체 플랫폼 수동수집'}</button></article>
+    <details className="timingDemoPanel" open><summary><span><b>출고 뱃지 디자인 확인</b><small>아래 2건은 실제 주문·매출에 포함되지 않는 화면 샘플입니다.</small></span><em>샘플 접기</em></summary><div>{demoOrders.map(order=><OrderCard order={order} selected={false} onSelect={()=>{}} key={order.hubOrderId}/>)}</div></details>
     <div className="unifiedChannelStates">{currentCenter.channels.map(channel=><ChannelState channel={channel} key={channel.platform}/>)}</div>
     <details className="unifiedOrdersHelp"><summary><span><b>이 화면은 어떻게 쓰나요?</b><small>처음 볼 때만 열어보세요. 쉬운 예시로 설명합니다.</small></span><em>열기</em></summary><div><p><b>1. 위 단계 박스</b>를 누르면 그 단계 주문만 보여요.</p><p><b>2. ‘처리 필요만’</b>을 켜면 포장·출고하거나 취소를 확인할 주문만 남아요.</p><p><b>예시:</b> 취소 경고가 붙은 주문은 송장을 넣기 전에 쇼핑몰에서 취소 요청부터 확인하세요.</p><p>채널 하나가 실패해도 정상 채널 주문은 계속 표시됩니다. 실패 채널은 위 상태 카드에서 따로 알려드립니다.</p></div></details>
-    <article className="unifiedProcessPanel"><header><div><span>최근 31일 실시간 주문 흐름</span><h2>단계를 누르면 바로 걸러집니다</h2></div><button className={stage==='ALL'?'active':''} onClick={()=>setStage('ALL')}>전체 {count(currentCenter.summary.total)}건</button></header><div className="unifiedOrderFlow">{currentCenter.stages.map((item,index)=><div key={item.id}><button className={stage===item.id?'active':''} onClick={()=>setStage(item.id)}><small>{index+1}. {item.label}</small><b>{count(currentCenter.stageCounts[item.id])}건</b><span>{item.description}</span></button>{index<currentCenter.stages.length-1?<i>→</i>:null}</div>)}</div></article>
-    <article className="unifiedOrderToolbar"><div><label><span>채널</span><select value={platform} onChange={event=>setPlatform(event.target.value)}>{Object.entries(CHANNEL_LABELS).map(([id,label])=><option value={id} key={id}>{label}</option>)}</select></label><label><span>주문 상태</span><select value={stage} onChange={event=>setStage(event.target.value)}><option value="ALL">전체 상태</option>{currentCenter.stages.map(item=><option value={item.id} key={item.id}>{item.label}</option>)}</select></label><label className="orderSearch"><span>주문·상품 검색</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="허브번호·쇼핑몰번호·상품명"/></label><label><span>시작일</span><input type="date" value={startDate} onChange={event=>setStartDate(event.target.value)}/></label><label><span>종료일</span><input type="date" value={endDate} onChange={event=>setEndDate(event.target.value)}/></label></div><footer><label className="actionOnly"><input type="checkbox" checked={actionOnly} onChange={event=>setActionOnly(event.target.checked)}/><span>처리 필요만 보기</span></label><strong>{count(visible.length)}건 표시</strong><a href={exportHref}>엑셀 다운로드</a></footer></article>
+    <article className="unifiedProcessPanel"><header><div><span>실시간 주문 흐름 · 배송완료 최근 30일</span><h2>배송완료는 5단계를 눌렀을 때만 표시됩니다</h2></div><button className={stage==='ALL'?'active':''} onClick={()=>setStage('ALL')}>진행중 전체 {count(currentCenter.summary.visibleDefaultTotal)}건</button></header><div className="unifiedOrderFlow">{currentCenter.stages.map((item,index)=><div key={item.id}><button className={stage===item.id?'active':''} onClick={()=>setStage(item.id)}><small>{index+1}. {item.label}</small><b>{count(currentCenter.stageCounts[item.id])}건</b><span>{item.id==='DELIVERED'?'최근 30일 · 클릭해서 보기':item.description}</span></button>{index<currentCenter.stages.length-1?<i>→</i>:null}</div>)}</div></article>
+    <article className="unifiedOrderToolbar"><div><label><span>채널</span><select value={platform} onChange={event=>setPlatform(event.target.value)}>{Object.entries(CHANNEL_LABELS).map(([id,label])=><option value={id} key={id}>{label}</option>)}</select></label><label><span>주문 상태</span><select value={stage} onChange={event=>setStage(event.target.value)}><option value="ALL">진행중 전체</option>{currentCenter.stages.map(item=><option value={item.id} key={item.id}>{item.label}</option>)}</select></label><label className="orderSearch"><span>주문·상품 검색</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="허브번호·쇼핑몰번호·상품명"/></label><label><span>시작일</span><input type="date" value={startDate} onChange={event=>setStartDate(event.target.value)}/></label><label><span>종료일</span><input type="date" value={endDate} onChange={event=>setEndDate(event.target.value)}/></label></div><footer><label className="actionOnly"><input type="checkbox" checked={actionOnly} onChange={event=>setActionOnly(event.target.checked)}/><span>처리 필요만 보기</span></label><strong>{count(visible.length)}건 표시</strong><a href={exportHref}>엑셀 다운로드</a></footer></article>
     <ShippingWorkbench orders={currentCenter.orders} selectedIds={selectedIds} setSelectedIds={setSelectedIds}/>
     {currentCenter.summary.cancellations?<div className="unifiedCancelSummary"><b>출고 전에 확인할 취소·반품 요청 {count(currentCenter.summary.cancellations)}건</b><span>처리 완료된 요청은 숨기고, 현재 확인이 필요한 요청만 표시합니다.</span></div>:null}
     <div className="unifiedOrderList">{rendered.length?rendered.map(order=><OrderCard order={order} selected={selectedIds.has(order.hubOrderId)} onSelect={selectOrder} key={`${order.platform}:${order.hubOrderId}`}/>):<div className="unifiedOrdersEmpty"><b>이 조건의 주문이 없습니다.</b><span>검색어나 기간을 지우고 다시 확인해보세요.</span></div>}</div>
