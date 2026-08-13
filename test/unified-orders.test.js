@@ -219,10 +219,11 @@ test('orders center labels seller delivery and refreshes current channel status'
   assert.match(route,/apiSafety\.isAuthorized\(request,authModule\)/);
 });
 
-test('phase 11-3C preserves 11-3A bulk work selection and the postal invoice field',()=>{
+test('phase 11-3D preserves bulk selection, postal invoice entry, and channel-only retry',()=>{
   const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
   const route=fs.readFileSync(path.join(__dirname,'..','app','api','shipping','actions','route.js'),'utf8');
-  assert.match(center,/PHASE 11-3C · TEST PARCEL/);
+  const transfer=fs.readFileSync(path.join(__dirname,'..','lib','shipping','channel-transfer.js'),'utf8');
+  assert.match(center,/PHASE 11-3D · CHANNEL TRANSFER/);
   assert.match(center,/결제완료·준비중 전체선택/);
   assert.match(center,/bulkEligible=visible\.filter/);
   assert.match(center,/className=\{`orderInvoiceEntry/);
@@ -230,8 +231,10 @@ test('phase 11-3C preserves 11-3A bulk work selection and the postal invoice fie
   assert.match(center,/replace\(\/\\D\/g,''\)\.slice\(0,13\)/);
   assert.match(center,/useState\('EPOST'\)/);
   assert.match(center,/setActionResults/);
-  assert.match(route,/deliveryCompanyCode==='EPOST'/);
-  assert.match(route,/\\d\{13\}/);
+  assert.match(route,/channelTransfer\.postalTracking/);
+  assert.match(transfer,/return normalized \|\| 'EPOST'/);
+  assert.match(transfer,/\^\\d\{13\}\$/);
+  assert.match(center,/채널만 재시도/);
 });
 
 test('registered tracking numbers from channel data are retained in unified orders',()=>{

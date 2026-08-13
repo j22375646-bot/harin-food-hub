@@ -5,23 +5,63 @@ import cafe24Client from '../../../../lib/cafe24/client.js';
 import cafe24Config from '../../../../lib/cafe24/config.js';
 import operationQueue from '../../../../lib/coupang/operation-queue.js';
 import unifiedOrdersModule from '../../../../lib/orders/unified-orders.js';
+import channelTransfer from '../../../../lib/shipping/channel-transfer.js';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 
 const text=value=>value==null?'':String(value).trim();
 
-async function runCafe24(action, order, input) {
+function cafe24Error(error) {
+  const detail=text(error?.payload?.error?.message||error?.payload?.message||error?.payload?.error?.more_info);
+  return detail||error.message||'Cafe24 송장 전송에 실패했습니다.';
+}
+
+function cafe24Shipments(payload) {
+  if(Array.isArray(payload))return payload;
+  if(Array.isArray(payload?.shipments))return payload.shipments;
+  if(Array.isArray(payload?.shipping))return payload.shipping;
+  return [];
+}
+
+async function runCafe24(db, action, order, input) {
   const config=cafe24Config.getConfig();
   if(action==='PREPARE') {
-    return cafe24Client.adminRequest(config,'PUT',`/orders/${encodeURIComponent(order.externalOrderId)}`,{process_status:'prepareproduct'});
+    await cafe24Client.adminRequest(config,'PUT',`/orders/${encodeURIComponent(order.externalOrderId)}`,{process_status:'prepareproduct'});
+    return {status:'SUCCESS'};
   }
   if(action==='UPLOAD_INVOICE') {
-    return cafe24Client.adminRequest(config,'POST',`/orders/${encodeURIComponent(order.externalOrderId)}/shipments`,{
-      tracking_no:input.invoiceNumber,
-      shipping_company_code:input.deliveryCompanyCode,
-      status:'shipping'
+    const audit=await channelTransfer.beginCafe24Transfer(db,{
+      hubOrderId:order.hubOrderId,externalOrderId:order.externalOrderId,
+      invoiceNumber:input.invoiceNumber,deliveryCompanyCode:input.deliveryCompanyCode
     });
+    if(audit.completed)return {status:'SUCCESS',requestId:audit.request.id,reused:true};
+    if(audit.pending)return {status:'RUNNING',requestId:audit.request.id,reused:true};
+    try {
+      if(audit.retried) {
+        const existing=await cafe24Client.adminGet(config,`/orders/${encodeURIComponent(order.externalOrderId)}/shipments`);
+        const alreadyTransferred=cafe24Shipments(existing.payload).some(shipment=>text(shipment.tracking_no)===input.invoiceNumber);
+        if(alreadyTransferred) {
+          await channelTransfer.finishCafe24Transfer(db,audit.request.id,'SUCCESS',{
+            platform:'CAFE24',verifiedExisting:true,invoiceNumber:input.invoiceNumber
+          });
+          return {status:'SUCCESS',requestId:audit.request.id,reused:true,retried:true};
+        }
+      }
+      const response=await cafe24Client.adminRequest(config,'POST',`/orders/${encodeURIComponent(order.externalOrderId)}/shipments`,{
+        tracking_no:input.invoiceNumber,
+        shipping_company_code:input.deliveryCompanyCode,
+        status:'shipping'
+      });
+      await channelTransfer.finishCafe24Transfer(db,audit.request.id,'SUCCESS',{
+        platform:'CAFE24',status:response.status,invoiceNumber:input.invoiceNumber
+      });
+      return {status:'SUCCESS',requestId:audit.request.id,retried:Boolean(audit.retried)};
+    } catch(error) {
+      const message=cafe24Error(error);
+      await channelTransfer.finishCafe24Transfer(db,audit.request.id,'FAILED',{platform:'CAFE24'},message);
+      throw Object.assign(new Error(message),{status:error.status||502});
+    }
   }
   throw Object.assign(new Error('지원하지 않는 Cafe24 배송 작업입니다.'),{status:400});
 }
@@ -37,10 +77,42 @@ async function runCoupang(db, action, order, input) {
     deliveryCompanyCode:input.deliveryCompanyCode,
     vendorItemIds:(order.items||[]).map(item=>item.vendorItemId).filter(Boolean)
   };
-  return operationQueue.queueOperation(db,{
+  const queued=await operationQueue.queueOperation(db,{
     operationType,targetType:'ORDER',targetId:order.shipmentId,payload,
     idempotencyKey:`shipping:${operationType}:${order.shipmentId}:${input.invoiceNumber||'prepare'}`
   });
+  return {
+    status:queued.completed?'SUCCESS':'QUEUED',requestId:queued.request?.id,
+    reused:Boolean(queued.existing),retried:Boolean(queued.retried)
+  };
+}
+
+export async function GET(request) {
+  if(!apiSafety.isAuthorized(request,authModule))return apiSafety.unauthorized();
+  try {
+    const db=supabaseModule.getSupabase();
+    const [center,history]=await Promise.all([
+      unifiedOrdersModule.loadUnifiedOrders({db}),
+      db.from('coupang_operation_requests')
+        .select('id,operation_type,target_type,target_id,status,payload,error_message,created_at,executed_at')
+        .in('operation_type',['UPLOAD_INVOICE',channelTransfer.CAFE24_OPERATION])
+        .order('created_at',{ascending:false}).limit(300)
+    ]);
+    if(history.error)throw history.error;
+    const coupangByShipment=new Map(center.orders.filter(order=>order.platform==='COUPANG').map(order=>[text(order.shipmentId),order.hubOrderId]));
+    const latest={};
+    for(const row of history.data||[]) {
+      const hubOrderId=row.operation_type===channelTransfer.CAFE24_OPERATION?row.target_id:coupangByShipment.get(text(row.target_id));
+      if(!hubOrderId||latest[hubOrderId])continue;
+      let invoiceNumber='';
+      try{invoiceNumber=channelTransfer.postalTracking(operationQueue.open(row.payload)?.invoiceNumber);}catch{}
+      latest[hubOrderId]={hubOrderId,platform:row.operation_type===channelTransfer.CAFE24_OPERATION?'CAFE24':'COUPANG',invoiceNumber,...channelTransfer.publicStatus(row)};
+    }
+    return apiSafety.json({ok:true,results:Object.values(latest)},{headers:{'Cache-Control':'no-store'}});
+  } catch(error) {
+    console.error('[shipping action history]',{message:error.message});
+    return apiSafety.json({ok:false,error:'송장 전송 기록을 불러오지 못했습니다.'},{status:500,headers:{'Cache-Control':'no-store'}});
+  }
 }
 
 export async function POST(request) {
@@ -63,23 +135,22 @@ export async function POST(request) {
         if(!order)throw Object.assign(new Error('최신 주문 목록에서 찾지 못했습니다.'),{status:404});
         if(!order.shippingEligible)throw Object.assign(new Error(order.shippingBlockedReason||'이 주문은 출고할 수 없습니다.'),{status:409});
         if(action==='UPLOAD_INVOICE') {
-          const invoiceNumber=text(input.invoiceNumber);
-          const deliveryCompanyCode=text(input.deliveryCompanyCode);
-          if(!/^[A-Za-z0-9-]{6,40}$/.test(invoiceNumber))throw Object.assign(new Error('송장번호는 영문·숫자·하이픈 6~40자로 입력하세요.'),{status:400});
-          if(!/^[A-Za-z0-9_-]{2,20}$/.test(deliveryCompanyCode))throw Object.assign(new Error('배송사 코드를 확인하세요.'),{status:400});
-          if(deliveryCompanyCode==='EPOST'&&!/^\d{13}$/.test(invoiceNumber))throw Object.assign(new Error('우체국 송장번호는 숫자 13자리로 입력하세요.'),{status:400});
+          const invoiceNumber=channelTransfer.postalTracking(input.invoiceNumber);
+          const deliveryCompanyCode=channelTransfer.courierCode(order.platform,input.deliveryCompanyCode);
           input={...input,invoiceNumber,deliveryCompanyCode};
         }
-        if(order.platform==='CAFE24')await runCafe24(action,order,input);
-        else if(order.platform==='COUPANG')await runCoupang(db,action,order,input);
+        let outcome;
+        if(order.platform==='CAFE24')outcome=await runCafe24(db,action,order,input);
+        else if(order.platform==='COUPANG')outcome=await runCoupang(db,action,order,input);
         else throw Object.assign(new Error('네이버 커머스 API 연결 후 사용할 수 있습니다.'),{status:409});
-        results.push({hubOrderId,platform:order.platform,ok:true,status:order.platform==='COUPANG'?'QUEUED':'SUCCESS'});
+        results.push({hubOrderId,platform:order.platform,ok:true,status:outcome.status,requestId:outcome.requestId||null,reused:Boolean(outcome.reused),retried:Boolean(outcome.retried)});
       } catch(error) {
         results.push({hubOrderId,platform:order?.platform||'UNKNOWN',ok:false,error:error.message});
       }
     }
     const succeeded=results.filter(item=>item.ok).length;
-    return apiSafety.json({ok:succeeded>0,succeeded,failed:results.length-succeeded,results},{status:succeeded?202:409});
+    const queued=results.some(item=>item.ok&&['QUEUED','RUNNING'].includes(item.status));
+    return apiSafety.json({ok:succeeded>0,succeeded,failed:results.length-succeeded,results},{status:succeeded?(queued?202:200):409,headers:{'Cache-Control':'no-store'}});
   } catch(error) {
     console.error('[shipping actions]',{message:error.message});
     return apiSafety.json({ok:false,error:'배송 작업을 시작하지 못했습니다.'},{status:500});

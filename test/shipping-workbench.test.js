@@ -54,3 +54,16 @@ test('orders center exposes phase 11-3C test parcel issuance while live parcel s
   assert.match(route,/testOnly:true/);
   assert.doesNotMatch(route,/EPOST_LIVE_WRITES_ENABLED/);
 });
+
+test('phase 11-3D keeps postal tracking while retrying only failed channel transfers',()=>{
+  const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
+  const route=fs.readFileSync(path.join(__dirname,'..','app','api','shipping','actions','route.js'),'utf8');
+  assert.match(center,/PHASE 11-3D · CHANNEL TRANSFER/);
+  assert.match(center,/채널만 재시도/);
+  assert.match(center,/pollShippingTransfer/);
+  assert.match(route,/beginCafe24Transfer/);
+  assert.match(route,/cafe24Client\.adminGet/);
+  assert.match(route,/alreadyTransferred/);
+  assert.match(route,/requestId/);
+  assert.match(route,/channelTransfer\.postalTracking/);
+});

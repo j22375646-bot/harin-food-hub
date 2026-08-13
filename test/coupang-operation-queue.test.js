@@ -94,6 +94,50 @@ test('동시 등록 충돌 시 이미 생성된 진행 중 작업을 반환한�
   }
 });
 
+test('송장 전송 성공 기록은 중복 실행하지 않고 완료 결과를 재사용한다', async () => {
+  const calls=[];
+  let tableCalls=0;
+  const completed={id:'done',operation_type:'UPLOAD_INVOICE',target_type:'ORDER',target_id:'123',status:'SUCCESS'};
+  const responses=[{data:null,error:null},{data:completed,error:null}];
+  const db={from:()=>chain(responses[tableCalls++],calls)};
+  const result=await queue.queueOperation(db,{
+    operationType:'UPLOAD_INVOICE',targetType:'ORDER',targetId:'123',
+    idempotencyKey:'shipping:UPLOAD_INVOICE:123:1234567890123'
+  });
+  assert.equal(result.completed,true);
+  assert.equal(result.request.id,'done');
+  assert.equal(calls.some(([method])=>method==='insert'),false);
+});
+
+test('실패한 송장 전송은 같은 기록을 PENDING으로 되돌려 채널만 재시도한다', async () => {
+  const previous=process.env.SUPABASE_SERVICE_ROLE_KEY;
+  process.env.SUPABASE_SERVICE_ROLE_KEY=secret;
+  try {
+    const calls=[];
+    let tableCalls=0;
+    const failed={id:'failed',operation_type:'UPLOAD_INVOICE',target_type:'ORDER',target_id:'123',status:'FAILED'};
+    const retried={...failed,status:'PENDING'};
+    const responses=[{data:null,error:null},{data:failed,error:null},{data:retried,error:null}];
+    const db={from:()=>{
+      const query=chain(responses[tableCalls++],calls);
+      query.update=value=>{calls.push(['update',value]);return query;};
+      return query;
+    }};
+    const result=await queue.queueOperation(db,{
+      operationType:'UPLOAD_INVOICE',targetType:'ORDER',targetId:'123',
+      payload:{invoiceNumber:'1234567890123'},
+      idempotencyKey:'shipping:UPLOAD_INVOICE:123:1234567890123'
+    });
+    assert.equal(result.retried,true);
+    assert.equal(result.request.status,'PENDING');
+    const update=calls.find(([method])=>method==='update')[1];
+    assert.equal(update.status,'PENDING');
+    assert.equal(queue.open(update.payload).invoiceNumber,'1234567890123');
+  } finally {
+    if(previous===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=previous;
+  }
+});
+
 test('고정 IP 워커가 조회·주문·문의·반품교환 작업을 올바른 실행기로 보낸다', async () => {
   const calls=[];
   const handlers={

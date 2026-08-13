@@ -93,6 +93,12 @@ test('fixed-IP operation queue accepts product, Naver and ePost channel probes',
   );
 });
 
+test('이미 등록된 쿠팡 송장번호를 주문과 옵션 행에서 찾아 중복 전송을 막는다',()=>{
+  assert.equal(actions.orderHasInvoice({invoiceNumber:'1234567890123'},'1234567890123'),true);
+  assert.equal(actions.orderHasInvoice({orderItems:[{invoiceNumber:'9876543210987'}]},'9876543210987'),true);
+  assert.equal(actions.orderHasInvoice({orderItems:[{invoiceNumber:'9876543210987'}]},'1234567890123'),false);
+});
+
 test('daily cron queues Coupang and production data source is no longer HOME_PC', () => {
   const root = path.resolve(__dirname, '..');
   const cron = fs.readFileSync(path.join(root, 'app/api/cron/daily-sync/route.js'), 'utf8');
