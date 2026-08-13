@@ -407,6 +407,7 @@ async function getDashboardData(state) {
     ...(channelsResult.data || []).filter(item=>item.platform==='CAFE24'),
     ...productMapping.links
   ];
+  const generatedAt = new Date().toISOString();
   const productOperations = productOperationsModule.buildUnifiedProductOperations({
     masterProducts:masterResult.data || [],
     channelProducts:allChannelProducts,
@@ -484,7 +485,6 @@ async function getDashboardData(state) {
   const trustedNaverTopCampaigns=naverTopCampaigns.map(item=>({...item,metrics:financialTrustModule.applyBidGuideGate(item.metrics,financialTrust)}));
   const financialTrustToken=authModule.signFinancialTrust(financialTrust);
   const pacing = await pacingPromise;
-  const generatedAt = new Date().toISOString();
   const latestCafe24History=(syncResult.data||[]).find(item=>item.platform==='CAFE24'&&item.status==='SUCCESS'&&item.metadata?.order_period)?.metadata?.order_period||null;
   const retentionValidation=retentionValidationModule.buildRetentionValidation({
     orders:ordersResult.data||[],

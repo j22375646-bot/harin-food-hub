@@ -78,6 +78,7 @@ test('phase 11-6 keeps product operations and adds unified inventory operations'
   assert.match(client,/UnifiedProductOperationsCenter/);
   assert.match(client,/UnifiedInventoryOperationsCenter/);
   assert.match(client,/initialData\.unifiedInventory/);
+  assert.ok(page.indexOf('const generatedAt = new Date().toISOString()') < page.indexOf('const unifiedInventory ='));
   assert.match(client,/view==='validation' && \(<CustomerRetentionValidationCenter/);
   assert.match(client,/view==='experiments' && <ExperimentLab/);
   assert.doesNotMatch(client,/phase7LegacyLab/);
