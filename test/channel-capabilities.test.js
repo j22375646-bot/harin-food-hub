@@ -23,6 +23,15 @@ test('Naver exposes verified reads but keeps unapproved writes locked', () => {
   assert.equal(result.capabilities.every(item => item.write.status === 'LOCKED'), true);
 });
 
+test('Naver credential failure stays setup required instead of looking connected', () => {
+  const result = channels.naverChannel([{
+    platform:'NAVER', job_type:'COMMERCE_CONNECTION_TEST', status:'FAILED',
+    metadata:{ code:'NAVER_COMMERCE_CONFIG_REQUIRED' }
+  }]);
+  assert.equal(result.status, 'SETUP_REQUIRED');
+  assert.equal(result.capabilities.every(item => item.read.status === 'SETUP_REQUIRED'), true);
+});
+
 test('Cafe24 requires OAuth reconnect when newly requested write scopes are missing', () => {
   const token = { access_token:'token', scopes:['mall.read_product','mall.read_order','mall.read_community'] };
   const result = channels.cafe24Channel([{ platform:'CAFE24', job_type:'FETCH_ALL', status:'SUCCESS' }], token);
