@@ -21,6 +21,7 @@ const dateLabel = value => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Se
 const platformReportName = { all: 'ALL', naver: 'NAVER', coupang: 'COUPANG', cafe24: 'CAFE24' };
 const platformLabel = { all: '전체', naver: '네이버', coupang: '쿠팡', cafe24: 'Cafe24' };
 const channelScopedViews = new Set(['insight','keyword','product']);
+const financialContextViews = new Set(['main','insight','keyword','product']);
 async function coupangFixedIpResult(response) {
   const initial = await response.json();
   if (response.status !== 202 || !initial.request?.id) return initial;
@@ -211,7 +212,7 @@ export default function Dashboard({ initialData, initialState }) {
       {view!=='main'&&<DataStateBar data={initialData}/>}
       <DataHealthNotice dataHealth={initialData.dataHealth} platform={platform}/>
       <HelpBox key={view} help={getHubHelp(view)}/>
-      <FinancialTrustBanner trust={initialData.financialTrust} onOpenProduct={()=>navigate({platform:'all',view:'product',product:'ALL'})}/>
+      {financialContextViews.has(view)&&<FinancialTrustBanner trust={initialData.financialTrust} onOpenProduct={()=>navigate({platform:'all',view:'product',product:'ALL'})}/>}
       {syncMessage && <div className="syncToast">{syncMessage}</div>}
 
       {channelUnavailable&&['insight','keyword','product'].includes(view)&&<ChannelUnavailable health={selectedHealth} onOpenCollection={()=>openView('collection')}/>}
