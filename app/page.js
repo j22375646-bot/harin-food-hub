@@ -381,6 +381,7 @@ async function getDashboardData() {
   const trustedProductPerformance = financialTrustModule.applyProductPerformanceGate(unifiedProductPerformance, financialTrust);
   const financialReadiness = financialReadinessModule.buildFinancialReadiness({
     performance:unifiedProductPerformance,
+    profitability:liveProfitability,
     financialTrust,
     productCosts:costsResult.data||[],
     channelCostSettings:effectiveChannelCostSettings,

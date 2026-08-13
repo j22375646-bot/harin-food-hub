@@ -37,3 +37,17 @@ test('keeps profit readiness blocked while ad spend remains unassigned', () => {
   assert.equal(result.status,'ACTION_REQUIRED');
   assert.equal(result.checklist.find(item=>item.id==='AD_ASSIGNMENT').status,'ACTION_REQUIRED');
 });
+
+test('uses the wider Cafe24 order history for cost priorities instead of a narrow current performance period', () => {
+  const result = readiness.buildFinancialReadiness({
+    performance:{summary:{revenue:12000},items:[{master_product_id:'A',name:'최근 상품',revenue:12000,cost_status:'COST_DATA_REQUIRED'}]},
+    profitability:{revenue:100000,products:[
+      {master_product_id:'A',name:'전체 1위',revenue:70000,quantity:7,cost_configured:false},
+      {master_product_id:'B',name:'전체 2위',revenue:30000,quantity:3,cost_configured:false}
+    ]}
+  });
+  assert.equal(result.revenue_scope,'CAFE24_ORDER_HISTORY');
+  assert.equal(result.total_revenue,100000);
+  assert.equal(result.priority_input_count,2);
+  assert.deepEqual(result.priority_products.map(item=>item.master_product_id),['A','B']);
+});
