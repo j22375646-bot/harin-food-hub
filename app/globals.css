@@ -350,6 +350,55 @@ html[data-font-scale="xlarge"] main p,html[data-font-scale="xlarge"] main li,htm
 html[data-font-scale="xlarge"] .pageIntro p,html[data-font-scale="xlarge"] .pageHeader p{font-size:18px}
 html[data-font-scale="xlarge"] .desktopSidebar nav b{font-size:17px}
 html[data-font-scale="xlarge"] .kpi p,html[data-font-scale="xlarge"] .kpi span{font-size:16px!important}
+
+/* Phase 10-8: stable route transitions, readable charts, and Coupang-style order flow */
+.desktopSidebar{z-index:35;isolation:isolate}
+.viewLoadingOverlay{z-index:30;top:84px;left:var(--hub-sidebar-width);background:#f7f8fa;backdrop-filter:none}
+
+.orderProcessPanel{display:flex;flex-direction:column;gap:22px;border-top:4px solid #2f7fe5}
+.orderSubTabs{grid-template-columns:repeat(2,minmax(0,1fr))}
+.orderProcessPanel>header{display:flex;align-items:center;justify-content:space-between;gap:24px}
+.orderProcessPanel>header h2{margin:6px 0 3px;font-size:25px;line-height:1.25}
+.orderProcessPanel>header p{margin:0;color:var(--muted);font-size:14px}
+.orderProcessPanel>header>button{display:flex;min-width:225px;align-items:flex-start;flex-direction:column;border:1px solid #f0d8af;border-radius:15px;background:#fff8e9;padding:14px 17px;color:#7c530c;text-align:left;cursor:pointer}
+.orderProcessPanel>header>button.active{border-color:#e4a23a;background:#ffefd0;box-shadow:0 0 0 3px rgba(232,161,49,.12)}
+.orderProcessPanel>header>button span{font-size:13px;font-weight:900}.orderProcessPanel>header>button b{margin:3px 0;font-size:24px}.orderProcessPanel>header>button small{font-size:12px!important;color:#946c27}
+.orderProcessFlow{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:24px}
+.orderProcessNode{position:relative;min-width:0}
+.orderProcessNode>button{display:flex;width:100%;min-height:142px;align-items:flex-start;flex-direction:column;border:1px solid #dce2e9;border-radius:17px;background:#fff;padding:19px;color:#252b34;text-align:left;cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
+.orderProcessNode>button:hover{transform:translateY(-2px);border-color:#8caee0;box-shadow:0 10px 24px rgba(38,58,86,.09)}
+.orderProcessNode>button.active{border:2px solid #357fe6;background:#eef5ff;box-shadow:0 0 0 3px rgba(53,127,230,.1)}
+.orderProcessNode small{color:#596575;font-size:13px!important;font-weight:900}.orderProcessNode strong{margin:10px 0 7px;font-size:29px;line-height:1}.orderProcessNode span{margin-top:auto;color:#7c8490;font-size:13px;line-height:1.45}
+.orderProcessNode>i{position:absolute;z-index:2;top:50%;right:-22px;display:grid;width:20px;height:28px;place-items:center;transform:translateY(-50%);background:#fff;color:#91a0b1;font-size:22px;font-style:normal;font-weight:900}
+
+.inventoryCompare{gap:24px;margin-top:19px}
+.inventoryCompareRow{grid-template-columns:minmax(220px,285px) minmax(0,1fr);gap:20px}
+.inventoryCompareRow>b{font-size:15px;line-height:1.45;white-space:normal;overflow:visible;text-overflow:clip}
+.inventoryCompareRow>div{gap:8px}.inventoryCompareRow span{height:27px;border-radius:8px}.inventoryCompareRow i{border-radius:8px}
+.inventoryCompareRow em{top:50%;left:10px;transform:translateY(-50%);font-size:12px!important;line-height:1;font-weight:900}
+.inventoryLegend,.chartLegend{font-size:14px;gap:10px}.inventoryLegend .dot{width:9px;height:9px}
+.wingAxis span,.wingBarGroup>small,.hourCol>small{font-size:11px!important}.chartLegend em{font-size:13px!important}
+.cafeFunnelStage small{font-size:12px!important}.cafeFunnelStage b{font-size:17px}.cafeFunnelStage strong{font-size:31px}.cafeFunnelStage em{font-size:13px!important}
+
+.sellerOrderToolbar p{font-size:14px}.sellerOrderToolbar input,.sellerOrderToolbar select{font-size:14px}
+.sellerOrderCard>header>div>b{font-size:21px}.sellerOrderCard>header small{font-size:13px!important}.sellerOrderCard>header>strong{font-size:24px}
+.sellerOrderItems b{font-size:15px}.sellerOrderItems small{font-size:13px!important}.sellerOrderItems strong{font-size:16px}.sellerOrderCard button{font-size:14px}
+
+@media(max-width:1180px) and (min-width:901px){
+  .orderProcessFlow{grid-template-columns:repeat(3,minmax(0,1fr))}.orderProcessNode>i{display:none}
+}
+
+@media(max-width:900px){
+  .viewLoadingOverlay{top:72px;left:0}
+  .orderSubTabs{display:flex}
+  .orderProcessPanel>header{align-items:stretch;flex-direction:column}.orderProcessPanel>header>button{min-width:0;width:100%}
+  .orderProcessFlow{display:flex;overflow-x:auto;gap:34px;padding:2px 2px 12px;scroll-snap-type:x mandatory}.orderProcessNode{flex:0 0 min(76vw,255px);scroll-snap-align:start}.orderProcessNode>i{right:-28px}
+}
+
+@media(max-width:650px){
+  .inventoryCompareRow{grid-template-columns:1fr;gap:9px}.inventoryCompareRow>b{font-size:14px}.inventoryCompareRow span{height:29px}
+  .sellerOrderCard>header>div>b{font-size:18px}.sellerOrderCard>header>strong{font-size:20px}
+}
 html[data-font-scale="xlarge"] main th{font-size:15px!important}html[data-font-scale="xlarge"] main td{font-size:16px!important}
 @media(max-width:900px){.fontScaleControl>span{display:none}.fontScaleControl{padding-left:5px}.fontScaleControl>select{max-width:112px}}
 @media(max-width:600px){.fontScaleControl{position:fixed;z-index:39;right:10px;bottom:88px;box-shadow:0 8px 24px rgba(31,37,47,.13)}.fontScaleControl>select{max-width:105px}}
