@@ -130,6 +130,12 @@ test('live work window is separated from cumulative stored history',()=>{
   assert.equal(center.orders[0].externalOrderId,'CURRENT');
 });
 
+test('live work window uses the Korea business date on a UTC deployment',()=>{
+  const center=orders.buildUnifiedOrders({asOf:'2026-08-13T15:30:00Z'});
+  assert.equal(center.summary.windowEnd,'2026-08-14');
+  assert.equal(center.summary.windowStart,'2026-07-15');
+});
+
 test('orders center labels seller delivery and refreshes current channel status',()=>{
   const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
   const route=fs.readFileSync(path.join(__dirname,'..','app','api','orders','live-refresh','route.js'),'utf8');
