@@ -179,6 +179,13 @@ test("hourly order cron schedules all available CS collectors every hour", () =>
     path.resolve(__dirname, "../ops/systemd/harin-orders-hourly.timer"),
     "utf8",
   );
+  const migration = fs.readFileSync(
+    path.resolve(
+      __dirname,
+      "../supabase/migrations/20260813204436_allow_customer_service_sync_request.sql",
+    ),
+    "utf8",
+  );
   assert.match(source, /queueRequest\(db, "CS_REALTIME"/);
   assert.match(source, /NAVER_COMMERCE_CS_SYNC/);
   assert.equal(
@@ -186,6 +193,7 @@ test("hourly order cron schedules all available CS collectors every hour", () =>
     false,
   );
   assert.match(timer, /OnCalendar=hourly/);
+  assert.match(migration, /CS_REALTIME/);
 });
 
 test("이미 등록된 쿠팡 송장번호를 주문과 옵션 행에서 찾아 중복 전송을 막는다", () => {
