@@ -15,6 +15,7 @@
     "costs:calibrate": "node scripts/refresh-cost-calibration.js",
     "worker:coupang": "node scripts/coupang-local-worker.js --watch --quiet",
     "worker:fixed-ip": "node scripts/coupang-local-worker.js --watch --quiet",
+    "epost:discover-office": "node scripts/epost-discover-office.js",
     "ip:coupang:worker": "node scripts/coupang-local-sync.js --ip-only"
   },
   "dependencies": {

@@ -62,6 +62,14 @@ test('reuses an existing test result without a duplicate InsertOrder call', asyn
   assert.match(calls[0].url,/api\.GetResInfo\.jparcel$/);
 });
 
+test('discovers only safe office identifiers without returning address or contact data', async () => {
+  const xml='<xsync><officeInfo><officeSer>06</officeSer><officeNm>하린식품 발송지</officeNm><regiPoNm>승주우체국</regiPoNm><officeAddr>비공개 주소</officeAddr><officeTelno>061-000-0000</officeTelno></officeInfo></xsync>';
+  const offices=client.parseOfficeList(xml);
+  assert.deepEqual(offices,[{officeSerial:'06',officeName:'하린식품 발송지',registrationPostOffice:'승주우체국'}]);
+  assert.equal(JSON.stringify(offices).includes('비공개 주소'),false);
+  assert.equal(JSON.stringify(offices).includes('061-000-0000'),false);
+});
+
 test('keeps test and live parcel writes behind independent safety locks', async () => {
   await assert.rejects(() => client.issueTestShipment(input,{env:{...env,EPOST_TEST_WRITES_ENABLED:'false'},fetchImpl:async()=>response('')}), error=>error.code==='EPOST_TEST_WRITE_LOCKED');
   await assert.rejects(() => client.issueTestShipment(input,{env:{...env,EPOST_LIVE_WRITES_ENABLED:'true'},fetchImpl:async()=>response('')}), error=>error.code==='EPOST_LIVE_WRITE_CONFLICT');
