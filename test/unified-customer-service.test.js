@@ -54,6 +54,15 @@ test('채널이 연결되지 않으면 빈 0건이 아니라 설정 필요 상�
   assert.match(naver.message,/API 키/);
 });
 
+test('권한만 확인되고 실제 수집기가 없는 채널은 수집 연결 대기로 표시한다',()=>{
+  const result=center.buildUnifiedCustomerService({channelConnections:readyChannels});
+  const cafe24=result.channelStates.find(item=>item.platform==='CAFE24');
+  const coupang=result.channelStates.find(item=>item.platform==='COUPANG');
+  assert.equal(cafe24.status,'VERIFY_REQUIRED');
+  assert.equal(cafe24.statusLabel,'수집 연결 대기');
+  assert.equal(coupang.status,'READY');
+});
+
 test('처리 감사기록을 문의에 연결한다',()=>{
   const result=center.buildUnifiedCustomerService({
     now:new Date('2026-08-14T12:00:00+09:00'),channelConnections:readyChannels,
