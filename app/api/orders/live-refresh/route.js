@@ -25,11 +25,12 @@ export async function POST(request) {
     const executionMinute=new Date().toISOString().slice(0,16);
     const coupang=await requestQueue.queueRequest(db,'ORDER_REALTIME',{idempotencyKey:`orders-live:${executionMinute}`});
     let cafe24=null; let cafe24Error=null;
-    try { cafe24=await cafe24Sync.syncOrdersRealtime(cafe24Config.getConfig(),{days:90}); }
+    try { cafe24=await cafe24Sync.syncOrdersRealtime(cafe24Config.getConfig(),{days:31}); }
     catch(error) { cafe24Error=error.message; }
     const refreshedAt=cafe24?.finishedAt || new Date().toISOString();
     const center=await currentCenter(db,refreshedAt);
-    return apiSafety.json({ok:Boolean(cafe24)||Boolean(coupang?.queued),partial:Boolean(cafe24Error),cafe24,cafe24Error,coupang,center,refreshedAt},{status:202});
+    const naver={status:'SETUP_REQUIRED',message:'네이버 커머스 주문 API 연결 후 자동수집에 포함됩니다.'};
+    return apiSafety.json({ok:Boolean(cafe24)||Boolean(coupang?.queued),partial:Boolean(cafe24Error),cafe24,cafe24Error,coupang,naver,center,refreshedAt},{status:202});
   } catch(error) {
     console.error('[orders live refresh]',{message:error.message});
     return apiSafety.json({ok:false,error:'실시간 주문 상태를 확인하지 못했습니다.'},{status:502});

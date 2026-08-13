@@ -112,6 +112,31 @@ test('Cafe24 item status drives the live shipping stage and raw payment amount f
   assert.equal(done.actionRequired,false);
 });
 
+test('Cafe24 open-market mirrors are excluded from the Cafe24 storefront lane',()=>{
+  const center=orders.buildUnifiedOrders({
+    cafe24Orders:[
+      {order_id:'C-NATIVE',order_date:'2026-08-14T01:00:00Z',raw_data:{market_id:'self',payment_amount:'12000'}},
+      {order_id:'C-COUPANG-MIRROR',order_date:'2026-08-14T02:00:00Z',raw_data:{market_id:'coupang',payment_amount:'50000'}}
+    ],
+    cafe24OrderItems:[
+      {order_id:'C-NATIVE',external_item_id:'I-1',product_name:'Tea',quantity:1,raw_data:{order_status:'N10'}},
+      {order_id:'C-COUPANG-MIRROR',external_item_id:'I-2',product_name:'Tea',quantity:1,raw_data:{order_status:'N10'}}
+    ]
+  });
+  assert.deepEqual(center.orders.map(order=>order.externalOrderId),['C-NATIVE']);
+  assert.equal(center.stageCounts.PREPARING,1);
+});
+
+test('hourly order collection is scheduled and the manual button is explicit',()=>{
+  const vercel=JSON.parse(fs.readFileSync(path.join(__dirname,'..','vercel.json'),'utf8'));
+  const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
+  const route=fs.readFileSync(path.join(__dirname,'..','app','api','cron','hourly-orders','route.js'),'utf8');
+  assert.deepEqual(vercel.crons.find(item=>item.path==='/api/cron/hourly-orders'),{path:'/api/cron/hourly-orders',schedule:'0 * * * *'});
+  assert.match(center,/전체 플랫폼 수동수집/);
+  assert.match(route,/CRON_SECRET/);
+  assert.match(route,/ORDER_REALTIME/);
+});
+
 test('live work window is separated from cumulative stored history',()=>{
   const center=orders.buildUnifiedOrders({
     asOf:'2026-08-14T00:00:00Z',

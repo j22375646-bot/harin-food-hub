@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const STAGE_LABELS={PAID:'결제완료',PREPARING:'준비중',READY_TO_SHIP:'출고대기',SHIPPING:'배송중',DELIVERED:'배송완료'};
 const CHANNEL_LABELS={ALL:'전체 채널',NAVER:'네이버',COUPANG:'쿠팡',CAFE24:'Cafe24'};
@@ -137,8 +137,7 @@ function ShippingWorkbench({ orders, selectedIds, setSelectedIds }) {
 
 export default function UnifiedOrdersCenter({ center, children }) {
   const [currentCenter,setCurrentCenter]=useState(center);
-  const [liveState,setLiveState]=useState({status:'IDLE',message:'화면을 열면 최신 주문 상태를 자동으로 확인합니다.'});
-  const liveStarted=useRef(false);
+  const [liveState,setLiveState]=useState({status:'IDLE',message:'매시 정각 자동수집 · 필요할 때 아래 버튼으로 즉시 수집할 수 있습니다.'});
   const [platform,setPlatform]=useState('ALL');
   const [stage,setStage]=useState('ALL');
   const [query,setQuery]=useState('');
@@ -159,7 +158,7 @@ export default function UnifiedOrdersCenter({ center, children }) {
     return true;
   }),[currentCenter.orders,platform,stage,query,startDate,endDate,actionOnly]);
   async function refreshLiveOrders(){
-    setLiveState({status:'LOADING',message:'Cafe24와 쿠팡의 현재 주문 상태를 확인하고 있습니다.'});
+    setLiveState({status:'LOADING',message:'전체 플랫폼 주문·배송 상태를 수집하고 있습니다.'});
     try{
       const response=await fetch('/api/orders/live-refresh',{method:'POST',cache:'no-store'});
       const result=await response.json();
@@ -178,7 +177,7 @@ export default function UnifiedOrdersCenter({ center, children }) {
         if(pollResponse.status===202)continue;
         if(!pollResponse.ok||!poll.ok)throw new Error(poll.error||'쿠팡 최신 주문 상태 확인 실패');
         if(poll.center)setCurrentCenter(poll.center);
-        setLiveState({status:result.partial?'PARTIAL':'READY',message:result.partial?'쿠팡은 최신 상태입니다. Cafe24 상태는 다시 확인이 필요합니다.':'Cafe24·쿠팡 최신 주문 상태로 갱신했습니다.'});
+        setLiveState({status:result.partial?'PARTIAL':'READY',message:result.partial?'쿠팡은 최신 상태입니다. Cafe24 상태는 다시 확인이 필요합니다.':'Cafe24·쿠팡 수집 완료 · 네이버 커머스는 API 연결 후 포함됩니다.'});
         return;
       }
       throw new Error('쿠팡 고정 IP 서버 응답이 늦습니다. 잠시 후 다시 확인해 주세요.');
@@ -186,11 +185,6 @@ export default function UnifiedOrdersCenter({ center, children }) {
       setLiveState({status:'FAILED',message:error.message});
     }
   }
-  useEffect(()=>{
-    if(liveStarted.current)return;
-    liveStarted.current=true;
-    refreshLiveOrders();
-  },[]);
   useEffect(()=>setShowCount(20),[platform,stage,query,startDate,endDate,actionOnly]);
   const rendered=visible.slice(0,showCount);
   const exportParams=new URLSearchParams();
@@ -204,7 +198,7 @@ export default function UnifiedOrdersCenter({ center, children }) {
   function selectOrder(order,checked){setSelectedIds(previous=>{const next=new Set(previous);if(checked)next.add(order.hubOrderId);else next.delete(order.hubOrderId);return next;});}
   return <section className="unifiedOrdersCenter">
     <section className="unifiedOrdersHero"><div><span>PHASE 11-3 · PACK & SHIP</span><h1>통합 주문·배송센터</h1><p>쿠팡은 판매자배송 주문만 작업 목록에 표시하고, Cafe24와 함께 현재 포장·출고 상태를 확인합니다.</p></div><div><small>지금 처리 필요</small><b>{count(currentCenter.summary.actionRequired)}건</b><em>최근 31일 작업화면 {count(currentCenter.summary.total)}건</em><em>누적 저장 {count(currentCenter.summary.historyTotal)}건</em><em>로켓그로스 {count(currentCenter.summary.rocketGrowthStored)}건 · 별도 저장</em></div></section>
-    <article className={`liveOrdersStatus ${liveState.status.toLowerCase()}`} aria-live="polite"><div><span className="livePulse"/><span><b>{liveState.status==='LOADING'?'현재 상태 확인 중':liveState.status==='READY'?'최신 상태 확인 완료':liveState.status==='PARTIAL'?'일부 채널 확인 필요':liveState.status==='FAILED'?'최신 상태 확인 실패':'실시간 주문 상태'}</b><small>{liveState.message} · 작업화면 {currentCenter.summary.windowStart}~{currentCenter.summary.windowEnd}</small></span></div><button type="button" onClick={refreshLiveOrders} disabled={liveState.status==='LOADING'}>{liveState.status==='LOADING'?'확인 중…':'최신 상태 다시 확인'}</button></article>
+    <article className={`liveOrdersStatus ${liveState.status.toLowerCase()}`} aria-live="polite"><div><span className="livePulse"/><span><b>{liveState.status==='LOADING'?'전체 플랫폼 수집 중':liveState.status==='READY'?'최신 상태 수집 완료':liveState.status==='PARTIAL'?'일부 채널 확인 필요':liveState.status==='FAILED'?'최신 상태 수집 실패':'1시간 자동수집'}</b><small>{liveState.message} · 작업화면 {currentCenter.summary.windowStart}~{currentCenter.summary.windowEnd}</small></span></div><button type="button" onClick={refreshLiveOrders} disabled={liveState.status==='LOADING'}>{liveState.status==='LOADING'?'수집 중…':'전체 플랫폼 수동수집'}</button></article>
     <div className="unifiedChannelStates">{currentCenter.channels.map(channel=><ChannelState channel={channel} key={channel.platform}/>)}</div>
     <details className="unifiedOrdersHelp"><summary><span><b>이 화면은 어떻게 쓰나요?</b><small>처음 볼 때만 열어보세요. 쉬운 예시로 설명합니다.</small></span><em>열기</em></summary><div><p><b>1. 위 단계 박스</b>를 누르면 그 단계 주문만 보여요.</p><p><b>2. ‘처리 필요만’</b>을 켜면 포장·출고하거나 취소를 확인할 주문만 남아요.</p><p><b>예시:</b> 취소 경고가 붙은 주문은 송장을 넣기 전에 쇼핑몰에서 취소 요청부터 확인하세요.</p><p>채널 하나가 실패해도 정상 채널 주문은 계속 표시됩니다. 실패 채널은 위 상태 카드에서 따로 알려드립니다.</p></div></details>
     <article className="unifiedProcessPanel"><header><div><span>최근 31일 실시간 주문 흐름</span><h2>단계를 누르면 바로 걸러집니다</h2></div><button className={stage==='ALL'?'active':''} onClick={()=>setStage('ALL')}>전체 {count(currentCenter.summary.total)}건</button></header><div className="unifiedOrderFlow">{currentCenter.stages.map((item,index)=><div key={item.id}><button className={stage===item.id?'active':''} onClick={()=>setStage(item.id)}><small>{index+1}. {item.label}</small><b>{count(currentCenter.stageCounts[item.id])}건</b><span>{item.description}</span></button>{index<currentCenter.stages.length-1?<i>→</i>:null}</div>)}</div></article>
