@@ -15,6 +15,18 @@ test('90일 주문 기간을 API 안전 범위인 31일 이하로 나눈다',()=
   }
 });
 
+test('매일 현재 7일과 아직 부족한 과거 31일만 이어서 수집한다',()=>{
+  const first=cafeSync.orderRangesForSync({end:new Date('2026-08-13T00:00:00Z'),syncDays:7,historyDays:90});
+  assert.deepEqual(first,[
+    {start_date:'2026-08-07',end_date:'2026-08-13',mode:'CURRENT'},
+    {start_date:'2026-07-07',end_date:'2026-08-06',mode:'BACKFILL'}
+  ]);
+  const continued=cafeSync.orderRangesForSync({end:new Date('2026-08-13T00:00:00Z'),syncDays:7,historyDays:90,earliestOrderDate:'2026-07-07T03:00:00Z'});
+  assert.deepEqual(continued[1],{start_date:'2026-06-06',end_date:'2026-07-06',mode:'BACKFILL'});
+  const complete=cafeSync.orderRangesForSync({end:new Date('2026-08-13T00:00:00Z'),syncDays:7,historyDays:90,earliestOrderDate:'2026-05-16T03:00:00Z'});
+  assert.equal(complete.length,1);
+});
+
 test('실행일을 기준으로 정확한 7일·14일 평가창을 만든다',()=>{
   const windows=evaluator.evaluationWindows('2026-08-01T01:00:00Z',new Date('2026-08-16T00:00:00Z'));
   assert.deepEqual(windows,[
