@@ -219,11 +219,11 @@ test('orders center labels seller delivery and refreshes current channel status'
   assert.match(route,/apiSafety\.isAuthorized\(request,authModule\)/);
 });
 
-test('phase 11-3E preserves bulk selection and channel retry while adding tracking',()=>{
+test('phase 11-3F preserves bulk selection and channel retry while adding safety QA',()=>{
   const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
   const route=fs.readFileSync(path.join(__dirname,'..','app','api','shipping','actions','route.js'),'utf8');
   const transfer=fs.readFileSync(path.join(__dirname,'..','lib','shipping','channel-transfer.js'),'utf8');
-  assert.match(center,/PHASE 11-3E · LABEL & TRACKING/);
+  assert.match(center,/PHASE 11-3F · SAFE OPERATIONS/);
   assert.match(center,/결제완료·준비중 전체선택/);
   assert.match(center,/bulkEligible=visible\.filter/);
   assert.match(center,/className=\{`orderInvoiceEntry/);
@@ -236,6 +236,8 @@ test('phase 11-3E preserves bulk selection and channel retry while adding tracki
   assert.match(transfer,/\^\\d\{13\}\$/);
   assert.match(center,/채널만 재시도/);
   assert.match(center,/배송상태 확인/);
+  assert.match(center,/ShippingQaPanel/);
+  assert.match(center,/orderAdvancedTools/);
 });
 
 test('ePost tracking result advances seller orders without overwriting channel source rows',()=>{

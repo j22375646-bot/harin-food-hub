@@ -118,15 +118,29 @@ export async function GET(request) {
 export async function POST(request) {
   if(!apiSafety.isAuthorized(request,authModule))return apiSafety.unauthorized();
   try {
-    const body=await request.json();
+    const body=await apiSafety.readJson(request,{maxBytes:64*1024});
     if(body.confirm!==true)return apiSafety.json({ok:false,error:'실제 주문 변경 확인이 필요합니다.'},{status:400});
     const action=text(body.action).toUpperCase();
     if(!['PREPARE','UPLOAD_INVOICE'].includes(action))return apiSafety.json({ok:false,error:'지원하지 않는 배송 작업입니다.'},{status:400});
-    const requested=Array.isArray(body.orders)?body.orders.slice(0,100):[];
+    const seen=new Set();
+    const requested=(Array.isArray(body.orders)?body.orders:[]).filter(item=>{
+      const id=text(item?.hubOrderId);
+      if(!id||seen.has(id))return false;
+      seen.add(id);return true;
+    }).slice(0,100);
     if(!requested.length)return apiSafety.json({ok:false,error:'처리할 주문을 선택하세요.'},{status:400});
     const db=supabaseModule.getSupabase();
     const center=await unifiedOrdersModule.loadUnifiedOrders({db});
     const byId=new Map(center.orders.map(order=>[order.hubOrderId,order]));
+    let successfulTransfers=new Map();
+    if(action==='UPLOAD_INVOICE'){
+      const history=await db.from('coupang_operation_requests')
+        .select('id,operation_type,target_id,status,payload,created_at')
+        .in('operation_type',['UPLOAD_INVOICE',channelTransfer.CAFE24_OPERATION]).eq('status','SUCCESS')
+        .order('created_at',{ascending:false}).limit(1000);
+      if(history.error)throw history.error;
+      successfulTransfers=channelTransfer.successfulTransferIndex(history.data||[]);
+    }
     const results=[];
     for(let input of requested) {
       const hubOrderId=text(input.hubOrderId);
@@ -138,6 +152,14 @@ export async function POST(request) {
           const invoiceNumber=channelTransfer.postalTracking(input.invoiceNumber);
           const deliveryCompanyCode=channelTransfer.courierCode(order.platform,input.deliveryCompanyCode);
           input={...input,invoiceNumber,deliveryCompanyCode};
+          const prior=successfulTransfers.get(channelTransfer.successfulTransferKey(order.platform,order));
+          if(prior?.invoiceNumber&&prior.invoiceNumber!==invoiceNumber){
+            throw Object.assign(new Error(`이미 다른 송장번호(${prior.invoiceNumber}) 전송이 완료된 주문입니다. 기존 번호를 확인하세요.`),{status:409,code:'SHIPPING_INVOICE_CONFLICT'});
+          }
+          if(prior?.invoiceNumber===invoiceNumber){
+            results.push({hubOrderId,platform:order.platform,ok:true,status:'SUCCESS',requestId:prior.requestId,reused:true,retried:false});
+            continue;
+          }
         }
         let outcome;
         if(order.platform==='CAFE24')outcome=await runCafe24(db,action,order,input);
