@@ -19,6 +19,12 @@ test('parses ePost trace events newest-first and recognizes final delivery',()=>
   assert.match(result.deliveredAt,/2026-08-15T14:30:00/);
 });
 
+test('recognizes the live ePost tracestatus field as an in-transit event',()=>{
+  const result=tracking.parseTrackingResponse('<?xml version="1.0"?><trace><itemlist><item><eventhms><![CDATA[20260814153000]]></eventhms><eventregiponm><![CDATA[승주우체국]]></eventregiponm><tracestatus><![CDATA[발송]]></tracestatus></item></itemlist></trace>','1234567890123');
+  assert.equal(result.statusCode,'IN_TRANSIT');
+  assert.equal(result.latestEvent.name,'발송');
+});
+
 test('tracking client requires the dedicated server key and uses the official trace target',async()=>{
   await assert.rejects(()=>tracking.trace('1234567890123',{env:{},fetchImpl:async()=>{}}),error=>error.code==='EPOST_TRACKING_KEY_REQUIRED');
   let called='';
