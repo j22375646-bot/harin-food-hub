@@ -64,15 +64,16 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
   assert.match(client,/function CoupangSettlementView/);
   assert.match(client,/function CoupangSalesCenter/);
   assert.doesNotMatch(client,/function CoupangCommandCenter/);
-  assert.match(client,/view==='orders' && \(<CoupangOrdersView/);
+  assert.match(client,/view==='orders' && \(<UnifiedOrdersCenter/);
+  assert.match(client,/<CoupangOrdersView coupang=\{initialData\.coupang\}\/>/);
   assert.match(client,/view==='cs' && \(<CoupangCsView/);
   assert.match(client,/view==='inventory' && \(<CoupangInventoryView/);
   assert.match(client,/view==='settlement' && \(<CoupangSettlementView/);
   assert.match(styles,/Phase 10-4 — orders, CS, inventory and settlement are independent work pages/);
 });
 
-test('phase 11-1 keeps the separated execution validation and A/B tests', () => {
-  assert.match(client,/11-1단계 · 채널 연결·권한 확장/);
+test('phase 11-2 keeps the separated execution validation and A/B tests', () => {
+  assert.match(client,/11-2단계 · 통합 주문센터/);
   assert.match(client,/view==='validation' && \(<CustomerRetentionValidationCenter/);
   assert.match(client,/view==='experiments' && <ExperimentLab/);
   assert.doesNotMatch(client,/phase7LegacyLab/);

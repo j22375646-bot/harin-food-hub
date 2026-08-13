@@ -21,6 +21,7 @@ import salesCommandCenterModule from '../lib/dashboard/sales-command-center.js';
 import marketingDiagnosisModule from '../lib/marketing/diagnosis.js';
 import retentionValidationModule from '../lib/customers/retention-validation.js';
 import channelCapabilitiesModule from '../lib/platforms/channel-capabilities.js';
+import unifiedOrdersModule from '../lib/orders/unified-orders.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -77,7 +78,7 @@ const VIEW_TABLES = {
     'coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily',
     'naver_keyword_stats','coupang_ad_keyword_daily','business_targets','budget_snapshots'
   ],
-  orders:['coupang_orders','coupang_order_items','coupang_rg_orders'],
+  orders:['cafe24_orders','cafe24_order_items','coupang_orders','coupang_order_items','coupang_rg_orders','coupang_rg_order_items','coupang_returns'],
   cs:['coupang_returns','coupang_exchanges','coupang_inquiries'],
   inventory:['coupang_products','coupang_rg_inventory','coupang_item_inventory','coupang_product_items'],
   settlement:['coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_orders','coupang_rg_order_items','coupang_settlement_summaries','coupang_promotion_budgets','coupang_product_items','coupang_cost_transactions','coupang_cost_imports','channel_cost_settings','channel_shipping_rules'],
@@ -132,8 +133,8 @@ async function getDashboardData(state) {
     ['COUPANG','coupang_products'],['COUPANG','coupang_orders'],['COUPANG','coupang_order_items'],['COUPANG','coupang_settlements'],['COUPANG','coupang_rg_inventory'],['COUPANG','coupang_sync_requests'],['COUPANG','coupang_rg_orders'],['COUPANG','coupang_returns'],['COUPANG','coupang_exchanges'],['COUPANG','coupang_inquiries'],['COUPANG','coupang_item_inventory'],['COUPANG','coupang_settlement_summaries'],['COUPANG','coupang_promotion_budgets'],['COUPANG','coupang_api_capabilities'],['COUPANG','coupang_product_items'],['COUPANG','coupang_rg_order_items'],['COUPANG','coupang_cost_transactions'],['COUPANG','coupang_cost_imports'],['COUPANG','coupang_ad_daily_summary'],['COUPANG','coupang_ad_keyword_summary_top'],['COUPANG','coupang_ad_keyword_summary_waste'],['COUPANG','coupang_ad_campaign_summary'],['COUPANG','coupang_ad_billing_daily']
   ].map(([platform,dataset])=>({platform,dataset}));
   const settledQueries = await Promise.allSettled([
-    db.from('cafe24_orders').select('order_id,order_date,customer_id,paid_amount,order_price,raw_data').order('order_date', { ascending: false }).limit(10000),
-    db.from('cafe24_order_items').select('order_id,external_product_no,product_name,quantity,unit_price,paid_amount,raw_data').limit(10000),
+    db.from('cafe24_orders').select('order_id,order_date,customer_id,payment_status,paid_amount,order_price,cancel_amount,raw_data').order('order_date', { ascending: false }).limit(10000),
+    db.from('cafe24_order_items').select('order_id,external_product_no,product_name,option_name,quantity,unit_price,paid_amount,raw_data').limit(10000),
     db.from('cafe24_traffic_daily').select('date,visitors,pageviews,source_status,raw_data').order('date', { ascending: true }).limit(31),
     db.from('cafe24_referrers_daily').select('date,source,visitors,orders,revenue').order('visitors', { ascending: false }).limit(500),
     db.from('cafe24_products').select('external_product_no,product_name,price,selling,raw_data').order('updated_at', { ascending: false }).limit(100),
@@ -170,7 +171,7 @@ async function getDashboardData(state) {
     db.from('coupang_promotion_budgets').select('budget_key,status,budget_amount,used_amount,remaining_amount,checked_at').order('checked_at',{ascending:false}).limit(20),
     db.from('coupang_api_capabilities').select('feature_key,family,title,method,mode,status,risk_level,sync_frequency').order('family').order('title'),
     db.from('coupang_product_items').select('vendor_item_id,seller_product_id,item_name,sale_price,status,raw_data').limit(1000),
-    db.from('coupang_rg_order_items').select('order_id,vendor_item_id,quantity,amount').limit(5000),
+    db.from('coupang_rg_order_items').select('order_id,vendor_item_id,product_name,quantity,amount').limit(5000),
     db.from('coupang_cost_transactions').select('source_type,transaction_type,event_date,recognition_date,order_id,reference_id,vendor_item_id,sku_id,product_name,option_name,quantity,gross_sales,seller_discount,cost_amount,cost_vat,credit_amount,raw_data').order('event_date',{ascending:false}).limit(10000),
     db.from('coupang_cost_imports').select('id,file_name,source_types,status,input_rows,stored_rows,duplicate_rows,invalid_rows,gross_sales,cost_amount,cost_vat,credit_amount,period_start,period_end,imported_at').order('imported_at',{ascending:false}).limit(30),
     db.from('coupang_ad_daily_summary').select('*').order('date',{ascending:true}).limit(62),
@@ -548,11 +549,19 @@ async function getDashboardData(state) {
       claims:(coupangReturnsResult.data?.length || 0) + (coupangExchangesResult.data?.length || 0)
     }
   });
+  const unifiedOrders = unifiedOrdersModule.buildUnifiedOrders({
+    cafe24Orders:ordersResult.data || [], cafe24OrderItems:itemsResult.data || [],
+    coupangOrders:coupangOrdersResult.data || [], coupangOrderItems:coupangItemsResult.data || [],
+    coupangReturns:coupangReturnsResult.data || [], coupangRgOrders:coupangRgOrdersResult.data || [],
+    coupangRgOrderItems:coupangRgOrderItemsResult.data || [], channelConnections:channelConnections.channels || [],
+    unavailable:{ CAFE24:Boolean(ordersResult.unavailable), COUPANG:Boolean(coupangOrdersResult.unavailable && coupangRgOrdersResult.unavailable), NAVER:false }
+  });
   return {
     loadedView:view,
     generatedAt,
     dataHealth,
     channelConnections,
+    unifiedOrders,
     metricSnapshots,
     kpis: {
       sales,

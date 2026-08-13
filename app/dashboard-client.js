@@ -7,6 +7,7 @@ import reportVersioning from '../lib/reports/versioning.js';
 import { COUPANG_SECTION_HELP, getHubHelp } from '../lib/ui/help-content.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
 import { useStoredState } from './use-hub-preference.js';
+import UnifiedOrdersCenter from './unified-orders-center.js';
 
 const ProductGrowthCenter=dynamic(()=>import('./product-growth-center.js'));
 const MarketingDiagnosisCenter=dynamic(()=>import('./marketing-diagnosis-center.js'));
@@ -114,7 +115,7 @@ function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onO
   const hasQuery=Boolean(query.trim());
   const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(query.trim().toLowerCase()))})).filter(group=>group.items.length);
   return <aside className="desktopSidebar" aria-label="허브 사이드바">
-    <div className="sidebarPhase"><span>현재 개발</span><b>11-1단계 · 채널 연결·권한 확장</b></div>
+    <div className="sidebarPhase"><span>현재 개발</span><b>11-2단계 · 통합 주문센터</b></div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true">⌕</i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴 이름 찾기" /></label>
     <nav aria-label="허브 메뉴">
       {visible.map(group=>{const expanded=hasQuery||openGroup===group.id;return <section className={`sidebarGroup${expanded?' expanded':''}`} key={group.id}>
@@ -180,7 +181,7 @@ export default function Dashboard({ initialData, initialState }) {
     } catch (error) { setSyncMessage(`확인 필요 · ${error.message}`); setSyncing(false); }
   }
 
-  const operationBadges={orders:num(initialData.coupang?.sellerActionRequired),cs:num(initialData.coupang?.unansweredInquiries),inventory:num(initialData.coupang?.rgOutOfStock)+num(initialData.coupang?.rgLowStock),notifications:initialData.alerts.length||0};
+  const operationBadges={orders:num(initialData.unifiedOrders?.summary?.actionRequired),cs:num(initialData.coupang?.unansweredInquiries),inventory:num(initialData.coupang?.rgOutOfStock)+num(initialData.coupang?.rgLowStock),notifications:initialData.alerts.length||0};
   const nav = hubRoutesModule.HUB_NAV.map(item=>({...item,badge:operationBadges[item.id]||0}));
   const navGroups=hubRoutesModule.HUB_NAV_GROUPS.map(group=>{const items=group.items.map(id=>nav.find(item=>item.id===id)).filter(Boolean);return {...group,items,actionCount:items.reduce((sum,item)=>sum+num(item.badge),0)};});
   const navContext=hubRoutesModule.navigationContext(view,platform);
@@ -228,7 +229,7 @@ export default function Dashboard({ initialData, initialState }) {
       {view==='insight' && !channelUnavailable && <>{(platform==='all'||platform==='naver')&&<MarketingInsightSummary diagnosis={initialData.naver?.marketingDiagnosis}/>}<InsightView key={`insight-${platform}`} platform={platform} reports={reports} actions={actions} liveNaver={initialData.naver} platformEvents={initialData.platformEvents||[]} /></>}
       {view==='insight' && !channelUnavailable && platform==='coupang' && <CoupangSalesCenter coupang={initialData.coupang} selectedProduct={selectedProduct} selectedPeriod={period} onSelectProduct={product=>navigate({product},true)} onSelectPeriod={nextPeriod=>navigate({period:nextPeriod},true)}/>}
       {view==='insight' && !channelUnavailable && ['naver','cafe24'].includes(platform) && <details className="channelLegacyDetails"><summary><span><b>{platformLabel[platform]} 채널 운영 상세</b><small>필요할 때만 기존 채널 상세를 펼쳐보세요.</small></span><em>열기</em></summary><div><MainView platform={platform} data={initialData}/></div></details>}
-      {view==='orders' && (<CoupangOrdersView coupang={initialData.coupang}/>)}
+      {view==='orders' && (<UnifiedOrdersCenter center={initialData.unifiedOrders}><CoupangOrdersView coupang={initialData.coupang}/></UnifiedOrdersCenter>)}
       {view==='cs' && (<CoupangCsView coupang={initialData.coupang}/>)}
       {view==='inventory' && (<CoupangInventoryView coupang={initialData.coupang}/>)}
       {view==='settlement' && (<CoupangSettlementView coupang={initialData.coupang}/>)}
