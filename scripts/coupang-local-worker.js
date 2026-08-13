@@ -16,6 +16,7 @@ const coupangActions = require('../lib/coupang/actions.js');
 const naverCommerceProbe = require('../lib/naver-commerce/probe.js');
 const epostConfig = require('../lib/epost/config.js');
 const epostClient = require('../lib/epost/client.js');
+const epostTracking = require('../lib/epost/tracking.js');
 
 const logPath = path.join(root, 'tmp', 'coupang-local-worker.log');
 const watchMode = process.argv.includes('--watch');
@@ -24,7 +25,7 @@ const collectorId = String(process.env.COUPANG_COLLECTOR_ID || 'FIXED_IP_WORKER'
 fs.mkdirSync(path.dirname(logPath), { recursive: true });
 
 function safeMessage(error) {
-  const secrets = [process.env.COUPANG_ACCESS_KEY, process.env.COUPANG_SECRET_KEY, process.env.NAVER_COMMERCE_CLIENT_ID, process.env.NAVER_COMMERCE_CLIENT_SECRET, process.env.EPOST_API_KEY, process.env.EPOST_OPEN_API_KEY, process.env.EPOST_SECURITY_KEY, process.env.EPOST_SEED_KEY, process.env.SUPABASE_SERVICE_ROLE_KEY].filter(Boolean);
+  const secrets = [process.env.COUPANG_ACCESS_KEY, process.env.COUPANG_SECRET_KEY, process.env.NAVER_COMMERCE_CLIENT_ID, process.env.NAVER_COMMERCE_CLIENT_SECRET, process.env.EPOST_API_KEY, process.env.EPOST_OPEN_API_KEY, process.env.EPOST_SECURITY_KEY, process.env.EPOST_SEED_KEY, process.env.EPOST_TRACKING_API_KEY, process.env.SUPABASE_SERVICE_ROLE_KEY].filter(Boolean);
   return secrets.reduce((message, secret) => message.split(secret).join('[REDACTED]'), String(error?.message || error || 'Unknown error'));
 }
 
@@ -154,6 +155,12 @@ async function dispatchOperation(request, payload, handlers = coupangActions, db
       };
     }
     return { epostTest:await epostClient.issueTestShipment(order) };
+  }
+  if (request.operation_type === 'EPOST_TRACKING') {
+    if (request.target_type !== 'TRACKING' || payload.trackingNo !== request.target_id) {
+      throw Object.assign(new Error('우체국 배송추적 요청 정보가 일치하지 않습니다.'), { code:'EPOST_TRACKING_TARGET_MISMATCH' });
+    }
+    return { epostTracking:await epostTracking.trace(payload.trackingNo) };
   }
   if (request.operation_type === 'ORDER_DETAIL') return { order:await handlers.getOrderDetail(request.target_id) };
   if (request.operation_type === 'PRODUCT_DETAIL') return { product:await handlers.getProductDetail(request.target_id) };

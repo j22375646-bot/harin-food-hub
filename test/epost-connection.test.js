@@ -27,6 +27,7 @@ test('ePost regData uses UTF-8, zero padding and lowercase hex', () => {
 test('ePost readiness never exposes authentication or contract values', () => {
   const env = {
     EPOST_API_KEY:'auth-secret-value',
+    EPOST_TRACKING_API_KEY:'tracking-secret-value',
     EPOST_SECURITY_KEY:'0123456789abcdef',
     EPOST_CUSTOMER_NO:'customer-secret',
     EPOST_CONTRACT_APPROVAL_NO:'approval-secret',
@@ -40,8 +41,9 @@ test('ePost readiness never exposes authentication or contract values', () => {
   assert.equal(result.readyForTest, true);
   assert.equal(result.liveWritesEnabled, false);
   assert.equal(result.testWritesEnabled, true);
+  assert.equal(result.readyForTracking, true);
   const serialized = JSON.stringify(result);
-  for (const secret of ['auth-secret-value','0123456789abcdef','customer-secret','approval-secret','office-secret']) {
+  for (const secret of ['auth-secret-value','tracking-secret-value','0123456789abcdef','customer-secret','approval-secret','office-secret']) {
     assert.equal(serialized.includes(secret), false);
   }
 });

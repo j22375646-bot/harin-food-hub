@@ -219,11 +219,11 @@ test('orders center labels seller delivery and refreshes current channel status'
   assert.match(route,/apiSafety\.isAuthorized\(request,authModule\)/);
 });
 
-test('phase 11-3D preserves bulk selection, postal invoice entry, and channel-only retry',()=>{
+test('phase 11-3E preserves bulk selection and channel retry while adding tracking',()=>{
   const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
   const route=fs.readFileSync(path.join(__dirname,'..','app','api','shipping','actions','route.js'),'utf8');
   const transfer=fs.readFileSync(path.join(__dirname,'..','lib','shipping','channel-transfer.js'),'utf8');
-  assert.match(center,/PHASE 11-3D · CHANNEL TRANSFER/);
+  assert.match(center,/PHASE 11-3E · LABEL & TRACKING/);
   assert.match(center,/결제완료·준비중 전체선택/);
   assert.match(center,/bulkEligible=visible\.filter/);
   assert.match(center,/className=\{`orderInvoiceEntry/);
@@ -235,6 +235,21 @@ test('phase 11-3D preserves bulk selection, postal invoice entry, and channel-on
   assert.match(transfer,/return normalized \|\| 'EPOST'/);
   assert.match(transfer,/\^\\d\{13\}\$/);
   assert.match(center,/채널만 재시도/);
+  assert.match(center,/배송상태 확인/);
+});
+
+test('ePost tracking result advances seller orders without overwriting channel source rows',()=>{
+  const hubOrderId=orders.hubOrderId('CAFE24','C-TRACKED');
+  const center=orders.buildUnifiedOrders({
+    asOf:'2026-08-14T00:00:00Z',
+    cafe24Orders:[{order_id:'C-TRACKED',order_date:'2026-08-14T01:00:00Z',raw_data:{tracking_no:'1234567890123'}}],
+    cafe24OrderItems:[{order_id:'C-TRACKED',external_item_id:'I-1',product_name:'Tea',quantity:1,raw_data:{order_status:'N20'}}],
+    trackingStates:{[hubOrderId]:{status:'SUCCESS',statusCode:'DELIVERED',statusLabel:'배달완료',checkedAt:'2026-08-15T04:00:00Z'}}
+  });
+  assert.equal(center.orders[0].stage,'DELIVERED');
+  assert.equal(center.orders[0].actionRequired,false);
+  assert.equal(center.orders[0].shippingEligible,false);
+  assert.equal(center.orders[0].tracking.statusCode,'DELIVERED');
 });
 
 test('registered tracking numbers from channel data are retained in unified orders',()=>{

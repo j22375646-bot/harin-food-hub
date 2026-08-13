@@ -55,10 +55,10 @@ test('orders center exposes phase 11-3C test parcel issuance while live parcel s
   assert.doesNotMatch(route,/EPOST_LIVE_WRITES_ENABLED/);
 });
 
-test('phase 11-3D keeps postal tracking while retrying only failed channel transfers',()=>{
+test('phase 11-3E keeps channel retry and adds label printing plus delivery tracking',()=>{
   const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
   const route=fs.readFileSync(path.join(__dirname,'..','app','api','shipping','actions','route.js'),'utf8');
-  assert.match(center,/PHASE 11-3D · CHANNEL TRANSFER/);
+  assert.match(center,/PHASE 11-3E · LABEL & TRACKING/);
   assert.match(center,/채널만 재시도/);
   assert.match(center,/pollShippingTransfer/);
   assert.match(route,/beginCafe24Transfer/);
@@ -66,4 +66,6 @@ test('phase 11-3D keeps postal tracking while retrying only failed channel trans
   assert.match(route,/alreadyTransferred/);
   assert.match(route,/requestId/);
   assert.match(route,/channelTransfer\.postalTracking/);
+  assert.match(center,/송장 라벨 인쇄/);
+  assert.match(center,/전체 배송상태 지금 확인/);
 });
