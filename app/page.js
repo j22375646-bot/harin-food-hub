@@ -9,6 +9,7 @@ import pacingService from '../lib/analytics/pacing-service.js';
 import cafe24AnalyticsModule from '../lib/cafe24/analytics.js';
 import mappingService from '../lib/products/mapping-service.js';
 import productPerformance from '../lib/products/performance.js';
+import productOperationsModule from '../lib/products/operations-center.js';
 import costCalibrationModule from '../lib/analytics/cost-calibration.js';
 import shippingRulesModule from '../lib/analytics/shipping-rules.js';
 import financialTrustModule from '../lib/analytics/financial-trust.js';
@@ -144,7 +145,7 @@ async function getDashboardData(state) {
     db.from('reports').select('id,platform,report_type,period_start,period_end,title,status,summary_json,version,supersedes_report_id,is_latest,revision_note,approved_at,approved_by,created_at').order('period_end', { ascending: false }).order('created_at',{ascending:false}).limit(80),
     db.from('actions').select('id,platform,target_type,target_id,target_name,action_type,reason,status,before_value,after_value,decided_at,executed_at,review_after,priority,assignee,due_at,hold_reason,review_result,created_at').order('decided_at', { ascending: false }).limit(100),
     db.from('master_products').select('id,name,selling_price,is_active').order('updated_at',{ascending:false}).limit(200),
-    db.from('channel_products').select('id,master_product_id,platform,external_product_id,external_product_name,selling_price,is_active,match_method,match_confidence,matched_at,matched_by').order('updated_at',{ascending:false}).limit(500),
+    db.from('channel_products').select('id,master_product_id,platform,external_product_id,external_product_name,selling_price,is_active,match_method,match_confidence,matched_at,matched_by,raw_data,updated_at').order('updated_at',{ascending:false}).limit(500),
     db.from('naver_campaigns').select('ncc_campaign_id,name,campaign_type,status,user_lock'),
     db.from('naver_adgroups').select('ncc_adgroup_id,ncc_campaign_id,name,status,user_lock',{count:'exact'}).limit(1000),
     db.from('naver_keywords').select('*',{count:'exact',head:true}),
@@ -405,6 +406,14 @@ async function getDashboardData(state) {
     ...(channelsResult.data || []).filter(item=>item.platform==='CAFE24'),
     ...productMapping.links
   ];
+  const productOperations = productOperationsModule.buildUnifiedProductOperations({
+    masterProducts:masterResult.data || [],
+    channelProducts:allChannelProducts,
+    cafe24Products:productsResult.data || [],
+    coupangProducts:coupangProductsResult.data || [],
+    coupangProductItems:coupangProductItemsResult.data || [],
+    coupangItemInventory:coupangItemInventoryResult.data || []
+  });
   const marketingDiagnosis=marketingDiagnosisModule.buildMarketingDiagnosis({
     keywordStats:marketingKeywordStats,
     naverKeywords:marketingKeywordCatalog,
@@ -610,7 +619,7 @@ async function getDashboardData(state) {
     topProducts,
     cafe24Analytics,
     recentOrders: orders.slice(0, 8).map(order => ({ id: order.order_id, date: order.order_date, amount: orderAmount(order), channel: order.raw_data?.order_place_name || '자사몰' })),
-    products: (productsResult.data || []).slice(0, 8).map(product => ({
+    products: (productsResult.data || []).map(product => ({
       id: product.external_product_no,
       name: product.product_name,
       price: number(product.price),
@@ -630,6 +639,7 @@ async function getDashboardData(state) {
     masterProducts: masterResult.data || [],
     channelProducts: allChannelProducts,
     productMapping,
+    productOperations,
     unifiedProductPerformance:trustedProductPerformance,
     financialReadiness,
     productCosts: costsResult.data || [],
