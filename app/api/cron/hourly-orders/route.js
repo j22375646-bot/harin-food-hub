@@ -2,6 +2,7 @@ import supabaseModule from '../../../../lib/cafe24/supabase.js';
 import cafe24Config from '../../../../lib/cafe24/config.js';
 import cafe24Sync from '../../../../lib/cafe24/sync.js';
 import queueModule from '../../../../lib/coupang/request-queue.js';
+import crypto from 'node:crypto';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -9,7 +10,12 @@ export const maxDuration=120;
 
 function authorized(request){
   const secret=String(process.env.CRON_SECRET||'').trim();
-  return Boolean(secret)&&request.headers.get('authorization')===`Bearer ${secret}`;
+  if(Boolean(secret)&&request.headers.get('authorization')===`Bearer ${secret}`)return true;
+  const serviceKey=String(process.env.SUPABASE_SERVICE_ROLE_KEY||'');
+  const expected=crypto.createHash('sha256').update(`harin-hourly-orders\0${serviceKey}`).digest('hex');
+  const provided=String(request.headers.get('x-harin-hourly-token')||'');
+  const a=Buffer.from(expected); const b=Buffer.from(provided);
+  return Boolean(serviceKey)&&a.length===b.length&&crypto.timingSafeEqual(a,b);
 }
 
 export async function GET(request){

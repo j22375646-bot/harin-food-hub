@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Harin order collection every hour
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+RandomizedDelaySec=0
+Unit=harin-orders-hourly.service
+
+[Install]
+WantedBy=timers.target

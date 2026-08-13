@@ -131,9 +131,12 @@ test('hourly order collection is scheduled and the manual button is explicit',()
   const vercel=JSON.parse(fs.readFileSync(path.join(__dirname,'..','vercel.json'),'utf8'));
   const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
   const route=fs.readFileSync(path.join(__dirname,'..','app','api','cron','hourly-orders','route.js'),'utf8');
-  assert.deepEqual(vercel.crons.find(item=>item.path==='/api/cron/hourly-orders'),{path:'/api/cron/hourly-orders',schedule:'0 * * * *'});
+  const timer=fs.readFileSync(path.join(__dirname,'..','ops','systemd','harin-orders-hourly.timer'),'utf8');
+  assert.equal(vercel.crons.some(item=>item.path==='/api/cron/hourly-orders'),false);
+  assert.match(timer,/OnCalendar=hourly/);
   assert.match(center,/전체 플랫폼 수동수집/);
   assert.match(route,/CRON_SECRET/);
+  assert.match(route,/x-harin-hourly-token/);
   assert.match(route,/ORDER_REALTIME/);
 });
 
