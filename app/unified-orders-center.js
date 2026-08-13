@@ -37,13 +37,20 @@ function DeliveryInfo({ order }) {
 
 function TimingBadge({ badge }) {
   if(!badge)return null;
-  return <span className={`orderTimingBadge ${badge.type.toLowerCase()}`} title={badge.detail}><b>{badge.label}</b><small>{badge.detail}</small></span>;
+  return <span className={`orderTimingBadge ${badge.type.toLowerCase()}`} title={badge.detail}>{badge.label}</span>;
+}
+
+function TimingNotice({ badge }) {
+  if(!badge)return null;
+  const action=badge.type==='DELAYED'?'출고 상태를 바로 확인하세요':'오늘 출고할 주문입니다';
+  return <div className={`orderTimingNotice ${badge.type.toLowerCase()}`}><span>{badge.detail}</span><b>{action}</b></div>;
 }
 
 function OrderCard({ order, selected, onSelect }) {
   return <article className={`unifiedOrderCard${order.cancellationRequested?' cancelWarning':''}${order.demo?' demoOrderCard':''}`}>
     {order.cancellationRequested?<div className="orderCancelWarning"><b>출고 멈춤 · 취소/반품 요청 확인</b><span>출고 전에 해당 쇼핑몰에서 요청 상태를 먼저 확인하세요.</span></div>:null}
-    <header><div><label className={`shippingSelect${order.shippingEligible?'':' blocked'}`} title={order.shippingBlockedReason||'포장·배송 작업에 선택'}><input type="checkbox" checked={selected} disabled={!order.shippingEligible} onChange={event=>onSelect(order,event.target.checked)}/><span>{order.demo?'디자인 샘플':order.shippingEligible?'작업 선택':'선택 불가'}</span></label><span className={`channelBadge ${order.platform.toLowerCase()}`}>{order.channelLabel}</span>{order.platform==='COUPANG'&&order.fulfillment==='SELLER'?<span className="sellerDeliveryBadge">판매자배송</span>:null}{order.fulfillment==='ROCKET_GROWTH'?<span className="fulfillmentBadge">로켓그로스</span>:null}<strong>{STAGE_LABELS[order.stage]||'상태 확인'}</strong><TimingBadge badge={order.timingBadge}/></div><b>{money(order.amount)}</b></header>
+    <header className="unifiedOrderCardHeader"><div className="orderBadgeGroup"><label className={`shippingSelect${order.shippingEligible?'':' blocked'}`} title={order.shippingBlockedReason||'포장·배송 작업에 선택'}><input type="checkbox" checked={selected} disabled={!order.shippingEligible} onChange={event=>onSelect(order,event.target.checked)}/><span>{order.demo?'샘플':order.shippingEligible?'작업 선택':'선택 불가'}</span></label><span className={`channelBadge ${order.platform.toLowerCase()}`}>{order.channelLabel}</span>{order.platform==='COUPANG'&&order.fulfillment==='SELLER'?<span className="sellerDeliveryBadge">판매자배송</span>:null}{order.fulfillment==='ROCKET_GROWTH'?<span className="fulfillmentBadge">로켓그로스</span>:null}</div><div className="orderStatusGroup"><span className="orderStageBadge">{STAGE_LABELS[order.stage]||'상태 확인'}</span><TimingBadge badge={order.timingBadge}/><b className="orderAmount">{money(order.amount)}</b></div></header>
+    <TimingNotice badge={order.timingBadge}/>
     <section><div><span>허브 주문번호</span><b>{order.hubOrderId}</b></div><div><span>쇼핑몰 주문번호</span><b>{order.externalOrderId}</b></div><div><span>주문 시각</span><b>{dateTime(order.orderedAt)}</b></div></section>
     <div className="unifiedOrderProduct"><div className="orderItemRows">{order.items?.length?order.items.map((item,index)=><div className="orderItemRow" key={`${item.externalItemId||item.name}-${index}`}><span><small>상품명</small><b>{item.name}</b></span><span><small>옵션</small><b>{item.option||'기본 옵션'}</b></span><strong>{count(item.quantity)}개</strong></div>):<p>상품 상세는 다음 수집 때 자동으로 채워집니다.</p>}<em>{(order.packagingInstructions||[]).join(' · ')}</em></div><strong className="orderTotalQuantity">총 {order.quantity?`${count(order.quantity)}개`:'-'}</strong></div>
     <DeliveryInfo order={order}/>

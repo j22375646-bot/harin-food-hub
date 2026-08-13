@@ -496,3 +496,55 @@ html[data-font-scale="xlarge"] main th{font-size:15px!important}html[data-font-s
 .timingDemoPanel{overflow:hidden;border:1px solid #cdd9ed;border-radius:18px;background:#f6f9ff}.timingDemoPanel>summary{display:flex;min-height:66px;align-items:center;justify-content:space-between;gap:16px;padding:0 18px;cursor:pointer;list-style:none}.timingDemoPanel>summary::-webkit-details-marker{display:none}.timingDemoPanel>summary>span{display:flex;flex-direction:column}.timingDemoPanel>summary b{font-size:15px}.timingDemoPanel>summary small{margin-top:4px;color:#66758d;font-size:11px}.timingDemoPanel>summary em{color:#3d61a4;font-size:11px;font-style:normal;font-weight:900}.timingDemoPanel>div{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 14px 14px}.demoOrderCard{border-style:dashed;border-color:#9bb3db;background:#fff}.demoOrderCard .shippingSelect{background:#edf2fb;color:#49658e}.orderTimingBadge{display:inline-flex;align-items:center;gap:5px;border-radius:99px;padding:6px 9px;font-weight:900}.orderTimingBadge b{font-size:10px}.orderTimingBadge small{font-size:8px;font-weight:800}.orderTimingBadge.same_day{background:#e5f4ff;color:#17679d}.orderTimingBadge.delayed{background:#ffe7e3;color:#b43e34;box-shadow:0 0 0 1px rgba(180,62,52,.08)}
 @media(max-width:900px){.invoiceWorkbench>header{grid-template-columns:1fr 1fr}.invoiceWorkbench>header>div{grid-column:1/-1}.invoiceWorkbench>div{grid-template-columns:1fr}}
 @media(max-width:650px){.shippingWorkbench{padding:15px}.shippingWorkbench>header{flex-direction:column}.shippingWorkbench>header>b{width:100%;box-sizing:border-box}.shippingHelp>div{grid-template-columns:1fr}.shippingActions>*{width:100%;box-sizing:border-box}.invoiceWorkbench>header{grid-template-columns:1fr}.invoiceWorkbench>header>div{grid-column:auto}.invoiceWorkbench>div>label{grid-template-columns:1fr}.invoiceWorkbench>button{align-self:stretch}.shippingSelect span{display:none}.liveOrdersStatus{align-items:stretch;flex-direction:column}.liveOrdersStatus button{width:100%}.orderItemRow{grid-template-columns:1fr}.orderItemRow>strong{justify-self:start}.orderTotalQuantity{padding-top:0}.orderDeliveryInfo>div{grid-template-columns:1fr 1fr}.orderDeliveryInfo .deliveryAddress,.orderDeliveryInfo .deliveryMemo{grid-column:1/-1}.unifiedOrdersMore{width:100%;min-width:0}.timingDemoPanel>div{grid-template-columns:1fr}.orderTimingBadge small{display:none}}
+
+/* Phase 11-3 polish: one badge system and one readable type scale. */
+.unifiedOrdersCenter{--order-badge-height:32px;--order-label-size:11px;--order-body-size:13px}
+.unifiedOrderCard{border-left-width:4px;box-shadow:0 8px 22px rgba(31,51,44,.055)}
+.unifiedOrderCardHeader{display:grid!important;grid-template-columns:minmax(0,1fr) auto;align-items:start!important;gap:12px;padding:16px!important;border-bottom:1px solid #edf1ef}
+.orderBadgeGroup,.orderStatusGroup{display:flex!important;align-items:center;flex-wrap:wrap;gap:8px!important}
+.orderStatusGroup{justify-content:flex-end}
+.unifiedOrderCard .shippingSelect,.unifiedOrderCard .channelBadge,.unifiedOrderCard .sellerDeliveryBadge,.unifiedOrderCard .fulfillmentBadge,.unifiedOrderCard .orderStageBadge,.unifiedOrderCard .orderTimingBadge{display:inline-flex;height:var(--order-badge-height);min-height:var(--order-badge-height);align-items:center;justify-content:center;box-sizing:border-box;border:0;border-radius:9px;padding:0 10px;font-size:var(--order-label-size);font-weight:900;line-height:1;white-space:nowrap}
+.unifiedOrderCard .shippingSelect{gap:6px;background:#e7f3ed;color:#1f684e}
+.unifiedOrderCard .shippingSelect input{width:15px;height:15px;flex:none}
+.unifiedOrderCard .shippingSelect.blocked{background:#eef1f2;color:#727a7e}
+.unifiedOrderCard .channelBadge.cafe24{background:#e9efff;color:#385fb7}
+.unifiedOrderCard .channelBadge.coupang{background:#fff0e7;color:#a94c18}
+.unifiedOrderCard .channelBadge.naver{background:#e5f8ec;color:#158047}
+.unifiedOrderCard .sellerDeliveryBadge{background:#fff4df;color:#835311}
+.unifiedOrderCard .fulfillmentBadge{background:#eaf4ff;color:#2868aa}
+.unifiedOrderCard .orderStageBadge{background:#eaf6f0;color:#236f51}
+.unifiedOrderCard .orderTimingBadge.same_day{background:#e5f4ff;color:#17679d}
+.unifiedOrderCard .orderTimingBadge.delayed{background:#ffe7e3;color:#ad3a31;box-shadow:none}
+.unifiedOrderCard .orderAmount{display:inline-flex;min-height:var(--order-badge-height);align-items:center;margin-left:4px;color:#15221d;font-size:19px;line-height:1;white-space:nowrap}
+.orderTimingNotice{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 16px 14px;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.45}
+.orderTimingNotice span{font-size:12px;font-weight:750}
+.orderTimingNotice b{font-size:12px;text-align:right}
+.orderTimingNotice.same_day{background:#f0f8fd;color:#276b96}
+.orderTimingNotice.delayed{background:#fff1ef;color:#a33c33}
+.unifiedOrderCard>section{gap:9px;padding:14px 16px}
+.unifiedOrderCard>section>div{padding:11px 12px;border-radius:10px}
+.unifiedOrderCard section span,.orderItemRow small,.orderDeliveryInfo>div small{color:#748079;font-size:var(--order-label-size);font-weight:750;line-height:1.35}
+.unifiedOrderCard section b{margin-top:5px;overflow:visible;color:#26312c;font-size:var(--order-body-size);line-height:1.45;text-overflow:clip;white-space:normal;overflow-wrap:anywhere}
+.unifiedOrderProduct{gap:16px;padding:15px 16px}
+.orderItemRow{gap:14px;padding-bottom:11px}
+.orderItemRow b{font-size:var(--order-body-size);line-height:1.5}
+.orderItemRow>strong,.orderTotalQuantity{font-size:var(--order-body-size)}
+.unifiedOrderProduct em{font-size:var(--order-label-size);line-height:1.45}
+.orderDeliveryInfo{margin:0 16px 16px;border-radius:11px}
+.orderDeliveryInfo>header{padding:11px 12px}
+.orderDeliveryInfo>header b{font-size:var(--order-body-size)}
+.orderDeliveryInfo>header small{font-size:var(--order-label-size)}
+.orderDeliveryInfo>div>span{gap:5px;padding:11px 12px}
+.orderDeliveryInfo>div b{font-size:var(--order-body-size);line-height:1.5}
+.orderDeliveryInfo .deliveryAddress{min-height:0}
+.timingDemoPanel{border-color:#dce4eb;background:#f7f9fb}
+.timingDemoPanel>summary{min-height:70px;padding:0 18px}
+.timingDemoPanel>summary b{font-size:16px}
+.timingDemoPanel>summary small{color:#687681;font-size:12px;line-height:1.45}
+.timingDemoPanel>summary em{color:#496477;font-size:11px}
+.timingDemoPanel>div{gap:14px;padding:0 16px 16px}
+.demoOrderCard{border-style:solid;border-color:#d9e2e9;border-left-color:#6d8799;background:#fff;box-shadow:0 8px 22px rgba(45,65,78,.06)}
+.demoOrderCard .shippingSelect{background:#edf2f6;color:#496477}
+
+@media(max-width:1100px){.timingDemoPanel>div{grid-template-columns:1fr}}
+@media(max-width:700px){.unifiedOrderCardHeader{grid-template-columns:1fr}.orderStatusGroup{justify-content:flex-start}.unifiedOrderCard .orderAmount{margin-right:0;margin-left:auto}.orderTimingNotice{align-items:flex-start;flex-direction:column;gap:3px}.orderTimingNotice b{text-align:left}.unifiedOrderCard .shippingSelect span{display:inline}.unifiedOrderCard>section{grid-template-columns:1fr}.orderDeliveryInfo>div{grid-template-columns:1fr}.orderDeliveryInfo>div>span,.orderDeliveryInfo .deliveryAddress,.orderDeliveryInfo .deliveryMemo{grid-column:1/-1}}

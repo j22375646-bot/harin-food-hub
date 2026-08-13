@@ -205,6 +205,11 @@ test('orders center labels seller delivery and refreshes current channel status'
   assert.match(center,/배송완료는 5단계를 눌렀을 때만 표시됩니다/);
   assert.match(center,/당일출고/);
   assert.match(center,/배송지연/);
+  assert.match(center,/orderBadgeGroup/);
+  assert.match(center,/orderStatusGroup/);
+  assert.match(center,/orderTimingNotice/);
+  assert.match(center,/오늘 출고할 주문입니다/);
+  assert.doesNotMatch(center,/orderTimingBadge[^\n]*<small>/);
   assert.doesNotMatch(center,/<section className=\{`orderDeliveryInfo/);
   assert.match(route,/ORDER_REALTIME/);
   assert.match(route,/apiSafety\.isAuthorized\(request,authModule\)/);
