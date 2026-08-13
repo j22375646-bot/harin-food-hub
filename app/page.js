@@ -16,6 +16,7 @@ import priorityCenterModule from '../lib/actions/priority-center.js';
 import dataHealthModule from '../lib/dashboard/data-health.js';
 import coupangQueueHealthModule from '../lib/dashboard/coupang-queue-health.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
+import salesCommandCenterModule from '../lib/dashboard/sales-command-center.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -369,6 +370,20 @@ async function getDashboardData() {
     financialTrust,
     now:generatedAt
   });
+  const productSignals = salesCommandCenterModule.buildProductSignals({
+    cafe24Orders:ordersResult.data || [],
+    cafe24OrderItems:itemsResult.data || [],
+    coupangProducts:coupangProductPerformance,
+    asOf:todayKey
+  });
+  const salesCommandCenter = salesCommandCenterModule.buildSalesCommandCenter({
+    pacing,
+    priorityCenter,
+    dataHealth,
+    productSignals,
+    profitability:trustedProfitability,
+    financialTrust
+  });
   const cafe24LatestSync = (syncResult.data || []).find(item=>item.platform==='CAFE24') || null;
   const coupangLatestSync = (syncResult.data || []).find(item=>item.platform==='COUPANG') || null;
   const cafe24Dates = orders.map(item=>dateOnly(item.order_date)).filter(Boolean).sort();
@@ -435,6 +450,7 @@ async function getDashboardData() {
     reports: reportsResult.data || [],
     actions,
     priorityCenter,
+    salesCommandCenter,
     automationRuns: automationResult.data || [],
     qualityChecks: qaResult.data || [],
     alerts: alertsResult.data || [],
