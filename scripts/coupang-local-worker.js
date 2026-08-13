@@ -13,6 +13,7 @@ const { syncCoupang } = require('../lib/automation/sync-all.js');
 const { syncRocketGrowthInventoryOnly, syncRocketGrowthRealtime } = require('../lib/coupang/sync.js');
 const operationQueue = require('../lib/coupang/operation-queue.js');
 const coupangActions = require('../lib/coupang/actions.js');
+const naverCommerceProbe = require('../lib/naver-commerce/probe.js');
 
 const logPath = path.join(root, 'tmp', 'coupang-local-worker.log');
 const watchMode = process.argv.includes('--watch');
@@ -21,7 +22,7 @@ const collectorId = String(process.env.COUPANG_COLLECTOR_ID || 'FIXED_IP_WORKER'
 fs.mkdirSync(path.dirname(logPath), { recursive: true });
 
 function safeMessage(error) {
-  const secrets = [process.env.COUPANG_ACCESS_KEY, process.env.COUPANG_SECRET_KEY, process.env.SUPABASE_SERVICE_ROLE_KEY].filter(Boolean);
+  const secrets = [process.env.COUPANG_ACCESS_KEY, process.env.COUPANG_SECRET_KEY, process.env.NAVER_COMMERCE_CLIENT_ID, process.env.NAVER_COMMERCE_CLIENT_SECRET, process.env.SUPABASE_SERVICE_ROLE_KEY].filter(Boolean);
   return secrets.reduce((message, secret) => message.split(secret).join('[REDACTED]'), String(error?.message || error || 'Unknown error'));
 }
 
@@ -130,8 +131,11 @@ async function expirePendingOperations(db) {
 }
 
 async function dispatchOperation(request, payload, handlers = coupangActions, db = getSupabase()) {
+  if (request.operation_type === 'NAVER_COMMERCE_PROBE') return { naverCommerce:await naverCommerceProbe.probeReadAccess({ db }) };
   if (request.operation_type === 'ORDER_DETAIL') return { order:await handlers.getOrderDetail(request.target_id) };
+  if (request.operation_type === 'PRODUCT_DETAIL') return { product:await handlers.getProductDetail(request.target_id) };
   const options = { audit:{ db, id:request.id } };
+  if (request.target_type === 'PRODUCT') return handlers.executeProductAction(request.operation_type, payload, options);
   if (request.target_type === 'ORDER') return handlers.executeOrderAction(request.operation_type, payload, options);
   if (request.target_type === 'INQUIRY') return handlers.executeCsAction(request.operation_type, payload, options);
   if (['RETURN', 'EXCHANGE'].includes(request.target_type)) return handlers.executeCaseAction(request.operation_type, payload, options);

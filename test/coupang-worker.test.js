@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const queue = require('../lib/coupang/request-queue.js');
 const worker = require('../scripts/coupang-local-worker.js');
+const actions = require('../lib/coupang/actions.js');
 
 function chain(terminal, calls) {
   const query = {};
@@ -61,6 +62,31 @@ test('fixed-IP worker refuses an unexpected outbound address', async () => {
     if (originalExpected === undefined) delete process.env.COUPANG_ALLOWED_SOURCE_IP;
     else process.env.COUPANG_ALLOWED_SOURCE_IP = originalExpected;
   }
+});
+
+test('Coupang product changes remain locked until read verification is explicitly enabled', async () => {
+  const original = process.env.COUPANG_PRODUCT_WRITE_ENABLED;
+  process.env.COUPANG_PRODUCT_WRITE_ENABLED = 'false';
+  try {
+    await assert.rejects(
+      () => actions.executeProductAction('PRODUCT_UPDATE', { sellerProductId:'1', expectedSnapshotHash:'0'.repeat(64), product:{} }),
+      error => error.code === 'COUPANG_PRODUCT_WRITE_LOCKED'
+    );
+  } finally {
+    if (original === undefined) delete process.env.COUPANG_PRODUCT_WRITE_ENABLED;
+    else process.env.COUPANG_PRODUCT_WRITE_ENABLED = original;
+  }
+});
+
+test('fixed-IP operation queue accepts product and Naver channel probes', () => {
+  assert.deepEqual(
+    require('../lib/coupang/operation-queue.js').validateRequest({ operationType:'PRODUCT_DETAIL', targetType:'PRODUCT', targetId:'123' }),
+    { operationType:'PRODUCT_DETAIL', targetType:'PRODUCT', targetId:'123' }
+  );
+  assert.deepEqual(
+    require('../lib/coupang/operation-queue.js').validateRequest({ operationType:'NAVER_COMMERCE_PROBE', targetType:'CHANNEL', targetId:'SMARTSTORE' }),
+    { operationType:'NAVER_COMMERCE_PROBE', targetType:'CHANNEL', targetId:'SMARTSTORE' }
+  );
 });
 
 test('daily cron queues Coupang and production data source is no longer HOME_PC', () => {

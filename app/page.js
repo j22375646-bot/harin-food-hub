@@ -20,6 +20,7 @@ import hubRoutesModule from '../lib/navigation/hub-routes.js';
 import salesCommandCenterModule from '../lib/dashboard/sales-command-center.js';
 import marketingDiagnosisModule from '../lib/marketing/diagnosis.js';
 import retentionValidationModule from '../lib/customers/retention-validation.js';
+import channelCapabilitiesModule from '../lib/platforms/channel-capabilities.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -136,7 +137,7 @@ async function getDashboardData(state) {
     db.from('cafe24_traffic_daily').select('date,visitors,pageviews,source_status,raw_data').order('date', { ascending: true }).limit(31),
     db.from('cafe24_referrers_daily').select('date,source,visitors,orders,revenue').order('visitors', { ascending: false }).limit(500),
     db.from('cafe24_products').select('external_product_no,product_name,price,selling,raw_data').order('updated_at', { ascending: false }).limit(100),
-    db.from('sync_logs').select('id,platform,job_type,status,started_at,finished_at,rows_received,error_message,metadata').in('job_type', ['FETCH_ALL','FILE_IMPORT','RG_INVENTORY','RG_REALTIME']).order('started_at', { ascending: false }).limit(20),
+    db.from('sync_logs').select('id,platform,job_type,status,started_at,finished_at,rows_received,error_message,metadata').in('job_type', ['FETCH_ALL','FILE_IMPORT','RG_INVENTORY','RG_REALTIME','LOCAL_IP_CHECK','COMMERCE_CONNECTION_TEST']).order('started_at', { ascending: false }).limit(30),
     db.from('reports').select('id,platform,report_type,period_start,period_end,title,status,summary_json,version,supersedes_report_id,is_latest,revision_note,approved_at,approved_by,created_at').order('period_end', { ascending: false }).order('created_at',{ascending:false}).limit(80),
     db.from('actions').select('id,platform,target_type,target_id,target_name,action_type,reason,status,before_value,after_value,decided_at,executed_at,review_after,priority,assignee,due_at,hold_reason,review_result,created_at').order('decided_at', { ascending: false }).limit(100),
     db.from('master_products').select('id,name,selling_price,is_active').order('updated_at',{ascending:false}).limit(200),
@@ -537,10 +538,21 @@ async function getDashboardData(state) {
       sampleSize:orders.length, reasons:(financialTrust.reasons||[]).map(item=>item.code)
     })
   ];
+  const channelConnections = await channelCapabilitiesModule.buildChannelCapabilities({
+    syncs:syncResult.data || [],
+    cafe24Counts:{ products:productsResult.data?.length || 0, orders:orders.length },
+    coupangCounts:{
+      products:coupangProductsResult.data?.length || 0,
+      orders:coupangOrdersResult.data?.length || 0,
+      inquiries:coupangInquiriesResult.data?.length || 0,
+      claims:(coupangReturnsResult.data?.length || 0) + (coupangExchangesResult.data?.length || 0)
+    }
+  });
   return {
     loadedView:view,
     generatedAt,
     dataHealth,
+    channelConnections,
     metricSnapshots,
     kpis: {
       sales,

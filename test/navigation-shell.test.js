@@ -71,8 +71,8 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
   assert.match(styles,/Phase 10-4 — orders, CS, inventory and settlement are independent work pages/);
 });
 
-test('phase 10-8 keeps the separated execution validation and A/B tests', () => {
-  assert.match(client,/10-8단계 · 전환·주문·그래프 개선/);
+test('phase 11-1 keeps the separated execution validation and A/B tests', () => {
+  assert.match(client,/11-1단계 · 채널 연결·권한 확장/);
   assert.match(client,/view==='validation' && \(<CustomerRetentionValidationCenter/);
   assert.match(client,/view==='experiments' && <ExperimentLab/);
   assert.doesNotMatch(client,/phase7LegacyLab/);
