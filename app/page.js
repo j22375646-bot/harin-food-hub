@@ -13,6 +13,7 @@ import costCalibrationModule from '../lib/analytics/cost-calibration.js';
 import shippingRulesModule from '../lib/analytics/shipping-rules.js';
 import financialTrustModule from '../lib/analytics/financial-trust.js';
 import priorityCenterModule from '../lib/actions/priority-center.js';
+import dataHealthModule from '../lib/dashboard/data-health.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -60,8 +61,19 @@ function exchangeCaseView(item) {
 
 async function getDashboardData() {
   const db = supabaseModule.getSupabase();
-  const pacingPromise = pacingService.buildPacingDashboard({ db });
-  const [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, shippingRulesResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult] = await Promise.all([
+  const pacingPromise = pacingService.buildPacingDashboard({ db }).catch(error => {
+    console.error('[dashboard] pacing unavailable', error);
+    return { status:'NO_DATA', channels:[], reasons:['목표 진행률을 불러오지 못했습니다.'] };
+  });
+  const queryMetadata = [
+    ['CAFE24','cafe24_orders'],['CAFE24','cafe24_order_items'],['CAFE24','cafe24_traffic_daily'],['CAFE24','cafe24_referrers_daily'],['CAFE24','cafe24_products'],
+    ['SHARED','sync_logs'],['SHARED','reports'],['SHARED','actions'],['SHARED','master_products'],['SHARED','channel_products'],
+    ['NAVER','naver_campaigns'],['NAVER','naver_adgroups'],['NAVER','naver_keywords'],['NAVER','sync_logs'],['NAVER','naver_stats_daily'],
+    ['SHARED','automation_runs'],['SHARED','data_quality_checks'],['SHARED','action_evaluations'],['SHARED','alerts'],['SHARED','platform_events'],
+    ['SHARED','product_costs'],['SHARED','channel_cost_settings'],['SHARED','channel_shipping_rules'],
+    ['COUPANG','coupang_products'],['COUPANG','coupang_orders'],['COUPANG','coupang_order_items'],['COUPANG','coupang_settlements'],['COUPANG','coupang_rg_inventory'],['COUPANG','coupang_sync_requests'],['COUPANG','coupang_rg_orders'],['COUPANG','coupang_returns'],['COUPANG','coupang_exchanges'],['COUPANG','coupang_inquiries'],['COUPANG','coupang_item_inventory'],['COUPANG','coupang_settlement_summaries'],['COUPANG','coupang_promotion_budgets'],['COUPANG','coupang_api_capabilities'],['COUPANG','coupang_product_items'],['COUPANG','coupang_rg_order_items'],['COUPANG','coupang_cost_transactions'],['COUPANG','coupang_cost_imports'],['COUPANG','coupang_ad_daily_summary'],['COUPANG','coupang_ad_keyword_summary_top'],['COUPANG','coupang_ad_keyword_summary_waste'],['COUPANG','coupang_ad_campaign_summary'],['COUPANG','coupang_ad_billing_daily']
+  ].map(([platform,dataset])=>({platform,dataset}));
+  const settledQueries = await Promise.allSettled([
     db.from('cafe24_orders').select('order_id,order_date,customer_id,paid_amount,order_price,raw_data').order('order_date', { ascending: false }).limit(1000),
     db.from('cafe24_order_items').select('order_id,external_product_no,product_name,quantity,unit_price,paid_amount,raw_data').limit(1000),
     db.from('cafe24_traffic_daily').select('date,visitors,pageviews,source_status,raw_data').order('date', { ascending: true }).limit(31),
@@ -109,15 +121,17 @@ async function getDashboardData() {
     db.from('coupang_ad_campaign_summary').select('*').order('revenue',{ascending:false}).limit(50),
     db.from('coupang_ad_billing_daily').select('*').order('date',{ascending:true}).limit(100)
   ]);
-
-  const results = [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, shippingRulesResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult];
-  const firstError = results.find(result => result.error)?.error;
-  if (firstError) throw new Error(firstError.message);
-  const keywordPeriodResult=await db.from('naver_keyword_stats').select('period_start,period_end').order('period_end',{ascending:false}).limit(1).maybeSingle();
-  if(keywordPeriodResult.error)throw new Error(keywordPeriodResult.error.message);
+  const settled = dataHealthModule.settleQueries(settledQueries, queryMetadata, (error, issue) => {
+    console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`, error);
+  });
+  const queryIssues = [...settled.issues];
+  const [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, shippingRulesResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult] = settled.results;
+  const keywordPeriodSettled=dataHealthModule.settleQueries(await Promise.allSettled([db.from('naver_keyword_stats').select('period_start,period_end').order('period_end',{ascending:false}).limit(1).maybeSingle()]),[{platform:'NAVER',dataset:'naver_keyword_stats_period'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+  queryIssues.push(...keywordPeriodSettled.issues);
+  const keywordPeriodResult=keywordPeriodSettled.results[0];
   const keywordPeriod=keywordPeriodResult.data;
   let keywordTop=[],keywordWaste=[];
-  if(keywordPeriod){const [topResult,wasteResult]=await Promise.all([db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).order('conversion_revenue',{ascending:false}).limit(20),db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).eq('conversion_revenue',0).gt('cost',0).order('cost',{ascending:false}).limit(20)]);if(topResult.error||wasteResult.error)throw new Error((topResult.error||wasteResult.error).message);keywordTop=topResult.data||[];keywordWaste=wasteResult.data||[];}
+  if(keywordPeriod){const keywordStatsSettled=dataHealthModule.settleQueries(await Promise.allSettled([db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).order('conversion_revenue',{ascending:false}).limit(20),db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).eq('conversion_revenue',0).gt('cost',0).order('cost',{ascending:false}).limit(20)]),[{platform:'NAVER',dataset:'naver_keyword_stats_top'},{platform:'NAVER',dataset:'naver_keyword_stats_waste'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));queryIssues.push(...keywordStatsSettled.issues);keywordTop=keywordStatsSettled.results[0].data||[];keywordWaste=keywordStatsSettled.results[1].data||[];}
 
   const orders = ordersResult.data || [];
   const items = itemsResult.data || [];
@@ -268,8 +282,11 @@ async function getDashboardData() {
     items:orderItemsByShipment.get(String(order.shipment_box_id))||[]
   }));
   const sellerActionRequired=sellerOperationalOrders.filter(order=>['ACCEPT','INSTRUCT'].includes(order.status)).length;
-  const mappingHistoryResult = await db.from('product_mapping_history').select('id,platform,external_product_id,external_product_name,previous_master_product_id,new_master_product_id,action,match_method,match_confidence,actor,created_at').order('created_at',{ascending:false}).limit(1000);
-  if (mappingHistoryResult.error) throw new Error(mappingHistoryResult.error.message);
+  const mappingHistorySettled = dataHealthModule.settleQueries(await Promise.allSettled([
+    db.from('product_mapping_history').select('id,platform,external_product_id,external_product_name,previous_master_product_id,new_master_product_id,action,match_method,match_confidence,actor,created_at').order('created_at',{ascending:false}).limit(1000)
+  ]), [{platform:'SHARED',dataset:'product_mapping_history'}], (error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+  queryIssues.push(...mappingHistorySettled.issues);
+  const mappingHistoryResult = mappingHistorySettled.results[0];
   const productMapping = mappingService.buildMappingDashboard({
     masterProducts:(masterResult.data || []).filter(item=>item.is_active),
     channelProducts:channelsResult.data || [],
@@ -287,23 +304,24 @@ async function getDashboardData() {
   const performanceStartDate = new Date(`${performanceEnd}T00:00:00+09:00`);
   performanceStartDate.setUTCDate(performanceStartDate.getUTCDate()-6);
   const performanceStart = keywordPeriod?.period_start || seoulDate(performanceStartDate);
-  const unifiedProductPerformance = await productPerformance.loadUnifiedProductPerformance({
-    db,
-    periodStart:performanceStart,
-    periodEnd:performanceEnd,
-    masterProducts:masterResult.data || [],
-    channelProducts:allChannelProducts,
-    productCosts:costsResult.data || [],
-    channelCostSettings:effectiveChannelCostSettings,
-    channelShippingRules:shippingRulesResult.data||[],
-    cafe24Orders:ordersResult.data || [],
-    cafe24OrderItems:itemsResult.data || [],
-    coupangOrders:coupangOrdersResult.data || [],
-    coupangOrderItems:coupangItemsResult.data || [],
-    coupangProductItems:coupangProductItemsResult.data || [],
-    coupangRgOrders:coupangRgOrdersResult.data || [],
-    coupangRgOrderItems:coupangRgOrderItemsResult.data || []
-  });
+  const productPerformanceInput = {
+    periodStart:performanceStart, periodEnd:performanceEnd,
+    masterProducts:masterResult.data || [], channelProducts:allChannelProducts,
+    productCosts:costsResult.data || [], channelCostSettings:effectiveChannelCostSettings,
+    channelShippingRules:shippingRulesResult.data||[], cafe24Orders:ordersResult.data || [],
+    cafe24OrderItems:itemsResult.data || [], coupangOrders:coupangOrdersResult.data || [],
+    coupangOrderItems:coupangItemsResult.data || [], coupangProductItems:coupangProductItemsResult.data || [],
+    coupangRgOrders:coupangRgOrdersResult.data || [], coupangRgOrderItems:coupangRgOrderItemsResult.data || []
+  };
+  let unifiedProductPerformance;
+  try {
+    unifiedProductPerformance = await productPerformance.loadUnifiedProductPerformance({ db, ...productPerformanceInput });
+  } catch (error) {
+    const issue=dataHealthModule.safeError(error,{platform:'SHARED',dataset:'unified_product_performance'});
+    queryIssues.push(issue);
+    console.error('[dashboard] unified product performance inputs unavailable',error);
+    unifiedProductPerformance=productPerformance.buildUnifiedProductPerformance(productPerformanceInput);
+  }
   const coverageCandidates = [liveProfitability.cost_coverage_rate, unifiedProductPerformance.summary?.cost_coverage_rate]
     .filter(value => value !== null && value !== undefined && value !== '')
     .map(value => Number(value))
@@ -323,6 +341,18 @@ async function getDashboardData() {
   const financialTrustToken=authModule.signFinancialTrust(financialTrust);
   const pacing = await pacingPromise;
   const generatedAt = new Date().toISOString();
+  const dataHealth = dataHealthModule.buildDataHealth({
+    issues:queryIssues,
+    syncs:syncResult.data || [],
+    automationRuns:automationResult.data || [],
+    coupangRequests:coupangRequestsResult.data || [],
+    summaries:{
+      NAVER:naverKeywordResult.unavailable?'저장량 확인 불가':`${number(naverKeywordResult.count).toLocaleString('ko-KR')}개 키워드`,
+      CAFE24:ordersResult.unavailable?'저장량 확인 불가':`${orders.length.toLocaleString('ko-KR')}건 주문`,
+      COUPANG:coupangOrdersResult.unavailable?'저장량 확인 불가':`${number(coupangOrdersResult.data?.length).toLocaleString('ko-KR')}건 주문`
+    },
+    now:generatedAt
+  });
   const actions = priorityCenterModule.enrichActions(
     (actionsResult.data || []).map(action => ({ ...action, evaluation: (evaluationsResult.data || []).find(item => item.action_id === action.id) || null })),
     financialTrust,
@@ -372,6 +402,7 @@ async function getDashboardData() {
   ];
   return {
     generatedAt,
+    dataHealth,
     metricSnapshots,
     kpis: {
       sales,

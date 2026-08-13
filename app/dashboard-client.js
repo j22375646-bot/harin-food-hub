@@ -54,20 +54,33 @@ function HelpBox({ help, compact=false }) {
 }
 
 function DataStateBar({ data }) {
-  const syncs=data.syncs||[];
+  const health=data.dataHealth?.channels||[];
   const stateFor=platform=>{
-    const latest=syncs.find(item=>item.platform===platform);
-    const status=platform==='COUPANG'?(data.coupang?.latestSync?.status||latest?.status):latest?.status;
-    if(status==='SUCCESS')return ['ready','최신 자료'];
+    const status=health.find(item=>item.platform===platform)?.status;
+    if(status==='READY')return ['ready','정상'];
     if(status==='PARTIAL')return ['partial','일부 확인'];
+    if(status==='FAILED')return ['partial','수집 실패'];
     if(status==='RUNNING')return ['running','수집 중'];
-    return ['waiting',latest?'확인 필요':'수집 대기'];
+    if(status==='STALE')return ['waiting','갱신 필요'];
+    return ['waiting','수집 대기'];
   };
   return <section className="dataStateBar" aria-label="채널별 데이터 상태">
     <b>데이터 상태</b>
     {[['NAVER','네이버'],['COUPANG','쿠팡'],['CAFE24','Cafe24']].map(([id,label])=>{const [tone,status]=stateFor(id);return <span className={tone} key={id}><i aria-hidden="true"/><strong>{label}</strong><em>{status}</em></span>})}
     <small>숫자가 이상하면 데이터수집에서 해당 채널만 새로 가져오세요.</small>
   </section>;
+}
+
+function DataHealthNotice({ dataHealth, platform='all' }) {
+  if(!dataHealth||dataHealth.overallStatus==='READY')return null;
+  const selected=platform==='all'?null:dataHealth.channels?.find(item=>item.platform===platform.toUpperCase());
+  const affected=selected?.failedDatasets?.length?selected:dataHealth.channels?.filter(item=>item.failedDatasets?.length)||[];
+  const names=Array.isArray(affected)?affected.map(item=>({NAVER:'네이버',CAFE24:'Cafe24',COUPANG:'쿠팡'})[item.platform]).join('·'):({NAVER:'네이버',CAFE24:'Cafe24',COUPANG:'쿠팡'})[affected.platform];
+  return <section className="dataHealthNotice" role="status"><div><b>{selected?.failedDatasets?.length?`${names} 자료 일부를 불러오지 못했어요`:`${names||'일부 공통 자료'}를 확인하고 있어요`}</b><p>다른 채널은 정상적으로 계속 보여드립니다. 실패한 자료를 0으로 계산하지 않았으며, 데이터수집에서 해당 채널만 다시 받을 수 있습니다.</p></div><span>채널 분리 보호 중</span></section>;
+}
+
+function ChannelUnavailable({ health, onOpenCollection }) {
+  return <section className="channelUnavailable"><span>DATA SAFETY</span><h2>{({NAVER:'네이버',CAFE24:'Cafe24',COUPANG:'쿠팡'})[health.platform]} 숫자를 잠시 숨겼어요</h2><p>불러오지 못한 자료를 0으로 보여주면 잘못 판단할 수 있어 보호했습니다. 다른 채널에는 영향이 없습니다.</p><small>확인할 자료 · {health.failedDatasets.join(', ')}</small><button type="button" onClick={onOpenCollection}>데이터수집에서 이 채널 다시 받기</button></section>;
 }
 
 function FinancialTrustBanner({ trust={}, onOpenProduct }) {
@@ -110,6 +123,8 @@ export default function Dashboard({ initialData }) {
 
   const nav = [['main','메인'],['collection','데이터수집'],['insight','인사이트'],['keyword','키워드'],['product','상품'],['reports','진단목록'],['changes','변경승인'],['experiments','실험실'],['notifications',`알림 ${initialData.alerts.length||''}`]];
   const platformName = platform === 'naver' ? '네이버' : platform === 'coupang' ? '쿠팡' : platform === 'cafe24' ? 'Cafe24' : '전체';
+  const selectedHealth=platform==='all'?null:initialData.dataHealth?.channels?.find(item=>item.platform===platform.toUpperCase());
+  const channelUnavailable=Boolean(selectedHealth?.failedDatasets?.length);
 
   return <div className="shell">
     <header className="topbar">
@@ -123,20 +138,22 @@ export default function Dashboard({ initialData }) {
         <span className="periodFilter">최근 7일 기준</span>
       </section>
       <DataStateBar data={initialData}/>
+      <DataHealthNotice dataHealth={initialData.dataHealth} platform={platform}/>
       <HelpBox key={view} help={getHubHelp(view)}/>
       <FinancialTrustBanner trust={initialData.financialTrust} onOpenProduct={()=>{setPlatform('all');setView('product');}}/>
-      {view==='main' && <MetricProvenanceStrip snapshots={initialData.metricSnapshots||[]}/>}
+      {view==='main' && !channelUnavailable && <MetricProvenanceStrip snapshots={initialData.metricSnapshots||[]}/>}
       {syncMessage && <div className="syncToast">{syncMessage}</div>}
 
-      {view==='main' && <TodayPriorityCenter center={initialData.priorityCenter} platform={platform} onOpen={item=>{const target=String(item.platform||'ALL').toLowerCase();setPlatform(['naver','coupang','cafe24'].includes(target)?target:'all');setView(item.view||'main');}}/>}
-      {view==='main' && <BusinessPacingPanel platform={platform} pacing={initialData.pacing}/>}
-      {view==='main' && <MainView platform={platform} platformName={platformName} data={initialData} maxPv={maxPv} maxRef={maxRef} />}
-      {view==='collection' && <CollectionView syncs={syncs} products={products} kpis={kpis} runSync={runSync} syncing={syncing} naver={initialData.naver} coupang={initialData.coupang} automationRuns={initialData.automationRuns} qualityChecks={initialData.qualityChecks} alerts={initialData.alerts} />}
-      {view==='insight' && <DecisionOverview key={`decision-${platform}`} platform={platform} reports={reports} platformEvents={initialData.platformEvents||[]} />}
-      {view==='insight' && platform==='all' && <ProfitabilitySnapshot reports={reports} />}
-      {view==='insight' && <InsightView key={`insight-${platform}`} platform={platform} reports={reports} actions={actions} liveNaver={initialData.naver} platformEvents={initialData.platformEvents||[]} />}
-      {view==='keyword' && <PlatformKeywordView key={`keyword-${platform}`} platform={platform} data={initialData} />}
-      {view==='product' && <PlatformProductView key={`product-${platform}`} platform={platform} data={initialData} />}
+      {channelUnavailable&&['main','insight','keyword','product'].includes(view)&&<ChannelUnavailable health={selectedHealth} onOpenCollection={()=>setView('collection')}/>}
+      {view==='main' && !channelUnavailable && <TodayPriorityCenter center={initialData.priorityCenter} platform={platform} onOpen={item=>{const target=String(item.platform||'ALL').toLowerCase();setPlatform(['naver','coupang','cafe24'].includes(target)?target:'all');setView(item.view||'main');}}/>}
+      {view==='main' && !channelUnavailable && <BusinessPacingPanel platform={platform} pacing={initialData.pacing}/>}
+      {view==='main' && !channelUnavailable && <MainView platform={platform} platformName={platformName} data={initialData} maxPv={maxPv} maxRef={maxRef} />}
+      {view==='collection' && <CollectionView syncs={syncs} products={products} kpis={kpis} runSync={runSync} syncing={syncing} naver={initialData.naver} coupang={initialData.coupang} automationRuns={initialData.automationRuns} qualityChecks={initialData.qualityChecks} alerts={initialData.alerts} dataHealth={initialData.dataHealth} />}
+      {view==='insight' && !channelUnavailable && <DecisionOverview key={`decision-${platform}`} platform={platform} reports={reports} platformEvents={initialData.platformEvents||[]} />}
+      {view==='insight' && !channelUnavailable && platform==='all' && <ProfitabilitySnapshot reports={reports} />}
+      {view==='insight' && !channelUnavailable && <InsightView key={`insight-${platform}`} platform={platform} reports={reports} actions={actions} liveNaver={initialData.naver} platformEvents={initialData.platformEvents||[]} />}
+      {view==='keyword' && !channelUnavailable && <PlatformKeywordView key={`keyword-${platform}`} platform={platform} data={initialData} />}
+      {view==='product' && !channelUnavailable && <PlatformProductView key={`product-${platform}`} platform={platform} data={initialData} />}
       {view==='reports' && <ReportsView reports={reports} actions={actions} syncs={syncs} financialTrustToken={initialData.financialTrustToken} />}
       {view==='changes' && <FinancialChangeCenter />}
       {view==='experiments' && <ExperimentLab />}
@@ -465,7 +482,7 @@ function Cafe24CommandCenter({ analytics = {}, syncs = [] }) {
   </>;
 }
 
-function CollectionView({ syncs, products, kpis, runSync, syncing, naver, coupang, automationRuns = [], qualityChecks = [], alerts = [] }) {
+function CollectionView({ syncs, products, kpis, runSync, syncing, naver, coupang, automationRuns = [], qualityChecks = [], alerts = [], dataHealth }) {
   const [naverSyncing,setNaverSyncing]=useState(false); const [naverMessage,setNaverMessage]=useState('');
   const [coupangSyncing,setCoupangSyncing]=useState(false);
   const [rgSyncing,setRgSyncing]=useState(false);
@@ -475,10 +492,15 @@ function CollectionView({ syncs, products, kpis, runSync, syncing, naver, coupan
   async function runRgSync(){setRgSyncing(true);setNaverMessage('로켓그로스 재고 수집 요청을 서울 고정 IP 서버에 전달하는 중이에요…');try{const response=await fetch('/api/coupang/rg-inventory/sync',{method:'POST'});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'로켓그로스 재고 요청 실패');setNaverMessage('요청 완료 · 서울 고정 IP 서버가 재고 수집을 시작합니다.');setTimeout(()=>window.location.reload(),2500);}catch(error){setNaverMessage(`확인 필요 · ${error.message}`);setRgSyncing(false);}}
   async function runAll(){setAllSyncing(true);setNaverMessage('전체 플랫폼을 수집·검증하는 중이에요…');try{const response=await fetch('/api/sync/all',{method:'POST'});const result=await response.json();if(!response.ok&&response.status!==207)throw new Error(result.error||'전체 동기화 실패');setNaverMessage(`완료 · 자동 재시도 ${result.attempts||1}회 · QA ${result.qa?.checked||result.result_json?.qa?.checked||0}개`);setTimeout(()=>window.location.reload(),900);}catch(error){setNaverMessage(`확인 필요 · ${error.message}`);setAllSyncing(false);}}
   async function runQa(){setQaRunning(true);setNaverMessage('저장된 데이터의 누락·오류·중복을 검사하는 중이에요…');try{const response=await fetch('/api/qa/run',{method:'POST'});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'QA 실패');setNaverMessage(`검사 완료 · ${result.checked||0}개 항목`);setTimeout(()=>window.location.reload(),700);}catch(error){setNaverMessage(`확인 필요 · ${error.message}`);setQaRunning(false);}}
-  return <><section className="pageIntro collectionIntro"><div><span className="eyebrow">DATA COLLECTION</span><h1>플랫폼별 데이터 수집</h1><p>연결 상태와 최근 수집 결과를 한 곳에서 관리합니다.</p></div><button onClick={runAll} disabled={allSyncing}>{allSyncing?'전체 처리 중…':'전체 동기화 + 검증'}</button></section>{naverMessage&&<div className="syncToast">{naverMessage}</div>}<PlatformStatus syncs={syncs} automationRuns={automationRuns} naver={naver} coupang={coupang} kpis={kpis}/><section className="setupGrid three"><article className="panel setupCard"><span className="setupIcon naverBg">N</span><h2>네이버</h2><p>캠페인 {naver.campaigns}개 · 광고그룹 {naver.adgroups}개 · 키워드 {count(naver.keywords)}개</p><button className="enabledButton naverButton" onClick={runNaverSync} disabled={naverSyncing}>{naverSyncing?'수집 중…':'네이버 동기화'}</button></article><article className="panel setupCard"><span className="setupIcon">C</span><h2>쿠팡 WING</h2><p>로켓그로스 재고 {count(coupang.rgInventoryCount)}개 · 품절 {count(coupang.rgOutOfStock)} · 저재고 {count(coupang.rgLowStock)}</p><button className="enabledButton" onClick={runRgSync} disabled={rgSyncing}>{rgSyncing?'요청 중…':'로켓그로스 재고 갱신'}</button><button className="enabledButton" onClick={runCoupangSync} disabled={coupangSyncing}>{coupangSyncing?'수집 중…':'쿠팡 전체 API 동기화'}</button></article><article className="panel setupCard"><span className="setupIcon cafeBg">24</span><h2>Cafe24</h2><p>상품 {kpis.products}개 · 주문 {kpis.orders}건이 현재 저장되어 있습니다.</p><button className="enabledButton" onClick={runSync} disabled={syncing}>{syncing?'수집 중…':'지금 수집'}</button></article></section><QaPanel checks={qualityChecks} alerts={alerts} runQa={runQa} running={qaRunning}/><CoupangDataImporter/><ReportImporter/><article className="panel"><PanelTitle tag="SYNC LOG" title="최근 자동수집 기록" right={`${syncs.length}건`}/><SyncTable syncs={syncs}/></article></>;
+  return <><section className="pageIntro collectionIntro"><div><span className="eyebrow">DATA OPERATIONS CENTER</span><h1>채널별 수집 관제센터</h1><p>한 채널이 실패해도 다른 채널은 계속 작동합니다. 필요한 채널만 버튼으로 다시 받으세요.</p></div><button onClick={runAll} disabled={allSyncing}>{allSyncing?'전체 처리 중…':'전체 동기화 + 검증'}</button></section>{naverMessage&&<div className="syncToast">{naverMessage}</div>}<PlatformStatus dataHealth={dataHealth} syncs={syncs} automationRuns={automationRuns} onSync={{NAVER:runNaverSync,CAFE24:runSync,COUPANG:runCoupangSync}} syncing={{NAVER:naverSyncing,CAFE24:syncing,COUPANG:coupangSyncing}}/><section className="setupGrid three"><article className="panel setupCard"><span className="setupIcon naverBg">N</span><h2>네이버 상세</h2><p>캠페인 {naver.campaigns}개 · 광고그룹 {naver.adgroups}개 · 키워드 {count(naver.keywords)}개</p><button className="enabledButton naverButton" onClick={runNaverSync} disabled={naverSyncing}>{naverSyncing?'수집 중…':'네이버 동기화'}</button></article><article className="panel setupCard"><span className="setupIcon">C</span><h2>쿠팡 WING 상세</h2><p>로켓그로스 재고 {count(coupang.rgInventoryCount)}개 · 품절 {count(coupang.rgOutOfStock)} · 저재고 {count(coupang.rgLowStock)}</p><button className="enabledButton" onClick={runRgSync} disabled={rgSyncing}>{rgSyncing?'요청 중…':'로켓그로스 재고만 갱신'}</button></article><article className="panel setupCard"><span className="setupIcon cafeBg">24</span><h2>Cafe24 상세</h2><p>상품 {kpis.products}개 · 주문 {kpis.orders}건이 현재 저장되어 있습니다.</p><button className="enabledButton" onClick={runSync} disabled={syncing}>{syncing?'수집 중…':'Cafe24 다시 수집'}</button></article></section><QaPanel checks={qualityChecks} alerts={alerts} runQa={runQa} running={qaRunning}/><CoupangDataImporter/><ReportImporter/><article className="panel"><PanelTitle tag="SYNC LOG" title="최근 자동수집 기록" right={`${syncs.length}건`}/><SyncTable syncs={syncs}/></article></>;
 }
 
-function PlatformStatus({ syncs, automationRuns, naver, coupang, kpis }) { return <section className="platformStatusGrid">{[['NAVER',`${count(naver.keywords)} 키워드`],['CAFE24',`${count(kpis.orders)} 주문`],['COUPANG',`${count(coupang.orderCount)} 주문`]].map(([platform,stored])=>{const log=syncs.find(item=>item.platform===platform);const run=automationRuns.find(item=>item.job_name===`${platform}_SYNC`);return <article key={platform}><span>{platform}</span><b>{log?.status==='SUCCESS'?'정상':log?.status==='PARTIAL'?'일부 확인':'확인 필요'}</b><small>{log?.finished_at?dateTime(log.finished_at):'성공 기록 없음'}</small><em>{stored}{run?.attempt_count>1?` · ${run.attempt_count}회 시도`:''}</em></article>})}</section>; }
+const collectionStatusLabel={READY:'정상',PARTIAL:'일부 자료 확인',FAILED:'최근 수집 실패',RUNNING:'수집 중',STALE:'갱신 필요',WAITING:'수집 대기'};
+function PlatformStatus({ dataHealth, syncs, automationRuns, onSync, syncing }) {
+  const fallback=['NAVER','CAFE24','COUPANG'].map(platform=>{const log=syncs.find(item=>item.platform===platform);return {platform,status:log?.status==='SUCCESS'?'READY':log?.status==='PARTIAL'?'PARTIAL':'WAITING',lastSuccessAt:log?.finished_at,lastAttemptAt:log?.finished_at,nextScheduledAt:dataHealth?.nextScheduledAt,failedDatasets:[],storedSummary:'저장량 확인 필요'};});
+  const channels=dataHealth?.channels?.length?dataHealth.channels:fallback;
+  return <section className="platformStatusGrid channelOpsGrid">{channels.map(item=>{const run=automationRuns.find(value=>value.job_name===`${item.platform}_SYNC`);return <article className={`channelOpsCard ${String(item.status).toLowerCase()}`} key={item.platform}><header><span>{item.platform}</span><b>{collectionStatusLabel[item.status]||item.status}</b></header><strong>{item.storedSummary}</strong><dl><div><dt>마지막 성공</dt><dd>{item.lastSuccessAt?dateTime(item.lastSuccessAt):'성공 기록 없음'}</dd></div><div><dt>마지막 시도</dt><dd>{item.lastAttemptAt?dateTime(item.lastAttemptAt):'시도 기록 없음'}</dd></div><div><dt>다음 자동수집</dt><dd>{item.nextScheduledAt?`${dateTime(item.nextScheduledAt)} · 매일`:'매일 오전 5:30'}</dd></div></dl>{item.errorMessage&&<p>{item.errorMessage}</p>}{item.failedDatasets?.length?<small>확인할 자료 · {item.failedDatasets.join(', ')}</small>:<small>{run?.attempt_count>1?`${run.attempt_count}회 재시도 후 처리`:'채널별로 독립 처리됩니다.'}</small>}<button type="button" onClick={onSync[item.platform]} disabled={syncing[item.platform]}>{syncing[item.platform]?'수집 요청 중…':'이 채널만 다시 수집'}</button></article>})}</section>;
+}
 
 function QaPanel({ checks, alerts, runQa, running }) { const latestByDataset=[];for(const item of checks){const key=`${item.platform}:${item.dataset}`;if(!latestByDataset.some(row=>`${row.platform}:${row.dataset}`===key))latestByDataset.push(item);}return <article className="panel qaPanel"><div className="qaHead"><PanelTitle tag="DATA QA" title="데이터 품질 검증" right={`열린 알림 ${alerts.length}건`}/><button onClick={runQa} disabled={running}>{running?'검사 중…':'지금 검사'}</button></div><div className="qaGrid">{latestByDataset.slice(0,12).map(item=><div key={item.id}><em className={item.severity.toLowerCase()}>{item.status_code}</em><span><b>{item.platform} · {item.dataset}</b><small>{item.message}</small></span></div>)}</div></article>; }
 
