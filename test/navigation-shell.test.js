@@ -67,14 +67,17 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
   assert.match(client,/view==='orders' && \(<UnifiedOrdersCenter/);
   assert.match(client,/<CoupangOrdersView coupang=\{initialData\.coupang\}\/>/);
   assert.match(client,/view==='cs' && \(<UnifiedCustomerServiceCenter/);
-  assert.match(client,/view==='inventory' && \(<CoupangInventoryView/);
+  assert.match(client,/view==='inventory' && \(<UnifiedInventoryOperationsCenter/);
+  assert.match(client,/<CoupangInventoryView coupang=\{initialData\.coupang\}\/\><\/UnifiedInventoryOperationsCenter>/);
   assert.match(client,/view==='settlement' && \(<CoupangSettlementView/);
   assert.match(styles,/Phase 10-4 — orders, CS, inventory and settlement are independent work pages/);
 });
 
-test('phase 11-5 keeps the separated execution validation and A/B tests', () => {
-  assert.match(client,/11-5 · 통합 상품 운영/);
+test('phase 11-6 keeps product operations and adds unified inventory operations', () => {
+  assert.match(client,/11-6 · 통합 재고 운영/);
   assert.match(client,/UnifiedProductOperationsCenter/);
+  assert.match(client,/UnifiedInventoryOperationsCenter/);
+  assert.match(client,/initialData\.unifiedInventory/);
   assert.match(client,/view==='validation' && \(<CustomerRetentionValidationCenter/);
   assert.match(client,/view==='experiments' && <ExperimentLab/);
   assert.doesNotMatch(client,/phase7LegacyLab/);

@@ -15,6 +15,7 @@ const MarketingInsightSummary=dynamic(()=>import('./marketing-diagnosis-center.j
 const CustomerRetentionValidationCenter=dynamic(()=>import('./customer-retention-validation-center.js'));
 const UnifiedCustomerServiceCenter=dynamic(()=>import('./unified-customer-service-center.js'));
 const UnifiedProductOperationsCenter=dynamic(()=>import('./unified-product-operations-center.js'));
+const UnifiedInventoryOperationsCenter=dynamic(()=>import('./unified-inventory-operations-center.js'));
 
 const won = value => `${Math.round(Number(value || 0)).toLocaleString('ko-KR')}원`;
 const count = value => Number(value || 0).toLocaleString('ko-KR');
@@ -117,7 +118,7 @@ function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onO
   const hasQuery=Boolean(query.trim());
   const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(query.trim().toLowerCase()))})).filter(group=>group.items.length);
   return <aside className="desktopSidebar" aria-label="허브 사이드바">
-    <div className="sidebarPhase"><span>현재 개발</span><b>11-5 · 통합 상품 운영</b></div>
+    <div className="sidebarPhase"><span>현재 개발</span><b>11-6 · 통합 재고 운영</b></div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true">⌕</i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴 이름 찾기" /></label>
     <nav aria-label="허브 메뉴">
       {visible.map(group=>{const expanded=hasQuery||openGroup===group.id;return <section className={`sidebarGroup${expanded?' expanded':''}`} key={group.id}>
@@ -183,7 +184,7 @@ export default function Dashboard({ initialData, initialState }) {
     } catch (error) { setSyncMessage(`확인 필요 · ${error.message}`); setSyncing(false); }
   }
 
-  const operationBadges={orders:num(initialData.unifiedOrders?.summary?.actionRequired),cs:num(initialData.coupang?.unansweredInquiries),inventory:num(initialData.coupang?.rgOutOfStock)+num(initialData.coupang?.rgLowStock),notifications:initialData.alerts.length||0};
+  const operationBadges={orders:num(initialData.unifiedOrders?.summary?.actionRequired),cs:num(initialData.coupang?.unansweredInquiries),inventory:num(initialData.unifiedInventory?.summary?.action_required),notifications:initialData.alerts.length||0};
   const nav = hubRoutesModule.HUB_NAV.map(item=>({...item,badge:operationBadges[item.id]||0}));
   const navGroups=hubRoutesModule.HUB_NAV_GROUPS.map(group=>{const items=group.items.map(id=>nav.find(item=>item.id===id)).filter(Boolean);return {...group,items,actionCount:items.reduce((sum,item)=>sum+num(item.badge),0)};});
   const navContext=hubRoutesModule.navigationContext(view,platform);
@@ -233,7 +234,7 @@ export default function Dashboard({ initialData, initialState }) {
       {view==='insight' && !channelUnavailable && ['naver','cafe24'].includes(platform) && <details className="channelLegacyDetails"><summary><span><b>{platformLabel[platform]} 채널 운영 상세</b><small>필요할 때만 기존 채널 상세를 펼쳐보세요.</small></span><em>열기</em></summary><div><MainView platform={platform} data={initialData}/></div></details>}
       {view==='orders' && (<UnifiedOrdersCenter center={initialData.unifiedOrders}><CoupangOrdersView coupang={initialData.coupang}/></UnifiedOrdersCenter>)}
       {view==='cs' && (<UnifiedCustomerServiceCenter center={initialData.customerService}/>)}
-      {view==='inventory' && (<CoupangInventoryView coupang={initialData.coupang}/>)}
+      {view==='inventory' && (<UnifiedInventoryOperationsCenter center={initialData.unifiedInventory}><CoupangInventoryView coupang={initialData.coupang}/></UnifiedInventoryOperationsCenter>)}
       {view==='settlement' && (<CoupangSettlementView coupang={initialData.coupang}/>)}
       {view==='keyword' && !channelUnavailable && <>{(platform==='all'||platform==='naver')&&<MarketingDiagnosisCenter diagnosis={initialData.naver?.marketingDiagnosis}/>}<PlatformKeywordView key={`keyword-${platform}`} platform={platform} data={initialData} /></>}
       {view==='product' && !channelUnavailable && <PlatformProductView key={`product-${platform}`} platform={platform} data={initialData} />}
