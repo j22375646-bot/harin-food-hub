@@ -14,6 +14,7 @@ import shippingRulesModule from '../lib/analytics/shipping-rules.js';
 import financialTrustModule from '../lib/analytics/financial-trust.js';
 import priorityCenterModule from '../lib/actions/priority-center.js';
 import dataHealthModule from '../lib/dashboard/data-health.js';
+import coupangQueueHealthModule from '../lib/dashboard/coupang-queue-health.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -102,7 +103,7 @@ async function getDashboardData() {
     db.from('coupang_order_items').select('external_item_key,shipment_box_id,order_id,vendor_item_id,seller_product_id,product_name,quantity,unit_price,paid_amount,status,raw_data').limit(5000),
     db.from('coupang_settlements').select('order_id,vendor_item_id,recognition_date,sale_type,sale_amount,service_fee,service_fee_vat,settlement_amount,quantity').order('recognition_date',{ascending:false}).limit(5000),
     db.from('coupang_rg_inventory').select('vendor_item_id,external_sku_id,total_orderable_quantity,sales_last_30_days,average_daily_sales,days_of_stock,stock_status,snapshot_at').order('days_of_stock',{ascending:true,nullsFirst:false}).limit(500),
-    db.from('coupang_sync_requests').select('id,request_type,status,requested_at,started_at,finished_at,error_message,attempt_count,next_attempt_at,idempotency_key,scheduled_for,kst_execution_date').order('requested_at',{ascending:false}).limit(10),
+    db.from('coupang_sync_requests').select('id,request_type,status,requested_at,started_at,finished_at,error_message,attempt_count,next_attempt_at,idempotency_key,scheduled_for,kst_execution_date').order('requested_at',{ascending:false}).limit(50),
     db.from('coupang_rg_orders').select('order_id,status,paid_at,total_amount,item_count').order('paid_at',{ascending:false}).limit(2000),
     db.from('coupang_returns').select('receipt_id,order_id,status,cancel_type,reason_text,requested_at,amount,raw_data').order('requested_at',{ascending:false}).limit(100),
     db.from('coupang_exchanges').select('exchange_id,order_id,status,reason_text,requested_at,item_count,raw_data').order('requested_at',{ascending:false}).limit(100),
@@ -353,6 +354,7 @@ async function getDashboardData() {
     },
     now:generatedAt
   });
+  const coupangQueueHealth = coupangQueueHealthModule.buildCoupangQueueHealth({ requests:coupangRequestsResult.data || [], now:generatedAt });
   const actions = priorityCenterModule.enrichActions(
     (actionsResult.data || []).map(action => ({ ...action, evaluation: (evaluationsResult.data || []).find(item => item.action_id === action.id) || null })),
     financialTrust,
@@ -369,30 +371,33 @@ async function getDashboardData() {
   const cafe24LatestSync = (syncResult.data || []).find(item=>item.platform==='CAFE24') || null;
   const coupangLatestSync = (syncResult.data || []).find(item=>item.platform==='COUPANG') || null;
   const cafe24Dates = orders.map(item=>dateOnly(item.order_date)).filter(Boolean).sort();
+  const metricChannelStatus = platform => dataHealth.channels.find(item=>item.platform===platform)?.calculationStatus;
+  const metricNeedsCheck = platform => metricChannelStatus(platform)==='CHECK_REQUIRED';
+  const anyMetricNeedsCheck = ['CAFE24','NAVER','COUPANG'].some(metricNeedsCheck);
   const metricSnapshots = [
     metricSnapshotModule.createMetricSnapshot({
-      id:'CAFE24_SALES', label:'Cafe24 매출', value:orders.length ? sales : null, unit:'KRW',
-      status:orders.length ? 'READY' : 'NO_DATA', sources:[{platform:'CAFE24',dataset:'cafe24_orders'}],
+      id:'CAFE24_SALES', label:'Cafe24 매출', value:metricNeedsCheck('CAFE24') ? null : orders.length ? sales : null, unit:'KRW',
+      status:metricNeedsCheck('CAFE24') ? 'STALE' : orders.length ? 'READY' : 'NO_DATA', sources:[{platform:'CAFE24',dataset:'cafe24_orders'}],
       asOf:cafe24LatestSync?.finished_at, periodStart:cafe24Dates[0], periodEnd:cafe24Dates.at(-1),
       formula:'sum(cafe24_orders.paid_amount)', sampleSize:orders.length
     }),
     metricSnapshotModule.createMetricSnapshot({
-      id:'NAVER_PAID_ROAS', label:'네이버 광고 ROAS', value:naverPerformance.status==='NO_DATA' ? null : naverPerformance.roasPercent, unit:'PERCENT',
-      status:naverPerformance.status==='READY' ? 'READY' : naverPerformance.status==='NO_DATA' ? 'NO_DATA' : 'PARTIAL',
+      id:'NAVER_PAID_ROAS', label:'네이버 광고 ROAS', value:metricNeedsCheck('NAVER') || naverPerformance.status==='NO_DATA' ? null : naverPerformance.roasPercent, unit:'PERCENT',
+      status:metricNeedsCheck('NAVER') ? 'STALE' : naverPerformance.status==='READY' ? 'READY' : naverPerformance.status==='NO_DATA' ? 'NO_DATA' : 'PARTIAL',
       sources:[{platform:'NAVER',dataset:'naver_stats_daily'}], asOf:naverSyncResult.data?.finished_at,
       periodStart:weekStart?dateOnly(weekStart.toISOString()):null, periodEnd:latestNaverDate,
       formula:'sum(conversion_revenue) / sum(cost) * 100', sampleSize:naverTotals.clicks,
       reasons:naverPerformance.status==='INSUFFICIENT_SAMPLE' ? ['클릭 30회·전환 3건 미만'] : []
     }),
     metricSnapshotModule.createMetricSnapshot({
-      id:'COUPANG_SALES_30D', label:'쿠팡 30일 매출', value:rgOrders.length ? salesOverview.last30.revenue : null, unit:'KRW',
-      status:rgOrders.length ? 'READY' : 'NO_DATA', sources:[{platform:'COUPANG',dataset:'coupang_rg_orders',mode:'FIXED_IP_WORKER'}],
+      id:'COUPANG_SALES_30D', label:'쿠팡 30일 매출', value:metricNeedsCheck('COUPANG') ? null : rgOrders.length ? salesOverview.last30.revenue : null, unit:'KRW',
+      status:metricNeedsCheck('COUPANG') ? 'STALE' : rgOrders.length ? 'READY' : 'NO_DATA', sources:[{platform:'COUPANG',dataset:'coupang_rg_orders',mode:'FIXED_IP_WORKER'}],
       asOf:coupangLatestSync?.finished_at, periodStart:coupangDaily.at(-30)?.date || null, periodEnd:coupangDaily.at(-1)?.date || null,
       formula:'sum(coupang_rg_orders.total_amount, last 30 days)', sampleSize:salesOverview.last30.orders
     }),
     metricSnapshotModule.createMetricSnapshot({
-      id:'CONTRIBUTION_PROFIT', label:'통합 기여이익', value:trustedProfitability.contribution_profit, unit:'KRW',
-      status:financialTrust.allowed?.contribution_profit ? 'READY' : 'BLOCKED',
+      id:'CONTRIBUTION_PROFIT', label:'통합 기여이익', value:anyMetricNeedsCheck ? null : trustedProfitability.contribution_profit, unit:'KRW',
+      status:anyMetricNeedsCheck ? 'STALE' : financialTrust.allowed?.contribution_profit ? 'READY' : 'BLOCKED',
       sources:[{platform:'CAFE24',dataset:'cafe24_order_items'},{platform:'ALL',dataset:'product_costs'},{platform:'NAVER',dataset:'naver_stats_daily'}],
       asOf:generatedAt, periodStart:cafe24Dates[0], periodEnd:cafe24Dates.at(-1),
       formula:'net_sales - product_cost - channel_fee - shipping_cost - ad_spend',
@@ -468,8 +473,9 @@ async function getDashboardData() {
       rgOutOfStock: coupangInventory.filter(item=>item.stock_status==='OUT_OF_STOCK').length,
       rgLowStock: coupangInventory.filter(item=>['CRITICAL','LOW'].includes(item.stock_status)).length,
       inventoryMarketing,
-      syncRequests: coupangRequestsResult.data || []
-      ,rgOrders,
+      syncRequests: coupangRequestsResult.data || [],
+      queueHealth: coupangQueueHealth,
+      rgOrders,
       rgOrderCount: rgOrders.length,
       rgRevenue: rgOrders.reduce((sum,item)=>sum+number(item.total_amount),0),
       orderDaily: coupangDaily,

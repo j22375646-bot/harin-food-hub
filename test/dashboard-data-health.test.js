@@ -57,3 +57,30 @@ test('running channel takes precedence over an older failed log', () => {
   });
   assert.equal(health.channels.find(item=>item.platform==='COUPANG').status,'RUNNING');
 });
+
+test('failed Coupang collection keeps previous data and protects calculations', () => {
+  const health=buildDataHealth({
+    now:'2026-08-13T02:00:00.000Z',
+    syncs:[
+      {platform:'COUPANG',status:'FAILED',finished_at:'2026-08-13T01:30:00.000Z',error_message:'worker timeout'},
+      {platform:'COUPANG',status:'SUCCESS',finished_at:'2026-08-13T00:00:00.000Z'}
+    ]
+  });
+  const coupang=health.channels.find(item=>item.platform==='COUPANG');
+  assert.equal(coupang.status,'FAILED');
+  assert.equal(coupang.dataMode,'PREVIOUS');
+  assert.equal(coupang.calculationStatus,'CHECK_REQUIRED');
+  assert.equal(coupang.lastSuccessAt,'2026-08-13T00:00:00.000Z');
+});
+
+test('stale success keeps previous data instead of reporting zero', () => {
+  const health=buildDataHealth({
+    now:'2026-08-13T12:00:00.000Z',
+    staleHours:30,
+    syncs:[{platform:'CAFE24',status:'SUCCESS',finished_at:'2026-08-12T00:00:00.000Z'}]
+  });
+  const cafe24=health.channels.find(item=>item.platform==='CAFE24');
+  assert.equal(cafe24.status,'STALE');
+  assert.equal(cafe24.dataMode,'PREVIOUS');
+  assert.equal(cafe24.calculationStatus,'CHECK_REQUIRED');
+});
