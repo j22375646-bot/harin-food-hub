@@ -10,7 +10,7 @@ require('dotenv').config({ path: path.join(root, '.env.local'), override: false,
 
 const { getSupabase } = require('../lib/cafe24/supabase.js');
 const { syncCoupang } = require('../lib/automation/sync-all.js');
-const { syncRocketGrowthInventoryOnly, syncRocketGrowthRealtime } = require('../lib/coupang/sync.js');
+const { syncRocketGrowthInventoryOnly, syncRocketGrowthRealtime, syncSellerOrdersRealtime } = require('../lib/coupang/sync.js');
 const operationQueue = require('../lib/coupang/operation-queue.js');
 const coupangActions = require('../lib/coupang/actions.js');
 const naverCommerceProbe = require('../lib/naver-commerce/probe.js');
@@ -72,6 +72,7 @@ async function processRequest(db, request) {
   try {
     const result = request.request_type === 'RG_INVENTORY' ? await syncRocketGrowthInventoryOnly()
       : request.request_type === 'RG_REALTIME' ? await syncRocketGrowthRealtime()
+      : request.request_type === 'ORDER_REALTIME' ? await syncSellerOrdersRealtime()
       : await syncCoupang('MANUAL');
     const saved = await db.from('coupang_sync_requests').update({ status: 'SUCCESS', finished_at: new Date().toISOString(), result_json: result, error_message: null }).eq('id', request.id);
     if (saved.error) throw saved.error;

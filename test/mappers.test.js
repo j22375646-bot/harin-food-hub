@@ -7,6 +7,8 @@ const { analyticsTotal, analyticsByDate } = require('../lib/cafe24/sync');
 test('maps Cafe24 entities to database columns', () => {
   assert.equal(product({ product_no: 7, product_name: 'Tea', price: '12,000', display: 'T' }).price, 12000);
   assert.equal(order({ order_id: 'A1', actual_payment_amount: '9000' }).paid_amount, 9000);
+  assert.equal(order({ order_id: 'A2', payment_amount: '11000', actual_order_amount: { order_price: '12500' } }).paid_amount, 11000);
+  assert.equal(order({ order_id: 'A2', payment_amount: '11000', actual_order_amount: { order_price: '12500' } }).order_price, 12500);
   assert.equal(item('A1', { product_no: 7, product_name: 'Tea', quantity: '2' }, 0).quantity, 2);
 });
 

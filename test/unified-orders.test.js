@@ -91,3 +91,53 @@ test('delivery details are authenticated and rendered without a reveal button',(
   assert.match(center,/자동으로 불러오는 중/);
   assert.doesNotMatch(center,/배송정보·연락처 보기/);
 });
+
+test('Cafe24 item status drives the live shipping stage and raw payment amount fills older zero columns',()=>{
+  const center=orders.buildUnifiedOrders({
+    asOf:'2026-08-14T00:00:00Z',
+    cafe24Orders:[
+      {order_id:'C-READY',order_date:'2026-08-13T01:00:00Z',paid_amount:0,order_price:0,raw_data:{shipping_status:'T',payment_amount:'27000'}},
+      {order_id:'C-DONE',order_date:'2026-08-13T02:00:00Z',paid_amount:0,order_price:0,raw_data:{shipping_status:'T',payment_amount:'31000'}}
+    ],
+    cafe24OrderItems:[
+      {order_id:'C-READY',external_item_id:'I-1',product_name:'Tea',option_name:'30 bags',quantity:1,raw_data:{order_status:'N10'}},
+      {order_id:'C-DONE',external_item_id:'I-2',product_name:'Tea',option_name:'60 bags',quantity:1,raw_data:{order_status:'N40'}}
+    ]
+  });
+  const ready=center.orders.find(item=>item.externalOrderId==='C-READY');
+  const done=center.orders.find(item=>item.externalOrderId==='C-DONE');
+  assert.equal(ready.stage,'PREPARING');
+  assert.equal(ready.amount,27000);
+  assert.equal(done.stage,'DELIVERED');
+  assert.equal(done.actionRequired,false);
+});
+
+test('live work window is separated from cumulative stored history',()=>{
+  const center=orders.buildUnifiedOrders({
+    asOf:'2026-08-14T00:00:00Z',
+    cafe24Orders:[
+      {order_id:'CURRENT',order_date:'2026-08-13T01:00:00Z',raw_data:{payment_amount:'10000'}},
+      {order_id:'OLD',order_date:'2026-05-15T01:00:00Z',raw_data:{payment_amount:'20000'}}
+    ],
+    cafe24OrderItems:[
+      {order_id:'CURRENT',external_item_id:'I-1',product_name:'Current',quantity:1,raw_data:{order_status:'N10'}},
+      {order_id:'OLD',external_item_id:'I-2',product_name:'Old',quantity:1,raw_data:{order_status:'N10'}}
+    ]
+  });
+  assert.equal(center.summary.historyTotal,2);
+  assert.equal(center.summary.total,1);
+  assert.equal(center.summary.windowDays,31);
+  assert.equal(center.orders[0].externalOrderId,'CURRENT');
+});
+
+test('orders center labels seller delivery and refreshes current channel status',()=>{
+  const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
+  const route=fs.readFileSync(path.join(__dirname,'..','app','api','orders','live-refresh','route.js'),'utf8');
+  assert.match(center,/판매자배송/);
+  assert.match(center,/\/api\/orders\/live-refresh/);
+  assert.match(center,/상품명/);
+  assert.match(center,/기본 옵션/);
+  assert.doesNotMatch(center,/<section className=\{`orderDeliveryInfo/);
+  assert.match(route,/ORDER_REALTIME/);
+  assert.match(route,/apiSafety\.isAuthorized\(request,authModule\)/);
+});
