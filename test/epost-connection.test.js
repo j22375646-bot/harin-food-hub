@@ -32,12 +32,14 @@ test('ePost readiness never exposes authentication or contract values', () => {
     EPOST_CONTRACT_APPROVAL_NO:'approval-secret',
     EPOST_OFFICE_SERIAL:'office-secret',
     EPOST_ALLOWED_SOURCE_IP:'13.124.12.17',
+    EPOST_TEST_WRITES_ENABLED:'true',
     EPOST_LIVE_WRITES_ENABLED:'false'
   };
   const result = epostConfig.readiness({ env, actualIp:'13.124.12.17' });
   assert.equal(result.status, 'READY_FOR_TEST');
   assert.equal(result.readyForTest, true);
   assert.equal(result.liveWritesEnabled, false);
+  assert.equal(result.testWritesEnabled, true);
   const serialized = JSON.stringify(result);
   for (const secret of ['auth-secret-value','0123456789abcdef','customer-secret','approval-secret','office-secret']) {
     assert.equal(serialized.includes(secret), false);

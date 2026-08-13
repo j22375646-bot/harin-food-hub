@@ -15,6 +15,7 @@ const operationQueue = require('../lib/coupang/operation-queue.js');
 const coupangActions = require('../lib/coupang/actions.js');
 const naverCommerceProbe = require('../lib/naver-commerce/probe.js');
 const epostConfig = require('../lib/epost/config.js');
+const epostClient = require('../lib/epost/client.js');
 
 const logPath = path.join(root, 'tmp', 'coupang-local-worker.log');
 const watchMode = process.argv.includes('--watch');
@@ -137,6 +138,22 @@ async function dispatchOperation(request, payload, handlers = coupangActions, db
   if (request.operation_type === 'EPOST_CONFIG_PROBE') {
     const actualIp = await publicIp();
     return { epost:epostConfig.readiness({ actualIp }) };
+  }
+  if (request.operation_type === 'EPOST_TEST_ISSUE') {
+    if (payload.testOnly !== true) throw Object.assign(new Error('우체국 테스트 전용 요청이 아닙니다.'), { code:'EPOST_TEST_ONLY' });
+    const actualIp = await publicIp();
+    const readiness = epostConfig.readiness({ actualIp });
+    if (!readiness.readyForTest) throw Object.assign(new Error('우체국 테스트 접수에 필요한 서버 설정이 완료되지 않았습니다.'), { code:'EPOST_SETUP_REQUIRED' });
+    let order = payload.order || {};
+    if (order.platform === 'COUPANG') {
+      const detail = await handlers.getOrderDetail(order.shipmentId);
+      order = {
+        ...order, receiver:detail.receiver,
+        goodsName:(detail.items || []).map(item => item.name).filter(Boolean).join(' 외 '),
+        quantity:(detail.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+      };
+    }
+    return { epostTest:await epostClient.issueTestShipment(order) };
   }
   if (request.operation_type === 'ORDER_DETAIL') return { order:await handlers.getOrderDetail(request.target_id) };
   if (request.operation_type === 'PRODUCT_DETAIL') return { product:await handlers.getProductDetail(request.target_id) };

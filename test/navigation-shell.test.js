@@ -73,7 +73,7 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
 });
 
 test('phase 11-2 keeps the separated execution validation and A/B tests', () => {
-  assert.match(client,/11-3B · 우체국 연결 기반/);
+  assert.match(client,/11-3C · 우체국 테스트 접수/);
   assert.match(client,/view==='validation' && \(<CustomerRetentionValidationCenter/);
   assert.match(client,/view==='experiments' && <ExperimentLab/);
   assert.doesNotMatch(client,/phase7LegacyLab/);

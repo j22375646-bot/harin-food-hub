@@ -126,7 +126,7 @@ async function loadDeliveryDetail(order){
   throw new Error('배송정보 자동 조회를 지원하지 않는 채널입니다.');
 }
 
-const EPOST_CHECK_KEYS=['fixedIp','apiKey','securityKey','contract','encryption'];
+const EPOST_CHECK_KEYS=['fixedIp','apiKey','securityKey','contract','encryption','testWrite'];
 
 function PostalConnectionPanel(){
   const [state,setState]=useState({status:'LOADING',message:'최근 우체국 연결 상태를 확인하고 있습니다.'});
@@ -164,9 +164,9 @@ function PostalConnectionPanel(){
   const busy=['LOADING','PROBING'].includes(state.status);
   const title=busy?'연결 확인 중':ready?'11-3C 테스트 준비 완료':state.status==='NOT_CHECKED'?'연결 확인 전':'설정 확인 필요';
   return <article className={`postalConnection ${ready?'ready':state.status.toLowerCase()}`} aria-live="polite">
-    <header><div><span>PHASE 11-3B · FIXED IP & SEED-128</span><h2>우체국 자동송장 연결</h2><p>인증키 원문은 화면이나 DB에 저장하지 않고, 서울 고정 IP 서버 안에서만 확인합니다.</p></div><b>{title}</b></header>
-    <div className="postalChecks">{EPOST_CHECK_KEYS.map(key=>{const check=epost?.checks?.[key];return <span className={!check?'waiting':check.ok?'ok':'needed'} key={key}><i>{check?.ok?'✓':'!'}</i><b>{check?.label||{fixedIp:'서울 고정 IP',apiKey:'우체국 인증키',securityKey:'SEED 보안키',contract:'계약 정보',encryption:'SEED-128 암호화'}[key]}</b><small>{check?.detail||'확인 대기'}</small></span>;})}</div>
-    <footer><div><b>{state.message}</b><small>실제 소포 접수·송장 발급은 아직 잠겨 있으며 11-3C에서 테스트 주문 1건으로 검증합니다.</small>{epost?.checkedAt?<small>마지막 확인 {dateTime(epost.checkedAt)}</small>:null}</div><button type="button" onClick={probe} disabled={busy}>{state.status==='PROBING'?'확인 중…':'고정 IP 연결 확인'}</button></footer>
+    <header><div><span>PHASE 11-3C · TEST PARCEL</span><h2>우체국 테스트 송장 연결</h2><p>인증키 원문은 화면이나 DB에 저장하지 않고, 서울 고정 IP 서버에서 테스트 접수만 실행합니다.</p></div><b>{title}</b></header>
+    <div className="postalChecks">{EPOST_CHECK_KEYS.map(key=>{const check=epost?.checks?.[key];return <span className={!check?'waiting':check.ok?'ok':'needed'} key={key}><i>{check?.ok?'✓':'!'}</i><b>{check?.label||{fixedIp:'서울 고정 IP',apiKey:'우체국 인증키',securityKey:'SEED 보안키',contract:'계약 정보',encryption:'SEED-128 암호화',testWrite:'테스트 접수 잠금'}[key]}</b><small>{check?.detail||'확인 대기'}</small></span>;})}</div>
+    <footer><div><b>{state.message}</b><small>실제 소포 접수·13자리 송장 발급은 계속 잠겨 있습니다. 테스트 결과는 TESTREGINOAPI로만 표시됩니다.</small>{epost?.checkedAt?<small>마지막 확인 {dateTime(epost.checkedAt)}</small>:null}</div><button type="button" onClick={probe} disabled={busy}>{state.status==='PROBING'?'확인 중…':'고정 IP 연결 확인'}</button></footer>
   </article>;
 }
 
@@ -177,6 +177,7 @@ function ShippingWorkbench({ orders, selectedIds, invoices, setInvoices, actionR
   const [message,setMessage]=useState('');
   const [busy,setBusy]=useState('');
   const [liveCandidates,setLiveCandidates]=useState([]);
+  const [postalTest,setPostalTest]=useState({status:'IDLE',message:'실제 발송 없이 우체국 테스트 접수 결과만 확인합니다.'});
   const storedCandidates=useMemo(()=>{
     const groups=new Map();
     selected.forEach(order=>{if(order.shippingCandidateKey){const rows=groups.get(order.shippingCandidateKey)||[];rows.push(order);groups.set(order.shippingCandidateKey,rows);}});
@@ -185,6 +186,32 @@ function ShippingWorkbench({ orders, selectedIds, invoices, setInvoices, actionR
   const printIds=selected.map(order=>order.hubOrderId).join(',');
   const paidTargets=selected.filter(order=>order.stage==='PAID');
   const invoiceTargets=selected.filter(order=>['PREPARING','READY_TO_SHIP'].includes(order.stage)&&postalTracking(order.invoiceNumber||invoices[order.hubOrderId]).length===13&&!order.invoiceNumber);
+  const postalTestTarget=selected.length===1&&selected[0].shippingEligible&&!selected[0].invoiceNumber&&['PAID','PREPARING','READY_TO_SHIP'].includes(selected[0].stage)?selected[0]:null;
+  async function runPostalTest(){
+    if(!postalTestTarget)return setPostalTest({status:'FAILED',message:'송장이 없는 출고 가능 주문을 1건만 선택하세요.'});
+    if(!window.confirm(`${postalTestTarget.hubOrderId} 주문으로 우체국 테스트 접수를 실행할까요?\n실제 발송·실제 송장 등록은 하지 않습니다.`))return;
+    setBusy('EPOST_TEST');setPostalTest({status:'RUNNING',message:'서울 고정 IP 서버에서 테스트 접수 중입니다…'});
+    try{
+      const response=await fetch('/api/epost/test-issue',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:true,testOnly:true,hubOrderId:postalTestTarget.hubOrderId})});
+      let result=await response.json();
+      if(!response.ok||!result.ok)throw new Error(result.error||'우체국 테스트 접수 시작 실패');
+      if(result.pending){
+        const id=result.request?.id;
+        if(!id)throw new Error('테스트 접수 작업번호가 없습니다.');
+        for(let attempt=0;attempt<40;attempt+=1){
+          await wait(1500);
+          const pollResponse=await fetch(`/api/epost/test-issue?requestId=${encodeURIComponent(id)}`,{cache:'no-store'});
+          result=await pollResponse.json();
+          if(pollResponse.status===202)continue;
+          if(!pollResponse.ok||!result.ok)throw new Error(result.error||'우체국 테스트 접수 실패');
+          break;
+        }
+        if(result.pending)throw new Error('고정 IP 서버 응답이 늦습니다. 잠시 뒤 다시 시도해주세요.');
+      }
+      const tracking=result.result?.trackingNo||'TESTREGINOAPI';
+      setPostalTest({status:'SUCCESS',trackingNo:tracking,reused:Boolean(result.reused||result.result?.reused),message:result.reused||result.result?.reused?'기존 테스트 접수 결과를 안전하게 다시 불러왔습니다.':'우체국 테스트 접수 결과를 확인했습니다.'});
+    }catch(error){setPostalTest({status:'FAILED',message:error.message});}finally{setBusy('');}
+  }
   async function run(action){
     if(!selected.length)return setMessage('먼저 아래 주문에서 ‘작업 선택’을 눌러주세요.');
     const targets=action==='PREPARE'?paidTargets:invoiceTargets;
@@ -214,10 +241,11 @@ function ShippingWorkbench({ orders, selectedIds, invoices, setInvoices, actionR
     }catch(error){setMessage(`후보 확인 실패 · ${error.message}`);}finally{setBusy('');}
   }
   return <article className="shippingWorkbench">
-    <header><div><span>PHASE 11-3B · POSTAL CONNECTION</span><h2>포장·배송 작업대</h2><p>결제완료는 준비중으로 바꾸고, 준비중 주문은 13자리 우체국 송장을 전송합니다.</p></div><b>{selected.length}건 선택</b></header>
+    <header><div><span>PHASE 11-3C · TEST PARCEL</span><h2>포장·배송 작업대</h2><p>결제완료는 준비중으로 바꾸고, 선택한 주문 1건으로 우체국 테스트 접수까지 확인합니다.</p></div><b>{selected.length}건 선택</b></header>
     <details className="shippingHelp"><summary><b>이 작업대는 어떻게 쓰나요?</b><em>열기</em></summary><div><p><strong>1.</strong> 출고할 주문의 ‘작업 선택’을 누르세요.</p><p><strong>2.</strong> 먼저 상품준비중으로 바꾸고 포장명세서를 인쇄하세요.</p><p><strong>3.</strong> 포장이 끝나면 주문별 송장번호와 채널 배송사 코드를 넣고 전송하세요.</p><p><strong>예시:</strong> 같은 주소 주문이 2건이어도 쿠팡 정책을 확인하기 전에는 자동으로 합치지 않습니다.</p></div></details>
     <div className="shippingSelectionSummary"><span><small>결제완료</small><b>{count(paidTargets.length)}건</b></span><span><small>준비중·출고대기</small><b>{count(selected.length-paidTargets.length)}건</b></span><span><small>송장 입력완료</small><b>{count(invoiceTargets.length)}건</b></span></div>
     <div className="shippingActions"><button onClick={()=>run('PREPARE')} disabled={Boolean(busy)||!paidTargets.length}>{busy==='PREPARE'?'처리 중…':`결제완료 ${count(paidTargets.length)}건 상품준비중`}</button><a className={!selected.length?'disabled':''} href={selected.length?`/api/shipping/print?type=packing&ids=${encodeURIComponent(printIds)}`:'#'} target="_blank" rel="noreferrer">포장명세서</a><a className={!selected.length?'disabled':''} href={selected.length?`/api/shipping/print?type=dispatch&ids=${encodeURIComponent(printIds)}`:'#'} target="_blank" rel="noreferrer">출고목록 PDF</a><button className="secondary" onClick={findCandidates} disabled={Boolean(busy)||!selected.length}>{busy==='CANDIDATES'?'주소 확인 중…':'묶음배송 후보 찾기'}</button></div>
+    <section className={`postalTestWorkbench ${postalTest.status.toLowerCase()}`} aria-live="polite"><div><span>11-3C 안전 테스트</span><b>선택 주문 1건으로 테스트 송장 확인</b><small>{postalTest.message}</small></div>{postalTest.trackingNo?<strong><small>테스트 결과</small>{postalTest.trackingNo}</strong>:null}<button type="button" onClick={runPostalTest} disabled={Boolean(busy)||!postalTestTarget}>{busy==='EPOST_TEST'?'테스트 접수 중…':'선택 1건 우체국 테스트 접수'}</button><p>실제 발송 없음 · 쇼핑몰 송장 등록 없음 · 같은 주문은 기존 결과 재사용</p></section>
     {(storedCandidates.length||liveCandidates.length)?<div className="shippingCandidates"><b>묶음배송 후보 · 자동 합배송 안 함</b>{[...storedCandidates,...liveCandidates].map((rows,index)=><span key={`${rows.join('-')}-${index}`}>{rows.length}건 · {rows.join(' · ')}</span>)}</div>:null}
     {selected.length?<section className="invoiceWorkbench"><header><div><b>선택 주문 우체국 송장</b><small>주문 카드에서 입력한 번호와 동일하게 연결됩니다.</small></div><label><span>쿠팡 배송사 코드</span><input value={coupangCourier} onChange={event=>setCoupangCourier(event.target.value.toUpperCase())} placeholder="EPOST"/></label><label><span>Cafe24 배송사 코드</span><input value={cafe24Courier} onChange={event=>setCafe24Courier(event.target.value.toUpperCase())} placeholder="관리자 우체국 코드"/></label></header><div>{selected.map(order=>{const result=actionResults[order.hubOrderId];return <label className={result?.status?.toLowerCase()||''} key={order.hubOrderId}><span><b>{order.hubOrderId}</b><small>{order.channelLabel} · {order.productName}</small>{result?<em>{result.status==='RUNNING'?'처리 중':result.status==='FAILED'?`확인 필요 · ${result.error}`:result.status==='QUEUED'?'고정 IP 전송 대기':'전송 완료'}</em>:null}</span><input inputMode="numeric" maxLength={13} disabled={Boolean(order.invoiceNumber)} value={postalTracking(order.invoiceNumber||invoices[order.hubOrderId])} onChange={event=>setInvoices(previous=>({...previous,[order.hubOrderId]:postalTracking(event.target.value)}))} placeholder="우체국 송장 13자리"/></label>})}</div><button onClick={()=>run('UPLOAD_INVOICE')} disabled={Boolean(busy)||!invoiceTargets.length}>{busy==='UPLOAD_INVOICE'?'채널 전송 중…':`송장 입력완료 ${count(invoiceTargets.length)}건 전송`}</button></section>:null}
     {message?<p className="shippingMessage">{message}</p>:null}
@@ -295,7 +323,7 @@ export default function UnifiedOrdersCenter({ center, children }) {
   function updateInvoice(order,value){setInvoiceDrafts(previous=>({...previous,[order.hubOrderId]:value}));if(value)selectOrder(order,true);}
   function selectBulk(checked){setSelectedIds(previous=>{const next=new Set(previous);bulkEligible.forEach(order=>checked?next.add(order.hubOrderId):next.delete(order.hubOrderId));return next;});}
   return <section className="unifiedOrdersCenter">
-    <section className="unifiedOrdersHero"><div><span>PHASE 11-3B · FIXED IP & SEED-128</span><h1>통합 주문·배송센터</h1><p>쿠팡은 판매자배송 주문만 작업 목록에 표시하고, Cafe24와 함께 현재 포장·출고 상태를 확인합니다.</p></div><div><small>지금 처리 필요</small><b>{count(currentCenter.summary.actionRequired)}건</b><em>현재 진행중 {count(currentCenter.summary.visibleDefaultTotal)}건</em><em>최근 30일 배송완료 {count(currentCenter.stageCounts.DELIVERED)}건</em><em>로켓그로스 {count(currentCenter.summary.rocketGrowthStored)}건 · 별도 저장</em></div></section>
+    <section className="unifiedOrdersHero"><div><span>PHASE 11-3C · TEST PARCEL</span><h1>통합 주문·배송센터</h1><p>쿠팡은 판매자배송 주문만 작업 목록에 표시하고, Cafe24와 함께 우체국 테스트 접수까지 안전하게 확인합니다.</p></div><div><small>지금 처리 필요</small><b>{count(currentCenter.summary.actionRequired)}건</b><em>현재 진행중 {count(currentCenter.summary.visibleDefaultTotal)}건</em><em>최근 30일 배송완료 {count(currentCenter.stageCounts.DELIVERED)}건</em><em>로켓그로스 {count(currentCenter.summary.rocketGrowthStored)}건 · 별도 저장</em></div></section>
     <article className={`liveOrdersStatus ${liveState.status.toLowerCase()}`} aria-live="polite"><div><span className="livePulse"/><span><b>{liveState.status==='LOADING'?'전체 플랫폼 수집 중':liveState.status==='READY'?'최신 상태 수집 완료':liveState.status==='PARTIAL'?'일부 채널 확인 필요':liveState.status==='FAILED'?'최신 상태 수집 실패':'1시간 자동수집'}</b><small>{liveState.message} · 작업화면 {currentCenter.summary.windowStart}~{currentCenter.summary.windowEnd}</small></span></div><button type="button" onClick={refreshLiveOrders} disabled={liveState.status==='LOADING'}>{liveState.status==='LOADING'?'수집 중…':'전체 플랫폼 수동수집'}</button></article>
     <details className="timingDemoPanel" open><summary><span><b>출고 뱃지 디자인 확인</b><small>아래 2건은 실제 주문·매출에 포함되지 않는 화면 샘플입니다.</small></span><em>샘플 접기</em></summary><div>{demoOrders.map(order=><OrderCard order={order} selected={false} onSelect={()=>{}} key={order.hubOrderId}/>)}</div></details>
     <div className="unifiedChannelStates">{currentCenter.channels.map(channel=><ChannelState channel={channel} key={channel.platform}/>)}</div>

@@ -31,9 +31,10 @@ Local execution retains `/tmp/cafe24-token.json` for compatibility. Vercel (or `
 
 비밀키는 `.env`, `.env.local`, `.env.coupang.local`에만 저장하고 GitHub에는 올리지 않습니다. 필요한 변수 이름은 `.env.example`을 참고합니다.
 
-## 우체국 자동송장 연결 기반 (11-3B)
+## 우체국 테스트 접수 (11-3C)
 
-- 주문센터의 `고정 IP 연결 확인`은 실제 소포를 접수하지 않는 읽기 전용 설정 점검입니다.
+- 주문센터의 `고정 IP 연결 확인`은 인증키·계약정보·SEED 암호화와 테스트 잠금을 점검합니다.
 - 우체국 인증키·SEED 보안키·계약정보는 `/etc/harin-coupang-worker.env`에만 저장하고 Vercel·브라우저·Supabase에는 원문을 넣지 않습니다.
 - 접수 데이터 암호화는 우체국 제공 방식과 같은 SEED-128 ECB, UTF-8, 0 채움을 사용하며 KISA 표준 벡터를 시작 시 검증합니다.
-- `EPOST_LIVE_WRITES_ENABLED=false`를 유지하는 동안 실제 소포 접수와 송장 발급은 실행하지 않습니다. 테스트 주문 1건 검증은 11-3C에서 진행합니다.
+- `EPOST_TEST_WRITES_ENABLED=true`일 때만 `testYn=Y` 접수를 허용하며 결과는 `TESTREGINOAPI`로 확인합니다.
+- `EPOST_LIVE_WRITES_ENABLED=false`를 유지하므로 실제 소포 접수·13자리 송장 발급·쇼핑몰 송장 전송은 실행하지 않습니다.

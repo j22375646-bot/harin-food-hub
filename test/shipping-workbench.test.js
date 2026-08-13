@@ -44,9 +44,13 @@ test('shipping writes and print output stay authenticated and channel-isolated',
   assert.match(printRoute,/window\.print\(\)/);
 });
 
-test('orders center exposes phase 11-3B postal readiness without live parcel issuance',()=>{
+test('orders center exposes phase 11-3C test parcel issuance while live parcel stays locked',()=>{
   const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
-  assert.match(center,/PHASE 11-3B · FIXED IP & SEED-128/);
+  const route=fs.readFileSync(path.join(__dirname,'..','app','api','epost','test-issue','route.js'),'utf8');
+  assert.match(center,/PHASE 11-3C · TEST PARCEL/);
   assert.match(center,/고정 IP 연결 확인/);
-  assert.match(center,/실제 소포 접수·송장 발급은 아직 잠겨/);
+  assert.match(center,/선택 1건 우체국 테스트 접수/);
+  assert.match(center,/실제 발송 없음/);
+  assert.match(route,/testOnly:true/);
+  assert.doesNotMatch(route,/EPOST_LIVE_WRITES_ENABLED/);
 });

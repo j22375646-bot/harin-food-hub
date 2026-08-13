@@ -219,10 +219,10 @@ test('orders center labels seller delivery and refreshes current channel status'
   assert.match(route,/apiSafety\.isAuthorized\(request,authModule\)/);
 });
 
-test('phase 11-3B preserves 11-3A bulk work selection and the postal invoice field',()=>{
+test('phase 11-3C preserves 11-3A bulk work selection and the postal invoice field',()=>{
   const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
   const route=fs.readFileSync(path.join(__dirname,'..','app','api','shipping','actions','route.js'),'utf8');
-  assert.match(center,/PHASE 11-3B · FIXED IP & SEED-128/);
+  assert.match(center,/PHASE 11-3C · TEST PARCEL/);
   assert.match(center,/결제완료·준비중 전체선택/);
   assert.match(center,/bulkEligible=visible\.filter/);
   assert.match(center,/className=\{`orderInvoiceEntry/);

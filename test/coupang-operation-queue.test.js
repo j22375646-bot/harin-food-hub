@@ -26,6 +26,13 @@ test('배송정보와 CS 본문은 평문으로 저장하지 않고 인증 암�
   assert.throws(() => queue.open({ ...encrypted, data:`${encrypted.data}x` }, secret));
 });
 
+test('우체국 테스트 작업은 허브 주문번호만 대상으로 받고 평문 배송정보를 남기지 않는다', () => {
+  assert.deepEqual(queue.validateRequest({operationType:'EPOST_TEST_ISSUE',targetType:'HUB_ORDER',targetId:'HR-C24-ABCDEF12'}),{operationType:'EPOST_TEST_ISSUE',targetType:'HUB_ORDER',targetId:'HR-C24-ABCDEF12'});
+  assert.throws(()=>queue.validateRequest({operationType:'EPOST_TEST_ISSUE',targetType:'HUB_ORDER',targetId:'SAMPLE-1'}));
+  const encrypted=queue.seal({testOnly:true,order:{receiver:{name:'고객',address:'서울'}}},secret);
+  assert.equal(JSON.stringify(encrypted).includes('고객'),false);
+});
+
 test('같은 대상의 진행 중 작업은 중복 등록하지 않는다', async () => {
   const calls=[];
   const active={ id:'active',operation_type:'ORDER_DETAIL',target_type:'ORDER',target_id:'123',status:'RUNNING' };
