@@ -19,3 +19,18 @@ test('옵션 재고 응답이 없으면 품절 0개를 만들지 않는다', () 
   assert.deepEqual(raw.variants,[]);
   assert.equal(cafe24Quantity({raw_data:raw}),null);
 });
+
+test('재고 관리를 사용하지 않는 Cafe24 옵션의 0개와 음수를 품절로 판단하지 않는다', () => {
+  const center=require('../lib/inventory/unified-center.js').buildUnifiedInventoryCenter({
+    masterProducts:[{id:'m1',name:'작두콩차',is_active:true}],
+    channelProducts:[{master_product_id:'m1',platform:'CAFE24',external_product_id:'7'}],
+    cafe24Products:[{external_product_no:'7',raw_data:{variants:[
+      {variant_code:'P00000000001',use_inventory:'F',quantity:-6}
+    ]}}]
+  });
+  const cafe24=center.items[0].channels.CAFE24;
+  assert.equal(cafe24.quantity,null);
+  assert.equal(cafe24.state,'REFERENCE');
+  assert.equal(cafe24.quantity_label,'수량 제한 없음');
+  assert.equal(center.summary.out_of_stock,0);
+});

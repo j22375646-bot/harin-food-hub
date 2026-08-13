@@ -4,8 +4,9 @@ import { useDeferredValue, useMemo, useState } from 'react';
 
 const CHANNELS = [['CAFE24','Cafe24'],['NAVER','네이버'],['COUPANG','쿠팡']];
 
-function quantity(value) {
-  return value == null ? '확인 필요' : `${Number(value).toLocaleString('ko-KR')}개`;
+function quantity(channel) {
+  if (channel?.quantity_label) return channel.quantity_label;
+  return channel?.quantity == null ? '확인 필요' : `${Number(channel.quantity).toLocaleString('ko-KR')}개`;
 }
 
 function dateTime(value) {
@@ -17,7 +18,7 @@ function ChannelStock({ label, channel }) {
   const state=String(channel?.state||'UNKNOWN').toLowerCase();
   return <div className={`inventoryOpsChannel ${state}`}>
     <header><b>{label}</b><span>{channel?.label||'확인 필요'}</span></header>
-    <strong>{quantity(channel?.quantity)}</strong>
+    <strong>{quantity(channel)}</strong>
     <p>{channel?.detail||'재고 자료가 없습니다.'}</p>
     <small>{dateTime(channel?.updated_at)} 기준</small>
   </div>;
