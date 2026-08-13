@@ -218,3 +218,31 @@ test('orders center labels seller delivery and refreshes current channel status'
   assert.match(route,/ORDER_REALTIME/);
   assert.match(route,/apiSafety\.isAuthorized\(request,authModule\)/);
 });
+
+test('phase 11-3A supports bulk work selection and an always-visible postal invoice field',()=>{
+  const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
+  const route=fs.readFileSync(path.join(__dirname,'..','app','api','shipping','actions','route.js'),'utf8');
+  assert.match(center,/PHASE 11-3A · POSTAL SHIPPING UI/);
+  assert.match(center,/결제완료·준비중 전체선택/);
+  assert.match(center,/bulkEligible=visible\.filter/);
+  assert.match(center,/className=\{`orderInvoiceEntry/);
+  assert.match(center,/우체국 송장번호/);
+  assert.match(center,/replace\(\/\\D\/g,''\)\.slice\(0,13\)/);
+  assert.match(center,/useState\('EPOST'\)/);
+  assert.match(center,/setActionResults/);
+  assert.match(route,/deliveryCompanyCode==='EPOST'/);
+  assert.match(route,/\\d\{13\}/);
+});
+
+test('registered tracking numbers from channel data are retained in unified orders',()=>{
+  const center=orders.buildUnifiedOrders({
+    cafe24Orders:[{order_id:'C-TRACKED',order_date:'2026-08-14T01:00:00Z',raw_data:{tracking_no:'1234567890123'}}],
+    cafe24OrderItems:[{order_id:'C-TRACKED',external_item_id:'I-1',product_name:'Tea',quantity:1,raw_data:{order_status:'N20'}}],
+    coupangOrders:[{order_id:'P-TRACKED',shipment_box_id:'S-1',ordered_at:'2026-08-14T02:00:00Z',status:'INSTRUCT',raw_data:{invoiceNumber:'9876543210987',deliveryCompanyCode:'EPOST'}}]
+  });
+  const cafe24=center.orders.find(order=>order.externalOrderId==='C-TRACKED');
+  const coupang=center.orders.find(order=>order.externalOrderId==='P-TRACKED');
+  assert.equal(cafe24.invoiceNumber,'1234567890123');
+  assert.equal(coupang.invoiceNumber,'9876543210987');
+  assert.equal(coupang.deliveryCompanyCode,'EPOST');
+});

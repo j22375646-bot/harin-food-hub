@@ -67,6 +67,7 @@ export async function POST(request) {
           const deliveryCompanyCode=text(input.deliveryCompanyCode);
           if(!/^[A-Za-z0-9-]{6,40}$/.test(invoiceNumber))throw Object.assign(new Error('송장번호는 영문·숫자·하이픈 6~40자로 입력하세요.'),{status:400});
           if(!/^[A-Za-z0-9_-]{2,20}$/.test(deliveryCompanyCode))throw Object.assign(new Error('배송사 코드를 확인하세요.'),{status:400});
+          if(deliveryCompanyCode==='EPOST'&&!/^\d{13}$/.test(invoiceNumber))throw Object.assign(new Error('우체국 송장번호는 숫자 13자리로 입력하세요.'),{status:400});
           input={...input,invoiceNumber,deliveryCompanyCode};
         }
         if(order.platform==='CAFE24')await runCafe24(action,order,input);
