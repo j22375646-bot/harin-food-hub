@@ -7,6 +7,7 @@ import { COUPANG_SECTION_HELP, getHubHelp } from '../lib/ui/help-content.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
 import ProductGrowthCenter from './product-growth-center.js';
 import MarketingDiagnosisCenter, { MarketingInsightSummary } from './marketing-diagnosis-center.js';
+import CustomerRetentionValidationCenter from './customer-retention-validation-center.js';
 
 const won = value => `${Math.round(Number(value || 0)).toLocaleString('ko-KR')}원`;
 const count = value => Number(value || 0).toLocaleString('ko-KR');
@@ -149,7 +150,7 @@ export default function Dashboard({ initialData, initialState }) {
       <div className="brand"><span className="brandMark">H</span><div><b>하린식품</b><small>광고·매출 통합 관리 허브</small></div></div>
       <div className="headerActions"><span className="live"><i /> Cafe24 연결됨</span><button className="syncButton" onClick={runSync} disabled={syncing}>{syncing ? '동기화 중…' : '지금 동기화'}</button><form action="/api/dashboard/logout" method="post"><button className="logoutButton" type="submit">나가기</button></form></div>
     </header>
-    <nav className="desktopSidebar" aria-label="허브 메뉴"><div className="sidebarPhase"><span>현재 개발</span><b>6단계 · 마케팅·인사이트</b></div>{nav.map(item=><button key={item.id} className={view===item.id?'active':''} onClick={()=>openView(item.id)}><i>{item.icon}</i><span><b>{item.label}</b><small>{item.description}</small></span></button>)}</nav>
+    <nav className="desktopSidebar" aria-label="허브 메뉴"><div className="sidebarPhase"><span>현재 개발</span><b>7단계 · 고객·실행 검증</b></div>{nav.map(item=><button key={item.id} className={view===item.id?'active':''} onClick={()=>openView(item.id)}><i>{item.icon}</i><span><b>{item.label}</b><small>{item.description}</small></span></button>)}</nav>
     <main className="hubMain">
       <details className="mobileMoreMenu"><summary>전체 기능 열기 <span>{nav.find(item=>item.id===view)?.label}</span></summary><div>{nav.map(item=><button key={item.id} className={view===item.id?'active':''} onClick={()=>openView(item.id)}>{item.label}</button>)}</div></details>
       <section className="platformSwitch" aria-label="플랫폼 선택">
@@ -177,7 +178,7 @@ export default function Dashboard({ initialData, initialState }) {
       {view==='product' && !channelUnavailable && <PlatformProductView key={`product-${platform}`} platform={platform} data={initialData} />}
       {view==='reports' && <ReportsView reports={reports} actions={actions} syncs={syncs} financialTrustToken={initialData.financialTrustToken} />}
       {view==='changes' && <FinancialChangeCenter />}
-      {view==='experiments' && <ExperimentLab />}
+      {view==='experiments' && <><CustomerRetentionValidationCenter data={initialData.retentionValidation}/><details className="phase7LegacyLab"><summary><span><b>기존 A/B 테스트·기준값 도구</b><small>두 방법을 직접 비교하거나 목표 기준값을 관리할 때만 여세요.</small></span><em>열기</em></summary><div><ExperimentLab /></div></details></>}
       {view==='notifications' && <NotificationCenter reports={reports} />}
     </main>
     <nav className="mobileBottomNav" aria-label="모바일 주요 메뉴">{['main','product','insight','notifications'].map(id=>nav.find(item=>item.id===id)).map(item=><button className={view===item.id?'active':''} onClick={()=>openView(item.id)} key={item.id}><i>{item.icon}</i><span>{item.id==='notifications'?'알림':item.label}</span></button>)}</nav>

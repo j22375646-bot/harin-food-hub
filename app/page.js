@@ -18,6 +18,7 @@ import coupangQueueHealthModule from '../lib/dashboard/coupang-queue-health.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
 import salesCommandCenterModule from '../lib/dashboard/sales-command-center.js';
 import marketingDiagnosisModule from '../lib/marketing/diagnosis.js';
+import retentionValidationModule from '../lib/customers/retention-validation.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -78,14 +79,14 @@ async function getDashboardData() {
     ['COUPANG','coupang_products'],['COUPANG','coupang_orders'],['COUPANG','coupang_order_items'],['COUPANG','coupang_settlements'],['COUPANG','coupang_rg_inventory'],['COUPANG','coupang_sync_requests'],['COUPANG','coupang_rg_orders'],['COUPANG','coupang_returns'],['COUPANG','coupang_exchanges'],['COUPANG','coupang_inquiries'],['COUPANG','coupang_item_inventory'],['COUPANG','coupang_settlement_summaries'],['COUPANG','coupang_promotion_budgets'],['COUPANG','coupang_api_capabilities'],['COUPANG','coupang_product_items'],['COUPANG','coupang_rg_order_items'],['COUPANG','coupang_cost_transactions'],['COUPANG','coupang_cost_imports'],['COUPANG','coupang_ad_daily_summary'],['COUPANG','coupang_ad_keyword_summary_top'],['COUPANG','coupang_ad_keyword_summary_waste'],['COUPANG','coupang_ad_campaign_summary'],['COUPANG','coupang_ad_billing_daily']
   ].map(([platform,dataset])=>({platform,dataset}));
   const settledQueries = await Promise.allSettled([
-    db.from('cafe24_orders').select('order_id,order_date,customer_id,paid_amount,order_price,raw_data').order('order_date', { ascending: false }).limit(1000),
-    db.from('cafe24_order_items').select('order_id,external_product_no,product_name,quantity,unit_price,paid_amount,raw_data').limit(1000),
+    db.from('cafe24_orders').select('order_id,order_date,customer_id,paid_amount,order_price,raw_data').order('order_date', { ascending: false }).limit(10000),
+    db.from('cafe24_order_items').select('order_id,external_product_no,product_name,quantity,unit_price,paid_amount,raw_data').limit(10000),
     db.from('cafe24_traffic_daily').select('date,visitors,pageviews,source_status,raw_data').order('date', { ascending: true }).limit(31),
     db.from('cafe24_referrers_daily').select('date,source,visitors,orders,revenue').order('visitors', { ascending: false }).limit(500),
     db.from('cafe24_products').select('external_product_no,product_name,price,selling,raw_data').order('updated_at', { ascending: false }).limit(100),
     db.from('sync_logs').select('id,platform,job_type,status,started_at,finished_at,rows_received,error_message,metadata').in('job_type', ['FETCH_ALL','FILE_IMPORT','RG_INVENTORY','RG_REALTIME']).order('started_at', { ascending: false }).limit(20),
     db.from('reports').select('id,platform,report_type,period_start,period_end,title,status,summary_json,version,supersedes_report_id,is_latest,revision_note,approved_at,approved_by,created_at').order('period_end', { ascending: false }).order('created_at',{ascending:false}).limit(80),
-    db.from('actions').select('id,platform,target_type,target_name,action_type,reason,status,decided_at,executed_at,review_after,priority,assignee,due_at,hold_reason,review_result').order('decided_at', { ascending: false }).limit(30),
+    db.from('actions').select('id,platform,target_type,target_name,action_type,reason,status,decided_at,executed_at,review_after,priority,assignee,due_at,hold_reason,review_result').order('decided_at', { ascending: false }).limit(100),
     db.from('master_products').select('id,name,selling_price,is_active').order('updated_at',{ascending:false}).limit(200),
     db.from('channel_products').select('id,master_product_id,platform,external_product_id,external_product_name,selling_price,is_active,match_method,match_confidence,matched_at,matched_by').order('updated_at',{ascending:false}).limit(500),
     db.from('naver_campaigns').select('ncc_campaign_id,name,campaign_type,status,user_lock'),
@@ -95,7 +96,7 @@ async function getDashboardData() {
     db.from('naver_stats_daily').select('date,entity_id,impressions,clicks,cost,conversions,conversion_revenue').order('date',{ascending:false}).limit(1200),
     db.from('automation_runs').select('id,job_name,trigger_type,status,started_at,finished_at,attempt_count,result_json,error_message,idempotency_key,scheduled_for,kst_execution_date,recovery_count').order('started_at',{ascending:false}).limit(20),
     db.from('data_quality_checks').select('id,platform,dataset,status_code,severity,rows_checked,duplicate_count,message,remediation,checked_at').order('checked_at',{ascending:false}).limit(40),
-    db.from('action_evaluations').select('id,action_id,metric_name,change_rate,outcome,explanation,evaluated_at').order('evaluated_at',{ascending:false}).limit(30),
+    db.from('action_evaluations').select('id,action_id,baseline_start,baseline_end,evaluation_start,evaluation_end,metric_name,before_json,after_json,change_rate,outcome,explanation,evaluated_at').order('evaluated_at',{ascending:false}).limit(100),
     db.from('alerts').select('id,source_type,platform,severity,title,message,status,created_at').eq('status','OPEN').order('created_at',{ascending:false}).limit(20),
     db.from('platform_events').select('id,platform,event_type,effective_date,title,description,analysis_impact,source_url,affects_comparison,created_by').order('effective_date',{ascending:false}).limit(30),
     db.from('product_costs').select('master_product_id,unit_cost,packaging_cost,other_unit_cost,notes,effective_from'),
@@ -130,6 +131,17 @@ async function getDashboardData() {
   });
   const queryIssues = [...settled.issues];
   const [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, shippingRulesResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult] = settled.results;
+  const phase7Settled=dataHealthModule.settleQueries(await Promise.allSettled([
+    db.from('financial_change_requests').select('id,change_type,platform,target_key,status,impact_preview,created_at,executed_at,verified_at,rolled_back_at,verification_result,error_message').order('created_at',{ascending:false}).limit(100),
+    db.from('financial_change_audit_logs').select('id,change_request_id,event_type,from_status,to_status,created_at').order('created_at',{ascending:true}).limit(1000),
+    db.from('ab_tests').select('id,name,platform,status,evaluation_status,result_summary,created_at,ab_test_variants(id,entity_id)').order('created_at',{ascending:false}).limit(100)
+  ]),[
+    {platform:'SHARED',dataset:'financial_change_requests'},
+    {platform:'SHARED',dataset:'financial_change_audit_logs'},
+    {platform:'SHARED',dataset:'ab_tests'}
+  ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+  queryIssues.push(...phase7Settled.issues);
+  const [phase7ChangesResult,phase7AuditsResult,phase7ExperimentsResult]=phase7Settled.results;
   const keywordPeriodSettled=dataHealthModule.settleQueries(await Promise.allSettled([db.from('naver_keyword_stats').select('period_start,period_end').order('period_end',{ascending:false}).limit(1).maybeSingle()]),[{platform:'NAVER',dataset:'naver_keyword_stats_period'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
   queryIssues.push(...keywordPeriodSettled.issues);
   const keywordPeriodResult=keywordPeriodSettled.results[0];
@@ -373,6 +385,18 @@ async function getDashboardData() {
   const financialTrustToken=authModule.signFinancialTrust(financialTrust);
   const pacing = await pacingPromise;
   const generatedAt = new Date().toISOString();
+  const retentionValidation=retentionValidationModule.buildRetentionValidation({
+    orders:ordersResult.data||[],
+    items:itemsResult.data||[],
+    referrers:refsResult.data||[],
+    actions:actionsResult.data||[],
+    evaluations:evaluationsResult.data||[],
+    reports:reportsResult.data||[],
+    experiments:phase7ExperimentsResult.data||[],
+    financialChanges:phase7ChangesResult.data||[],
+    financialAudits:phase7AuditsResult.data||[],
+    asOf:generatedAt
+  });
   const dataHealth = dataHealthModule.buildDataHealth({
     issues:queryIssues,
     syncs:syncResult.data || [],
@@ -480,6 +504,7 @@ async function getDashboardData() {
     actions,
     priorityCenter,
     salesCommandCenter,
+    retentionValidation,
     automationRuns: automationResult.data || [],
     qualityChecks: qaResult.data || [],
     alerts: alertsResult.data || [],
