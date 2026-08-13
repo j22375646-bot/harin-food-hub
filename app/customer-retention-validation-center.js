@@ -11,8 +11,21 @@ const platformLabel={ALL:'전체',NAVER:'네이버',CAFE24:'Cafe24',COUPANG:'쿠
 const actionStatusLabel={PLANNED:'실행 예정',ON_HOLD:'보류',EXECUTED:'실행 완료',CANCELLED:'취소',REVIEWED:'검토 완료'};
 const changeStatusLabel={PREVIEWED:'미리보기',APPROVED:'승인됨',EXECUTING:'실행 중',EXECUTED:'실행됨',VERIFIED:'검증 완료',VERIFICATION_FAILED:'검증 불일치',STALE:'원본 변경됨',REJECTED:'반려',FAILED:'실행 실패',ROLLBACK_REQUESTED:'복구 중',ROLLED_BACK:'복구 완료',ROLLBACK_FAILED:'복구 실패',EXPIRED:'만료'};
 const changeTypeLabel={PRODUCT_COST:'상품 원가',CHANNEL_COST:'채널 비용',SHIPPING_RULE:'배송 규칙',BUSINESS_TARGET:'매출 목표'};
+const runStatusLabel={SUCCESS:'정상 완료',PARTIAL:'일부 완료',FAILED:'확인 필요',RUNNING:'실행 중',WAITING:'실행 대기',COLLECTING:'자료 보강 중',READY:'준비 완료',CONNECTION_REQUIRED:'연결 필요'};
 
 function Waiting({children='계산 대기'}){return <span className="phase7Waiting">{children}</span>;}
+
+function AutomationStatus({automation}){
+  if(!automation)return null;
+  const next=dateTime=>new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date(dateTime));
+  const cards=[
+    {key:'history',title:'90일 주문 이력',status:automation.history?.status,value:`${number(automation.history?.days)} / ${number(automation.history?.target_days)}일`,body:automation.history?.status==='READY'?'재구매 주기 판단에 필요한 기간이 확보됐습니다.':`과거 주문을 보강해도 실제 주문일이 더 쌓여야 할 수 있습니다. 현재 ${number(automation.history?.remaining_days)}일 부족합니다.`},
+    {key:'action',title:'실행 결과 자동평가',status:automation.action_evaluation?.status,value:'7일 · 14일',body:'실행 완료된 액션의 전후 ROAS와 매출을 매일 비교합니다.'},
+    {key:'experiment',title:'진행 실험 자동평가',status:automation.experiment_evaluation?.status,value:'매일 05:30',body:'진행 중인 A/B 테스트의 표본과 승자 여부를 자동 계산합니다.'},
+    {key:'attribution',title:'유입→주문 연결',status:automation.attribution?.status,value:automation.attribution?.status==='CONNECTION_REQUIRED'?'연결 필요':'일부 연결',body:automation.attribution?.message}
+  ];
+  return <section className="phase8Automation"><header><div><span>AUTOMATIC OPERATIONS</span><h2>자동 검증 운영상태</h2></div><small>다음 예약 실행 · {next(automation.next_run_at)}</small></header><div>{cards.map(card=><article className={String(card.status||'WAITING').toLowerCase()} key={card.key}><span>{card.title}</span><b>{card.value}</b><em>{runStatusLabel[card.status]||card.status}</em><p>{card.body}</p></article>)}</div></section>;
+}
 
 function CustomerTab({customer}){
   const summary=customer?.summary||{};
@@ -86,9 +99,10 @@ export default function CustomerRetentionValidationCenter({data}){
   const [tab,setTab]=useState('customer');
   if(!data)return <section className="phase7Center"><p className="phase7Empty">고객·실행 검증 자료를 불러오지 못했습니다.</p></section>;
   return <section className="phase7Center">
-    <header className="phase7Hero"><div><span>PHASE 7 · CUSTOMER &amp; VALIDATION</span><h1>고객·재구매·실행 검증센터</h1><p>다시 살 고객을 찾고, 실행한 일이 실제 매출과 이익을 개선했는지 확인합니다.</p></div><div className="phase7HeroBadge"><b>7단계</b><small>핵심 계획 마지막 단계</small></div></header>
+    <header className="phase7Hero"><div><span>PHASE 8 · DATA &amp; AUTOMATION</span><h1>데이터 연결·자동 검증 운영센터</h1><p>고객 이력을 90일까지 보강하고, 실행과 실험의 실제 성과를 매일 자동으로 확인합니다.</p></div><div className="phase7HeroBadge"><b>8단계</b><small>후속 운영 고도화</small></div></header>
     <details className="phase7Help"><summary><span><b>이 화면은 뭐예요?</b><small>처음이라면 쉬운 설명과 예시를 열어보세요.</small></span><em>도움말 열기</em></summary><div><p><b>고객·재구매</b>는 같은 고객의 주문 간격을 보고 다시 살 시기와 휴면 가능성을 찾습니다.</p><p><b>실행 결과</b>는 광고·상품 변경 전 기대효과와 위험, 실행 7일·14일 뒤 실제 숫자를 나란히 비교합니다.</p><p><b>예시</b> · 30일 주기 상품을 마지막으로 산 지 28일인 고객은 재구매 예정 후보입니다. 하지만 이력이 9일뿐이면 주기를 단정하지 않고 계산 대기로 둡니다.</p></div></details>
-    <nav className="phase7Tabs" aria-label="7단계 화면 선택"><button type="button" className={tab==='customer'?'active':''} onClick={()=>setTab('customer')}>고객·재구매</button><button type="button" className={tab==='execution'?'active':''} onClick={()=>setTab('execution')}>실행 결과</button></nav>
+    <AutomationStatus automation={data.automation}/>
+    <nav className="phase7Tabs" aria-label="8단계 화면 선택"><button type="button" className={tab==='customer'?'active':''} onClick={()=>setTab('customer')}>고객·재구매</button><button type="button" className={tab==='execution'?'active':''} onClick={()=>setTab('execution')}>실행 결과</button></nav>
     {tab==='customer'?<CustomerTab customer={data.customer}/>:<ExecutionTab execution={data.execution}/>}
   </section>;
 }

@@ -86,7 +86,7 @@ async function getDashboardData() {
     db.from('cafe24_products').select('external_product_no,product_name,price,selling,raw_data').order('updated_at', { ascending: false }).limit(100),
     db.from('sync_logs').select('id,platform,job_type,status,started_at,finished_at,rows_received,error_message,metadata').in('job_type', ['FETCH_ALL','FILE_IMPORT','RG_INVENTORY','RG_REALTIME']).order('started_at', { ascending: false }).limit(20),
     db.from('reports').select('id,platform,report_type,period_start,period_end,title,status,summary_json,version,supersedes_report_id,is_latest,revision_note,approved_at,approved_by,created_at').order('period_end', { ascending: false }).order('created_at',{ascending:false}).limit(80),
-    db.from('actions').select('id,platform,target_type,target_name,action_type,reason,status,decided_at,executed_at,review_after,priority,assignee,due_at,hold_reason,review_result').order('decided_at', { ascending: false }).limit(100),
+    db.from('actions').select('id,platform,target_type,target_id,target_name,action_type,reason,status,before_value,after_value,decided_at,executed_at,review_after,priority,assignee,due_at,hold_reason,review_result,created_at').order('decided_at', { ascending: false }).limit(100),
     db.from('master_products').select('id,name,selling_price,is_active').order('updated_at',{ascending:false}).limit(200),
     db.from('channel_products').select('id,master_product_id,platform,external_product_id,external_product_name,selling_price,is_active,match_method,match_confidence,matched_at,matched_by').order('updated_at',{ascending:false}).limit(500),
     db.from('naver_campaigns').select('ncc_campaign_id,name,campaign_type,status,user_lock'),
@@ -395,6 +395,7 @@ async function getDashboardData() {
     experiments:phase7ExperimentsResult.data||[],
     financialChanges:phase7ChangesResult.data||[],
     financialAudits:phase7AuditsResult.data||[],
+    automationRuns:automationResult.data||[],
     asOf:generatedAt
   });
   const dataHealth = dataHealthModule.buildDataHealth({

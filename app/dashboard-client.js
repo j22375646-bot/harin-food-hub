@@ -150,7 +150,7 @@ export default function Dashboard({ initialData, initialState }) {
       <div className="brand"><span className="brandMark">H</span><div><b>하린식품</b><small>광고·매출 통합 관리 허브</small></div></div>
       <div className="headerActions"><span className="live"><i /> Cafe24 연결됨</span><button className="syncButton" onClick={runSync} disabled={syncing}>{syncing ? '동기화 중…' : '지금 동기화'}</button><form action="/api/dashboard/logout" method="post"><button className="logoutButton" type="submit">나가기</button></form></div>
     </header>
-    <nav className="desktopSidebar" aria-label="허브 메뉴"><div className="sidebarPhase"><span>현재 개발</span><b>7단계 · 고객·실행 검증</b></div>{nav.map(item=><button key={item.id} className={view===item.id?'active':''} onClick={()=>openView(item.id)}><i>{item.icon}</i><span><b>{item.label}</b><small>{item.description}</small></span></button>)}</nav>
+    <nav className="desktopSidebar" aria-label="허브 메뉴"><div className="sidebarPhase"><span>현재 개발</span><b>8단계 · 데이터·자동 검증</b></div>{nav.map(item=><button key={item.id} className={view===item.id?'active':''} onClick={()=>openView(item.id)}><i>{item.icon}</i><span><b>{item.label}</b><small>{item.description}</small></span></button>)}</nav>
     <main className="hubMain">
       <details className="mobileMoreMenu"><summary>전체 기능 열기 <span>{nav.find(item=>item.id===view)?.label}</span></summary><div>{nav.map(item=><button key={item.id} className={view===item.id?'active':''} onClick={()=>openView(item.id)}>{item.label}</button>)}</div></details>
       <section className="platformSwitch" aria-label="플랫폼 선택">
