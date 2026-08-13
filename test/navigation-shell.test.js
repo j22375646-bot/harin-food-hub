@@ -8,6 +8,8 @@ const path = require('node:path');
 const client=fs.readFileSync(path.join(__dirname,'..','app','dashboard-client.js'),'utf8');
 const styles=fs.readFileSync(path.join(__dirname,'..','app','globals.css'),'utf8');
 const validation=fs.readFileSync(path.join(__dirname,'..','app','customer-retention-validation-center.js'),'utf8');
+const page=fs.readFileSync(path.join(__dirname,'..','app','page.js'),'utf8');
+const loading=fs.readFileSync(path.join(__dirname,'..','app','loading.js'),'utf8');
 
 test('desktop navigation includes grouped expansion, menu search, badges, and breadcrumbs', () => {
   assert.match(client,/function SidebarMenu/);
@@ -19,16 +21,29 @@ test('desktop navigation includes grouped expansion, menu search, badges, and br
   assert.match(styles,/\.hubBreadcrumb/);
 });
 
-test('history navigation also restores the active sidebar group', () => {
+test('Next route navigation restores the active sidebar group and prefetches destinations', () => {
   assert.match(client,/window\.addEventListener\('popstate',syncFromAddress\)/);
   assert.match(client,/setOpenNavGroup\(hubRoutesModule\.groupForView\(next\.view\)\)/);
-  assert.match(client,/window\.history\[replace\|\|current===href\?'replaceState':'pushState'\]/);
+  assert.match(client,/router\[replace\|\|current===href\?'replace':'push'\]\(href,\{scroll:false\}\)/);
+  assert.match(client,/router\.prefetch\(hubRoutesModule\.buildHubHref/);
 });
 
 test('mobile all-functions menu keeps the same groups and closes after selection', () => {
   assert.match(client,/function MobileMoreMenu/);
+  assert.match(client,/\['main','orders','inventory','notifications'\]/);
+  assert.match(client,/>더보기<\/span>/);
   assert.match(client,/closest\('details'\)\?\.removeAttribute\('open'\)/);
+  assert.match(styles,/grid-template-columns:repeat\(5,1fr\)/);
   assert.match(styles,/\.mobileGroupedMenu>section>div/);
+});
+
+test('phase 10-6 scopes database tables per page and shows useful loading feedback', () => {
+  assert.match(page,/const VIEW_TABLES =/);
+  assert.match(page,/function databaseForView\(db, view\)/);
+  assert.match(page,/loadedView:view/);
+  assert.match(client,/viewIsLoading/);
+  assert.match(client,/dynamic\(\(\)=>import\('\.\/product-growth-center\.js'\)\)/);
+  assert.match(loading,/Loading/);
 });
 
 test('main renders only the all-channel command center and links channel details to work pages', () => {
@@ -54,8 +69,8 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
   assert.match(styles,/Phase 10-4 — orders, CS, inventory and settlement are independent work pages/);
 });
 
-test('phase 10-5 separates execution validation and A/B tests', () => {
-  assert.match(client,/10-5단계 · 분석·실행 정리/);
+test('phase 10-6 keeps the separated execution validation and A/B tests', () => {
+  assert.match(client,/10-6단계 · 모바일·속도 검수/);
   assert.match(client,/view==='validation' && \(<CustomerRetentionValidationCenter/);
   assert.match(client,/view==='experiments' && <ExperimentLab/);
   assert.doesNotMatch(client,/phase7LegacyLab/);

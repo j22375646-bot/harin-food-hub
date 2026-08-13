@@ -65,8 +65,59 @@ function exchangeCaseView(item) {
   };
 }
 
-async function getDashboardData() {
-  const db = supabaseModule.getSupabase();
+const SHELL_TABLES = ['sync_logs','alerts'];
+const VIEW_TABLES = {
+  main:[
+    'cafe24_orders','cafe24_order_items','cafe24_traffic_daily','cafe24_referrers_daily','cafe24_products',
+    'reports','actions','master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_stats_daily',
+    'automation_runs','data_quality_checks','action_evaluations','platform_events','product_costs','channel_cost_settings','channel_shipping_rules',
+    'coupang_products','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_inventory','coupang_sync_requests',
+    'coupang_rg_orders','coupang_item_inventory','coupang_product_items','coupang_rg_order_items','coupang_cost_transactions',
+    'coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily',
+    'naver_keyword_stats','coupang_ad_keyword_daily','business_targets','budget_snapshots'
+  ],
+  orders:['coupang_orders','coupang_order_items','coupang_rg_orders'],
+  cs:['coupang_returns','coupang_exchanges','coupang_inquiries'],
+  inventory:['coupang_products','coupang_rg_inventory','coupang_item_inventory','coupang_product_items'],
+  settlement:['coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_orders','coupang_rg_order_items','coupang_settlement_summaries','coupang_promotion_budgets','coupang_product_items','coupang_cost_transactions','coupang_cost_imports','channel_cost_settings','channel_shipping_rules'],
+  collection:['cafe24_products','automation_runs','data_quality_checks','coupang_sync_requests','coupang_products','coupang_api_capabilities'],
+  insight:['cafe24_orders','cafe24_order_items','cafe24_traffic_daily','cafe24_referrers_daily','reports','actions','platform_events','master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_stats_daily','naver_keyword_stats','product_costs','channel_cost_settings','channel_shipping_rules','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_inventory','coupang_rg_orders','coupang_product_items','coupang_rg_order_items','coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily','coupang_ad_keyword_daily'],
+  keyword:['master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_stats_daily','naver_keyword_stats','product_detail_checklists','product_costs','channel_cost_settings','channel_shipping_rules','coupang_products','coupang_rg_inventory','coupang_item_inventory','coupang_product_items','coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily','coupang_ad_keyword_daily'],
+  product:['cafe24_orders','cafe24_order_items','cafe24_products','master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_keyword_stats','product_costs','channel_cost_settings','channel_shipping_rules','product_mapping_history','product_detail_checklists','coupang_products','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_inventory','coupang_item_inventory','coupang_product_items','coupang_rg_orders','coupang_rg_order_items','coupang_cost_transactions','coupang_ad_keyword_daily'],
+  reports:['reports','actions','action_evaluations','product_costs','channel_cost_settings','channel_shipping_rules'],
+  changes:[],
+  validation:['cafe24_orders','cafe24_order_items','cafe24_referrers_daily','reports','actions','action_evaluations','automation_runs','financial_change_requests','financial_change_audit_logs','ab_tests'],
+  experiments:[],
+  notifications:['reports']
+};
+
+function emptySupabaseQuery() {
+  const result={ data:[], error:null, count:0, status:200, statusText:'OK', scopedOut:true };
+  let query;
+  query=new Proxy(()=>query,{
+    get(_target,key){
+      if(key==='then')return (resolve,reject)=>Promise.resolve(result).then(resolve,reject);
+      return query;
+    },
+    apply(){return query;}
+  });
+  return query;
+}
+
+function databaseForView(db, view) {
+  const allowed=new Set([...SHELL_TABLES,...(VIEW_TABLES[view]||VIEW_TABLES.main)]);
+  return new Proxy(db,{
+    get(target,key){
+      if(key==='from')return table=>allowed.has(table)?target.from(table):emptySupabaseQuery();
+      const value=target[key];
+      return typeof value==='function'?value.bind(target):value;
+    }
+  });
+}
+
+async function getDashboardData(state) {
+  const view=state?.view||'main';
+  const db = databaseForView(supabaseModule.getSupabase(), view);
   const pacingPromise = pacingService.buildPacingDashboard({ db }).catch(error => {
     console.error('[dashboard] pacing unavailable', error);
     return { status:'NO_DATA', channels:[], reasons:['목표 진행률을 불러오지 못했습니다.'] };
@@ -487,6 +538,7 @@ async function getDashboardData() {
     })
   ];
   return {
+    loadedView:view,
     generatedAt,
     dataHealth,
     metricSnapshots,
@@ -598,7 +650,7 @@ export default async function Home({ searchParams }) {
   const currentUser = await authModule.validateSession(cookieStore.get(authModule.COOKIE_NAME)?.value).catch(()=>null);
   if (!currentUser) redirect('/login');
   try {
-    return <Dashboard initialData={await getDashboardData()} initialState={initialState} />;
+    return <Dashboard initialData={await getDashboardData(initialState)} initialState={initialState} />;
   } catch (error) {
     return <Dashboard initialData={{ error: error.message }} initialState={initialState} />;
   }

@@ -320,6 +320,28 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .mobileGroupedMenu button{position:relative}
 .mobileGroupedMenu button>em{display:inline-grid;min-width:20px;height:20px;margin-left:6px;place-items:center;border-radius:99px;background:#d84a43;color:#fff;padding:0 5px;font-size:11px;font-style:normal}
 
+/* Phase 10-6: fast route feedback and five-slot mobile navigation */
+.viewLoadingOverlay{position:fixed;z-index:30;top:78px;right:0;bottom:0;left:224px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;background:rgba(247,248,250,.94);backdrop-filter:blur(5px)}
+.viewLoadingOverlay .loadingMark{display:grid;width:46px;height:46px;place-items:center;border-radius:14px;background:#202936;color:#fff;font-size:20px;font-weight:900;animation:hubLoadingPulse 1s ease-in-out infinite alternate}
+.viewLoadingOverlay b{font-size:18px}.viewLoadingOverlay small{color:#747d88;font-size:13px}
+@keyframes hubLoadingPulse{to{transform:translateY(-3px);box-shadow:0 12px 24px rgba(31,40,53,.2)}}
+
+@media(max-width:900px){
+  .mobileBottomNav{grid-template-columns:repeat(5,1fr);height:78px}
+  .mobileBottomNav>.mobileMoreMenu{display:block;position:relative;margin:0;border:0;border-radius:10px;background:transparent}
+  .mobileBottomNav>.mobileMoreMenu>summary{display:flex;min-height:58px;align-items:center;justify-content:center;flex-direction:column;gap:3px;border-radius:10px;padding:0;color:#7b818b;font-size:13px;font-weight:800;cursor:pointer;list-style:none}
+  .mobileBottomNav>.mobileMoreMenu>summary::-webkit-details-marker{display:none}
+  .mobileBottomNav>.mobileMoreMenu>summary i{font-size:17px;font-style:normal;line-height:1}
+  .mobileBottomNav>.mobileMoreMenu.active>summary,.mobileBottomNav>.mobileMoreMenu[open]>summary{background:#eef1f5;color:#171b22}
+  .mobileBottomNav>.mobileMoreMenu>.mobileGroupedMenu{position:fixed;z-index:45;right:10px;bottom:calc(82px + env(safe-area-inset-bottom));left:10px;display:flex;max-height:min(68vh,620px);overflow-y:auto;gap:13px;border:1px solid #dfe3e8;border-radius:18px;background:#fff;padding:16px;box-shadow:0 -12px 38px rgba(29,36,47,.18)}
+  .mobileBottomNav>.mobileMoreMenu:not([open])>.mobileGroupedMenu{display:none}
+  .mobileBottomNav .mobileGroupedMenu button{min-height:48px;border:0;border-radius:10px;background:#f4f5f7;color:#59606a;font-size:14px;font-weight:800}
+  .mobileBottomNav .mobileGroupedMenu button.active{background:#20242c;color:#fff}
+  .viewLoadingOverlay{top:72px;left:0;padding:24px;text-align:center}
+}
+
+@media(prefers-reduced-motion:reduce){.viewLoadingOverlay .loadingMark{animation:none}}
+
 @media(max-width:1180px) and (min-width:901px){
   .desktopSidebar nav .sidebarGroupButton{grid-template-columns:36px minmax(0,1fr) auto 17px;gap:7px;padding-inline:7px}
   .desktopSidebar nav .sidebarGroupButton>i{width:36px;height:36px}

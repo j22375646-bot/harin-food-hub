@@ -1,12 +1,16 @@
 ﻿'use client';
 
+import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import reportVersioning from '../lib/reports/versioning.js';
 import { COUPANG_SECTION_HELP, getHubHelp } from '../lib/ui/help-content.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
-import ProductGrowthCenter from './product-growth-center.js';
-import MarketingDiagnosisCenter, { MarketingInsightSummary } from './marketing-diagnosis-center.js';
-import CustomerRetentionValidationCenter from './customer-retention-validation-center.js';
+
+const ProductGrowthCenter=dynamic(()=>import('./product-growth-center.js'));
+const MarketingDiagnosisCenter=dynamic(()=>import('./marketing-diagnosis-center.js'));
+const MarketingInsightSummary=dynamic(()=>import('./marketing-diagnosis-center.js').then(module=>module.MarketingInsightSummary));
+const CustomerRetentionValidationCenter=dynamic(()=>import('./customer-retention-validation-center.js'));
 
 const won = value => `${Math.round(Number(value || 0)).toLocaleString('ko-KR')}원`;
 const count = value => Number(value || 0).toLocaleString('ko-KR');
@@ -103,24 +107,25 @@ function MetricProvenanceStrip({ snapshots=[] }) {
   return <section className="metricProvenance" aria-label="핵심 지표 출처와 상태"><div className="metricProvenanceTitle"><b>핵심 지표 신뢰도</b><span>출처 · 기준시각 · 계산식 버전</span></div><div className="metricProvenanceGrid">{snapshots.map(metric=><article key={metric.id} className={`metricSnapshot ${String(metric.status||'NO_DATA').toLowerCase()}`}><div><b>{metric.label}</b><em>{metricStatusLabel[metric.status]||metric.status}</em></div><p>{(metric.source||[]).map(item=>`${item.platform} · ${item.dataset}`).join(' + ')}</p><small>{metric.as_of?`${dateTime(metric.as_of)} 기준`:'기준시각 없음'} · {metric.formula?.version||'버전 없음'}</small></article>)}</div></section>;
 }
 
-function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onOpenView }) {
+function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onOpenView, onPrefetch }) {
   const hasQuery=Boolean(query.trim());
   const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(query.trim().toLowerCase()))})).filter(group=>group.items.length);
   return <aside className="desktopSidebar" aria-label="허브 사이드바">
-    <div className="sidebarPhase"><span>현재 개발</span><b>10-5단계 · 분석·실행 정리</b></div>
+    <div className="sidebarPhase"><span>현재 개발</span><b>10-6단계 · 모바일·속도 검수</b></div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true">⌕</i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴 이름 찾기" /></label>
     <nav aria-label="허브 메뉴">
       {visible.map(group=>{const expanded=hasQuery||openGroup===group.id;return <section className={`sidebarGroup${expanded?' expanded':''}`} key={group.id}>
         <button type="button" className="sidebarGroupButton" aria-expanded={expanded} aria-controls={`sidebar-group-${group.id}`} onClick={()=>onOpenGroup(group.id)}><i>{group.icon}</i><span><b>{group.label}</b><small>{group.description}</small></span>{group.actionCount>0?<em aria-label={`확인할 항목 ${group.actionCount}개`}>{group.actionCount}</em>:null}<strong aria-hidden="true">{expanded?'−':'+'}</strong></button>
-        {expanded?<div className="sidebarItems" id={`sidebar-group-${group.id}`}>{group.items.map(item=><button type="button" key={item.id} className={`sidebarItem${view===item.id?' active':''}`} aria-current={view===item.id?'page':undefined} onClick={()=>onOpenView(item.id)}><i>{item.icon}</i><span><b>{item.label}</b><small>{item.description}</small></span>{item.badge>0?<em aria-label={`확인할 항목 ${item.badge}개`}>{item.badge}</em>:null}</button>)}</div>:null}
+        {expanded?<div className="sidebarItems" id={`sidebar-group-${group.id}`}>{group.items.map(item=><button type="button" key={item.id} className={`sidebarItem${view===item.id?' active':''}`} aria-current={view===item.id?'page':undefined} onPointerEnter={()=>onPrefetch(item.id)} onFocus={()=>onPrefetch(item.id)} onClick={()=>onOpenView(item.id)}><i>{item.icon}</i><span><b>{item.label}</b><small>{item.description}</small></span>{item.badge>0?<em aria-label={`확인할 항목 ${item.badge}개`}>{item.badge}</em>:null}</button>)}</div>:null}
       </section>})}
       {!visible.length?<p className="sidebarNoResult">찾는 메뉴가 없습니다.</p>:null}
     </nav>
   </aside>;
 }
 
-function MobileMoreMenu({ groups, view, currentLabel, onOpenView }) {
-  return <details className="mobileMoreMenu"><summary>전체 기능 열기 <span>{currentLabel}</span></summary><div className="mobileGroupedMenu">{groups.map(group=><section key={group.id}><b>{group.label}</b><div>{group.items.map(item=><button type="button" key={item.id} className={view===item.id?'active':''} onClick={event=>{onOpenView(item.id);event.currentTarget.closest('details')?.removeAttribute('open');}}>{item.label}{item.badge>0?<em>{item.badge}</em>:null}</button>)}</div></section>)}</div></details>;
+function MobileMoreMenu({ groups, view, onOpenView, onPrefetch }) {
+  const primary=new Set(['main','orders','inventory','notifications']);
+  return <details className={`mobileMoreMenu${primary.has(view)?'':' active'}`}><summary aria-label="전체 메뉴 열기"><i aria-hidden="true">≡</i><span>더보기</span></summary><div className="mobileGroupedMenu">{groups.map(group=><section key={group.id}><b>{group.label}</b><div>{group.items.map(item=><button type="button" key={item.id} className={view===item.id?'active':''} onPointerEnter={()=>onPrefetch(item.id)} onFocus={()=>onPrefetch(item.id)} onClick={event=>{onOpenView(item.id);event.currentTarget.closest('details')?.removeAttribute('open');}}>{item.label}{item.badge>0?<em>{item.badge}</em>:null}</button>)}</div></section>)}</div></details>;
 }
 
 function BreadcrumbBar({ context, refreshedAt }) {
@@ -128,6 +133,7 @@ function BreadcrumbBar({ context, refreshedAt }) {
 }
 
 export default function Dashboard({ initialData, initialState }) {
+  const router=useRouter();
   const normalizedInitial=hubRoutesModule.normalizeHubState(initialState);
   const [mounted, setMounted] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -139,6 +145,11 @@ export default function Dashboard({ initialData, initialState }) {
   const [openNavGroup,setOpenNavGroup]=useState(hubRoutesModule.groupForView(normalizedInitial.view));
   const [navQuery,setNavQuery]=useState('');
   useEffect(() => setMounted(true), []);
+  useEffect(()=>{
+    const next=hubRoutesModule.normalizeHubState(initialState);
+    setView(next.view);setPlatform(next.platform);setSelectedProduct(next.product);setPeriod(next.period);
+    setOpenNavGroup(hubRoutesModule.groupForView(next.view));
+  },[initialState.view,initialState.platform,initialState.product,initialState.period]);
   useEffect(()=>{
     const syncFromAddress=()=>{
       const next=hubRoutesModule.parseHubHref(window.location.href);
@@ -171,25 +182,27 @@ export default function Dashboard({ initialData, initialState }) {
   const latestRefreshAt=syncs.find(item=>item.finished_at||item.started_at)?.finished_at||syncs.find(item=>item.finished_at||item.started_at)?.started_at||null;
   const selectedHealth=platform==='all'?null:initialData.dataHealth?.channels?.find(item=>item.platform===platform.toUpperCase());
   const channelUnavailable=Boolean(selectedHealth?.failedDatasets?.length);
+  const viewIsLoading=Boolean(initialData.loadedView&&view!==initialData.loadedView);
   function navigate(next={},replace=false){
     const state=hubRoutesModule.normalizeHubState({view,platform,product:selectedProduct,period,...next});
     setView(state.view);setPlatform(state.platform);setSelectedProduct(state.product);setPeriod(state.period);
     setOpenNavGroup(hubRoutesModule.groupForView(state.view));
     const href=hubRoutesModule.buildHubHref(state);
     const current=`${window.location.pathname}${window.location.search}`;
-    window.history[replace||current===href?'replaceState':'pushState'](null,'',href);
+    router[replace||current===href?'replace':'push'](href,{scroll:false});
   }
   const openView=id=>navigate({view:id,product:'ALL',period:'DAY'});
   const selectPlatform=id=>navigate({platform:id,product:id==='coupang'?selectedProduct:'ALL'},true);
+  const prefetchView=id=>router.prefetch(hubRoutesModule.buildHubHref({view:id,platform:'all',product:'ALL',period:'DAY'}));
 
   return <div className="shell">
     <header className="topbar">
       <div className="brand"><span className="brandMark">H</span><div><b>하린식품</b><small>광고·매출 통합 관리 허브</small></div></div>
       <div className="headerActions"><span className="live"><i /> Cafe24 연결됨</span><button className="syncButton" onClick={runSync} disabled={syncing}>{syncing ? '동기화 중…' : '지금 동기화'}</button><form action="/api/dashboard/logout" method="post"><button className="logoutButton" type="submit">나가기</button></form></div>
     </header>
-    <SidebarMenu groups={navGroups} view={view} openGroup={openNavGroup} query={navQuery} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onOpenView={openView}/>
+    <SidebarMenu groups={navGroups} view={view} openGroup={openNavGroup} query={navQuery} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onOpenView={openView} onPrefetch={prefetchView}/>
     <main className="hubMain">
-      <MobileMoreMenu groups={navGroups} view={view} currentLabel={nav.find(item=>item.id===view)?.label} onOpenView={openView}/>
+      {viewIsLoading?<section className="viewLoadingOverlay" role="status"><span className="loadingMark">H</span><b>{nav.find(item=>item.id===view)?.label} 화면을 여는 중이에요…</b><small>이 화면에 필요한 자료만 불러오고 있습니다.</small></section>:null}
       <BreadcrumbBar context={navContext} refreshedAt={latestRefreshAt}/>
       {channelScopedViews.has(view)&&<section className="platformSwitch" aria-label="플랫폼 선택">
         {[['all','allDot','전체'],['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡'],['cafe24','cafeDot','Cafe24']].map(([id,dot,label])=><button key={id} className={platform===id?'selected':''} onClick={()=>selectPlatform(id)}><i className={dot}/>{label}</button>)}
@@ -222,7 +235,7 @@ export default function Dashboard({ initialData, initialState }) {
       {view==='experiments' && <ExperimentLab />}
       {view==='notifications' && <NotificationCenter reports={reports} />}
     </main>
-    <nav className="mobileBottomNav" aria-label="모바일 주요 메뉴">{['main','orders','inventory','notifications'].map(id=>nav.find(item=>item.id===id)).map(item=><button className={view===item.id?'active':''} onClick={()=>openView(item.id)} key={item.id}><i>{item.icon}</i><span>{item.id==='notifications'?'알림':item.label}</span></button>)}</nav>
+    <nav className="mobileBottomNav" aria-label="모바일 주요 메뉴">{['main','orders','inventory','notifications'].map(id=>nav.find(item=>item.id===id)).map(item=><button className={view===item.id?'active':''} onPointerEnter={()=>prefetchView(item.id)} onFocus={()=>prefetchView(item.id)} onClick={()=>openView(item.id)} key={item.id}><i>{item.icon}</i><span>{item.id==='notifications'?'알림':item.label}</span></button>)}<MobileMoreMenu groups={navGroups} view={view} onOpenView={openView} onPrefetch={prefetchView}/></nav>
     <footer>하린식품 광고·매출 통합 관리 허브 <span>·</span> 네이버 + 쿠팡 + Cafe24 + Supabase</footer>
   </div>;
 }
