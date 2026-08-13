@@ -13,12 +13,78 @@ function ChannelState({ channel }) {
   return <span className={`unifiedChannelState ${String(channel.status||'').toLowerCase()}`}><i/><b>{CHANNEL_LABELS[channel.platform]}</b><em>{label}</em><small>{channel.message}</small></span>;
 }
 
-function OrderCard({ order }) {
+function OrderCard({ order, selected, onSelect }) {
   return <article className={`unifiedOrderCard${order.cancellationRequested?' cancelWarning':''}`}>
     {order.cancellationRequested?<div className="orderCancelWarning"><b>출고 멈춤 · 취소/반품 요청 확인</b><span>출고 전에 해당 쇼핑몰에서 요청 상태를 먼저 확인하세요.</span></div>:null}
-    <header><div><span className={`channelBadge ${order.platform.toLowerCase()}`}>{order.channelLabel}</span>{order.fulfillment==='ROCKET_GROWTH'?<span className="fulfillmentBadge">로켓그로스</span>:null}<strong>{STAGE_LABELS[order.stage]||'상태 확인'}</strong></div><b>{money(order.amount)}</b></header>
+    <header><div><label className={`shippingSelect${order.shippingEligible?'':' blocked'}`} title={order.shippingBlockedReason||'포장·배송 작업에 선택'}><input type="checkbox" checked={selected} disabled={!order.shippingEligible} onChange={event=>onSelect(order,event.target.checked)}/><span>{order.shippingEligible?'작업 선택':'선택 불가'}</span></label><span className={`channelBadge ${order.platform.toLowerCase()}`}>{order.channelLabel}</span>{order.fulfillment==='ROCKET_GROWTH'?<span className="fulfillmentBadge">로켓그로스</span>:null}<strong>{STAGE_LABELS[order.stage]||'상태 확인'}</strong></div><b>{money(order.amount)}</b></header>
     <section><div><span>허브 주문번호</span><b>{order.hubOrderId}</b></div><div><span>쇼핑몰 주문번호</span><b>{order.externalOrderId}</b></div><div><span>주문 시각</span><b>{dateTime(order.orderedAt)}</b></div></section>
-    <div className="unifiedOrderProduct"><span><b>{order.productName}</b><small>{order.items?.length?order.items.map(item=>`${item.name}${item.option?` (${item.option})`:''} × ${count(item.quantity)}`).join(' · '):'상품 상세는 다음 수집 때 자동으로 채워집니다.'}</small></span><strong>{order.quantity?`${count(order.quantity)}개`:'-'}</strong></div>
+    <div className="unifiedOrderProduct"><span><b>{order.productName}</b><small>{order.items?.length?order.items.map(item=>`${item.name}${item.option?` (${item.option})`:''} × ${count(item.quantity)}`).join(' · '):'상품 상세는 다음 수집 때 자동으로 채워집니다.'}</small><em>{(order.packagingInstructions||[]).join(' · ')}</em></span><strong>{order.quantity?`${count(order.quantity)}개`:'-'}</strong></div>
+  </article>;
+}
+
+const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
+async function coupangDetail(order) {
+  const queued=await fetch(`/api/coupang/orders/detail?shipmentBoxId=${encodeURIComponent(order.shipmentId)}`).then(response=>response.json().then(data=>({status:response.status,data})));
+  if(!queued.data?.ok)throw new Error(queued.data?.error||'쿠팡 상세 조회 요청 실패');
+  const id=queued.data.request?.id;
+  if(!id)throw new Error('쿠팡 상세 조회 번호가 없습니다.');
+  for(let attempt=0;attempt<25;attempt+=1){
+    await wait(1200);
+    const response=await fetch(`/api/coupang/operations/${encodeURIComponent(id)}`);
+    const result=await response.json();
+    if(response.status===202)continue;
+    if(!response.ok||!result.ok)throw new Error(result.error||'쿠팡 상세 조회 실패');
+    return result.order;
+  }
+  throw new Error('고정 IP 서버 응답이 늦습니다. 잠시 뒤 다시 눌러주세요.');
+}
+
+function ShippingWorkbench({ orders, selectedIds, setSelectedIds }) {
+  const selected=orders.filter(order=>selectedIds.has(order.hubOrderId));
+  const [invoices,setInvoices]=useState({});
+  const [coupangCourier,setCoupangCourier]=useState('CJGLS');
+  const [cafe24Courier,setCafe24Courier]=useState('');
+  const [message,setMessage]=useState('');
+  const [busy,setBusy]=useState('');
+  const [liveCandidates,setLiveCandidates]=useState([]);
+  const storedCandidates=useMemo(()=>{
+    const groups=new Map();
+    selected.forEach(order=>{if(order.shippingCandidateKey){const rows=groups.get(order.shippingCandidateKey)||[];rows.push(order);groups.set(order.shippingCandidateKey,rows);}});
+    return [...groups.values()].filter(rows=>rows.length>1).map(rows=>rows.map(order=>order.hubOrderId));
+  },[selected]);
+  const printIds=selected.map(order=>order.hubOrderId).join(',');
+  async function run(action){
+    if(!selected.length)return setMessage('먼저 아래 주문에서 ‘작업 선택’을 눌러주세요.');
+    const label=action==='PREPARE'?'상품준비중으로 변경':'송장을 각 쇼핑몰에 전송';
+    if(!window.confirm(`선택 ${selected.length}건을 ${label}할까요?\n실제 쇼핑몰 주문이 변경됩니다.`))return;
+    const rows=selected.map(order=>({hubOrderId:order.hubOrderId,invoiceNumber:invoices[order.hubOrderId]||'',deliveryCompanyCode:order.platform==='COUPANG'?coupangCourier:cafe24Courier}));
+    setBusy(action);setMessage('채널별로 안전하게 처리 중입니다…');
+    try{
+      const response=await fetch('/api/shipping/actions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:true,action,orders:rows})});
+      const result=await response.json();
+      setMessage(`완료 ${result.succeeded||0}건 · 확인 필요 ${result.failed||0}건${result.results?.filter(item=>!item.ok).length?` · ${result.results.filter(item=>!item.ok).map(item=>`${item.hubOrderId}: ${item.error}`).join(' / ')}`:''}`);
+      if(result.succeeded)setSelectedIds(new Set());
+    }catch(error){setMessage(`처리 실패 · ${error.message}`);}finally{setBusy('');}
+  }
+  async function findCandidates(){
+    const targets=selected.filter(order=>order.platform==='COUPANG').slice(0,10);
+    if(!targets.length){setLiveCandidates([]);setMessage('선택한 쿠팡 주문이 없습니다. Cafe24 후보는 아래에 바로 표시됩니다.');return;}
+    setBusy('CANDIDATES');setMessage(`쿠팡 ${targets.length}건의 수령지를 서울 고정 IP로 확인 중입니다…`);
+    try{
+      const details=await Promise.all(targets.map(async order=>({order,detail:await coupangDetail(order)})));
+      const groups=new Map();
+      details.forEach(({order,detail})=>{const receiver=detail.receiver||{};const key=[receiver.name,receiver.postCode,receiver.address,receiver.addressDetail].map(value=>String(value||'').replace(/\s+/g,'').toLowerCase()).join('|');if(!receiver.name||!receiver.postCode||!receiver.address)return;const rows=groups.get(key)||[];rows.push(order.hubOrderId);groups.set(key,rows);});
+      const candidates=[...groups.values()].filter(rows=>rows.length>1);
+      setLiveCandidates(candidates);setMessage(candidates.length?`쿠팡 묶음배송 후보 ${candidates.length}묶음을 찾았습니다. 자동 합배송되지 않습니다.`:'같은 수령지로 확인되는 쿠팡 주문이 없습니다.');
+    }catch(error){setMessage(`후보 확인 실패 · ${error.message}`);}finally{setBusy('');}
+  }
+  return <article className="shippingWorkbench">
+    <header><div><span>PHASE 11-3 · PACK & SHIP</span><h2>포장·배송 작업대</h2><p>아래 주문을 선택한 뒤 상품준비중 처리, 포장명세서, 송장 전송을 한 번에 진행합니다.</p></div><b>{selected.length}건 선택</b></header>
+    <details className="shippingHelp"><summary><b>이 작업대는 어떻게 쓰나요?</b><em>열기</em></summary><div><p><strong>1.</strong> 출고할 주문의 ‘작업 선택’을 누르세요.</p><p><strong>2.</strong> 먼저 상품준비중으로 바꾸고 포장명세서를 인쇄하세요.</p><p><strong>3.</strong> 포장이 끝나면 주문별 송장번호와 채널 배송사 코드를 넣고 전송하세요.</p><p><strong>예시:</strong> 같은 주소 주문이 2건이어도 쿠팡 정책을 확인하기 전에는 자동으로 합치지 않습니다.</p></div></details>
+    <div className="shippingActions"><button onClick={()=>run('PREPARE')} disabled={Boolean(busy)||!selected.length}>{busy==='PREPARE'?'처리 중…':'선택 주문 상품준비중'}</button><a className={!selected.length?'disabled':''} href={selected.length?`/api/shipping/print?type=packing&ids=${encodeURIComponent(printIds)}`:'#'} target="_blank" rel="noreferrer">포장명세서</a><a className={!selected.length?'disabled':''} href={selected.length?`/api/shipping/print?type=dispatch&ids=${encodeURIComponent(printIds)}`:'#'} target="_blank" rel="noreferrer">출고목록 PDF</a><button className="secondary" onClick={findCandidates} disabled={Boolean(busy)||!selected.length}>{busy==='CANDIDATES'?'주소 확인 중…':'묶음배송 후보 찾기'}</button></div>
+    {(storedCandidates.length||liveCandidates.length)?<div className="shippingCandidates"><b>묶음배송 후보 · 자동 합배송 안 함</b>{[...storedCandidates,...liveCandidates].map((rows,index)=><span key={`${rows.join('-')}-${index}`}>{rows.length}건 · {rows.join(' · ')}</span>)}</div>:null}
+    {selected.length?<section className="invoiceWorkbench"><header><div><b>송장번호 직접 일괄 입력</b><small>쿠팡과 Cafe24는 배송사 코드 체계가 달라 각각 입력합니다.</small></div><label><span>쿠팡 배송사 코드</span><input value={coupangCourier} onChange={event=>setCoupangCourier(event.target.value.toUpperCase())} placeholder="예: CJGLS"/></label><label><span>Cafe24 배송사 코드</span><input value={cafe24Courier} onChange={event=>setCafe24Courier(event.target.value.toUpperCase())} placeholder="관리자 배송업체 코드"/></label></header><div>{selected.map(order=><label key={order.hubOrderId}><span><b>{order.hubOrderId}</b><small>{order.channelLabel} · {order.productName}</small></span><input value={invoices[order.hubOrderId]||''} onChange={event=>setInvoices({...invoices,[order.hubOrderId]:event.target.value.trim()})} placeholder="송장번호 입력"/></label>)}</div><button onClick={()=>run('UPLOAD_INVOICE')} disabled={Boolean(busy)}>{busy==='UPLOAD_INVOICE'?'채널 전송 중…':'입력 송장 일괄 전송'}</button></section>:null}
+    {message?<p className="shippingMessage">{message}</p>:null}
   </article>;
 }
 
@@ -29,6 +95,7 @@ export default function UnifiedOrdersCenter({ center, children }) {
   const [startDate,setStartDate]=useState('');
   const [endDate,setEndDate]=useState('');
   const [actionOnly,setActionOnly]=useState(false);
+  const [selectedIds,setSelectedIds]=useState(()=>new Set());
   const visible=useMemo(()=>center.orders.filter(order=>{
     const needle=query.trim().toLowerCase();
     if(platform!=='ALL'&&order.platform!==platform)return false;
@@ -48,14 +115,16 @@ export default function UnifiedOrdersCenter({ center, children }) {
   if(endDate)exportParams.set('end',endDate);
   if(actionOnly)exportParams.set('action','1');
   const exportHref=`/api/orders/export${exportParams.size?`?${exportParams}`:''}`;
+  function selectOrder(order,checked){setSelectedIds(previous=>{const next=new Set(previous);if(checked)next.add(order.hubOrderId);else next.delete(order.hubOrderId);return next;});}
   return <section className="unifiedOrdersCenter">
-    <section className="unifiedOrdersHero"><div><span>PHASE 11-2 · UNIFIED ORDERS</span><h1>통합 주문센터</h1><p>네이버·쿠팡·Cafe24 주문을 한곳에서 보고, 오늘 출고할 주문부터 처리합니다.</p></div><div><small>지금 처리 필요</small><b>{count(center.summary.actionRequired)}건</b><em>전체 {count(center.summary.total)}건</em></div></section>
+    <section className="unifiedOrdersHero"><div><span>PHASE 11-3 · PACK & SHIP</span><h1>통합 주문·배송센터</h1><p>네이버·쿠팡·Cafe24 주문을 한곳에서 보고, 오늘 포장·출고할 주문을 안전하게 처리합니다.</p></div><div><small>지금 처리 필요</small><b>{count(center.summary.actionRequired)}건</b><em>전체 {count(center.summary.total)}건</em></div></section>
     <div className="unifiedChannelStates">{center.channels.map(channel=><ChannelState channel={channel} key={channel.platform}/>)}</div>
     <details className="unifiedOrdersHelp"><summary><span><b>이 화면은 어떻게 쓰나요?</b><small>처음 볼 때만 열어보세요. 쉬운 예시로 설명합니다.</small></span><em>열기</em></summary><div><p><b>1. 위 단계 박스</b>를 누르면 그 단계 주문만 보여요.</p><p><b>2. ‘처리 필요만’</b>을 켜면 포장·출고하거나 취소를 확인할 주문만 남아요.</p><p><b>예시:</b> 취소 경고가 붙은 주문은 송장을 넣기 전에 쇼핑몰에서 취소 요청부터 확인하세요.</p><p>채널 하나가 실패해도 정상 채널 주문은 계속 표시됩니다. 실패 채널은 위 상태 카드에서 따로 알려드립니다.</p></div></details>
     <article className="unifiedProcessPanel"><header><div><span>오늘의 주문 흐름</span><h2>단계를 누르면 바로 걸러집니다</h2></div><button className={stage==='ALL'?'active':''} onClick={()=>setStage('ALL')}>전체 {count(center.summary.total)}건</button></header><div className="unifiedOrderFlow">{center.stages.map((item,index)=><div key={item.id}><button className={stage===item.id?'active':''} onClick={()=>setStage(item.id)}><small>{index+1}. {item.label}</small><b>{count(center.stageCounts[item.id])}건</b><span>{item.description}</span></button>{index<center.stages.length-1?<i>→</i>:null}</div>)}</div></article>
     <article className="unifiedOrderToolbar"><div><label><span>채널</span><select value={platform} onChange={event=>setPlatform(event.target.value)}>{Object.entries(CHANNEL_LABELS).map(([id,label])=><option value={id} key={id}>{label}</option>)}</select></label><label><span>주문 상태</span><select value={stage} onChange={event=>setStage(event.target.value)}><option value="ALL">전체 상태</option>{center.stages.map(item=><option value={item.id} key={item.id}>{item.label}</option>)}</select></label><label className="orderSearch"><span>주문·상품 검색</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="허브번호·쇼핑몰번호·상품명"/></label><label><span>시작일</span><input type="date" value={startDate} onChange={event=>setStartDate(event.target.value)}/></label><label><span>종료일</span><input type="date" value={endDate} onChange={event=>setEndDate(event.target.value)}/></label></div><footer><label className="actionOnly"><input type="checkbox" checked={actionOnly} onChange={event=>setActionOnly(event.target.checked)}/><span>처리 필요만 보기</span></label><strong>{count(visible.length)}건 표시</strong><a href={exportHref}>엑셀 다운로드</a></footer></article>
+    <ShippingWorkbench orders={center.orders} selectedIds={selectedIds} setSelectedIds={setSelectedIds}/>
     {center.summary.cancellations?<div className="unifiedCancelSummary"><b>출고 전에 확인할 취소·반품 요청 {count(center.summary.cancellations)}건</b><span>아래 빨간 경고 주문은 먼저 요청 상태를 확인하세요.</span></div>:null}
-    <div className="unifiedOrderList">{visible.length?visible.map(order=><OrderCard order={order} key={`${order.platform}:${order.hubOrderId}`}/>):<div className="unifiedOrdersEmpty"><b>이 조건의 주문이 없습니다.</b><span>검색어나 기간을 지우고 다시 확인해보세요.</span></div>}</div>
+    <div className="unifiedOrderList">{visible.length?visible.map(order=><OrderCard order={order} selected={selectedIds.has(order.hubOrderId)} onSelect={selectOrder} key={`${order.platform}:${order.hubOrderId}`}/>):<div className="unifiedOrdersEmpty"><b>이 조건의 주문이 없습니다.</b><span>검색어나 기간을 지우고 다시 확인해보세요.</span></div>}</div>
     {children?<details className="legacyCoupangOrders"><summary><span><b>쿠팡 배송 처리 상세</b><small>상품준비중 처리·송장 입력 등 쿠팡 작업이 필요할 때 펼치세요.</small></span><em>열기</em></summary><div>{children}</div></details>:null}
   </section>;
 }

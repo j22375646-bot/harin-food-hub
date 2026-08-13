@@ -134,7 +134,7 @@ async function getDashboardData(state) {
   ].map(([platform,dataset])=>({platform,dataset}));
   const settledQueries = await Promise.allSettled([
     db.from('cafe24_orders').select('order_id,order_date,customer_id,payment_status,paid_amount,order_price,cancel_amount,raw_data').order('order_date', { ascending: false }).limit(10000),
-    db.from('cafe24_order_items').select('order_id,external_product_no,product_name,option_name,quantity,unit_price,paid_amount,raw_data').limit(10000),
+    db.from('cafe24_order_items').select('order_id,external_item_id,external_product_no,product_name,option_name,quantity,unit_price,paid_amount,raw_data').limit(10000),
     db.from('cafe24_traffic_daily').select('date,visitors,pageviews,source_status,raw_data').order('date', { ascending: true }).limit(31),
     db.from('cafe24_referrers_daily').select('date,source,visitors,orders,revenue').order('visitors', { ascending: false }).limit(500),
     db.from('cafe24_products').select('external_product_no,product_name,price,selling,raw_data').order('updated_at', { ascending: false }).limit(100),
