@@ -10,6 +10,7 @@ const styles=fs.readFileSync(path.join(__dirname,'..','app','globals.css'),'utf8
 const validation=fs.readFileSync(path.join(__dirname,'..','app','customer-retention-validation-center.js'),'utf8');
 const page=fs.readFileSync(path.join(__dirname,'..','app','page.js'),'utf8');
 const loading=fs.readFileSync(path.join(__dirname,'..','app','loading.js'),'utf8');
+const preferences=fs.readFileSync(path.join(__dirname,'..','app','use-hub-preference.js'),'utf8');
 
 test('desktop navigation includes grouped expansion, menu search, badges, and breadcrumbs', () => {
   assert.match(client,/function SidebarMenu/);
@@ -71,7 +72,7 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
 });
 
 test('phase 10-6 keeps the separated execution validation and A/B tests', () => {
-  assert.match(client,/10-6단계 · 모바일·속도 검수/);
+  assert.match(client,/10-7단계 · 화면 기억·글자 선택/);
   assert.match(client,/view==='validation' && \(<CustomerRetentionValidationCenter/);
   assert.match(client,/view==='experiments' && <ExperimentLab/);
   assert.doesNotMatch(client,/phase7LegacyLab/);
@@ -80,4 +81,14 @@ test('phase 10-6 keeps the separated execution validation and A/B tests', () => 
   assert.match(validation,/실행검증 화면 선택/);
   assert.doesNotMatch(validation,/진행 실험 자동평가/);
   assert.match(styles,/Phase 10-5 — analysis and execution pages use only relevant channel controls/);
+});
+
+test('phase 10-7 remembers reading scale, help state, and primary list filters', () => {
+  assert.match(preferences,/window\.localStorage/);
+  assert.match(client,/aria-label="허브 글자 크기"/);
+  assert.match(client,/useStoredState\(`help:/);
+  assert.match(client,/filter:orders-status/);
+  assert.match(client,/filter:inventory/);
+  assert.match(client,/filter:notifications/);
+  assert.match(styles,/data-font-scale="xlarge"/);
 });

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import reportVersioning from '../lib/reports/versioning.js';
 import { COUPANG_SECTION_HELP, getHubHelp } from '../lib/ui/help-content.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
+import { useStoredState } from './use-hub-preference.js';
 
 const ProductGrowthCenter=dynamic(()=>import('./product-growth-center.js'));
 const MarketingDiagnosisCenter=dynamic(()=>import('./marketing-diagnosis-center.js'));
@@ -46,9 +47,10 @@ function Kpi({ tone, icon, label, value, sub }) {
 function Empty({ children }) { return <div className="empty">{children}</div>; }
 function PanelTitle({ tag, title, right }) { return <div className="panelHead"><div><span className="sectionTag">{tag}</span><h2>{title}</h2></div>{right && <span className="period">{right}</span>}</div>; }
 
-function HelpBox({ help, compact=false }) {
+function HelpBox({ help, compact=false, persistKey }) {
+  const [open,setOpen]=useStoredState(`help:${persistKey||help?.title||'unknown'}`,false,[true,false]);
   if (!help) return null;
-  return <details className={`helpBox${compact?' compact':''}`}>
+  return <details className={`helpBox${compact?' compact':''}`} open={open} onToggle={event=>setOpen(event.currentTarget.open)}>
     <summary>
       <span className="helpBoxHeading"><i aria-hidden="true">?</i><span><b>도움말 · {help.title}</b><small>{help.summary}</small></span></span>
       <em><span className="helpOpenLabel">열기</span><span className="helpCloseLabel">접기</span></em>
@@ -112,7 +114,7 @@ function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onO
   const hasQuery=Boolean(query.trim());
   const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(query.trim().toLowerCase()))})).filter(group=>group.items.length);
   return <aside className="desktopSidebar" aria-label="허브 사이드바">
-    <div className="sidebarPhase"><span>현재 개발</span><b>10-6단계 · 모바일·속도 검수</b></div>
+    <div className="sidebarPhase"><span>현재 개발</span><b>10-7단계 · 화면 기억·글자 선택</b></div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true">⌕</i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴 이름 찾기" /></label>
     <nav aria-label="허브 메뉴">
       {visible.map(group=>{const expanded=hasQuery||openGroup===group.id;return <section className={`sidebarGroup${expanded?' expanded':''}`} key={group.id}>
@@ -145,7 +147,9 @@ export default function Dashboard({ initialData, initialState }) {
   const [period,setPeriod]=useState(normalizedInitial.period);
   const [openNavGroup,setOpenNavGroup]=useState(hubRoutesModule.groupForView(normalizedInitial.view));
   const [navQuery,setNavQuery]=useState('');
+  const [fontScale,setFontScale]=useStoredState('font-scale','large',['large','xlarge']);
   useEffect(() => setMounted(true), []);
+  useEffect(()=>{document.documentElement.dataset.fontScale=fontScale;},[fontScale]);
   useEffect(()=>{
     const next=hubRoutesModule.normalizeHubState(initialState);
     setView(next.view);setPlatform(next.platform);setSelectedProduct(next.product);setPeriod(next.period);
@@ -199,7 +203,7 @@ export default function Dashboard({ initialData, initialState }) {
   return <div className="shell">
     <header className="topbar">
       <div className="brand"><span className="brandMark">H</span><div><b>하린식품</b><small>광고·매출 통합 관리 허브</small></div></div>
-      <div className="headerActions"><span className="live"><i /> Cafe24 연결됨</span><button className="syncButton" onClick={runSync} disabled={syncing}>{syncing ? '동기화 중…' : '지금 동기화'}</button><form action="/api/dashboard/logout" method="post"><button className="logoutButton" type="submit">나가기</button></form></div>
+      <div className="headerActions"><span className="live"><i /> Cafe24 연결됨</span><label className="fontScaleControl"><span>글자</span><select aria-label="허브 글자 크기" value={fontScale} onChange={event=>setFontScale(event.target.value)}><option value="large">큰 글씨</option><option value="xlarge">더 큰 글씨</option></select></label><button className="syncButton" onClick={runSync} disabled={syncing}>{syncing ? '동기화 중…' : '지금 동기화'}</button><form action="/api/dashboard/logout" method="post"><button className="logoutButton" type="submit">나가기</button></form></div>
     </header>
     <SidebarMenu groups={navGroups} view={view} openGroup={openNavGroup} query={navQuery} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onOpenView={openView} onPrefetch={prefetchView}/>
     <main className="hubMain">
@@ -211,7 +215,7 @@ export default function Dashboard({ initialData, initialState }) {
       </section>}
       {view!=='main'&&<DataStateBar data={initialData}/>}
       <DataHealthNotice dataHealth={initialData.dataHealth} platform={platform}/>
-      <HelpBox key={view} help={getHubHelp(view)}/>
+      <HelpBox key={view} help={getHubHelp(view)} persistKey={view}/>
       {financialContextViews.has(view)&&<FinancialTrustBanner trust={initialData.financialTrust} onOpenProduct={()=>navigate({platform:'all',view:'product',product:'ALL'})}/>}
       {syncMessage && <div className="syncToast">{syncMessage}</div>}
 
@@ -360,7 +364,8 @@ function VersionedReportList({ reports }) {
 }
 
 function NotificationCenter({ reports }) {
-  const [data,setData]=useState(null),[form,setForm]=useState(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(''),[message,setMessage]=useState(''),[filter,setFilter]=useState('OPEN');
+  const [data,setData]=useState(null),[form,setForm]=useState(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(''),[message,setMessage]=useState('');
+  const [filter,setFilter]=useStoredState('filter:notifications','OPEN',['OPEN','ACKNOWLEDGED','RESOLVED','ALL']);
   async function load(){setLoading(true);try{const response=await fetch('/api/notifications/settings');const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'알림센터 조회 실패');setData(result);setForm(result.settings);}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setLoading(false);}}
   useEffect(()=>{load();},[]);
   async function save(event){event.preventDefault();setBusy('SAVE');setMessage('설정을 저장하는 중입니다.');try{const response=await fetch('/api/notifications/settings',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(form)});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'저장 실패');setForm(result.settings);setData(current=>({...current,settings:result.settings}));setMessage('알림 설정을 저장했습니다.');}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setBusy('');}}
@@ -790,7 +795,9 @@ function ProductMappingCandidate({ item, masterProducts, onMutate, working }) {
 
 function ProductMappingWorkbench({ mapping={}, masterProducts=[] }) {
   const summary=mapping.summary||{}, candidates=mapping.candidates||[], links=mapping.links||[];
-  const [platform,setPlatform]=useState('ALL'),[view,setView]=useState('CANDIDATES'),[working,setWorking]=useState(''),[message,setMessage]=useState('');
+  const [platform,setPlatform]=useStoredState('filter:product-mapping-platform','ALL',['ALL','NAVER','COUPANG']);
+  const [view,setView]=useStoredState('filter:product-mapping-view','CANDIDATES',['CANDIDATES','LINKED']);
+  const [working,setWorking]=useState(''),[message,setMessage]=useState('');
   const filteredCandidates=candidates.filter(item=>platform==='ALL'||item.platform===platform);
   const filteredLinks=links.filter(item=>platform==='ALL'||item.platform===platform);
   const masterNames=new Map(masterProducts.map(item=>[item.id,item.name]));
@@ -1003,7 +1010,9 @@ function CoupangCaseCard({ type, item }) {
 }
 
 function CoupangOrdersHub({ coupang }) {
-  const [view,setView]=useState('SELLER'); const [status,setStatus]=useState('ACTION'); const [query,setQuery]=useState('');
+  const [view,setView]=useStoredState('filter:orders-view','SELLER',['SELLER','RG']);
+  const [status,setStatus]=useStoredState('filter:orders-status','ACTION',['ACTION','ALL','ACCEPT','INSTRUCT','DEPARTURE','DELIVERING','FINAL_DELIVERY']);
+  const [query,setQuery]=useStoredState('filter:orders-query','');
   const seller=(coupang.sellerOrders||[]).filter(order=>(status==='ALL'||(status==='ACTION'?['ACCEPT','INSTRUCT'].includes(order.status):order.status===status))&&(!query||`${order.orderId} ${order.shipmentBoxId} ${(order.items||[]).map(item=>item.name).join(' ')}`.toLowerCase().includes(query.toLowerCase())));
   const orderViews=[['SELLER','판매자배송 관리',`${count(coupang.sellerActionRequired)}건 처리 필요`],['RG','로켓그로스 조회',`${count(coupang.rgOrderCount)}건 · 조회 전용`]];
   return <section className="coupangOrdersHub"><nav className="orderSubTabs">{orderViews.map(([id,label,sub])=><button className={view===id?'active':''} onClick={()=>setView(id)} key={id}><b>{label}</b><small>{sub}</small></button>)}</nav>
@@ -1025,7 +1034,7 @@ function CoupangCsView({ coupang }) {
 }
 
 function CoupangInventoryView({ coupang }) {
-  const [stockFilter,setStockFilter]=useState('ALL');
+  const [stockFilter,setStockFilter]=useStoredState('filter:inventory','ALL',['ALL','RESTOCK','STABLE','PROMOTION']);
   const inventory=coupang.rgInventory||[];
   const available=inventory.filter(item=>num(item.total_orderable_quantity)>0).sort((a,b)=>num(a.days_of_stock??9999)-num(b.days_of_stock??9999));
   const visibleInventory=available.filter(item=>stockFilter==='ALL'||(stockFilter==='RESTOCK'?['RESTOCK','RESTOCK_URGENT'].includes(item.inventoryMarketing?.code):stockFilter==='PROMOTION'?['PROMOTION','DISCOVERY'].includes(item.inventoryMarketing?.code):['HEALTHY','MAINTAIN'].includes(item.inventoryMarketing?.code)));
@@ -1043,5 +1052,5 @@ function CoupangSettlementView({ coupang }) {
 function CoupangSalesCenter({ coupang, selectedProduct='ALL', selectedPeriod='DAY', onSelectProduct, onSelectPeriod }) {
   const [manualSyncing,setManualSyncing]=useState(false); const [manualSyncMessage,setManualSyncMessage]=useState('');
   async function requestManualSync(){setManualSyncing(true);setManualSyncMessage('서울 고정 IP 서버에 수동 요청을 전달하는 중…');try{const response=await fetch('/api/coupang/sync',{method:'POST'});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'쿠팡 수집 요청 실패');setManualSyncMessage(result.existing?'이미 수집 요청이 처리 대기 또는 실행 중입니다.':'수동 수집 요청 완료 · 서울 고정 IP 서버가 즉시 수집을 시작합니다.');}catch(error){setManualSyncMessage(`확인 필요 · ${error.message}`);}finally{setManualSyncing(false);}}
-  return <section className="coupangSalesCenter"><section className="hero coupangHero"><div><span className="eyebrow">COUPANG SALES INSIGHT</span><h1>쿠팡 매출을<br/><em>상품별로 분석합니다.</em></h1><p>주문·CS·재고·정산은 왼쪽 운영 메뉴로 분리했습니다. 이곳에서는 매출 흐름과 상품 성과만 봅니다.</p><div className="coupangManualSync"><button onClick={requestManualSync} disabled={manualSyncing}>{manualSyncing?'요청 중…':'쿠팡 데이터 수동 수집'}</button>{manualSyncMessage&&<small>{manualSyncMessage}</small>}</div></div><div className="heroStatus"><span>마지막 수집 상태</span><strong>{coupang.latestSync?.status||'수집 대기'}</strong><small>{coupang.latestSync?.finished_at?dateTime(coupang.latestSync.finished_at):'수집 기록 없음'}</small></div></section><HelpBox help={COUPANG_SECTION_HELP.SALES} compact/><CoupangSalesBoard overview={coupang.salesOverview||{}}/><section className="kpiGrid"><Kpi tone="orange" icon="오늘" label="오늘 매출" value={won(coupang.today?.revenue)} sub={`${count(coupang.today?.orders)}건 주문`}/><Kpi tone="purple" icon="30" label="30일 매출" value={won(coupang.salesOverview?.last30?.revenue)} sub={`${count(coupang.salesOverview?.last30?.units)}개 판매`}/><Kpi tone="blue" icon="#" label="30일 주문" value={`${count(coupang.salesOverview?.last30?.orders)}건`} sub={`객단가 ${won(num(coupang.salesOverview?.last30?.orders)?num(coupang.salesOverview?.last30?.revenue)/num(coupang.salesOverview?.last30?.orders):0)}`}/><Kpi tone="green" icon="개" label="30일 판매수량" value={`${count(coupang.salesOverview?.last30?.units)}개`} sub="로켓그로스 주문 기준"/></section><CoupangRealtimePanel hourly={coupang.orderHourly||[]} today={coupang.today||{}} latestRealtime={coupang.latestRealtime}/><CoupangTrendChart daily={coupang.orderDaily||[]} products={coupang.productPerformance||[]} selectedProduct={selectedProduct} onSelectProduct={onSelectProduct} period={selectedPeriod} onSelectPeriod={onSelectPeriod}/><CoupangProductPerformance products={coupang.productPerformance||[]} selectedProduct={selectedProduct} onSelectProduct={onSelectProduct}/></section>;
+  return <section className="coupangSalesCenter"><section className="hero coupangHero"><div><span className="eyebrow">COUPANG SALES INSIGHT</span><h1>쿠팡 매출을<br/><em>상품별로 분석합니다.</em></h1><p>주문·CS·재고·정산은 왼쪽 운영 메뉴로 분리했습니다. 이곳에서는 매출 흐름과 상품 성과만 봅니다.</p><div className="coupangManualSync"><button onClick={requestManualSync} disabled={manualSyncing}>{manualSyncing?'요청 중…':'쿠팡 데이터 수동 수집'}</button>{manualSyncMessage&&<small>{manualSyncMessage}</small>}</div></div><div className="heroStatus"><span>마지막 수집 상태</span><strong>{coupang.latestSync?.status||'수집 대기'}</strong><small>{coupang.latestSync?.finished_at?dateTime(coupang.latestSync.finished_at):'수집 기록 없음'}</small></div></section><HelpBox help={COUPANG_SECTION_HELP.SALES} compact persistKey="coupang-sales"/><CoupangSalesBoard overview={coupang.salesOverview||{}}/><section className="kpiGrid"><Kpi tone="orange" icon="오늘" label="오늘 매출" value={won(coupang.today?.revenue)} sub={`${count(coupang.today?.orders)}건 주문`}/><Kpi tone="purple" icon="30" label="30일 매출" value={won(coupang.salesOverview?.last30?.revenue)} sub={`${count(coupang.salesOverview?.last30?.units)}개 판매`}/><Kpi tone="blue" icon="#" label="30일 주문" value={`${count(coupang.salesOverview?.last30?.orders)}건`} sub={`객단가 ${won(num(coupang.salesOverview?.last30?.orders)?num(coupang.salesOverview?.last30?.revenue)/num(coupang.salesOverview?.last30?.orders):0)}`}/><Kpi tone="green" icon="개" label="30일 판매수량" value={`${count(coupang.salesOverview?.last30?.units)}개`} sub="로켓그로스 주문 기준"/></section><CoupangRealtimePanel hourly={coupang.orderHourly||[]} today={coupang.today||{}} latestRealtime={coupang.latestRealtime}/><CoupangTrendChart daily={coupang.orderDaily||[]} products={coupang.productPerformance||[]} selectedProduct={selectedProduct} onSelectProduct={onSelectProduct} period={selectedPeriod} onSelectPeriod={onSelectPeriod}/><CoupangProductPerformance products={coupang.productPerformance||[]} selectedProduct={selectedProduct} onSelectProduct={onSelectProduct}/></section>;
 }

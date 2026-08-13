@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useStoredState } from './use-hub-preference.js';
 
 const won = value => `${Math.round(Number(value || 0)).toLocaleString('ko-KR')}원`;
 const count = value => Math.round(Number(value || 0)).toLocaleString('ko-KR');
@@ -40,8 +41,8 @@ export function MarketingInsightSummary({ diagnosis }) {
 }
 
 export default function MarketingDiagnosisCenter({ diagnosis, actioning, onAction }) {
-  const [intent,setIntent] = useState('ALL');
-  const [action,setAction] = useState('ALL');
+  const [intent,setIntent] = useStoredState('filter:keyword-intent','ALL',INTENT_ORDER);
+  const [action,setAction] = useStoredState('filter:keyword-action','ALL',ACTION_ORDER);
   const [visible,setVisible] = useState(20);
   const [working,setWorking] = useState('');
   const [message,setMessage] = useState('');
