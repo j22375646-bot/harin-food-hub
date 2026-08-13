@@ -378,3 +378,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .coupangOperationIntro{flex-direction:column;padding:21px}
   .coupangOperationIntro>aside{min-width:0;border-top:1px solid #dce5e0;border-left:0;padding-top:16px;padding-left:0}
 }
+
+/* Phase 10-5 — analysis and execution pages use only relevant channel controls. */
+.phase7Center,.experimentIntro{scroll-margin-top:104px}
+.phase7HeroBadge b{max-width:130px;text-align:center}
+.phase8Automation>div{grid-template-columns:repeat(3,1fr)}
+
+@media(max-width:900px){
+  .phase8Automation>div{grid-template-columns:1fr}
+}

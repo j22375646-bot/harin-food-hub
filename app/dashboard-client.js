@@ -16,7 +16,7 @@ const dateTime = value => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seo
 const dateLabel = value => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'numeric', day: 'numeric' }).format(new Date(value));
 const platformReportName = { all: 'ALL', naver: 'NAVER', coupang: 'COUPANG', cafe24: 'CAFE24' };
 const platformLabel = { all: '전체', naver: '네이버', coupang: '쿠팡', cafe24: 'Cafe24' };
-const coupangOperationViews = new Set(['orders','cs','inventory','settlement']);
+const channelScopedViews = new Set(['insight','keyword','product']);
 async function coupangFixedIpResult(response) {
   const initial = await response.json();
   if (response.status !== 202 || !initial.request?.id) return initial;
@@ -107,7 +107,7 @@ function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onO
   const hasQuery=Boolean(query.trim());
   const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(query.trim().toLowerCase()))})).filter(group=>group.items.length);
   return <aside className="desktopSidebar" aria-label="허브 사이드바">
-    <div className="sidebarPhase"><span>현재 개발</span><b>10-4단계 · 운영 업무 분리</b></div>
+    <div className="sidebarPhase"><span>현재 개발</span><b>10-5단계 · 분석·실행 정리</b></div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true">⌕</i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴 이름 찾기" /></label>
     <nav aria-label="허브 메뉴">
       {visible.map(group=>{const expanded=hasQuery||openGroup===group.id;return <section className={`sidebarGroup${expanded?' expanded':''}`} key={group.id}>
@@ -191,7 +191,7 @@ export default function Dashboard({ initialData, initialState }) {
     <main className="hubMain">
       <MobileMoreMenu groups={navGroups} view={view} currentLabel={nav.find(item=>item.id===view)?.label} onOpenView={openView}/>
       <BreadcrumbBar context={navContext} refreshedAt={latestRefreshAt}/>
-      {view!=='main'&&!coupangOperationViews.has(view)&&<section className="platformSwitch" aria-label="플랫폼 선택">
+      {channelScopedViews.has(view)&&<section className="platformSwitch" aria-label="플랫폼 선택">
         {[['all','allDot','전체'],['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡'],['cafe24','cafeDot','Cafe24']].map(([id,dot,label])=><button key={id} className={platform===id?'selected':''} onClick={()=>selectPlatform(id)}><i className={dot}/>{label}</button>)}
         <span className="periodFilter">최근 7일 기준</span>
       </section>}
@@ -218,7 +218,8 @@ export default function Dashboard({ initialData, initialState }) {
       {view==='product' && !channelUnavailable && <PlatformProductView key={`product-${platform}`} platform={platform} data={initialData} />}
       {view==='reports' && <ReportsView reports={reports} actions={actions} syncs={syncs} financialTrustToken={initialData.financialTrustToken} />}
       {view==='changes' && <FinancialChangeCenter />}
-      {view==='experiments' && <><CustomerRetentionValidationCenter data={initialData.retentionValidation}/><details className="phase7LegacyLab"><summary><span><b>기존 A/B 테스트·기준값 도구</b><small>두 방법을 직접 비교하거나 목표 기준값을 관리할 때만 여세요.</small></span><em>열기</em></summary><div><ExperimentLab /></div></details></>}
+      {view==='validation' && (<CustomerRetentionValidationCenter data={initialData.retentionValidation}/>)}
+      {view==='experiments' && <ExperimentLab />}
       {view==='notifications' && <NotificationCenter reports={reports} />}
     </main>
     <nav className="mobileBottomNav" aria-label="모바일 주요 메뉴">{['main','orders','inventory','notifications'].map(id=>nav.find(item=>item.id===id)).map(item=><button className={view===item.id?'active':''} onClick={()=>openView(item.id)} key={item.id}><i>{item.icon}</i><span>{item.id==='notifications'?'알림':item.label}</span></button>)}</nav>

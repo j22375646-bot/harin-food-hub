@@ -7,6 +7,7 @@ const path = require('node:path');
 
 const client=fs.readFileSync(path.join(__dirname,'..','app','dashboard-client.js'),'utf8');
 const styles=fs.readFileSync(path.join(__dirname,'..','app','globals.css'),'utf8');
+const validation=fs.readFileSync(path.join(__dirname,'..','app','customer-retention-validation-center.js'),'utf8');
 
 test('desktop navigation includes grouped expansion, menu search, badges, and breadcrumbs', () => {
   assert.match(client,/function SidebarMenu/);
@@ -31,7 +32,7 @@ test('mobile all-functions menu keeps the same groups and closes after selection
 });
 
 test('main renders only the all-channel command center and links channel details to work pages', () => {
-  assert.match(client,/\{view!=='main'&&!coupangOperationViews\.has\(view\)&&<section className="platformSwitch"/);
+  assert.match(client,/\{channelScopedViews\.has\(view\)&&<section className="platformSwitch"/);
   assert.doesNotMatch(client,/view==='main' && platform!=='all'/);
   assert.doesNotMatch(client,/view==='main' && !channelUnavailable && <MainView/);
   assert.match(client,/onOpen\(\{view:'insight',platform:item\.platform\}\)/);
@@ -40,7 +41,6 @@ test('main renders only the all-channel command center and links channel details
 });
 
 test('phase 10-4 separates Coupang work into four sidebar pages', () => {
-  assert.match(client,/10-4단계 · 운영 업무 분리/);
   assert.match(client,/function CoupangOrdersView/);
   assert.match(client,/function CoupangCsView/);
   assert.match(client,/function CoupangInventoryView/);
@@ -52,4 +52,16 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
   assert.match(client,/view==='inventory' && \(<CoupangInventoryView/);
   assert.match(client,/view==='settlement' && \(<CoupangSettlementView/);
   assert.match(styles,/Phase 10-4 — orders, CS, inventory and settlement are independent work pages/);
+});
+
+test('phase 10-5 separates execution validation and A/B tests', () => {
+  assert.match(client,/10-5단계 · 분석·실행 정리/);
+  assert.match(client,/view==='validation' && \(<CustomerRetentionValidationCenter/);
+  assert.match(client,/view==='experiments' && <ExperimentLab/);
+  assert.doesNotMatch(client,/phase7LegacyLab/);
+  assert.match(validation,/실행검증 운영센터/);
+  assert.match(validation,/useState\('execution'\)/);
+  assert.match(validation,/실행검증 화면 선택/);
+  assert.doesNotMatch(validation,/진행 실험 자동평가/);
+  assert.match(styles,/Phase 10-5 — analysis and execution pages use only relevant channel controls/);
 });

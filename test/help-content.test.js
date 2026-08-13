@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { COUPANG_SECTION_HELP, HUB_HELP_CONTENT, getHubHelp } from '../lib/ui/help-content.js';
 
 test('every primary hub view has complete plain-language help', () => {
-  const views = ['main', 'orders', 'cs', 'inventory', 'settlement', 'collection', 'insight', 'keyword', 'product', 'reports', 'changes', 'experiments', 'notifications'];
+  const views = ['main', 'orders', 'cs', 'inventory', 'settlement', 'collection', 'insight', 'keyword', 'product', 'reports', 'changes', 'validation', 'experiments', 'notifications'];
   assert.deepEqual(Object.keys(HUB_HELP_CONTENT), views);
   for (const view of views) {
     const help = getHubHelp(view);
