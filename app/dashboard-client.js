@@ -106,7 +106,7 @@ function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onO
   const hasQuery=Boolean(query.trim());
   const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(query.trim().toLowerCase()))})).filter(group=>group.items.length);
   return <aside className="desktopSidebar" aria-label="허브 사이드바">
-    <div className="sidebarPhase"><span>현재 개발</span><b>10-2단계 · 메뉴 구조 개편</b></div>
+    <div className="sidebarPhase"><span>현재 개발</span><b>10-3단계 · 메인 사령실 정리</b></div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true">⌕</i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴 이름 찾기" /></label>
     <nav aria-label="허브 메뉴">
       {visible.map(group=>{const expanded=hasQuery||openGroup===group.id;return <section className={`sidebarGroup${expanded?' expanded':''}`} key={group.id}>
@@ -150,9 +150,7 @@ export default function Dashboard({ initialData, initialState }) {
   if (!mounted) return <main className="loadingPage"><div className="loadingMark">H</div><p>운영 데이터를 불러오는 중이에요…</p></main>;
   if (initialData.error) return <main className="errorPage"><div><b>데이터를 불러오지 못했어요</b><p>{initialData.error}</p></div></main>;
 
-  const { kpis, traffic, referrers, topProducts, recentOrders, products, syncs, reports, actions } = initialData;
-  const maxPv = Math.max(...traffic.map(item => item.pageviews), 1);
-  const maxRef = Math.max(...referrers.map(item => Number(item.visitors || 0)), 1);
+  const { kpis, products, syncs, reports, actions } = initialData;
 
   async function runSync() {
     setSyncing(true); setSyncMessage('Cafe24 데이터를 가져오는 중이에요…');
@@ -167,7 +165,6 @@ export default function Dashboard({ initialData, initialState }) {
 
   const nav = hubRoutesModule.HUB_NAV.map(item=>({...item,badge:item.id==='notifications'?initialData.alerts.length||0:0}));
   const navGroups=hubRoutesModule.HUB_NAV_GROUPS.map(group=>{const items=group.items.map(id=>nav.find(item=>item.id===id)).filter(Boolean);return {...group,items,actionCount:items.reduce((sum,item)=>sum+num(item.badge),0)};});
-  const platformName = platform === 'naver' ? '네이버' : platform === 'coupang' ? '쿠팡' : platform === 'cafe24' ? 'Cafe24' : '전체';
   const navContext=hubRoutesModule.navigationContext(view,platform);
   const latestRefreshAt=syncs.find(item=>item.finished_at||item.started_at)?.finished_at||syncs.find(item=>item.finished_at||item.started_at)?.started_at||null;
   const selectedHealth=platform==='all'?null:initialData.dataHealth?.channels?.find(item=>item.platform===platform.toUpperCase());
@@ -192,27 +189,24 @@ export default function Dashboard({ initialData, initialState }) {
     <main className="hubMain">
       <MobileMoreMenu groups={navGroups} view={view} currentLabel={nav.find(item=>item.id===view)?.label} onOpenView={openView}/>
       <BreadcrumbBar context={navContext} refreshedAt={latestRefreshAt}/>
-      <section className="platformSwitch" aria-label="플랫폼 선택">
+      {view!=='main'&&<section className="platformSwitch" aria-label="플랫폼 선택">
         {[['all','allDot','전체'],['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡'],['cafe24','cafeDot','Cafe24']].map(([id,dot,label])=><button key={id} className={platform===id?'selected':''} onClick={()=>selectPlatform(id)}><i className={dot}/>{label}</button>)}
-        {view==='main'&&platform==='coupang'?<label className="periodFilter"><span>그래프 묶음</span><select value={period} onChange={event=>navigate({period:event.target.value},true)}><option value="DAY">일별</option><option value="WEEK">주별</option><option value="MONTH">월별</option></select></label>:<span className="periodFilter">최근 7일 기준</span>}
-      </section>
-      <DataStateBar data={initialData}/>
+        <span className="periodFilter">최근 7일 기준</span>
+      </section>}
+      {view!=='main'&&<DataStateBar data={initialData}/>}
       <DataHealthNotice dataHealth={initialData.dataHealth} platform={platform}/>
       <HelpBox key={view} help={getHubHelp(view)}/>
       <FinancialTrustBanner trust={initialData.financialTrust} onOpenProduct={()=>navigate({platform:'all',view:'product',product:'ALL'})}/>
-      {view==='main' && platform!=='all' && !channelUnavailable && <MetricProvenanceStrip snapshots={initialData.metricSnapshots||[]}/>}
       {syncMessage && <div className="syncToast">{syncMessage}</div>}
 
-      {channelUnavailable&&['main','insight','keyword','product'].includes(view)&&<ChannelUnavailable health={selectedHealth} onOpenCollection={()=>openView('collection')}/>}
+      {channelUnavailable&&['insight','keyword','product'].includes(view)&&<ChannelUnavailable health={selectedHealth} onOpenCollection={()=>openView('collection')}/>}
       {view==='main' && platform==='all' && !channelUnavailable && <SalesCommandCenter center={initialData.salesCommandCenter} onOpen={item=>{const target=String(item.platform||'ALL').toLowerCase();navigate({platform:['naver','coupang','cafe24'].includes(target)?target:'all',view:item.view||'main',product:'ALL',period:'DAY'});}} onOpenTargets={()=>{const detail=document.getElementById('monthly-target-details');if(detail){detail.open=true;detail.scrollIntoView({behavior:'smooth',block:'start'});}}}/>}
       {view==='main' && platform==='all' && !channelUnavailable && <details className="commandEvidence" id="monthly-target-details"><summary><span><b>목표 설정·계산 근거 보기</b><small>월 목표를 바꾸거나 숫자의 출처를 확인할 때만 열어보세요.</small></span><em>열기</em></summary><div><BusinessPacingPanel platform={platform} pacing={initialData.pacing}/><MetricProvenanceStrip snapshots={initialData.metricSnapshots||[]}/></div></details>}
-      {view==='main' && platform!=='all' && !channelUnavailable && <TodayPriorityCenter center={initialData.priorityCenter} platform={platform} onOpen={item=>{const target=String(item.platform||'ALL').toLowerCase();navigate({platform:['naver','coupang','cafe24'].includes(target)?target:'all',view:item.view||'main',product:'ALL',period:'DAY'});}}/>}
-      {view==='main' && platform!=='all' && !channelUnavailable && <BusinessPacingPanel platform={platform} pacing={initialData.pacing}/>}
-      {view==='main' && !channelUnavailable && <MainView platform={platform} platformName={platformName} data={initialData} maxPv={maxPv} maxRef={maxRef} selectedProduct={selectedProduct} selectedPeriod={period} onSelectProduct={product=>navigate({product},true)} onSelectPeriod={nextPeriod=>navigate({period:nextPeriod},true)} />}
       {view==='collection' && <CollectionView syncs={syncs} products={products} kpis={kpis} runSync={runSync} syncing={syncing} naver={initialData.naver} coupang={initialData.coupang} automationRuns={initialData.automationRuns} qualityChecks={initialData.qualityChecks} alerts={initialData.alerts} dataHealth={initialData.dataHealth} />}
       {view==='insight' && !channelUnavailable && <DecisionOverview key={`decision-${platform}`} platform={platform} reports={reports} platformEvents={initialData.platformEvents||[]} />}
       {view==='insight' && !channelUnavailable && platform==='all' && <ProfitabilitySnapshot reports={reports} />}
       {view==='insight' && !channelUnavailable && <>{(platform==='all'||platform==='naver')&&<MarketingInsightSummary diagnosis={initialData.naver?.marketingDiagnosis}/>}<InsightView key={`insight-${platform}`} platform={platform} reports={reports} actions={actions} liveNaver={initialData.naver} platformEvents={initialData.platformEvents||[]} /></>}
+      {view==='insight' && !channelUnavailable && platform!=='all' && <details className="channelLegacyDetails"><summary><span><b>{platformLabel[platform]} 채널 운영 상세</b><small>주문·재고·CS 등 기존 채널 기능은 10-4단계에서 업무별 메뉴로 옮깁니다.</small></span><em>열기</em></summary><div><MainView platform={platform} data={initialData} selectedProduct={selectedProduct} selectedPeriod={period} onSelectProduct={product=>navigate({product},true)} onSelectPeriod={nextPeriod=>navigate({period:nextPeriod},true)}/></div></details>}
       {view==='keyword' && !channelUnavailable && <>{(platform==='all'||platform==='naver')&&<MarketingDiagnosisCenter diagnosis={initialData.naver?.marketingDiagnosis}/>}<PlatformKeywordView key={`keyword-${platform}`} platform={platform} data={initialData} /></>}
       {view==='product' && !channelUnavailable && <PlatformProductView key={`product-${platform}`} platform={platform} data={initialData} />}
       {view==='reports' && <ReportsView reports={reports} actions={actions} syncs={syncs} financialTrustToken={initialData.financialTrustToken} />}
@@ -382,7 +376,7 @@ function SalesCommandCenter({ center={}, onOpen, onOpenTargets }) {
     </div>
     <section className="commandActionSection"><header><div><span className="eyebrow">TODAY ACTION · TOP 3</span><h2>오늘 해야 할 매출 행동 3개</h2></div><small>서버가 긴급도·매출 영향·데이터 신뢰도를 함께 보고 정렬했어요.</small></header><div className="commandActions">{actions.map((item,index)=><article className={String(item.decision_status||'READY').toLowerCase()} key={item.id}><b className="commandRank">{index+1}</b><div><span>{sourceLabel[item.source]||item.source} · {item.platform}</span><strong>{item.title}</strong><p>{item.reason}</p><small>{item.next_step}</small></div><aside><em>{statusLabel[item.decision_status]||item.decision_status}</em><button type="button" onClick={()=>onOpen(item)}>{actionButton(item)}</button></aside></article>)}{!actions.length&&<Empty>지금 바로 처리할 위험 행동이 없습니다. 채널 상태와 성장 상품을 확인하세요.</Empty>}</div></section>
     <div className="commandDecisionGrid">
-      <article className="commandCard channelCommand"><header><span className="eyebrow">CHANNEL HEALTH</span><h2>채널별 상태</h2></header><div>{(center.channels||[]).map(item=><section className={String(item.status||'WAITING').toLowerCase()} key={item.platform}><i/><span><b>{{NAVER:'네이버',COUPANG:'쿠팡',CAFE24:'Cafe24'}[item.platform]}</b><small>{item.summary||'수집 기록을 확인하세요.'}</small></span><em>{item.label}</em></section>)}</div><button type="button" onClick={()=>onOpen({view:'collection',platform:'ALL'})}>데이터수집 확인</button></article>
+      <article className="commandCard channelCommand"><header><span className="eyebrow">CHANNEL HEALTH</span><h2>채널별 상태</h2></header><div>{(center.channels||[]).map(item=><section className={String(item.status||'WAITING').toLowerCase()} key={item.platform}><i/><span><b>{{NAVER:'네이버',COUPANG:'쿠팡',CAFE24:'Cafe24'}[item.platform]}</b><small>{item.summary||'수집 기록을 확인하세요.'}</small></span><em>{item.label}</em><button type="button" onClick={()=>onOpen({view:'insight',platform:item.platform})} aria-label={`${{NAVER:'네이버',COUPANG:'쿠팡',CAFE24:'Cafe24'}[item.platform]} 인사이트 열기`}>성과 보기</button></section>)}</div><button type="button" onClick={()=>onOpen({view:'collection',platform:'ALL'})}>데이터수집 확인</button></article>
       <article className="commandCard productCommand"><header><span className="eyebrow">PRODUCT SIGNAL</span><h2>성장·위험 상품</h2></header><div className="productSignalColumns"><section><b>성장 상품</b>{(products.growth||[]).map(item=><div key={item.key}><span><strong>{item.name}</strong><small>{item.platform} · 최근 7일 {won(item.currentRevenue)}</small></span><em>+{item.growthRate==null?'신규':`${item.growthRate.toFixed(1)}%`}</em></div>)}{!products.growth?.length&&<small>비교 가능한 성장 상품이 아직 없어요.</small>}</section><section><b>위험 상품</b>{(products.risk||[]).map(item=><div key={item.key}><span><strong>{item.name}</strong><small>{item.riskReason}</small></span><em>확인</em></div>)}{!products.risk?.length&&<small>현재 감지된 급감·재고 위험이 없어요.</small>}</section></div><button type="button" onClick={()=>onOpen({view:'product',platform:'ALL'})}>상품 자세히 보기</button></article>
       <article className={`commandCard cashflowCommand ${String(cashflow.status||'CHECK_REQUIRED').toLowerCase()}`}><header><span className="eyebrow">30-DAY CASH OUTLOOK</span><h2>30일 현금흐름 예상</h2></header><div><section><small>예상 매출 유입</small><strong>{cashflow.expectedInflow==null?'확인 필요':won(cashflow.expectedInflow)}</strong></section><section><small>예상 광고비 지출</small><strong>{cashflow.expectedAdOutflow==null?'확인 필요':`- ${won(cashflow.expectedAdOutflow)}`}</strong></section><section className="cashBalance"><small>비용 반영 후 남을 금액</small><strong>{cashflow.expectedBalance==null?'확인 필요':won(cashflow.expectedBalance)}</strong></section></div><p>{cashflow.description}</p><small>실제 통장 잔액이나 정산일이 아닌, 현재 판매 속도를 30일로 늘린 운영 예상치입니다.</small></article>
     </div>

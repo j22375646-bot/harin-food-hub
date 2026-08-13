@@ -29,3 +29,13 @@ test('mobile all-functions menu keeps the same groups and closes after selection
   assert.match(client,/closest\('details'\)\?\.removeAttribute\('open'\)/);
   assert.match(styles,/\.mobileGroupedMenu>section>div/);
 });
+
+test('main renders only the all-channel command center and links channel details to work pages', () => {
+  assert.match(client,/\{view!=='main'&&<section className="platformSwitch"/);
+  assert.doesNotMatch(client,/view==='main' && platform!=='all'/);
+  assert.doesNotMatch(client,/view==='main' && !channelUnavailable && <MainView/);
+  assert.match(client,/onOpen\(\{view:'insight',platform:item\.platform\}\)/);
+  assert.match(client,/view==='insight' && !channelUnavailable && platform!=='all' && <details className="channelLegacyDetails"/);
+  assert.match(client,/10-3단계 · 메인 사령실 정리/);
+  assert.match(styles,/Phase 10-3 — the main page is one all-channel command center/);
+});

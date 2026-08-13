@@ -338,3 +338,26 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .hubBreadcrumb li{font-size:13px}
   .mobileGroupedMenu>section>div{grid-template-columns:1fr 1fr}
 }
+
+/* Phase 10-3 — the main page is one all-channel command center. */
+.channelCommand>div>section{grid-template-columns:9px minmax(0,1fr) auto auto}
+.channelCommand section>button{min-height:34px;border:1px solid #dce3df;border-radius:9px;background:#fff;color:#27684f;padding:0 9px;font-size:12px;font-weight:900;white-space:nowrap;cursor:pointer}
+.channelCommand section>button:hover{border-color:#80aa97;background:#f1f8f5}
+.channelLegacyDetails{margin:16px 0 20px;border:1px solid #dfe5e2;border-radius:16px;background:#fff;overflow:hidden}
+.channelLegacyDetails>summary{display:flex;min-height:66px;align-items:center;justify-content:space-between;gap:16px;padding:0 18px;cursor:pointer;list-style:none}
+.channelLegacyDetails>summary::-webkit-details-marker{display:none}
+.channelLegacyDetails>summary>span{display:flex;flex-direction:column;gap:3px}
+.channelLegacyDetails>summary b{font-size:16px}
+.channelLegacyDetails>summary small{color:#758079;font-size:13px!important}
+.channelLegacyDetails>summary>em{color:#27684f;font-size:13px;font-style:normal;font-weight:900}
+.channelLegacyDetails[open]>summary{border-bottom:1px solid #e5eae7}
+.channelLegacyDetails[open]>summary>em{font-size:0}
+.channelLegacyDetails[open]>summary>em:after{content:'접기';font-size:13px}
+.channelLegacyDetails>div{padding:18px}
+
+@media(max-width:600px){
+  .channelCommand>div>section{grid-template-columns:9px minmax(0,1fr) auto}
+  .channelCommand section>button{grid-column:2/-1;width:100%;min-height:40px}
+  .channelLegacyDetails>summary{padding:11px 14px}
+  .channelLegacyDetails>div{padding:11px}
+}

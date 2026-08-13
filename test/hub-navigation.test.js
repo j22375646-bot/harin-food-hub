@@ -12,16 +12,21 @@ test('all nine hub functions have stable unique addresses', () => {
 });
 
 test('platform, product, and period survive a refresh through the URL', () => {
-  const href=buildHubHref({view:'main',platform:'coupang',product:'123-ABC',period:'WEEK'});
-  assert.equal(href,'/?platform=coupang&period=WEEK&product=123-ABC');
-  assert.deepEqual(normalizeHubState({view:'main',platform:'coupang',product:'123-ABC',period:'WEEK'}),{
-    view:'main',platform:'coupang',product:'123-ABC',period:'WEEK'
+  const href=buildHubHref({view:'insight',platform:'coupang',product:'123-ABC',period:'WEEK'});
+  assert.equal(href,'/insights?platform=coupang&period=WEEK&product=123-ABC');
+  assert.deepEqual(normalizeHubState({view:'insight',platform:'coupang',product:'123-ABC',period:'WEEK'}),{
+    view:'insight',platform:'coupang',product:'123-ABC',period:'WEEK'
   });
+});
+
+test('main is canonicalized to the all-channel command center', () => {
+  assert.equal(buildHubHref({view:'main',platform:'coupang'}),'/');
+  assert.deepEqual(parseHubHref('/?platform=naver&period=WEEK&product=old-product'),{view:'main',platform:'all',product:'ALL',period:'DAY'});
 });
 
 test('unknown URL state falls back safely', () => {
   assert.deepEqual(normalizeHubState({view:'admin',platform:'unknown',product:'../../secret',period:'YEAR'}),{
-    view:'main',platform:'all',product:'secret',period:'DAY'
+    view:'main',platform:'all',product:'ALL',period:'DAY'
   });
 });
 
