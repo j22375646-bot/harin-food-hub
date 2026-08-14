@@ -282,7 +282,8 @@ async function getDashboardData(state) {
     rows:searchTermRows,
     registeredKeywords:marketingKeywordCatalog,
     period:searchTermPeriod,
-    lastError:searchTermSync?.status==='FAILED'?searchTermSync.error_message:null
+    lastError:searchTermSync?.status==='FAILED'?searchTermSync.error_message:null,
+    collectionTotal:searchTermSync?.metadata?.counts?.search_terms
   });
   naverSearchTermCenter.latest_sync=searchTermSync;
 

@@ -38,6 +38,9 @@ test('owner override is preferred and center never claims ready without actual r
   assert.equal(ready.items[0].classification,'IRRELEVANT');
   assert.equal(ready.summary.negative_candidates,1);
   assert.equal(ready.summary.unregistered,1);
+  const limited=center.buildSearchTermCenter({rows:[{id:'2',search_term:'작두콩차'}],collectionTotal:2204});
+  assert.equal(limited.summary.total,2204);
+  assert.equal(limited.summary.displayed,1);
 });
 
 test('NPLA search keyword responses are flattened without confusing registered keyword stats',()=>{

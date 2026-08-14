@@ -31,15 +31,15 @@ export default function NaverSearchTermCenter({initialData}) {
     <details className="searchTermHelp"><summary>이 기능은 뭐예요?</summary><div><p><b>예시</b> 등록 키워드가 ‘작두콩차’여도 고객은 ‘환절기 목관리 티백’을 검색해 들어올 수 있습니다.</p><p><b>보는 순서</b> 무관 검색어는 제외 검토, 브랜드는 별도 운영, 정보 검색은 FAQ, 구매 검색은 신규 키워드나 랜딩 점검 후보로 봅니다.</p><p><b>주의</b> 여기서는 검토 후보만 만듭니다. 네이버 광고를 자동 중지하거나 입찰가를 바꾸지 않습니다.</p></div></details>
     {message&&<div className="syncToast searchTermMessage">{message}</div>}
     <div className="searchTermSummary">
-      <article><span>실제 검색어</span><strong>{count(summary.total)}개</strong><small>최근 30일 쇼핑검색광고</small></article>
+      <article><span>실제 검색어</span><strong>{count(summary.total)}개</strong><small>최근 30일 전체 수집</small></article>
       <article><span>미등록 후보</span><strong>{count(summary.unregistered)}개</strong><small>신규 키워드 검토</small></article>
       <article className="danger"><span>제외 검토</span><strong>{count(summary.negative_candidates)}개</strong><small>무관·과소비 후보</small></article>
       <article><span>콘텐츠 후보</span><strong>{count(summary.content_candidates)}개</strong><small>FAQ·상세페이지 보강</small></article>
     </div>
     {source.status!=='READY'?<div className={`searchTermEmpty ${source.status==='COLLECTION_ERROR'?'error':''}`}><b>{source.status==='COLLECTION_ERROR'?'검색어 수집을 다시 확인해주세요':'아직 실제 검색어를 수집하지 않았습니다'}</b><p>{source.last_error||'위의 ‘최근 30일 검색어 수집’을 누르면 네이버 쇼핑검색광고 원본을 가져옵니다.'}</p></div>:<>
-      <div className="searchTermTabs"><button className={filter==='ALL'?'active':''} onClick={()=>setFilter('ALL')}>전체 {count(items.length)}</button>{CATEGORIES.map(category=><button className={filter===category?'active':''} onClick={()=>setFilter(category)} key={category}>{LABELS[category]} {count(source.classification_counts?.[category])}</button>)}</div>
+      <div className="searchTermTabs"><button className={filter==='ALL'?'active':''} onClick={()=>setFilter('ALL')}>성과 상위 {count(summary.displayed||items.length)}개</button>{CATEGORIES.map(category=><button className={filter===category?'active':''} onClick={()=>setFilter(category)} key={category}>{LABELS[category]} {count(source.classification_counts?.[category])}</button>)}</div>
       <div className="searchTermTable"><div className="searchTermTableHead"><span>실제 검색어·분류</span><span>최근 30일 성과</span><span>추천 조치</span></div>{visible.map(item=><article key={item.id} className="searchTermRow"><div><strong>{item.search_term}</strong><select aria-label={`${item.search_term} 분류`} value={item.classification} disabled={busy===item.id} onChange={event=>correct(item,event.target.value)}>{CATEGORIES.map(category=><option value={category} key={category}>{LABELS[category]}</option>)}</select>{item.classification_override&&<small>직접 수정됨</small>}</div><div><b>{won(item.cost)}</b><small>노출 {count(item.impressions)} · 클릭 {count(item.clicks)} · 전환 {count(item.conversions)}</small><small>CPC {won(item.cpc)} · ROAS {Number(item.roas||0).toFixed(0)}%</small></div><div><span className={`searchTermAction ${item.recommended_action==='NEGATIVE_REVIEW'?'danger':''}`}>{ACTION_LABELS[item.recommended_action]||item.action_label}</span><p>{item.action_reason}</p>{item.is_registered_exact&&<small>정확히 등록된 키워드</small>}</div></article>)}{!visible.length&&<div className="searchTermEmpty"><b>이 분류에 해당하는 검색어가 없습니다.</b></div>}</div>
-      <p className="searchTermFootnote">기간 {source.period?.period_start} ~ {source.period?.period_end} · 쇼핑검색광고 실제 검색어만 포함 · 총 광고비 {won(summary.cost)}</p>
+      <p className="searchTermFootnote">기간 {source.period?.period_start} ~ {source.period?.period_end} · 전체 {count(summary.total)}개 중 광고비가 높은 {count(summary.displayed||items.length)}개 표시 · 표시 목록 광고비 {won(summary.cost)}</p>
     </>}
   </section>;
 }
