@@ -36,3 +36,8 @@ test('상품 요약 필드가 없어도 실제 판매 중 채널을 가진 상�
   ]}});
   assert.equal(panels.product.metric_value,'2개');
 });
+
+test('AI 분석 기간은 UTC가 아니라 한국 영업일을 사용한다',()=>{
+  const panels=buildAiPagePanels({generatedAt:'2026-08-14T16:30:00.000Z'});
+  assert.equal(panels.main.period,'2026-08-15');
+});

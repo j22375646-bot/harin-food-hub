@@ -31,6 +31,7 @@ import aiFoundationModule from '../lib/ai/foundation.js';
 import openaiClientModule from '../lib/ai/openai-client.js';
 import aiPagePanelsModule from '../lib/ai/page-panels.js';
 import aiPageResultsModule from '../lib/ai/page-results.js';
+import kstScheduleModule from '../lib/automation/kst-schedule.js';
 import retentionValidationModule from '../lib/customers/retention-validation.js';
 import channelCapabilitiesModule from '../lib/platforms/channel-capabilities.js';
 import unifiedOrdersModule from '../lib/orders/unified-orders.js';
@@ -693,7 +694,7 @@ async function getDashboardData(state) {
     searchTermCenter:naverSearchTermCenter,
     aiConfiguration,
     generatedAt,
-    period:generatedAt.slice(0,10)
+    period:kstScheduleModule.kstDateKey(generatedAt)
   });
   for(const [pageKey,panel] of Object.entries(aiPagePanels)){
     const preview=aiPageResultsModule.buildPagePreview({
