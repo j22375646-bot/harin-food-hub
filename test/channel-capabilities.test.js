@@ -15,7 +15,8 @@ test('unconfigured channels remain setup or verification required', async () => 
 test('Naver exposes verified reads but keeps unapproved writes locked', () => {
   const metadata = { capabilities:{
     products:{ read:true, write:false }, orders:{ read:true, write:false },
-    inquiries:{ read:true, write:false }, claims:{ read:true, write:false }
+    inquiries:{ read:true, write:false }, claims:{ read:true, write:false },
+    settlements:{ read:true, write:false }
   } };
   const result = channels.naverChannel([{ platform:'NAVER', job_type:'COMMERCE_CONNECTION_TEST', status:'SUCCESS', metadata }]);
   assert.equal(result.status, 'READ_READY');

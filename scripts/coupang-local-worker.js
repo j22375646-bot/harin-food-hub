@@ -27,6 +27,7 @@ const {
 const operationQueue = require("../lib/coupang/operation-queue.js");
 const coupangActions = require("../lib/coupang/actions.js");
 const naverCommerceProbe = require("../lib/naver-commerce/probe.js");
+const naverCommerceSync = require("../lib/naver-commerce/sync.js");
 const naverCustomerService = require("../lib/naver-commerce/customer-service.js");
 const epostConfig = require("../lib/epost/config.js");
 const epostClient = require("../lib/epost/client.js");
@@ -246,6 +247,8 @@ async function dispatchOperation(
 ) {
   if (request.operation_type === "NAVER_COMMERCE_PROBE")
     return { naverCommerce: await naverCommerceProbe.probeReadAccess({ db }) };
+  if (request.operation_type === "NAVER_COMMERCE_SYNC")
+    return { naverCommerceSync: await naverCommerceSync.sync({ db }) };
   if (request.operation_type === "NAVER_COMMERCE_CS_SYNC")
     return { naverCustomerService: await naverCustomerService.sync({ db }) };
   if (request.operation_type === "EPOST_CONFIG_PROBE") {

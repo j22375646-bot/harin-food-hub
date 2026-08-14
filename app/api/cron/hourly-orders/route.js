@@ -48,7 +48,7 @@ export async function GET(request) {
   const naverReady =
     !latestNaver.error &&
     Boolean(latestNaver.data?.metadata?.capabilities?.inquiries?.read);
-  const [cafe24, coupang, coupangCs, naverCs] = await Promise.allSettled([
+  const [cafe24, coupang, coupangCs, naverCommerce] = await Promise.allSettled([
     cafe24Sync.syncOrdersRealtime(cafe24Config.getConfig(), { days: 31 }),
     queueModule.queueRequest(db, "ORDER_REALTIME", {
       idempotencyKey: `orders-hourly:${hourKey}`,
@@ -58,11 +58,11 @@ export async function GET(request) {
     }),
     naverReady
       ? operationQueue.queueOperation(db, {
-          operationType: "NAVER_COMMERCE_CS_SYNC",
+          operationType: "NAVER_COMMERCE_SYNC",
           targetType: "CHANNEL",
           targetId: "SMARTSTORE",
           payload: { requestedAt: startedAt.toISOString() },
-          idempotencyKey: `cs-hourly:naver:${hourKey}`,
+          idempotencyKey: `commerce-hourly:naver:${hourKey}`,
         })
       : Promise.resolve({ skipped: true, status: "SETUP_REQUIRED" }),
   ]);
@@ -103,17 +103,17 @@ export async function GET(request) {
           ok: false,
           error: coupangCs.reason?.message || "CS 수집 요청 실패",
         },
-    naverCs.status === "fulfilled"
+    naverCommerce.status === "fulfilled"
       ? {
-          platform: "NAVER_CS",
-          ok: !naverCs.value.skipped,
-          skipped: Boolean(naverCs.value.skipped),
-          data: naverCs.value,
+          platform: "NAVER_COMMERCE",
+          ok: !naverCommerce.value.skipped,
+          skipped: Boolean(naverCommerce.value.skipped),
+          data: naverCommerce.value,
         }
       : {
-          platform: "NAVER_CS",
+          platform: "NAVER_COMMERCE",
           ok: false,
-          error: naverCs.reason?.message || "CS 수집 요청 실패",
+          error: naverCommerce.reason?.message || "네이버 커머스 수집 요청 실패",
         },
     tracking.status === "fulfilled"
       ? {
@@ -126,13 +126,6 @@ export async function GET(request) {
           ok: false,
           error: tracking.reason?.message || "배송추적 요청 실패",
         },
-    {
-      platform: "NAVER",
-      ok: false,
-      skipped: true,
-      status: "SETUP_REQUIRED",
-      message: "네이버 커머스 주문 API 연결 후 자동수집에 포함됩니다.",
-    },
   ];
   const available = jobs.filter((job) => !job.skipped);
   const ok = available.every((job) => job.ok);

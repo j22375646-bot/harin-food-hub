@@ -6,7 +6,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const orders=require('../lib/orders/unified-orders.js');
 
-test('maps Cafe24 and Coupang statuses into the five common stages',()=>{
+test('maps Cafe24, Coupang and Naver statuses into the five common stages',()=>{
   assert.equal(orders.stageFor('CAFE24','N00'),'PAID');
   assert.equal(orders.stageFor('CAFE24','N21'),'READY_TO_SHIP');
   assert.equal(orders.stageFor('CAFE24','N40'),'DELIVERED');
@@ -15,6 +15,24 @@ test('maps Cafe24 and Coupang statuses into the five common stages',()=>{
   assert.equal(orders.stageFor('COUPANG','DEPARTURE'),'READY_TO_SHIP');
   assert.equal(orders.stageFor('COUPANG','DELIVERING'),'SHIPPING');
   assert.equal(orders.stageFor('COUPANG','FINAL_DELIVERY'),'DELIVERED');
+  assert.equal(orders.stageFor('NAVER','PAYED'),'PAID');
+  assert.equal(orders.stageFor('NAVER','PREPARING_PRODUCT'),'PREPARING');
+  assert.equal(orders.stageFor('NAVER','DISPATCHED'),'READY_TO_SHIP');
+  assert.equal(orders.stageFor('NAVER','DELIVERING'),'SHIPPING');
+  assert.equal(orders.stageFor('NAVER','PURCHASE_DECIDED'),'DELIVERED');
+});
+
+test('네이버 판매자배송 주문의 옵션과 배송정보를 바로 표시한다',()=>{
+  const center=orders.buildUnifiedOrders({
+    naverOrders:[{order_id:'N-1',order_date:'2026-08-14T08:00:00+09:00',status:'PREPARING_PRODUCT',paid_amount:24000,receiver_name:'홍길동',receiver_phone:'010-0000-0000',receiver_address:'12345 서울시 1층',shipping_memo:'문 앞'}],
+    naverOrderItems:[{product_order_id:'NI-1',order_id:'N-1',product_name:'작두콩차',option_name:'30티백',quantity:2,paid_amount:24000,status:'PREPARING_PRODUCT'}]
+  });
+  const order=center.orders[0];
+  assert.equal(order.platform,'NAVER');
+  assert.equal(order.stage,'PREPARING');
+  assert.equal(order.items[0].option,'30티백');
+  assert.equal(order.receiver.contact,'010-0000-0000');
+  assert.equal(order.receiver.message,'문 앞');
 });
 
 test('builds deterministic hub order numbers and keeps both channel orders',()=>{

@@ -15,14 +15,11 @@ function ChannelState({ channel }) {
 }
 
 function DeliveryInfo({ order }) {
-  const [state,setState]=useState(order.demo?{status:'READY',receiver:order.demoReceiver}:{status:'LOADING'});
+  const initialReceiver=order.demoReceiver||order.receiver;
+  const [state,setState]=useState(initialReceiver?{status:'READY',receiver:initialReceiver}:{status:'LOADING'});
   useEffect(()=>{
     let active=true;
-    if(order.demo)return ()=>{active=false;};
-    if(order.platform==='NAVER'){
-      setState({status:'UNAVAILABLE',error:'네이버 커머스 연결 후 자동 표시됩니다.'});
-      return ()=>{active=false;};
-    }
+    if(order.demo||order.receiver)return ()=>{active=false;};
     scheduleDetail(()=>loadDeliveryDetail(order))
       .then(receiver=>active&&setState({status:'READY',receiver}))
       .catch(error=>active&&setState({status:'FAILED',error:error.message}));
@@ -142,6 +139,7 @@ async function loadDeliveryDetail(order){
     if(!response.ok||!result.ok)throw new Error(result.error||'Cafe24 배송정보 조회 실패');
     return result.receiver||{};
   }
+  if(order.platform==='NAVER'&&order.receiver)return order.receiver;
   throw new Error('배송정보 자동 조회를 지원하지 않는 채널입니다.');
 }
 

@@ -167,7 +167,7 @@ test("fixed-IP operation queue accepts product, Naver and ePost channel probes",
   );
 });
 
-test("hourly order cron schedules all available CS collectors every hour", () => {
+test("hourly order cron schedules all available order and CS collectors every hour", () => {
   const source = fs.readFileSync(
     path.resolve(__dirname, "../app/api/cron/hourly-orders/route.js"),
     "utf8",
@@ -187,7 +187,7 @@ test("hourly order cron schedules all available CS collectors every hour", () =>
     "utf8",
   );
   assert.match(source, /queueRequest\(db, "CS_REALTIME"/);
-  assert.match(source, /NAVER_COMMERCE_CS_SYNC/);
+  assert.match(source, /NAVER_COMMERCE_SYNC/);
   assert.equal(
     vercel.crons.some((item) => item.path === "/api/cron/hourly-orders"),
     false,

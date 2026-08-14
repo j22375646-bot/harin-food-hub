@@ -43,12 +43,30 @@ test('쿠팡 매출·환불·수수료와 확정 지급액을 분리한다', () 
   assert.equal(center.summary.actual_payout,71200);
 });
 
-test('네이버 검색광고 자료를 판매 정산액으로 오인하지 않는다', () => {
+test('네이버 커머스 정산 자료가 없으면 0원이 아닌 자료 없음으로 표시한다', () => {
   const center=buildUnifiedSettlementCenter({now});
   const naver=center.channels.find(item=>item.platform==='NAVER');
-  assert.equal(naver.status,'COLLECTOR_REQUIRED');
+  assert.equal(naver.status,'NO_DATA');
   assert.equal(naver.gross_sales,null);
-  assert.match(naver.action,/검색광고 자료는 정산 자료가 아닙니다/);
+  assert.match(naver.action,/커머스 수집을 다시 실행/);
+});
+
+test('네이버 커머스 정산완료 자료를 매출·수수료·입금액으로 표시한다', () => {
+  const center=buildUnifiedSettlementCenter({now,
+    naverOrders:[{order_id:'N1',payment_date:'2026-08-10T10:00:00+09:00'}],
+    naverSettlements:[{
+      settle_basis_end_date:'2026-08-10',settle_expect_date:'2026-08-12',settle_complete_date:'2026-08-13',
+      pay_settle_amount:100000,commission_settle_amount:6000,settle_amount:94000
+    }]
+  });
+  const naver=center.channels.find(item=>item.platform==='NAVER');
+  assert.equal(naver.status,'ACTUAL');
+  assert.equal(naver.gross_sales,100000);
+  assert.equal(naver.fees,6000);
+  assert.equal(naver.expected_payout,94000);
+  assert.equal(naver.actual_payout,94000);
+  assert.equal(naver.order_count,1);
+  assert.equal(center.schedules.some(item=>item.platform==='NAVER'&&item.amount===94000),true);
 });
 
 test('채널 조회 실패는 저장된 0원 대신 자료 확인 필요로 격리한다', () => {
