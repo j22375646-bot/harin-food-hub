@@ -6,6 +6,7 @@ import supabaseModule from '../../../../lib/cafe24/supabase.js';
 import queueModule from '../../../../lib/coupang/request-queue.js';
 import scheduleKeys from '../../../../lib/automation/kst-schedule.js';
 import naverSearchTermSync from '../../../../lib/naver/sync.js';
+import naverBidPerformance from '../../../../lib/naver/bid-performance.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,7 +38,8 @@ export async function GET(request) {
   ]);
   const evaluation = await Promise.allSettled([
     runnerModule.runJob({ jobName: 'ACTION_EVALUATION', triggerType: 'CRON', maxAttempts: 1, ...runOptions('ACTION_EVALUATION'), work: () => evaluatorModule.evaluateActions({ minimumDays: 7 }) }),
-    runnerModule.runJob({ jobName: 'AB_TEST_EVALUATION', triggerType: 'CRON', maxAttempts: 1, ...runOptions('AB_TEST_EVALUATION'), work: () => experimentModule.evaluateRunningTests({ automatic: true }) })
+    runnerModule.runJob({ jobName: 'AB_TEST_EVALUATION', triggerType: 'CRON', maxAttempts: 1, ...runOptions('AB_TEST_EVALUATION'), work: () => experimentModule.evaluateRunningTests({ automatic: true }) }),
+    runnerModule.runJob({ jobName: 'NAVER_BID_EVALUATION', triggerType: 'CRON', maxAttempts: 1, ...runOptions('NAVER_BID_EVALUATION'), work: () => naverBidPerformance.evaluateDueChanges() })
   ]);
   const jobs = [
     settled('CAFE24_SYNC', sync[0]),
@@ -45,7 +47,8 @@ export async function GET(request) {
     settled('COUPANG_SYNC_QUEUED', sync[2]),
     settled('NAVER_SEARCH_TERMS', searchTerms[0]),
     settled('ACTION_EVALUATION', evaluation[0]),
-    settled('AB_TEST_EVALUATION', evaluation[1])
+    settled('AB_TEST_EVALUATION', evaluation[1]),
+    settled('NAVER_BID_EVALUATION', evaluation[2])
   ];
   const ok = jobs.every(job => job.ok);
   return Response.json({ ok, started_at: startedAt, finished_at: new Date().toISOString(), jobs }, { status: ok ? 200 : 207 });

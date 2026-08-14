@@ -62,14 +62,14 @@ test('12-6B keeps product links server-only and routes execution through the gua
   assert.match(writer,/PRODUCT_TARGET_STALE/);
 });
 
-test('12-6B product selection is included in the signed approval snapshot', () => {
+test('12-7 product selection and guarded automation state are included in the signed approval snapshot', () => {
   const product={id:target.master_product_id,name:'Product',is_active:true};
   const workbench=bidWorkbench.buildNaverBidWorkbench({keywords:[keyword],stats:[stats],productTargets:[target],keywordProductLinks:[link],masterProducts:[product],financialTrust:{allowed_cpc:true,financial_actions:true},executionEnabled:true});
-  assert.equal(workbench.phase,'12-6B');
+  assert.equal(workbench.phase,'12-7');
   assert.equal(workbench.execution_enabled,true);
   assert.equal(workbench.products[0].target_ready,true);
   const snapshot=bidWorkbench.proposalSnapshot(workbench.candidates[0]);
   assert.equal(snapshot.product_target.master_product_id,target.master_product_id);
   assert.equal(snapshot.external_execution_locked,false);
-  assert.equal(snapshot.execution_phase,'12-6B');
+  assert.equal(snapshot.execution_phase,'12-7');
 });
