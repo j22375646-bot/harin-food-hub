@@ -743,7 +743,7 @@ html[data-font-scale="xlarge"]{
 }
 
 body{color:var(--ui-ink);font-size:var(--ui-font-body);line-height:1.65}
-main p,main li,main label{font-size:var(--ui-font-body);line-height:1.68}
+main p,main li,main label{font-size:var(--ui-font-body)!important;line-height:1.68}
 main small,.topbar small,.desktopSidebar small{font-size:var(--ui-font-support)!important;line-height:1.55}
 main :where(table,.dataTable,.syncTable,.insightTable,.mappingTable,.phase7TableWrap){font-size:var(--ui-font-list)}
 main :where(th,.dataHeader,.syncHeader,.insightTableHead,.mappingHeader){font-size:14px!important;line-height:1.5}
@@ -777,7 +777,7 @@ main :where(td,.dataRow,.syncRow,.insightTableRow,.mappingRow){font-size:var(--u
 .harinAiGuards small,.harinAiHero aside em{font-size:var(--ui-font-support)}
 
 main :where(button,input,select){min-height:var(--ui-control-height)}
-main :where(button,input,select,textarea){border-radius:var(--ui-radius-control);font-size:var(--ui-font-list)}
+main :where(button,input,select,textarea){border-radius:var(--ui-radius-control);font-size:var(--ui-font-list)!important}
 main :where(button,a,input,select,textarea):focus-visible,.topbar :where(button,select):focus-visible,.mobileBottomNav :where(button,summary,select):focus-visible{outline:3px solid rgba(23,107,77,.24);outline-offset:2px}
 .syncButton,.logoutButton,.pagePrimaryAction button,.routeError button,.routeError a,.opsLoadMore{min-height:var(--ui-control-height);border-radius:var(--ui-radius-control);padding-inline:18px}
 
