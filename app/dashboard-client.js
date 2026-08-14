@@ -16,6 +16,7 @@ const CustomerRetentionValidationCenter=dynamic(()=>import('./customer-retention
 const UnifiedCustomerServiceCenter=dynamic(()=>import('./unified-customer-service-center.js'));
 const UnifiedProductOperationsCenter=dynamic(()=>import('./unified-product-operations-center.js'));
 const UnifiedInventoryOperationsCenter=dynamic(()=>import('./unified-inventory-operations-center.js'));
+const UnifiedSettlementOperationsCenter=dynamic(()=>import('./unified-settlement-operations-center.js'));
 
 const won = value => `${Math.round(Number(value || 0)).toLocaleString('ko-KR')}원`;
 const count = value => Number(value || 0).toLocaleString('ko-KR');
@@ -118,7 +119,7 @@ function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onO
   const hasQuery=Boolean(query.trim());
   const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(query.trim().toLowerCase()))})).filter(group=>group.items.length);
   return <aside className="desktopSidebar" aria-label="허브 사이드바">
-    <div className="sidebarPhase"><span>현재 개발</span><b>11-6 · 통합 재고 운영</b></div>
+    <div className="sidebarPhase"><span>현재 개발</span><b>11-7 · 통합 정산·비용 운영</b></div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true">⌕</i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴 이름 찾기" /></label>
     <nav aria-label="허브 메뉴">
       {visible.map(group=>{const expanded=hasQuery||openGroup===group.id;return <section className={`sidebarGroup${expanded?' expanded':''}`} key={group.id}>
@@ -235,7 +236,7 @@ export default function Dashboard({ initialData, initialState }) {
       {view==='orders' && (<UnifiedOrdersCenter center={initialData.unifiedOrders}><CoupangOrdersView coupang={initialData.coupang}/></UnifiedOrdersCenter>)}
       {view==='cs' && (<UnifiedCustomerServiceCenter center={initialData.customerService}/>)}
       {view==='inventory' && (<UnifiedInventoryOperationsCenter center={initialData.unifiedInventory}><CoupangInventoryView coupang={initialData.coupang}/></UnifiedInventoryOperationsCenter>)}
-      {view==='settlement' && (<CoupangSettlementView coupang={initialData.coupang}/>)}
+      {view==='settlement' && (<UnifiedSettlementOperationsCenter center={initialData.unifiedSettlement}><CoupangSettlementView coupang={initialData.coupang}/></UnifiedSettlementOperationsCenter>)}
       {view==='keyword' && !channelUnavailable && <>{(platform==='all'||platform==='naver')&&<MarketingDiagnosisCenter diagnosis={initialData.naver?.marketingDiagnosis}/>}<PlatformKeywordView key={`keyword-${platform}`} platform={platform} data={initialData} /></>}
       {view==='product' && !channelUnavailable && <PlatformProductView key={`product-${platform}`} platform={platform} data={initialData} />}
       {view==='reports' && <ReportsView reports={reports} actions={actions} syncs={syncs} financialTrustToken={initialData.financialTrustToken} />}

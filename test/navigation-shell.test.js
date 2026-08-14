@@ -69,16 +69,22 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
   assert.match(client,/view==='cs' && \(<UnifiedCustomerServiceCenter/);
   assert.match(client,/view==='inventory' && \(<UnifiedInventoryOperationsCenter/);
   assert.match(client,/<CoupangInventoryView coupang=\{initialData\.coupang\}\/\><\/UnifiedInventoryOperationsCenter>/);
-  assert.match(client,/view==='settlement' && \(<CoupangSettlementView/);
+  assert.match(client,/view==='settlement' && \(<UnifiedSettlementOperationsCenter/);
   assert.match(styles,/Phase 10-4 — orders, CS, inventory and settlement are independent work pages/);
 });
 
-test('phase 11-6 keeps product operations and adds unified inventory operations', () => {
-  assert.match(client,/11-6 · 통합 재고 운영/);
+test('phase 11-7 keeps prior operations and adds unified settlement operations', () => {
+  assert.match(client,/11-7 · 통합 정산·비용 운영/);
   assert.match(client,/UnifiedProductOperationsCenter/);
   assert.match(client,/UnifiedInventoryOperationsCenter/);
+  assert.match(client,/UnifiedSettlementOperationsCenter/);
   assert.match(client,/initialData\.unifiedInventory/);
+  assert.match(client,/initialData\.unifiedSettlement/);
   assert.ok(page.indexOf('const generatedAt = new Date().toISOString()') < page.indexOf('const unifiedInventory ='));
+  assert.ok(page.indexOf('const generatedAt = new Date().toISOString()') < page.indexOf('const unifiedSettlement ='));
+  assert.match(page,/settlement:\['cafe24_orders'/);
+  assert.match(client,/<CoupangSettlementView coupang=\{initialData\.coupang\}\/><\/UnifiedSettlementOperationsCenter>/);
+  assert.match(styles,/Phase 11-7 · unified settlement and cost operations/);
   assert.match(client,/view==='validation' && \(<CustomerRetentionValidationCenter/);
   assert.match(client,/view==='experiments' && <ExperimentLab/);
   assert.doesNotMatch(client,/phase7LegacyLab/);

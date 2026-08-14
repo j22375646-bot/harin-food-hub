@@ -11,6 +11,7 @@ import mappingService from '../lib/products/mapping-service.js';
 import productPerformance from '../lib/products/performance.js';
 import productOperationsModule from '../lib/products/operations-center.js';
 import unifiedInventoryModule from '../lib/inventory/unified-center.js';
+import unifiedSettlementModule from '../lib/settlement/unified-center.js';
 import costCalibrationModule from '../lib/analytics/cost-calibration.js';
 import shippingRulesModule from '../lib/analytics/shipping-rules.js';
 import financialTrustModule from '../lib/analytics/financial-trust.js';
@@ -85,7 +86,7 @@ const VIEW_TABLES = {
   orders:['cafe24_orders','cafe24_order_items','coupang_orders','coupang_order_items','coupang_rg_orders','coupang_rg_order_items','coupang_returns'],
   cs:['cafe24_orders','cafe24_order_items','coupang_orders','coupang_order_items','coupang_returns','coupang_exchanges','coupang_inquiries','coupang_operation_requests','customer_service_items'],
   inventory:['master_products','channel_products','cafe24_products','coupang_products','coupang_rg_inventory','coupang_item_inventory','coupang_product_items'],
-  settlement:['coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_orders','coupang_rg_order_items','coupang_settlement_summaries','coupang_promotion_budgets','coupang_product_items','coupang_cost_transactions','coupang_cost_imports','channel_cost_settings','channel_shipping_rules'],
+  settlement:['cafe24_orders','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_orders','coupang_rg_order_items','coupang_settlement_summaries','coupang_promotion_budgets','coupang_product_items','coupang_cost_transactions','coupang_cost_imports','channel_cost_settings','channel_shipping_rules'],
   collection:['cafe24_products','automation_runs','data_quality_checks','coupang_sync_requests','coupang_products','coupang_api_capabilities'],
   insight:['cafe24_orders','cafe24_order_items','cafe24_traffic_daily','cafe24_referrers_daily','reports','actions','platform_events','master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_stats_daily','naver_keyword_stats','product_costs','channel_cost_settings','channel_shipping_rules','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_inventory','coupang_rg_orders','coupang_product_items','coupang_rg_order_items','coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily','coupang_ad_keyword_daily'],
   keyword:['master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_stats_daily','naver_keyword_stats','product_detail_checklists','product_costs','channel_cost_settings','channel_shipping_rules','coupang_products','coupang_rg_inventory','coupang_item_inventory','coupang_product_items','coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily','coupang_ad_keyword_daily'],
@@ -425,6 +426,20 @@ async function getDashboardData(state) {
     coupangRgInventory:coupangInventoryResult.data || [],
     now:new Date(generatedAt)
   });
+  const unifiedSettlement = unifiedSettlementModule.buildUnifiedSettlementCenter({
+    cafe24Orders:ordersResult.data || [],
+    coupangSettlements:coupangSettlementsResult.data || [],
+    coupangCostTransactions:coupangCostsResult.data || [],
+    coupangSettlementSummaries:coupangSettlementSummaryResult.data || [],
+    channelCostSettings:effectiveChannelCostSettings,
+    syncs:syncResult.data || [],
+    unavailable:{
+      CAFE24:Boolean(ordersResult.unavailable),
+      NAVER:Boolean(naverSyncResult.unavailable),
+      COUPANG:Boolean(coupangSettlementsResult.unavailable && coupangSettlementSummaryResult.unavailable)
+    },
+    now:new Date(generatedAt)
+  });
   const marketingDiagnosis=marketingDiagnosisModule.buildMarketingDiagnosis({
     keywordStats:marketingKeywordStats,
     naverKeywords:marketingKeywordCatalog,
@@ -651,6 +666,7 @@ async function getDashboardData(state) {
     productMapping,
     productOperations,
     unifiedInventory,
+    unifiedSettlement,
     unifiedProductPerformance:trustedProductPerformance,
     financialReadiness,
     productCosts: costsResult.data || [],
