@@ -833,6 +833,7 @@ async function getDashboardData(state) {
   });
   return {
     loadedView:view,
+    loadedWorkspace:state?.workspace||null,
     generatedAt,
     dataHealth,
     channelConnections,
@@ -970,9 +971,9 @@ async function renderDashboardState(initialState) {
   }
 }
 
-export async function renderDashboardRoute(view, searchParams) {
+export async function renderDashboardRoute(view, searchParams, overrides={}) {
   const params=await searchParams;
-  const initialState=hubRoutesModule.normalizeHubState({...params,view});
+  const initialState=hubRoutesModule.normalizeHubState({...params,...overrides,view});
   return renderDashboardState(initialState);
 }
 

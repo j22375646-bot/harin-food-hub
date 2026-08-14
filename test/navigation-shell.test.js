@@ -57,11 +57,12 @@ test('12-3 uses stable date keys across the executive board and legacy Naver sna
 });
 
 test('main renders only the all-channel command center and links channel details to work pages', () => {
-  assert.match(client,/\{channelScopedViews\.has\(view\)&&<section className="platformSwitch"/);
+  assert.match(client,/\{channelScopedViews\.has\(view\)&&\(view!==\'product\'\|\|workspace===\'catalog\'\)&&<section className="platformSwitch"/);
   assert.doesNotMatch(client,/view==='main' && platform!=='all'/);
   assert.doesNotMatch(client,/view==='main' && !channelUnavailable && <MainView/);
-  assert.match(client,/onOpen\(\{view:'insight',platform:item\.platform\}\)/);
-  assert.match(client,/view==='insight' && !channelUnavailable && \['naver','cafe24'\]\.includes\(platform\) && <details className="channelLegacyDetails"/);
+  assert.match(client,/view:item\.view\|\|'main'/);
+  assert.match(client,/view==='insight' && workspace==='channels'/);
+  assert.match(client,/\['naver','cafe24'\]\.includes\(platform\)\?<details className="channelLegacyDetails"/);
   assert.match(styles,/Phase 10-3 — the main page is one all-channel command center/);
 });
 
@@ -82,7 +83,7 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
 });
 
 test('phase 11-8 keeps prior operations and adds unified data collection operations', () => {
-  assert.match(client,/13-5 · CS·재고·정산 정리/);
+  assert.match(client,/13-6 · 인사이트·키워드·상품 분리/);
   assert.match(client,/UnifiedProductOperationsCenter/);
   assert.match(client,/UnifiedInventoryOperationsCenter/);
   assert.match(client,/UnifiedSettlementOperationsCenter/);

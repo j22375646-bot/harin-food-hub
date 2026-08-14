@@ -1,0 +1,11 @@
+import { notFound } from 'next/navigation';
+import hubRoutes from '../../../lib/navigation/hub-routes.js';
+import { renderDashboardRoute } from '../../page.js';
+
+export const dynamic='force-dynamic';
+
+export default async function Page({ params, searchParams }) {
+  const { workspace }=await params;
+  if(!(hubRoutes.HUB_WORKSPACES.product||[]).some(item=>item.id===workspace))notFound();
+  return renderDashboardRoute('product',searchParams,{workspace});
+}

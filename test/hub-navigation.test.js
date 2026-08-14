@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { HUB_NAV, HUB_NAV_GROUPS, HUB_LEGACY_ROUTES, normalizeHubState, buildHubHref, parseHubHref, groupForView, navigationContext } = require('../lib/navigation/hub-routes.js');
+const { HUB_NAV, HUB_NAV_GROUPS, HUB_WORKSPACES, HUB_LEGACY_ROUTES, normalizeHubState, buildHubHref, parseHubHref, groupForView, navigationContext } = require('../lib/navigation/hub-routes.js');
 
 test('all fifteen hub functions have stable unique addresses', () => {
   assert.equal(HUB_NAV.length,15);
@@ -21,15 +21,15 @@ test('all fifteen hub functions have stable unique addresses', () => {
 
 test('platform, product, and period survive a refresh through the URL', () => {
   const href=buildHubHref({view:'insight',platform:'coupang',product:'123-ABC',period:'WEEK'});
-  assert.equal(href,'/insights?platform=coupang&period=WEEK&product=123-ABC');
+  assert.equal(href,'/insights/overview?platform=coupang&period=WEEK&product=123-ABC');
   assert.deepEqual(normalizeHubState({view:'insight',platform:'coupang',product:'123-ABC',period:'WEEK'}),{
-    view:'insight',platform:'coupang',product:'123-ABC',period:'WEEK'
+    view:'insight',workspace:'overview',platform:'coupang',product:'123-ABC',period:'WEEK'
   });
 });
 
 test('main is canonicalized to the all-channel command center', () => {
   assert.equal(buildHubHref({view:'main',platform:'coupang'}),'/');
-  assert.deepEqual(parseHubHref('/?platform=naver&period=WEEK&product=old-product'),{view:'main',platform:'all',product:'ALL',period:'DAY'});
+  assert.deepEqual(parseHubHref('/?platform=naver&period=WEEK&product=old-product'),{view:'main',workspace:null,platform:'all',product:'ALL',period:'DAY'});
 });
 
 test('Coupang operation pages stay locked to Coupang without a redundant query', () => {
@@ -55,19 +55,36 @@ test('only insight, keyword, and product pages retain a channel selection', () =
 
 test('unknown URL state falls back safely', () => {
   assert.deepEqual(normalizeHubState({view:'admin',platform:'unknown',product:'../../secret',period:'YEAR'}),{
-    view:'main',platform:'all',product:'ALL',period:'DAY'
+    view:'main',workspace:null,platform:'all',product:'ALL',period:'DAY'
   });
 });
 
 test('visible hub addresses restore the matching client view', () => {
   assert.deepEqual(parseHubHref('https://harin-cafe24-sync.vercel.app/products?platform=coupang&period=WEEK&product=123'), {
-    view:'product', platform:'coupang', period:'WEEK', product:'123'
+    view:'product', workspace:'catalog', platform:'coupang', period:'WEEK', product:'123'
   });
   assert.equal(parseHubHref('/approvals').view,'changes');
   assert.equal(parseHubHref('/execution-validation').view,'validation');
   assert.equal(parseHubHref('/ab-tests').view,'experiments');
   assert.equal(parseHubHref('/?view=notifications').view,'notifications');
   assert.equal(parseHubHref('/ai-knowledge').view,'knowledge');
+});
+
+test('phase 13-6 focused workspaces have real addresses and restore their exact state', () => {
+  assert.deepEqual(Object.keys(HUB_WORKSPACES),['insight','keyword','product']);
+  assert.deepEqual(HUB_WORKSPACES.insight.map(item=>item.id),['overview','causes','channels']);
+  assert.deepEqual(HUB_WORKSPACES.keyword.map(item=>item.id),['search-terms','registered','diagnosis']);
+  assert.deepEqual(HUB_WORKSPACES.product.map(item=>item.id),['catalog','mappings','costs','profit','offers','ad-targets']);
+  for (const [view,items] of Object.entries(HUB_WORKSPACES)) {
+    for (const item of items) {
+      const href=buildHubHref({view,workspace:item.id,platform:'naver'});
+      const state=parseHubHref(href);
+      assert.equal(href,item.href+(view==='product'&&item.id!=='catalog'?'':'?platform=naver'));
+      assert.equal(state.view,view);
+      assert.equal(state.workspace,item.id);
+      assert.equal(state.platform,view==='product'&&item.id!=='catalog'?'all':'naver');
+    }
+  }
 });
 
 test('all existing functions appear once in the nine owner-oriented sidebar groups', () => {
