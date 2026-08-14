@@ -49,3 +49,27 @@ test('오래된 양수 재고는 갱신 필요로 분리한다', () => {
   assert.equal(center.summary.stale,1);
   assert.equal(stockState(null),'UNKNOWN');
 });
+
+test('최근 판매속도로 품절 예상일과 30일 권장 발주량을 계산한다', () => {
+  const center = buildUnifiedInventoryCenter({
+    now:new Date('2026-08-14T00:00:00Z'), salesPeriodDays:7,
+    masterProducts:[{id:'m1',name:'작두콩차',is_active:true}],
+    channelProducts:[{master_product_id:'m1',platform:'NAVER',external_product_id:'np1',raw_data:{source_type:'NAVER_COMMERCE_PRODUCT',stockQuantity:10,updatedAt:'2026-08-14T00:00:00Z'}}],
+    productPerformance:[{master_product_id:'m1',units:14}]
+  });
+  const plan=center.items[0].replenishment;
+  assert.equal(plan.average_daily_sales,2);
+  assert.equal(plan.stockout_days,5);
+  assert.equal(plan.recommended_quantity,50);
+  assert.equal(plan.status,'RECOMMENDED');
+  assert.equal(center.summary.replenishment_recommended,1);
+});
+
+test('판매속도 표본이 없으면 발주량을 0으로 추정하지 않는다', () => {
+  const center = buildUnifiedInventoryCenter({
+    masterProducts:[{id:'m1',name:'레드비트차',is_active:true}],
+    channelProducts:[], productPerformance:[]
+  });
+  assert.equal(center.items[0].replenishment.recommended_quantity,null);
+  assert.equal(center.items[0].replenishment.status,'CHECK_REQUIRED');
+});

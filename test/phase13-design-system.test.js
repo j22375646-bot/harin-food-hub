@@ -37,5 +37,5 @@ test('13-2 keeps desktop text control and moves mobile control into More view se
   assert.match(client,/fontScale=\{fontScale\} onFontScale=\{setFontScale\}/);
   assert.match(css,/\.headerActions \.fontScaleControl\{display:none\}/);
   assert.match(css,/\.mobileViewSettings\{display:flex!important/);
-  assert.match(client,/13-4 · 주문·배송 작업센터/);
+  assert.match(client,/13-5 · CS·재고·정산 정리/);
 });

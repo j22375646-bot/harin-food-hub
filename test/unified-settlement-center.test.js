@@ -76,3 +76,16 @@ test('채널 조회 실패는 저장된 0원 대신 자료 확인 필요로 격�
   assert.equal(center.summary.check_required_channels,3);
   assert.ok(center.channels.every(item=>item.status==='UNAVAILABLE'));
 });
+
+test('예상 정산액과 실제 지급액 차이 및 정산 흐름을 계산한다', () => {
+  const center=buildUnifiedSettlementCenter({now,coupangSettlements:[
+    {order_id:'O1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:10000,settlement_amount:90000}
+  ],coupangSettlementSummaries:[{settlement_date:'2026-08-13',final_amount:88000,status:'DONE'}]});
+  const coupang=center.channels.find(item=>item.platform==='COUPANG');
+  assert.equal(coupang.expected_payout,90000);
+  assert.equal(coupang.actual_payout,88000);
+  assert.equal(coupang.payout_variance,-2000);
+  assert.equal(center.waterfall.gross_sales,100000);
+  assert.equal(center.waterfall.expected_payout,90000);
+  assert.equal(center.waterfall.variance,-2000);
+});

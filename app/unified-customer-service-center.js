@@ -589,6 +589,7 @@ export default function UnifiedCustomerServiceCenter({ center }) {
     "COUPANG",
     "CAFE24",
   ]);
+  const [workspace, setWorkspace] = useState("ACTIVE");
   const [kind, setKind] = useStoredState("filter:cs-kind", "ALL", [
     "ALL",
     "INQUIRY",
@@ -604,10 +605,6 @@ export default function UnifiedCustomerServiceCenter({ center }) {
     "COMPLETED",
   ]);
   const [query, setQuery] = useStoredState("filter:cs-query", "");
-  const [showCompleted, setShowCompleted] = useStoredState(
-    "filter:cs-completed",
-    false,
-  );
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
   async function syncAllChannels() {
@@ -639,7 +636,11 @@ export default function UnifiedCustomerServiceCenter({ center }) {
     }
   }
   const rows = (data.rows || []).filter((row) => {
-    if (!showCompleted && row.completed) return false;
+    if (workspace === "ACTIVE" && row.completed) return false;
+    if (workspace === "CLAIMS" && (row.completed || row.kind === "INQUIRY"))
+      return false;
+    if (workspace === "HISTORY" && !row.completed) return false;
+    if (workspace === "TEMPLATES") return false;
     if (platform !== "ALL" && row.platform !== platform) return false;
     if (kind !== "ALL" && row.kind !== kind) return false;
     if (due !== "ALL" && row.due.code !== due) return false;
@@ -663,10 +664,10 @@ export default function UnifiedCustomerServiceCenter({ center }) {
     <section className="unifiedCsCenter">
       <section className="unifiedCsHero">
         <div>
-          <span>PHASE 11-4 · CUSTOMER OPERATIONS</span>
+          <span>13-5 · CUSTOMER WORKSPACES</span>
           <h1>통합 CS·클레임센터</h1>
           <p>
-            문의와 취소·반품·교환을 처리기한, 주문, 상품, 배송상태와 함께
+            처리 요청, 클레임, 완료 이력, 답변 양식을 나눠 지금 할 일만
             확인합니다.
           </p>
         </div>
@@ -721,6 +722,28 @@ export default function UnifiedCustomerServiceCenter({ center }) {
           </p>
         </div>
       </details>
+      <nav className="phase13WorkspaceNav customer" aria-label="CS 작업공간">
+        {[
+          ["ACTIVE", "처리 요청", "미답변·오늘 할 일", data.summary?.active],
+          ["CLAIMS", "클레임", "취소·반품·교환", data.summary?.claims],
+          ["HISTORY", "처리 이력", "완료된 기록", data.summary?.completed],
+          ["TEMPLATES", "답변 양식", "자주 쓰는 문구", data.templates?.length],
+        ].map(([id, label, description, total]) => (
+          <button
+            type="button"
+            className={workspace === id ? "active" : ""}
+            onClick={() => {
+              setWorkspace(id);
+              if (id !== "ACTIVE") setKind("ALL");
+            }}
+            key={id}
+          >
+            <span>{label}</span>
+            <small>{description}</small>
+            <b>{count(total)}</b>
+          </button>
+        ))}
+      </nav>
       <section className="kpiGrid">
         <article className="kpi orange">
           <div className="kpiIcon">!</div>
@@ -755,7 +778,7 @@ export default function UnifiedCustomerServiceCenter({ center }) {
           </div>
         </article>
       </section>
-      <nav className="unifiedCsKindTabs" aria-label="CS 유형">
+      {workspace === "ACTIVE" && <nav className="unifiedCsKindTabs" aria-label="CS 유형">
         {kindTabs.map(([id, label]) => (
           <button
             className={kind === id ? "active" : ""}
@@ -768,15 +791,15 @@ export default function UnifiedCustomerServiceCenter({ center }) {
                 (data.rows || []).filter(
                   (row) =>
                     (id === "ALL" || row.kind === id) &&
-                    (!row.completed || showCompleted),
+                    !row.completed,
                 ).length,
               )}
               건
             </small>
           </button>
         ))}
-      </nav>
-      <section className="unifiedCsToolbar">
+      </nav>}
+      {workspace !== "TEMPLATES" && <section className="unifiedCsToolbar">
         <label>
           <span>채널</span>
           <select
@@ -808,16 +831,23 @@ export default function UnifiedCustomerServiceCenter({ center }) {
             placeholder="접수·주문번호, 상품명, 문의 내용"
           />
         </label>
-        <label className="completed">
-          <input
-            type="checkbox"
-            checked={showCompleted}
-            onChange={(event) => setShowCompleted(event.target.checked)}
-          />
-          <span>처리완료도 보기</span>
-        </label>
-      </section>
-      <div className="unifiedCsWorkList">
+      </section>}
+      {workspace === "TEMPLATES" ? (
+        <section className="unifiedCsTemplateLibrary">
+          <header>
+            <div><span>REPLY LIBRARY</span><h2>확인 후 보내는 답변 양식</h2></div>
+            <small>자동 전송하지 않습니다.</small>
+          </header>
+          <div>{(data.templates || []).map((template) => (
+            <article key={template.id}>
+              <span>{template.id}</span>
+              <h3>{template.label}</h3>
+              <p>{template.content}</p>
+              <button type="button" onClick={() => navigator.clipboard?.writeText(template.content)}>문구 복사</button>
+            </article>
+          ))}</div>
+        </section>
+      ) : <div className="unifiedCsWorkList">
         {rows.length ? (
           rows.map((row) =>
             row.kind === "INQUIRY" ? (
@@ -834,7 +864,7 @@ export default function UnifiedCustomerServiceCenter({ center }) {
             </span>
           </div>
         )}
-      </div>
+      </div>}
     </section>
   );
 }

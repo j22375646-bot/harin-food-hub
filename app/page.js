@@ -516,15 +516,6 @@ async function getDashboardData(state) {
     coupangProductItems:coupangProductItemsResult.data || [],
     coupangItemInventory:coupangItemInventoryResult.data || []
   });
-  const unifiedInventory = unifiedInventoryModule.buildUnifiedInventoryCenter({
-    masterProducts:masterResult.data || [],
-    channelProducts:allChannelProducts,
-    cafe24Products:productsResult.data || [],
-    coupangProductItems:coupangProductItemsResult.data || [],
-    coupangItemInventory:coupangItemInventoryResult.data || [],
-    coupangRgInventory:coupangInventoryResult.data || [],
-    now:new Date(generatedAt)
-  });
   const unifiedSettlement = unifiedSettlementModule.buildUnifiedSettlementCenter({
     cafe24Orders:ordersResult.data || [],
     naverOrders:naverCommerceOrdersResult.data || [],
@@ -575,6 +566,17 @@ async function getDashboardData(state) {
     console.error('[dashboard] unified product performance inputs unavailable',error);
     unifiedProductPerformance=productPerformance.buildUnifiedProductPerformance(productPerformanceInput);
   }
+  const unifiedInventory = unifiedInventoryModule.buildUnifiedInventoryCenter({
+    masterProducts:masterResult.data || [],
+    channelProducts:allChannelProducts,
+    cafe24Products:productsResult.data || [],
+    coupangProductItems:coupangProductItemsResult.data || [],
+    coupangItemInventory:coupangItemInventoryResult.data || [],
+    coupangRgInventory:coupangInventoryResult.data || [],
+    productPerformance:unifiedProductPerformance.items || [],
+    salesPeriodDays:7,
+    now:new Date(generatedAt)
+  });
   const coverageCandidates = [liveProfitability.cost_coverage_rate, unifiedProductPerformance.summary?.cost_coverage_rate]
     .filter(value => value !== null && value !== undefined && value !== '')
     .map(value => Number(value))
