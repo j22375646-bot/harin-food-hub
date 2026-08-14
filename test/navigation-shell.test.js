@@ -49,6 +49,11 @@ test('phase 10-6 scopes database tables per page and shows useful loading feedba
   assert.match(loading,/Loading/);
 });
 
+test('12-3 uses stable date keys across the executive board and legacy Naver snapshot', () => {
+  assert.match(page,/const weekStart=latestNaverDate\?shiftDate\(latestNaverDate,-6\):null/);
+  assert.doesNotMatch(page,/weekStart\.toISOString\(\)/);
+});
+
 test('main renders only the all-channel command center and links channel details to work pages', () => {
   assert.match(client,/\{channelScopedViews\.has\(view\)&&<section className="platformSwitch"/);
   assert.doesNotMatch(client,/view==='main' && platform!=='all'/);

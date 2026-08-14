@@ -670,7 +670,7 @@ async function getDashboardData(state) {
       id:'NAVER_PAID_ROAS', label:'네이버 광고 ROAS', value:metricNeedsCheck('NAVER') || naverPerformance.status==='NO_DATA' ? null : naverPerformance.roasPercent, unit:'PERCENT',
       status:metricNeedsCheck('NAVER') ? 'STALE' : naverPerformance.status==='READY' ? 'READY' : naverPerformance.status==='NO_DATA' ? 'NO_DATA' : 'PARTIAL',
       sources:[{platform:'NAVER',dataset:'naver_stats_daily'}], asOf:naverSyncResult.data?.finished_at,
-      periodStart:weekStart?dateOnly(weekStart.toISOString()):null, periodEnd:latestNaverDate,
+      periodStart:weekStart, periodEnd:latestNaverDate,
       formula:'sum(conversion_revenue) / sum(cost) * 100', sampleSize:naverTotals.clicks,
       reasons:naverPerformance.status==='INSUFFICIENT_SAMPLE' ? ['클릭 30회·전환 3건 미만'] : []
     }),
