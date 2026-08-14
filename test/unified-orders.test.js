@@ -247,10 +247,10 @@ test('phase 11-9 preserves bulk selection and retry while focusing the postal au
   assert.match(center,/className=\{`orderInvoiceEntry/);
   assert.match(center,/우체국 송장번호/);
   assert.match(center,/replace\(\/\\D\/g,''\)\.slice\(0,13\)/);
-  assert.match(center,/useState\('EPOST'\)/);
+  assert.match(center,/POSTAL_COURIER_BY_PLATFORM=Object\.freeze\(\{COUPANG:'EPOST',NAVER:'EPOST',CAFE24:'0012'\}\)/);
   assert.match(center,/setActionResults/);
   assert.match(route,/channelTransfer\.postalTracking/);
-  assert.match(transfer,/return normalized \|\| 'EPOST'/);
+  assert.match(transfer,/return expected/);
   assert.match(transfer,/\^\\d\{13\}\$/);
   assert.match(center,/송장 자동발급 \+ 쇼핑몰 등록/);
   assert.match(center,/배송상태 확인/);

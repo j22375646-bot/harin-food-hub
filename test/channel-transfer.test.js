@@ -25,9 +25,15 @@ test('실제 우체국 13자리만 채널 전송에 허용한다',()=>{
 
 test('채널별 우체국 배송사 코드를 자동 적용한다',()=>{
   assert.equal(transfer.courierCode('COUPANG',''),'EPOST');
+  assert.equal(transfer.courierCode('COUPANG','0012'),'EPOST');
+  assert.equal(transfer.courierCode('NAVER',''),'EPOST');
+  assert.equal(transfer.courierCode('NAVER','0012'),'EPOST');
   assert.equal(transfer.courierCode('CAFE24',''),'0012');
+  assert.equal(transfer.courierCode('CAFE24','EPOST'),'0012');
   assert.equal(transfer.courierCode('CAFE24','0013'),'0012');
   assert.equal(transfer.courierCode('CAFE24','00004'),'0012');
+  assert.deepEqual(transfer.PLATFORM_EPOST_COURIER_CODES,{COUPANG:'EPOST',CAFE24:'0012',NAVER:'EPOST'});
+  assert.throws(()=>transfer.courierCode('COUPANG','CJGLS'),error=>error.code==='COUPANG_EPOST_COURIER_INVALID');
 });
 
 test('이미 성공한 주문의 송장번호를 복호화해 중복·충돌 전송을 차단할 수 있다',()=>{

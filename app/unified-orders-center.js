@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 const STAGE_LABELS={PAID:'결제완료',PREPARING:'준비중',READY_TO_SHIP:'출고대기',SHIPPING:'배송중',DELIVERED:'배송완료'};
 const CHANNEL_LABELS={ALL:'전체 채널',NAVER:'네이버',COUPANG:'쿠팡',CAFE24:'Cafe24'};
 const TIMING_LABELS={SAME_DAY:'당일출고',DELAYED:'배송지연'};
+const POSTAL_COURIER_BY_PLATFORM=Object.freeze({COUPANG:'EPOST',NAVER:'EPOST',CAFE24:'0012'});
 const money=value=>`${Math.round(Number(value||0)).toLocaleString('ko-KR')}원`;
 const count=value=>Number(value||0).toLocaleString('ko-KR');
 const dateTime=value=>value?new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date(value)):'주문일 확인 필요';
@@ -133,8 +134,6 @@ async function loadDeliveryDetail(order){
 
 function ShippingWorkbench({ orders, selectedIds, invoices, setInvoices, actionResults, setActionResults, trackingStates, setTrackingStates }) {
   const selected=orders.filter(order=>selectedIds.has(order.hubOrderId));
-  const [coupangCourier,setCoupangCourier]=useState('EPOST');
-  const cafe24Courier='0012';
   const [message,setMessage]=useState('');
   const [busy,setBusy]=useState('');
   const [liveCandidates,setLiveCandidates]=useState([]);
@@ -247,7 +246,7 @@ function ShippingWorkbench({ orders, selectedIds, invoices, setInvoices, actionR
       const transferTargets=readyTargets.filter(order=>invoiceById[order.hubOrderId]);
       if(!transferTargets.length)throw new Error(issued.find(item=>!item.ok)?.error||'발급된 송장이 없습니다.');
       setMessage(`3/3 발급된 송장 ${transferTargets.length}건을 쇼핑몰에 등록하고 있습니다…`);
-      const transferResponse=await fetch('/api/shipping/actions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:true,action:'UPLOAD_INVOICE',orders:transferTargets.map(order=>({hubOrderId:order.hubOrderId,invoiceNumber:invoiceById[order.hubOrderId],deliveryCompanyCode:order.platform==='COUPANG'?coupangCourier:cafe24Courier}))})});
+      const transferResponse=await fetch('/api/shipping/actions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:true,action:'UPLOAD_INVOICE',orders:transferTargets.map(order=>({hubOrderId:order.hubOrderId,invoiceNumber:invoiceById[order.hubOrderId],deliveryCompanyCode:POSTAL_COURIER_BY_PLATFORM[order.platform]}))})});
       const transfer=await transferResponse.json();
       const immediate=(transfer.results||[]).map(item=>({...item,status:item.ok?(item.status||'SUCCESS'):'FAILED',action:'AUTO_ISSUE',error:item.error||'',invoiceNumber:invoiceById[item.hubOrderId]}));
       const settled=await Promise.all(immediate.map(async item=>{try{return await pollShippingTransfer(item);}catch(error){return {...item,status:'FAILED',error:error.message};}}));
@@ -267,7 +266,7 @@ function ShippingWorkbench({ orders, selectedIds, invoices, setInvoices, actionR
     if(!targets.length)return setMessage(action==='PREPARE'?'선택 주문 중 결제완료 상태가 없습니다.':'준비중·출고대기 주문에 우체국 송장번호 13자리를 먼저 입력해주세요.');
     const label=action==='PREPARE'?'상품준비중으로 변경':'송장을 각 쇼핑몰에 전송';
     if(!window.confirm(`대상 ${targets.length}건을 ${label}할까요?\n실제 쇼핑몰 주문이 변경됩니다.`))return;
-    const rows=targets.map(order=>({hubOrderId:order.hubOrderId,invoiceNumber:postalTracking(order.invoiceNumber||invoices[order.hubOrderId]),deliveryCompanyCode:order.platform==='COUPANG'?coupangCourier:cafe24Courier}));
+    const rows=targets.map(order=>({hubOrderId:order.hubOrderId,invoiceNumber:postalTracking(order.invoiceNumber||invoices[order.hubOrderId]),deliveryCompanyCode:POSTAL_COURIER_BY_PLATFORM[order.platform]}));
     setActionResults(previous=>({...previous,...Object.fromEntries(targets.map(order=>[order.hubOrderId,{status:'RUNNING',action}]))}));
     setBusy(action);setMessage('채널별로 안전하게 처리 중입니다…');
     try{
