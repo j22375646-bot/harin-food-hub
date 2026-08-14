@@ -4,6 +4,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const sync = require('../lib/naver-commerce/sync.js');
 
+test('Naver settlement dates accept Date objects', () => {
+  assert.equal(sync.dateOnly(new Date('2026-08-14T06:00:00.000Z')), '2026-08-14');
+  assert.equal(sync.dateOnly('2026-08-07T00:00:00+09:00'), '2026-08-07');
+});
+
 test('네이버 상품 응답을 상품센터의 커머스 상품으로 변환한다', () => {
   const rows = sync.flattenProducts({ contents:[{
     originProductNo:100,
