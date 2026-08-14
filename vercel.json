@@ -6,11 +6,15 @@
     },
     {
       "path": "/api/cron/platform-reports",
-      "schedule": "10 21 * * *"
+      "schedule": "10 22 * * *"
     },
     {
       "path": "/api/cron/weekly-report",
-      "schedule": "0 21 * * 0"
+      "schedule": "30 22 * * 0"
+    },
+    {
+      "path": "/api/cron/monthly-reports",
+      "schedule": "0 23 * * *"
     }
   ]
 }

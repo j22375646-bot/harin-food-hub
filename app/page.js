@@ -33,6 +33,7 @@ import aiFoundationModule from '../lib/ai/foundation.js';
 import openaiClientModule from '../lib/ai/openai-client.js';
 import aiPagePanelsModule from '../lib/ai/page-panels.js';
 import aiPageResultsModule from '../lib/ai/page-results.js';
+import reportLearningModule from '../lib/reports/learning-history.js';
 import kstScheduleModule from '../lib/automation/kst-schedule.js';
 import retentionValidationModule from '../lib/customers/retention-validation.js';
 import channelCapabilitiesModule from '../lib/platforms/channel-capabilities.js';
@@ -105,7 +106,7 @@ const VIEW_TABLES = {
   keyword:['master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_stats_daily','naver_keyword_stats','naver_search_terms','product_detail_checklists','product_costs','channel_cost_settings','channel_shipping_rules','coupang_products','coupang_rg_inventory','coupang_item_inventory','coupang_product_items','coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily','coupang_ad_keyword_daily','ai_analysis_results'],
   product:['cafe24_orders','cafe24_order_items','cafe24_products','master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_keyword_stats','product_costs','product_ad_targets','channel_cost_settings','channel_shipping_rules','product_mapping_history','product_detail_checklists','coupang_products','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_inventory','coupang_item_inventory','coupang_product_items','coupang_rg_orders','coupang_rg_order_items','coupang_cost_transactions','coupang_ad_keyword_daily','ai_analysis_results'],
   knowledge:[],
-  reports:['reports','actions','action_evaluations','product_costs','channel_cost_settings','channel_shipping_rules'],
+  reports:['reports','actions','action_evaluations','automation_runs','product_costs','channel_cost_settings','channel_shipping_rules'],
   changes:['cafe24_orders','cafe24_order_items','master_products','channel_products','naver_keywords','naver_keyword_stats','product_costs','product_ad_targets','channel_cost_settings','channel_shipping_rules','coupang_orders','coupang_order_items','coupang_product_items','coupang_rg_orders','coupang_rg_order_items','naver_keyword_product_links','financial_change_requests','financial_change_audit_logs'],
   validation:['cafe24_orders','cafe24_order_items','cafe24_referrers_daily','reports','actions','action_evaluations','automation_runs','financial_change_requests','financial_change_audit_logs','ab_tests'],
   experiments:[],
@@ -666,6 +667,10 @@ async function getDashboardData(state) {
     orderHistoryPeriod:latestCafe24History,
     asOf:generatedAt
   });
+  const reportLearningHistory=reportLearningModule.buildLearningHistory({
+    reports:reportsResult.data||[],
+    automationRuns:automationResult.data||[]
+  });
   const dataHealth = dataHealthModule.buildDataHealth({
     issues:queryIssues,
     syncs:syncResult.data || [],
@@ -850,6 +855,7 @@ async function getDashboardData(state) {
     }),
     syncs: syncResult.data || [],
     reports: reportsResult.data || [],
+    reportLearningHistory,
     actions,
     priorityCenter,
     salesCommandCenter,
