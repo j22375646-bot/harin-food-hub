@@ -75,7 +75,7 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
 });
 
 test('phase 11-8 keeps prior operations and adds unified data collection operations', () => {
-  assert.match(client,/11-8 · 통합 데이터 수집 운영/);
+  assert.match(client,/12-2 · 실제 검색어 운영센터/);
   assert.match(client,/UnifiedProductOperationsCenter/);
   assert.match(client,/UnifiedInventoryOperationsCenter/);
   assert.match(client,/UnifiedSettlementOperationsCenter/);

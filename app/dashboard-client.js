@@ -122,7 +122,7 @@ function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onO
   const hasQuery=Boolean(query.trim());
   const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(query.trim().toLowerCase()))})).filter(group=>group.items.length);
   return <aside className="desktopSidebar" aria-label="허브 사이드바">
-    <div className="sidebarPhase"><span>현재 개발</span><b>11-8 · 통합 데이터 수집 운영</b></div>
+    <div className="sidebarPhase"><span>현재 개발</span><b>12-2 · 실제 검색어 운영센터</b></div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true">⌕</i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴 이름 찾기" /></label>
     <nav aria-label="허브 메뉴">
       {visible.map(group=>{const expanded=hasQuery||openGroup===group.id;return <section className={`sidebarGroup${expanded?' expanded':''}`} key={group.id}>

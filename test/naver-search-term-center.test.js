@@ -10,10 +10,12 @@ const sync=require('../lib/naver/sync.js');
 test('search terms are deterministically classified into owner-friendly purposes',()=>{
   assert.equal(center.classifySearchTerm('하린식품 작두콩차').classification,'BRAND');
   assert.equal(center.classifySearchTerm('작두콩차 효능').classification,'INFORMATION');
-  assert.equal(center.classifySearchTerm('환절기 목관리 차').classification,'PROBLEM_SITUATION');
+  assert.equal(center.classifySearchTerm('쓰레기 목관리차').classification,'PROBLEM_SITUATION');
   assert.equal(center.classifySearchTerm('작두콩차 티백 30개').classification,'PRODUCT_DETAIL');
   assert.equal(center.classifySearchTerm('작두콩차 추천').classification,'GENERAL_PURCHASE');
   assert.equal(center.classifySearchTerm('무료게임 다운로드').classification,'IRRELEVANT');
+  assert.equal(center.classifySearchTerm('청년방앗간작두콩차').classification,'GENERAL_PURCHASE');
+  assert.equal(center.classifySearchTerm('조현병환자물과커피를너무많이마시는이유').classification,'INFORMATION');
 });
 
 test('irrelevant and excessive no-conversion spend become negative review candidates',()=>{
