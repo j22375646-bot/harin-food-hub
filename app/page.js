@@ -12,6 +12,7 @@ import productPerformance from '../lib/products/performance.js';
 import productOperationsModule from '../lib/products/operations-center.js';
 import unifiedInventoryModule from '../lib/inventory/unified-center.js';
 import unifiedSettlementModule from '../lib/settlement/unified-center.js';
+import unifiedCollectionModule from '../lib/collection/unified-center.js';
 import costCalibrationModule from '../lib/analytics/cost-calibration.js';
 import shippingRulesModule from '../lib/analytics/shipping-rules.js';
 import financialTrustModule from '../lib/analytics/financial-trust.js';
@@ -602,6 +603,15 @@ async function getDashboardData(state) {
       claims:(coupangReturnsResult.data?.length || 0) + (coupangExchangesResult.data?.length || 0)
     }
   });
+  const collectionCenter = unifiedCollectionModule.buildUnifiedCollectionCenter({
+    dataHealth,
+    channelConnections,
+    syncs:syncResult.data || [],
+    automationRuns:automationResult.data || [],
+    qualityChecks:qaResult.data || [],
+    alerts:alertsResult.data || [],
+    queueHealth:coupangQueueHealth
+  });
   const unifiedOrders = unifiedOrdersModule.buildUnifiedOrders({
     cafe24Orders:ordersResult.data || [], cafe24OrderItems:itemsResult.data || [],
     coupangOrders:coupangOrdersResult.data || [], coupangOrderItems:coupangItemsResult.data || [],
@@ -627,6 +637,7 @@ async function getDashboardData(state) {
     generatedAt,
     dataHealth,
     channelConnections,
+    collectionCenter,
     unifiedOrders,
     customerService,
     metricSnapshots,

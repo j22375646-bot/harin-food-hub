@@ -11,6 +11,7 @@ const validation=fs.readFileSync(path.join(__dirname,'..','app','customer-retent
 const page=fs.readFileSync(path.join(__dirname,'..','app','page.js'),'utf8');
 const loading=fs.readFileSync(path.join(__dirname,'..','app','loading.js'),'utf8');
 const preferences=fs.readFileSync(path.join(__dirname,'..','app','use-hub-preference.js'),'utf8');
+const collectionCenter=fs.readFileSync(path.join(__dirname,'..','app','unified-collection-operations-center.js'),'utf8');
 
 test('desktop navigation includes grouped expansion, menu search, badges, and breadcrumbs', () => {
   assert.match(client,/function SidebarMenu/);
@@ -73,18 +74,23 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
   assert.match(styles,/Phase 10-4 — orders, CS, inventory and settlement are independent work pages/);
 });
 
-test('phase 11-7 keeps prior operations and adds unified settlement operations', () => {
-  assert.match(client,/11-7 · 통합 정산·비용 운영/);
+test('phase 11-8 keeps prior operations and adds unified data collection operations', () => {
+  assert.match(client,/11-8 · 통합 데이터 수집 운영/);
   assert.match(client,/UnifiedProductOperationsCenter/);
   assert.match(client,/UnifiedInventoryOperationsCenter/);
   assert.match(client,/UnifiedSettlementOperationsCenter/);
+  assert.match(client,/UnifiedCollectionOperationsCenter/);
   assert.match(client,/initialData\.unifiedInventory/);
   assert.match(client,/initialData\.unifiedSettlement/);
+  assert.match(client,/initialData\.collectionCenter/);
   assert.ok(page.indexOf('const generatedAt = new Date().toISOString()') < page.indexOf('const unifiedInventory ='));
   assert.ok(page.indexOf('const generatedAt = new Date().toISOString()') < page.indexOf('const unifiedSettlement ='));
   assert.match(page,/settlement:\['cafe24_orders'/);
   assert.match(client,/<CoupangSettlementView coupang=\{initialData\.coupang\}\/><\/UnifiedSettlementOperationsCenter>/);
   assert.match(styles,/Phase 11-7 · unified settlement and cost operations/);
+  assert.match(styles,/Phase 11-8 · unified data collection operations/);
+  assert.match(client,/center=\{collectionCenter\}/);
+  assert.match(collectionCenter,/전체 수집 \+ 검증/);
   assert.match(client,/view==='validation' && \(<CustomerRetentionValidationCenter/);
   assert.match(client,/view==='experiments' && <ExperimentLab/);
   assert.doesNotMatch(client,/phase7LegacyLab/);
