@@ -868,13 +868,23 @@ function FinancialReadinessCenter({ readiness={} }) {
   </article><ProductAdTargetsCenter center={readiness.productAdTargets||{summary:{},items:[]}}/></>;
 }
 
+function CatalogCards({items=[]}) {
+  const [visibleCount,setVisibleCount]=useState(18);
+  const visible=items.slice(0,visibleCount);
+  return <><div className="productGrid">{visible.map(product=><div className="productCard" key={product.id}>{product.image?<div className="productImage" role="img" aria-label={product.name} style={{backgroundImage:`url(${product.image})`}}/>:<div className="imageFallback">H</div>}<div><span className={String(product.catalog_status||'stopped').toLowerCase()}>{product.status_label}</span><b>{product.name}</b><strong>{won(product.price)}</strong></div></div>)}</div>{visibleCount<items.length&&<button className="opsLoadMore" type="button" onClick={()=>setVisibleCount(count=>count+18)}>상품 18개 더 보기 <small>{visible.length}/{items.length}</small></button>}</>;
+}
+
+function CatalogBucket({title,description,items=[]}) {
+  const [open,setOpen]=useState(false);
+  return <details open={open} onToggle={event=>setOpen(event.currentTarget.open)}><summary><span><b>{title}</b><small>{description}</small></span><em>{items.length}개</em></summary>{open?<CatalogCards items={items}/>:null}</details>;
+}
+
 function Cafe24Catalog({ products=[] }) {
   const selling=products.filter(item=>item.catalog_status==='SELLING');
   const soldOut=products.filter(item=>item.catalog_status==='OUT_OF_STOCK');
   const stopped=products.filter(item=>item.catalog_status==='STOPPED');
   const excluded=products.filter(item=>item.catalog_status==='NON_PRODUCT');
-  const cards=items=><div className="productGrid">{items.map(product=><div className="productCard" key={product.id}>{product.image?<div className="productImage" role="img" aria-label={product.name} style={{backgroundImage:`url(${product.image})`}}/>:<div className="imageFallback">H</div>}<div><span className={String(product.catalog_status||'stopped').toLowerCase()}>{product.status_label}</span><b>{product.name}</b><strong>{won(product.price)}</strong></div></div>)}</div>;
-  return <article className="panel catalog cafe24Catalog"><PanelTitle tag="CAFE24 CATALOG" title="판매 가능한 상품" right={`${selling.length}개`}/>{cards(selling)}{!selling.length&&<Empty>현재 판매중인 Cafe24 상품이 없습니다.</Empty>}<div className="catalogExcludedNote">이벤트·멤버십·쿠폰·리뷰 적립금·사은품 {excluded.length}개는 상품 작업에서 자동 제외했습니다.</div><details><summary><span><b>품절 상품</b><small>판매가 다시 가능해지면 자동으로 위 목록으로 이동합니다.</small></span><em>{soldOut.length}개</em></summary>{cards(soldOut)}</details><details><summary><span><b>판매중단 상품</b><small>판매 또는 진열을 중단한 상품입니다.</small></span><em>{stopped.length}개</em></summary>{cards(stopped)}</details></article>;
+  return <article className="panel catalog cafe24Catalog"><PanelTitle tag="CAFE24 CATALOG" title="판매 가능한 상품" right={`${selling.length}개`}/><CatalogCards items={selling}/>{!selling.length&&<Empty>현재 판매중인 Cafe24 상품이 없습니다.</Empty>}<div className="catalogExcludedNote">이벤트·멤버십·쿠폰·리뷰 적립금·사은품 {excluded.length}개는 상품 작업에서 자동 제외했습니다.</div><CatalogBucket title="품절 상품" description="판매가 다시 가능해지면 자동으로 위 목록으로 이동합니다." items={soldOut}/><CatalogBucket title="판매중단 상품" description="판매 또는 진열을 중단한 상품입니다." items={stopped}/></article>;
 }
 
 function ProductView({ products, topProducts, masterProducts, channelProducts, productCosts, channelCostSettings, channelShippingRules, shippingRuleEvidence, costCalibration, profitability, financialTrust, financialReadiness, productAdTargets, mapping, unifiedPerformance, productOperations, platform='all' }) {
