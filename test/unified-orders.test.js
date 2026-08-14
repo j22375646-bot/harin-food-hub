@@ -220,7 +220,7 @@ test('orders center labels seller delivery and refreshes current channel status'
   assert.match(center,/상품명/);
   assert.match(center,/기본 옵션/);
   assert.match(center,/전체 플랫폼 수동수집/);
-  assert.match(center,/배송완료는 5단계를 눌렀을 때만 표시됩니다/);
+  assert.match(center,/최근 30일 완료 건만 확인/);
   assert.match(center,/당일출고/);
   assert.match(center,/배송지연/);
   assert.match(center,/orderBadgeGroup/);
@@ -241,8 +241,8 @@ test('phase 11-9 preserves bulk selection and retry while focusing the postal au
   const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
   const route=fs.readFileSync(path.join(__dirname,'..','app','api','shipping','actions','route.js'),'utf8');
   const transfer=fs.readFileSync(path.join(__dirname,'..','lib','shipping','channel-transfer.js'),'utf8');
-  assert.match(center,/PHASE 11-9 · POSTAL AUTOMATION/);
-  assert.match(center,/결제완료·준비중 전체선택/);
+  assert.match(center,/PHASE 13-4 · SHIPPING WORKSPACE/);
+  assert.match(center,/출고 가능 주문 전체선택/);
   assert.match(center,/bulkEligible=visible\.filter/);
   assert.match(center,/className=\{`orderInvoiceEntry/);
   assert.match(center,/우체국 송장번호/);

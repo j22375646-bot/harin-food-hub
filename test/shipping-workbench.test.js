@@ -47,7 +47,7 @@ test('shipping writes and print output stay authenticated and channel-isolated',
 test('phase 11-9 exposes live parcel issuance and removes test tools from the order page',()=>{
   const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
   const route=fs.readFileSync(path.join(__dirname,'..','app','api','epost','issue','route.js'),'utf8');
-  assert.match(center,/PHASE 11-9 · POSTAL AUTOMATION/);
+  assert.match(center,/PHASE 13-4 · SHIPPING WORKSPACE/);
   assert.match(center,/송장 자동발급 \+ 쇼핑몰 등록/);
   assert.match(center,/\/api\/epost\/issue/);
   assert.doesNotMatch(center,/선택 1건 우체국 테스트 접수/);
@@ -57,7 +57,7 @@ test('phase 11-9 exposes live parcel issuance and removes test tools from the or
 test('phase 11-9 keeps retry, printing and tracking inside one focused workbench',()=>{
   const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
   const route=fs.readFileSync(path.join(__dirname,'..','app','api','shipping','actions','route.js'),'utf8');
-  assert.match(center,/PHASE 11-9 · POSTAL AUTOMATION/);
+  assert.match(center,/PHASE 13-4 · SHIPPING WORKSPACE/);
   assert.match(center,/다시 등록/);
   assert.match(center,/pollShippingTransfer/);
   assert.match(route,/beginCafe24Transfer/);
