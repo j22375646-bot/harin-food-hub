@@ -33,8 +33,8 @@ export default function HarinAiFoundation({ foundation }) {
 
   return <section className="harinAiFoundation">
     <header className="harinAiHero">
-      <div><span>PHASE 12-4 · HARIN AI FOUNDATION</span><h2>하린 AI 설명센터</h2><p>허브가 계산한 숫자만 받아서 관찰 → 영향 → 근거 → 추천 순서로 쉽게 설명합니다. 광고비나 입찰가는 절대 자동 변경하지 않습니다.</p></div>
-      <aside><small>AI 연결 상태</small><strong>{status.configured?'준비됨':'설정 필요'}</strong><em>{status.model||'모델 확인 중'}</em><button type="button" disabled={busy||!status.configured||!foundation?.snapshot_token} onClick={()=>explain(false)}>{busy?'설명 만드는 중…':result?'현재 자료 다시 설명':'AI 설명 생성'}</button></aside>
+      <div><span>PHASE 12-5A · HARIN AI FOUNDATION</span><h2>하린 AI 설명 설정</h2><p>허브가 계산한 숫자만 받아서 관찰 → 영향 → 근거 → 추천 순서로 쉽게 설명합니다. 광고비나 입찰가는 절대 자동 변경하지 않습니다.</p></div>
+      <aside><small>AI 운영 상태</small><strong>{status.execution_enabled?'사용 중':'사용 시작 전'}</strong><em>{status.execution_enabled?(status.model||'모델 확인 중'):'크레딧 미사용 · 비용 0원'}</em><button type="button" disabled={busy||!status.configured||!status.execution_enabled||!foundation?.snapshot_token} onClick={()=>explain(false)}>{status.execution_enabled?(busy?'설명 만드는 중…':result?'현재 자료 다시 설명':'AI 설명 생성'):'크레딧 연결 후 사용'}</button></aside>
     </header>
     <div className="harinAiGuards">
       <span className={status.structured_outputs?'ready':'wait'}><b>정해진 답변 형식</b><small>{status.structured_outputs?'항목 누락 방지':'확인 필요'}</small></span>

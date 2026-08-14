@@ -22,6 +22,7 @@ export async function GET(request) {
   return apiSafety.json({
     ok:true,
     configured:cfg.configured,
+    execution_enabled:cfg.execution_enabled,
     model:cfg.model,
     structured_outputs:cfg.structured_outputs,
     pii_guard:cfg.pii_guard,

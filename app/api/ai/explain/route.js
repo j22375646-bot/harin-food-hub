@@ -14,6 +14,7 @@ export async function POST(request) {
   const session=authModule.parseSession(token);
   if(!session)return apiSafety.unauthorized();
   if(!authModule.roleAtLeast(session,'OWNER'))return apiSafety.json({ok:false,error:'OWNER 권한이 필요합니다.'},{status:403});
+  if(!openaiClient.configuration().execution_enabled)return apiSafety.json({ok:false,error:'AI 자동분석은 아직 사용 전입니다. 크레딧 연결 후 운영 설정에서 켜주세요.',code:'AI_EXECUTION_DISABLED'},{status:503});
   try {
     const body=await apiSafety.readJson(request,{maxBytes:48*1024});
     const snapshot=authModule.verifyAiSnapshot(body.snapshot_token);

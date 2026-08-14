@@ -49,7 +49,9 @@ test('벡터 저장소가 있을 때만 File Search를 붙인다',()=>{
 
 test('OpenAI 사용 한도가 없으면 사장님이 이해할 수 있는 안내를 반환한다',async()=>{
   const previous=process.env.OPENAI_API_KEY;
+  const previousEnabled=process.env.OPENAI_ANALYSIS_ENABLED;
   process.env.OPENAI_API_KEY='sk-test-only';
+  process.env.OPENAI_ANALYSIS_ENABLED='true';
   try {
     await assert.rejects(
       client.createStructuredExplanation(foundation.buildNaverAiSnapshot(board()),{
@@ -59,6 +61,21 @@ test('OpenAI 사용 한도가 없으면 사장님이 이해할 수 있는 안내
     );
   } finally {
     if(previous===undefined)delete process.env.OPENAI_API_KEY;else process.env.OPENAI_API_KEY=previous;
+    if(previousEnabled===undefined)delete process.env.OPENAI_ANALYSIS_ENABLED;else process.env.OPENAI_ANALYSIS_ENABLED=previousEnabled;
+  }
+});
+
+test('크레딧을 쓰기 전에는 AI 실행이 환경 설정으로 잠긴다',async()=>{
+  const previous=process.env.OPENAI_ANALYSIS_ENABLED;
+  delete process.env.OPENAI_ANALYSIS_ENABLED;
+  try {
+    assert.equal(client.configuration().execution_enabled,false);
+    await assert.rejects(
+      client.createStructuredExplanation(foundation.buildNaverAiSnapshot(board())),
+      error=>error.code==='AI_EXECUTION_DISABLED'&&error.status===503
+    );
+  } finally {
+    if(previous!==undefined)process.env.OPENAI_ANALYSIS_ENABLED=previous;
   }
 });
 

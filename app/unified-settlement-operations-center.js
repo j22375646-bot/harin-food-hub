@@ -43,7 +43,7 @@ function ChannelCard({ channel }) {
   </article>;
 }
 
-export default function UnifiedSettlementOperationsCenter({ center = {}, children }) {
+export default function UnifiedSettlementOperationsCenter({ center = {}, children, aiPanel }) {
   const summary = center.summary || {};
   const channels = center.channels || [];
   const schedules = center.schedules || [];
@@ -68,6 +68,7 @@ export default function UnifiedSettlementOperationsCenter({ center = {}, childre
       <article><small>확인된 물류비</small><strong>{wonOrCheck(summary.known_logistics)}</strong><span>정산액과 별도 운영비</span></article>
       <article className={summary.check_required_channels ? 'warning' : ''}><small>자료 확인 필요</small><strong>{Number(summary.check_required_channels || 0)}개 채널</strong><span>수집 또는 비용 설정 필요</span></article>
     </section>
+    {aiPanel}
 
     <section className="settlementOpsChannels" aria-label="채널별 정산 상태">
       {channels.map(channel=><ChannelCard channel={channel} key={channel.platform}/>)}

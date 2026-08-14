@@ -80,7 +80,7 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
 });
 
 test('phase 11-8 keeps prior operations and adds unified data collection operations', () => {
-  assert.match(client,/12-4 · OpenAI 기반 구축/);
+  assert.match(client,/12-5A · 페이지별 AI 분석 자리/);
   assert.match(client,/UnifiedProductOperationsCenter/);
   assert.match(client,/UnifiedInventoryOperationsCenter/);
   assert.match(client,/UnifiedSettlementOperationsCenter/);

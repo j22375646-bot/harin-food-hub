@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import reportVersioning from '../lib/reports/versioning.js';
 import { COUPANG_SECTION_HELP, getHubHelp } from '../lib/ui/help-content.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
@@ -16,6 +16,7 @@ const MarketingDiagnosisCenter=dynamic(()=>import('./marketing-diagnosis-center.
 const MarketingInsightSummary=dynamic(()=>import('./marketing-diagnosis-center.js').then(module=>module.MarketingInsightSummary));
 const NaverExecutiveBoard=dynamic(()=>import('./naver-executive-board.js'));
 const HarinAiFoundation=dynamic(()=>import('./harin-ai-foundation.js'));
+const HarinAiPagePanel=dynamic(()=>import('./harin-ai-page-panel.js'));
 const CustomerRetentionValidationCenter=dynamic(()=>import('./customer-retention-validation-center.js'));
 const UnifiedCustomerServiceCenter=dynamic(()=>import('./unified-customer-service-center.js'));
 const UnifiedProductOperationsCenter=dynamic(()=>import('./unified-product-operations-center.js'));
@@ -124,7 +125,7 @@ function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onO
   const hasQuery=Boolean(query.trim());
   const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(query.trim().toLowerCase()))})).filter(group=>group.items.length);
   return <aside className="desktopSidebar" aria-label="허브 사이드바">
-    <div className="sidebarPhase"><span>현재 개발</span><b>12-4 · OpenAI 기반 구축</b></div>
+    <div className="sidebarPhase"><span>현재 개발</span><b>12-5A · 페이지별 AI 분석 자리</b></div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true">⌕</i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴 이름 찾기" /></label>
     <nav aria-label="허브 메뉴">
       {visible.map(group=>{const expanded=hasQuery||openGroup===group.id;return <section className={`sidebarGroup${expanded?' expanded':''}`} key={group.id}>
@@ -147,6 +148,7 @@ function BreadcrumbBar({ context, refreshedAt }) {
 
 export default function Dashboard({ initialData, initialState }) {
   const router=useRouter();
+  const [routePending,startRouteTransition]=useTransition();
   const normalizedInitial=hubRoutesModule.normalizeHubState(initialState);
   const [mounted, setMounted] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -157,12 +159,13 @@ export default function Dashboard({ initialData, initialState }) {
   const [period,setPeriod]=useState(normalizedInitial.period);
   const [openNavGroup,setOpenNavGroup]=useState(hubRoutesModule.groupForView(normalizedInitial.view));
   const [navQuery,setNavQuery]=useState('');
+  const [pendingView,setPendingView]=useState(null);
   const [fontScale,setFontScale]=useStoredState('font-scale','large',['large','xlarge']);
   useEffect(() => setMounted(true), []);
   useEffect(()=>{document.documentElement.dataset.fontScale=fontScale;},[fontScale]);
   useEffect(()=>{
     const next=hubRoutesModule.normalizeHubState(initialState);
-    setView(next.view);setPlatform(next.platform);setSelectedProduct(next.product);setPeriod(next.period);
+    setView(next.view);setPlatform(next.platform);setSelectedProduct(next.product);setPeriod(next.period);setPendingView(null);
     setOpenNavGroup(hubRoutesModule.groupForView(next.view));
   },[initialState.view,initialState.platform,initialState.product,initialState.period]);
   useEffect(()=>{
@@ -197,14 +200,15 @@ export default function Dashboard({ initialData, initialState }) {
   const latestRefreshAt=syncs.find(item=>item.finished_at||item.started_at)?.finished_at||syncs.find(item=>item.finished_at||item.started_at)?.started_at||null;
   const selectedHealth=platform==='all'?null:initialData.dataHealth?.channels?.find(item=>item.platform===platform.toUpperCase());
   const channelUnavailable=Boolean(selectedHealth?.failedDatasets?.length);
-  const viewIsLoading=Boolean(initialData.loadedView&&view!==initialData.loadedView);
+  const viewIsLoading=Boolean(pendingView||routePending||(initialData.loadedView&&view!==initialData.loadedView));
   function navigate(next={},replace=false){
     const state=hubRoutesModule.normalizeHubState({view,platform,product:selectedProduct,period,...next});
-    setView(state.view);setPlatform(state.platform);setSelectedProduct(state.product);setPeriod(state.period);
+    if(state.view!==view)setPendingView(state.view);
+    else {setPlatform(state.platform);setSelectedProduct(state.product);setPeriod(state.period);}
     setOpenNavGroup(hubRoutesModule.groupForView(state.view));
     const href=hubRoutesModule.buildHubHref(state);
     const current=`${window.location.pathname}${window.location.search}`;
-    router[replace||current===href?'replace':'push'](href,{scroll:false});
+    startRouteTransition(()=>router[replace||current===href?'replace':'push'](href,{scroll:false}));
   }
   const openView=id=>navigate({view:id,product:'ALL',period:'DAY'});
   const selectPlatform=id=>navigate({platform:id,product:id==='coupang'?selectedProduct:'ALL'},true);
@@ -215,9 +219,9 @@ export default function Dashboard({ initialData, initialState }) {
       <div className="brand"><span className="brandMark">H</span><div><b>하린식품</b><small>광고·매출 통합 관리 허브</small></div></div>
       <div className="headerActions"><span className="live"><i /> Cafe24 연결됨</span><label className="fontScaleControl"><span>글자</span><select aria-label="허브 글자 크기" value={fontScale} onChange={event=>setFontScale(event.target.value)}><option value="large">큰 글씨</option><option value="xlarge">더 큰 글씨</option></select></label><button className="syncButton" onClick={runSync} disabled={syncing}>{syncing ? '동기화 중…' : '지금 동기화'}</button><form action="/api/dashboard/logout" method="post"><button className="logoutButton" type="submit">나가기</button></form></div>
     </header>
-    <SidebarMenu groups={navGroups} view={view} openGroup={openNavGroup} query={navQuery} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onOpenView={openView} onPrefetch={prefetchView}/>
+    <SidebarMenu groups={navGroups} view={pendingView||view} openGroup={openNavGroup} query={navQuery} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onOpenView={openView} onPrefetch={prefetchView}/>
     <main className="hubMain">
-      {viewIsLoading?<section className="viewLoadingOverlay" role="status"><span className="loadingMark">H</span><b>{nav.find(item=>item.id===view)?.label} 화면을 여는 중이에요…</b><small>이 화면에 필요한 자료만 불러오고 있습니다.</small></section>:null}
+      {viewIsLoading?<section className="viewLoadingRibbon" role="status"><span/><b>{nav.find(item=>item.id===(pendingView||view))?.label} 화면을 준비하고 있어요</b><small>보던 화면은 그대로 두고 필요한 자료만 빠르게 불러옵니다.</small></section>:null}
       <BreadcrumbBar context={navContext} refreshedAt={latestRefreshAt}/>
       {channelScopedViews.has(view)&&<section className="platformSwitch" aria-label="플랫폼 선택">
         {[['all','allDot','전체'],['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡'],['cafe24','cafeDot','Cafe24']].map(([id,dot,label])=><button key={id} className={platform===id?'selected':''} onClick={()=>selectPlatform(id)}><i className={dot}/>{label}</button>)}
@@ -231,20 +235,21 @@ export default function Dashboard({ initialData, initialState }) {
 
       {channelUnavailable&&['insight','keyword','product'].includes(view)&&<ChannelUnavailable health={selectedHealth} onOpenCollection={()=>openView('collection')}/>}
       {view==='main' && platform==='all' && !channelUnavailable && <SalesCommandCenter center={initialData.salesCommandCenter} onOpen={item=>{const target=String(item.platform||'ALL').toLowerCase();navigate({platform:['naver','coupang','cafe24'].includes(target)?target:'all',view:item.view||'main',product:'ALL',period:'DAY'});}} onOpenTargets={()=>{const detail=document.getElementById('monthly-target-details');if(detail){detail.open=true;detail.scrollIntoView({behavior:'smooth',block:'start'});}}}/>}
+      {view==='main' && platform==='all' && !channelUnavailable && <HarinAiPagePanel panel={initialData.aiPagePanels?.main}/>}
       {view==='main' && platform==='all' && !channelUnavailable && <details className="commandEvidence" id="monthly-target-details"><summary><span><b>목표 설정·계산 근거 보기</b><small>월 목표를 바꾸거나 숫자의 출처를 확인할 때만 열어보세요.</small></span><em>열기</em></summary><div><BusinessPacingPanel platform={platform} pacing={initialData.pacing}/><MetricProvenanceStrip snapshots={initialData.metricSnapshots||[]}/></div></details>}
       {view==='collection' && <CollectionView syncs={syncs} products={products} kpis={kpis} runSync={runSync} syncing={syncing} naver={initialData.naver} coupang={initialData.coupang} automationRuns={initialData.automationRuns} qualityChecks={initialData.qualityChecks} alerts={initialData.alerts} dataHealth={initialData.dataHealth} channelConnections={initialData.channelConnections} collectionCenter={initialData.collectionCenter} />}
       {view==='insight' && !channelUnavailable && <DecisionOverview key={`decision-${platform}`} platform={platform} reports={reports} platformEvents={initialData.platformEvents||[]} />}
+      {view==='insight' && !channelUnavailable && <HarinAiPagePanel panel={initialData.aiPagePanels?.insight}>{(platform==='all'||platform==='naver')?<HarinAiFoundation foundation={initialData.aiFoundation}/>:null}</HarinAiPagePanel>}
       {view==='insight' && !channelUnavailable && platform==='all' && <ProfitabilitySnapshot reports={reports} />}
-      {view==='insight' && !channelUnavailable && (platform==='all'||platform==='naver') && <HarinAiFoundation foundation={initialData.aiFoundation}/>}
       {view==='insight' && !channelUnavailable && <>{(platform==='all'||platform==='naver')&&<><NaverExecutiveBoard board={initialData.naver?.executiveBoard}/><MarketingInsightSummary diagnosis={initialData.naver?.marketingDiagnosis}/></>}<InsightView key={`insight-${platform}`} platform={platform} reports={reports} actions={actions} liveNaver={initialData.naver} platformEvents={initialData.platformEvents||[]} /></>}
       {view==='insight' && !channelUnavailable && platform==='coupang' && <CoupangSalesCenter coupang={initialData.coupang} selectedProduct={selectedProduct} selectedPeriod={period} onSelectProduct={product=>navigate({product},true)} onSelectPeriod={nextPeriod=>navigate({period:nextPeriod},true)}/>}
       {view==='insight' && !channelUnavailable && ['naver','cafe24'].includes(platform) && <details className="channelLegacyDetails"><summary><span><b>{platformLabel[platform]} 채널 운영 상세</b><small>필요할 때만 기존 채널 상세를 펼쳐보세요.</small></span><em>열기</em></summary><div><MainView platform={platform} data={initialData}/></div></details>}
       {view==='orders' && (<UnifiedOrdersCenter center={initialData.unifiedOrders}><CoupangOrdersView coupang={initialData.coupang}/></UnifiedOrdersCenter>)}
       {view==='cs' && (<UnifiedCustomerServiceCenter center={initialData.customerService}/>)}
-      {view==='inventory' && (<UnifiedInventoryOperationsCenter center={initialData.unifiedInventory}><CoupangInventoryView coupang={initialData.coupang}/></UnifiedInventoryOperationsCenter>)}
-      {view==='settlement' && (<UnifiedSettlementOperationsCenter center={initialData.unifiedSettlement}><CoupangSettlementView coupang={initialData.coupang}/></UnifiedSettlementOperationsCenter>)}
-      {view==='keyword' && !channelUnavailable && <>{(platform==='all'||platform==='naver')&&<MarketingDiagnosisCenter diagnosis={initialData.naver?.marketingDiagnosis}/>}<PlatformKeywordView key={`keyword-${platform}`} platform={platform} data={initialData} /></>}
-      {view==='product' && !channelUnavailable && <PlatformProductView key={`product-${platform}`} platform={platform} data={initialData} />}
+      {view==='inventory' && (<UnifiedInventoryOperationsCenter center={initialData.unifiedInventory} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.inventory}/>}><CoupangInventoryView coupang={initialData.coupang}/></UnifiedInventoryOperationsCenter>)}
+      {view==='settlement' && (<UnifiedSettlementOperationsCenter center={initialData.unifiedSettlement} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.settlement}/>}><CoupangSettlementView coupang={initialData.coupang}/></UnifiedSettlementOperationsCenter>)}
+      {view==='keyword' && !channelUnavailable && <>{(platform==='all'||platform==='naver')&&<MarketingDiagnosisCenter diagnosis={initialData.naver?.marketingDiagnosis}/>}<HarinAiPagePanel panel={initialData.aiPagePanels?.keyword}/><PlatformKeywordView key={`keyword-${platform}`} platform={platform} data={initialData} /></>}
+      {view==='product' && !channelUnavailable && <><HarinAiPagePanel panel={initialData.aiPagePanels?.product}/><PlatformProductView key={`product-${platform}`} platform={platform} data={initialData} /></>}
       {view==='reports' && <ReportsView reports={reports} actions={actions} syncs={syncs} financialTrustToken={initialData.financialTrustToken} />}
       {view==='changes' && <FinancialChangeCenter />}
       {view==='validation' && (<CustomerRetentionValidationCenter data={initialData.retentionValidation}/>)}

@@ -24,7 +24,7 @@ function ChannelStock({ label, channel }) {
   </div>;
 }
 
-export default function UnifiedInventoryOperationsCenter({ center = {}, children }) {
+export default function UnifiedInventoryOperationsCenter({ center = {}, children, aiPanel }) {
   const [filter,setFilter]=useState('ACTION');
   const [query,setQuery]=useState('');
   const deferredQuery=useDeferredValue(query);
@@ -53,6 +53,7 @@ export default function UnifiedInventoryOperationsCenter({ center = {}, children
       <span><small>갱신 필요</small><b>{summary.stale||0}개</b></span>
       <span><small>3채널 수량 확인</small><b>{summary.fully_known||0}개</b></span>
     </section>
+    {aiPanel}
     <section className="inventoryOpsToolbar">
       <nav aria-label="통합 재고 필터">{[['ACTION','확인 필요'],['ALL','전체'],['OUT','품절'],['LOW','저재고'],['STALE','갱신 필요'],['UNKNOWN','미확인·미연결']].map(([id,label])=><button type="button" className={filter===id?'active':''} onClick={()=>setFilter(id)} key={id}>{label}</button>)}</nav>
       <input type="search" aria-label="재고 상품명 검색" placeholder="상품명 검색" value={query} onChange={event=>setQuery(event.target.value)}/>
