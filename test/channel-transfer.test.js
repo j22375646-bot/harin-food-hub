@@ -25,8 +25,9 @@ test('실제 우체국 13자리만 채널 전송에 허용한다',()=>{
 
 test('채널별 우체국 배송사 코드를 자동 적용한다',()=>{
   assert.equal(transfer.courierCode('COUPANG',''),'EPOST');
-  assert.equal(transfer.courierCode('CAFE24',''),'0013');
-  assert.equal(transfer.courierCode('CAFE24','00004'),'0013');
+  assert.equal(transfer.courierCode('CAFE24',''),'0012');
+  assert.equal(transfer.courierCode('CAFE24','0013'),'0012');
+  assert.equal(transfer.courierCode('CAFE24','00004'),'0012');
 });
 
 test('이미 성공한 주문의 송장번호를 복호화해 중복·충돌 전송을 차단할 수 있다',()=>{
@@ -56,7 +57,7 @@ test('Cafe24 송장 전송 기록은 송장번호를 평문으로 저장하지 �
     const db={from:()=>query(responses[count++],calls)};
     const result=await transfer.beginCafe24Transfer(db,{
       hubOrderId:'HR-C24-ABCDEF12',externalOrderId:'20260814-000001',
-      invoiceNumber:'1234567890123',deliveryCompanyCode:'0013'
+      invoiceNumber:'1234567890123',deliveryCompanyCode:'0012'
     });
     assert.equal(result.request.id,'audit');
     const inserted=calls.find(([method])=>method==='insert')[1];
@@ -78,7 +79,7 @@ test('중단되어 오래된 Cafe24 전송은 새 우체국 접수 없이 같은
     const db={from:()=>query(responses[count++],calls)};
     const result=await transfer.beginCafe24Transfer(db,{
       hubOrderId:'HR-C24-ABCDEF12',externalOrderId:'20260814-000001',
-      invoiceNumber:'1234567890123',deliveryCompanyCode:'0013'
+      invoiceNumber:'1234567890123',deliveryCompanyCode:'0012'
     });
     assert.equal(result.retried,true);
     assert.equal(calls.find(([method])=>method==='update')[1].attempt_count,3);

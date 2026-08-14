@@ -8,7 +8,7 @@ test('Cafe24 POST and PUT writes keep shop_no in the JSON body, not the query st
   const config = { mallId:'harin48291', shopNo:1 };
   const request = {
     tracking_no:'1234567890123',
-    shipping_company_code:'0013',
+    shipping_company_code:'0012',
     status:'shipping'
   };
 
