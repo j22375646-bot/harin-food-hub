@@ -6,11 +6,26 @@ const fs = require('node:fs');
 const path = require('node:path');
 const financialChanges = require('../lib/changes/financial-change.js');
 
+function sellableProductDb() {
+  return {
+    from(table) {
+      const chain = {
+        select(){ return chain; },
+        eq(){ return chain; },
+        in(){ return Promise.resolve({ data:[{ external_product_no:'1', product_name:'작두콩차', price:12000, display:true, selling:true, raw_data:{ variants:[] } }], error:null }); },
+        limit(){ return Promise.resolve({ data:[{ external_product_id:'1', is_active:true }], error:null }); }
+      };
+      if (!['channel_products','cafe24_products'].includes(table)) throw new Error(`unexpected table ${table}`);
+      return chain;
+    }
+  };
+}
+
 test('product cost preview normalizes non-negative monetary values', async () => {
   const result = await financialChanges.normalizeRequest({
     type:'PRODUCT', master_product_id:'123e4567-e89b-12d3-a456-426614174000',
     unit_cost:'1200', packaging_cost:300, other_unit_cost:'0', notes:'  검증  '
-  });
+  }, sellableProductDb());
   assert.equal(result.changeType, 'PRODUCT_COST');
   assert.deepEqual(result.proposed, {
     master_product_id:'123e4567-e89b-12d3-a456-426614174000',

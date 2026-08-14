@@ -36,3 +36,21 @@ test('매핑 대시보드는 연결 현황과 고신뢰 후보를 함께 계산�
   assert.equal(dashboard.summary.auto_eligible, 1);
   assert.equal(dashboard.candidates[0].candidates[0].master_product_id, 'M1');
 });
+
+test('판매 중단 외부 상품은 매칭 후보와 연결 집계에서 제외한다', () => {
+  const dashboard = service.buildMappingDashboard({
+    masterProducts:[{id:'M1',name:'레드비트차 30티백',selling_price:11000,is_active:true}],
+    channelProducts:[
+      {id:'L1',master_product_id:'M1',platform:'COUPANG',external_product_id:'ACTIVE',is_active:true},
+      {id:'L2',master_product_id:'M1',platform:'COUPANG',external_product_id:'STOPPED',is_active:true}
+    ],
+    coupangProducts:[
+      {seller_product_id:'ACTIVE',product_name:'레드비트차 30티백',status:'APPROVED'},
+      {seller_product_id:'STOPPED',product_name:'레드비트차 사은품',status:'STOPPED'}
+    ]
+  });
+  assert.equal(dashboard.summary.source_coupang, 1);
+  assert.equal(dashboard.summary.linked_coupang, 1);
+  assert.equal(dashboard.summary.inactive_sources, 1);
+  assert.deepEqual(dashboard.links.map(item=>item.external_product_id), ['ACTIVE']);
+});

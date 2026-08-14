@@ -10,6 +10,7 @@ import cafe24AnalyticsModule from '../lib/cafe24/analytics.js';
 import mappingService from '../lib/products/mapping-service.js';
 import productPerformance from '../lib/products/performance.js';
 import productOperationsModule from '../lib/products/operations-center.js';
+import cafe24CatalogModule from '../lib/products/cafe24-catalog.js';
 import unifiedInventoryModule from '../lib/inventory/unified-center.js';
 import unifiedSettlementModule from '../lib/settlement/unified-center.js';
 import unifiedCollectionModule from '../lib/collection/unified-center.js';
@@ -145,7 +146,7 @@ async function getDashboardData(state) {
     db.from('cafe24_order_items').select('order_id,external_item_id,external_product_no,product_name,option_name,quantity,unit_price,paid_amount,raw_data').limit(10000),
     db.from('cafe24_traffic_daily').select('date,visitors,pageviews,source_status,raw_data').order('date', { ascending: true }).limit(31),
     db.from('cafe24_referrers_daily').select('date,source,visitors,orders,revenue').order('visitors', { ascending: false }).limit(500),
-    db.from('cafe24_products').select('external_product_no,product_name,price,selling,raw_data,updated_at').order('updated_at', { ascending: false }).limit(100),
+    db.from('cafe24_products').select('external_product_no,product_name,price,display,selling,raw_data,updated_at').order('updated_at', { ascending: false }).limit(500),
     db.from('sync_logs').select('id,platform,job_type,status,started_at,finished_at,rows_received,error_message,metadata').in('job_type', ['FETCH_ALL','FILE_IMPORT','RG_INVENTORY','RG_REALTIME','LOCAL_IP_CHECK','COMMERCE_CONNECTION_TEST','COMMERCE_SYNC','CUSTOMER_SERVICE']).order('started_at', { ascending: false }).limit(80),
     db.from('reports').select('id,platform,report_type,period_start,period_end,title,status,summary_json,version,supersedes_report_id,is_latest,revision_note,approved_at,approved_by,created_at').order('period_end', { ascending: false }).order('created_at',{ascending:false}).limit(80),
     db.from('actions').select('id,platform,target_type,target_id,target_name,action_type,reason,status,before_value,after_value,decided_at,executed_at,review_after,priority,assignee,due_at,hold_reason,review_result,created_at').order('decided_at', { ascending: false }).limit(100),
@@ -677,13 +678,22 @@ async function getDashboardData(state) {
     topProducts,
     cafe24Analytics,
     recentOrders: orders.slice(0, 8).map(order => ({ id: order.order_id, date: order.order_date, amount: orderAmount(order), channel: order.raw_data?.order_place_name || '자사몰' })),
-    products: (productsResult.data || []).map(product => ({
-      id: product.external_product_no,
-      name: product.product_name,
-      price: number(product.price),
-      selling: product.selling,
-      image: product.raw_data?.small_image || product.raw_data?.list_image || null
-    })),
+    products: (productsResult.data || []).map(product => {
+      const catalog = cafe24CatalogModule.catalogProduct(product);
+      return {
+        id: product.external_product_no,
+        name: product.product_name,
+        price: number(product.price),
+        selling: product.selling,
+        display: product.display,
+        catalog_status:catalog.catalog_status,
+        status_label:catalog.status_label,
+        is_sellable:catalog.is_sellable,
+        excluded:catalog.excluded,
+        exclusion_reason:catalog.exclusion_reason,
+        image: product.raw_data?.small_image || product.raw_data?.list_image || null
+      };
+    }),
     syncs: syncResult.data || [],
     reports: reportsResult.data || [],
     actions,
