@@ -14,6 +14,7 @@ const ProductAdTargetsCenter=dynamic(()=>import('./product-ad-targets-center.js'
 const NaverSearchTermCenter=dynamic(()=>import('./naver-search-term-center.js'));
 const MarketingDiagnosisCenter=dynamic(()=>import('./marketing-diagnosis-center.js'));
 const MarketingInsightSummary=dynamic(()=>import('./marketing-diagnosis-center.js').then(module=>module.MarketingInsightSummary));
+const NaverExecutiveBoard=dynamic(()=>import('./naver-executive-board.js'));
 const CustomerRetentionValidationCenter=dynamic(()=>import('./customer-retention-validation-center.js'));
 const UnifiedCustomerServiceCenter=dynamic(()=>import('./unified-customer-service-center.js'));
 const UnifiedProductOperationsCenter=dynamic(()=>import('./unified-product-operations-center.js'));
@@ -122,7 +123,7 @@ function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onO
   const hasQuery=Boolean(query.trim());
   const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(query.trim().toLowerCase()))})).filter(group=>group.items.length);
   return <aside className="desktopSidebar" aria-label="허브 사이드바">
-    <div className="sidebarPhase"><span>현재 개발</span><b>12-2 · 실제 검색어 운영센터</b></div>
+    <div className="sidebarPhase"><span>현재 개발</span><b>12-3 · 네이버 광고 경영판</b></div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true">⌕</i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴 이름 찾기" /></label>
     <nav aria-label="허브 메뉴">
       {visible.map(group=>{const expanded=hasQuery||openGroup===group.id;return <section className={`sidebarGroup${expanded?' expanded':''}`} key={group.id}>
@@ -233,7 +234,7 @@ export default function Dashboard({ initialData, initialState }) {
       {view==='collection' && <CollectionView syncs={syncs} products={products} kpis={kpis} runSync={runSync} syncing={syncing} naver={initialData.naver} coupang={initialData.coupang} automationRuns={initialData.automationRuns} qualityChecks={initialData.qualityChecks} alerts={initialData.alerts} dataHealth={initialData.dataHealth} channelConnections={initialData.channelConnections} collectionCenter={initialData.collectionCenter} />}
       {view==='insight' && !channelUnavailable && <DecisionOverview key={`decision-${platform}`} platform={platform} reports={reports} platformEvents={initialData.platformEvents||[]} />}
       {view==='insight' && !channelUnavailable && platform==='all' && <ProfitabilitySnapshot reports={reports} />}
-      {view==='insight' && !channelUnavailable && <>{(platform==='all'||platform==='naver')&&<MarketingInsightSummary diagnosis={initialData.naver?.marketingDiagnosis}/>}<InsightView key={`insight-${platform}`} platform={platform} reports={reports} actions={actions} liveNaver={initialData.naver} platformEvents={initialData.platformEvents||[]} /></>}
+      {view==='insight' && !channelUnavailable && <>{(platform==='all'||platform==='naver')&&<><NaverExecutiveBoard board={initialData.naver?.executiveBoard}/><MarketingInsightSummary diagnosis={initialData.naver?.marketingDiagnosis}/></>}<InsightView key={`insight-${platform}`} platform={platform} reports={reports} actions={actions} liveNaver={initialData.naver} platformEvents={initialData.platformEvents||[]} /></>}
       {view==='insight' && !channelUnavailable && platform==='coupang' && <CoupangSalesCenter coupang={initialData.coupang} selectedProduct={selectedProduct} selectedPeriod={period} onSelectProduct={product=>navigate({product},true)} onSelectPeriod={nextPeriod=>navigate({period:nextPeriod},true)}/>}
       {view==='insight' && !channelUnavailable && ['naver','cafe24'].includes(platform) && <details className="channelLegacyDetails"><summary><span><b>{platformLabel[platform]} 채널 운영 상세</b><small>필요할 때만 기존 채널 상세를 펼쳐보세요.</small></span><em>열기</em></summary><div><MainView platform={platform} data={initialData}/></div></details>}
       {view==='orders' && (<UnifiedOrdersCenter center={initialData.unifiedOrders}><CoupangOrdersView coupang={initialData.coupang}/></UnifiedOrdersCenter>)}
