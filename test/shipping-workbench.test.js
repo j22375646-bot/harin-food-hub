@@ -44,22 +44,21 @@ test('shipping writes and print output stay authenticated and channel-isolated',
   assert.match(printRoute,/window\.print\(\)/);
 });
 
-test('orders center exposes phase 11-3C test parcel issuance while live parcel stays locked',()=>{
+test('phase 11-9 exposes live parcel issuance and removes test tools from the order page',()=>{
   const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
-  const route=fs.readFileSync(path.join(__dirname,'..','app','api','epost','test-issue','route.js'),'utf8');
-  assert.match(center,/PHASE 11-3C · TEST PARCEL/);
-  assert.match(center,/고정 IP 연결 확인/);
-  assert.match(center,/선택 1건 우체국 테스트 접수/);
-  assert.match(center,/실제 발송 없음/);
-  assert.match(route,/testOnly:true/);
-  assert.doesNotMatch(route,/EPOST_LIVE_WRITES_ENABLED/);
+  const route=fs.readFileSync(path.join(__dirname,'..','app','api','epost','issue','route.js'),'utf8');
+  assert.match(center,/PHASE 11-9 · POSTAL AUTOMATION/);
+  assert.match(center,/송장 자동발급 \+ 쇼핑몰 등록/);
+  assert.match(center,/\/api\/epost\/issue/);
+  assert.doesNotMatch(center,/선택 1건 우체국 테스트 접수/);
+  assert.match(route,/EPOST_LIVE_ISSUE/);
 });
 
-test('phase 11-3F keeps channel retry, printing and tracking while adding operational QA',()=>{
+test('phase 11-9 keeps retry, printing and tracking inside one focused workbench',()=>{
   const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
   const route=fs.readFileSync(path.join(__dirname,'..','app','api','shipping','actions','route.js'),'utf8');
-  assert.match(center,/PHASE 11-3F · SAFE OPERATIONS/);
-  assert.match(center,/채널만 재시도/);
+  assert.match(center,/PHASE 11-9 · POSTAL AUTOMATION/);
+  assert.match(center,/다시 등록/);
   assert.match(center,/pollShippingTransfer/);
   assert.match(route,/beginCafe24Transfer/);
   assert.match(route,/cafe24Client\.adminGet/);
@@ -67,8 +66,8 @@ test('phase 11-3F keeps channel retry, printing and tracking while adding operat
   assert.match(route,/requestId/);
   assert.match(route,/channelTransfer\.postalTracking/);
   assert.match(center,/송장 라벨 인쇄/);
-  assert.match(center,/전체 배송상태 지금 확인/);
-  assert.match(center,/배송 자동화 안전 점검/);
-  assert.match(center,/\/api\/shipping\/qa/);
-  assert.match(center,/운영 설정·화면 검수 도구/);
+  assert.match(center,/배송상태 확인/);
+  assert.match(center,/기타 출고 도구/);
+  assert.doesNotMatch(center,/<ShippingQaPanel\/>/);
+  assert.doesNotMatch(center,/className="orderAdvancedTools"/);
 });

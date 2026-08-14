@@ -75,6 +75,27 @@ test('keeps test and live parcel writes behind independent safety locks', async 
   await assert.rejects(() => client.issueTestShipment(input,{env:{...env,EPOST_LIVE_WRITES_ENABLED:'true'},fetchImpl:async()=>response('')}), error=>error.code==='EPOST_LIVE_WRITE_CONFLICT');
 });
 
+test('builds and issues a live parcel once, then reuses the assigned tracking number', async () => {
+  const live=parcel.liveApplication(input,{customerNo:'1234567890',approvalNo:'1234567890',officeSerial:'12345'});
+  assert.match(live.plainText,/testYn=N/);
+  assert.match(live.plainText,/orderNo=HR-C24-ABCDEF12/);
+  assert.match(live.plainText,/recTel=01012345678/);
+  const calls=[];
+  const fetchImpl=async (url,options)=>{
+    calls.push({url,options});
+    if(calls.length===1)return response('<error><error_code>ERR-225</error_code><message>없음</message></error>');
+    return response('<xsync><reqNo>REQ-LIVE</reqNo><resNo>RES-LIVE</resNo><regiNo>6012345678901</regiNo></xsync>');
+  };
+  const result=await client.issueShipment(input,{env:{...env,EPOST_LIVE_WRITES_ENABLED:'true'},fetchImpl});
+  assert.equal(result.trackingNo,'6012345678901');
+  assert.equal(result.live,true);
+  assert.equal(calls.length,2);
+});
+
+test('live issuance remains locked unless the dedicated worker flag is enabled', async () => {
+  await assert.rejects(()=>client.issueShipment(input,{env,fetchImpl:async()=>response('')}),error=>error.code==='EPOST_LIVE_WRITE_LOCKED');
+});
+
 test('test issuance route requires auth, explicit test confirmation and the encrypted worker queue', () => {
   const root=path.resolve(__dirname,'..');
   const route=fs.readFileSync(path.join(root,'app/api/epost/test-issue/route.js'),'utf8');
@@ -83,5 +104,15 @@ test('test issuance route requires auth, explicit test confirmation and the encr
   assert.match(route,/EPOST_TEST_ISSUE/);
   assert.match(route,/operationQueue\.queueOperation/);
   assert.match(route,/priorSuccess/);
+  assert.doesNotMatch(route,/EPOST_API_KEY|EPOST_SECURITY_KEY/);
+});
+
+test('live issuance route is authenticated, idempotent and fixed-IP queued', () => {
+  const root=path.resolve(__dirname,'..');
+  const route=fs.readFileSync(path.join(root,'app/api/epost/issue/route.js'),'utf8');
+  assert.match(route,/apiSafety\.isAuthorized\(request, authModule\)/);
+  assert.match(route,/EPOST_LIVE_ISSUE/);
+  assert.match(route,/idempotencyKey:`epost-live:\$\{hubOrderId\}`/);
+  assert.match(route,/operationQueue\.queueOperation/);
   assert.doesNotMatch(route,/EPOST_API_KEY|EPOST_SECURITY_KEY/);
 });

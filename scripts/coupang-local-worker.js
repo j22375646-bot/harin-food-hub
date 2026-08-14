@@ -287,6 +287,36 @@ async function dispatchOperation(
     }
     return { epostTest: await epostClient.issueTestShipment(order) };
   }
+  if (request.operation_type === "EPOST_LIVE_ISSUE") {
+    if (payload.live !== true)
+      throw Object.assign(new Error("우체국 실제 접수 확인값이 없습니다."), {
+        code: "EPOST_LIVE_CONFIRMATION_REQUIRED",
+      });
+    const actualIp = await publicIp();
+    const readiness = epostConfig.readiness({ actualIp });
+    if (!readiness.readyForLive)
+      throw Object.assign(
+        new Error("우체국 실제 송장 자동발급에 필요한 서버 설정이 완료되지 않았습니다."),
+        { code: "EPOST_LIVE_SETUP_REQUIRED" },
+      );
+    let order = payload.order || {};
+    if (order.platform === "COUPANG") {
+      const detail = await handlers.getOrderDetail(order.shipmentId);
+      order = {
+        ...order,
+        receiver: detail.receiver,
+        goodsName: (detail.items || [])
+          .map((item) => item.name)
+          .filter(Boolean)
+          .join(" 외 "),
+        quantity: (detail.items || []).reduce(
+          (sum, item) => sum + Number(item.quantity || 0),
+          0,
+        ),
+      };
+    }
+    return { epostLive: await epostClient.issueShipment(order) };
+  }
   if (request.operation_type === "EPOST_TRACKING") {
     if (
       request.target_type !== "TRACKING" ||
