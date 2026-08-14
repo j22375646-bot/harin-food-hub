@@ -34,9 +34,11 @@ test('mobile all-functions menu keeps the same groups and closes after selection
   assert.match(client,/function MobileMoreMenu/);
   assert.match(client,/\['main','orders','inventory','notifications'\]/);
   assert.match(client,/>더보기<\/span>/);
-  assert.match(client,/closest\('details'\)\?\.removeAttribute\('open'\)/);
+  assert.match(client,/className="mobileNavGroup"/);
+  assert.match(client,/group\.description/);
+  assert.match(client,/closest\('\.mobileMoreMenu'\)\?\.removeAttribute\('open'\)/);
   assert.match(styles,/grid-template-columns:repeat\(5,1fr\)/);
-  assert.match(styles,/\.mobileGroupedMenu>section>div/);
+  assert.match(styles,/\.mobileNavGroup>div/);
 });
 
 test('phase 10-6 scopes database tables per page and shows useful loading feedback', () => {
@@ -80,7 +82,7 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
 });
 
 test('phase 11-8 keeps prior operations and adds unified data collection operations', () => {
-  assert.match(client,/13-2 · 공통 디자인 시스템/);
+  assert.match(client,/13-3 · 메뉴·주소 정보구조/);
   assert.match(client,/UnifiedProductOperationsCenter/);
   assert.match(client,/UnifiedInventoryOperationsCenter/);
   assert.match(client,/UnifiedSettlementOperationsCenter/);

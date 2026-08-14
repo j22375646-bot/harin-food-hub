@@ -70,22 +70,26 @@ test('visible hub addresses restore the matching client view', () => {
   assert.equal(parseHubHref('/ai-knowledge').view,'knowledge');
 });
 
-test('all existing functions appear once in the four approved sidebar groups', () => {
-  assert.deepEqual(HUB_NAV_GROUPS.map(group=>group.label),['홈','운영','데이터·분석','실행·관리']);
+test('all existing functions appear once in the nine owner-oriented sidebar groups', () => {
+  assert.deepEqual(HUB_NAV_GROUPS.map(group=>group.label),['오늘','주문·배송','고객·CS','재고·상품','정산·비용','분석','실행','수집상태','설정']);
   const grouped=HUB_NAV_GROUPS.flatMap(group=>group.items);
   assert.equal(grouped.length,HUB_NAV.length);
   assert.equal(new Set(grouped).size,HUB_NAV.length);
   assert.deepEqual(new Set(grouped),new Set(HUB_NAV.map(item=>item.id)));
-  assert.equal(groupForView('keyword'),'data');
-  assert.equal(groupForView('product'),'data');
-  assert.equal(groupForView('knowledge'),'data');
+  assert.equal(groupForView('main'),'today');
+  assert.equal(groupForView('orders'),'orders');
+  assert.equal(groupForView('cs'),'customer');
+  assert.equal(groupForView('keyword'),'analysis');
+  assert.equal(groupForView('product'),'inventory');
+  assert.equal(groupForView('knowledge'),'settings');
   assert.equal(groupForView('changes'),'execution');
   assert.equal(groupForView('notifications'),'execution');
+  assert.equal(groupForView('collection'),'collection');
 });
 
 test('breadcrumb context uses group, function, and selected platform', () => {
   const context=navigationContext('product','coupang');
-  assert.equal(context.group.label,'데이터·분석');
+  assert.equal(context.group.label,'재고·상품');
   assert.equal(context.item.label,'상품');
   assert.equal(context.platform,'쿠팡');
 });

@@ -336,6 +336,19 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .mobileGroupedMenu>section{display:flex;flex-direction:column;gap:6px}
 .mobileGroupedMenu>section>b{padding:0 4px;color:#66716c;font-size:12px}
 .mobileGroupedMenu>section>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.mobileNavGroup{overflow:hidden;border:1px solid #e1e7e3;border-radius:14px;background:#fff}
+.mobileNavGroup>summary{display:grid;grid-template-columns:38px minmax(0,1fr) 22px;align-items:center;gap:10px;min-height:62px;padding:9px 11px;color:#28322d;cursor:pointer;list-style:none}
+.mobileNavGroup>summary::-webkit-details-marker{display:none}
+.mobileNavGroup>summary>i{display:grid;width:38px;height:38px;place-items:center;border-radius:11px;background:#eaf2ee;color:#246047;font-size:13px;font-style:normal;font-weight:900}
+.mobileNavGroup>summary>span{display:flex;min-width:0;flex-direction:column;gap:2px;text-align:left}
+.mobileNavGroup>summary b{font-size:15px;line-height:1.3}.mobileNavGroup>summary small{overflow:hidden;color:#758079;font-size:12px!important;text-overflow:ellipsis;white-space:nowrap}
+.mobileNavGroup>summary>strong{color:#727b76;font-size:18px;font-weight:600;transition:transform var(--ui-motion)}
+.mobileNavGroup[open]{border-color:#bdd2c7;background:#f7faf8;box-shadow:0 7px 18px rgba(31,86,61,.08)}
+.mobileNavGroup[open]>summary>strong{transform:rotate(180deg)}
+.mobileNavGroup>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:0 10px 10px}
+.mobileNavGroup button{display:flex;min-width:0;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;text-align:left}
+.mobileNavGroup button>span{display:flex;min-width:0;flex-direction:column;gap:2px}.mobileNavGroup button b{font-size:14px}.mobileNavGroup button small{overflow:hidden;color:#79827d;font-size:12px!important;text-overflow:ellipsis;white-space:nowrap}
+.mobileNavGroup button.active small{color:rgba(255,255,255,.72)}
 .mobileGroupedMenu button{position:relative}
 .mobileGroupedMenu button>em{display:inline-grid;min-width:20px;height:20px;margin-left:6px;place-items:center;border-radius:99px;background:#d84a43;color:#fff;padding:0 5px;font-size:11px;font-style:normal}
 
@@ -809,11 +822,24 @@ main :where(button,a,input,select,textarea):focus-visible,.topbar :where(button,
   .mobileBottomNav>.mobileMoreMenu>.mobileGroupedMenu{gap:14px;padding:14px}
   .mobileGroupedMenu>section>b{font-size:13px}
   .mobileBottomNav .mobileGroupedMenu button{min-height:48px;font-size:15px}
+  .mobileNavGroup>summary{min-height:64px}.mobileNavGroup>summary b{font-size:16px}.mobileNavGroup>summary small{font-size:13px!important}
+  .mobileBottomNav .mobileNavGroup button{min-height:58px}.mobileNavGroup button b{font-size:15px}.mobileNavGroup button small{font-size:13px!important}
   .panel,.contentCard,.statusCard{padding:20px}
   .pageIntro{padding:20px 2px 14px}
   .pageIntro h1,.pageHeader h1,.hero h1{font-size:var(--ui-font-title)}
   .kpi strong,.decisionMetrics .kpi strong,.notificationKpis article>b,.financialChangeKpis article>b{font-size:var(--ui-font-kpi)}
 }
+
+/* Phase 13-3: nine owner-oriented groups with concrete second-level URLs. */
+.sidebarGroupButton[aria-controls="sidebar-group-today"]>i{background:#e8f2ec;color:#155f42}
+.sidebarGroupButton[aria-controls="sidebar-group-orders"]>i{background:#eaf1fb;color:#315e99}
+.sidebarGroupButton[aria-controls="sidebar-group-customer"]>i{background:#f4eefc;color:#7251a6}
+.sidebarGroupButton[aria-controls="sidebar-group-inventory"]>i{background:#eef5e9;color:#4d752e}
+.sidebarGroupButton[aria-controls="sidebar-group-settlement"]>i{background:#fff3df;color:#9a6215}
+.sidebarGroupButton[aria-controls="sidebar-group-analysis"]>i{background:#eaf4f5;color:#276b70}
+.sidebarGroupButton[aria-controls="sidebar-group-execution"]>i{background:#f8eceb;color:#984a43}
+.sidebarGroupButton[aria-controls="sidebar-group-collection"]>i{background:#eef1f5;color:#536477}
+.sidebarGroupButton[aria-controls="sidebar-group-settings"]>i{background:#f1eff0;color:#675b61}
 
 @media(max-width:600px){
   .hubMain{padding-inline:14px}
