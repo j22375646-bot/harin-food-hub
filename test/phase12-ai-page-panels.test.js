@@ -27,3 +27,12 @@ test('자료가 부족한 분석은 0원 결론 대신 확인 필요 상태가 �
   assert.equal(panels.keyword.readiness,'CHECK_REQUIRED');
   assert.equal(panels.product.readiness,'CHECK_REQUIRED');
 });
+
+test('상품 요약 필드가 없어도 실제 판매 중 채널을 가진 상품만 센다',()=>{
+  const panels=buildAiPagePanels({productOperations:{items:[
+    {channels:{CAFE24:{state:'ACTIVE'},NAVER:{state:'MISSING'}}},
+    {channels:{CAFE24:{state:'STOPPED'},NAVER:{state:'OUT_OF_STOCK'}}},
+    {channels:{COUPANG:{state:'ACTIVE'}}}
+  ]}});
+  assert.equal(panels.product.metric_value,'2개');
+});
