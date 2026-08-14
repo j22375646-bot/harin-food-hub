@@ -5,6 +5,7 @@ import experimentModule from '../../../../lib/experiments/service.js';
 import supabaseModule from '../../../../lib/cafe24/supabase.js';
 import queueModule from '../../../../lib/coupang/request-queue.js';
 import scheduleKeys from '../../../../lib/automation/kst-schedule.js';
+import naverSearchTermSync from '../../../../lib/naver/sync.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -31,6 +32,9 @@ export async function GET(request) {
     syncModule.syncNaver('CRON', runOptions('NAVER_SYNC')),
     queueModule.queueRequest(supabaseModule.getSupabase(), 'FULL', runOptions('COUPANG_SYNC_REQUEST'))
   ]);
+  const searchTerms = await Promise.allSettled([
+    naverSearchTermSync.syncSearchTermsLogged(supabaseModule.getSupabase(), 30)
+  ]);
   const evaluation = await Promise.allSettled([
     runnerModule.runJob({ jobName: 'ACTION_EVALUATION', triggerType: 'CRON', maxAttempts: 1, ...runOptions('ACTION_EVALUATION'), work: () => evaluatorModule.evaluateActions({ minimumDays: 7 }) }),
     runnerModule.runJob({ jobName: 'AB_TEST_EVALUATION', triggerType: 'CRON', maxAttempts: 1, ...runOptions('AB_TEST_EVALUATION'), work: () => experimentModule.evaluateRunningTests({ automatic: true }) })
@@ -39,6 +43,7 @@ export async function GET(request) {
     settled('CAFE24_SYNC', sync[0]),
     settled('NAVER_SYNC', sync[1]),
     settled('COUPANG_SYNC_QUEUED', sync[2]),
+    settled('NAVER_SEARCH_TERMS', searchTerms[0]),
     settled('ACTION_EVALUATION', evaluation[0]),
     settled('AB_TEST_EVALUATION', evaluation[1])
   ];
