@@ -1,6 +1,7 @@
 import authModule from '../../../../lib/dashboard-auth.js';
 import apiSafety from '../../../../lib/api/safety.js';
 import financialChanges from '../../../../lib/changes/financial-change.js';
+import naverBidExecution from '../../../../lib/naver/bid-execution.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,7 +25,7 @@ export async function POST(request) {
       idempotencyKey:request.headers.get('idempotency-key')||body.idempotency_key,
       actor:authModule.actor(access.session)
     });
-    return apiSafety.json({ok:true,preview:true,external_execution_locked:true,...result},{status:result.reused?200:202});
+    return apiSafety.json({ok:true,preview:true,external_execution_locked:!naverBidExecution.configuration().write_enabled,...result},{status:result.reused?200:202});
   } catch(error) {
     if(error instanceof financialChanges.FinancialChangeError)return apiSafety.json({ok:false,error:error.message,code:error.code},{status:error.status});
     return apiSafety.inputErrorResponse(error)||apiSafety.json({ok:false,error:error.message||'네이버 입찰 승인 요청을 만들지 못했습니다.'},{status:500});

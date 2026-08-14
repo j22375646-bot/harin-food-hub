@@ -26,6 +26,7 @@ import salesCommandCenterModule from '../lib/dashboard/sales-command-center.js';
 import marketingDiagnosisModule from '../lib/marketing/diagnosis.js';
 import productAdTargetsModule from '../lib/marketing/product-ad-targets.js';
 import naverBidWorkbenchModule from '../lib/marketing/naver-bid-workbench.js';
+import naverBidExecutionModule from '../lib/naver/bid-execution.js';
 import naverSearchTermCenterModule from '../lib/naver/search-term-center.js';
 import naverExecutiveBoardModule from '../lib/marketing/naver-executive-board.js';
 import aiFoundationModule from '../lib/ai/foundation.js';
@@ -576,8 +577,10 @@ async function getDashboardData(state) {
     stats:marketingKeywordStats,
     productTargets:productAdTargets.items||[],
     keywordProductLinks:naverKeywordProductLinks,
+    masterProducts:masterResult.data||[],
     financialTrust:{ allowed_cpc:financialTrust.allowed?.allowed_cpc === true, financial_actions:financialTrust.allowed?.bid_increase === true },
-    period:keywordPeriod||{}
+    period:keywordPeriod||{},
+    executionEnabled:naverBidExecutionModule.configuration().write_enabled
   });
   const naverBidWorkbench={...naverBidWorkbenchRaw,candidates:naverBidWorkbenchRaw.candidates.map(candidate=>{
     const snapshot=naverBidWorkbenchModule.proposalSnapshot(candidate);

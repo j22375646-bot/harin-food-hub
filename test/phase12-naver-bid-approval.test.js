@@ -45,14 +45,31 @@ test('signed bid snapshot rejects tampering and expiry', () => {
   if(previous===undefined)delete process.env.DASHBOARD_SESSION_SECRET;else process.env.DASHBOARD_SESSION_SECRET=previous;
 });
 
-test('12-6A schema is server-only and external bid execution stays locked', () => {
+test('12-6B keeps product links server-only and routes execution through the guarded writer', () => {
   const migration=fs.readFileSync('supabase/migrations/20260815170000_add_naver_bid_approval_previews.sql','utf8');
   const changes=fs.readFileSync('lib/changes/financial-change.js','utf8');
   const route=fs.readFileSync('app/api/naver/bid-proposals/route.js','utf8');
+  const writer=fs.readFileSync('lib/naver/bid-execution.js','utf8');
   assert.match(migration,/NAVER_BID/);
   assert.match(migration,/naver_keyword_product_links enable row level security/i);
   assert.match(migration,/revoke all on public\.naver_keyword_product_links from anon, authenticated/i);
-  assert.match(changes,/NAVER_BID_EXECUTION_LOCKED/);
+  assert.match(changes,/naverBidExecution\.applyBid/);
   assert.match(route,/verifyBidProposalSnapshot/);
-  assert.doesNotMatch(route,/naver.*client|updateBid|changeBid/i);
+  assert.match(route,/configuration\(\)\.write_enabled/);
+  assert.match(writer,/NAVER_SEARCH_AD_WRITE_ENABLED/);
+  assert.match(writer,/SINGLE_CHANGE_WINDOW/);
+  assert.match(writer,/NAVER_BID_APPROVAL_EXPIRED/);
+  assert.match(writer,/PRODUCT_TARGET_STALE/);
+});
+
+test('12-6B product selection is included in the signed approval snapshot', () => {
+  const product={id:target.master_product_id,name:'Product',is_active:true};
+  const workbench=bidWorkbench.buildNaverBidWorkbench({keywords:[keyword],stats:[stats],productTargets:[target],keywordProductLinks:[link],masterProducts:[product],financialTrust:{allowed_cpc:true,financial_actions:true},executionEnabled:true});
+  assert.equal(workbench.phase,'12-6B');
+  assert.equal(workbench.execution_enabled,true);
+  assert.equal(workbench.products[0].target_ready,true);
+  const snapshot=bidWorkbench.proposalSnapshot(workbench.candidates[0]);
+  assert.equal(snapshot.product_target.master_product_id,target.master_product_id);
+  assert.equal(snapshot.external_execution_locked,false);
+  assert.equal(snapshot.execution_phase,'12-6B');
 });
