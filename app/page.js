@@ -415,8 +415,15 @@ async function getDashboardData(state) {
   ]), [{platform:'SHARED',dataset:'product_mapping_history'}], (error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
   queryIssues.push(...mappingHistorySettled.issues);
   const mappingHistoryResult = mappingHistorySettled.results[0];
+  const sellableCafe24Ids = new Set((productsResult.data || [])
+    .filter(product=>cafe24CatalogModule.classifyCafe24Product(product).is_sellable)
+    .map(product=>String(product.external_product_no)));
+  const sellableMasterIds = new Set((channelsResult.data || [])
+    .filter(item=>item.platform==='CAFE24'&&item.is_active!==false&&sellableCafe24Ids.has(String(item.external_product_id)))
+    .map(item=>item.master_product_id));
+  const sellableMasterProducts = (masterResult.data || []).filter(item=>item.is_active!==false&&sellableMasterIds.has(item.id));
   const productMapping = mappingService.buildMappingDashboard({
-    masterProducts:(masterResult.data || []).filter(item=>item.is_active),
+    masterProducts:sellableMasterProducts,
     channelProducts:channelsResult.data || [],
     coupangProducts:coupangProductsResult.data || [],
     coupangProductItems:coupangProductItemsResult.data || [],
@@ -430,7 +437,7 @@ async function getDashboardData(state) {
   ];
   const generatedAt = new Date().toISOString();
   const productOperations = productOperationsModule.buildUnifiedProductOperations({
-    masterProducts:masterResult.data || [],
+    masterProducts:sellableMasterProducts,
     channelProducts:allChannelProducts,
     cafe24Products:productsResult.data || [],
     coupangProducts:coupangProductsResult.data || [],
