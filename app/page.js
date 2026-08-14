@@ -23,6 +23,7 @@ import coupangQueueHealthModule from '../lib/dashboard/coupang-queue-health.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
 import salesCommandCenterModule from '../lib/dashboard/sales-command-center.js';
 import marketingDiagnosisModule from '../lib/marketing/diagnosis.js';
+import productAdTargetsModule from '../lib/marketing/product-ad-targets.js';
 import retentionValidationModule from '../lib/customers/retention-validation.js';
 import channelCapabilitiesModule from '../lib/platforms/channel-capabilities.js';
 import unifiedOrdersModule from '../lib/orders/unified-orders.js';
@@ -92,7 +93,7 @@ const VIEW_TABLES = {
   collection:['cafe24_products','automation_runs','data_quality_checks','coupang_sync_requests','coupang_products','coupang_api_capabilities'],
   insight:['cafe24_orders','cafe24_order_items','cafe24_traffic_daily','cafe24_referrers_daily','reports','actions','platform_events','master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_stats_daily','naver_keyword_stats','product_costs','channel_cost_settings','channel_shipping_rules','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_inventory','coupang_rg_orders','coupang_product_items','coupang_rg_order_items','coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily','coupang_ad_keyword_daily'],
   keyword:['master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_stats_daily','naver_keyword_stats','product_detail_checklists','product_costs','channel_cost_settings','channel_shipping_rules','coupang_products','coupang_rg_inventory','coupang_item_inventory','coupang_product_items','coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily','coupang_ad_keyword_daily'],
-  product:['cafe24_orders','cafe24_order_items','cafe24_products','master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_keyword_stats','product_costs','channel_cost_settings','channel_shipping_rules','product_mapping_history','product_detail_checklists','coupang_products','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_inventory','coupang_item_inventory','coupang_product_items','coupang_rg_orders','coupang_rg_order_items','coupang_cost_transactions','coupang_ad_keyword_daily'],
+  product:['cafe24_orders','cafe24_order_items','cafe24_products','master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_keyword_stats','product_costs','product_ad_targets','channel_cost_settings','channel_shipping_rules','product_mapping_history','product_detail_checklists','coupang_products','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_inventory','coupang_item_inventory','coupang_product_items','coupang_rg_orders','coupang_rg_order_items','coupang_cost_transactions','coupang_ad_keyword_daily'],
   reports:['reports','actions','action_evaluations','product_costs','channel_cost_settings','channel_shipping_rules'],
   changes:[],
   validation:['cafe24_orders','cafe24_order_items','cafe24_referrers_daily','reports','actions','action_evaluations','automation_runs','financial_change_requests','financial_change_audit_logs','ab_tests'],
@@ -192,6 +193,11 @@ async function getDashboardData(state) {
   });
   const queryIssues = [...settled.issues];
   const [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, shippingRulesResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult] = settled.results;
+  const productTargetSettled=dataHealthModule.settleQueries(await Promise.allSettled([
+    db.from('product_ad_targets').select('master_product_id,target_profit_margin_rate,notes,formula_version,updated_at').limit(500)
+  ]),[{platform:'SHARED',dataset:'product_ad_targets'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+  queryIssues.push(...productTargetSettled.issues);
+  const productAdTargetRows=productTargetSettled.results[0].data||[];
   const naverCommerceSettled=dataHealthModule.settleQueries(await Promise.allSettled([
     db.from('naver_commerce_orders').select('order_id,order_date,payment_date,status,paid_amount,receiver_name,receiver_phone,receiver_address,shipping_memo,shipment_id,invoice_no,delivery_company,raw_data,updated_at').order('order_date',{ascending:false}).limit(5000),
     db.from('naver_commerce_order_items').select('product_order_id,order_id,product_id,original_product_id,product_name,option_name,quantity,unit_price,paid_amount,status,shipping_due_date,raw_data,updated_at').limit(10000),
@@ -501,6 +507,7 @@ async function getDashboardData(state) {
   });
   const trustedProfitability = financialTrustModule.applyProfitabilityGate(liveProfitability, financialTrust);
   const trustedProductPerformance = financialTrustModule.applyProductPerformanceGate(unifiedProductPerformance, financialTrust);
+  const productAdTargets = productAdTargetsModule.buildProductAdTargets({ performance:unifiedProductPerformance, targets:productAdTargetRows, financialTrust, asOf:generatedAt });
   const financialReadiness = financialReadinessModule.buildFinancialReadiness({
     performance:unifiedProductPerformance,
     profitability:liveProfitability,
@@ -694,6 +701,7 @@ async function getDashboardData(state) {
     unifiedInventory,
     unifiedSettlement,
     unifiedProductPerformance:trustedProductPerformance,
+    productAdTargets,
     financialReadiness,
     productCosts: costsResult.data || [],
     channelCostSettings: channelCostsResult.data || [],
