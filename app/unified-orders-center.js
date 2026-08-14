@@ -134,7 +134,7 @@ async function loadDeliveryDetail(order){
 function ShippingWorkbench({ orders, selectedIds, invoices, setInvoices, actionResults, setActionResults, trackingStates, setTrackingStates }) {
   const selected=orders.filter(order=>selectedIds.has(order.hubOrderId));
   const [coupangCourier,setCoupangCourier]=useState('EPOST');
-  const [cafe24Courier,setCafe24Courier]=useState('00004');
+  const cafe24Courier='0013';
   const [message,setMessage]=useState('');
   const [busy,setBusy]=useState('');
   const [liveCandidates,setLiveCandidates]=useState([]);
