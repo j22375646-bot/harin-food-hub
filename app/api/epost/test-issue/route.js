@@ -13,6 +13,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const HUB_ORDER = /^HR-(?:C24|CP)-[A-F0-9]{8}$/;
 const fields = 'id,operation_type,target_type,target_id,status,result_json,error_message,collector,created_at,started_at,executed_at';
 const text = value => value == null ? '' : String(value).trim();
+const productionDisabled = () => process.env.NODE_ENV === 'production';
+const disabledResponse = () => apiSafety.json({ok:false,error:'운영 환경에서는 우체국 테스트 접수를 사용할 수 없습니다.'},{status:404});
 
 function publicRequest(row = {}) {
   return {
@@ -56,6 +58,7 @@ async function priorSuccess(db, hubOrderId) {
 }
 
 export async function GET(request) {
+  if (productionDisabled()) return disabledResponse();
   if (!apiSafety.isAuthorized(request, authModule)) return apiSafety.unauthorized();
   try {
     const requestId = text(new URL(request.url).searchParams.get('requestId'));
@@ -72,6 +75,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
+  if (productionDisabled()) return disabledResponse();
   if (!apiSafety.isAuthorized(request, authModule)) return apiSafety.unauthorized();
   try {
     const body = await apiSafety.readJson(request, { maxBytes:16 * 1024 });

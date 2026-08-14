@@ -66,7 +66,7 @@ test('Vercel schedules match the approved KST report timetable',()=>{
 });
 
 test('report page shows schedules and learning history without adding AI chat',()=>{
-  assert.match(client,/12-8 · 자동보고서·학습이력/);
+  assert.match(client,/12-8 · REPORT & LEARN/);
   assert.match(client,/매일 오전 7:10/);
   assert.match(client,/매주 월요일 오전 7:30/);
   assert.match(client,/매월 1일 오전 8:00/);

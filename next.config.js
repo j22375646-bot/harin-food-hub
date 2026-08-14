@@ -1,6 +1,6 @@
 'use strict';
 
-const { HUB_NAV, HUB_LEGACY_ROUTES } = require('./lib/navigation/hub-routes.js');
+const { HUB_LEGACY_ROUTES, routeFor } = require('./lib/navigation/hub-routes.js');
 
 const securityHeaders = [
   { key:'X-Content-Type-Options', value:'nosniff' },
@@ -10,10 +10,10 @@ const securityHeaders = [
 ];
 
 module.exports = {
-  async rewrites() {
-    const current = HUB_NAV.filter(item=>item.href!=='/').map(item=>({ source:item.href, destination:`/?view=${item.id}` }));
-    const legacy = HUB_LEGACY_ROUTES.map(item=>({ source:item.href, destination:`/?view=${item.view}` }));
-    return [...current, ...legacy];
+  poweredByHeader:false,
+  turbopack:{root:__dirname},
+  async redirects() {
+    return HUB_LEGACY_ROUTES.map(item=>({source:item.href,destination:routeFor(item.view),permanent:true}));
   },
   async headers() {
     return [

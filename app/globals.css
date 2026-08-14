@@ -694,3 +694,11 @@ html[data-font-scale="xlarge"] .unifiedOrdersCenter{--order-badge-height:34px;--
 @media(max-width:700px){.reportLearningCenter{padding:17px}.reportLearningCenter>header{flex-direction:column}.reportLearningCenter>header>em{white-space:normal}.reportLearningTimeline article>section{grid-template-columns:1fr}.reportScheduleFoot b{width:100%;margin-left:0;text-align:center}}
 @media(max-width:440px){.reportScheduleGrid,.reportLearningKpis{grid-template-columns:1fr 1fr}.reportScheduleGrid .automationCard{align-items:flex-start;flex-direction:column}.reportScheduleGrid .automationCard>em{position:absolute;top:10px;right:9px}.reportLearningCenter>header h2{font-size:20px}}
 @media(prefers-reduced-motion:reduce){.reportLearningCenter:before{animation:none}.reportScheduleGrid .automationCard{transition:none}}
+/* Phase 13-1: route feedback and bounded long-list rendering */
+.routeLoading,.routeError{min-height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center;color:#172033;background:#f6f8fb}
+.routeLoadingMark,.routeErrorMark{display:grid;place-items:center;width:52px;height:52px;border-radius:16px;background:#172033;color:#fff;font-size:24px;font-weight:900}
+.routeLoading strong,.routeError h1{margin:0;font-size:clamp(22px,3vw,32px);line-height:1.25}.routeLoading span,.routeError p{margin:0;color:#667085;font-size:16px;line-height:1.6}
+.routeLoadingBar{width:min(300px,70vw);height:7px;margin-top:8px;overflow:hidden;border-radius:999px;background:#e5eaf0}.routeLoadingBar i{display:block;width:42%;height:100%;border-radius:inherit;background:#15724f;animation:route-loading 1s ease-in-out infinite alternate}
+.routeError button,.routeError a,.opsLoadMore{min-height:46px;border:0;border-radius:14px;padding:0 22px;background:#176d50;color:#fff;font:inherit;font-weight:800;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px}.routeError small{color:#98a2b3}.opsLoadMore{width:min(420px,calc(100% - 32px));margin:16px auto}.opsLoadMore small{color:rgba(255,255,255,.8)}
+@keyframes route-loading{from{transform:translateX(-80%)}to{transform:translateX(140%)}}
+@media (prefers-reduced-motion:reduce){.routeLoadingBar i{animation:none;width:100%}}

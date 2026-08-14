@@ -140,7 +140,22 @@ function databaseForView(db, view) {
 async function getDashboardData(state) {
   const view=state?.view||'main';
   const db = databaseForView(supabaseModule.getSupabase(), view);
-  const pacingPromise = pacingService.buildPacingDashboard({ db }).catch(error => {
+  const rowLimit=(kind, fallback)=>{
+    const limits={
+      main:{orders:2500,items:5000,costs:3000},
+      orders:{orders:1000,items:3000,costs:1000},
+      cs:{orders:1000,items:2500,costs:500},
+      settlement:{orders:3000,items:5000,costs:5000},
+      insight:{orders:2500,items:5000,costs:3000},
+      keyword:{orders:1500,items:3000,costs:1500},
+      product:{orders:2500,items:5000,costs:3000},
+      reports:{orders:1500,items:3000,costs:1500},
+      changes:{orders:1000,items:2000,costs:1000}
+    };
+    return Math.min(fallback,limits[view]?.[kind]||fallback);
+  };
+  const needsPacing=new Set(['main','insight','keyword','product','reports','changes']).has(view);
+  const pacingPromise = (needsPacing?pacingService.buildPacingDashboard({ db }):Promise.resolve({status:'NO_DATA',channels:[],reasons:[]})).catch(error => {
     console.error('[dashboard] pacing unavailable', error);
     return { status:'NO_DATA', channels:[], reasons:['목표 진행률을 불러오지 못했습니다.'] };
   });
@@ -159,8 +174,8 @@ async function getDashboardData(state) {
       db.from('product_ad_targets').select('master_product_id,target_profit_margin_rate,notes,formula_version,updated_at').limit(500)
     ]),
     naverCommerce:Promise.allSettled([
-      db.from('naver_commerce_orders').select('order_id,order_date,payment_date,status,paid_amount,receiver_name,receiver_phone,receiver_address,shipping_memo,shipment_id,invoice_no,delivery_company,raw_data,updated_at').order('order_date',{ascending:false}).limit(5000),
-      db.from('naver_commerce_order_items').select('product_order_id,order_id,product_id,original_product_id,product_name,option_name,quantity,unit_price,paid_amount,status,shipping_due_date,raw_data,updated_at').limit(10000),
+      db.from('naver_commerce_orders').select('order_id,order_date,payment_date,status,paid_amount,receiver_name,receiver_phone,receiver_address,shipping_memo,shipment_id,invoice_no,delivery_company,raw_data,updated_at').order('order_date',{ascending:false}).limit(rowLimit('orders',5000)),
+      db.from('naver_commerce_order_items').select('product_order_id,order_id,product_id,original_product_id,product_name,option_name,quantity,unit_price,paid_amount,status,shipping_due_date,raw_data,updated_at').limit(rowLimit('items',10000)),
       db.from('naver_commerce_settlements').select('settlement_key,settle_basis_start_date,settle_basis_end_date,settle_expect_date,settle_complete_date,settle_amount,pay_settle_amount,commission_settle_amount,benefit_settle_amount,deduction_restore_settle_amount,pay_holdback_amount,difference_settle_amount,updated_at').order('settle_basis_end_date',{ascending:false}).limit(1000)
     ]),
     phase7:Promise.allSettled([
@@ -186,8 +201,8 @@ async function getDashboardData(state) {
     ])
   };
   const settledQueries = await Promise.allSettled([
-    db.from('cafe24_orders').select('order_id,order_date,customer_id,payment_status,paid_amount,order_price,cancel_amount,refund_amount,raw_data').order('order_date', { ascending: false }).limit(10000),
-    db.from('cafe24_order_items').select('order_id,external_item_id,external_product_no,product_name,option_name,quantity,unit_price,paid_amount,raw_data').limit(10000),
+    db.from('cafe24_orders').select('order_id,order_date,customer_id,payment_status,paid_amount,order_price,cancel_amount,refund_amount,raw_data').order('order_date', { ascending: false }).limit(rowLimit('orders',10000)),
+    db.from('cafe24_order_items').select('order_id,external_item_id,external_product_no,product_name,option_name,quantity,unit_price,paid_amount,raw_data').limit(rowLimit('items',10000)),
     db.from('cafe24_traffic_daily').select('date,visitors,pageviews,source_status,raw_data').order('date', { ascending: true }).limit(31),
     db.from('cafe24_referrers_daily').select('date,source,visitors,orders,revenue').order('visitors', { ascending: false }).limit(500),
     db.from('cafe24_products').select('external_product_no,product_name,price,display,selling,raw_data,updated_at').order('updated_at', { ascending: false }).limit(500),
@@ -211,7 +226,7 @@ async function getDashboardData(state) {
     db.from('channel_shipping_rules').select('platform,return_shipping_cost,return_rate,remote_area_surcharge,remote_area_rate,notes,updated_at'),
     db.from('coupang_products').select('seller_product_id,product_name,status,raw_data').order('updated_at',{ascending:false}).limit(100),
     db.from('coupang_orders').select('shipment_box_id,order_id,ordered_at,paid_at,status,gross_amount,raw_data').order('ordered_at',{ascending:false}).limit(2000),
-    db.from('coupang_order_items').select('external_item_key,shipment_box_id,order_id,vendor_item_id,seller_product_id,product_name,quantity,unit_price,paid_amount,status,raw_data').limit(5000),
+    db.from('coupang_order_items').select('external_item_key,shipment_box_id,order_id,vendor_item_id,seller_product_id,product_name,quantity,unit_price,paid_amount,status,raw_data').limit(rowLimit('items',5000)),
     db.from('coupang_settlements').select('order_id,vendor_item_id,recognition_date,sale_type,sale_amount,service_fee,service_fee_vat,settlement_amount,quantity').order('recognition_date',{ascending:false}).limit(5000),
     db.from('coupang_rg_inventory').select('vendor_item_id,external_sku_id,total_orderable_quantity,sales_last_30_days,average_daily_sales,days_of_stock,stock_status,snapshot_at').order('days_of_stock',{ascending:true,nullsFirst:false}).limit(500),
     db.from('coupang_sync_requests').select('id,request_type,status,requested_at,started_at,finished_at,error_message,attempt_count,next_attempt_at,idempotency_key,scheduled_for,kst_execution_date').order('requested_at',{ascending:false}).limit(50),
@@ -224,8 +239,8 @@ async function getDashboardData(state) {
     db.from('coupang_promotion_budgets').select('budget_key,status,budget_amount,used_amount,remaining_amount,checked_at').order('checked_at',{ascending:false}).limit(20),
     db.from('coupang_api_capabilities').select('feature_key,family,title,method,mode,status,risk_level,sync_frequency').order('family').order('title'),
     db.from('coupang_product_items').select('vendor_item_id,seller_product_id,item_name,sale_price,status,raw_data').limit(1000),
-    db.from('coupang_rg_order_items').select('order_id,vendor_item_id,product_name,quantity,amount').limit(5000),
-    db.from('coupang_cost_transactions').select('source_type,transaction_type,event_date,recognition_date,order_id,reference_id,vendor_item_id,sku_id,product_name,option_name,quantity,gross_sales,seller_discount,cost_amount,cost_vat,credit_amount,raw_data').order('event_date',{ascending:false}).limit(10000),
+    db.from('coupang_rg_order_items').select('order_id,vendor_item_id,product_name,quantity,amount').limit(rowLimit('items',5000)),
+    db.from('coupang_cost_transactions').select('source_type,transaction_type,event_date,recognition_date,order_id,reference_id,vendor_item_id,sku_id,product_name,option_name,quantity,gross_sales,seller_discount,cost_amount,cost_vat,credit_amount,raw_data').order('event_date',{ascending:false}).limit(rowLimit('costs',10000)),
     db.from('coupang_cost_imports').select('id,file_name,source_types,status,input_rows,stored_rows,duplicate_rows,invalid_rows,gross_sales,cost_amount,cost_vat,credit_amount,period_start,period_end,imported_at').order('imported_at',{ascending:false}).limit(30),
     db.from('coupang_ad_daily_summary').select('*').order('date',{ascending:true}).limit(62),
     db.from('coupang_ad_keyword_summary').select('*').gt('revenue',0).order('revenue',{ascending:false}).limit(50),
@@ -942,8 +957,7 @@ async function getDashboardData(state) {
   };
 }
 
-export default async function Home({ searchParams }) {
-  const initialState = hubRoutesModule.normalizeHubState(await searchParams);
+async function renderDashboardState(initialState) {
   const cookieStore = await cookies();
   const currentUser = await authModule.validateSession(cookieStore.get(authModule.COOKIE_NAME)?.value).catch(()=>null);
   if (!currentUser) redirect('/login');
@@ -952,4 +966,15 @@ export default async function Home({ searchParams }) {
   } catch (error) {
     return <Dashboard initialData={{ error: error.message }} initialState={initialState} />;
   }
+}
+
+export async function renderDashboardRoute(view, searchParams) {
+  const params=await searchParams;
+  const initialState=hubRoutesModule.normalizeHubState({...params,view});
+  return renderDashboardState(initialState);
+}
+
+export default async function Home({ searchParams }) {
+  const initialState = hubRoutesModule.normalizeHubState(await searchParams);
+  return renderDashboardState(initialState);
 }

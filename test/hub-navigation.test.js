@@ -106,14 +106,10 @@ test('legacy addresses still open their original functions', () => {
   assert.equal(parseHubHref('/coupang/settlement').view,'settlement');
 });
 
-test('Next rewrites serve canonical and legacy addresses through the dashboard', async () => {
-  const rewrites=await require('../next.config.js').rewrites();
-  assert.ok(rewrites.some(item=>item.source==='/products'&&item.destination==='/?view=product'));
-  assert.ok(rewrites.some(item=>item.source==='/orders'&&item.destination==='/?view=orders'));
-  assert.ok(rewrites.some(item=>item.source==='/settlement-costs'&&item.destination==='/?view=settlement'));
-  assert.ok(rewrites.some(item=>item.source==='/execution-validation'&&item.destination==='/?view=validation'));
-  assert.ok(rewrites.some(item=>item.source==='/ab-tests'&&item.destination==='/?view=experiments'));
-  assert.ok(rewrites.some(item=>item.source==='/reports'&&item.destination==='/?view=reports'));
-  assert.ok(rewrites.some(item=>item.source==='/alerts'&&item.destination==='/?view=notifications'));
-  assert.ok(rewrites.some(item=>item.source==='/ai-knowledge'&&item.destination==='/?view=knowledge'));
+test('legacy addresses redirect to canonical route pages', async () => {
+  const redirects=await require('../next.config.js').redirects();
+  assert.ok(redirects.some(item=>item.source==='/reports'&&item.destination==='/diagnoses'));
+  assert.ok(redirects.some(item=>item.source==='/alerts'&&item.destination==='/notifications'));
+  assert.ok(redirects.some(item=>item.source==='/coupang/orders'&&item.destination==='/orders'));
+  assert.ok(redirects.every(item=>item.permanent===true));
 });

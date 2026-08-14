@@ -1,7 +1,8 @@
 export default function Loading() {
-  return <main className="loadingPage" aria-live="polite">
-    <div className="loadingMark">H</div>
-    <b>하린식품 운영 허브를 준비하고 있어요</b>
-    <p>지금 볼 화면에 필요한 자료만 먼저 불러옵니다.</p>
+  return <main className="routeLoading" aria-live="polite" aria-busy="true">
+    <div className="routeLoadingMark">H</div>
+    <strong>화면을 여는 중이에요</strong>
+    <span>필요한 자료만 불러오고 있습니다.</span>
+    <div className="routeLoadingBar"><i /></div>
   </main>;
 }

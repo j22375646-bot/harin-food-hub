@@ -27,6 +27,7 @@ function ChannelStock({ label, channel }) {
 export default function UnifiedInventoryOperationsCenter({ center = {}, children, aiPanel }) {
   const [filter,setFilter]=useState('ACTION');
   const [query,setQuery]=useState('');
+  const [visibleCount,setVisibleCount]=useState(24);
   const deferredQuery=useDeferredValue(query);
   const items=Array.isArray(center.items)?center.items:[];
   const summary=center.summary||{};
@@ -39,6 +40,7 @@ export default function UnifiedInventoryOperationsCenter({ center = {}, children
     if(filter==='UNKNOWN')return item.issues?.some(issue=>issue.code.endsWith('_UNKNOWN')||issue.code.endsWith('_MISSING'));
     return true;
   }),[items,filter,deferredQuery]);
+  const visible=useMemo(()=>filtered.slice(0,visibleCount),[filtered,visibleCount]);
 
   return <section className="inventoryOpsCenter">
     <section className="inventoryOpsHero">
@@ -55,13 +57,14 @@ export default function UnifiedInventoryOperationsCenter({ center = {}, children
     </section>
     {aiPanel}
     <section className="inventoryOpsToolbar">
-      <nav aria-label="통합 재고 필터">{[['ACTION','확인 필요'],['ALL','전체'],['OUT','품절'],['LOW','저재고'],['STALE','갱신 필요'],['UNKNOWN','미확인·미연결']].map(([id,label])=><button type="button" className={filter===id?'active':''} onClick={()=>setFilter(id)} key={id}>{label}</button>)}</nav>
-      <input type="search" aria-label="재고 상품명 검색" placeholder="상품명 검색" value={query} onChange={event=>setQuery(event.target.value)}/>
+      <nav aria-label="통합 재고 필터">{[['ACTION','확인 필요'],['ALL','전체'],['OUT','품절'],['LOW','저재고'],['STALE','갱신 필요'],['UNKNOWN','미확인·미연결']].map(([id,label])=><button type="button" className={filter===id?'active':''} onClick={()=>{setFilter(id);setVisibleCount(24);}} key={id}>{label}</button>)}</nav>
+      <input type="search" aria-label="재고 상품명 검색" placeholder="상품명 검색" value={query} onChange={event=>{setQuery(event.target.value);setVisibleCount(24);}}/>
     </section>
-    <section className="inventoryOpsList">{filtered.map(item=><article className={`inventoryOpsRow priority${item.priority}`} key={item.master_product_id}>
+    <section className="inventoryOpsList">{visible.map(item=><article className={`inventoryOpsRow priority${item.priority}`} key={item.master_product_id}>
       <div className="inventoryOpsIdentity"><small>기준상품</small><h2>{item.name}</h2><div>{item.issues?.length?item.issues.map(issue=><em className={issue.level.toLowerCase()} key={issue.code}>{issue.label}</em>):<em className="good">재고 이상 없음</em>}</div></div>
       <div className="inventoryOpsChannels">{CHANNELS.map(([id,label])=><ChannelStock key={id} label={label} channel={item.channels?.[id]}/>)}</div>
     </article>)}{!filtered.length&&<div className="inventoryOpsEmpty">이 조건에 해당하는 상품이 없습니다.</div>}</section>
+    {visibleCount<filtered.length&&<button className="opsLoadMore" type="button" onClick={()=>setVisibleCount(count=>count+24)}>재고 24개 더 보기 <small>{visible.length}/{filtered.length}</small></button>}
     <details className="inventoryOpsCoupangDetail"><summary><span><b>쿠팡 로켓그로스 상세 운영판</b><small>재고일수·30일 판매·판매촉진 판단이 필요할 때 펼쳐보세요.</small></span><em>열기/접기</em></summary><div>{children}</div></details>
   </section>;
 }

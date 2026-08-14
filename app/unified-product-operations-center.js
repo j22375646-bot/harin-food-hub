@@ -25,6 +25,7 @@ function ProductChannel({ label, channel }) {
 export default function UnifiedProductOperationsCenter({ center = {} }) {
   const [filter, setFilter] = useState('ACTION');
   const [query, setQuery] = useState('');
+  const [visibleCount,setVisibleCount]=useState(24);
   const deferredQuery = useDeferredValue(query);
   const items = Array.isArray(center.items) ? center.items : [];
   const summary = center.summary || {};
@@ -36,6 +37,7 @@ export default function UnifiedProductOperationsCenter({ center = {} }) {
     if (filter === 'UNLINKED') return item.connected_channels < 3;
     return true;
   }), [items, filter, deferredQuery]);
+  const visible=useMemo(()=>filtered.slice(0,visibleCount),[filtered,visibleCount]);
 
   const scrollToMapping = () => document.querySelector('.productMappingWorkbench')?.scrollIntoView({ behavior:'smooth', block:'start' });
   return <section className="productOpsCenter">
@@ -52,13 +54,14 @@ export default function UnifiedProductOperationsCenter({ center = {} }) {
       <span><small>네이버 실상품</small><b>{summary.naver_real_products || 0}개</b></span>
     </div>
     <div className="productOpsToolbar">
-      <nav aria-label="상품 운영 필터">{[['ACTION','확인 필요'],['ALL','전체'],['STOCK','품절·중지'],['PRICE','가격차'],['UNLINKED','미연결']].map(([id,label]) => <button type="button" className={filter === id ? 'active' : ''} onClick={() => setFilter(id)} key={id}>{label}</button>)}</nav>
-      <input aria-label="상품명 검색" placeholder="상품명 검색" value={query} onChange={event => setQuery(event.target.value)}/>
+      <nav aria-label="상품 운영 필터">{[['ACTION','확인 필요'],['ALL','전체'],['STOCK','품절·중지'],['PRICE','가격차'],['UNLINKED','미연결']].map(([id,label]) => <button type="button" className={filter === id ? 'active' : ''} onClick={() => {setFilter(id);setVisibleCount(24);}} key={id}>{label}</button>)}</nav>
+      <input aria-label="상품명 검색" placeholder="상품명 검색" value={query} onChange={event => {setQuery(event.target.value);setVisibleCount(24);}}/>
     </div>
-    <div className="productOpsList">{filtered.map(item => <article className="productOpsRow" key={item.master_product_id}>
+    <div className="productOpsList">{visible.map(item => <article className="productOpsRow" key={item.master_product_id}>
       <div className="productOpsIdentity"><small>기준상품</small><h2>{item.name}</h2><span>기준가 {won(item.base_price)}</span><div>{item.issues?.length ? item.issues.map(issue => <em className={issue.level.toLowerCase()} key={issue.code}>{issue.label}</em>) : <em className="good">이상 없음</em>}</div></div>
       <div className="productOpsChannels">{CHANNELS.map(([id,label]) => <ProductChannel key={id} label={label} channel={item.channels?.[id]}/>)}</div>
     </article>)}{!filtered.length && <div className="productOpsEmpty">이 조건에서 확인할 상품이 없습니다.</div>}</div>
+    {visibleCount<filtered.length&&<button className="opsLoadMore" type="button" onClick={()=>setVisibleCount(count=>count+24)}>상품 24개 더 보기 <small>{visible.length}/{filtered.length}</small></button>}
     <p className="productOpsLock">실제 가격·판매상태 변경은 자동 실행하지 않습니다. 변경승인에서 검토한 뒤 실행하도록 잠겨 있습니다.</p>
   </section>;
 }

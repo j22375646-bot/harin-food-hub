@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import reportVersioning from '../lib/reports/versioning.js';
 import { COUPANG_SECTION_HELP, getHubHelp } from '../lib/ui/help-content.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
@@ -126,7 +126,7 @@ function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onO
   const hasQuery=Boolean(query.trim());
   const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(query.trim().toLowerCase()))})).filter(group=>group.items.length);
   return <aside className="desktopSidebar" aria-label="허브 사이드바">
-    <div className="sidebarPhase"><span>현재 개발</span><b>12-8 · 자동보고서·학습이력</b></div>
+    <div className="sidebarPhase"><span>현재 개발</span><b>13-1 · 페이지 속도 개선</b></div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true">⌕</i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴 이름 찾기" /></label>
     <nav aria-label="허브 메뉴">
       {visible.map(group=>{const expanded=hasQuery||openGroup===group.id;return <section className={`sidebarGroup${expanded?' expanded':''}`} key={group.id}>
@@ -161,6 +161,7 @@ export default function Dashboard({ initialData, initialState }) {
   const [openNavGroup,setOpenNavGroup]=useState(hubRoutesModule.groupForView(normalizedInitial.view));
   const [navQuery,setNavQuery]=useState('');
   const [pendingView,setPendingView]=useState(null);
+  const prefetchedViews=useRef(new Set([normalizedInitial.view]));
   const [fontScale,setFontScale]=useStoredState('font-scale','large',['large','xlarge']);
   useEffect(() => setMounted(true), []);
   useEffect(()=>{document.documentElement.dataset.fontScale=fontScale;},[fontScale]);
@@ -213,7 +214,11 @@ export default function Dashboard({ initialData, initialState }) {
   }
   const openView=id=>navigate({view:id,product:'ALL',period:'DAY'});
   const selectPlatform=id=>navigate({platform:id,product:id==='coupang'?selectedProduct:'ALL'},true);
-  const prefetchView=id=>router.prefetch(hubRoutesModule.buildHubHref({view:id,platform:'all',product:'ALL',period:'DAY'}));
+  const prefetchView=id=>{
+    if(prefetchedViews.current.has(id))return;
+    prefetchedViews.current.add(id);
+    router.prefetch(hubRoutesModule.buildHubHref({view:id,platform:'all',product:'ALL',period:'DAY'}));
+  };
 
   return <div className="shell">
     <header className="topbar">
