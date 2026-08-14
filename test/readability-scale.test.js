@@ -18,8 +18,8 @@ test('phase 10 readability scale keeps core text and controls comfortably sized'
 test('larger sidebar and content canvas stay aligned', () => {
   assert.match(styles, /--hub-sidebar-width:268px/);
   assert.match(styles, /\.desktopSidebar\{top:84px;width:var\(--hub-sidebar-width\)/);
-  assert.match(styles, /\.hubMain\{width:min\(1360px,calc\(100vw - var\(--hub-sidebar-width\)\)\)/);
-  assert.match(styles, /\.hubFooter\{width:min\(1360px,calc\(100vw - var\(--hub-sidebar-width\)\)\)/);
+  assert.match(styles, /\.hubMain\{width:min\(1360px,calc\(100% - var\(--hub-sidebar-width\)\)\)/);
+  assert.match(styles, /\.hubFooter\{width:min\(1360px,calc\(100% - var\(--hub-sidebar-width\)\)\)/);
 });
 
 test('mobile readability preserves full-width layout and larger navigation targets', () => {

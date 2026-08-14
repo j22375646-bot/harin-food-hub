@@ -206,8 +206,8 @@ main em{font-size:var(--hub-font-support)}
 .sidebarPhase{padding:14px}
 .sidebarPhase b{font-size:15px}
 .sidebarPhase span{font-size:12px;line-height:1.5}
-.hubMain{width:min(1360px,calc(100vw - var(--hub-sidebar-width)));margin-left:calc(var(--hub-sidebar-width) + max(0px,(100vw - var(--hub-sidebar-width) - 1360px)/2));padding:38px 30px 72px}
-.hubFooter{width:min(1360px,calc(100vw - var(--hub-sidebar-width)));margin-left:calc(var(--hub-sidebar-width) + max(0px,(100vw - var(--hub-sidebar-width) - 1360px)/2))}
+.hubMain{width:min(1360px,calc(100% - var(--hub-sidebar-width)));margin-left:calc(var(--hub-sidebar-width) + max(0px,(100% - var(--hub-sidebar-width) - 1360px)/2));padding:38px 30px 72px}
+.hubFooter{width:min(1360px,calc(100% - var(--hub-sidebar-width)));margin-left:calc(var(--hub-sidebar-width) + max(0px,(100% - var(--hub-sidebar-width) - 1360px)/2))}
 
 .pageIntro h1,.pageHeader h1{font-size:clamp(30px,2.5vw,38px);line-height:1.2}
 .pageIntro p,.pageHeader p{font-size:16px;line-height:1.65}
