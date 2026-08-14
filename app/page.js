@@ -27,6 +27,8 @@ import marketingDiagnosisModule from '../lib/marketing/diagnosis.js';
 import productAdTargetsModule from '../lib/marketing/product-ad-targets.js';
 import naverSearchTermCenterModule from '../lib/naver/search-term-center.js';
 import naverExecutiveBoardModule from '../lib/marketing/naver-executive-board.js';
+import aiFoundationModule from '../lib/ai/foundation.js';
+import openaiClientModule from '../lib/ai/openai-client.js';
 import retentionValidationModule from '../lib/customers/retention-validation.js';
 import channelCapabilitiesModule from '../lib/platforms/channel-capabilities.js';
 import unifiedOrdersModule from '../lib/orders/unified-orders.js';
@@ -584,6 +586,18 @@ async function getDashboardData(state) {
       settlements:Boolean(naverCommerceSettlementsResult.unavailable)
     }
   });
+  const aiSnapshot=aiFoundationModule.buildNaverAiSnapshot(naverExecutiveBoard);
+  const aiConfiguration=openaiClientModule.configuration();
+  const aiFoundation={
+    phase:'12-4',
+    configured:aiConfiguration.configured,
+    model:aiConfiguration.model,
+    structured_outputs:aiConfiguration.structured_outputs,
+    pii_guard:aiConfiguration.pii_guard,
+    file_search_configured:aiConfiguration.file_search_configured,
+    write_actions_enabled:false,
+    snapshot_token:authModule.signAiSnapshot(aiSnapshot)
+  };
   const financialReadiness = financialReadinessModule.buildFinancialReadiness({
     performance:unifiedProductPerformance,
     profitability:liveProfitability,
@@ -796,6 +810,7 @@ async function getDashboardData(state) {
     liveProfitability:trustedProfitability,
     financialTrust,
     financialTrustToken,
+    aiFoundation,
     pacing,
     naver: { campaigns:naverCampaignResult.data?.length||0, adgroups:naverGroupResult.count||0, keywords:naverKeywordResult.count||0, latestSync:naverSyncResult.data||null, periodStart:weekStart, periodEnd:latestNaverDate, totals:{...naverTotals,roas:naverPerformance.roasPercent,ctr:naverPerformance.ctrPercent,metrics:trustedNaverPerformance}, daily:[...naverDailyMap.values()].sort((a,b)=>a.date.localeCompare(b.date)), topCampaigns:trustedNaverTopCampaigns, keywordPeriod, keywordTop, keywordWaste, searchTermCenter:naverSearchTermCenter, marketingDiagnosis, executiveBoard:naverExecutiveBoard },
     coupang: {

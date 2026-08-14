@@ -28,6 +28,15 @@ test('차단 상태로 서명한 토큰은 목표 CPC를 허용하지 않는다'
   assert.equal(auth.verifyFinancialTrust(token, 2000).financial_actions, false);
 }));
 
+test('AI 집계 스냅샷 토큰은 30분 동안만 유효하고 위조를 거부한다', () => withSecret(() => {
+  const now = Date.parse('2026-08-14T00:00:00Z');
+  const snapshot = { analysis_type:'NAVER_EXECUTIVE_EXPLANATION', data_status:'READY' };
+  const token = auth.signAiSnapshot(snapshot, now);
+  assert.deepEqual(auth.verifyAiSnapshot(token, now + 1000), snapshot);
+  assert.equal(auth.verifyAiSnapshot(`${token}x`, now + 1000), null);
+  assert.equal(auth.verifyAiSnapshot(token, now + 31 * 60 * 1000), null);
+}));
+
 test('개인 세션은 사용자·역할·12시간 만료를 서명하고 위조를 거부한다', () => withSecret(() => {
   const expiresAt = new Date(Date.now()+60_000).toISOString();
   const token=auth.createSessionToken({sessionId:'s1',userId:'u1',username:'owner',displayName:'운영 OWNER',role:'OWNER',expiresAt});
