@@ -702,3 +702,131 @@ html[data-font-scale="xlarge"] .unifiedOrdersCenter{--order-badge-height:34px;--
 .routeError button,.routeError a,.opsLoadMore{min-height:46px;border:0;border-radius:14px;padding:0 22px;background:#176d50;color:#fff;font:inherit;font-weight:800;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px}.routeError small{color:#98a2b3}.opsLoadMore{width:min(420px,calc(100% - 32px));margin:16px auto}.opsLoadMore small{color:rgba(255,255,255,.8)}
 @keyframes route-loading{from{transform:translateX(-80%)}to{transform:translateX(140%)}}
 @media (prefers-reduced-motion:reduce){.routeLoadingBar i{animation:none;width:100%}}
+
+/* Phase 13-2: shared visual system for every operational screen. */
+:root{
+  --ui-font-body:16px;
+  --ui-font-list:15px;
+  --ui-font-support:13px;
+  --ui-font-title:clamp(32px,3vw,36px);
+  --ui-font-kpi:clamp(28px,2.6vw,36px);
+  --ui-control-height:46px;
+  --ui-space-1:6px;
+  --ui-space-2:10px;
+  --ui-space-3:16px;
+  --ui-space-4:24px;
+  --ui-space-5:32px;
+  --ui-radius-control:12px;
+  --ui-radius-card:20px;
+  --ui-border:#dfe5e2;
+  --ui-surface:#fff;
+  --ui-surface-soft:#f6f8f7;
+  --ui-ink:#18221d;
+  --ui-muted:#657168;
+  --ui-accent:#176b4d;
+  --ui-shadow-card:0 10px 30px rgba(32,58,46,.075);
+  --ui-shadow-hover:0 16px 38px rgba(32,58,46,.12);
+  --ui-motion:180ms cubic-bezier(.2,.8,.2,1);
+  --hub-font-body:var(--ui-font-body);
+  --hub-font-support:var(--ui-font-support);
+  --hub-font-control:var(--ui-font-list);
+  --hub-touch-target:var(--ui-control-height);
+}
+
+html[data-font-scale="xlarge"]{
+  --ui-font-body:18px;
+  --ui-font-list:17px;
+  --ui-font-support:14px;
+  --ui-font-title:clamp(34px,3.2vw,40px);
+  --ui-font-kpi:clamp(31px,2.8vw,39px);
+  --ui-control-height:50px;
+}
+
+body{color:var(--ui-ink);font-size:var(--ui-font-body);line-height:1.65}
+main p,main li,main label{font-size:var(--ui-font-body);line-height:1.68}
+main small,.topbar small,.desktopSidebar small{font-size:var(--ui-font-support)!important;line-height:1.55}
+main :where(table,.dataTable,.syncTable,.insightTable,.mappingTable,.phase7TableWrap){font-size:var(--ui-font-list)}
+main :where(th,.dataHeader,.syncHeader,.insightTableHead,.mappingHeader){font-size:14px!important;line-height:1.5}
+main :where(td,.dataRow,.syncRow,.insightTableRow,.mappingRow){font-size:var(--ui-font-list)!important;line-height:1.55}
+
+.pageIntro h1,.pageHeader h1,.hero h1{font-size:var(--ui-font-title);line-height:1.18;letter-spacing:-.035em}
+.pageIntro p,.pageHeader p,.hero p{font-size:var(--ui-font-body);line-height:1.68}
+.panelHead h2,.panelHeader h2,.orderProcessPanel>header h2,.harinAiHero h2{font-size:clamp(22px,2vw,27px);line-height:1.3;letter-spacing:-.025em}
+.eyebrow,.sectionTag{font-size:12px!important;line-height:1.45;letter-spacing:.13em}
+
+.kpi strong,.decisionMetrics .kpi strong,.notificationKpis article>b,.financialChangeKpis article>b,.knowledgeKpis article>b,.reportLearningKpis b,.naverAutomationKpis b{font-size:var(--ui-font-kpi);line-height:1.15;letter-spacing:-.035em}
+.kpi p,.kpi span,.notificationKpis article>small,.notificationKpis article>span,.financialChangeKpis article>small,.financialChangeKpis article>span{font-size:var(--ui-font-support)!important;line-height:1.5}
+
+.panel,.contentCard,.statusCard,.kpi,.helpBox,.harinAiResult,.harinAiEmpty,.errorPage>div{
+  border-color:var(--ui-border);
+  border-radius:var(--ui-radius-card);
+  background-color:var(--ui-surface);
+  box-shadow:var(--ui-shadow-card);
+}
+.panel,.contentCard,.statusCard{padding:var(--ui-space-4)}
+.helpBox{overflow:hidden;margin-block:var(--ui-space-3)}
+.helpBox>summary{min-height:64px;padding:var(--ui-space-2) var(--ui-space-3)}
+.helpBoxHeading b{font-size:16px;line-height:1.4}.helpBoxHeading small{margin-top:3px;color:var(--ui-muted)}
+.helpBoxBody{gap:var(--ui-space-2);padding:var(--ui-space-3)}
+.helpBoxBody section{border-radius:14px;padding:var(--ui-space-3)}
+
+.harinAiFoundation{gap:var(--ui-space-3);margin-bottom:var(--ui-space-4)}
+.harinAiHero,.harinAiResult,.harinAiEmpty{border-radius:var(--ui-radius-card)}
+.harinAiHero p,.harinAiResultFlow section p,.harinAiResult ul,.harinAiResult details p,.harinAiEmpty p{font-size:var(--ui-font-body);line-height:1.68}
+.harinAiGuards b,.harinAiResultFlow section b{font-size:var(--ui-font-list)}
+.harinAiGuards small,.harinAiHero aside em{font-size:var(--ui-font-support)}
+
+main :where(button,input,select){min-height:var(--ui-control-height)}
+main :where(button,input,select,textarea){border-radius:var(--ui-radius-control);font-size:var(--ui-font-list)}
+main :where(button,a,input,select,textarea):focus-visible,.topbar :where(button,select):focus-visible,.mobileBottomNav :where(button,summary,select):focus-visible{outline:3px solid rgba(23,107,77,.24);outline-offset:2px}
+.syncButton,.logoutButton,.pagePrimaryAction button,.routeError button,.routeError a,.opsLoadMore{min-height:var(--ui-control-height);border-radius:var(--ui-radius-control);padding-inline:18px}
+
+.status,.platformBadge,.miniState,.connection em,.reportRow em,.finding em,.harinAiResult>header em{display:inline-flex;min-height:28px;align-items:center;border-radius:999px;padding:5px 10px;font-size:var(--ui-font-support)!important;line-height:1.25;font-weight:850}
+.empty,.emptyState,.knowledgeEmpty,.reportLearningEmpty{min-height:132px;display:grid;place-items:center;border:1px dashed #cfd8d3;border-radius:16px;background:var(--ui-surface-soft);padding:var(--ui-space-4);color:var(--ui-muted);font-size:var(--ui-font-body)!important;line-height:1.65;text-align:center}
+.loadingPage,.routeLoading,.routeError{font-size:var(--ui-font-body)}
+.routeLoadingMark,.routeErrorMark,.loadingMark{box-shadow:0 12px 26px rgba(23,35,29,.16)}
+
+.mobileViewSettings{display:none}
+
+@keyframes phase13Enter{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.hubMain>:where(section,article,details){animation:phase13Enter 280ms cubic-bezier(.2,.8,.2,1) both}
+@media(hover:hover) and (pointer:fine){
+  .hubMain>:where(.panel,.contentCard,.statusCard,.kpi){transition:transform var(--ui-motion),box-shadow var(--ui-motion),border-color var(--ui-motion)}
+  .hubMain>:where(.panel,.contentCard,.statusCard,.kpi):hover{transform:translateY(-2px);border-color:#cad7d0;box-shadow:var(--ui-shadow-hover)}
+  main button:not(:disabled){transition:transform var(--ui-motion),box-shadow var(--ui-motion),background-color var(--ui-motion)}
+  main button:not(:disabled):active{transform:translateY(1px)}
+}
+
+@media(max-width:900px){
+  :root{--ui-font-title:clamp(25px,7vw,28px);--ui-font-kpi:clamp(28px,8vw,32px);--ui-radius-card:18px}
+  .headerActions .fontScaleControl{display:none}
+  .mobileViewSettings{display:flex!important;gap:7px!important;border:1px solid #dce5df;border-radius:14px;background:#eff6f2;padding:12px!important}
+  .mobileViewSettings>b{color:#235f49!important;font-size:13px!important}
+  .mobileViewSettings>label{display:flex;min-height:56px;align-items:center;justify-content:space-between;gap:14px;border-radius:11px;background:#fff;padding:9px 10px}
+  .mobileViewSettings>label>span{display:flex;min-width:0;flex-direction:column}
+  .mobileViewSettings strong{font-size:15px;line-height:1.35}.mobileViewSettings small{color:var(--ui-muted);font-size:13px!important}
+  .mobileViewSettings select{min-width:112px;min-height:44px;border:1px solid #d8e0db;border-radius:10px;background:#fff;padding:0 10px;color:#26342d;font-size:14px;font-weight:850}
+  .mobileBottomNav>.mobileMoreMenu>.mobileGroupedMenu{gap:14px;padding:14px}
+  .mobileGroupedMenu>section>b{font-size:13px}
+  .mobileBottomNav .mobileGroupedMenu button{min-height:48px;font-size:15px}
+  .panel,.contentCard,.statusCard{padding:20px}
+  .pageIntro{padding:20px 2px 14px}
+  .pageIntro h1,.pageHeader h1,.hero h1{font-size:var(--ui-font-title)}
+  .kpi strong,.decisionMetrics .kpi strong,.notificationKpis article>b,.financialChangeKpis article>b{font-size:var(--ui-font-kpi)}
+}
+
+@media(max-width:600px){
+  .hubMain{padding-inline:14px}
+  .panel,.contentCard,.statusCard{padding:18px}
+  .kpi{min-height:118px;padding:16px 14px}
+  .helpBox>summary{min-height:70px}
+  .harinAiHero{padding:23px 19px}
+  main :where(th,.dataHeader,.syncHeader,.insightTableHead,.mappingHeader){font-size:14px!important}
+  main :where(td,.dataRow,.syncRow,.insightTableRow,.mappingRow){font-size:15px!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+  .hubMain>:where(section,article,details){animation:none}
+}

@@ -126,7 +126,7 @@ function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onO
   const hasQuery=Boolean(query.trim());
   const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(query.trim().toLowerCase()))})).filter(group=>group.items.length);
   return <aside className="desktopSidebar" aria-label="허브 사이드바">
-    <div className="sidebarPhase"><span>현재 개발</span><b>13-1 · 페이지 속도 개선</b></div>
+    <div className="sidebarPhase"><span>현재 개발</span><b>13-2 · 공통 디자인 시스템</b></div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true">⌕</i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴 이름 찾기" /></label>
     <nav aria-label="허브 메뉴">
       {visible.map(group=>{const expanded=hasQuery||openGroup===group.id;return <section className={`sidebarGroup${expanded?' expanded':''}`} key={group.id}>
@@ -138,9 +138,9 @@ function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onO
   </aside>;
 }
 
-function MobileMoreMenu({ groups, view, onOpenView, onPrefetch }) {
+function MobileMoreMenu({ groups, view, onOpenView, onPrefetch, fontScale, onFontScale }) {
   const primary=new Set(['main','orders','inventory','notifications']);
-  return <details className={`mobileMoreMenu${primary.has(view)?'':' active'}`}><summary aria-label="전체 메뉴 열기"><i aria-hidden="true">≡</i><span>더보기</span></summary><div className="mobileGroupedMenu">{groups.map(group=><section key={group.id}><b>{group.label}</b><div>{group.items.map(item=><button type="button" key={item.id} className={view===item.id?'active':''} onPointerEnter={()=>onPrefetch(item.id)} onFocus={()=>onPrefetch(item.id)} onClick={event=>{onOpenView(item.id);event.currentTarget.closest('details')?.removeAttribute('open');}}>{item.label}{item.badge>0?<em>{item.badge}</em>:null}</button>)}</div></section>)}</div></details>;
+  return <details className={`mobileMoreMenu${primary.has(view)?'':' active'}`}><summary aria-label="전체 메뉴와 화면 설정 열기"><i aria-hidden="true">≡</i><span>더보기</span></summary><div className="mobileGroupedMenu"><section className="mobileViewSettings"><b>화면 설정</b><label><span><strong>글자 크기</strong><small>모든 화면에 바로 적용됩니다.</small></span><select aria-label="모바일 허브 글자 크기" value={fontScale} onChange={event=>onFontScale(event.target.value)}><option value="large">큰 글씨</option><option value="xlarge">더 큰 글씨</option></select></label></section>{groups.map(group=><section key={group.id}><b>{group.label}</b><div>{group.items.map(item=><button type="button" key={item.id} className={view===item.id?'active':''} onPointerEnter={()=>onPrefetch(item.id)} onFocus={()=>onPrefetch(item.id)} onClick={event=>{onOpenView(item.id);event.currentTarget.closest('details')?.removeAttribute('open');}}>{item.label}{item.badge>0?<em>{item.badge}</em>:null}</button>)}</div></section>)}</div></details>;
 }
 
 function BreadcrumbBar({ context, refreshedAt }) {
@@ -263,7 +263,7 @@ export default function Dashboard({ initialData, initialState }) {
       {view==='experiments' && <ExperimentLab />}
       {view==='notifications' && <NotificationCenter reports={reports} />}
     </main>
-    <nav className="mobileBottomNav" aria-label="모바일 주요 메뉴">{['main','orders','inventory','notifications'].map(id=>nav.find(item=>item.id===id)).map(item=><button className={view===item.id?'active':''} onPointerEnter={()=>prefetchView(item.id)} onFocus={()=>prefetchView(item.id)} onClick={()=>openView(item.id)} key={item.id}><i>{item.icon}</i><span>{item.id==='notifications'?'알림':item.label}</span></button>)}<MobileMoreMenu groups={navGroups} view={view} onOpenView={openView} onPrefetch={prefetchView}/></nav>
+    <nav className="mobileBottomNav" aria-label="모바일 주요 메뉴">{['main','orders','inventory','notifications'].map(id=>nav.find(item=>item.id===id)).map(item=><button className={view===item.id?'active':''} onPointerEnter={()=>prefetchView(item.id)} onFocus={()=>prefetchView(item.id)} onClick={()=>openView(item.id)} key={item.id}><i>{item.icon}</i><span>{item.id==='notifications'?'알림':item.label}</span></button>)}<MobileMoreMenu groups={navGroups} view={view} onOpenView={openView} onPrefetch={prefetchView} fontScale={fontScale} onFontScale={setFontScale}/></nav>
     <footer>하린식품 광고·매출 통합 관리 허브 <span>·</span> 네이버 + 쿠팡 + Cafe24 + Supabase</footer>
   </div>;
 }
