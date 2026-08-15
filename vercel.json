@@ -15,10 +15,6 @@
     {
       "path": "/api/cron/monthly-reports",
       "schedule": "0 23 * * *"
-    },
-    {
-      "path": "/api/cron/operations-watchdog",
-      "schedule": "*/10 * * * *"
     }
   ]
 }

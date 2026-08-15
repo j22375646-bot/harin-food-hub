@@ -24,7 +24,11 @@ test('13-8 dead-letter workbench contains only terminal failures and no payload'
 
 test('13-8 keeps cost calls guarded and production test sends disabled',()=>{
   const migration=read('supabase/migrations/20260815003504_phase13_operational_reliability.sql');
+  const watchdogMigration=read('supabase/migrations/20260815003600_schedule_worker_watchdog.sql');
   assert.match(migration,/claim_external_call_guard/);
+  assert.match(watchdogMigration,/harin-worker-heartbeat-watchdog/);
+  assert.match(watchdogMigration,/interval '15 minutes'/);
+  assert.doesNotMatch(read('vercel.json'),/operations-watchdog/);
   assert.match(read('lib/ai/foundation.js'),/AI_REQUEST_ALREADY_RUNNING/);
   assert.match(read('app/api/notifications/send/route.js'),/TEST_API_DISABLED/);
   assert.match(read('app/api/cron/operations-watchdog/route.js'),/CRON_SECRET/);
