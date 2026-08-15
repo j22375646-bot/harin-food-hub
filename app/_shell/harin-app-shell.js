@@ -40,8 +40,8 @@ export function HarinSidebar({ groups, view, openGroup, query, onQuery, onOpenGr
   return <aside className="desktopSidebar v8Sidebar" aria-label="허브 사이드바">
     <div className="sidebarPhase">
       <span><HarinIcon name="sparkles"/><em>V8 REMODEL</em></span>
-      <b>14-9 · 빠른 업무 공간</b>
-      <small>명령·메모·저장 화면을 어느 페이지에서나 바로 열어요.</small>
+      <b>14-10 · 페이지별 AI 분석</b>
+      <small>자료 범위·신뢰도·비용을 확인하고 화면마다 따로 분석해요.</small>
     </div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true"><HarinIcon name="search"/></i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴·업무 찾기" /></label>
     <div className="sidebarMenuHeading"><span>운영 메뉴</span>{actionCount>0?<b>확인할 일 {actionCount}건</b>:<b>새 알림 없음</b>}</div>

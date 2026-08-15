@@ -39,7 +39,7 @@ test('13-7 provides the same structured analysis panel on every workflow page',(
   for(const page of ['reports','changes','validation','experiments']){
     assert.match(client,new RegExp(`aiPagePanels\\?\\.${page}`));
     assert.equal(panels[page].generated_at,'2026-08-15T12:00:00.000Z');
-    assert.equal(panels[page].persistence_enabled,false);
+    assert.equal(panels[page].persistence_enabled,true);
     assert.ok(panels[page].sources.length>=3);
     assert.ok(panels[page].tasks.length>=3);
   }
