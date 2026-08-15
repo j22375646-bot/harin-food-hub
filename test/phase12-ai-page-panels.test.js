@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { buildAiPagePanels } = require('../lib/ai/page-panels.js');
 
-test('12-5A는 여섯 운영 화면의 AI 분석 위치를 만들고 기본 실행은 잠근다',()=>{
+test('AI 분석 위치는 기존 여섯 운영 화면과 13-7 실행 흐름을 포함하고 기본 실행은 잠근다',()=>{
   const panels=buildAiPagePanels({
     dataHealth:{channels:[
       {platform:'CAFE24',calculationStatus:'READY'},
@@ -16,7 +16,7 @@ test('12-5A는 여섯 운영 화면의 AI 분석 위치를 만들고 기본 실�
     searchTermCenter:{items:[{},{}]},
     aiConfiguration:{execution_enabled:false}
   });
-  assert.deepEqual(Object.keys(panels),['main','insight','keyword','product','inventory','settlement']);
+  assert.deepEqual(Object.keys(panels),['main','insight','keyword','product','inventory','settlement','reports','changes','validation','experiments']);
   assert.equal(panels.main.execution_enabled,false);
   assert.equal(panels.product.metric_value,'7개');
   assert.match(panels.keyword.summary,/검색어/);

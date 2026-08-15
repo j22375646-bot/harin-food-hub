@@ -83,7 +83,7 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
 });
 
 test('phase 11-8 keeps prior operations and adds unified data collection operations', () => {
-  assert.match(client,/13-6 · 인사이트·키워드·상품 분리/);
+  assert.match(client,/13-7 · 실행 흐름 연결/);
   assert.match(client,/UnifiedProductOperationsCenter/);
   assert.match(client,/UnifiedInventoryOperationsCenter/);
   assert.match(client,/UnifiedSettlementOperationsCenter/);
@@ -99,8 +99,8 @@ test('phase 11-8 keeps prior operations and adds unified data collection operati
   assert.match(styles,/Phase 11-8 · unified data collection operations/);
   assert.match(client,/center=\{collectionCenter\}/);
   assert.match(collectionCenter,/전체 수집 \+ 검증/);
-  assert.match(client,/view==='validation' && \(<CustomerRetentionValidationCenter/);
-  assert.match(client,/view==='experiments' && <ExperimentLab/);
+  assert.match(client,/view==='validation' && <>.*<CustomerRetentionValidationCenter/);
+  assert.match(client,/view==='experiments' && <>.*<ExperimentLab/);
   assert.doesNotMatch(client,/phase7LegacyLab/);
   assert.match(validation,/실행검증 운영센터/);
   assert.match(validation,/useState\('execution'\)/);

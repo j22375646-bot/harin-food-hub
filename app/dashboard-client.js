@@ -127,7 +127,7 @@ function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onO
   const hasQuery=Boolean(query.trim());
   const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(query.trim().toLowerCase()))})).filter(group=>group.items.length);
   return <aside className="desktopSidebar" aria-label="허브 사이드바">
-    <div className="sidebarPhase"><span>현재 개발</span><b>13-6 · 인사이트·키워드·상품 분리</b></div>
+    <div className="sidebarPhase"><span>현재 개발</span><b>13-7 · 실행 흐름 연결</b></div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true">⌕</i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴 이름 찾기" /></label>
     <nav aria-label="허브 메뉴">
       {visible.map(group=>{const expanded=hasQuery||openGroup===group.id;return <section className={`sidebarGroup${expanded?' expanded':''}`} key={group.id}>
@@ -266,15 +266,38 @@ export default function Dashboard({ initialData, initialState }) {
       {view==='keyword' && !channelUnavailable && <>{workspace==='diagnosis'&&(platform==='all'||platform==='naver')?<MarketingDiagnosisCenter diagnosis={initialData.naver?.marketingDiagnosis}/>:null}{workspace==='diagnosis'?<HarinAiPagePanel panel={initialData.aiPagePanels?.keyword}/>:null}<PlatformKeywordView key={`keyword-${platform}-${workspace}`} platform={platform} workspace={workspace} data={initialData}/></>}
       {view==='product' && !channelUnavailable && <>{workspace==='profit'?<HarinAiPagePanel panel={initialData.aiPagePanels?.product}/>:null}<PlatformProductView key={`product-${platform}-${workspace}`} platform={platform} workspace={workspace} data={initialData}/></>}
       {view==='knowledge' && <AiKnowledgeCenter />}
-      {view==='reports' && <ReportsView reports={reports} actions={actions} syncs={syncs} learningHistory={initialData.reportLearningHistory} financialTrustToken={initialData.financialTrustToken} />}
-      {view==='changes' && <FinancialChangeCenter bidWorkbench={initialData.naverBidWorkbench}/>}
-      {view==='validation' && (<CustomerRetentionValidationCenter data={initialData.retentionValidation}/>)}
-      {view==='experiments' && <ExperimentLab />}
+      {view==='reports' && <><ExecutionWorkflowNav view={view} data={initialData}/><HarinAiPagePanel panel={initialData.aiPagePanels?.reports}/><ReportsView reports={reports} learningHistory={initialData.reportLearningHistory}/></>}
+      {view==='changes' && <><ExecutionWorkflowNav view={view} data={initialData}/><HarinAiPagePanel panel={initialData.aiPagePanels?.changes}/><FinancialChangeCenter bidWorkbench={initialData.naverBidWorkbench} actions={actions} financialTrustToken={initialData.financialTrustToken}/></>}
+      {view==='validation' && <><ExecutionWorkflowNav view={view} data={initialData}/><HarinAiPagePanel panel={initialData.aiPagePanels?.validation}/><CustomerRetentionValidationCenter data={initialData.retentionValidation}/></>}
+      {view==='experiments' && <><ExecutionWorkflowNav view={view} data={initialData}/><HarinAiPagePanel panel={initialData.aiPagePanels?.experiments}/><ExperimentLab /></>}
       {view==='notifications' && <NotificationCenter reports={reports} />}
     </main>
     <nav className="mobileBottomNav" aria-label="모바일 주요 메뉴">{['main','orders','inventory','notifications'].map(id=>nav.find(item=>item.id===id)).map(item=><button className={view===item.id?'active':''} onPointerEnter={()=>prefetchView(item.id)} onFocus={()=>prefetchView(item.id)} onClick={()=>openView(item.id)} key={item.id}><i>{item.icon}</i><span>{item.id==='notifications'?'알림':item.label}</span></button>)}<MobileMoreMenu groups={navGroups} view={view} onOpenView={openView} onPrefetch={prefetchView} fontScale={fontScale} onFontScale={setFontScale}/></nav>
     <footer>하린식품 광고·매출 통합 관리 허브 <span>·</span> 네이버 + 쿠팡 + Cafe24 + Supabase</footer>
   </div>;
+}
+
+const executionWorkflowSteps=[
+  {id:'reports',href:'/diagnoses',number:'01',label:'진단',description:'근거와 문제 확인'},
+  {id:'changes',href:'/approvals',number:'02',label:'승인·실행',description:'사장님 결정만 반영'},
+  {id:'validation',href:'/execution-validation',number:'03',label:'7·14일 검증',description:'매출·이익 결과 비교'},
+  {id:'experiments',href:'/ab-tests',number:'04',label:'A/B 학습',description:'검증된 기준 축적'}
+];
+
+function ExecutionWorkflowNav({view,data={}}){
+  const validation=data.retentionValidation?.execution?.summary||{};
+  const learning=data.reportLearningHistory?.summary||{};
+  const actionItems=Array.isArray(data.actions)?data.actions:[];
+  const counts={
+    reports:num(learning.learned??data.reports?.length),
+    changes:actionItems.filter(item=>['PLANNED','ON_HOLD'].includes(item.status)).length,
+    validation:num(validation.day7_ready)+num(validation.day14_ready),
+    experiments:num(validation.linked_experiments)
+  };
+  return <section className="executionWorkflow" aria-label="진단부터 학습까지 운영 흐름">
+    <header><div><span>13-7 · DECIDE → VERIFY → LEARN</span><h1>한 번의 진단을 끝까지 이어서 확인해요</h1><p>페이지를 합치지 않고, 지금 할 단계와 다음 단계를 한 줄로 연결했습니다.</p></div><aside><b>{executionWorkflowSteps.findIndex(step=>step.id===view)+1}/4</b><small>현재 단계</small></aside></header>
+    <nav>{executionWorkflowSteps.map((step,index)=><div className="executionWorkflowStep" key={step.id}><Link href={step.href} className={view===step.id?'active':''} aria-current={view===step.id?'step':undefined}><i>{step.number}</i><span><b>{step.label}</b><small>{step.description}</small></span><em>{counts[step.id]}건</em></Link>{index<executionWorkflowSteps.length-1?<strong aria-hidden="true">→</strong>:null}</div>)}</nav>
+  </section>;
 }
 
 const financialStatusLabel={PREVIEWED:'미리보기',APPROVED:'승인됨',EXECUTING:'실행 중',EXECUTED:'실행됨',VERIFIED:'검증 완료',VERIFICATION_FAILED:'검증 불일치',STALE:'원본 변경됨',REJECTED:'반려',FAILED:'실행 실패',ROLLBACK_REQUESTED:'복구 중',ROLLED_BACK:'복구 완료',ROLLBACK_FAILED:'복구 실패',EXPIRED:'만료'};
@@ -312,7 +335,7 @@ function NaverBidGuardedAutomation({workbench={},evaluation={summary:{},policy:{
   </section>;
 }
 
-function FinancialChangeCenter({bidWorkbench={summary:{},candidates:[]}}){
+function FinancialChangeCenter({bidWorkbench={summary:{},candidates:[]},actions=[],financialTrustToken=''}){
   const [data,setData]=useState({requests:[],audits:[]}),[evaluation,setEvaluation]=useState({summary:{},policy:{},rows:[]}),[loading,setLoading]=useState(true),[working,setWorking]=useState(''),[message,setMessage]=useState('');
   const [bidValues,setBidValues]=useState(()=>Object.fromEntries((bidWorkbench.candidates||[]).filter(item=>item.recommended_bid!=null).map(item=>[item.ncc_keyword_id,item.recommended_bid])));
   const [linkValues,setLinkValues]=useState(()=>Object.fromEntries((bidWorkbench.candidates||[]).map(item=>[item.ncc_keyword_id,item.linked_master_product_id||''])));
@@ -346,6 +369,7 @@ function FinancialChangeCenter({bidWorkbench={summary:{},candidates:[]}}){
   const pending=data.requests.filter(item=>['PREVIEWED','APPROVED'].includes(item.status)).length,executed=data.requests.filter(item=>['EXECUTED','VERIFICATION_FAILED'].includes(item.status)).length,verified=data.requests.filter(item=>item.status==='VERIFIED').length,failed=data.requests.filter(item=>['FAILED','ROLLBACK_FAILED','STALE'].includes(item.status)).length;
   return <><section className="pageIntro financialChangeIntro"><div><span className="eyebrow">FINANCIAL CHANGE CONTROL</span><h1>변경승인 작업실</h1><p>광고 입찰안과 원가·수수료·예산 변경을 먼저 비교하고, 사장님이 승인한 기록만 다음 단계로 보냅니다.</p></div><button onClick={load} disabled={loading}>{loading?'불러오는 중…':'승인기록 새로고침'}</button></section>
     {message&&<div className="syncToast">{message}</div>}
+    <ActionPanel actions={actions} financialTrustToken={financialTrustToken}/>
     <NaverBidGuardedAutomation workbench={bidWorkbench} evaluation={evaluation} working={working} onDraft={createAutomationDrafts} onEvaluate={evaluateBidChanges}/>
     <NaverBidApprovalWorkbench workbench={bidWorkbench} values={bidValues} setValues={setBidValues} linkValues={linkValues} setLinkValues={setLinkValues} working={working} onCreate={createBidProposal} onLink={saveKeywordLink}/>
     <section className="financialChangeKpis"><article><small>승인 대기</small><b>{pending}건</b><span>30분 내 승인</span></article><article><small>검증 대기</small><b>{executed}건</b><span>실제 저장값 대조</span></article><article><small>검증 완료</small><b>{verified}건</b><span>승인안 일치</span></article><article className={failed?'danger':''}><small>확인 필요</small><b>{failed}건</b><span>원본 변경·실패</span></article></section>
@@ -980,20 +1004,20 @@ function CostManager({ masterProducts, productCosts, channelCostSettings, channe
   return <article className="panel costPanel"><PanelTitle tag="PROFIT SETTINGS" title="원가·수수료·택배비" right="서버 계산"/><p className="costGuide">수수료는 퍼센트, 상품 비용과 배송비는 원 단위입니다. 저장 후 보고서를 재생성하면 상품별 공헌이익과 BE ROAS가 확정됩니다.</p><div className="channelCostRow"><b>Cafe24 공통비용</b><label>판매수수료 %<input type="number" min="0" max="100" step="0.01" value={channel.commission_rate} onChange={e=>setChannel({...channel,commission_rate:e.target.value})}/></label><label>결제수수료 %<input type="number" min="0" max="100" step="0.01" value={channel.payment_fee_rate} onChange={e=>setChannel({...channel,payment_fee_rate:e.target.value})}/></label><label>주문당 택배비<input type="number" min="0" step="100" value={channel.default_shipping_cost} onChange={e=>setChannel({...channel,default_shipping_cost:e.target.value})}/></label><button disabled={saving==='channel'} onClick={()=>save({type:'CHANNEL',platform:'CAFE24',...channel},'channel')}>공통비용 저장</button></div><section className={`calibrationCard ${String(costCalibration.confidence||'LOW').toLowerCase()}`}><header><div><span>COUPANG ACTUAL COST</span><b>실제 정산 자동 보정</b><small>{costCalibration.period_start||'-'} ~ {costCalibration.period_end||'-'} · 신뢰도 {costCalibration.confidence||'LOW'}</small></div><em>{costCalibration.auto_applied?'통합 손익에 자동 반영':'수동 설정 유지'}</em></header><div className="calibrationMetrics"><span><small>실제 수수료율</small><b>{commission.actualRate==null?'-':`${(num(commission.actualRate)*100).toFixed(2)}%`}</b><em>수동 {((num(assumed.commission_rate)+num(assumed.payment_fee_rate))*100).toFixed(2)}% · {count(commission.orders)}주문</em></span><span><small>실제 주문당 물류비</small><b>{logistics.actualPerOrder==null?'-':won(logistics.actualPerOrder)}</b><em>수동 {won(assumed.default_shipping_cost)} · {count(logistics.orders)}주문</em></span><span><small>현재 계산 적용값</small><b>{((num(effective.commission_rate)+num(effective.payment_fee_rate))*100).toFixed(2)}%</b><em>주문당 {won(effective.default_shipping_cost)}</em></span></div><footer><p>{costCalibration.auto_applied?'확정 정산 API 수수료와 WING 배송·입출고 실비를 사용합니다. 표본이 부족해지면 자동으로 수동 설정으로 돌아갑니다.':(costCalibration.warnings||[]).join(' ')||'정산 데이터 수집 후 자동 계산됩니다.'}</p><button disabled={!costCalibration.auto_applied||saving==='calibration'} onClick={applyCalibration}>{saving==='calibration'?'반영 중…':'실제값을 기본 설정으로 저장'}</button></footer></section><ShippingRuleManager rules={channelShippingRules} evidence={shippingRuleEvidence}/><div className="productCostTable"><div className="productCostHead"><span>기준상품</span><span>상품 원가</span><span>포장비</span><span>기타 단위비</span><span>저장</span></div>{masterProducts.slice(0,20).map(product=>{const row=rows[product.id]||{};return <div className="productCostRow" key={product.id}><b>{product.name}</b>{['unit_cost','packaging_cost','other_unit_cost'].map(field=><input key={field} type="number" min="0" step="100" value={row[field]??0} onChange={e=>setRows({...rows,[product.id]:{...row,[field]:e.target.value}})}/>)}<button disabled={saving===product.id} onClick={()=>save({type:'PRODUCT',master_product_id:product.id,...row},product.id)}>{saving===product.id?'저장 중':'저장'}</button></div>})}</div>{message&&<small className="costMessage">{message}</small>}</article>;
 }
 
-function ReportsView({ reports, actions, syncs, learningHistory, financialTrustToken }) { return <><section className="pageIntro reportIntro phase12ReportIntro"><div><span className="eyebrow">12-8 · REPORT & LEARN</span><h1>자동보고서와 학습이력</h1><p>정해진 시간에 보고서를 만들고, 이전 결과와 비교해 무엇이 좋아졌고 무엇을 다시 확인해야 하는지 계속 쌓습니다.</p></div><button onClick={()=>document.querySelector('.generatorPanel')?.scrollIntoView({behavior:'smooth'})}>새 보고서 만들기</button></section><AutomationPanel learningHistory={learningHistory} syncs={syncs}/><ReportLearningCenter history={learningHistory}/><ManualAutomationButtons/><ReportGenerator/><VersionedReportList reports={reports}/><ActionPanel actions={actions} financialTrustToken={financialTrustToken}/><article className="panel"><PanelTitle tag="COLLECTION HISTORY" title="데이터 수집 이력" right="전체 플랫폼"/><SyncTable syncs={syncs}/></article></>;
+function ReportsView({ reports, learningHistory }) { return <><section className="pageIntro reportIntro phase12ReportIntro"><div><span className="eyebrow">12-8 · REPORT & LEARN</span><h1>진단목록·자동보고서</h1><p>수집 기록과 실행 버튼은 빼고, 무엇이 문제인지와 판단 근거만 확인하는 화면으로 정리했습니다.</p></div><button onClick={()=>document.querySelector('.generatorPanel')?.scrollIntoView({behavior:'smooth'})}>새 보고서 만들기</button></section><AutomationPanel learningHistory={learningHistory}/><ReportLearningCenter history={learningHistory}/><ManualAutomationButtons/><ReportGenerator/><VersionedReportList reports={reports}/></>;
 }
 
-function ManualAutomationButtons(){const [running,setRunning]=useState('');const [message,setMessage]=useState('');async function run(path,label){setRunning(path);setMessage(`${label} 처리 중…`);try{const response=await fetch(path,{method:'POST'});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'실행 실패');setMessage(`${label} 완료`);setTimeout(()=>window.location.reload(),800);}catch(error){setMessage(`확인 필요 · ${error.message}`);setRunning('');}}return <section className="manualAutomation"><button onClick={()=>run('/api/reports/daily','일일 보고서·이상징후 재생성')} disabled={Boolean(running)}>{running==='/api/reports/daily'?'생성 중…':'일일 보고서 + 이상징후 재계산'}</button><button onClick={()=>run('/api/actions/evaluate','액션 효과평가')} disabled={Boolean(running)}>{running==='/api/actions/evaluate'?'평가 중…':'액션 효과 지금 평가'}</button>{message&&<span>{message}</span>}</section>}
+function ManualAutomationButtons(){const [running,setRunning]=useState('');const [message,setMessage]=useState('');async function run(path,label){setRunning(path);setMessage(`${label} 처리 중…`);try{const response=await fetch(path,{method:'POST'});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'실행 실패');setMessage(`${label} 완료`);setTimeout(()=>window.location.reload(),800);}catch(error){setMessage(`확인 필요 · ${error.message}`);setRunning('');}}return <section className="manualAutomation"><button onClick={()=>run('/api/reports/daily','일일 보고서·이상징후 재생성')} disabled={Boolean(running)}>{running==='/api/reports/daily'?'생성 중…':'일일 보고서 + 이상징후 재계산'}</button><Link href="/approvals">실행결정은 변경승인에서 관리</Link>{message&&<span>{message}</span>}</section>}
 
-function AutomationPanel({learningHistory={},syncs}){
-  const lastSync=syncs[0],schedule=learningHistory.schedule||{};
+function AutomationPanel({learningHistory={}}){
+  const schedule=learningHistory.schedule||{};
   const cards=[
     ['D','autoGreen','일간 보고서',schedule.daily?.when||'매일 오전 7:10','지난 7일을 매일 새로 비교'],
     ['W','autoPurple','주간 보고서',schedule.weekly?.when||'매주 월요일 오전 7:30','한 주의 매출·광고·이익 정리'],
     ['1','autoOrange','월간 잠정본',schedule.monthly_provisional?.when||'매월 1일 오전 8:00','빠른 월 마감 우선 확인'],
     ['5','autoForest','월간 확정본',schedule.monthly_final?.when||'매월 5일 오전 8:00','정산자료를 반영한 최종본']
   ];
-  return <><section className="automationGrid reportScheduleGrid">{cards.map(([icon,tone,label,when,description])=><article className="automationCard" key={label}><i className={tone}>{icon}</i><div><span>{label}</span><b>{when}</b><small>{description}</small></div><em>예약</em></article>)}</section><div className="reportScheduleFoot"><span>통합 수집은 매일 오전 5:30</span><span>{lastSync?`최근 수집 ${dateTime(lastSync.finished_at||lastSync.started_at)} · ${lastSync.status}`:'첫 수집 대기'}</span><b>OpenAI 사용 전 · 자동 호출 0회 · 비용 0원</b></div></>;
+  return <><section className="automationGrid reportScheduleGrid">{cards.map(([icon,tone,label,when,description])=><article className="automationCard" key={label}><i className={tone}>{icon}</i><div><span>{label}</span><b>{when}</b><small>{description}</small></div><em>예약</em></article>)}</section><div className="reportScheduleFoot"><span>수집이력은 데이터수집에서 확인</span><span>이 화면은 진단과 보고서 근거만 표시</span><b>OpenAI 사용 전 · 자동 호출 0회 · 비용 0원</b></div></>;
 }
 
 const learningOutcomeLabel={IMPROVED:'개선 확인',DECLINED:'악화 확인',STABLE:'큰 변화 없음',BASELINE:'첫 기준',BLOCKED:'판단 보류'};

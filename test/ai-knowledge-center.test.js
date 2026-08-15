@@ -33,9 +33,9 @@ test('12-5C accepts only private knowledge source formats and stable hashes',()=
   assert.throws(()=>source.validateCompletion({...metadata,storage_path:'other/file.docx',sha256:'a'.repeat(64)},id),/저장 경로/);
 });
 
-test('12-5C fixes six server-owned page analysis contracts and rejects PII',()=>{
+test('server-owned page analysis contracts cover the operating workflow and reject PII',()=>{
   const list=contracts.listContracts();
-  assert.deepEqual(list.map(item=>item.id),['main','insight','keyword','product','inventory','settlement']);
+  assert.deepEqual(list.map(item=>item.id),['main','insight','keyword','product','inventory','settlement','reports','changes','validation','experiments']);
   assert.ok(list.every(item=>item.calculation_owner==='SERVER'&&item.ai_role==='EXPLAIN_ONLY'&&item.writes_allowed===false));
   assert.throws(()=>contracts.validateAnalysisEnvelope({page:'insight',period:'7일',formula_version:'v1',metrics:{customer_name:'홍길동'}}),/개인정보/);
   assert.equal(contracts.validateAnalysisEnvelope({page:'insight',period:'7일',formula_version:'v1',data_status:'STALE',metrics:{roas:500}}).can_run,false);

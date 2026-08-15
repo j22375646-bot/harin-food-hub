@@ -71,8 +71,8 @@ export default function HarinAiPagePanel({ panel, children }) {
         </div>
         <details className="aiEvidence"><summary>판단 근거와 주의사항 보기 <b>＋</b></summary><div><ul>{(result?.evidence||[]).map((item,index)=><li key={`${item}-${index}`}>{item}</li>)}</ul><p><b>신뢰도 {CONFIDENCE_LABELS[result?.confidence]||result?.confidence||'확인 필요'}</b>{result?.caution}</p></div></details>
         <footer>
-          <div><span>기간</span><b>{selected?.period||panel.period}</b></div><div><span>자료 상태</span><b>{selected?.data_status||panel.data_status}</b></div><div><span>계산식 버전</span><b>{selected?.formula_version||panel.preview_formula_version}</b></div>
-          <button type="button" onClick={savePreview} disabled={busy||!panel.snapshot_token}>{busy?'저장 중…':'현재 미리보기 저장'}</button>
+          <div><span>기간</span><b>{selected?.period||panel.period}</b></div><div><span>최신 기준시각</span><b>{kstDate(panel.generated_at)}</b></div><div><span>자료 상태</span><b>{selected?.data_status||panel.data_status}</b></div><div><span>계산식 버전</span><b>{selected?.formula_version||panel.preview_formula_version}</b></div>
+          {panel.persistence_enabled===false?<LinkToKnowledge/>:<button type="button" onClick={savePreview} disabled={busy||!panel.snapshot_token}>{busy?'저장 중…':'현재 미리보기 저장'}</button>}
         </footer>
         {notice?<p className="aiResultNotice" role="status">{notice}</p>:null}
         {error?<p className="aiResultError" role="alert">{error}</p>:null}
@@ -83,4 +83,8 @@ export default function HarinAiPagePanel({ panel, children }) {
       {open&&children?<div className="aiPageAdvanced">{children}</div>:null}
     </div>
   </details>;
+}
+
+function LinkToKnowledge(){
+  return <a className="aiResultKnowledgeLink" href="/ai-knowledge">분석 기준자료 관리</a>;
 }
