@@ -194,7 +194,7 @@ async function getDashboardData(state) {
       db.from('naver_keyword_stats').select('period_start,period_end').order('period_end',{ascending:false}).limit(1).maybeSingle()
     ]),
     aiResults:Promise.allSettled([
-      db.from('ai_analysis_results').select('id,page_key,status,result_mode,data_status,period_label,formula_version,result,created_at,model,knowledge_versions')
+      db.from('ai_analysis_results').select('id,analysis_type,page_key,status,result_mode,data_status,period_label,formula_version,result,created_at,model,knowledge_versions')
         .not('page_key','is',null).order('created_at',{ascending:false}).limit(30)
     ]),
     bidLinks:Promise.allSettled([

@@ -32,7 +32,7 @@ test('13-8 keeps cost calls guarded and production test sends disabled',()=>{
   assert.match(read('lib/ai/foundation.js'),/AI_REQUEST_ALREADY_RUNNING/);
   assert.match(read('app/api/notifications/send/route.js'),/TEST_API_DISABLED/);
   assert.match(read('app/api/cron/operations-watchdog/route.js'),/CRON_SECRET/);
-  assert.match(read('app/dashboard-client.js'),/13-8 · 운영 안정성·실패 복구/);
+  assert.match(read('app/dashboard-client.js'),/13-9 · 모바일·운영 검증/);
 });
 
 test('13-8 keeps old owner sessions valid during signing-key rotation',()=>{

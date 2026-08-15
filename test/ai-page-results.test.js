@@ -50,10 +50,58 @@ test('page result API stays server-only and declares zero OpenAI cost',()=>{
   assert.match(route,/roleAtLeast\(session,'OWNER'\)/);
 });
 
-test('page result migration keeps the table private and supports all six pages',()=>{
+test('page result migration keeps the table private and supports the initial six pages',()=>{
   const sql=fs.readFileSync(path.join(__dirname,'../supabase/migrations/20260815160000_add_ai_page_result_previews.sql'),'utf8');
   for(const page of ['main','insight','keyword','product','inventory','settlement'])assert.match(sql,new RegExp(`'${page}'`));
   assert.match(sql,/result_mode in \('SERVER_PREVIEW','OPENAI'\)/);
   assert.match(sql,/revoke all on public\.ai_analysis_results from anon, authenticated/);
   assert.match(sql,/grant select, insert, update, delete on public\.ai_analysis_results to service_role/);
+});
+
+test('13-9 keeps all page AI contracts and result types independent',()=>{
+  const expected={
+    main:'PAGE_MAIN',
+    insight:'PAGE_INSIGHT',
+    keyword:'PAGE_KEYWORD',
+    product:'PAGE_PRODUCT',
+    inventory:'PAGE_INVENTORY',
+    settlement:'PAGE_SETTLEMENT',
+    reports:'PAGE_REPORTS',
+    changes:'PAGE_CHANGES',
+    validation:'PAGE_VALIDATION',
+    experiments:'PAGE_EXPERIMENTS'
+  };
+  assert.deepEqual(pageResults.ANALYSIS_TYPES,expected);
+  assert.equal(new Set(Object.values(expected)).size,Object.keys(expected).length);
+  for(const [page,analysisType] of Object.entries(expected)){
+    const preview=sample({page});
+    assert.equal(preview.snapshot.page,page);
+    assert.equal(preview.snapshot.analysis_type,analysisType);
+  }
+});
+
+test('13-9 ignores a result whose analysis type belongs to another page',()=>{
+  const rows=[
+    {id:'wrong',page_key:'main',analysis_type:'PAGE_PRODUCT',status:'PREVIEW',result_mode:'SERVER_PREVIEW',result:{}},
+    {id:'right',page_key:'main',analysis_type:'PAGE_MAIN',status:'PREVIEW',result_mode:'SERVER_PREVIEW',result:{}},
+    {id:'product',page_key:'product',analysis_type:'PAGE_PRODUCT',status:'PREVIEW',result_mode:'SERVER_PREVIEW',result:{}}
+  ];
+  const latest=pageResults.latestByPage(rows);
+  assert.equal(latest.main.id,'right');
+  assert.equal(latest.main.analysis_type,'PAGE_MAIN');
+  assert.equal(latest.product.id,'product');
+});
+
+test('13-9 page result API filters by both page and analysis type',()=>{
+  const route=fs.readFileSync(path.join(__dirname,'../app/api/ai/page-results/route.js'),'utf8');
+  assert.match(route,/\.eq\('page_key',page\)\.eq\('analysis_type',analysisType\)/);
+  assert.match(route,/analysis_type,page_key/);
+});
+
+test('13-9 database constraint rejects cross-page AI result reuse',()=>{
+  const sql=fs.readFileSync(path.join(__dirname,'../supabase/migrations/20260815200000_enforce_ai_page_scope_isolation.sql'),'utf8');
+  assert.match(sql,/ai_analysis_results_page_scope_match_check/);
+  for(const [page,analysisType] of Object.entries(pageResults.ANALYSIS_TYPES)){
+    assert.match(sql,new RegExp(`page_key = '${page}' and analysis_type = '${analysisType}'`));
+  }
 });

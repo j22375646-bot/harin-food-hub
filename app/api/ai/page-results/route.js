@@ -8,7 +8,7 @@ import privacy from '../../../../lib/ai/privacy.js';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const SELECT_FIELDS='id,page_key,status,result_mode,data_status,period_label,formula_version,result,created_at,model,knowledge_versions';
+const SELECT_FIELDS='id,analysis_type,page_key,status,result_mode,data_status,period_label,formula_version,result,created_at,model,knowledge_versions';
 
 function ownerSession(request){
   const token=apiSafety.cookieValue(request,authModule.COOKIE_NAME);
@@ -22,10 +22,10 @@ export async function GET(request){
   if(!apiSafety.isAuthorized(request,authModule))return apiSafety.unauthorized();
   try{
     const page=new URL(request.url).searchParams.get('page');
-    if(page)pageResults.analysisTypeForPage(page);
+    const analysisType=page?pageResults.analysisTypeForPage(page):null;
     let query=supabaseModule.getSupabase().from('ai_analysis_results').select(SELECT_FIELDS)
       .not('page_key','is',null).order('created_at',{ascending:false}).limit(page?1:30);
-    if(page)query=query.eq('page_key',page);
+    if(page)query=query.eq('page_key',page).eq('analysis_type',analysisType);
     const found=await query;
     if(found.error)throw found.error;
     const records=(found.data||[]).map(pageResults.publicRecord);
