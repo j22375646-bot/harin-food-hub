@@ -225,12 +225,14 @@ test("처리 감사기록을 문의에 연결한다", () => {
         target_id: "55",
         operation_type: "REPLY_ONLINE",
         status: "SUCCESS",
+        created_at: "2026-08-14T09:59:00+09:00",
         executed_at: "2026-08-14T10:00:00+09:00",
       },
     ],
   });
   assert.equal(result.rows[0].audit.status, "SUCCESS");
   assert.equal(result.rows[0].audit.operationType, "REPLY_ONLINE");
+  assert.equal(result.rows[0].audit.requestedAt, "2026-08-14T09:59:00+09:00");
 });
 
 test("검색과 유형 필터는 활성 요청만 반환한다", () => {

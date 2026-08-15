@@ -185,7 +185,7 @@ async function getDashboardData(state) {
       db.from('ab_tests').select('id,name,platform,status,evaluation_status,result_summary,created_at,ab_test_variants(id,entity_id)').order('created_at',{ascending:false}).limit(100)
     ]),
     csAudits:Promise.allSettled([
-      db.from('coupang_operation_requests').select('id,operation_type,target_type,target_id,status,requested_at,executed_at,error_message').in('target_type',['INQUIRY','RETURN','EXCHANGE']).order('requested_at',{ascending:false}).limit(300)
+      db.from('coupang_operation_requests').select('id,operation_type,target_type,target_id,status,created_at,executed_at,error_message').in('target_type',['INQUIRY','RETURN','EXCHANGE']).order('created_at',{ascending:false}).limit(300)
     ]),
     channelCs:Promise.allSettled([
       db.from('customer_service_items').select('id,source_key,platform,kind,source_id,source_subtype,status,completed,answered,order_id,product_id,occurred_at,title_envelope,content_envelope,raw_summary,source_updated_at,collected_at').order('occurred_at',{ascending:false}).limit(1000)
