@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { HarinIcon } from './_design-system/harin-icon.js';
 
 const STAGE_LABELS={PAID:'결제완료',PREPARING:'준비중',READY_TO_SHIP:'출고대기',SHIPPING:'배송중',DELIVERED:'배송완료'};
 const CHANNEL_LABELS={ALL:'전체 채널',NAVER:'네이버',COUPANG:'쿠팡',CAFE24:'Cafe24'};
@@ -338,7 +339,7 @@ function ShippingWorkbench({ mode, orders, selectedIds, invoices, setInvoices, a
   </section>;
 }
 
-export default function UnifiedOrdersCenter({ center, children }) {
+export default function UnifiedOrdersCenter({ center, children, aiPanel }) {
   const [currentCenter,setCurrentCenter]=useState(center);
   const [liveState,setLiveState]=useState({status:'IDLE',message:'매시 정각 자동수집 · 필요할 때 아래 버튼으로 즉시 수집할 수 있습니다.'});
   const [workspace,setWorkspace]=useState('ACTIVE');
@@ -348,11 +349,15 @@ export default function UnifiedOrdersCenter({ center, children }) {
   const [startDate,setStartDate]=useState('');
   const [endDate,setEndDate]=useState('');
   const [actionOnly,setActionOnly]=useState(false);
+  const [timingOnly,setTimingOnly]=useState('ALL');
   const [selectedIds,setSelectedIds]=useState(()=>new Set());
   const [invoiceDrafts,setInvoiceDrafts]=useState({});
   const [shippingActionResults,setShippingActionResults]=useState({});
   const [trackingStates,setTrackingStates]=useState(()=>Object.fromEntries(center.orders.filter(order=>order.tracking).map(order=>[order.hubOrderId,order.tracking])));
   const [showCount,setShowCount]=useState(20);
+  const [clock,setClock]=useState(null);
+  const [scanQuery,setScanQuery]=useState('');
+  const [scanMessage,setScanMessage]=useState('');
   const workspaceCounts=useMemo(()=>Object.fromEntries(ORDER_WORKSPACES.map(item=>[item.id,currentCenter.orders.filter(order=>matchesOrderWorkspace(order,item.id,invoiceDrafts,shippingActionResults,trackingStates)).length])),[currentCenter.orders,invoiceDrafts,shippingActionResults,trackingStates]);
   const workspaceOrders=useMemo(()=>currentCenter.orders.filter(order=>matchesOrderWorkspace(order,workspace,invoiceDrafts,shippingActionResults,trackingStates)),[currentCenter.orders,workspace,invoiceDrafts,shippingActionResults,trackingStates]);
   const visible=useMemo(()=>workspaceOrders.filter(order=>{
@@ -360,12 +365,13 @@ export default function UnifiedOrdersCenter({ center, children }) {
     if(platform!=='ALL'&&order.platform!==platform)return false;
     if(workspace==='ACTIVE'&&stage!=='ALL'&&order.stage!==stage)return false;
     if(workspace==='ACTIVE'&&actionOnly&&!order.actionRequired)return false;
+    if(workspace==='ACTIVE'&&timingOnly!=='ALL'&&order.timingBadge?.type!==timingOnly)return false;
     const date=String(order.orderedAt||'').slice(0,10);
     if(startDate&&date<startDate)return false;
     if(endDate&&date>endDate)return false;
     if(needle&&!`${order.hubOrderId} ${order.externalOrderId} ${order.productName} ${(order.productNames||[]).join(' ')}`.toLowerCase().includes(needle))return false;
     return true;
-  }),[workspaceOrders,workspace,platform,stage,query,startDate,endDate,actionOnly]);
+  }),[workspaceOrders,workspace,platform,stage,query,startDate,endDate,actionOnly,timingOnly]);
   async function refreshLiveOrders(){
     setLiveState({status:'LOADING',message:'전체 플랫폼 주문·배송 상태를 수집하고 있습니다.'});
     try{
@@ -394,7 +400,8 @@ export default function UnifiedOrdersCenter({ center, children }) {
       setLiveState({status:'FAILED',message:error.message});
     }
   }
-  useEffect(()=>setShowCount(20),[workspace,platform,stage,query,startDate,endDate,actionOnly]);
+  useEffect(()=>setShowCount(20),[workspace,platform,stage,query,startDate,endDate,actionOnly,timingOnly]);
+  useEffect(()=>{setClock(Date.now());const timer=window.setInterval(()=>setClock(Date.now()),60000);return()=>window.clearInterval(timer);},[]);
   useEffect(()=>{
     setCurrentCenter(previous=>{
       let changed=false;
@@ -415,6 +422,9 @@ export default function UnifiedOrdersCenter({ center, children }) {
   const bulkEligible=visible.filter(order=>order.shippingEligible&&ACTIVE_STAGES.has(order.stage)&&['ACTIVE','EPOST','REGISTER','RETRY'].includes(workspace));
   const bulkSelected=bulkEligible.filter(order=>selectedIds.has(order.hubOrderId)).length;
   const allBulkSelected=bulkEligible.length>0&&bulkSelected===bulkEligible.length;
+  const delayedCount=currentCenter.orders.filter(order=>ACTIVE_STAGES.has(order.stage)&&order.timingBadge?.type==='DELAYED'&&order.fulfillment!=='ROCKET_GROWTH').length;
+  const sameDayCount=currentCenter.orders.filter(order=>ACTIVE_STAGES.has(order.stage)&&order.timingBadge?.type==='SAME_DAY'&&order.fulfillment!=='ROCKET_GROWTH').length;
+  const cutoffLabel=clock?(()=>{const parts=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(clock)).map(part=>[part.type,part.value]));const minutes=Number(parts.hour)*60+Number(parts.minute);if(minutes>=15*60)return '오늘 15시 마감 지남';const left=15*60-minutes;return `당일출고 마감 ${Math.floor(left/60)}시간 ${left%60}분 전`;})():'15시 당일출고 기준';
   const exportParams=new URLSearchParams();
   if(platform!=='ALL')exportParams.set('platform',platform);
   if(stage!=='ALL')exportParams.set('stage',stage);
@@ -426,11 +436,15 @@ export default function UnifiedOrdersCenter({ center, children }) {
   function selectOrder(order,checked){setSelectedIds(previous=>{const next=new Set(previous);if(checked)next.add(order.hubOrderId);else next.delete(order.hubOrderId);return next;});}
   function updateInvoice(order,value){setInvoiceDrafts(previous=>({...previous,[order.hubOrderId]:value}));if(value)selectOrder(order,true);}
   function selectBulk(checked){setSelectedIds(previous=>{const next=new Set(previous);bulkEligible.forEach(order=>checked?next.add(order.hubOrderId):next.delete(order.hubOrderId));return next;});}
-  function openWorkspace(nextWorkspace){setWorkspace(nextWorkspace);setStage('ALL');setActionOnly(false);}
+  function openWorkspace(nextWorkspace){setWorkspace(nextWorkspace);setStage('ALL');setActionOnly(false);setTimingOnly('ALL');}
+  function locateScannedOrder(event){event.preventDefault();const needle=scanQuery.replace(/\s/g,'').toLowerCase();if(!needle)return;const match=currentCenter.orders.find(order=>[order.hubOrderId,order.externalOrderId,order.invoiceNumber,invoiceDrafts[order.hubOrderId]].some(value=>String(value||'').replace(/\s/g,'').toLowerCase()===needle));if(!match){setScanMessage('일치하는 주문이나 송장번호를 찾지 못했습니다.');return;}openWorkspace(match.invoiceNumber?'IN_TRANSIT':'ACTIVE');setQuery(match.hubOrderId);if(match.shippingEligible)selectOrder(match,true);setScanMessage(`${match.channelLabel} 주문을 찾았습니다. 해당 카드만 표시합니다.`);setScanQuery('');}
   return <section className="unifiedOrdersCenter">
-    <section className="unifiedOrdersHero"><div><span>PHASE 13-4 · ORDER &amp; SHIPPING</span><h1>주문·배송 작업센터</h1><p>지금 할 일만 단계별 작업공간에서 처리하고, 완료·누적 주문은 별도로 확인합니다.</p></div><div className="ordersHeroMetrics"><span><small>현재 처리할 주문</small><b>{count(workspaceCounts.ACTIVE)}건</b></span><span><small>송장 발급 대기</small><b>{count(workspaceCounts.EPOST)}건</b></span><span><small>배송중</small><b>{count(workspaceCounts.IN_TRANSIT)}건</b></span><span><small>재시도</small><b>{count(workspaceCounts.RETRY)}건</b></span></div></section>
+    <section className="unifiedOrdersHero"><div className="operationsHeroCopy"><span>14-4 · ORDER &amp; SHIPPING WORKBENCH</span><div className="operationsHeroTitle"><i><HarinIcon name="truck" size={28}/></i><h1>주문·배송 작업센터</h1></div><p>판매자배송 주문만 실제 출고 순서로 처리하고, 로켓그로스와 완료 이력은 작업목록에서 분리합니다.</p></div><div className="ordersHeroMetrics"><span><small>현재 처리할 주문</small><b>{count(workspaceCounts.ACTIVE)}건</b></span><span><small>송장 발급 대기</small><b>{count(workspaceCounts.EPOST)}건</b></span><span><small>배송중</small><b>{count(workspaceCounts.IN_TRANSIT)}건</b></span><span><small>재시도</small><b>{count(workspaceCounts.RETRY)}건</b></span></div></section>
+    <section className="orderFocusRail" aria-label="오늘의 출고 집중 항목"><button type="button" className={delayedCount?'danger':''} onClick={()=>{openWorkspace('ACTIVE');setTimingOnly('DELAYED');}}><HarinIcon name="alerts" size={22}/><span><small>먼저 확인</small><b>배송지연 {count(delayedCount)}건</b></span><em>보기</em></button><button type="button" onClick={()=>{openWorkspace('ACTIVE');setTimingOnly('SAME_DAY');}}><HarinIcon name="truck" size={22}/><span><small>{cutoffLabel}</small><b>당일출고 {count(sameDayCount)}건</b></span><em>보기</em></button><form className="orderScanCommand" onSubmit={locateScannedOrder}><HarinIcon name="scan" size={22}/><label><span>바코드·송장 빠른 찾기</span><input value={scanQuery} onChange={event=>setScanQuery(event.target.value)} placeholder="주문번호 또는 13자리 송장" autoCapitalize="none" enterKeyHint="search"/></label><button type="submit">찾기</button></form></section>
+    {scanMessage?<p className="orderScanMessage" role="status">{scanMessage}</p>:null}
     <section className="ordersSyncOverview"><article className={`liveOrdersStatus ${liveState.status.toLowerCase()}`} aria-live="polite"><div><span className="livePulse"/><span><b>{liveState.status==='LOADING'?'전체 플랫폼 수집 중':liveState.status==='READY'?'최신 상태 수집 완료':liveState.status==='PARTIAL'?'일부 채널 확인 필요':liveState.status==='FAILED'?'최신 상태 수집 실패':'1시간 자동수집'}</b><small>{liveState.message} · 작업화면 {currentCenter.summary.windowStart}~{currentCenter.summary.windowEnd}</small></span></div><button type="button" onClick={refreshLiveOrders} disabled={liveState.status==='LOADING'}>{liveState.status==='LOADING'?'수집 중…':'전체 플랫폼 수동수집'}</button></article><div className="unifiedChannelStates">{currentCenter.channels.map(channel=><ChannelState channel={channel} key={channel.platform}/>)}</div></section>
     <details className="unifiedOrdersHelp"><summary><span><b>이 화면은 어떻게 쓰나요?</b><small>처음 볼 때만 열어보세요. 실제 출고 순서대로 설명합니다.</small></span><em>열기</em></summary><div><p><b>1. 현재 주문</b>에서 오늘 포장할 판매자배송 주문을 고릅니다.</p><p><b>2. 우체국 발급</b>에서 선택 주문의 송장번호를 자동으로 받습니다.</p><p><b>3. 쇼핑몰 송장등록</b>에서 발급된 번호가 채널에 반영됐는지 확인합니다.</p><p><b>예시:</b> 등록이 실패해도 송장번호는 없어지지 않습니다. ‘재시도’에서 채널 전송만 다시 누르면 됩니다.</p></div></details>
+    {aiPanel?<div className="operationsAiSlot ordersAiSlot">{aiPanel}</div>:null}
     <section className="orderHistoryBoundary"><article><small>현재 작업</small><b>{count(workspaceCounts.ACTIVE)}건</b><span>{currentCenter.summary.windowStart}~{currentCenter.summary.windowEnd}</span></article><article><small>최근 완료</small><b>{count(workspaceCounts.COMPLETED)}건</b><span>최근 30일만 표시</span></article><article><small>누적 보관</small><b>{count(currentCenter.summary.historyTotal)}건</b><span>통계·이력용, 작업목록과 분리</span></article><article className="rocketGrowthReadOnly"><small>로켓그로스</small><b>{count(currentCenter.summary.rocketGrowthStored)}건</b><span>자동처리 · 조회 전용</span></article></section>
     <article className="orderWorkspacePanel"><header><div><span>오늘의 출고 작업 흐름</span><h2>필요한 작업공간만 열어 처리하세요</h2></div><b>{activeWorkspace.label} · {count(workspaceCounts[workspace])}건</b></header><nav className="orderWorkspaceNav" aria-label="주문·배송 작업공간">{ORDER_WORKSPACES.map((item,index)=><div key={item.id}><button type="button" className={workspace===item.id?'active':''} onClick={()=>openWorkspace(item.id)} aria-current={workspace===item.id?'page':undefined}><small>{index+1}. {item.short}</small><b>{item.label}</b><strong>{count(workspaceCounts[item.id])}건</strong><span>{item.description}</span></button>{index<ORDER_WORKSPACES.length-1?<i aria-hidden="true">→</i>:null}</div>)}</nav></article>
     <section className="orderListControls"><article className="unifiedOrderToolbar"><div><label><span>채널</span><select value={platform} onChange={event=>setPlatform(event.target.value)}>{Object.entries(CHANNEL_LABELS).map(([id,label])=><option value={id} key={id}>{label}</option>)}</select></label>{workspace==='ACTIVE'?<label><span>주문 상태</span><select value={stage} onChange={event=>setStage(event.target.value)}><option value="ALL">현재 주문 전체</option>{currentCenter.stages.filter(item=>ACTIVE_STAGES.has(item.id)).map(item=><option value={item.id} key={item.id}>{item.label}</option>)}</select></label>:null}<label className="orderSearch"><span>주문·상품 검색</span><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="허브번호·쇼핑몰번호·상품명"/></label><label><span>시작일</span><input type="date" value={startDate} onChange={event=>setStartDate(event.target.value)}/></label><label><span>종료일</span><input type="date" value={endDate} onChange={event=>setEndDate(event.target.value)}/></label></div><footer>{workspace==='ACTIVE'?<label className="actionOnly"><input type="checkbox" checked={actionOnly} onChange={event=>setActionOnly(event.target.checked)}/><span>처리 필요만 보기</span></label>:<span>{activeWorkspace.description}</span>}<strong>{count(visible.length)}건 표시</strong><a href={exportHref}>엑셀 다운로드</a></footer></article>{['ACTIVE','EPOST','REGISTER','RETRY'].includes(workspace)?<article className="bulkShippingSelection"><label><input type="checkbox" checked={allBulkSelected} disabled={!bulkEligible.length} onChange={event=>selectBulk(event.target.checked)}/><span><b>{workspace==='RETRY'?'재시도 주문 전체선택':'출고 가능 주문 전체선택'}</b><small>현재 조건에서 선택 가능한 주문 {count(bulkEligible.length)}건</small></span></label><div><b>{count(bulkSelected)}건 선택됨</b>{workspace==='ACTIVE'?<button type="button" className="workspaceMoveButton" onClick={()=>openWorkspace('EPOST')} disabled={!bulkSelected}>우체국 발급으로 이동</button>:null}<button type="button" onClick={()=>setSelectedIds(new Set())} disabled={!selectedIds.size}>선택 해제</button></div></article>:null}</section>

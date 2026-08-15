@@ -37,3 +37,14 @@ test('phase 13-4 workspaces remain readable on desktop and mobile',()=>{
   assert.match(css,/\.orderHistoryBoundary\{display:grid/);
   assert.match(css,/\.trackingWorkspaceAction/);
 });
+
+test('phase 14-4 adds a readable SLA rail, barcode finder and isolated order AI slot',()=>{
+  const center=fs.readFileSync(path.join(root,'app','unified-orders-center.js'),'utf8');
+  const css=fs.readFileSync(path.join(root,'app','_operations','harin-operations-v8.css'),'utf8');
+  assert.match(center,/14-4 · ORDER &amp; SHIPPING WORKBENCH/);
+  assert.match(center,/당일출고 마감/);
+  assert.match(center,/바코드·송장 빠른 찾기/);
+  assert.match(center,/ordersAiSlot/);
+  assert.match(css,/\.orderFocusRail/);
+  assert.match(css,/\.orderScanCommand/);
+});

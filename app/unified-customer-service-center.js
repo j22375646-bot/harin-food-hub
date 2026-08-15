@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useStoredState } from "./use-hub-preference.js";
+import { HarinIcon } from "./_design-system/harin-icon.js";
 
 const count = (value) => Number(value || 0).toLocaleString("ko-KR");
 const dateTime = (value) =>
@@ -575,7 +576,7 @@ function ClaimCard(props) {
   );
 }
 
-export default function UnifiedCustomerServiceCenter({ center }) {
+export default function UnifiedCustomerServiceCenter({ center, aiPanel }) {
   const data = center || {
     rows: [],
     active: [],
@@ -607,6 +608,22 @@ export default function UnifiedCustomerServiceCenter({ center }) {
   const [query, setQuery] = useStoredState("filter:cs-query", "");
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
+  const [macroMessage, setMacroMessage] = useState("");
+  async function copyQuickReply(template) {
+    try {
+      if (!navigator.clipboard) {
+        throw new Error("Clipboard API is not available");
+      }
+      await navigator.clipboard.writeText(template.content);
+      setMacroMessage(
+        `‘${template.label}’ 양식을 복사했습니다. 내용을 확인한 뒤 답변에 붙여 넣으세요.`,
+      );
+    } catch {
+      setMacroMessage(
+        "이 브라우저에서는 자동 복사가 막혀 있습니다. 전체 답변 양식에서 문구를 직접 복사해 주세요.",
+      );
+    }
+  }
   async function syncAllChannels() {
     setSyncing(true);
     setSyncMessage(
@@ -663,9 +680,9 @@ export default function UnifiedCustomerServiceCenter({ center }) {
   return (
     <section className="unifiedCsCenter">
       <section className="unifiedCsHero">
-        <div>
-          <span>13-5 · CUSTOMER WORKSPACES</span>
-          <h1>통합 CS·클레임센터</h1>
+        <div className="operationsHeroCopy">
+          <span>14-4 · CUSTOMER WORKBENCH</span>
+          <div className="operationsHeroTitle"><i><HarinIcon name="customer" size={28}/></i><h1>통합 CS·클레임센터</h1></div>
           <p>
             처리 요청, 클레임, 완료 이력, 답변 양식을 나눠 지금 할 일만
             확인합니다.
@@ -676,6 +693,11 @@ export default function UnifiedCustomerServiceCenter({ center }) {
           <b>{count(data.summary?.active)}건</b>
           <em>기한 초과 {count(data.summary?.overdue)}건</em>
         </aside>
+      </section>
+      <section className="csFocusRail" aria-label="CS 우선 처리 항목">
+        <button type="button" className={count(data.summary?.overdue)?"danger":""} onClick={()=>{setWorkspace("ACTIVE");setDue("OVERDUE");setKind("ALL");}}><HarinIcon name="alerts" size={22}/><span><small>가장 먼저</small><b>기한 초과 {count(data.summary?.overdue)}건</b></span><em>열기</em></button>
+        <button type="button" onClick={()=>{setWorkspace("ACTIVE");setDue("ALL");setKind("INQUIRY");}}><HarinIcon name="customer" size={22}/><span><small>답변 필요</small><b>미답변 문의 {count(data.summary?.unanswered)}건</b></span><em>열기</em></button>
+        <button type="button" onClick={()=>{setWorkspace("CLAIMS");setDue("ALL");setKind("ALL");}}><HarinIcon name="shield" size={22}/><span><small>상태 확인</small><b>클레임 {count(data.summary?.claims)}건</b></span><em>열기</em></button>
       </section>
       <div className="unifiedCsChannels">
         {(data.channelStates || []).map((item) => (
@@ -722,6 +744,8 @@ export default function UnifiedCustomerServiceCenter({ center }) {
           </p>
         </div>
       </details>
+      {aiPanel?<div className="operationsAiSlot csAiSlot">{aiPanel}</div>:null}
+      <section className="csQuickMacros"><header><span><HarinIcon name="sparkles" size={18}/><b>빠른 답변 양식</b></span><button type="button" onClick={()=>setWorkspace("TEMPLATES")}>전체 양식 보기</button></header><div>{(data.templates||[]).slice(0,4).map(template=><button type="button" key={template.id} onClick={()=>copyQuickReply(template)}><span>{template.label}</span><small>복사 후 확인</small></button>)}</div>{macroMessage?<p role="status">{macroMessage}</p>:null}</section>
       <nav className="phase13WorkspaceNav customer" aria-label="CS 작업공간">
         {[
           ["ACTIVE", "처리 요청", "미답변·오늘 할 일", data.summary?.active],

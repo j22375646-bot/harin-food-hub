@@ -274,3 +274,13 @@ test("답변 템플릿은 실제 전송 전 초안만 제공한다", () => {
     center.REPLY_TEMPLATES.every((item) => item.content.includes("하린식품")),
   );
 });
+
+test("14-4 CS 화면은 SLA 요청함과 빠른 양식, 별도 AI 영역을 유지한다", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const source = fs.readFileSync(path.join(__dirname, "../app/unified-customer-service-center.js"), "utf8");
+  assert.match(source, /14-4 · CUSTOMER WORKBENCH/);
+  assert.match(source, /기한 초과/);
+  assert.match(source, /빠른 답변 양식/);
+  assert.match(source, /csAiSlot/);
+});

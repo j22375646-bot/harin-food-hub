@@ -12,7 +12,7 @@ test('12-5B validates allowlisted categories and page scopes',()=>{
   const value=knowledge.validateCreate({title:'상품별 광고 기준서',category:'MARKETING',version_label:'v2.1',scope_pages:['keyword','product','orders','keyword']});
   assert.equal(value.status,'DRAFT');
   assert.equal(value.privacy_status,'REVIEW_REQUIRED');
-  assert.deepEqual(value.scope_pages,['keyword','product']);
+  assert.deepEqual(value.scope_pages,['keyword','product','orders']);
   assert.equal(value.vector_status,'NOT_CONNECTED');
 });
 
@@ -35,7 +35,7 @@ test('12-5C accepts only private knowledge source formats and stable hashes',()=
 
 test('server-owned page analysis contracts cover the operating workflow and reject PII',()=>{
   const list=contracts.listContracts();
-  assert.deepEqual(list.map(item=>item.id),['main','insight','keyword','product','inventory','settlement','reports','changes','validation','experiments']);
+  assert.deepEqual(list.map(item=>item.id),['main','insight','keyword','product','orders','cs','inventory','settlement','reports','changes','validation','experiments']);
   assert.ok(list.every(item=>item.calculation_owner==='SERVER'&&item.ai_role==='EXPLAIN_ONLY'&&item.writes_allowed===false));
   assert.throws(()=>contracts.validateAnalysisEnvelope({page:'insight',period:'7일',formula_version:'v1',metrics:{customer_name:'홍길동'}}),/개인정보/);
   assert.equal(contracts.validateAnalysisEnvelope({page:'insight',period:'7일',formula_version:'v1',data_status:'STALE',metrics:{roas:500}}).can_run,false);
@@ -60,4 +60,11 @@ test('12-5C source metadata migration keeps object pointers server-only',()=>{
   assert.match(sql,/source_sha256/);
   assert.match(sql,/Private Supabase Storage bucket/);
   assert.doesNotMatch(sql,/insert into storage\.buckets/i);
+});
+
+test('14-4 keeps order and CS knowledge scopes independent',()=>{
+  const sql=fs.readFileSync(path.join(__dirname,'..','supabase','migrations','20260815211000_add_order_cs_ai_knowledge_scopes.sql'),'utf8');
+  assert.match(sql,/'orders'/);
+  assert.match(sql,/'cs'/);
+  assert.match(sql,/ai_knowledge_documents_scope_pages_check/);
 });

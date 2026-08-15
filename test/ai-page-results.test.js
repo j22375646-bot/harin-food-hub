@@ -64,6 +64,8 @@ test('13-9 keeps all page AI contracts and result types independent',()=>{
     insight:'PAGE_INSIGHT',
     keyword:'PAGE_KEYWORD',
     product:'PAGE_PRODUCT',
+    orders:'PAGE_ORDERS',
+    cs:'PAGE_CS',
     inventory:'PAGE_INVENTORY',
     settlement:'PAGE_SETTLEMENT',
     reports:'PAGE_REPORTS',
@@ -98,8 +100,8 @@ test('13-9 page result API filters by both page and analysis type',()=>{
   assert.match(route,/analysis_type,page_key/);
 });
 
-test('13-9 database constraint rejects cross-page AI result reuse',()=>{
-  const sql=fs.readFileSync(path.join(__dirname,'../supabase/migrations/20260815200000_enforce_ai_page_scope_isolation.sql'),'utf8');
+test('14-4 database constraint rejects cross-page AI result reuse including orders and CS',()=>{
+  const sql=fs.readFileSync(path.join(__dirname,'../supabase/migrations/20260815210000_add_order_cs_ai_page_scopes.sql'),'utf8');
   assert.match(sql,/ai_analysis_results_page_scope_match_check/);
   for(const [page,analysisType] of Object.entries(pageResults.ANALYSIS_TYPES)){
     assert.match(sql,new RegExp(`page_key = '${page}' and analysis_type = '${analysisType}'`));

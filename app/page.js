@@ -830,6 +830,8 @@ async function getDashboardData(state) {
     priorityCenter,
     salesCommandCenter,
     productOperations,
+    unifiedOrders,
+    customerService,
     unifiedInventory,
     unifiedSettlement,
     searchTermCenter:naverSearchTermCenter,
