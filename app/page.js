@@ -900,6 +900,7 @@ async function getDashboardData(state) {
     reports: reportsResult.data || [],
     reportLearningHistory,
     actions,
+    experiments:phase7ExperimentsResult.data||[],
     priorityCenter,
     salesCommandCenter,
     retentionValidation,

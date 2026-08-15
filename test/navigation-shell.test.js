@@ -106,8 +106,8 @@ test('phase 11-8 keeps prior operations and adds unified data collection operati
   assert.match(styles,/Phase 11-8 · unified data collection operations/);
   assert.match(client,/center=\{collectionCenter\}/);
   assert.match(collectionCenter,/전체 수집 \+ 검증/);
-  assert.match(client,/view==='validation' && <>.*<CustomerRetentionValidationCenter/);
-  assert.match(client,/view==='experiments' && <>.*<ExperimentLab/);
+  assert.match(client,/view==='validation' && <HarinExecutionWorkbench view="validation".*<CustomerRetentionValidationCenter/);
+  assert.match(client,/view==='experiments' && <HarinExecutionWorkbench view="experiments".*<ExperimentLab/);
   assert.doesNotMatch(client,/phase7LegacyLab/);
   assert.match(validation,/실행검증 운영센터/);
   assert.match(validation,/useState\('execution'\)/);
