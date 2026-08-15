@@ -19,13 +19,14 @@ test('13-6 insight, keyword, and product workspaces are real route pages',()=>{
 
 test('13-6 dashboard renders only the selected focused workspace',()=>{
   const client=read('app/dashboard-client.js');
-  assert.match(client,/function FocusedWorkspaceNav/);
+  const shell=read('app/_shell/harin-app-shell.js');
+  assert.match(shell,/function HarinFocusedWorkspaceNav/);
   assert.match(client,/workspace==='overview'/);
   assert.match(client,/workspace==='search-terms'/);
   assert.match(client,/function KeywordView\(\{naver,workspace='search-terms'\}\)/);
   assert.match(client,/workspace==='diagnosis'/);
   for(const workspace of ['catalog','mappings','costs','profit','offers','ad-targets'])assert.match(client,new RegExp(`workspace==='${workspace}'`));
-  assert.match(client,/14-1 · V8 디자인 기반/);
+  assert.match(shell,/14-2 · 셸·내비게이션/);
 });
 
 test('13-6 product editing remains sellable-only and cross-workspace actions use routes',()=>{

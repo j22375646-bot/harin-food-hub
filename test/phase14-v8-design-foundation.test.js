@@ -48,12 +48,12 @@ test('14-1 provides reusable primitives, status tones, focus and reduced-motion 
 
 test('14-1 replaces letter-only navigation marks with accessible inline pictograms',()=>{
   const icon=read('app/_design-system/harin-icon.js');
-  const client=read('app/dashboard-client.js');
+  const shell=read('app/_shell/harin-app-shell.js');
   assert.match(icon,/viewBox="0 0 24 24"/);
   assert.match(icon,/stroke="currentColor"/);
   assert.match(icon,/aria-hidden=\{title\?undefined:true\}/);
-  assert.match(client,/import \{ HarinIcon \} from '.\/_design-system\/harin-ui\.js'/);
-  assert.match(client,/<HarinIcon name=\{group\.id\}/);
-  assert.match(client,/<HarinIcon name=\{item\.id\}/);
-  assert.match(client,/<HarinIcon name="menu"\/>/);
+  assert.match(shell,/import \{ HarinIcon \} from '..\/_design-system\/harin-icon\.js'/);
+  assert.match(shell,/<HarinIcon name=\{group\.id\}/);
+  assert.match(shell,/<HarinIcon name=\{item\.id\}/);
+  assert.match(shell,/<HarinIcon name="menu"\/>/);
 });

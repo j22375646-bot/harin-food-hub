@@ -35,11 +35,11 @@ test('13-3 keeps legacy addresses and browser history restoration behavior',()=>
 });
 
 test('13-3 renders concrete second-level items on desktop and collapsible groups on mobile',()=>{
-  const client=read('app/dashboard-client.js');
+  const shell=read('app/_shell/harin-app-shell.js');
   const css=read('app/globals.css');
-  assert.match(client,/className="sidebarItems"/);
-  assert.match(client,/className="mobileNavGroup"/);
-  assert.match(client,/group\.items\.map\(item=>/);
+  assert.match(shell,/className="sidebarItems"/);
+  assert.match(shell,/className="mobileNavGroup"/);
+  assert.match(shell,/group\.items\.map\(item=>/);
   assert.match(css,/Phase 13-3: nine owner-oriented groups/);
   assert.match(css,/\.mobileNavGroup\[open\]/);
 });

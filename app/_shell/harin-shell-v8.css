@@ -1,0 +1,216 @@
+/* Phase 14-2 · shared application shell and navigation.
+   Loaded after the V8 foundation so this isolated layer can retire legacy shell rules safely. */
+html[data-harin-ui="v8"]{
+  --hub-sidebar-width:272px;
+  --v8-topbar-height:84px;
+}
+
+.harinV8 .v8Topbar{
+  z-index:50;
+  min-width:0;
+  height:var(--v8-topbar-height);
+  padding:0 24px;
+  border-color:rgba(216,213,226,.86);
+  background:rgba(255,254,254,.9);
+}
+.topbarIdentity{display:flex;min-width:0;align-items:center;gap:22px}
+.topbarIdentity .brand{flex:0 0 auto}
+.topbarIdentity .brandMark{width:44px;height:44px;border-radius:15px;font-size:20px}
+.topbarIdentity .brand b{color:var(--v8-ink);font-size:17px;line-height:1.3}
+.topbarIdentity .brand small{color:var(--v8-muted);font-size:13px!important}
+.topbarLocation{display:flex;min-width:0;flex-direction:column;gap:2px;border-left:1px solid var(--v8-line);padding-left:22px}
+.topbarLocation span{color:var(--v8-muted);font-size:12px;font-weight:780;line-height:1.3}
+.topbarLocation b{overflow:hidden;max-width:260px;color:var(--v8-ink-soft);font-size:14px;text-overflow:ellipsis;white-space:nowrap}
+.harinV8 .headerActions{min-width:0;gap:9px}
+.harinV8 .live{display:inline-flex;min-height:38px;align-items:center;padding:0 12px;font-size:13px;font-weight:820;white-space:nowrap}
+.harinV8 .live.check{background:var(--v8-amber-soft);color:var(--v8-amber-strong)}
+.harinV8 .live.check i{background:var(--v8-amber)}
+.harinV8 .syncButton{display:inline-flex;min-height:46px;align-items:center;justify-content:center;gap:8px;padding:0 16px;font-size:14px;white-space:nowrap}
+.harinV8 .syncButton .harinIcon{width:18px;height:18px}
+.harinV8 .logoutButton{min-height:46px;border:0;border-radius:12px;padding:0 15px;font-size:14px;font-weight:820;cursor:pointer}
+
+.harinV8 .v8Sidebar{
+  top:var(--v8-topbar-height);
+  width:var(--hub-sidebar-width);
+  padding:18px 14px 28px;
+  scrollbar-color:#d8d3e5 transparent;
+  scrollbar-width:thin;
+}
+.harinV8 .sidebarPhase{display:flex;gap:5px;margin:0 2px 14px;border:1px solid #dfdbea;border-radius:18px;padding:15px;background:linear-gradient(145deg,#f3f0fa,#edf5f1)}
+.harinV8 .sidebarPhase>span{display:flex;align-items:center;gap:7px;color:var(--v8-lavender-strong)}
+.harinV8 .sidebarPhase>span .harinIcon{width:17px;height:17px}
+.harinV8 .sidebarPhase>span em{font-size:12px;font-style:normal;font-weight:900;letter-spacing:.08em}
+.harinV8 .sidebarPhase>b{font-size:16px;line-height:1.35}
+.harinV8 .sidebarPhase>small{color:var(--v8-muted);font-size:13px!important;line-height:1.5}
+.harinV8 .sidebarSearch{margin:0 2px 12px}
+.harinV8 .sidebarSearch>i{left:14px;display:grid;place-items:center;color:var(--v8-lavender-strong)}
+.harinV8 .sidebarSearch>i .harinIcon{width:19px;height:19px}
+.harinV8 .sidebarSearch>input{min-height:48px;border-color:var(--v8-line);border-radius:14px;background:rgba(255,255,255,.78);padding-left:43px;font-size:14px}
+.harinV8 .sidebarSearch>input:focus{border-color:#b8b0d3;box-shadow:var(--v8-focus)}
+.sidebarMenuHeading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:4px 8px 9px}
+.sidebarMenuHeading span{color:var(--v8-muted);font-size:12px;font-weight:850;letter-spacing:.04em}
+.sidebarMenuHeading b{border-radius:999px;background:var(--v8-pink-soft);color:var(--v8-pink-strong);padding:5px 8px;font-size:12px;line-height:1.3}
+.harinV8 .desktopSidebar>nav{gap:7px}
+.harinV8 .sidebarGroup{border-radius:16px}
+.harinV8 .sidebarGroup.expanded{border-color:#dfdbe8;background:rgba(255,255,255,.55);box-shadow:0 8px 24px rgba(54,52,82,.035)}
+.harinV8 .desktopSidebar nav .sidebarGroupButton{min-height:62px;border-radius:15px;background:transparent}
+.harinV8 .desktopSidebar nav .sidebarGroupButton:hover{background:#f1eff7}
+.harinV8 .sidebarGroupButton>span>b{font-size:15px}
+.harinV8 .sidebarGroupButton>span>small{font-size:12px!important}
+.harinV8 .sidebarGroupButton>strong{color:var(--v8-muted)}
+.harinV8 .sidebarItems{padding:2px 7px 10px 16px}
+.harinV8 .desktopSidebar nav .sidebarItem{min-height:58px;border:1px solid transparent}
+.harinV8 .desktopSidebar nav .sidebarItem:hover{background:#f3f1f8}
+.harinV8 .desktopSidebar nav .sidebarItem.active{border-color:#d8d2ea;box-shadow:inset 4px 0 var(--v8-lavender),0 6px 18px rgba(70,64,112,.07)}
+.harinV8 .desktopSidebar nav .sidebarItem.active>i{background:var(--v8-lavender);color:#fff}
+
+.harinV8 .hubMain{
+  width:min(1360px,calc(100% - var(--hub-sidebar-width)));
+  margin-left:calc(var(--hub-sidebar-width) + max(0px,(100% - var(--hub-sidebar-width) - 1360px)/2));
+}
+.harinV8 .hubFooter{
+  width:min(1360px,calc(100% - var(--hub-sidebar-width)));
+  margin-left:calc(var(--hub-sidebar-width) + max(0px,(100% - var(--hub-sidebar-width) - 1360px)/2));
+}
+.harinV8 .hubBreadcrumb{min-height:34px;margin-bottom:18px}
+.harinV8 .hubBreadcrumb li{font-size:14px}
+.harinV8 .hubBreadcrumb li:last-child{color:var(--v8-lavender-strong)}
+.harinV8 .hubBreadcrumb>span{color:var(--v8-muted);font-size:13px}
+
+.harinV8 .mobileBottomNav{display:none}
+
+@media(max-width:1180px) and (min-width:901px){
+  html[data-harin-ui="v8"]{--hub-sidebar-width:252px}
+  .harinV8 .v8Sidebar{padding-inline:11px}
+  .topbarLocation{display:none}
+  .harinV8 .live{display:none}
+}
+
+@media(max-width:900px){
+  html[data-harin-ui="v8"]{--v8-topbar-height:74px}
+  .harinV8 .v8Topbar{height:var(--v8-topbar-height);padding:0 13px}
+  .topbarIdentity{gap:0}
+  .topbarLocation,.harinV8 .headerActions>.live,.harinV8 .headerActions>.fontScaleControl{display:none}
+  .topbarIdentity .brandMark{width:42px;height:42px;border-radius:14px}
+  .topbarIdentity .brand b{font-size:16px}
+  .topbarIdentity .brand small{display:none}
+  .harinV8 .headerActions{gap:7px}
+  .harinV8 .syncButton{min-height:46px;padding:0 13px;font-size:13px}
+  .harinV8 .logoutButton{min-height:46px;padding:0 13px;font-size:13px}
+
+  .harinV8 .hubMain{width:100%;margin-left:0;padding:24px 15px 112px}
+  .harinV8 .hubFooter{width:100%;margin-left:0;padding-bottom:104px}
+  .harinV8 .hubBreadcrumb{align-items:flex-start;flex-direction:column;gap:4px}
+  .harinV8 .hubBreadcrumb>span{white-space:normal}
+
+  .harinV8 .mobileBottomNav{
+    position:fixed;
+    z-index:70;
+    right:0;
+    bottom:0;
+    left:0;
+    display:grid;
+    height:calc(78px + env(safe-area-inset-bottom));
+    min-height:78px;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    gap:4px;
+    border-top:1px solid rgba(216,213,226,.9);
+    background:rgba(255,254,254,.94);
+    padding:7px 8px max(7px,env(safe-area-inset-bottom));
+    box-shadow:0 -12px 36px rgba(54,52,82,.11);
+    backdrop-filter:blur(20px);
+  }
+  .harinV8 .mobileBottomNav>button{
+    position:relative;
+    display:flex;
+    min-width:0;
+    min-height:60px;
+    align-items:center;
+    justify-content:center;
+    flex-direction:column;
+    gap:4px;
+    border:0;
+    border-radius:14px;
+    background:transparent;
+    color:var(--v8-muted);
+    padding:4px 2px;
+    font-size:12px;
+    font-weight:830;
+    line-height:1.2;
+    cursor:pointer;
+  }
+  .harinV8 .mobileBottomNav>button i{display:grid;place-items:center;font-style:normal}
+  .harinV8 .mobileBottomNav>button .harinIcon{width:20px;height:20px}
+  .harinV8 .mobileBottomNav>button.active{background:linear-gradient(145deg,var(--v8-lavender-soft),#f4f2f9);color:var(--v8-lavender-strong)}
+  .harinV8 .mobileBottomNav>button>em{position:absolute;top:3px;left:calc(50% + 7px);display:grid;min-width:20px;height:20px;place-items:center;border:2px solid #fff;border-radius:999px;background:var(--v8-pink);color:#fff;padding:0 5px;font-size:12px;font-style:normal;line-height:1}
+
+  .mobileMoreLayer{position:fixed;z-index:80;inset:0 0 calc(78px + env(safe-area-inset-bottom));pointer-events:none}
+  .harinV8 .mobileMenuBackdrop{position:absolute;inset:0;display:block;width:100%;min-height:0;border:0;border-radius:0;background:rgba(39,37,55,.32);padding:0;pointer-events:auto;backdrop-filter:blur(3px);animation:v8BackdropIn 180ms ease-out both}
+  .harinV8 .mobileGroupedMenu{
+    position:absolute;
+    right:10px;
+    bottom:10px;
+    left:10px;
+    display:flex;
+    max-height:min(76dvh,700px);
+    overflow-x:hidden;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    flex-direction:column;
+    gap:13px;
+    border:1px solid rgba(216,213,226,.95);
+    border-radius:26px;
+    background:rgba(255,254,254,.98);
+    padding:0 14px 16px;
+    box-shadow:var(--v8-shadow-float);
+    pointer-events:auto;
+    scrollbar-gutter:stable;
+    animation:v8SheetIn 240ms cubic-bezier(.2,.8,.2,1) both;
+  }
+  .harinV8 .mobileMenuPanelHead{position:sticky;z-index:2;top:0;display:flex;align-items:center;justify-content:space-between;gap:16px;margin:0 -14px;border-bottom:1px solid var(--v8-line);background:rgba(255,254,254,.96);padding:16px 16px 13px;backdrop-filter:blur(16px)}
+  .harinV8 .mobileMenuPanelHead>span{display:grid;min-width:0;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:2px 10px;text-align:left}
+  .harinV8 .mobileMenuPanelHead small{grid-column:1/-1;color:var(--v8-lavender-strong);font-size:12px!important;font-weight:850;letter-spacing:.04em}
+  .harinV8 .mobileMenuPanelHead b{color:var(--v8-ink);font-size:20px;line-height:1.25}
+  .harinV8 .mobileMenuPanelHead em{border-radius:999px;background:var(--v8-pink-soft);color:var(--v8-pink-strong);padding:5px 8px;font-size:12px;font-style:normal;font-weight:850}
+  .harinV8 .mobileMenuPanelHead>button{display:grid;width:42px;min-width:42px;min-height:42px;place-items:center;border:0;border-radius:14px;background:var(--v8-lavender-soft);color:var(--v8-lavender-strong);padding:0;font-size:27px!important;font-weight:500;line-height:1;cursor:pointer}
+
+  .harinV8 .mobileViewSettings{display:flex!important;flex:0 0 auto;gap:7px!important;border:1px solid #ddd9eb;border-radius:17px;background:linear-gradient(145deg,#f2effa,#edf5f1);padding:13px!important}
+  .harinV8 .mobileViewSettings>b{color:var(--v8-lavender-strong)!important;font-size:13px!important}
+  .harinV8 .mobileViewSettings>label{display:flex;min-height:58px;align-items:center;justify-content:space-between;gap:14px;border-radius:13px;background:rgba(255,255,255,.92);padding:9px 11px}
+  .harinV8 .mobileViewSettings>label>span{display:flex;min-width:0;flex-direction:column;text-align:left}
+  .harinV8 .mobileViewSettings strong{font-size:15px;line-height:1.35}
+  .harinV8 .mobileViewSettings small{color:var(--v8-muted);font-size:13px!important}
+  .harinV8 .mobileViewSettings select{min-width:116px;min-height:44px;border:1px solid var(--v8-line);border-radius:11px;background:#fff;padding:0 10px;color:var(--v8-ink);font-size:14px;font-weight:850}
+
+  .mobileMenuGroups{display:flex;flex-direction:column;gap:9px}
+  .harinV8 .mobileNavGroup{flex:0 0 auto;border-color:var(--v8-line);border-radius:17px;background:#fff}
+  .harinV8 .mobileNavGroup>summary{grid-template-columns:42px minmax(0,1fr) auto 24px;min-height:66px;gap:10px;padding:10px 12px}
+  .harinV8 .mobileNavGroup>summary>i{width:42px;height:42px;border-radius:14px;background:var(--v8-lavender-soft);color:var(--v8-lavender-strong)}
+  .harinV8 .mobileNavGroup>summary b{font-size:16px}
+  .harinV8 .mobileNavGroup>summary small{color:var(--v8-muted);font-size:13px!important}
+  .harinV8 .mobileNavGroup>summary>em{display:grid;min-width:24px;height:24px;place-items:center;border-radius:999px;background:var(--v8-pink-soft);color:var(--v8-pink-strong);padding:0 7px;font-size:12px;font-style:normal;font-weight:850}
+  .harinV8 .mobileNavGroup[open]{border-color:#d8d2ea;background:#faf9fd;box-shadow:0 9px 24px rgba(70,64,112,.065)}
+  .harinV8 .mobileNavGroup>div{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 11px 11px}
+  .harinV8 .mobileNavGroup button{display:flex;min-width:0;min-height:58px;align-items:center;justify-content:space-between;gap:8px;border:1px solid transparent;border-radius:13px;background:#f4f3f7;color:var(--v8-ink-soft);padding:9px 11px;text-align:left}
+  .harinV8 .mobileNavGroup button.active{border-color:#d8d2ea;background:var(--v8-lavender-soft);color:var(--v8-lavender-strong)}
+  .harinV8 .mobileNavGroup button b{font-size:15px}
+  .harinV8 .mobileNavGroup button small{color:var(--v8-muted);font-size:12px!important}
+  .harinV8 .mobileNavGroup button.active small{color:var(--v8-lavender-strong)}
+}
+
+@media(max-width:430px){
+  .harinV8 .v8Topbar{padding-inline:10px}
+  .harinV8 .headerActions{gap:5px}
+  .harinV8 .syncButton{padding-inline:11px}
+  .harinV8 .logoutButton{padding-inline:11px}
+  .harinV8 .mobileGroupedMenu{right:7px;left:7px;border-radius:23px;padding-inline:11px}
+  .harinV8 .mobileMenuPanelHead{margin-inline:-11px}
+  .harinV8 .mobileNavGroup>div{grid-template-columns:1fr}
+}
+
+@keyframes v8BackdropIn{from{opacity:0}to{opacity:1}}
+@keyframes v8SheetIn{from{opacity:0;transform:translateY(18px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+@media(prefers-reduced-motion:reduce){
+  .harinV8 .mobileMenuBackdrop,.harinV8 .mobileGroupedMenu{animation:none}
+}

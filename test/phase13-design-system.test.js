@@ -30,12 +30,13 @@ test('13-2 shares card state and motion rules with reduced motion protection',()
 
 test('13-2 keeps desktop text control and moves mobile control into More view settings',()=>{
   const client=read('app/dashboard-client.js');
+  const shell=read('app/_shell/harin-app-shell.js');
   const css=read('app/globals.css');
-  assert.match(client,/className="fontScaleControl"/);
-  assert.match(client,/className="mobileViewSettings"/);
-  assert.match(client,/aria-label="모바일 허브 글자 크기"/);
+  assert.match(shell,/className="fontScaleControl"/);
+  assert.match(shell,/className="mobileViewSettings"/);
+  assert.match(shell,/aria-label="모바일 허브 글자 크기"/);
   assert.match(client,/fontScale=\{fontScale\} onFontScale=\{setFontScale\}/);
   assert.match(css,/\.headerActions \.fontScaleControl\{display:none\}/);
   assert.match(css,/\.mobileViewSettings\{display:flex!important/);
-  assert.match(client,/14-1 · V8 디자인 기반/);
+  assert.match(shell,/14-2 · 셸·내비게이션/);
 });

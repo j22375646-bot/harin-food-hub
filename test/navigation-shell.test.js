@@ -6,7 +6,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const client=fs.readFileSync(path.join(__dirname,'..','app','dashboard-client.js'),'utf8');
+const shell=fs.readFileSync(path.join(__dirname,'..','app','_shell','harin-app-shell.js'),'utf8');
 const styles=fs.readFileSync(path.join(__dirname,'..','app','globals.css'),'utf8');
+const shellStyles=fs.readFileSync(path.join(__dirname,'..','app','_shell','harin-shell-v8.css'),'utf8');
 const validation=fs.readFileSync(path.join(__dirname,'..','app','customer-retention-validation-center.js'),'utf8');
 const page=fs.readFileSync(path.join(__dirname,'..','app','page.js'),'utf8');
 const loading=fs.readFileSync(path.join(__dirname,'..','app','loading.js'),'utf8');
@@ -14,13 +16,13 @@ const preferences=fs.readFileSync(path.join(__dirname,'..','app','use-hub-prefer
 const collectionCenter=fs.readFileSync(path.join(__dirname,'..','app','unified-collection-operations-center.js'),'utf8');
 
 test('desktop navigation includes grouped expansion, menu search, badges, and breadcrumbs', () => {
-  assert.match(client,/function SidebarMenu/);
-  assert.match(client,/placeholder="메뉴 이름 찾기"/);
-  assert.match(client,/aria-expanded=\{expanded\}/);
-  assert.match(client,/function BreadcrumbBar/);
-  assert.match(client,/최근 갱신/);
-  assert.match(styles,/\.sidebarGroup\.expanded/);
-  assert.match(styles,/\.hubBreadcrumb/);
+  assert.match(shell,/function HarinSidebar/);
+  assert.match(shell,/placeholder="메뉴·업무 찾기"/);
+  assert.match(shell,/aria-expanded=\{expanded\}/);
+  assert.match(shell,/function HarinBreadcrumbBar/);
+  assert.match(shell,/최근 갱신/);
+  assert.match(shellStyles,/\.harinV8 \.sidebarGroup\.expanded/);
+  assert.match(shellStyles,/\.harinV8 \.hubBreadcrumb/);
 });
 
 test('Next route navigation restores the active sidebar group and prefetches destinations', () => {
@@ -31,17 +33,19 @@ test('Next route navigation restores the active sidebar group and prefetches des
 });
 
 test('mobile all-functions menu keeps the same groups and closes after selection', () => {
-  assert.match(client,/function MobileMoreMenu/);
-  assert.match(client,/\['main','orders','inventory','notifications'\]/);
-  assert.match(client,/>더보기<\/span>/);
-  assert.match(client,/className="mobileNavGroup"/);
-  assert.match(client,/className="mobileMenuBackdrop"/);
-  assert.match(client,/className="mobileMenuPanelHead"/);
-  assert.match(client,/group\.description/);
-  assert.match(client,/closest\('\.mobileMoreMenu'\)\?\.removeAttribute\('open'\)/);
-  assert.match(styles,/grid-template-columns:repeat\(5,1fr\)/);
-  assert.match(styles,/\.mobileNavGroup>div/);
-  assert.match(styles,/\.mobileGroupedMenu>\.mobileNavGroup\{flex:0 0 auto\}/);
+  assert.match(shell,/function HarinMobileNavigation/);
+  assert.match(shell,/\['main','orders','inventory','notifications'\]/);
+  assert.match(shell,/>더보기<\/span>/);
+  assert.match(shell,/className="mobileNavGroup"/);
+  assert.match(shell,/className="mobileMenuBackdrop"/);
+  assert.match(shell,/className="mobileMenuPanelHead"/);
+  assert.match(shell,/group\.description/);
+  assert.match(shell,/event\.key==='Escape'/);
+  assert.match(shell,/document\.body\.style\.overflow='hidden'/);
+  assert.doesNotMatch(shell,/removeAttribute\('open'\)/);
+  assert.match(shellStyles,/grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
+  assert.match(shellStyles,/\.harinV8 \.mobileNavGroup>div/);
+  assert.match(shellStyles,/\.mobileMenuGroups\{display:flex/);
 });
 
 test('phase 10-6 scopes database tables per page and shows useful loading feedback', () => {
@@ -86,7 +90,7 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
 });
 
 test('phase 11-8 keeps prior operations and adds unified data collection operations', () => {
-  assert.match(client,/14-1 · V8 디자인 기반/);
+  assert.match(shell,/14-2 · 셸·내비게이션/);
   assert.match(client,/UnifiedProductOperationsCenter/);
   assert.match(client,/UnifiedInventoryOperationsCenter/);
   assert.match(client,/UnifiedSettlementOperationsCenter/);
@@ -114,10 +118,11 @@ test('phase 11-8 keeps prior operations and adds unified data collection operati
 
 test('phase 10-7 remembers reading scale, help state, and primary list filters', () => {
   assert.match(preferences,/window\.localStorage/);
-  assert.match(client,/aria-label="허브 글자 크기"/);
+  assert.match(shell,/aria-label="허브 글자 크기"/);
   assert.match(client,/useStoredState\(`help:/);
   assert.match(client,/filter:orders-status/);
   assert.match(client,/filter:inventory/);
   assert.match(client,/filter:notifications/);
   assert.match(styles,/data-font-scale="xlarge"/);
+  assert.match(client,/fontScale=\{fontScale\} onFontScale=\{setFontScale\}/);
 });

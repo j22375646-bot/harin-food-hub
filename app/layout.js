@@ -1,5 +1,6 @@
 import './globals.css';
 import './_design-system/harin-v8.css';
+import './_shell/harin-shell-v8.css';
 
 export const metadata = {
   title: '하린식품 광고·매출 진단 허브',

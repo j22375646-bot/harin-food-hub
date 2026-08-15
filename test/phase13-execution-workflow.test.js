@@ -9,11 +9,12 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('13-7 connects four separate workflow pages with real routes and mobile UI',()=>{
   const client=read('app/dashboard-client.js');
+  const shell=read('app/_shell/harin-app-shell.js');
   const css=read('app/globals.css');
   for(const [id,href] of [['reports','/diagnoses'],['changes','/approvals'],['validation','/execution-validation'],['experiments','/ab-tests']]){
     assert.match(client,new RegExp(`id:'${id}',href:'${href.replaceAll('/','\\/')}'`));
   }
-  assert.match(client,/14-1 · V8 디자인 기반/);
+  assert.match(shell,/14-2 · 셸·내비게이션/);
   assert.match(css,/Phase 13-7: diagnosis, approval, validation, and experiment workflow/);
   assert.match(css,/\.executionWorkflow>nav\{display:flex;overflow-x:auto/);
 });
