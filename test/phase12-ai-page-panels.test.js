@@ -18,7 +18,7 @@ test('AI 분석 위치는 기존 여섯 운영 화면과 13-7 실행 흐름을 �
     searchTermCenter:{items:[{},{}]},
     aiConfiguration:{execution_enabled:false}
   });
-  assert.deepEqual(Object.keys(panels),['main','insight','keyword','product','orders','cs','inventory','settlement','reports','changes','validation','experiments']);
+  assert.deepEqual(Object.keys(panels),['main','insight','keyword','product','orders','cs','inventory','settlement','collection','notifications','reports','changes','validation','experiments']);
   assert.equal(panels.main.execution_enabled,false);
   assert.equal(panels.product.metric_value,'7개');
   assert.match(panels.keyword.summary,/검색어/);

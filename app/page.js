@@ -834,6 +834,8 @@ async function getDashboardData(state) {
     customerService,
     unifiedInventory,
     unifiedSettlement,
+    collectionCenter,
+    alerts:alertsResult.data||[],
     searchTermCenter:naverSearchTermCenter,
     reportLearningHistory,
     retentionValidation,
