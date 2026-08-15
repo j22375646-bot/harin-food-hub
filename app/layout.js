@@ -3,6 +3,7 @@ import './_design-system/harin-v8.css';
 import './_shell/harin-shell-v8.css';
 import './_main/harin-main-v8.css';
 import './_operations/harin-operations-v8.css';
+import './_analysis/harin-analysis-v8.css';
 
 export const metadata = {
   title: '하린식품 광고·매출 진단 허브',
