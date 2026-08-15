@@ -27,6 +27,7 @@ test('14-1 defines readable pastel tokens and preserves the approved production 
   assert.match(css,/--v8-font-list:15px/);
   assert.match(css,/--v8-font-support:13px/);
   assert.match(css,/--v8-control-height:46px/);
+  assert.match(css,/overflow-x:clip/);
   assert.doesNotMatch(css,/font-size:(?:[1-9]|1[0-1])px/);
 });
 

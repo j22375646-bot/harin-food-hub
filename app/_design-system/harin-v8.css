@@ -101,6 +101,8 @@ html[data-harin-ui="v8"][data-font-scale="xlarge"]{
 
 body.harinV8{
   min-width:320px;
+  max-width:100%;
+  overflow-x:clip;
   background:
     radial-gradient(900px 540px at 92% -5%,rgba(177,165,224,.18),transparent 66%),
     radial-gradient(760px 520px at 15% 18%,rgba(175,219,201,.13),transparent 68%),
