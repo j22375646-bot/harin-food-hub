@@ -141,7 +141,16 @@ function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onO
 
 function MobileMoreMenu({ groups, view, onOpenView, onPrefetch, fontScale, onFontScale }) {
   const primary=new Set(['main','orders','inventory','notifications']);
-  return <details className={`mobileMoreMenu${primary.has(view)?'':' active'}`}><summary aria-label="전체 메뉴와 화면 설정 열기"><i aria-hidden="true">≡</i><span>더보기</span></summary><div className="mobileGroupedMenu"><section className="mobileViewSettings"><b>화면 설정</b><label><span><strong>글자 크기</strong><small>모든 화면에 바로 적용됩니다.</small></span><select aria-label="모바일 허브 글자 크기" value={fontScale} onChange={event=>onFontScale(event.target.value)}><option value="large">큰 글씨</option><option value="xlarge">더 큰 글씨</option></select></label></section>{groups.map(group=><details className="mobileNavGroup" key={group.id} open={group.items.some(item=>item.id===view)}><summary><i aria-hidden="true">{group.icon}</i><span><b>{group.label}</b><small>{group.description}</small></span><strong aria-hidden="true">⌄</strong></summary><div>{group.items.map(item=><button type="button" key={item.id} className={view===item.id?'active':''} onPointerEnter={()=>onPrefetch(item.id)} onFocus={()=>onPrefetch(item.id)} onClick={event=>{onOpenView(item.id);event.currentTarget.closest('.mobileMoreMenu')?.removeAttribute('open');}}><span><b>{item.label}</b><small>{item.description}</small></span>{item.badge>0?<em>{item.badge}</em>:null}</button>)}</div></details>)}</div></details>;
+  const closeMenu=event=>event.currentTarget.closest('.mobileMoreMenu')?.removeAttribute('open');
+  return <details className={`mobileMoreMenu${primary.has(view)?'':' active'}`}>
+    <summary aria-label="전체 메뉴와 화면 설정 열기"><i aria-hidden="true">≡</i><span>더보기</span></summary>
+    <button type="button" className="mobileMenuBackdrop" aria-label="전체 메뉴 닫기" onClick={closeMenu} />
+    <div className="mobileGroupedMenu" role="dialog" aria-label="전체 메뉴">
+      <header className="mobileMenuPanelHead"><span><b>전체 메뉴</b><small>필요한 업무를 골라 이동하세요.</small></span><button type="button" aria-label="전체 메뉴 닫기" onClick={closeMenu}>×</button></header>
+      <section className="mobileViewSettings"><b>화면 설정</b><label><span><strong>글자 크기</strong><small>모든 화면에 바로 적용됩니다.</small></span><select aria-label="모바일 허브 글자 크기" value={fontScale} onChange={event=>onFontScale(event.target.value)}><option value="large">큰 글씨</option><option value="xlarge">더 큰 글씨</option></select></label></section>
+      {groups.map(group=><details className="mobileNavGroup" key={group.id} open={group.items.some(item=>item.id===view)}><summary><i aria-hidden="true">{group.icon}</i><span><b>{group.label}</b><small>{group.description}</small></span><strong aria-hidden="true">⌄</strong></summary><div>{group.items.map(item=><button type="button" key={item.id} className={view===item.id?'active':''} onPointerEnter={()=>onPrefetch(item.id)} onFocus={()=>onPrefetch(item.id)} onClick={event=>{onOpenView(item.id);closeMenu(event);}}><span><b>{item.label}</b><small>{item.description}</small></span>{item.badge>0?<em>{item.badge}</em>:null}</button>)}</div></details>)}
+    </div>
+  </details>;
 }
 
 function BreadcrumbBar({ context, refreshedAt }) {

@@ -333,6 +333,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .hubBreadcrumb>span{font-size:13px;white-space:nowrap}
 
 .mobileMoreMenu>.mobileGroupedMenu{display:flex;flex-direction:column;gap:13px;padding:3px 10px 12px}
+.mobileMenuBackdrop,.mobileMenuPanelHead{display:none}
 .mobileGroupedMenu>section{display:flex;flex-direction:column;gap:6px}
 .mobileGroupedMenu>section>b{padding:0 4px;color:#66716c;font-size:12px}
 .mobileGroupedMenu>section>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
@@ -359,14 +360,21 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 @keyframes hubLoadingPulse{to{transform:translateY(-3px);box-shadow:0 12px 24px rgba(31,40,53,.2)}}
 
 @media(max-width:900px){
+  body:has(.mobileMoreMenu[open]){overflow:hidden}
   .mobileBottomNav{grid-template-columns:repeat(5,1fr);height:78px}
   .mobileBottomNav>.mobileMoreMenu{display:block;position:relative;margin:0;border:0;border-radius:10px;background:transparent}
   .mobileBottomNav>.mobileMoreMenu>summary{display:flex;min-height:58px;align-items:center;justify-content:center;flex-direction:column;gap:3px;border-radius:10px;padding:0;color:#7b818b;font-size:13px;font-weight:800;cursor:pointer;list-style:none}
   .mobileBottomNav>.mobileMoreMenu>summary::-webkit-details-marker{display:none}
   .mobileBottomNav>.mobileMoreMenu>summary i{font-size:17px;font-style:normal;line-height:1}
   .mobileBottomNav>.mobileMoreMenu.active>summary,.mobileBottomNav>.mobileMoreMenu[open]>summary{background:#eef1f5;color:#171b22}
-  .mobileBottomNav>.mobileMoreMenu>.mobileGroupedMenu{position:fixed;z-index:45;right:10px;bottom:calc(82px + env(safe-area-inset-bottom));left:10px;display:flex;max-height:min(68vh,620px);overflow-y:auto;gap:13px;border:1px solid #dfe3e8;border-radius:18px;background:#fff;padding:16px;box-shadow:0 -12px 38px rgba(29,36,47,.18)}
+  .mobileBottomNav>.mobileMoreMenu>.mobileMenuBackdrop{position:fixed;z-index:44;inset:0 0 calc(78px + env(safe-area-inset-bottom));display:block;min-height:0;border:0;border-radius:0;background:rgba(18,27,23,.34);padding:0;backdrop-filter:blur(2px)}
+  .mobileBottomNav>.mobileMoreMenu:not([open])>.mobileMenuBackdrop{display:none}
+  .mobileBottomNav>.mobileMoreMenu>.mobileGroupedMenu{position:fixed;z-index:45;right:10px;bottom:calc(82px + env(safe-area-inset-bottom));left:10px;display:flex;box-sizing:border-box;max-height:min(72dvh,640px);overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;align-content:flex-start;gap:13px;border:1px solid #dfe3e8;border-radius:20px;background:#fff;padding:0 14px 14px;box-shadow:0 -14px 44px rgba(24,35,29,.24);scrollbar-gutter:stable}
   .mobileBottomNav>.mobileMoreMenu:not([open])>.mobileGroupedMenu{display:none}
+  .mobileMenuPanelHead{position:sticky;z-index:2;top:0;display:flex;flex:0 0 auto;align-items:center;justify-content:space-between;gap:16px;margin:0 -14px;border-bottom:1px solid #e6ebe8;background:rgba(255,255,255,.96);padding:14px 16px 12px;backdrop-filter:blur(10px)}
+  .mobileMenuPanelHead>span{display:flex;min-width:0;flex-direction:column;gap:2px;text-align:left}.mobileMenuPanelHead b{color:#1f342a;font-size:18px}.mobileMenuPanelHead small{color:#77827c;font-size:12px!important}
+  .mobileBottomNav .mobileMenuPanelHead>button{display:grid;width:40px;min-width:40px;min-height:40px;place-items:center;border:0;border-radius:12px;background:#eef3f0;color:#315c48;padding:0;font-size:26px!important;font-weight:500;line-height:1}
+  .mobileBottomNav .mobileGroupedMenu>.mobileViewSettings,.mobileBottomNav .mobileGroupedMenu>.mobileNavGroup{flex:0 0 auto}
   .mobileBottomNav .mobileGroupedMenu button{min-height:48px;border:0;border-radius:10px;background:#f4f5f7;color:#59606a;font-size:14px;font-weight:800}
   .mobileBottomNav .mobileGroupedMenu button.active{background:#20242c;color:#fff}
   .viewLoadingOverlay{top:72px;left:0;padding:24px;text-align:center}
@@ -451,7 +459,7 @@ html[data-font-scale="xlarge"] main th{font-size:15px!important}html[data-font-s
 @media(max-width:600px){
   .hubBreadcrumb{align-items:flex-start;flex-direction:column;gap:5px}
   .hubBreadcrumb li{font-size:13px}
-  .mobileGroupedMenu>section>div{grid-template-columns:1fr 1fr}
+  .mobileGroupedMenu>section>div,.mobileNavGroup>div{grid-template-columns:1fr}
 }
 
 /* Phase 10-3 — the main page is one all-channel command center. */
@@ -831,7 +839,8 @@ main :where(button,a,input,select,textarea):focus-visible,.topbar :where(button,
   .mobileViewSettings>label>span{display:flex;min-width:0;flex-direction:column}
   .mobileViewSettings strong{font-size:15px;line-height:1.35}.mobileViewSettings small{color:var(--ui-muted);font-size:13px!important}
   .mobileViewSettings select{min-width:112px;min-height:44px;border:1px solid #d8e0db;border-radius:10px;background:#fff;padding:0 10px;color:#26342d;font-size:14px;font-weight:850}
-  .mobileBottomNav>.mobileMoreMenu>.mobileGroupedMenu{gap:14px;padding:14px}
+  .mobileBottomNav>.mobileMoreMenu>.mobileGroupedMenu{gap:12px;padding:0 12px 12px}
+  .mobileMenuPanelHead{margin:0 -12px;padding-inline:14px}
   .mobileGroupedMenu>section>b{font-size:13px}
   .mobileBottomNav .mobileGroupedMenu button{min-height:48px;font-size:15px}
   .mobileNavGroup>summary{min-height:64px}.mobileNavGroup>summary b{font-size:16px}.mobileNavGroup>summary small{font-size:13px!important}

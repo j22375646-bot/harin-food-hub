@@ -35,10 +35,13 @@ test('mobile all-functions menu keeps the same groups and closes after selection
   assert.match(client,/\['main','orders','inventory','notifications'\]/);
   assert.match(client,/>더보기<\/span>/);
   assert.match(client,/className="mobileNavGroup"/);
+  assert.match(client,/className="mobileMenuBackdrop"/);
+  assert.match(client,/className="mobileMenuPanelHead"/);
   assert.match(client,/group\.description/);
   assert.match(client,/closest\('\.mobileMoreMenu'\)\?\.removeAttribute\('open'\)/);
   assert.match(styles,/grid-template-columns:repeat\(5,1fr\)/);
   assert.match(styles,/\.mobileNavGroup>div/);
+  assert.match(styles,/\.mobileGroupedMenu>\.mobileNavGroup\{flex:0 0 auto\}/);
 });
 
 test('phase 10-6 scopes database tables per page and shows useful loading feedback', () => {
