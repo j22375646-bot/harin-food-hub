@@ -22,6 +22,11 @@ test('Cafe24와 네이버 옵션 재고를 합산한다', () => {
   assert.equal(naverQuantity({raw_data:{optionCombinations:[{stockQuantity:3},{stockQuantity:7}]}}),10);
 });
 
+test('플랫폼 음수 재고는 판매 가능 수량 0개로 정규화한다', () => {
+  assert.equal(cafe24Quantity({raw_data:{inventory_quantity:-6}}),0);
+  assert.equal(naverQuantity({raw_data:{source_type:'NAVER_COMMERCE_PRODUCT',stockQuantity:-3}}),0);
+});
+
 test('판매자배송과 로켓그로스 재고를 구분해 합산한다', () => {
   const center = buildUnifiedInventoryCenter({
     now:new Date('2026-08-14T06:00:00Z'),
