@@ -39,6 +39,8 @@ const quietMode = process.argv.includes("--quiet");
 const collectorId = String(
   process.env.COUPANG_COLLECTOR_ID || "FIXED_IP_WORKER",
 ).trim();
+const workerStartedAt = new Date().toISOString();
+let verifiedSourceIp = null;
 fs.mkdirSync(path.dirname(logPath), { recursive: true });
 
 function safeMessage(error) {
@@ -90,7 +92,34 @@ async function assertAllowedSourceIp() {
       `Coupang source IP mismatch: actual=${actual} expected=${expected}`,
     );
   log(`SOURCE_IP_VERIFIED ip=${actual} collector=${collectorId}`);
+  verifiedSourceIp = actual;
   return actual;
+}
+
+async function writeHeartbeat(db, values = {}) {
+  const now = new Date().toISOString();
+  const row = {
+    worker_id: collectorId,
+    service_name: "harin-coupang-worker",
+    collector: collectorId,
+    status: values.status || "ONLINE",
+    source_ip: verifiedSourceIp,
+    current_job_type: values.currentJobType || null,
+    current_job_id: values.currentJobId || null,
+    started_at: workerStartedAt,
+    last_seen_at: now,
+    last_success_at: values.success ? now : undefined,
+    last_error: values.error ? safeMessage(values.error) : null,
+    metadata: { watch_mode: watchMode, node: process.version },
+    updated_at: now,
+  };
+  if (row.last_success_at === undefined) delete row.last_success_at;
+  try {
+    const result = await db.from("worker_heartbeats").upsert(row, { onConflict: "worker_id" });
+    if (result.error) throw result.error;
+  } catch (error) {
+    log(`HEARTBEAT_FAILED ${safeMessage(error)}`);
+  }
 }
 
 function scheduleRetry(db, retryAt) {
@@ -133,6 +162,7 @@ async function claimNext(db) {
 
 async function processRequest(db, request) {
   log(`START ${request.request_type} ${request.id}`);
+  await writeHeartbeat(db, { status: "BUSY", currentJobType: request.request_type, currentJobId: request.id });
   try {
     const result =
       request.request_type === "RG_INVENTORY"
@@ -154,6 +184,7 @@ async function processRequest(db, request) {
       })
       .eq("id", request.id);
     if (saved.error) throw saved.error;
+    await writeHeartbeat(db, { status: "ONLINE", success: true });
     log(`SUCCESS ${request.request_type} ${request.id}`);
   } catch (error) {
     const message = safeMessage(error);
@@ -173,14 +204,17 @@ async function processRequest(db, request) {
           : {
               status: "FAILED",
               finished_at: new Date().toISOString(),
+              dead_lettered_at: new Date().toISOString(),
               error_message: message,
             },
       )
       .eq("id", request.id);
     if (retryable) {
+      await writeHeartbeat(db, { status: "ONLINE", error: message });
       scheduleRetry(db, retryAt);
       return log(`RETRY ${request.request_type} ${request.id} at=${retryAt}`);
     }
+    await writeHeartbeat(db, { status: "ERROR", error: message });
     throw error;
   }
 }
@@ -231,6 +265,7 @@ async function expirePendingOperations(db) {
     .update({
       status: "FAILED",
       executed_at: now,
+      dead_lettered_at: now,
       error_message:
         "고정 IP 서버 처리 기한이 지나 안전을 위해 실행하지 않았습니다. 다시 요청해주세요.",
     })
@@ -357,6 +392,7 @@ async function dispatchOperation(
 
 async function processOperationRequest(db, request) {
   log(`OPERATION_START ${request.operation_type} ${request.id}`);
+  await writeHeartbeat(db, { status: "BUSY", currentJobType: request.operation_type, currentJobId: request.id });
   try {
     const payload = operationQueue.open(request.payload);
     const result = await dispatchOperation(
@@ -376,6 +412,7 @@ async function processOperationRequest(db, request) {
       .eq("id", request.id)
       .eq("status", "RUNNING");
     if (saved.error) throw saved.error;
+    await writeHeartbeat(db, { status: "ONLINE", success: true });
     log(`OPERATION_SUCCESS ${request.operation_type} ${request.id}`);
   } catch (error) {
     const message = safeMessage(error);
@@ -385,10 +422,12 @@ async function processOperationRequest(db, request) {
         status: "FAILED",
         error_message: message,
         executed_at: new Date().toISOString(),
+        dead_lettered_at: new Date().toISOString(),
       })
       .eq("id", request.id)
       .eq("status", "RUNNING");
     log(`OPERATION_FAILED ${request.operation_type} ${request.id} ${message}`);
+    await writeHeartbeat(db, { status: "ERROR", error: message });
   }
 }
 
@@ -417,14 +456,13 @@ async function runOnce(db = getSupabase()) {
 }
 
 async function watch(db = getSupabase()) {
+  await writeHeartbeat(db, { status: "ONLINE" });
   await processAllPending(db);
   // Realtime is the fast path. This quiet recovery pass only drains explicitly
   // queued requests if a WebSocket event was missed; it never starts a
   // collection unless a user or the daily scheduler already queued one.
   const keepAlive = setInterval(() => {
-    processAllPending(db).catch((error) =>
-      log(`RECOVERY_FAILED ${safeMessage(error)}`),
-    );
+    writeHeartbeat(db, { status: "ONLINE" }).then(() => processAllPending(db)).catch((error) => log(`RECOVERY_FAILED ${safeMessage(error)}`));
   }, 60 * 1000);
   const channel = db
     .channel("harin-coupang-manual-requests")
@@ -467,6 +505,7 @@ async function watch(db = getSupabase()) {
   const shutdown = async (signal) => {
     log(`STOP ${signal}`);
     clearInterval(keepAlive);
+    await writeHeartbeat(db, { status: "STOPPING" });
     await db.removeChannel(channel).catch(() => {});
     await db.removeChannel(operationChannel).catch(() => {});
     process.exit(0);
@@ -480,7 +519,10 @@ async function watch(db = getSupabase()) {
 async function main() {
   await assertAllowedSourceIp();
   const db = getSupabase();
-  return watchMode ? watch(db) : runOnce(db);
+  await writeHeartbeat(db, { status: "ONLINE" });
+  const result = watchMode ? await watch(db) : await runOnce(db);
+  if (!watchMode) await writeHeartbeat(db, { status: "STOPPING" });
+  return result;
 }
 
 if (require.main === module)
@@ -504,4 +546,5 @@ module.exports = {
   runOnce,
   scheduleRetry,
   watch,
+  writeHeartbeat,
 };

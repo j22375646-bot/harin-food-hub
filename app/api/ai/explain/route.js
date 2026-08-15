@@ -24,7 +24,7 @@ export async function POST(request) {
       snapshot,
       db:supabaseModule.getSupabase(),
       actor:authModule.actor(session),
-      force:body.force===true
+      force:body.force===true&&process.env.OPENAI_FORCE_REANALYSIS_ENABLED==='true'
     });
     return apiSafety.json({ok:true,reused:explained.reused,result:explained.result,record:{id:explained.record?.id||null,status:explained.record?.status||snapshot.data_status,model:explained.record?.model||openaiClient.configuration().model,created_at:explained.record?.created_at||new Date().toISOString()}});
   } catch(error) {

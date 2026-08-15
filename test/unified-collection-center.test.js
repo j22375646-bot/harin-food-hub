@@ -16,7 +16,7 @@ test('세 채널의 연결·수집·다음 예약 시각을 한 상태로 합친
     {platform:'CAFE24',status:'READY',dataMode:'LIVE',calculationStatus:'READY',storedSummary:'10건 주문'},
     {platform:'COUPANG',status:'READY',dataMode:'LIVE',calculationStatus:'READY',storedSummary:'20건 주문'}
   ]}});
-  assert.equal(center.phase,'11-8');
+  assert.equal(center.phase,'13-8');
   assert.equal(center.overall_status,'READY');
   assert.equal(center.summary.ready_channels,3);
   assert.equal(center.next_scheduled_at,'2026-08-15T20:30:00Z');

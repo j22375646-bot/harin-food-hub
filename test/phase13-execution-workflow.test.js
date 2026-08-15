@@ -49,7 +49,7 @@ test('13-7 provides the same structured analysis panel on every workflow page',(
 });
 
 test('13-7 migration allowlists workflow analysis types without opening client access',()=>{
-  const sql=read('supabase/migrations/20260815214500_expand_ai_execution_workflow_pages.sql');
+  const sql=read('supabase/migrations/20260815000442_expand_ai_execution_workflow_pages.sql');
   for(const type of ['PAGE_REPORTS','PAGE_CHANGES','PAGE_VALIDATION','PAGE_EXPERIMENTS'])assert.match(sql,new RegExp(type));
   assert.doesNotMatch(sql,/grant .* anon|grant .* authenticated/i);
 });
