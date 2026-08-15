@@ -47,7 +47,7 @@ function buildExceptions(center={},alerts=[]){
     message:friendlyMessage(item.error_message||item.action?.message||item.connection_summary),
     at:item.last_attempt_at
   }));
-  const failedItems=deadLetters.map(item=>({id:`${item.kind}-${item.id}`,kind:'DEAD_LETTER',tone:'danger',platform:String(item.kind||'').startsWith('EPOST')?'EPOST':item.target||'COUPANG',title:item.title,message:friendlyMessage(item.error),at:item.failed_at,raw:item}));
+  const failedItems=deadLetters.map(item=>({id:`${item.kind}-${item.id}`,kind:'DEAD_LETTER',tone:'danger',platform:/EPOST/i.test(`${item.kind||''} ${item.title||''}`)?'EPOST':item.target||'COUPANG',title:item.title,message:friendlyMessage(item.error),at:item.failed_at,raw:item}));
   const alertItems=(alerts||[]).filter(item=>String(item.status||'OPEN').toUpperCase()==='OPEN').map(item=>({id:`alert-${item.id}`,kind:'ALERT',tone:item.severity==='ERROR'?'danger':'warning',platform:item.platform,title:item.title,message:friendlyMessage(item.message),at:item.created_at}));
   const seen=new Set();
   return [...failedItems,...channelItems,...alertItems].filter(item=>{
