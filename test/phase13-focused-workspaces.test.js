@@ -25,7 +25,7 @@ test('13-6 dashboard renders only the selected focused workspace',()=>{
   assert.match(client,/function KeywordView\(\{naver,workspace='search-terms'\}\)/);
   assert.match(client,/workspace==='diagnosis'/);
   for(const workspace of ['catalog','mappings','costs','profit','offers','ad-targets'])assert.match(client,new RegExp(`workspace==='${workspace}'`));
-  assert.match(client,/13-7 · 실행 흐름 연결/);
+  assert.match(client,/13-8 · 운영 안정성·실패 복구/);
 });
 
 test('13-6 product editing remains sellable-only and cross-workspace actions use routes',()=>{
