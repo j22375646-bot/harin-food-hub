@@ -9,6 +9,7 @@ import { COUPANG_SECTION_HELP, getHubHelp } from '../lib/ui/help-content.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
 import { useStoredState } from './use-hub-preference.js';
 import UnifiedOrdersCenter from './unified-orders-center.js';
+import { HarinIcon } from './_design-system/harin-ui.js';
 
 const ProductGrowthCenter=dynamic(()=>import('./product-growth-center.js'));
 const ProductAdTargetsCenter=dynamic(()=>import('./product-ad-targets-center.js'));
@@ -127,12 +128,12 @@ function SidebarMenu({ groups, view, openGroup, query, onQuery, onOpenGroup, onO
   const hasQuery=Boolean(query.trim());
   const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(query.trim().toLowerCase()))})).filter(group=>group.items.length);
   return <aside className="desktopSidebar" aria-label="허브 사이드바">
-    <div className="sidebarPhase"><span>현재 개발</span><b>13-9 · 모바일·운영 검증</b></div>
+    <div className="sidebarPhase"><span>현재 개발</span><b>14-1 · V8 디자인 기반</b></div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true">⌕</i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴 이름 찾기" /></label>
     <nav aria-label="허브 메뉴">
       {visible.map(group=>{const expanded=hasQuery||openGroup===group.id;return <section className={`sidebarGroup${expanded?' expanded':''}`} key={group.id}>
-        <button type="button" className="sidebarGroupButton" aria-expanded={expanded} aria-controls={`sidebar-group-${group.id}`} onClick={()=>onOpenGroup(expanded&&!hasQuery?null:group.id)}><i>{group.icon}</i><span><b>{group.label}</b><small>{group.description}</small></span>{group.actionCount>0?<em aria-label={`확인할 항목 ${group.actionCount}개`}>{group.actionCount}</em>:null}<strong aria-hidden="true">{expanded?'−':'+'}</strong></button>
-        {expanded?<div className="sidebarItems" id={`sidebar-group-${group.id}`}>{group.items.map(item=><button type="button" key={item.id} className={`sidebarItem${view===item.id?' active':''}`} aria-current={view===item.id?'page':undefined} onPointerEnter={()=>onPrefetch(item.id)} onFocus={()=>onPrefetch(item.id)} onClick={()=>onOpenView(item.id)}><i>{item.icon}</i><span><b>{item.label}</b><small>{item.description}</small></span>{item.badge>0?<em aria-label={`확인할 항목 ${item.badge}개`}>{item.badge}</em>:null}</button>)}</div>:null}
+        <button type="button" className="sidebarGroupButton" aria-expanded={expanded} aria-controls={`sidebar-group-${group.id}`} onClick={()=>onOpenGroup(expanded&&!hasQuery?null:group.id)}><i><HarinIcon name={group.id}/></i><span><b>{group.label}</b><small>{group.description}</small></span>{group.actionCount>0?<em aria-label={`확인할 항목 ${group.actionCount}개`}>{group.actionCount}</em>:null}<strong aria-hidden="true">{expanded?'−':'+'}</strong></button>
+        {expanded?<div className="sidebarItems" id={`sidebar-group-${group.id}`}>{group.items.map(item=><button type="button" key={item.id} className={`sidebarItem${view===item.id?' active':''}`} aria-current={view===item.id?'page':undefined} onPointerEnter={()=>onPrefetch(item.id)} onFocus={()=>onPrefetch(item.id)} onClick={()=>onOpenView(item.id)}><i><HarinIcon name={item.id}/></i><span><b>{item.label}</b><small>{item.description}</small></span>{item.badge>0?<em aria-label={`확인할 항목 ${item.badge}개`}>{item.badge}</em>:null}</button>)}</div>:null}
       </section>})}
       {!visible.length?<p className="sidebarNoResult">찾는 메뉴가 없습니다.</p>:null}
     </nav>
@@ -143,12 +144,12 @@ function MobileMoreMenu({ groups, view, onOpenView, onPrefetch, fontScale, onFon
   const primary=new Set(['main','orders','inventory','notifications']);
   const closeMenu=event=>event.currentTarget.closest('.mobileMoreMenu')?.removeAttribute('open');
   return <details className={`mobileMoreMenu${primary.has(view)?'':' active'}`}>
-    <summary aria-label="전체 메뉴와 화면 설정 열기"><i aria-hidden="true">≡</i><span>더보기</span></summary>
+    <summary aria-label="전체 메뉴와 화면 설정 열기"><i aria-hidden="true"><HarinIcon name="menu"/></i><span>더보기</span></summary>
     <button type="button" className="mobileMenuBackdrop" aria-label="전체 메뉴 닫기" onClick={closeMenu} />
     <div className="mobileGroupedMenu" role="dialog" aria-label="전체 메뉴">
       <header className="mobileMenuPanelHead"><span><b>전체 메뉴</b><small>필요한 업무를 골라 이동하세요.</small></span><button type="button" aria-label="전체 메뉴 닫기" onClick={closeMenu}>×</button></header>
       <section className="mobileViewSettings"><b>화면 설정</b><label><span><strong>글자 크기</strong><small>모든 화면에 바로 적용됩니다.</small></span><select aria-label="모바일 허브 글자 크기" value={fontScale} onChange={event=>onFontScale(event.target.value)}><option value="large">큰 글씨</option><option value="xlarge">더 큰 글씨</option></select></label></section>
-      {groups.map(group=><details className="mobileNavGroup" key={group.id} open={group.items.some(item=>item.id===view)}><summary><i aria-hidden="true">{group.icon}</i><span><b>{group.label}</b><small>{group.description}</small></span><strong aria-hidden="true">⌄</strong></summary><div>{group.items.map(item=><button type="button" key={item.id} className={view===item.id?'active':''} onPointerEnter={()=>onPrefetch(item.id)} onFocus={()=>onPrefetch(item.id)} onClick={event=>{onOpenView(item.id);closeMenu(event);}}><span><b>{item.label}</b><small>{item.description}</small></span>{item.badge>0?<em>{item.badge}</em>:null}</button>)}</div></details>)}
+      {groups.map(group=><details className="mobileNavGroup" key={group.id} open={group.items.some(item=>item.id===view)}><summary><i aria-hidden="true"><HarinIcon name={group.id}/></i><span><b>{group.label}</b><small>{group.description}</small></span><strong aria-hidden="true">⌄</strong></summary><div>{group.items.map(item=><button type="button" key={item.id} className={view===item.id?'active':''} onPointerEnter={()=>onPrefetch(item.id)} onFocus={()=>onPrefetch(item.id)} onClick={event=>{onOpenView(item.id);closeMenu(event);}}><span><b>{item.label}</b><small>{item.description}</small></span>{item.badge>0?<em>{item.badge}</em>:null}</button>)}</div></details>)}
     </div>
   </details>;
 }
@@ -281,7 +282,7 @@ export default function Dashboard({ initialData, initialState }) {
       {view==='experiments' && <><ExecutionWorkflowNav view={view} data={initialData}/><HarinAiPagePanel panel={initialData.aiPagePanels?.experiments}/><ExperimentLab /></>}
       {view==='notifications' && <NotificationCenter reports={reports} />}
     </main>
-    <nav className="mobileBottomNav" aria-label="모바일 주요 메뉴">{['main','orders','inventory','notifications'].map(id=>nav.find(item=>item.id===id)).map(item=><button className={view===item.id?'active':''} onPointerEnter={()=>prefetchView(item.id)} onFocus={()=>prefetchView(item.id)} onClick={()=>openView(item.id)} key={item.id}><i>{item.icon}</i><span>{item.id==='notifications'?'알림':item.label}</span></button>)}<MobileMoreMenu groups={navGroups} view={view} onOpenView={openView} onPrefetch={prefetchView} fontScale={fontScale} onFontScale={setFontScale}/></nav>
+    <nav className="mobileBottomNav" aria-label="모바일 주요 메뉴">{['main','orders','inventory','notifications'].map(id=>nav.find(item=>item.id===id)).map(item=><button className={view===item.id?'active':''} onPointerEnter={()=>prefetchView(item.id)} onFocus={()=>prefetchView(item.id)} onClick={()=>openView(item.id)} key={item.id}><i><HarinIcon name={item.id}/></i><span>{item.id==='notifications'?'알림':item.label}</span></button>)}<MobileMoreMenu groups={navGroups} view={view} onOpenView={openView} onPrefetch={prefetchView} fontScale={fontScale} onFontScale={setFontScale}/></nav>
     <footer>하린식품 광고·매출 통합 관리 허브 <span>·</span> 네이버 + 쿠팡 + Cafe24 + Supabase</footer>
   </div>;
 }

@@ -13,7 +13,7 @@ test('13-7 connects four separate workflow pages with real routes and mobile UI'
   for(const [id,href] of [['reports','/diagnoses'],['changes','/approvals'],['validation','/execution-validation'],['experiments','/ab-tests']]){
     assert.match(client,new RegExp(`id:'${id}',href:'${href.replaceAll('/','\\/')}'`));
   }
-  assert.match(client,/13-9 · 모바일·운영 검증/);
+  assert.match(client,/14-1 · V8 디자인 기반/);
   assert.match(css,/Phase 13-7: diagnosis, approval, validation, and experiment workflow/);
   assert.match(css,/\.executionWorkflow>nav\{display:flex;overflow-x:auto/);
 });
