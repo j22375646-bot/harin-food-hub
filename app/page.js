@@ -86,7 +86,7 @@ function exchangeCaseView(item) {
   };
 }
 
-const SHELL_TABLES = ['sync_logs','alerts'];
+const SHELL_TABLES = ['sync_logs','alerts','worker_heartbeats','coupang_operation_requests','coupang_sync_requests'];
 const VIEW_TABLES = {
   main:[
     'cafe24_orders','cafe24_order_items','cafe24_traffic_daily','cafe24_referrers_daily','cafe24_products',

@@ -31,11 +31,13 @@ test('14-8 exposes channel readiness heartbeat exception inbox and safe retry',(
 test('14-8 adds a compact global live status dock without merging pages',()=>{
   const source=read('app/_reliability/harin-reliability-workbench.js');
   const dashboard=read('app/dashboard-client.js');
+  const page=read('app/page.js');
   assert.match(source,/export function HarinLiveStatusDock/);
   assert.match(source,/운영 신호 바로보기/);
   assert.match(source,/href="\/data-collection"/);
   assert.match(source,/href="\/notifications"/);
   assert.match(dashboard,/HarinLiveStatusDock center=\{initialData\.collectionCenter\}/);
+  assert.match(page,/SHELL_TABLES = \['sync_logs','alerts','worker_heartbeats','coupang_operation_requests','coupang_sync_requests'\]/);
 });
 
 test('14-8 notification inbox supports one hour local snooze and explicit resolution',()=>{
