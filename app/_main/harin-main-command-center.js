@@ -68,8 +68,8 @@ function QuickCommandBar({ daily, onOpen }) {
   return <section className={`mainQuickCommand${focused||query?' open':''}`} aria-label="화면별 빠른 명령">
     <div className="mainQuickSearch">
       <HarinIcon name="search" size={21}/>
-      <input type="search" value={query} onFocus={()=>setFocused(true)} onChange={event=>setQuery(event.target.value)} onKeyDown={event=>{if(event.key==='Enter'&&results[0]){event.preventDefault();run(results[0]);}if(event.key==='Escape'){setFocused(false);setQuery('');}}} placeholder="송장 발급, 재고 위험, 오늘 CS처럼 검색해보세요" aria-label="빠른 명령 검색"/>
-      <kbd>Enter</kbd>
+      <input type="search" value={query} readOnly onFocus={()=>{setFocused(false);window.dispatchEvent(new CustomEvent('harin:open-command'));}} onClick={()=>window.dispatchEvent(new CustomEvent('harin:open-command'))} placeholder="송장 발급, 재고 위험, 오늘 CS처럼 검색해보세요" aria-label="전역 빠른 명령 열기"/>
+      <kbd>Ctrl K</kbd>
     </div>
     <div className="mainQuickSuggestions" aria-label="추천 빠른 명령">
       {QUICK_COMMANDS.slice(0,4).map(item=><button type="button" key={item.id} onClick={()=>run(item)}><HarinIcon name={item.icon} size={17}/><span>{item.title}</span>{counts[item.id]>0?<em>{counts[item.id]}</em>:null}</button>)}

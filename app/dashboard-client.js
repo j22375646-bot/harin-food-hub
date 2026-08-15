@@ -31,6 +31,7 @@ const HarinAnalysisWorkbench=dynamic(()=>import('./_analysis/harin-analysis-work
 const HarinExecutionWorkbench=dynamic(()=>import('./_execution/harin-execution-workbench.js'));
 const HarinReliabilityWorkbench=dynamic(()=>import('./_reliability/harin-reliability-workbench.js'));
 const HarinLiveStatusDock=dynamic(()=>import('./_reliability/harin-reliability-workbench.js').then(module=>module.HarinLiveStatusDock));
+const HarinOwnerWorkspace=dynamic(()=>import('./_workspace/harin-owner-workspace.js'));
 
 const won = value => `${Math.round(Number(value || 0)).toLocaleString('ko-KR')}원`;
 const count = value => Number(value || 0).toLocaleString('ko-KR');
@@ -252,6 +253,7 @@ export default function Dashboard({ initialData, initialState }) {
       {view==='experiments' && <HarinExecutionWorkbench view="experiments" data={initialData} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.experiments}/>}><ExperimentLab /></HarinExecutionWorkbench>}
       {view==='notifications' && <NotificationCenter reports={reports} center={initialData.collectionCenter} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.notifications}/>} />}
     </main>
+    <HarinOwnerWorkspace pageKey={view} pageLabel={navContext.item.label}/>
     <HarinLiveStatusDock center={initialData.collectionCenter} alerts={initialData.alerts} generatedAt={initialData.generatedAt}/>
     <HarinMobileNavigation nav={nav} groups={navGroups} view={view} onOpenView={openView} onPrefetch={prefetchView} fontScale={fontScale} onFontScale={setFontScale}/>
     <footer className="hubFooter">하린식품 광고·매출 통합 관리 허브 <span>·</span> 네이버 + 쿠팡 + Cafe24 + Supabase</footer>
@@ -459,15 +461,14 @@ function VersionedReportList({ reports }) {
 function NotificationCenter({ reports, center, aiPanel }) {
   const [data,setData]=useState(null),[form,setForm]=useState(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(''),[message,setMessage]=useState('');
   const [filter,setFilter]=useStoredState('filter:notifications','OPEN',['OPEN','SNOOZED','ACKNOWLEDGED','RESOLVED','ALL']);
-  const [snoozed,setSnoozed]=useStoredState('notifications:snoozed',{});
   async function load(){setLoading(true);try{const response=await fetch('/api/notifications/settings');const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'알림센터 조회 실패');setData(result);setForm(result.settings);}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setLoading(false);}}
   useEffect(()=>{load();},[]);
   async function save(event){event.preventDefault();setBusy('SAVE');setMessage('설정을 저장하는 중입니다.');try{const response=await fetch('/api/notifications/settings',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(form)});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'저장 실패');setForm(result.settings);setData(current=>({...current,settings:result.settings}));setMessage('알림 설정을 저장했습니다.');}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setBusy('');}}
   async function send(action,reportId){setBusy(action);setMessage('이메일을 발송하는 중입니다.');try{const response=await fetch('/api/notifications/send',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action,report_id:reportId})});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.delivery?.reason||result.delivery?.error||result.error||'발송 실패');setMessage('이메일 발송이 완료되었습니다.');await load();}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setBusy('');}}
-  async function updateAlert(id,action){setBusy(id);try{const response=await fetch(`/api/alerts/${id}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action})});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'처리 실패');setSnoozed(current=>{const next={...current};delete next[id];return next;});await load();}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setBusy('');}}
-  function snoozeAlert(id){setSnoozed(current=>({...current,[id]:Date.now()+60*60*1000}));setMessage('알림을 1시간 동안 숨겼습니다. 숨긴 알림 탭에서 바로 확인할 수 있어요.');}
+  async function updateAlert(id,action){setBusy(id);try{const response=await fetch(`/api/alerts/${id}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action})});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'처리 실패');await load();return true;}catch(error){setMessage(`확인 필요 · ${error.message}`);return false;}finally{setBusy('');}}
+  async function snoozeAlert(id){if(await updateAlert(id,'SNOOZE'))setMessage('알림을 1시간 동안 숨겼습니다. 휴대폰과 PC에 같은 상태로 보입니다.');}
   if(loading&&!data)return <section className="notificationLoading">알림센터를 불러오는 중입니다…</section>;
-  const alerts=data?.alerts||[],deliveries=data?.deliveries||[],now=Date.now(),isSnoozed=item=>Number(snoozed[item.id]||0)>now;
+  const alerts=data?.alerts||[],deliveries=data?.deliveries||[],now=Date.now(),isSnoozed=item=>new Date(item.snoozed_until||0).getTime()>now;
   const shown=filter==='ALL'?alerts:filter==='SNOOZED'?alerts.filter(item=>item.status==='OPEN'&&isSnoozed(item)):alerts.filter(item=>item.status===filter&&!isSnoozed(item)),latest=reports.find(item=>item.platform==='ALL'&&item.is_latest)||reports.find(item=>item.is_latest)||reports[0];
   const openCount=alerts.filter(item=>item.status==='OPEN'&&!isSnoozed(item)).length;
   return <HarinReliabilityWorkbench mode="notifications" center={center} alerts={alerts.filter(item=>!isSnoozed(item))} deliveries={deliveries} primaryLabel="최신 보고서 발송" onPrimary={()=>latest&&send('REPORT',latest.id)} primaryBusy={Boolean(busy)||!latest} aiPanel={aiPanel}>

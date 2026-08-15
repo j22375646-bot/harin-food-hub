@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { HarinIcon } from './_design-system/harin-icon.js';
 
 const STAGE_LABELS={PAID:'결제완료',PREPARING:'준비중',READY_TO_SHIP:'출고대기',SHIPPING:'배송중',DELIVERED:'배송완료'};
@@ -358,6 +358,7 @@ export default function UnifiedOrdersCenter({ center, children, aiPanel }) {
   const [clock,setClock]=useState(null);
   const [scanQuery,setScanQuery]=useState('');
   const [scanMessage,setScanMessage]=useState('');
+  const scanInputRef=useRef(null);
   const workspaceCounts=useMemo(()=>Object.fromEntries(ORDER_WORKSPACES.map(item=>[item.id,currentCenter.orders.filter(order=>matchesOrderWorkspace(order,item.id,invoiceDrafts,shippingActionResults,trackingStates)).length])),[currentCenter.orders,invoiceDrafts,shippingActionResults,trackingStates]);
   const workspaceOrders=useMemo(()=>currentCenter.orders.filter(order=>matchesOrderWorkspace(order,workspace,invoiceDrafts,shippingActionResults,trackingStates)),[currentCenter.orders,workspace,invoiceDrafts,shippingActionResults,trackingStates]);
   const visible=useMemo(()=>workspaceOrders.filter(order=>{
@@ -401,6 +402,7 @@ export default function UnifiedOrdersCenter({ center, children, aiPanel }) {
     }
   }
   useEffect(()=>setShowCount(20),[workspace,platform,stage,query,startDate,endDate,actionOnly,timingOnly]);
+  useEffect(()=>{const focus=new URLSearchParams(window.location.search).get('focus');if(focus==='epost')openWorkspace('EPOST');if(focus==='scan')requestAnimationFrame(()=>scanInputRef.current?.focus());},[]);
   useEffect(()=>{setClock(Date.now());const timer=window.setInterval(()=>setClock(Date.now()),60000);return()=>window.clearInterval(timer);},[]);
   useEffect(()=>{
     setCurrentCenter(previous=>{
@@ -440,7 +442,7 @@ export default function UnifiedOrdersCenter({ center, children, aiPanel }) {
   function locateScannedOrder(event){event.preventDefault();const needle=scanQuery.replace(/\s/g,'').toLowerCase();if(!needle)return;const match=currentCenter.orders.find(order=>[order.hubOrderId,order.externalOrderId,order.invoiceNumber,invoiceDrafts[order.hubOrderId]].some(value=>String(value||'').replace(/\s/g,'').toLowerCase()===needle));if(!match){setScanMessage('일치하는 주문이나 송장번호를 찾지 못했습니다.');return;}openWorkspace(match.invoiceNumber?'IN_TRANSIT':'ACTIVE');setQuery(match.hubOrderId);if(match.shippingEligible)selectOrder(match,true);setScanMessage(`${match.channelLabel} 주문을 찾았습니다. 해당 카드만 표시합니다.`);setScanQuery('');}
   return <section className="unifiedOrdersCenter">
     <section className="unifiedOrdersHero"><div className="operationsHeroCopy"><span>14-4 · ORDER &amp; SHIPPING WORKBENCH</span><div className="operationsHeroTitle"><i><HarinIcon name="truck" size={28}/></i><h1>주문·배송 작업센터</h1></div><p>판매자배송 주문만 실제 출고 순서로 처리하고, 로켓그로스와 완료 이력은 작업목록에서 분리합니다.</p></div><div className="ordersHeroMetrics"><span><small>현재 처리할 주문</small><b>{count(workspaceCounts.ACTIVE)}건</b></span><span><small>송장 발급 대기</small><b>{count(workspaceCounts.EPOST)}건</b></span><span><small>배송중</small><b>{count(workspaceCounts.IN_TRANSIT)}건</b></span><span><small>재시도</small><b>{count(workspaceCounts.RETRY)}건</b></span></div></section>
-    <section className="orderFocusRail" aria-label="오늘의 출고 집중 항목"><button type="button" className={delayedCount?'danger':''} onClick={()=>{openWorkspace('ACTIVE');setTimingOnly('DELAYED');}}><HarinIcon name="alerts" size={22}/><span><small>먼저 확인</small><b>배송지연 {count(delayedCount)}건</b></span><em>보기</em></button><button type="button" onClick={()=>{openWorkspace('ACTIVE');setTimingOnly('SAME_DAY');}}><HarinIcon name="truck" size={22}/><span><small>{cutoffLabel}</small><b>당일출고 {count(sameDayCount)}건</b></span><em>보기</em></button><form className="orderScanCommand" onSubmit={locateScannedOrder}><HarinIcon name="scan" size={22}/><label><span>바코드·송장 빠른 찾기</span><input value={scanQuery} onChange={event=>setScanQuery(event.target.value)} placeholder="주문번호 또는 13자리 송장" autoCapitalize="none" enterKeyHint="search"/></label><button type="submit">찾기</button></form></section>
+    <section className="orderFocusRail" aria-label="오늘의 출고 집중 항목"><button type="button" className={delayedCount?'danger':''} onClick={()=>{openWorkspace('ACTIVE');setTimingOnly('DELAYED');}}><HarinIcon name="alerts" size={22}/><span><small>먼저 확인</small><b>배송지연 {count(delayedCount)}건</b></span><em>보기</em></button><button type="button" onClick={()=>{openWorkspace('ACTIVE');setTimingOnly('SAME_DAY');}}><HarinIcon name="truck" size={22}/><span><small>{cutoffLabel}</small><b>당일출고 {count(sameDayCount)}건</b></span><em>보기</em></button><form className="orderScanCommand" onSubmit={locateScannedOrder}><HarinIcon name="scan" size={22}/><label><span>바코드·송장 빠른 찾기</span><input ref={scanInputRef} inputMode="search" value={scanQuery} onChange={event=>setScanQuery(event.target.value)} placeholder="주문번호 또는 13자리 송장" autoCapitalize="none" autoComplete="off" enterKeyHint="search"/><small>카메라 없이 직접 입력하거나 USB·블루투스 바코드 리더를 쓰세요.</small></label><button type="submit">찾기</button></form></section>
     {scanMessage?<p className="orderScanMessage" role="status">{scanMessage}</p>:null}
     <section className="ordersSyncOverview"><article className={`liveOrdersStatus ${liveState.status.toLowerCase()}`} aria-live="polite"><div><span className="livePulse"/><span><b>{liveState.status==='LOADING'?'전체 플랫폼 수집 중':liveState.status==='READY'?'최신 상태 수집 완료':liveState.status==='PARTIAL'?'일부 채널 확인 필요':liveState.status==='FAILED'?'최신 상태 수집 실패':'1시간 자동수집'}</b><small>{liveState.message} · 작업화면 {currentCenter.summary.windowStart}~{currentCenter.summary.windowEnd}</small></span></div><button type="button" onClick={refreshLiveOrders} disabled={liveState.status==='LOADING'}>{liveState.status==='LOADING'?'수집 중…':'전체 플랫폼 수동수집'}</button></article><div className="unifiedChannelStates">{currentCenter.channels.map(channel=><ChannelState channel={channel} key={channel.platform}/>)}</div></section>
     <details className="unifiedOrdersHelp"><summary><span><b>이 화면은 어떻게 쓰나요?</b><small>처음 볼 때만 열어보세요. 실제 출고 순서대로 설명합니다.</small></span><em>열기</em></summary><div><p><b>1. 현재 주문</b>에서 오늘 포장할 판매자배송 주문을 고릅니다.</p><p><b>2. 우체국 발급</b>에서 선택 주문의 송장번호를 자동으로 받습니다.</p><p><b>3. 쇼핑몰 송장등록</b>에서 발급된 번호가 채널에 반영됐는지 확인합니다.</p><p><b>예시:</b> 등록이 실패해도 송장번호는 없어지지 않습니다. ‘재시도’에서 채널 전송만 다시 누르면 됩니다.</p></div></details>

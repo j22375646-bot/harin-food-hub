@@ -40,10 +40,14 @@ test('14-8 adds a compact global live status dock without merging pages',()=>{
   assert.match(page,/SHELL_TABLES = \['sync_logs','alerts','worker_heartbeats','coupang_operation_requests','coupang_sync_requests'\]/);
 });
 
-test('14-8 notification inbox supports one hour local snooze and explicit resolution',()=>{
+test('14-9 promotes notification snooze to cross-device server state and keeps explicit resolution',()=>{
   const dashboard=read('app/dashboard-client.js');
-  assert.match(dashboard,/notifications:snoozed/);
-  assert.match(dashboard,/60\*60\*1000/);
+  const route=read('app/api/alerts/[id]/route.js');
+  const migration=read('supabase/migrations/20260816150000_add_owner_workspace.sql');
+  assert.doesNotMatch(dashboard,/notifications:snoozed|setSnoozed/);
+  assert.match(dashboard,/item\.snoozed_until/);
+  assert.match(route,/action==='SNOOZE'/);
+  assert.match(migration,/snoozed_until timestamptz/);
   assert.match(dashboard,/1시간 숨김/);
   assert.match(dashboard,/updateAlert\(item\.id,'RESOLVE'\)/);
 });

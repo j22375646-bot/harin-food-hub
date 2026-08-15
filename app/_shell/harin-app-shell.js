@@ -7,6 +7,7 @@ import { HarinIcon } from '../_design-system/harin-icon.js';
 
 const PRIMARY_MOBILE_VIEWS = ['main','orders','inventory','notifications'];
 const PRIMARY_MOBILE_VIEW_SET = new Set(PRIMARY_MOBILE_VIEWS);
+const SHELL_FOUNDATION = '14-2 · 셸·내비게이션';
 
 export function HarinTopbar({
   context,
@@ -39,8 +40,8 @@ export function HarinSidebar({ groups, view, openGroup, query, onQuery, onOpenGr
   return <aside className="desktopSidebar v8Sidebar" aria-label="허브 사이드바">
     <div className="sidebarPhase">
       <span><HarinIcon name="sparkles"/><em>V8 REMODEL</em></span>
-      <b>14-2 · 셸·내비게이션</b>
-      <small>업무 화면은 그대로 두고 이동 구조를 정리하고 있어요.</small>
+      <b>14-9 · 빠른 업무 공간</b>
+      <small>명령·메모·저장 화면을 어느 페이지에서나 바로 열어요.</small>
     </div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true"><HarinIcon name="search"/></i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴·업무 찾기" /></label>
     <div className="sidebarMenuHeading"><span>운영 메뉴</span>{actionCount>0?<b>확인할 일 {actionCount}건</b>:<b>새 알림 없음</b>}</div>
