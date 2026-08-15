@@ -26,6 +26,7 @@ const UnifiedProductOperationsCenter=dynamic(()=>import('./unified-product-opera
 const UnifiedInventoryOperationsCenter=dynamic(()=>import('./unified-inventory-operations-center.js'));
 const UnifiedSettlementOperationsCenter=dynamic(()=>import('./unified-settlement-operations-center.js'));
 const UnifiedCollectionOperationsCenter=dynamic(()=>import('./unified-collection-operations-center.js'));
+const Phase14MainCommandCenter=dynamic(()=>import('./_main/harin-main-command-center.js'));
 
 const won = value => `${Math.round(Number(value || 0)).toLocaleString('ko-KR')}원`;
 const count = value => Number(value || 0).toLocaleString('ko-KR');
@@ -36,7 +37,7 @@ const dateLabel = value => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Se
 const platformReportName = { all: 'ALL', naver: 'NAVER', coupang: 'COUPANG', cafe24: 'CAFE24' };
 const platformLabel = { all: '전체', naver: '네이버', coupang: '쿠팡', cafe24: 'Cafe24' };
 const channelScopedViews = new Set(['insight','keyword','product']);
-const financialContextViews = new Set(['main','insight','keyword','product']);
+const financialContextViews = new Set(['insight','keyword','product']);
 async function coupangFixedIpResult(response) {
   const initial = await response.json();
   if (response.status !== 202 || !initial.request?.id) return initial;
@@ -214,14 +215,14 @@ export default function Dashboard({ initialData, initialState }) {
       </section>}
       <HarinFocusedWorkspaceNav view={view} workspace={workspace} platform={platform} period={period} product={selectedProduct}/>
       {view!=='main'&&<DataStateBar data={initialData}/>}
-      <DataHealthNotice dataHealth={initialData.dataHealth} platform={platform}/>
+      {view!=='main'&&<DataHealthNotice dataHealth={initialData.dataHealth} platform={platform}/>}
       <HelpBox key={view} help={getHubHelp(view)} persistKey={view}/>
       {financialContextViews.has(view)&&<FinancialTrustBanner trust={initialData.financialTrust} onOpenProduct={()=>navigate({platform:'all',view:'product',workspace:'costs',product:'ALL'})}/>}
       {syncMessage && <div className="syncToast">{syncMessage}</div>}
 
       {channelUnavailable&&['insight','keyword','product'].includes(view)&&<ChannelUnavailable health={selectedHealth} onOpenCollection={()=>openView('collection')}/>}
-      {view==='main' && platform==='all' && !channelUnavailable && <SalesCommandCenter center={initialData.salesCommandCenter} onOpen={item=>{const target=String(item.platform||'ALL').toLowerCase();navigate({platform:['naver','coupang','cafe24'].includes(target)?target:'all',view:item.view||'main',product:'ALL',period:'DAY'});}} onOpenTargets={()=>{const detail=document.getElementById('monthly-target-details');if(detail){detail.open=true;detail.scrollIntoView({behavior:'smooth',block:'start'});}}}/>}
-      {view==='main' && platform==='all' && !channelUnavailable && <HarinAiPagePanel panel={initialData.aiPagePanels?.main}/>}
+      {view==='main' && platform==='all' && !channelUnavailable && <Phase14MainCommandCenter center={initialData.salesCommandCenter} onOpen={item=>{const target=String(item.platform||'ALL').toLowerCase();navigate({platform:['naver','coupang','cafe24'].includes(target)?target:'all',view:item.view||'main',product:'ALL',period:'DAY'});}} onOpenTargets={()=>{const detail=document.getElementById('monthly-target-details');if(detail){detail.open=true;detail.scrollIntoView({behavior:'smooth',block:'start'});}}}/>}
+      {view==='main' && platform==='all' && !channelUnavailable && <div className="mainAiSlot"><HarinAiPagePanel panel={initialData.aiPagePanels?.main}/></div>}
       {view==='main' && platform==='all' && !channelUnavailable && <details className="commandEvidence" id="monthly-target-details"><summary><span><b>목표 설정·계산 근거 보기</b><small>월 목표를 바꾸거나 숫자의 출처를 확인할 때만 열어보세요.</small></span><em>열기</em></summary><div><BusinessPacingPanel platform={platform} pacing={initialData.pacing}/><MetricProvenanceStrip snapshots={initialData.metricSnapshots||[]}/></div></details>}
       {view==='collection' && <CollectionView syncs={syncs} products={products} kpis={kpis} runSync={runSync} syncing={syncing} naver={initialData.naver} coupang={initialData.coupang} automationRuns={initialData.automationRuns} qualityChecks={initialData.qualityChecks} alerts={initialData.alerts} dataHealth={initialData.dataHealth} channelConnections={initialData.channelConnections} collectionCenter={initialData.collectionCenter} />}
       {view==='insight' && workspace==='overview' && !channelUnavailable && <><DecisionOverview key={`decision-${platform}`} platform={platform} reports={reports} platformEvents={initialData.platformEvents||[]}/><HarinAiPagePanel panel={initialData.aiPagePanels?.insight}>{(platform==='all'||platform==='naver')?<HarinAiFoundation foundation={initialData.aiFoundation}/>:null}</HarinAiPagePanel>{platform==='all'?<ProfitabilitySnapshot reports={reports}/>:null}</>}

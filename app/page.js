@@ -733,43 +733,6 @@ async function getDashboardData(state) {
     coupangProducts:coupangProductPerformance,
     asOf:todayKey
   });
-  const salesCommandCenter = salesCommandCenterModule.buildSalesCommandCenter({
-    pacing,
-    priorityCenter,
-    dataHealth,
-    productSignals,
-    profitability:trustedProfitability,
-    financialTrust
-  });
-  const aiPagePanels=aiPagePanelsModule.buildAiPagePanels({
-    dataHealth,
-    priorityCenter,
-    salesCommandCenter,
-    productOperations,
-    unifiedInventory,
-    unifiedSettlement,
-    searchTermCenter:naverSearchTermCenter,
-    reportLearningHistory,
-    retentionValidation,
-    experiments:phase7ExperimentsResult.data||[],
-    aiConfiguration,
-    generatedAt,
-    period:kstScheduleModule.kstDateKey(generatedAt)
-  });
-  for(const [pageKey,panel] of Object.entries(aiPagePanels)){
-    const preview=aiPageResultsModule.buildPagePreview({
-      page:pageKey,
-      period:panel.period,
-      generatedAt,
-      dataStatus:panel.data_status,
-      metrics:panel.metrics,
-      panel
-    });
-    panel.preview_result=preview.result;
-    panel.preview_formula_version=preview.snapshot.formula_version;
-    panel.snapshot_token=authModule.signAiSnapshot(preview.snapshot);
-    panel.latest_result=latestAiPageResults[pageKey]||null;
-  }
   const cafe24LatestSync = (syncResult.data || []).find(item=>item.platform==='CAFE24') || null;
   const coupangLatestSync = (syncResult.data || []).find(item=>item.platform==='COUPANG') || null;
   const cafe24Dates = orders.map(item=>dateOnly(item.order_date)).filter(Boolean).sort();
@@ -848,6 +811,49 @@ async function getDashboardData(state) {
       .map(item=>item.platform))],
     operationAudits:csOperationAudits, channelConnections:channelConnections.channels || []
   });
+  const salesCommandCenter = salesCommandCenterModule.buildSalesCommandCenter({
+    pacing,
+    priorityCenter,
+    dataHealth,
+    productSignals,
+    profitability:trustedProfitability,
+    financialTrust,
+    unifiedOrders,
+    customerService,
+    unifiedInventory,
+    reliabilityCenter,
+    alerts:alertsResult.data || [],
+    now:generatedAt
+  });
+  const aiPagePanels=aiPagePanelsModule.buildAiPagePanels({
+    dataHealth,
+    priorityCenter,
+    salesCommandCenter,
+    productOperations,
+    unifiedInventory,
+    unifiedSettlement,
+    searchTermCenter:naverSearchTermCenter,
+    reportLearningHistory,
+    retentionValidation,
+    experiments:phase7ExperimentsResult.data||[],
+    aiConfiguration,
+    generatedAt,
+    period:kstScheduleModule.kstDateKey(generatedAt)
+  });
+  for(const [pageKey,panel] of Object.entries(aiPagePanels)){
+    const preview=aiPageResultsModule.buildPagePreview({
+      page:pageKey,
+      period:panel.period,
+      generatedAt,
+      dataStatus:panel.data_status,
+      metrics:panel.metrics,
+      panel
+    });
+    panel.preview_result=preview.result;
+    panel.preview_formula_version=preview.snapshot.formula_version;
+    panel.snapshot_token=authModule.signAiSnapshot(preview.snapshot);
+    panel.latest_result=latestAiPageResults[pageKey]||null;
+  }
   return {
     loadedView:view,
     loadedWorkspace:state?.workspace||null,

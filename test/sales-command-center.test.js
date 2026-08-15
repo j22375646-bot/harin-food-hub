@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildProductSignals, targetLikelihood, buildCashflow, buildSalesCommandCenter } = require('../lib/dashboard/sales-command-center.js');
+const { buildProductSignals, targetLikelihood, buildCashflow, buildSmartSchedule, buildDailyOperations, buildSalesCommandCenter } = require('../lib/dashboard/sales-command-center.js');
 
 test('sales command center exposes the six owner decision metrics', () => {
   const result = buildSalesCommandCenter({
@@ -26,6 +26,36 @@ test('unavailable pacing data is not rendered as zero revenue', () => {
   assert.equal(result.metrics.forecast, null);
   assert.equal(result.likelihood.code, 'CHECK_REQUIRED');
   assert.equal(result.cashflow.expectedInflow, null);
+});
+
+test('daily command center deduplicates operational tasks and keeps exceptions separate', () => {
+  const daily=buildDailyOperations({
+    now:'2026-08-15T05:30:00.000Z',
+    unifiedOrders:{ orders:[{hubOrderId:'ORDER-1',actionRequired:true},{hubOrderId:'ORDER-1',actionRequired:true},{hubOrderId:'DONE',actionRequired:false}] },
+    customerService:{ active:[{id:'CASE-1'},{id:'CASE-1'}] },
+    unifiedInventory:{ items:[{master_product_id:'P-1',action_required:true},{master_product_id:'P-2',action_required:false}] },
+    alerts:[{id:'A-1',status:'OPEN',severity:'ERROR',title:'수집 오류'},{id:'A-2',status:'RESOLVED'}],
+    priorityCenter:{ items:[
+      {id:'ALERT:A-1',source:'ALERT'},
+      {id:'QUALITY:Q-1',source:'DATA_QUALITY',title:'자료 확인',reason:'오래된 자료',view:'collection'},
+      {id:'ACTION:X-1',source:'ACTION',title:'결정 확인',view:'reports'}
+    ] },
+    reliabilityCenter:{ dead_letters:[{kind:'SYNC',id:'D-1',title:'쿠팡 재수집',error:'실패'}] },
+    dataHealth:{ channels:[{platform:'NAVER',status:'FAILED',storedSummary:'최근 수집 실패'},{platform:'CAFE24',status:'READY'}] }
+  });
+  assert.equal(daily.total,8);
+  assert.deepEqual(Object.fromEntries(daily.groups.map(item=>[item.id,item.count])),{orders:1,cs:1,inventory:1,decisions:1,exceptions:4});
+  assert.equal(daily.exception_total,4);
+  assert.equal(new Set(daily.exceptions.map(item=>item.id)).size,4);
+});
+
+test('smart schedule uses the Seoul 15:00 shipping cutoff', () => {
+  const schedule=buildSmartSchedule('2026-08-15T05:30:00.000Z');
+  assert.equal(schedule.date,'2026-08-15');
+  assert.equal(schedule.cutoff_state,'BEFORE');
+  assert.equal(schedule.cutoff_at,'2026-08-15T15:00:00+09:00');
+  assert.equal(schedule.items.find(item=>item.id==='SHIP').status,'NOW');
+  assert.equal(schedule.items.find(item=>item.id==='REGISTER').status,'UPCOMING');
 });
 
 test('product signals compare current seven days with the previous seven days', () => {
