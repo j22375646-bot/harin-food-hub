@@ -23,6 +23,9 @@ test('14-8 exposes channel readiness heartbeat exception inbox and safe retry',(
   assert.match(source,/GLOBAL EXCEPTION INBOX/);
   assert.match(source,/다시 처리/);
   assert.match(source,/개인정보/);
+  assert.match(source,/function workerHeartbeatReady/);
+  assert.match(source,/EPOST:'우체국'/);
+  assert.match(source,/function friendlyMessage/);
 });
 
 test('14-8 adds a compact global live status dock without merging pages',()=>{
