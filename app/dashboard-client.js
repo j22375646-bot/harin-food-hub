@@ -231,8 +231,8 @@ export default function Dashboard({ initialData, initialState }) {
       {viewIsLoading?<section className="viewLoadingRibbon" role="status"><span/><b>{nav.find(item=>item.id===(pendingView||view))?.label} 화면을 준비하고 있어요</b><small>보던 화면은 그대로 두고 필요한 자료만 빠르게 불러옵니다.</small></section>:null}
       <HarinBreadcrumbBar context={navContext} refreshedLabel={latestRefreshAt?`최근 갱신 ${dateTime(latestRefreshAt)}`:null}/>
       {channelScopedViews.has(view)&&(view!=='product'||workspace==='catalog')&&<section className="platformSwitch" aria-label="플랫폼 선택">
-        {[['all','allDot','전체'],['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡'],['cafe24','cafeDot','Cafe24']].map(([id,dot,label])=><button key={id} className={platform===id?'selected':''} onClick={()=>selectPlatform(id)}><i className={dot}/>{label}</button>)}
-        <span className="periodFilter">최근 7일 기준</span>
+        {(view==='keyword'?[['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡']]:[['all','allDot','전체'],['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡'],['cafe24','cafeDot','Cafe24']]).map(([id,dot,label])=><button key={id} className={platform===id?'selected':''} onClick={()=>selectPlatform(id)}><i className={dot}/>{label}</button>)}
+        <span className="periodFilter">{view==='keyword'?'플랫폼별 분리 운영 · 최근 7일':'최근 7일 기준'}</span>
       </section>}
       <HarinFocusedWorkspaceNav view={view} workspace={workspace} platform={platform} period={period} product={selectedProduct}/>
       {view!=='main'&&<DataStatusPanel data={initialData} platform={platform} onOpenCollection={()=>openView('collection')}/>}
@@ -256,7 +256,7 @@ export default function Dashboard({ initialData, initialState }) {
       {view==='inventory' && (<UnifiedInventoryOperationsCenter center={initialData.unifiedInventory} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.inventory}/>}><CoupangInventoryView coupang={initialData.coupang}/></UnifiedInventoryOperationsCenter>)}
       {view==='settlement' && (<UnifiedSettlementOperationsCenter center={initialData.unifiedSettlement} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.settlement}/>}><CoupangSettlementView coupang={initialData.coupang}/></UnifiedSettlementOperationsCenter>)}
       {view==='keyword' && !channelUnavailable && <HarinAnalysisWorkbench view="keyword" workspace={workspace} platform={platform} data={initialData} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.keyword}/>}>
-        {workspace==='diagnosis'&&(platform==='all'||platform==='naver')?<MarketingDiagnosisCenter diagnosis={initialData.naver?.marketingDiagnosis}/>:null}<PlatformKeywordView key={`keyword-${platform}-${workspace}`} platform={platform} workspace={workspace} data={initialData}/>
+        {workspace==='diagnosis'&&(platform==='all'||platform==='naver')?<MarketingDiagnosisCenter diagnosis={initialData.naver?.marketingDiagnosis}/>:null}{workspace!=='history'?<PlatformKeywordView key={`keyword-${platform}-${workspace}`} platform={platform} workspace={workspace} data={initialData}/>:null}
       </HarinAnalysisWorkbench>}
       {view==='product' && !channelUnavailable && <HarinAnalysisWorkbench view="product" workspace={workspace} platform={platform} data={initialData} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.product}/>}>
         <PlatformProductView key={`product-${platform}-${workspace}`} platform={platform} workspace={workspace} data={initialData}/>

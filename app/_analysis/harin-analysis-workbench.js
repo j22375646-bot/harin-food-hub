@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useStoredState } from '../use-hub-preference.js';
 import { HarinPageAiRegion, HarinPageContent, HarinPageFrame, HarinPageHeader, HarinPageToolbar } from '../_design-system/harin-ui.js';
+import KeywordOperationsTable from './keyword-operations-table.js';
 
 const PLATFORM_LABELS={all:'전체',naver:'네이버',coupang:'쿠팡',cafe24:'Cafe24'};
 const WORKSPACE_META={
@@ -15,8 +16,9 @@ const WORKSPACE_META={
   },
   keyword:{
     'search-terms':['고객이 실제로 검색한 말','등록 키워드와 분리해 고객 검색어의 기회와 낭비를 결정해요.'],
-    registered:['등록 키워드 운영','광고 계정에 등록된 키워드의 성과와 조치 후보를 확인해요.'],
-    diagnosis:['기회·낭비 진단','실제 매출과 원가 안전선을 함께 보고 확장·감액을 판단해요.']
+    registered:['광고 키워드 운영','네이버와 쿠팡을 나눠 각 플랫폼 키워드의 성과와 변경 초안을 관리해요.'],
+    diagnosis:['절감·확대 후보','실제 매출과 원가 안전선을 함께 보고 확장·감액을 판단해요.'],
+    history:['변경 기록·성과검증','승인한 입찰 변경과 실행 이후의 결과를 이어서 확인해요.']
   },
   product:{
     catalog:['판매 상품목록','판매 가능한 상품을 중심으로 채널별 상태를 빠르게 확인해요.'],
@@ -134,17 +136,21 @@ export default function HarinAnalysisWorkbench({view,workspace,platform='all',da
   const reportCount=(data.reports||[]).filter(report=>scopePlatform(report.platform,platform)).length;
   const anomalyCount=(data.alerts||[]).filter(item=>item.source_type==='ANOMALY'&&scopePlatform(item.platform,platform)).length;
   const actualTerms=data.naver?.searchTermCenter?.summary?.total||0;
+  const coupangTerms=(data.coupang?.adKeywordTop?.length||0)+(data.coupang?.adKeywordWaste?.length||0);
+  const keywordMetrics=platform==='coupang'
+    ? [['쿠팡 키워드',`${count(coupangTerms)}개`],['무전환 키워드',`${count(data.coupang?.adKeywordWaste?.length)}개`],['선택 범위','쿠팡 전용']]
+    : [['실제 검색어',`${count(actualTerms)}개`],['무전환 키워드',`${count(data.naver?.keywordWaste?.length)}개`],['선택 범위','네이버 전용']];
   const sellable=(data.products||[]).filter(item=>item.catalog_status==='SELLING').length;
   const profitReady=data.financialTrust?.allowed?.contribution_profit===true;
   const insightMetrics=workspace==='profitability'?[['실제 이익',profitReady?won(data.liveProfitability?.contribution_profit):'판단 보류'],['원가 준비율',percent(data.liveProfitability?.cost_coverage_rate)],['선택 범위',PLATFORM_LABELS[platform]]]:[['저장 보고서',`${count(reportCount)}건`],['열린 이상징후',`${count(anomalyCount)}건`],['선택 범위',PLATFORM_LABELS[platform]]];
-  const heroMetrics=view==='insight'?insightMetrics:view==='keyword'?[['실제 검색어',`${count(actualTerms)}개`],['무전환 키워드',`${count(data.naver?.keywordWaste?.length)}개`],['선택 범위',PLATFORM_LABELS[platform]]]:[['판매중 상품',`${count(sellable)}개`],['채널 연결',`${count(data.productOperations?.summary?.all_channels_connected)}개`],['선택 범위',PLATFORM_LABELS[platform]]];
+  const heroMetrics=view==='insight'?insightMetrics:view==='keyword'?keywordMetrics:[['판매중 상품',`${count(sellable)}개`],['채널 연결',`${count(data.productOperations?.summary?.all_channels_connected)}개`],['선택 범위',PLATFORM_LABELS[platform]]];
   const pageLabel=view==='insight'?'성과 분석':view==='keyword'?'광고 키워드 운영':'상품 성장 운영';
   return <HarinPageFrame kind="analysis" className={`analysisV8 analysisV8-${view}`}>
     <HarinPageHeader className="analysisHero" eyebrow={pageLabel} title={meta[0]} description={meta[1]} icon={view} tone={view==='keyword'?'mint':view==='product'?'amber':'lavender'} note="숫자는 서버 계산 · 자료 부족은 판단 보류 · 플랫폼 변경은 승인 전 실행 안 함" metrics={heroMetrics}/>
     <HarinPageToolbar className="analysisFocusToolbar" label="빠른 작업" description="지금 필요한 분석 위치로 바로 이동해요.">
       <nav className="analysisFocusRail" aria-label="이 화면의 빠른 작업">
         {view==='insight'?<>{INSIGHT_ROUTES.map(([id,label,description],index)=>{const query=platform==='all'?'':`?platform=${platform}`;return <Link className={workspace===id?'active':''} href={`/insights/${id}${query}`} key={id}><i>{index+1}</i><span><small>{label}</small><b>{description}</b></span></Link>;})}</>:null}
-        {view==='keyword'?<><Link href="/keywords/search-terms"><i>⌕</i><span><small>탐색</small><b>실제 검색어 결정</b></span></Link><a href="#keyword-stop-loss"><i>₩</i><span><small>보호</small><b>손실 중지선 확인</b></span></a><a href="#page-ai-analysis"><i>AI</i><span><small>설명</small><b>키워드 AI 분석</b></span></a></>:null}
+        {view==='keyword'?<><Link href="/keywords/registered"><i>▦</i><span><small>운영</small><b>플랫폼별 키워드 표</b></span></Link><Link href="/keywords/search-terms"><i>⌕</i><span><small>탐색</small><b>실제 검색어 결정</b></span></Link><Link href="/keywords/diagnosis"><i>₩</i><span><small>보호</small><b>절감·확대 후보</b></span></Link><Link href="/keywords/history"><i>↗</i><span><small>검증</small><b>변경 기록 보기</b></span></Link></>:null}
         {view==='product'?<><Link href="/products/catalog"><i>□</i><span><small>상품</small><b>판매 가능 목록</b></span></Link><a href="#product-channel-differences"><i>≠</i><span><small>비교</small><b>채널 차이 확인</b></span></a><a href="#page-ai-analysis"><i>AI</i><span><small>설명</small><b>상품 AI 분석</b></span></a></>:null}
       </nav>
     </HarinPageToolbar>
@@ -153,9 +159,12 @@ export default function HarinAnalysisWorkbench({view,workspace,platform='all',da
       {view==='insight'&&workspace==='causes'?<InsightCauseDesk data={data} platform={platform}/>:null}
       {view==='insight'&&workspace==='channels'?<InsightChannelDesk data={data}/>:null}
       {view==='insight'&&workspace==='profitability'?<InsightProfitabilityDesk data={data}/>:null}
-      {view==='keyword'?<KeywordStopLoss data={data}/>:null}
+      {view==='keyword'?<KeywordOperationsTable workspace={workspace} platform={platform} data={data}/>:null}
+      {view==='keyword'&&workspace==='diagnosis'&&platform==='naver'?<KeywordStopLoss data={data}/>:null}
       {view==='product'?<ProductDifferenceDesk data={data}/>:null}
-      {view==='insight'&&children?<details className="analysisDetailDisclosure"><summary><span><b>{workspace==='overview'?'목표·변경 이벤트 상세':workspace==='causes'?'상세 보고서·권고사항':'채널별 상세 보고서'}</b><small>기존 분석 기능은 필요할 때만 펼쳐보세요.</small></span><em>열기</em></summary><div>{children}</div></details>:children}
+      {view==='insight'&&children?<details className="analysisDetailDisclosure"><summary><span><b>{workspace==='overview'?'목표·변경 이벤트 상세':workspace==='causes'?'상세 보고서·권고사항':'채널별 상세 보고서'}</b><small>기존 분석 기능은 필요할 때만 펼쳐보세요.</small></span><em>열기</em></summary><div>{children}</div></details>:null}
+      {view==='keyword'&&children?<details className="analysisDetailDisclosure keywordLegacyDisclosure"><summary><span><b>{workspace==='search-terms'?'검색어 분류·수집 상세':workspace==='registered'?'기존 키워드 갱신·조치 도구':workspace==='diagnosis'?'진단 근거·실행계획 도구':'기존 변경 기록 상세'}</b><small>기존 운영 기능은 삭제하지 않고 필요할 때만 펼치도록 정리했어요.</small></span><em>열기</em></summary><div>{children}</div></details>:null}
+      {view==='product'?children:null}
     </HarinPageContent>
     <HarinPageAiRegion className="analysisAiSlot" id="page-ai-analysis" title={`${pageLabel} AI 분석`}>{aiPanel}</HarinPageAiRegion>
   </HarinPageFrame>;
