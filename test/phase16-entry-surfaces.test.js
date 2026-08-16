@@ -44,3 +44,10 @@ test('16-2 entry motion is pastel, responsive and reduced-motion safe',()=>{
   assert.match(css,/\.routeLoadingOrbit[^}]*animation:v8EntryOrbit/);
   assert.doesNotMatch(css,/#(?:15724f|176d50|1e4e3d|2c6952)/i);
 });
+
+test('16-15 uses one clean circular arrow for the global sync action',()=>{
+  const icons=read('app/_design-system/harin-icon.js');
+  const shell=read('app/_shell/harin-app-shell.js');
+  assert.match(icons,/sync:\s*<><path d="M20 12a8 8 0 1 1-2\.35-5\.65"\/><path d="M20 4v6h-6"\/><\/>/);
+  assert.match(shell,/<HarinIcon name="sync"\/><span>\{syncing\?'동기화 중…':'지금 동기화'\}<\/span>/);
+});

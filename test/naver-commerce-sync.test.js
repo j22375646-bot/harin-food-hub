@@ -20,6 +20,20 @@ test('네이버 상품 응답을 상품센터의 커머스 상품으로 변환�
   assert.equal(rows[0].rawData.source_type,'NAVER_COMMERCE_PRODUCT');
 });
 
+test('네이버 원상품 대표 이미지를 판매상품에 보존한다', () => {
+  const rows = sync.flattenProducts({ contents:[{
+    originProduct:{
+      originProductNo:100,
+      name:'작두콩차 원상품',
+      representativeImage:{url:'https://shop-phinf.pstatic.net/tea.jpg'}
+    },
+    channelProducts:[{ channelProductNo:200, discountedPrice:12900, statusType:'SALE' }]
+  }] }, '2026-08-17T00:00:00.000Z');
+  assert.equal(rows[0].externalProductName,'작두콩차 원상품');
+  assert.equal(rows[0].rawData.originProductNo,100);
+  assert.equal(rows[0].rawData.representativeImage.url,'https://shop-phinf.pstatic.net/tea.jpg');
+});
+
 test('네이버 상품주문 상세를 주문·옵션·배송정보로 분리한다', () => {
   const row = sync.mapOrderDetail({
     order:{ orderId:'N-ORDER-1', orderDate:'2026-08-14T08:00:00+09:00', paymentDate:'2026-08-14T08:01:00+09:00' },

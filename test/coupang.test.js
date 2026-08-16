@@ -78,12 +78,17 @@ test('Coupang operations mappers normalize settlement and budget fields', () => 
   assert.equal(budget.remaining_amount, 38000);
 });
 
-test('Coupang product detail mapper links Rocket Growth item name and price', () => {
-  const rows = map.mapProductDetailItems({ data: { sellerProductId: 10, sellerProductName: '하린식품 차', statusName: '승인완료', items: [{ itemName: '1개', rocketGrowthItemData: { vendorItemId: 20, priceData: { salePrice: 14500 } } }, { itemName: '일반', marketplaceItemData: { vendorItemId: 30 } }] } });
-  assert.equal(rows.length, 1);
+test('Coupang product detail mapper preserves both seller-delivery and Rocket Growth images', () => {
+  const rows = map.mapProductDetailItems({ data: { sellerProductId: 10, sellerProductName: '하린식품 차', statusName: '승인완료', items: [
+    { itemName: '1개', images:[{cdnPath:'//image.coupangcdn.com/rg.jpg'}], rocketGrowthItemData: { vendorItemId: 20, priceData: { salePrice: 14500 } } },
+    { itemName: '일반', images:[{cdnPath:'//image.coupangcdn.com/seller.jpg'}], marketplaceItemData: { vendorItemId: 30 } }
+  ] } });
+  assert.equal(rows.length, 2);
   assert.equal(rows[0].vendor_item_id, '20');
   assert.equal(rows[0].item_name, '하린식품 차 · 1개');
   assert.equal(rows[0].sale_price, 14500);
+  assert.equal(rows[1].vendor_item_id, '30');
+  assert.equal(rows[1].raw_data.images[0].cdnPath,'//image.coupangcdn.com/seller.jpg');
 });
 
 test('Coupang inquiry mapper never stores question or answer text', () => {
