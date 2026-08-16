@@ -1,5 +1,7 @@
 /.env
 /node_modules
+/1260716041210-.next
+/output
 /test
 /server.js
 /server.mjs
