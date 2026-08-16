@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { HarinIcon } from './_design-system/harin-icon.js';
 import { HarinPageAiRegion, HarinPageFrame, HarinPageHeader } from './_design-system/harin-ui.js';
@@ -30,6 +31,7 @@ const money=value=>`${Math.round(Number(value||0)).toLocaleString('ko-KR')}원`;
 const count=value=>Number(value||0).toLocaleString('ko-KR');
 const dateTime=value=>value?new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date(value)):'주문일 확인 필요';
 const postalTracking=value=>String(value||'').replace(/\D/g,'').slice(0,13);
+const productImageLoader=({src})=>src;
 
 function matchesOrderWorkspace(order,workspace,invoices,actions,trackingStates){
   const action=actions[order.hubOrderId];
@@ -101,13 +103,21 @@ function TrackingStatus({ state }) {
   return <details className={`orderTrackingStatus ${tone}`}><summary><span><small>우체국 배송추적</small><b>{state.statusLabel||'배송상태 확인'}</b></span><em>{state.checkedAt?dateTime(state.checkedAt):'확인 대기'}</em></summary><div>{state.error?<p>{state.error}</p>:state.latestEvent?<><b>{state.latestEvent.name||state.latestEvent.resultName||state.statusLabel}</b><span>{[state.latestEvent.postOffice,state.latestEvent.time&&dateTime(state.latestEvent.time)].filter(Boolean).join(' · ')}</span></>:<p>우체국 접수 후 이동 내역이 표시됩니다.</p>}{state.events?.length>1?<ol>{state.events.slice(0,8).map((event,index)=><li key={`${event.time||'event'}-${index}`}><b>{event.name||event.resultName||'배송 처리'}</b><span>{[event.postOffice,event.time&&dateTime(event.time)].filter(Boolean).join(' · ')}</span></li>)}</ol>:null}</div></details>;
 }
 
+function OrderProductImage({ item }) {
+  const [failed,setFailed]=useState(false);
+  const visible=Boolean(item.imageUrl)&&!failed;
+  return <span className={`orderProductImage${visible?' hasImage':' fallback'}`} aria-label={visible?`${item.name} 상품 이미지`:'상품 이미지 준비 중'}>
+    {visible?<Image loader={productImageLoader} unoptimized src={item.imageUrl} alt="" width={72} height={72} sizes="72px" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={()=>setFailed(true)}/>:<HarinIcon name="product" size={26}/>}
+  </span>;
+}
+
 function OrderCard({ order, selected, onSelect, invoiceDraft='', onInvoiceChange, actionState, trackingState }) {
   return <article className={`unifiedOrderCard${order.cancellationRequested?' cancelWarning':''}${order.demo?' demoOrderCard':''}`}>
     {order.cancellationRequested?<div className="orderCancelWarning"><b>출고 멈춤 · 취소/반품 요청 확인</b><span>출고 전에 해당 쇼핑몰에서 요청 상태를 먼저 확인하세요.</span></div>:null}
     <header className="unifiedOrderCardHeader"><div className="orderBadgeGroup"><label className={`shippingSelect${order.shippingEligible?'':' blocked'}`} title={order.shippingBlockedReason||'포장·배송 작업에 선택'}><input type="checkbox" checked={selected} disabled={!order.shippingEligible} onChange={event=>onSelect(order,event.target.checked)}/><span>{order.demo?'샘플':order.shippingEligible?'작업 선택':'선택 불가'}</span></label><span className={`channelBadge ${order.platform.toLowerCase()}`}>{order.channelLabel}</span>{order.platform==='COUPANG'&&order.fulfillment==='SELLER'?<span className="sellerDeliveryBadge">판매자배송</span>:null}{order.fulfillment==='ROCKET_GROWTH'?<span className="fulfillmentBadge">로켓그로스</span>:null}</div><div className="orderStatusGroup"><span className="orderStageBadge">{STAGE_LABELS[order.stage]||'상태 확인'}</span><TimingBadge badge={order.timingBadge}/><b className="orderAmount">{money(order.amount)}</b></div></header>
     <TimingNotice badge={order.timingBadge}/>
     <section><div><span>허브 주문번호</span><b>{order.hubOrderId}</b></div><div><span>쇼핑몰 주문번호</span><b>{order.externalOrderId}</b></div><div><span>주문 시각</span><b>{dateTime(order.orderedAt)}</b></div></section>
-    <div className="unifiedOrderProduct"><div className="orderItemRows">{order.items?.length?order.items.map((item,index)=><div className="orderItemRow" key={`${item.externalItemId||item.name}-${index}`}><span><small>상품명</small><b>{item.name}</b></span><span><small>옵션</small><b>{item.option||'기본 옵션'}</b></span><strong>{count(item.quantity)}개</strong></div>):<p>상품 상세는 다음 수집 때 자동으로 채워집니다.</p>}<em>{(order.packagingInstructions||[]).join(' · ')}</em></div><strong className="orderTotalQuantity">총 {order.quantity?`${count(order.quantity)}개`:'-'}</strong></div>
+    <div className="unifiedOrderProduct"><div className="orderItemRows">{order.items?.length?order.items.map((item,index)=><div className="orderItemRow" key={`${item.externalItemId||item.name}-${index}`}><OrderProductImage item={item}/><span><small>상품명</small><b>{item.name}</b></span><span><small>옵션</small><b>{item.option||'기본 옵션'}</b></span><strong>{count(item.quantity)}개</strong></div>):<p>상품 상세는 다음 수집 때 자동으로 채워집니다.</p>}<em>{(order.packagingInstructions||[]).join(' · ')}</em></div><strong className="orderTotalQuantity">총 {order.quantity?`${count(order.quantity)}개`:'-'}</strong></div>
     <DeliveryInfo order={order}/>
     <InvoiceEntry order={order} value={invoiceDraft} onChange={onInvoiceChange} actionState={actionState}/>
     <TrackingStatus state={trackingState||order.tracking}/>

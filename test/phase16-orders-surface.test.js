@@ -50,3 +50,13 @@ test('16-11 moves registered invoices through ePost waiting and shipping workspa
   assert.match(route,/naverRequestId/);
   assert.match(css,/\.shippingCompletionNotice/);
 });
+
+test('16-12 shows linked product images with a pastel fallback in every order card',()=>{
+  const center=read('app/unified-orders-center.js');
+  const css=read('app/globals.css');
+  assert.match(center,/function OrderProductImage/);
+  assert.match(center,/loading="lazy"/);
+  assert.match(center,/<OrderProductImage item=\{item\}\/?>/);
+  assert.match(css,/\.orderProductImage\{/);
+  assert.match(css,/\.orderProductImage\.fallback:after/);
+});

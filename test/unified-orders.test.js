@@ -286,6 +286,29 @@ test('registered tracking numbers from channel data are retained in unified orde
   assert.equal(coupang.deliveryCompanyCode,'EPOST');
 });
 
+test('주문 상품 이미지 URL은 안전하게 정규화되고 플랫폼 상품 매칭을 따라간다',()=>{
+  const catalog=orders.buildOrderImageCatalog(
+    [{external_product_no:'10',raw_data:{small_image:'//img.cafe24.com/tea.jpg'}}],
+    [
+      {platform:'CAFE24',external_product_id:'10',master_product_id:'MASTER-1',raw_data:{}},
+      {platform:'COUPANG',external_product_id:'CP-20',master_product_id:'MASTER-1',raw_data:{}},
+      {platform:'NAVER',external_product_id:'NV-30',raw_data:{representativeImage:{url:'https://shop-phinf.pstatic.net/naver.jpg'}}}
+    ]
+  );
+  const cafe=orders.attachOrderImages([{external_product_no:'10',product_name:'작두콩차'}],'CAFE24','external_product_no',catalog);
+  const coupang=orders.attachOrderImages([{seller_product_id:'CP-20',product_name:'작두콩차'}],'COUPANG','seller_product_id',catalog);
+  const naver=orders.attachOrderImages([{product_id:'NV-30',product_name:'작두콩차'}],'NAVER','product_id',catalog);
+  assert.equal(cafe[0].image_url,'https://img.cafe24.com/tea.jpg');
+  assert.equal(coupang[0].image_url,'https://img.cafe24.com/tea.jpg');
+  assert.equal(naver[0].image_url,'https://shop-phinf.pstatic.net/naver.jpg');
+  const center=orders.buildUnifiedOrders({
+    cafe24Orders:[{order_id:'IMG-1'}],
+    cafe24OrderItems:[{order_id:'IMG-1',product_name:'작두콩차',quantity:1,image_url:cafe[0].image_url}]
+  });
+  assert.equal(center.orders[0].items[0].imageUrl,'https://img.cafe24.com/tea.jpg');
+  assert.equal(orders.safeProductImage('javascript:alert(1)'),'');
+});
+
 test('registered Cafe24 invoices wait for real ePost movement before entering shipping',()=>{
   const hubOrderId=orders.hubOrderId('CAFE24','C-WAITING');
   const base={

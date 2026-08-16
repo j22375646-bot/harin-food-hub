@@ -5,6 +5,7 @@ import cafe24Client from '../../../../lib/cafe24/client.js';
 import cafe24Config from '../../../../lib/cafe24/config.js';
 import operationQueue from '../../../../lib/coupang/operation-queue.js';
 import unifiedOrdersModule from '../../../../lib/orders/unified-orders.js';
+import shippingLabelModule from '../../../../lib/orders/shipping-label.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -72,10 +73,11 @@ export async function POST(request) {
           const delivery = await cafe24Client.adminGet(cafe24Config.getConfig(), `/orders/${encodeURIComponent(order.externalOrderId)}/receivers`);
           receiver = receiverFromCafe24(delivery.payload || {});
         }
+        const label=shippingLabelModule.shippingLabelForOrder(order);
         const payload = { live:true, order:{
           hubOrderId:order.hubOrderId, platform:order.platform, externalOrderId:order.externalOrderId,
-          shipmentId:order.shipmentId || '', goodsName:(order.items || []).map(item=>text(item.name)).filter(Boolean).join(' 외 '),
-          quantity:(order.items || []).reduce((sum,item)=>sum+Number(item.quantity||0),0)||1,
+          shipmentId:order.shipmentId || '', goodsName:label.goodsName,
+          quantity:label.quantity,
           weight:2, volume:60, receiver
         } };
         const queued = await operationQueue.queueOperation(db, {
