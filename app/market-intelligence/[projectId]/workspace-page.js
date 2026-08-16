@@ -26,7 +26,7 @@ export async function renderMarketWorkspace({projectId,workspace}){
       {label:'선택 상품',value:productName,description:product?.is_active===false?'현재 판매중단':'판매 중 기준상품'},
       {label:'현재 버전',value:`v${project.active_version}`,description:`저장 버전 ${versions.length}개`},
       {label:'프로젝트 상태',value:project.status==='ACTIVE'?'진행 중':'초안',description:'사장님 확인 전'}
-    ]} actions={<HarinButton as={Link} href="/market-intelligence" variant="secondary" icon="product">다른 상품 선택</HarinButton>}/>
+    ]} actions={<HarinButton as="a" href="/market-intelligence" variant="secondary" icon="product">다른 상품 선택</HarinButton>}/>
     <nav className="marketWorkspaceTabs" aria-label="시장·전환 분석 단계">{tabs.map(([id,item])=><Link href={projectsModule.projectHref(project.id,id)} className={workspace===id?'active':''} aria-current={workspace===id?'page':undefined} data-tone={item.tone} key={id}><i>{item.number}</i><HarinPictogram icon={item.icon} tone={item.tone} size={18}/><span><b>{item.label}</b><small>{item.next}</small></span></Link>)}</nav>
     {workspace==='data'?<MarketDataRoom projectId={project.id} productName={productName}/>:<HarinCard className="marketStageEmpty">
       <HarinPictogram icon={stage.icon} tone={stage.tone} size={26}/><div><HarinBadge tone="neutral">{stage.number} · {stage.label}</HarinBadge><h2>{stage.empty}</h2><p>선택한 상품의 프로젝트와 버전 저장 공간은 준비되었습니다. 다음 세부 기능도 이 주소 안에 이어서 연결됩니다.</p></div>

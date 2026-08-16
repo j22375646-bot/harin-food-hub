@@ -66,3 +66,9 @@ test('17-2 renders the real data room with readable mobile layout and separate l
   assert.match(css,/\.marketDataGrid/);
   assert.match(css,/@media\(max-width:700px\)/);
 });
+
+test('17-2 server workspace passes only serializable props to client UI components',()=>{
+  const workspace=read('app/market-intelligence/[projectId]/workspace-page.js');
+  assert.doesNotMatch(workspace,/HarinButton as=\{Link\}/);
+  assert.match(workspace,/HarinButton as="a" href="\/market-intelligence"/);
+});
