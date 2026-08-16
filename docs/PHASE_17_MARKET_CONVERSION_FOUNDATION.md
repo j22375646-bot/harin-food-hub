@@ -1,7 +1,7 @@
 # 17단계 시장·전환·재구매 성장센터 기반
 
 - 기준일: 2026-08-17
-- 현재 단계: 17-0 기능 보존표·골드셋·디자인 기준
+- 현재 단계: 17-2 상품별 비공개 자료실·OCR 검수·Evidence 근거 관리
 - 원칙: 새 성장센터는 기존 운영 기능을 복제하지 않고, 선택한 상품의 시장 근거와 구매 전환 결정을 연결한다.
 
 ## 재사용 가능한 상품 프로젝트
@@ -23,6 +23,15 @@
 | 시장 분석 | `/market-intelligence/[projectId]/market` | 사장님이 승인한 시장범위와 수요 신호 |
 | 경쟁 분석 | `/market-intelligence/[projectId]/competition` | 경쟁 상품, 리뷰 불편, 차별화 근거 |
 | 구매 전환 | `/market-intelligence/[projectId]/conversion` | 장벽, 상세페이지, 구성, 재구매, 실험 연결 |
+
+## 17-2 구현 상태
+
+- 자료 원본은 `market-project-files/{projectId}/{sourceId}` 비공개 경로에 저장한다.
+- PDF·PNG·JPG·WEBP·TXT·MD만 최대 20MB까지 허용한다.
+- TXT·MD는 UTF-8로 추출하고 PDF·이미지는 사장님이 원본과 판독 내용을 함께 확인한다.
+- OCR 근거는 `신뢰도 95% 이상 + 사장님 확인`이 모두 있어야 `VERIFIED`가 된다.
+- 자료·판독·근거는 모두 `project_id`로 격리되고 변경할 때마다 프로젝트 버전을 기록한다.
+- OpenAI와 외부 OCR API는 아직 호출하지 않는다.
 
 ## 기존 기능 보존표
 
