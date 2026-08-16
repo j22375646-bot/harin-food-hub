@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useStoredState } from '../use-hub-preference.js';
+import { HarinIcon } from '../_design-system/harin-icon.js';
 import { HarinPageAiRegion, HarinPageContent, HarinPageFrame, HarinPageHeader, HarinPageToolbar } from '../_design-system/harin-ui.js';
 import KeywordOperationsTable from './keyword-operations-table.js';
 
@@ -149,9 +150,9 @@ export default function HarinAnalysisWorkbench({view,workspace,platform='all',da
     <HarinPageHeader className="analysisHero" eyebrow={pageLabel} title={meta[0]} description={meta[1]} icon={view} tone={view==='keyword'?'mint':view==='product'?'amber':'lavender'} note="숫자는 서버 계산 · 자료 부족은 판단 보류 · 플랫폼 변경은 승인 전 실행 안 함" metrics={heroMetrics}/>
     <HarinPageToolbar className="analysisFocusToolbar" label="빠른 작업" description="지금 필요한 분석 위치로 바로 이동해요.">
       <nav className="analysisFocusRail" aria-label="이 화면의 빠른 작업">
-        {view==='insight'?<>{INSIGHT_ROUTES.map(([id,label,description],index)=>{const query=platform==='all'?'':`?platform=${platform}`;return <Link className={workspace===id?'active':''} href={`/insights/${id}${query}`} key={id}><i>{index+1}</i><span><small>{label}</small><b>{description}</b></span></Link>;})}</>:null}
-        {view==='keyword'?<><Link href="/keywords/registered"><i>▦</i><span><small>운영</small><b>플랫폼별 키워드 표</b></span></Link><Link href="/keywords/search-terms"><i>⌕</i><span><small>탐색</small><b>실제 검색어 결정</b></span></Link><Link href="/keywords/diagnosis"><i>₩</i><span><small>보호</small><b>절감·확대 후보</b></span></Link><Link href="/keywords/history"><i>↗</i><span><small>검증</small><b>변경 기록 보기</b></span></Link></>:null}
-        {view==='product'?<><Link href="/products/catalog"><i>□</i><span><small>상품</small><b>판매 가능 목록</b></span></Link><a href="#product-channel-differences"><i>≠</i><span><small>비교</small><b>채널 차이 확인</b></span></a><a href="#page-ai-analysis"><i>AI</i><span><small>설명</small><b>상품 AI 분석</b></span></a></>:null}
+        {view==='insight'?<>{INSIGHT_ROUTES.map(([id,label,description,icon,tone])=>{const query=platform==='all'?'':`?platform=${platform}`;return <Link className={`${workspace===id?'active ':''}tone-${tone}`.trim()} href={`/insights/${id}${query}`} key={id}><QuickActionIcon name={icon}/><span><small>{label}</small><b>{description}</b></span></Link>;})}</>:null}
+        {view==='keyword'?<>{KEYWORD_QUICK_ACTIONS.map(([id,href,label,description,icon,tone])=><Link className={`${workspace===id?'active ':''}tone-${tone}`.trim()} href={href} key={id}><QuickActionIcon name={icon}/><span><small>{label}</small><b>{description}</b></span></Link>)}</>:null}
+        {view==='product'?<><Link className={`${workspace==='catalog'?'active ':''}tone-amber`.trim()} href="/products/catalog"><QuickActionIcon name="product"/><span><small>상품</small><b>판매 가능 목록</b></span></Link><a className="tone-blue" href="#product-channel-differences"><QuickActionIcon name="link"/><span><small>비교</small><b>채널 차이 확인</b></span></a><a className="tone-lavender" href="#page-ai-analysis"><QuickActionIcon name="ai"/><span><small>설명</small><b>상품 AI 분석</b></span></a></>:null}
       </nav>
     </HarinPageToolbar>
     <HarinPageContent className="analysisPageContent">
@@ -170,11 +171,22 @@ export default function HarinAnalysisWorkbench({view,workspace,platform='all',da
   </HarinPageFrame>;
 }
 
+function QuickActionIcon({name}){
+  return <i aria-hidden="true"><HarinIcon name={name} size={22}/></i>;
+}
+
 const INSIGHT_ROUTES=[
-  ['overview','요약','오늘의 변화'],
-  ['causes','원인','왜 달라졌는지'],
-  ['channels','채널','플랫폼 비교'],
-  ['profitability','수익','실제로 남는 돈']
+  ['overview','요약','오늘의 변화','growth','lavender'],
+  ['causes','원인','왜 달라졌는지','search','blue'],
+  ['channels','채널','플랫폼 비교','store','mint'],
+  ['profitability','수익','실제로 남는 돈','settlement','amber']
+];
+
+const KEYWORD_QUICK_ACTIONS=[
+  ['registered','/keywords/registered','운영','플랫폼별 키워드 표','keyword','blue'],
+  ['search-terms','/keywords/search-terms','탐색','실제 검색어 결정','search','mint'],
+  ['diagnosis','/keywords/diagnosis','보호','절감·확대 후보','shield','amber'],
+  ['history','/keywords/history','검증','변경 기록 보기','growth','lavender']
 ];
 
 function latestReport(reports=[],platform='all'){
