@@ -194,7 +194,7 @@ async function getDashboardData(state) {
       db.from('naver_commerce_settlements').select('settlement_key,settle_basis_start_date,settle_basis_end_date,settle_expect_date,settle_complete_date,settle_amount,pay_settle_amount,commission_settle_amount,benefit_settle_amount,deduction_restore_settle_amount,pay_holdback_amount,difference_settle_amount,updated_at').order('settle_basis_end_date',{ascending:false}).limit(1000)
     ]),
     phase7:Promise.allSettled([
-      db.from('financial_change_requests').select('id,change_type,platform,target_key,status,impact_preview,created_at,executed_at,verified_at,rolled_back_at,verification_result,error_message').order('created_at',{ascending:false}).limit(100),
+      db.from('financial_change_requests').select('id,change_type,platform,target_key,status,before_value,proposed_value,impact_preview,created_at,approved_at,executed_at,verified_at,rolled_back_at,verification_result,error_message').order('created_at',{ascending:false}).limit(100),
       db.from('financial_change_audit_logs').select('id,change_request_id,event_type,from_status,to_status,created_at').order('created_at',{ascending:true}).limit(1000),
       db.from('ab_tests').select('id,name,platform,status,evaluation_status,result_summary,created_at,ab_test_variants(id,entity_id)').order('created_at',{ascending:false}).limit(100)
     ]),

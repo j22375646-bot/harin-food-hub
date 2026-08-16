@@ -41,10 +41,40 @@ test('15-4 renders a responsive table, mobile cards, drafts and a detail panel',
   assert.match(component,/네이버와 쿠팡은 서로 섞지 않고/);
   assert.match(component,/추천가 채우기/);
   assert.match(component,/변경 전 검토/);
-  assert.match(component,/실제 반영은 15-5 승인 단계/);
-  assert.doesNotMatch(component,/fetch\(/);
+  assert.match(component,/아직 네이버에는 반영되지 않습니다/);
   assert.match(dashboard,/플랫폼별 분리 운영/);
   assert.match(css,/\.keywordOpsTable/);
   assert.match(css,/\.keywordOpsMobileAction/);
   assert.match(css,/content-visibility:auto/);
+});
+
+test('15-5 creates Naver approval previews only and never routes Coupang through the writer',()=>{
+  const component=fs.readFileSync('app/_analysis/keyword-operations-table.js','utf8');
+  const writer=fs.readFileSync('lib/naver/bid-execution.js','utf8');
+  assert.match(component,/platform!==['"]naver['"]/);
+  assert.match(component,/fetch\(['"]\/api\/naver\/bid-proposals['"]/);
+  assert.match(component,/승인안 생성/);
+  assert.match(component,/사장님 승인/);
+  assert.match(component,/현재값 재조회/);
+  assert.match(component,/쿠팡 항목은 이 흐름에 들어오지 않으며 WING 수동 적용/);
+  assert.doesNotMatch(component,/\/api\/financial-changes\/\$\{/);
+  assert.doesNotMatch(component,/\/api\/coupang\//);
+  assert.match(writer,/await fetchKeyword\(request\.target_key, api\)/);
+  assert.match(writer,/const observed = await fetchKeyword\(live\.nccKeywordId, api\)/);
+  assert.match(writer,/NAVER_BID_VERIFY_FAILED/);
+});
+
+test('15-5 history uses financial change requests and preserves live verification results',()=>{
+  const change={id:'change-1',change_type:'NAVER_BID',platform:'NAVER',target_key:'nkw-1',status:'VERIFIED',before_value:{values:{bid_amount:320}},proposed_value:{values:{bid_amount:290}},impact_preview:{metadata:{keyword:'작두콩차',product_target:{name:'작두콩차 티백'}}},verification_result:{actual:{values:{bid_amount:290}}},created_at:'2026-08-16T00:00:00Z',verified_at:'2026-08-16T00:10:00Z'};
+  const naver=operations.normalizeKeywordRows({financialChanges:[change],workspace:'history',platform:'naver'});
+  const coupang=operations.normalizeKeywordRows({financialChanges:[change],workspace:'history',platform:'coupang'});
+  assert.equal(naver.length,1);
+  assert.equal(naver[0].currentBid,320);
+  assert.equal(naver[0].recommendedBid,290);
+  assert.equal(naver[0].observedBid,290);
+  assert.equal(naver[0].status,'VERIFIED');
+  assert.equal(coupang.length,0);
+  const page=fs.readFileSync('app/page.js','utf8');
+  assert.match(page,/before_value,proposed_value,impact_preview/);
+  assert.match(page,/verification_result/);
 });
