@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import HarinIcon from './_design-system/harin-icon.js';
 
 const money = value => value == null ? '확인 필요' : `${Math.round(Number(value || 0)).toLocaleString('ko-KR')}원`;
 const number = value => Number(value || 0);
@@ -16,6 +17,10 @@ function GrowthHelp({ title, summary, children }) {
 
 function Field({ label, hint, children }) {
   return <label className="growthField"><span>{label}</span>{children}{hint&&<small>{hint}</small>}</label>;
+}
+
+function GrowthBlockTitle({ icon, step, title, description }) {
+  return <div className="growthBlockTitle"><i><HarinIcon name={icon} size={20}/></i><div><span>{step}</span><h3>{title}</h3><p>{description}</p></div></div>;
 }
 
 function ProfitResult({ calculation }) {
@@ -82,14 +87,14 @@ export default function ProductGrowthCenter({ unifiedPerformance={} }) {
   const progress=active?.completion||{};
   const best=active?.best_offer;
   const steps=[
-    ['1','상품 정보',progress.profile_done===progress.profile_total,`${progress.profile_done||0}/${progress.profile_total||7}`],
-    ['2','원가 입력',active?.cost_ready===true,active?.cost_ready?'완료':'확인 필요'],
-    ['3','구성별 이익',(progress.offers_done||0)>=3,`${progress.offers_done||0}/3`],
-    ['4','상세페이지',progress.checklist_done===progress.checklist_total,`${progress.checklist_done||0}/${progress.checklist_total||10}`]
+    ['product','상품 정보',progress.profile_done===progress.profile_total,`${progress.profile_done||0}/${progress.profile_total||7}`],
+    ['price','원가 입력',active?.cost_ready===true,active?.cost_ready?'완료':'확인 필요'],
+    ['growth','구성별 이익',(progress.offers_done||0)>=3,`${progress.offers_done||0}/3`],
+    ['checklist','상세페이지',progress.checklist_done===progress.checklist_total,`${progress.checklist_done||0}/${progress.checklist_total||10}`]
   ];
 
   return <article className="panel growthCenter" id="product-growth-center">
-    <header className="growthCenterHead"><div><span>판매구성 · 이익 비교</span><h2>상품 성장센터</h2><p>할인이나 광고를 늘리기 전에 이 상품이 실제로 돈을 남기는지 확인합니다.</p></div><label><span>분석할 상품</span><select value={selectedId} onChange={event=>setSelectedId(event.target.value)}>{data?.items?.map(item=><option value={item.master_product.id} key={item.master_product.id}>{item.master_product.name}</option>)}</select></label></header>
+    <header className="growthCenterHead"><div className="growthCenterTitle"><i><HarinIcon name="growth" size={27}/></i><div><span>판매구성 · 이익 비교</span><h2>상품 성장센터</h2><p>할인이나 광고를 늘리기 전에 이 상품이 실제로 돈을 남기는지 확인합니다.</p></div></div><label><span><HarinIcon name="product" size={15}/>분석할 상품</span><select value={selectedId} onChange={event=>setSelectedId(event.target.value)}>{data?.items?.map(item=><option value={item.master_product.id} key={item.master_product.id}>{item.master_product.name}</option>)}</select></label></header>
     <GrowthHelp title="상품 성장센터는 무엇을 하나요?" summary="상품 정보부터 구성별 이익, 상세페이지 준비까지 한 순서로 점검합니다.">
       <p><b>쉽게 말하면:</b> 1개를 팔 때와 묶음으로 팔 때 각각 얼마가 남는지 계산하는 작업장입니다.</p>
       <p><b>예:</b> 2개 묶음 판매가가 30,000원이고 원가·수수료·배송·광고비가 23,000원이면 실제 이익은 7,000원입니다.</p>
@@ -98,15 +103,15 @@ export default function ProductGrowthCenter({ unifiedPerformance={} }) {
     {message&&<div className="growthMessage">{message}</div>}
     {loading?<div className="growthLoading">상품 정보와 비용을 연결하는 중입니다…</div>:!active||!profile?<div className="growthLoading">기준상품을 먼저 만들어주세요.</div>:<>
       <section className="growthSummary">
-        <span><small>준비 진행률</small><b>{progress.percent||0}%</b><em>네 단계 합산</em></span>
-        <span className={active.cost_ready?'good':'warning'}><small>원가 상태</small><b>{active.cost_ready?'입력됨':'확인 필요'}</b><em>{active.cost_ready?'구성별 계산 가능':'원가 입력부터 진행'}</em></span>
-        <span><small>가장 많이 남는 구성</small><b>{best?.name||'확인 필요'}</b><em>{best?`${money(best.actual_profit)} · 이익률 ${best.margin_rate}%`:'원가와 판매가를 입력하세요'}</em></span>
-        <span><small>3채널 실적</small><b>{performance?money(performance.revenue):'연결 대기'}</b><em>{performance?`주문 ${number(performance.orders).toLocaleString('ko-KR')}건`:'상품 매핑 후 표시'}</em></span>
+        <span><i><HarinIcon name="checklist" size={18}/></i><small>준비 진행률</small><b>{progress.percent||0}%</b><em>네 단계 합산</em></span>
+        <span className={active.cost_ready?'good':'warning'}><i><HarinIcon name="price" size={18}/></i><small>원가 상태</small><b>{active.cost_ready?'입력됨':'확인 필요'}</b><em>{active.cost_ready?'구성별 계산 가능':'원가 입력부터 진행'}</em></span>
+        <span><i><HarinIcon name="growth" size={18}/></i><small>가장 많이 남는 구성</small><b>{best?.name||'확인 필요'}</b><em>{best?`${money(best.actual_profit)} · 이익률 ${best.margin_rate}%`:'원가와 판매가를 입력하세요'}</em></span>
+        <span><i><HarinIcon name="analysis" size={18}/></i><small>3채널 실적</small><b>{performance?money(performance.revenue):'연결 대기'}</b><em>{performance?`주문 ${number(performance.orders).toLocaleString('ko-KR')}건`:'상품 매핑 후 표시'}</em></span>
       </section>
-      <section className="growthSteps">{steps.map(([numberValue,label,done,state])=><span className={done?'done':'todo'} key={label}><i>{done?'✓':numberValue}</i><b>{label}</b><small>{state}</small></span>)}</section>
+      <section className="growthSteps">{steps.map(([icon,label,done,state])=><span className={done?'done':'todo'} key={label}><i><HarinIcon name={done?'checklist':icon} size={17}/></i><b>{label}</b><small>{state}</small></span>)}</section>
 
       <section className="growthBlock">
-        <div className="growthBlockHead"><div><span>STEP 1</span><h3>상품 정보 파일</h3><p>누구에게, 언제, 어떤 말로 팔지 적어두는 상품별 기준 문서입니다.</p></div><button disabled={saving==='SAVE_PROFILE'} onClick={()=>save('SAVE_PROFILE',{profile:{...profile,purchase_situations:lines(profile.purchase_situations_text??joined(profile.purchase_situations)),hesitation_reasons:lines(profile.hesitation_reasons_text??joined(profile.hesitation_reasons)),prohibited_phrases:lines(profile.prohibited_phrases_text??joined(profile.prohibited_phrases))}})}>{saving==='SAVE_PROFILE'?'저장 중…':'상품 정보 저장'}</button></div>
+        <div className="growthBlockHead"><GrowthBlockTitle icon="product" step="STEP 1" title="상품 정보 파일" description="누구에게, 언제, 어떤 말로 팔지 적어두는 상품별 기준 문서입니다."/><button disabled={saving==='SAVE_PROFILE'} onClick={()=>save('SAVE_PROFILE',{profile:{...profile,purchase_situations:lines(profile.purchase_situations_text??joined(profile.purchase_situations)),hesitation_reasons:lines(profile.hesitation_reasons_text??joined(profile.hesitation_reasons)),prohibited_phrases:lines(profile.prohibited_phrases_text??joined(profile.prohibited_phrases))}})}>{saving==='SAVE_PROFILE'?'저장 중…':'상품 정보 저장'}</button></div>
         <GrowthHelp title="무엇을 적어야 하나요?" summary="멋진 문장보다 실제 고객이 이해할 수 있는 쉬운 말을 적습니다."><p><b>주요 고객 예:</b> 카페인 대신 따뜻한 차를 찾는 30~50대 고객</p><p><b>망설이는 이유 예:</b> 맛이 너무 쓰지 않을까, 어떻게 우려야 할까, 가격만큼 양이 충분할까</p><p><b>사용 금지 문구:</b> 질병을 치료·예방한다고 오해할 수 있는 표현은 적어두고 판매 문구에서 제외하세요.</p></GrowthHelp>
         <div className="growthProfileGrid">
           <Field label="상품 구분"><select value={profile.product_role||'STANDARD'} onChange={event=>profileValue('product_role',event.target.value)}>{Object.entries(roleLabel).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></Field>
@@ -121,12 +126,12 @@ export default function ProductGrowthCenter({ unifiedPerformance={} }) {
       </section>
 
       <section className="growthBlock costGuideBlock">
-        <div className="growthBlockHead"><div><span>STEP 2</span><h3>비용 입력 안내</h3><p>상품 원가, 포장비, 수수료, 택배비가 있어야 실제 이익을 믿을 수 있습니다.</p></div><button onClick={()=>document.querySelector('.costPanel')?.scrollIntoView({behavior:'smooth',block:'start'})}>원가 입력칸으로 이동</button></div>
+        <div className="growthBlockHead"><GrowthBlockTitle icon="price" step="STEP 2" title="비용 입력 안내" description="상품 원가, 포장비, 수수료, 택배비가 있어야 실제 이익을 믿을 수 있습니다."/><button onClick={()=>document.querySelector('.costPanel')?.scrollIntoView({behavior:'smooth',block:'start'})}>원가 입력칸으로 이동</button></div>
         <div className="costGuideSteps"><span><i>1</i><b>상품 원가</b><small>내용물 1개의 매입·제조 원가</small></span><span><i>2</i><b>포장·기타비</b><small>박스, 라벨, 완충재 등</small></span><span><i>3</i><b>채널 수수료</b><small>판매·결제 수수료율</small></span><span><i>4</i><b>배송·광고비</b><small>주문 한 건에 드는 비용</small></span></div>
       </section>
 
       <section className="growthBlock">
-        <div className="growthBlockHead"><div><span>STEP 3</span><h3>1개·2개·묶음 실제 이익 비교</h3><p>판매가만 비교하지 않고 원가·수수료·배송비·사은품·광고비를 모두 뺍니다.</p></div><div className="growthHeadActions"><button className="secondary" onClick={addOffer}>구성 추가</button><button disabled={saving==='SAVE_OFFERS'} onClick={()=>save('SAVE_OFFERS',{offers:offers.map(({calculation,suggested,id,...offer})=>offer)})}>{saving==='SAVE_OFFERS'?'계산 중…':'구성 저장·계산'}</button></div></div>
+        <div className="growthBlockHead"><GrowthBlockTitle icon="growth" step="STEP 3" title="1개·2개·묶음 실제 이익 비교" description="판매가만 비교하지 않고 원가·수수료·배송비·사은품·광고비를 모두 뺍니다."/><div className="growthHeadActions"><button className="secondary" onClick={addOffer}>구성 추가</button><button disabled={saving==='SAVE_OFFERS'} onClick={()=>save('SAVE_OFFERS',{offers:offers.map(({calculation,suggested,id,...offer})=>offer)})}>{saving==='SAVE_OFFERS'?'계산 중…':'구성 저장·계산'}</button></div></div>
         <GrowthHelp title="추가 할인 한도와 광고비 손익분기" summary="얼마까지 더 써도 손실이 나지 않는지 보여줍니다."><p><b>추가 할인 한도 4,000원:</b> 다른 조건이 그대로라면 4,000원을 더 할인하면 이익이 0원이 됩니다. 실제 할인은 안전 여유를 남기세요.</p><p><b>광고비 손익분기 6,000원:</b> 주문 1건을 만드는 광고비가 6,000원을 넘으면 손실입니다.</p></GrowthHelp>
         <div className="offerList">{offers.map((offer,index)=><article className="offerCard" key={`${offer.id||'new'}-${index}`}>
           <header><Field label="구성 이름"><input value={offer.name||''} onChange={event=>offerValue(index,'name',event.target.value)}/></Field><Field label="구분"><select value={offer.offer_type||'BUNDLE'} onChange={event=>offerValue(index,'offer_type',event.target.value)}>{Object.entries(typeLabel).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></Field><Field label="판매 채널"><select value={offer.platform||'CAFE24'} onChange={event=>offerValue(index,'platform',event.target.value)}><option value="CAFE24">Cafe24</option><option value="NAVER">네이버</option><option value="COUPANG">쿠팡</option></select></Field><Field label="수량"><input type="number" min="1" max="100" value={offer.quantity??1} onChange={event=>offerValue(index,'quantity',event.target.value)}/></Field><Field label="정상가"><input type="number" min="0" step="100" value={offer.list_price??0} onChange={event=>offerValue(index,'list_price',event.target.value)}/></Field><Field label="실제 판매가"><input type="number" min="0" step="100" value={offer.sale_price??0} onChange={event=>offerValue(index,'sale_price',event.target.value)}/></Field><button className="removeOffer" disabled={offers.length<=1} onClick={()=>removeOffer(index)}>삭제</button></header>
@@ -136,13 +141,13 @@ export default function ProductGrowthCenter({ unifiedPerformance={} }) {
       </section>
 
       <section className="growthBlock">
-        <div className="growthBlockHead"><div><span>STEP 4</span><h3>상세페이지 점검표</h3><p>고객이 망설이는 이유에 답하고, 필요한 정보와 안전한 표현을 확인합니다.</p></div><button disabled={saving==='SAVE_CHECKLIST'} onClick={()=>save('SAVE_CHECKLIST',{items:checklist,notes})}>{saving==='SAVE_CHECKLIST'?'저장 중…':'점검표 저장'}</button></div>
+        <div className="growthBlockHead"><GrowthBlockTitle icon="checklist" step="STEP 4" title="상세페이지 점검표" description="고객이 망설이는 이유에 답하고, 필요한 정보와 안전한 표현을 확인합니다."/><button disabled={saving==='SAVE_CHECKLIST'} onClick={()=>save('SAVE_CHECKLIST',{items:checklist,notes})}>{saving==='SAVE_CHECKLIST'?'저장 중…':'점검표 저장'}</button></div>
         <div className="detailChecklist">{data.checklist_items.map(item=><label className={checklist[item.key]===true?'checked':''} key={item.key}><input type="checkbox" checked={checklist[item.key]===true} onChange={event=>setChecklist(current=>({...current,[item.key]:event.target.checked}))}/><span><b>{item.label}</b><small>{checklist[item.key]===true?'확인 완료':'아직 확인하지 않음'}</small></span></label>)}</div>
         <Field label="상세페이지 점검 메모" hint="바꿔야 할 사진, 문구, 표를 적어두세요."><textarea className="checklistNotes" value={notes} onChange={event=>setNotes(event.target.value)}/></Field>
       </section>
 
       <section className="growthBlock channelGrowthBlock">
-        <div className="growthBlockHead"><div><span>3-CHANNEL RESULT</span><h3>네이버·Cafe24·쿠팡 통합 성과</h3><p>선택한 기준상품에 연결된 채널 실적만 나란히 비교합니다.</p></div></div>
+        <div className="growthBlockHead"><GrowthBlockTitle icon="analysis" step="3-CHANNEL RESULT" title="네이버·Cafe24·쿠팡 통합 성과" description="선택한 기준상품에 연결된 채널 실적만 나란히 비교합니다."/></div>
         <div className="channelGrowthGrid">{[['NAVER','네이버'],['CAFE24','Cafe24'],['COUPANG','쿠팡']].map(([platform,label])=>{const channel=performance?.channels?.[platform]||{};return <span key={platform}><small>{label}</small><b>{money(channel.revenue)}</b><em>주문 {number(channel.orders).toLocaleString('ko-KR')}건 · 판매/전환 {number(channel.units).toLocaleString('ko-KR')}개</em></span>})}</div>
         <p className="growthFootnote">Cafe24·쿠팡은 주문 실매출, 네이버는 상품에 연결된 광고 전환매출입니다. 상품 연결이 없으면 0원으로 단정하지 않고 연결 대기로 안내합니다.</p>
       </section>

@@ -4,16 +4,16 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const service = require('../lib/products/mapping-service.js');
 
-test('쿠팡 상품과 네이버 광고그룹을 플랫폼 매핑 원천으로 만든다', () => {
+test('쿠팡 실상품만 플랫폼 매핑 원천으로 만들고 네이버 광고그룹은 제외한다', () => {
   const sources = service.createProductSources({
     coupangProducts:[{seller_product_id:'C1',product_name:'국화차',status:'APPROVED'}],
     coupangProductItems:[{seller_product_id:'C1',sale_price:12000}],
     naverCampaigns:[{ncc_campaign_id:'N1',name:'작두콩차',campaign_type:'SHOPPING'}],
     naverAdgroups:[{ncc_adgroup_id:'G1',ncc_campaign_id:'N1',name:'모바일',status:'ELIGIBLE'}]
   });
-  assert.deepEqual(sources.map(item=>item.platform).sort(), ['COUPANG','NAVER']);
+  assert.deepEqual(sources.map(item=>item.platform).sort(), ['COUPANG']);
   assert.equal(sources.find(item=>item.platform==='COUPANG').selling_price, 12000);
-  assert.match(sources.find(item=>item.platform==='NAVER').external_product_name, /작두콩차/);
+  assert.equal(sources.some(item=>item.source_type==='NAVER_ADGROUP'), false);
 });
 
 test('가장 최근 거절 또는 연결해제 결정만 후보 억제에 사용한다', () => {
@@ -35,6 +35,19 @@ test('매핑 대시보드는 연결 현황과 고신뢰 후보를 함께 계산�
   assert.equal(dashboard.summary.candidate_total, 1);
   assert.equal(dashboard.summary.auto_eligible, 1);
   assert.equal(dashboard.candidates[0].candidates[0].master_product_id, 'M1');
+});
+
+test('기존 네이버 광고그룹 연결은 상품 연결 집계와 후보에서 제외한다', () => {
+  const dashboard = service.buildMappingDashboard({
+    masterProducts:[{id:'M1',name:'작두콩차 30티백',selling_price:11000,is_active:true}],
+    channelProducts:[{id:'N1',master_product_id:'M1',platform:'NAVER',external_product_id:'AD1',external_product_name:'광고 / 작두콩차',is_active:true,raw_data:{source_type:'NAVER_ADGROUP'}}],
+    naverCampaigns:[{ncc_campaign_id:'C1',name:'작두콩차',campaign_type:'SHOPPING'}],
+    naverAdgroups:[{ncc_adgroup_id:'AD1',ncc_campaign_id:'C1',name:'모바일',status:'ELIGIBLE'}]
+  });
+  assert.equal(dashboard.summary.source_naver, 0);
+  assert.equal(dashboard.summary.linked_naver, 0);
+  assert.equal(dashboard.links.length, 0);
+  assert.equal(dashboard.candidates.length, 0);
 });
 
 test('판매 중단 외부 상품은 매칭 후보와 연결 집계에서 제외한다', () => {

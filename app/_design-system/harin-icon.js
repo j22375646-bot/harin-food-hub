@@ -7,6 +7,19 @@ const ICONS = {
   analysis: <><path d="M5 19V9M10 19V5M15 19v-7M20 19V3"/><path d="M3 19h19"/></>,
   keyword: <><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></>,
   product: <><path d="M4 6.5 12 3l8 3.5V17L12 21l-8-4V6.5Z"/><path d="m4 6.5 8 4 8-4M12 10.5V21"/></>,
+  store: <><path d="M4 9h16l-1.5-5h-13L4 9Z"/><path d="M5 9v11h14V9M9 20v-6h6v6"/><path d="M4 9a3 3 0 0 0 5 2 3 3 0 0 0 6 0 3 3 0 0 0 5-2"/></>,
+  link: <><path d="M10 13a4.5 4.5 0 0 0 6.4.1l2-2a4.5 4.5 0 0 0-6.4-6.4l-1.1 1.1"/><path d="M14 11a4.5 4.5 0 0 0-6.4-.1l-2 2a4.5 4.5 0 0 0 6.4 6.4l1.1-1.1"/></>,
+  target: <><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="m15 9 6-6M17 3h4v4"/></>,
+  price: <><path d="M4 7V4h16v3M6 7h12v13H6V7Z"/><path d="M9 11h6M9 15h6"/></>,
+  checklist: <><path d="M9 5h10M9 12h10M9 19h10"/><path d="m3 5 1.5 1.5L7 3.5M3 12l1.5 1.5L7 10.5M3 19l1.5 1.5L7 17.5"/></>,
+  growth: <><path d="M4 19h16M6 16l4-4 3 2 5-7"/><path d="M15 7h3v3"/></>,
+  filter: <><path d="M4 5h16l-6 7v6l-4 2v-8L4 5Z"/></>,
+  clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
+  database: <><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></>,
+  server: <><rect x="4" y="4" width="16" height="6" rx="2"/><rect x="4" y="14" width="16" height="6" rx="2"/><path d="M8 7h.01M8 17h.01M12 7h5M12 17h5"/></>,
+  warning: <><path d="M12 3 2.8 20h18.4L12 3Z"/><path d="M12 9v5M12 17h.01"/></>,
+  naverStore: <><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 16V8l8 8V8"/></>,
+  shoppingBag: <><path d="M5 8h14l1 12H4L5 8Z"/><path d="M9 9V7a3 3 0 0 1 6 0v2"/></>,
   execution: <><path d="M8 4h8M9 3v3m6-3v3M6 7h12v14H6V7Z"/><path d="m9 14 2 2 4-5"/></>,
   approvals: <><path d="M12 3 5 6v5c0 4.7 2.8 8 7 10 4.2-2 7-5.3 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></>,
   experiments: <><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3"/><path d="M8 15h8"/></>,
@@ -28,7 +41,8 @@ const ICONS = {
 const ALIASES = {
   main:'today', reports:'execution', changes:'approvals', validation:'execution',
   notifications:'alerts', knowledge:'ai', cs:'customer', insight:'analysis',
-  keywords:'keyword', products:'product', diagnoses:'execution'
+  keywords:'keyword', products:'product', diagnoses:'execution', cafe24:'store',
+  naver:'naverStore', coupang:'shoppingBag'
 };
 
 export function HarinIcon({ name, size=20, title, className='' }) {
