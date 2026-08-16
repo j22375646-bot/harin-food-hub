@@ -60,3 +60,12 @@ test('16-12 shows linked product images with a pastel fallback in every order ca
   assert.match(css,/\.orderProductImage\{/);
   assert.match(css,/\.orderProductImage\.fallback:after/);
 });
+
+test('16-15 loads platform image catalogs and attaches them before building the order page',()=>{
+  const page=read('app/page.js');
+  assert.match(page,/orders:\[[^\]]*'cafe24_products'[^\]]*'channel_products'[^\]]*'coupang_products'[^\]]*'coupang_product_items'/);
+  assert.match(page,/const orderImageCatalog=unifiedOrdersModule\.buildOrderImageCatalog/);
+  assert.match(page,/cafe24OrderItems:unifiedOrdersModule\.attachOrderImages\([^\n]*'CAFE24'/);
+  assert.match(page,/naverOrderItems:unifiedOrdersModule\.attachOrderImages\([^\n]*'NAVER'/);
+  assert.match(page,/coupangOrderItems:unifiedOrdersModule\.attachOrderImages\([^\n]*'COUPANG'/);
+});

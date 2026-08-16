@@ -99,7 +99,7 @@ const MAIN_OVERVIEW_TABLES = [
 ];
 const VIEW_TABLES = {
   main:MAIN_OVERVIEW_TABLES,
-  orders:['cafe24_orders','cafe24_order_items','naver_commerce_orders','naver_commerce_order_items','coupang_orders','coupang_order_items','coupang_rg_orders','coupang_rg_order_items','coupang_returns'],
+  orders:['cafe24_orders','cafe24_order_items','cafe24_products','channel_products','naver_commerce_orders','naver_commerce_order_items','coupang_products','coupang_product_items','coupang_orders','coupang_order_items','coupang_rg_orders','coupang_rg_order_items','coupang_returns'],
   cs:['cafe24_orders','cafe24_order_items','coupang_orders','coupang_order_items','coupang_returns','coupang_exchanges','coupang_inquiries','coupang_operation_requests','customer_service_items'],
   inventory:['master_products','channel_products','cafe24_products','coupang_products','coupang_rg_inventory','coupang_item_inventory','coupang_product_items','ai_analysis_results'],
   settlement:['cafe24_orders','naver_commerce_orders','naver_commerce_settlements','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_orders','coupang_rg_order_items','coupang_settlement_summaries','coupang_promotion_budgets','coupang_product_items','coupang_cost_transactions','coupang_cost_imports','channel_cost_settings','channel_shipping_rules','ai_analysis_results'],
@@ -805,10 +805,24 @@ async function getDashboardData(state) {
     reliability:reliabilityCenter,
     now:generatedAt
   });
+  const orderImageCatalog=unifiedOrdersModule.buildOrderImageCatalog(productsResult.data || [],[
+    ...allChannelProducts,
+    ...(coupangProductsResult.data || []).map(product=>({
+      platform:'COUPANG',external_product_id:product.seller_product_id,external_product_name:product.product_name,
+      raw_data:{...(product.raw_data || {}),sellerProductId:product.seller_product_id}
+    })),
+    ...(coupangProductItemsResult.data || []).map(item=>({
+      platform:'COUPANG',external_product_id:item.vendor_item_id,external_product_name:item.item_name,
+      raw_data:{...(item.raw_data || {}),vendorItemId:item.vendor_item_id,sellerProductId:item.seller_product_id}
+    }))
+  ]);
   const unifiedOrders = unifiedOrdersModule.buildUnifiedOrders({
-    cafe24Orders:ordersResult.data || [], cafe24OrderItems:itemsResult.data || [],
-    naverOrders:naverCommerceOrdersResult.data || [], naverOrderItems:naverCommerceItemsResult.data || [],
-    coupangOrders:coupangOrdersResult.data || [], coupangOrderItems:coupangItemsResult.data || [],
+    cafe24Orders:ordersResult.data || [],
+    cafe24OrderItems:unifiedOrdersModule.attachOrderImages(itemsResult.data || [],'CAFE24','external_product_no',orderImageCatalog),
+    naverOrders:naverCommerceOrdersResult.data || [],
+    naverOrderItems:unifiedOrdersModule.attachOrderImages(naverCommerceItemsResult.data || [],'NAVER','product_id',orderImageCatalog),
+    coupangOrders:coupangOrdersResult.data || [],
+    coupangOrderItems:unifiedOrdersModule.attachOrderImages(coupangItemsResult.data || [],'COUPANG','seller_product_id',orderImageCatalog),
     coupangReturns:coupangReturnsResult.data || [], coupangRgOrders:coupangRgOrdersResult.data || [],
     coupangRgOrderItems:coupangRgOrderItemsResult.data || [], channelConnections:channelConnections.channels || [],
     unavailable:{ CAFE24:Boolean(ordersResult.unavailable), COUPANG:Boolean(coupangOrdersResult.unavailable && coupangRgOrdersResult.unavailable), NAVER:Boolean(naverCommerceOrdersResult.unavailable) }
