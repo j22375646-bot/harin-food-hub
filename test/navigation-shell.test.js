@@ -84,7 +84,7 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
   assert.match(client,/<CoupangOrdersView coupang=\{initialData\.coupang\}\/>/);
   assert.match(client,/view==='cs' && \(<UnifiedCustomerServiceCenter/);
   assert.match(client,/view==='inventory' && \(<UnifiedInventoryOperationsCenter/);
-  assert.match(client,/<CoupangInventoryView coupang=\{initialData\.coupang\}\/\><\/UnifiedInventoryOperationsCenter>/);
+  assert.match(client,/<UnifiedInventoryOperationsCenter coupang=\{initialData\.coupang\}/);
   assert.match(client,/view==='settlement' && \(<UnifiedSettlementOperationsCenter/);
   assert.match(styles,/Phase 10-4 — orders, CS, inventory and settlement are independent work pages/);
 });
@@ -98,7 +98,7 @@ test('phase 15-1 keeps prior operations while removing repeated development chro
   assert.match(client,/UnifiedInventoryOperationsCenter/);
   assert.match(client,/UnifiedSettlementOperationsCenter/);
   assert.match(client,/UnifiedCollectionOperationsCenter/);
-  assert.match(client,/initialData\.unifiedInventory/);
+  assert.match(client,/<UnifiedInventoryOperationsCenter coupang=\{initialData\.coupang\}/);
   assert.match(client,/initialData\.unifiedSettlement/);
   assert.match(client,/initialData\.collectionCenter/);
   assert.ok(page.indexOf('const generatedAt = new Date().toISOString()') < page.indexOf('const unifiedInventory ='));

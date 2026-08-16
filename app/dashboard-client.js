@@ -198,7 +198,7 @@ export default function Dashboard({ initialData, initialState }) {
     } catch (error) { setSyncMessage(`확인 필요 · ${error.message}`); setSyncing(false); }
   }
 
-  const operationBadges={orders:num(initialData.unifiedOrders?.summary?.actionRequired),cs:num(initialData.coupang?.unansweredInquiries),inventory:num(initialData.unifiedInventory?.summary?.action_required),notifications:initialData.alerts.length||0};
+  const operationBadges={orders:num(initialData.unifiedOrders?.summary?.actionRequired),cs:num(initialData.coupang?.unansweredInquiries),inventory:num(initialData.coupang?.rgOutOfStock)+num(initialData.coupang?.rgLowStock),notifications:initialData.alerts.length||0};
   const nav = hubRoutesModule.HUB_NAV.map(item=>({...item,badge:operationBadges[item.id]||0}));
   const navGroups=hubRoutesModule.HUB_NAV_GROUPS.map(group=>{const items=group.items.map(id=>nav.find(item=>item.id===id)).filter(Boolean);return {...group,items,actionCount:items.reduce((sum,item)=>sum+num(item.badge),0)};});
   const navContext=hubRoutesModule.navigationContext(view,platform);
@@ -256,7 +256,7 @@ export default function Dashboard({ initialData, initialState }) {
       </HarinAnalysisWorkbench>}
       {view==='orders' && (<UnifiedOrdersCenter center={initialData.unifiedOrders} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.orders}/>}><CoupangOrdersView coupang={initialData.coupang}/></UnifiedOrdersCenter>)}
       {view==='cs' && (<UnifiedCustomerServiceCenter center={initialData.customerService} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.cs}/>}/>)}
-      {view==='inventory' && (<UnifiedInventoryOperationsCenter center={initialData.unifiedInventory} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.inventory}/>}><CoupangInventoryView coupang={initialData.coupang}/></UnifiedInventoryOperationsCenter>)}
+      {view==='inventory' && (<UnifiedInventoryOperationsCenter coupang={initialData.coupang} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.inventory}/>}/>)}
       {view==='settlement' && (<UnifiedSettlementOperationsCenter center={initialData.unifiedSettlement} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.settlement}/>}><CoupangSettlementView coupang={initialData.coupang}/></UnifiedSettlementOperationsCenter>)}
       {view==='keyword' && !channelUnavailable && <HarinAnalysisWorkbench view="keyword" workspace={workspace} platform={platform} data={initialData} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.keyword}/>}>
         {workspace==='diagnosis'&&(platform==='all'||platform==='naver')?<MarketingDiagnosisCenter diagnosis={initialData.naver?.marketingDiagnosis}/>:null}{workspace!=='history'?<PlatformKeywordView key={`keyword-${platform}-${workspace}`} platform={platform} workspace={workspace} data={initialData}/>:null}

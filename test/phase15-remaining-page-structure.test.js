@@ -35,11 +35,12 @@ test('15-7 separates current notifications from delivery settings and completed 
   assert.match(source,/title="이메일 발송 이력"/);
 });
 
-test('15-7 keeps detailed channel and source views available but collapsed by default',()=>{
+test('15-7 keeps detailed channel and source views collapsed while 16-4 removes the duplicate inventory drawer',()=>{
   const dashboard=read('app/dashboard-client.js');
   assert.match(dashboard,/className="productSourceCatalogDisclosure"/);
   assert.match(read('app/unified-orders-center.js'),/<details className="legacyCoupangOrders">/);
-  assert.match(read('app/unified-inventory-operations-center.js'),/<details className="inventoryOpsCoupangDetail">/);
+  assert.doesNotMatch(read('app/unified-inventory-operations-center.js'),/inventoryOpsCoupangDetail/);
+  assert.match(dashboard,/UnifiedInventoryOperationsCenter coupang=\{initialData\.coupang\}/);
   assert.match(read('app/unified-settlement-operations-center.js'),/<details className="settlementOpsCoupangDetail">/);
   assert.match(read('app/unified-collection-operations-center.js'),/<details className="collectionOpsDetail">/);
 });

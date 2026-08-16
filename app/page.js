@@ -847,6 +847,7 @@ async function getDashboardData(state) {
     unifiedOrders,
     customerService,
     unifiedInventory,
+    rocketGrowthInventory:coupangInventory,
     unifiedSettlement,
     collectionCenter,
     alerts:alertsResult.data||[],
