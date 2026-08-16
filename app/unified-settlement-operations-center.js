@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { HarinIcon } from './_design-system/harin-icon.js';
+import { HarinPageAiRegion, HarinPageFrame, HarinPageHeader } from './_design-system/harin-ui.js';
 
 const statusMeta = {
   ACTUAL:{label:'확정 자료',tone:'actual'}, ESTIMATED:{label:'예상 자료',tone:'estimated'},
@@ -77,19 +78,14 @@ export default function UnifiedSettlementOperationsCenter({ center = {}, childre
   }),[channels]);
   const nextSchedule=schedules.find(item=>item.date)||null;
 
-  return <section className="settlementOpsCenter settlementOpsV8">
-    <section className="settlementOpsHero">
-      <div className="operationsHeroCopy"><span>정산·비용 업무</span><div className="operationsHeroTitle"><i><HarinIcon name="settlement" size={28}/></i><h1>정산·비용 대조센터</h1></div><p>예상 금액과 실제 지급액을 채널별로 맞춰보고, 차이가 난 곳부터 확인할 수 있어요.</p></div>
-      <div className="settlementHeroMetrics"><span><small>확정 지급액</small><b>{wonOrCheck(summary.actual_payout)}</b></span><span><small>예상 정산액</small><b>{wonOrCheck(summary.estimated_payout)}</b></span><span><small>확인할 채널</small><b>{count(summary.check_required_channels)}개</b></span><span><small>차감 발생 채널</small><b>{count(negativeVariance.length)}개</b></span></div>
-    </section>
+  return <HarinPageFrame kind="operations" className="settlementOpsCenter settlementOpsV8">
+    <HarinPageHeader className="settlementOpsHero" eyebrow="정산·비용 업무" title="정산·비용 대조센터" description="예상 금액과 실제 지급액을 채널별로 맞춰보고, 차이가 난 곳부터 확인할 수 있어요." icon="settlement" tone="blue" note="확인되지 않은 금액은 0원으로 계산하지 않고 확인 필요로 유지" metrics={[["확정 지급액",wonOrCheck(summary.actual_payout)],["예상 정산액",wonOrCheck(summary.estimated_payout)],["확인할 채널",`${count(summary.check_required_channels)}개`,null,summary.check_required_channels?'warning':''],["차감 발생 채널",`${count(negativeVariance.length)}개`,null,negativeVariance.length?'danger':'']]}/>
 
     <section className="settlementFocusRail" aria-label="오늘의 정산 집중 항목">
       <button type="button" className={summary.check_required_channels?'danger':''} onClick={()=>setWorkspace('COSTS')}><HarinIcon name="alerts" size={22}/><span><small>먼저 확인</small><b>자료·비용 설정 {count(summary.check_required_channels)}개</b></span><em>확인하기</em></button>
       <button type="button" className={negativeVariance.length?'notice':''} onClick={()=>setWorkspace('RECONCILIATION')}><HarinIcon name="settlement" size={22}/><span><small>금액 대조</small><b>예상보다 적음 {count(negativeVariance.length)}개</b></span><em>비교하기</em></button>
       <button type="button" onClick={()=>setWorkspace('SUMMARY')}><HarinIcon name="today" size={22}/><span><small>최근 정산 일정</small><b>{nextSchedule?.date || '일정 확인 필요'}</b></span><em>{nextSchedule?.amount==null?'보기':wonOrCheck(nextSchedule.amount)}</em></button>
     </section>
-
-    <details className="settlementOpsHelp"><summary>도움말 · 정산 화면은 어떤 순서로 보나요?</summary><div><p><b>정산 요약</b>에서 매출 → 환불 → 수수료 → 정산액 흐름을 봅니다. 실제 지급액이 들어온 채널은 예상 금액과 차이를 함께 계산해요.</p><p><b>채널 대조</b>에서 차이가 난 채널을 찾고, <b>비용 설정</b>에서 누락된 수수료·배송비를 보완합니다. 모르는 금액은 0원으로 처리하지 않습니다.</p></div></details>
 
     <nav className="phase13WorkspaceNav settlement" aria-label="정산 작업공간">
       <button type="button" className={workspace==='SUMMARY'?'active':''} onClick={()=>setWorkspace('SUMMARY')}><span>정산 요약</span><small>돈의 흐름</small><b>30일</b></button>
@@ -98,14 +94,6 @@ export default function UnifiedSettlementOperationsCenter({ center = {}, childre
     </nav>
 
     {workspace==='SUMMARY'?<>
-      <section className="settlementOpsKpis" aria-label="통합 정산 요약">
-        <article><small>확정 지급액</small><strong>{wonOrCheck(summary.actual_payout)}</strong><span>플랫폼 확정 자료만 합산</span></article>
-        <article><small>예상 정산액</small><strong>{wonOrCheck(summary.estimated_payout)}</strong><span>비용 설정 기반 계산</span></article>
-        <article><small>확인된 수수료</small><strong>{wonOrCheck(summary.known_fees)}</strong><span>확정·예상 자료 합계</span></article>
-        <article><small>확인된 물류비</small><strong>{wonOrCheck(summary.known_logistics)}</strong><span>정산액과 별도 운영비</span></article>
-        <article className={summary.check_required_channels ? 'warning' : ''}><small>자료 확인 필요</small><strong>{count(summary.check_required_channels)}개 채널</strong><span>수집 또는 비용 설정 필요</span></article>
-      </section>
-      <div className="operationsAiSlot settlementAiSlot">{aiPanel}</div>
       <SettlementWaterfall waterfall={center.waterfall}/>
       <section className="settlementOpsSchedule"><header><div><span>PAYMENT SCHEDULE</span><h2>최근 정산 일정</h2></div><small>현재 연결된 확정 정산 자료 기준</small></header>{schedules.length ? <div>{schedules.slice(0,6).map((item,index)=><article key={`${item.platform}-${item.date}-${index}`}><span>{item.platform}</span><b>{item.date}</b><strong>{wonOrCheck(item.amount)}</strong><small>{item.type || item.status || '정산'}</small></article>)}</div> : <p>가져온 정산 일정이 없습니다. 채널 정산 자료를 수집하면 지급일과 금액이 여기에 표시됩니다.</p>}</section>
     </>:null}
@@ -116,5 +104,7 @@ export default function UnifiedSettlementOperationsCenter({ center = {}, childre
       <section className="settlementCostGuide"><div><span>COST SETTINGS</span><h2>비용 누락부터 채워주세요</h2><p>상품 원가와 채널 수수료·배송비는 상품 화면에서 한 번만 관리합니다. 이 화면은 정산 자료와 비용 설정이 맞는지 대조하는 곳이에요.</p></div><a href="/products">상품·원가 설정 열기</a><ul>{channels.map(channel=><li key={channel.platform}><b>{channel.label}</b><span>{channel.status==='COST_REQUIRED'?'수수료·결제수수료·배송비 입력 필요':channel.status==='UNAVAILABLE'?'수집 연결 확인 필요':channel.status==='NO_DATA'?'정산 자료 수집 대기':'비용 계산 가능'}</span></li>)}</ul></section>
       <details className="settlementOpsCoupangDetail"><summary><span><b>쿠팡 정산·비용 상세 운영표</b><small>프로모션, 저장, 물류비와 API 수집 범위를 자세히 볼 때만 사용하세요.</small></span><em>상세 열기</em></summary><div>{children}</div></details>
     </>:null}
-  </section>;
+    {workspace==='SUMMARY'?<HarinPageAiRegion className="operationsAiSlot settlementAiSlot" id="page-ai-analysis" title="정산·비용 AI 분석">{aiPanel}</HarinPageAiRegion>:null}
+    <details className="settlementOpsHelp"><summary>도움말 · 정산 화면은 어떤 순서로 보나요?</summary><div><p><b>정산 요약</b>에서 매출 → 환불 → 수수료 → 정산액 흐름을 봅니다. 실제 지급액이 들어온 채널은 예상 금액과 차이를 함께 계산해요.</p><p><b>채널 대조</b>에서 차이가 난 채널을 찾고, <b>비용 설정</b>에서 누락된 수수료·배송비를 보완합니다. 모르는 금액은 0원으로 처리하지 않습니다.</p></div></details>
+  </HarinPageFrame>;
 }

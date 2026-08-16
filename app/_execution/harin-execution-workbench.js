@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { HarinPageAiRegion, HarinPageContent, HarinPageFrame, HarinPageHeader, HarinPageToolbar } from '../_design-system/harin-ui.js';
 
 const STEPS=[
   {id:'reports',href:'/diagnoses',number:'01',label:'진단',description:'근거와 문제 확인'},
@@ -87,14 +88,18 @@ export default function HarinExecutionWorkbench({view,data={},aiPanel,children})
   const setSelected=id=>setSelectedByView(current=>({...current,[view]:id}));
   const summary=data.retentionValidation?.execution?.summary||{};
   const heroMetrics=view==='reports'?[['저장 진단',`${number(counts.reports)}건`],['개선 신호',`${number(data.reportLearningHistory?.summary?.improved)}건`],['계산 잠금',`${number(data.reportLearningHistory?.summary?.blocked)}건`]]:view==='changes'?[['결정 대기',`${number(counts.changes)}건`],['검증 완료',`${number(summary.verified_changes)}건`],['서버 쓰기',data.naverBidWorkbench?.execution_enabled?'승인 후 가능':'잠금']]:view==='validation'?[['7일 결과',`${number(summary.day7_ready)}건`],['14일 결과',`${number(summary.day14_ready)}건`],['실험 연결',`${number(summary.linked_experiments)}건`]]:[['등록 실험',`${number(counts.experiments)}개`],['진행 중',`${number((data.experiments||[]).filter(item=>item.status==='RUNNING').length)}개`],['승자 확정',`${number((data.experiments||[]).filter(item=>item.evaluation_status==='WINNER').length)}개`]];
-  return <section className={`executionV8 executionV8-${meta.tone}`}>
-    <section className="executionHero"><div className="executionHeroCopy"><span>{meta.eyebrow}</span><div><i><FlowIcon view={view}/></i><section><h1>{meta.title}</h1><p>{meta.description}</p></section></div><small>AI는 설명만 · 실제 플랫폼 변경은 사장님 승인 뒤 · 자료가 부족하면 판단 보류</small></div><div className="executionHeroMetrics">{heroMetrics.map(([label,value])=><span key={label}><small>{label}</small><b>{value}</b></span>)}</div></section>
-    <nav className="executionStageRail" aria-label="진단부터 학습까지 운영 흐름">{STEPS.map((step,index)=><Link href={step.href} className={view===step.id?'active':''} aria-current={view===step.id?'step':undefined} key={step.id}><i>{step.number}</i><span><b>{step.label}</b><small>{step.description}</small></span><em>{number(counts[step.id])}</em>{index<STEPS.length-1?<strong aria-hidden="true">→</strong>:null}</Link>)}</nav>
-    {view==='reports'?<DiagnosisDesk data={data} selected={selected} setSelected={setSelected}/>:null}
-    {view==='changes'?<ApprovalDesk data={data} selected={selected} setSelected={setSelected}/>:null}
-    {view==='validation'?<ValidationDesk data={data} selected={selected} setSelected={setSelected}/>:null}
-    {view==='experiments'?<ExperimentDesk data={data} selected={selected} setSelected={setSelected}/>:null}
-    {aiPanel?<div className="executionAiSlot" id="page-ai-analysis">{aiPanel}</div>:null}
-    <div className="executionPageContent">{children}</div>
-  </section>;
+  return <HarinPageFrame kind="execution" className={`executionV8 executionV8-${meta.tone}`}>
+    <HarinPageHeader className="executionHero" eyebrow={meta.eyebrow} title={meta.title} description={meta.description} icon={view} tone={meta.tone} note="AI는 설명만 · 실제 플랫폼 변경은 사장님 승인 뒤 · 자료가 부족하면 판단 보류" metrics={heroMetrics}/>
+    <HarinPageToolbar className="executionStageToolbar" label="결정에서 학습까지" description="페이지는 나누고, 현재 단계와 다음 단계는 한 줄로 이어서 보여드려요.">
+      <nav className="executionStageRail" aria-label="진단부터 학습까지 운영 흐름">{STEPS.map((step,index)=><Link href={step.href} className={view===step.id?'active':''} aria-current={view===step.id?'step':undefined} key={step.id}><i>{step.number}</i><span><b>{step.label}</b><small>{step.description}</small></span><em>{number(counts[step.id])}</em>{index<STEPS.length-1?<strong aria-hidden="true">→</strong>:null}</Link>)}</nav>
+    </HarinPageToolbar>
+    <HarinPageContent className="executionPageContent">
+      {view==='reports'?<DiagnosisDesk data={data} selected={selected} setSelected={setSelected}/>:null}
+      {view==='changes'?<ApprovalDesk data={data} selected={selected} setSelected={setSelected}/>:null}
+      {view==='validation'?<ValidationDesk data={data} selected={selected} setSelected={setSelected}/>:null}
+      {view==='experiments'?<ExperimentDesk data={data} selected={selected} setSelected={setSelected}/>:null}
+      {children}
+    </HarinPageContent>
+    <HarinPageAiRegion className="executionAiSlot" id="page-ai-analysis" title={`${meta.title} · AI 분석`}>{aiPanel}</HarinPageAiRegion>
+  </HarinPageFrame>;
 }

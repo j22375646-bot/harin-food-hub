@@ -26,6 +26,41 @@ export function HarinSectionHeading({ eyebrow, title, description, aside, icon, 
   </header>;
 }
 
+export function HarinPageFrame({ as:Element='section', kind='default', className='', children, ...props }) {
+  return <Element className={join('v8PageFrame',`v8PageFrame-${kind}`,className)} {...props}>{children}</Element>;
+}
+
+export function HarinPageHeader({ eyebrow, title, description, icon='sparkles', tone='lavender', note, metrics=[], actions, className='' }) {
+  return <header className={join('v8PageHeader',`v8PageHeader-${tone}`,className)}>
+    <div className="v8PageHeaderCopy">
+      <span className="v8PageHeaderEyebrow">{eyebrow}</span>
+      <div><HarinPictogram icon={icon} tone={tone} size={24}/><span><h1>{title}</h1>{description?<p>{description}</p>:null}</span></div>
+      {note?<small className="v8PageHeaderNote">{note}</small>:null}
+    </div>
+    {metrics.length?<div className="v8PageHeaderMetrics">{metrics.map((metric,index)=>{const item=Array.isArray(metric)?{label:metric[0],value:metric[1],description:metric[2],tone:metric[3]}:metric;return <span className={item.tone||''} key={`${item.label}-${index}`}><small>{item.label}</small><b>{item.value}</b>{item.description?<em>{item.description}</em>:null}</span>;})}</div>:null}
+    {actions?<div className="v8PageHeaderActions">{actions}</div>:null}
+  </header>;
+}
+
+export function HarinPageToolbar({ label='보기 조건', description, aside, className='', children }) {
+  return <section className={join('v8PageToolbar',className)}>
+    <header><span><b>{label}</b>{description?<small>{description}</small>:null}</span>{aside?<aside>{aside}</aside>:null}</header>
+    <div className="v8PageToolbarBody">{children}</div>
+  </section>;
+}
+
+export function HarinPageContent({ as:Element='div', className='', children, ...props }) {
+  return <Element className={join('v8PageContent',className)} {...props}>{children}</Element>;
+}
+
+export function HarinPageAiRegion({ title='이 페이지의 AI 분석', description='현재 화면의 자료만 따로 분석하며 다른 페이지 결과와 합치지 않아요.', className='', children, ...props }) {
+  if(!children)return null;
+  return <section className={join('v8PageAiRegion',className)} {...props}>
+    <header><HarinPictogram icon="sparkles" tone="lavender" size={18}/><span><b>{title}</b><small>{description}</small></span></header>
+    <div>{children}</div>
+  </section>;
+}
+
 export function HarinEmptyState({ icon='sparkles', title='표시할 자료가 없어요', description, action, className='' }) {
   return <section className={join('v8EmptyState',className)}><HarinPictogram icon={icon} tone="lavender" size={22}/><div><b>{title}</b>{description?<p>{description}</p>:null}</div>{action||null}</section>;
 }

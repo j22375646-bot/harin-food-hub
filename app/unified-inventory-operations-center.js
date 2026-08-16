@@ -2,6 +2,7 @@
 
 import { useDeferredValue, useMemo, useState } from 'react';
 import { HarinIcon } from './_design-system/harin-icon.js';
+import { HarinPageAiRegion, HarinPageFrame, HarinPageHeader } from './_design-system/harin-ui.js';
 
 const CHANNELS = [['CAFE24','Cafe24'],['NAVER','네이버'],['COUPANG','쿠팡']];
 const WORKSPACES = [
@@ -130,11 +131,8 @@ export default function UnifiedInventoryOperationsCenter({ center = {}, children
     else if(id==='RISK'||id==='OVERVIEW')setFilter('ACTION');
   }
 
-  return <section className="inventoryOpsCenter inventoryOpsV8">
-    <section className="inventoryOpsHero">
-      <div className="operationsHeroCopy"><span>재고·발주 업무</span><div className="operationsHeroTitle"><i><HarinIcon name="inventory" size={28}/></i><h1>재고·발주 작업센터</h1></div><p>판매 중인 상품부터 확인하고, 품절 위험과 필요한 발주량을 실제 처리 순서대로 보여드려요.</p></div>
-      <div className="inventoryHeroMetrics"><span><small>판매 중 상품</small><b>{count(summary.sellable_products ?? sellableItems.length)}개</b></span><span><small>지금 확인할 상품</small><b>{count(workspaceCounts.OVERVIEW)}개</b></span><span><small>발주 추천</small><b>{count(workspaceCounts.REPLENISH)}개</b></span><span><small>접어둔 상품</small><b>{count(summary.unavailable_products ?? unavailableItems.length)}개</b></span></div>
-    </section>
+  return <HarinPageFrame kind="operations" className="inventoryOpsCenter inventoryOpsV8">
+    <HarinPageHeader className="inventoryOpsHero" eyebrow="재고·발주 업무" title="재고·발주 작업센터" description="판매 중인 상품부터 확인하고, 품절 위험과 필요한 발주량을 실제 처리 순서대로 보여드려요." icon="inventory" tone="mint" note="품절·판매중단·사은품·이벤트 상품은 매칭과 발주 계산에서 제외" metrics={[["판매 중 상품",`${count(summary.sellable_products ?? sellableItems.length)}개`],["지금 확인할 상품",`${count(workspaceCounts.OVERVIEW)}개`],["발주 추천",`${count(workspaceCounts.REPLENISH)}개`],["접어둔 상품",`${count(summary.unavailable_products ?? unavailableItems.length)}개`]]}/>
 
     <section className="inventoryFocusRail" aria-label="오늘의 재고 집중 항목">
       <button type="button" className={sellableOutCount?'danger':''} onClick={()=>openWorkspace('RISK','OUT')}><HarinIcon name="alerts" size={22}/><span><small>먼저 확인</small><b>판매 상품 품절 {count(sellableOutCount)}개</b></span><em>보기</em></button>
@@ -142,21 +140,9 @@ export default function UnifiedInventoryOperationsCenter({ center = {}, children
       <button type="button" className={dataCheckCount?'notice':''} onClick={()=>openWorkspace('SKU','DATA')}><HarinIcon name="sync" size={22}/><span><small>데이터 상태</small><b>수량·갱신 확인 {count(dataCheckCount)}개</b></span><em>확인하기</em></button>
     </section>
 
-    <details className="inventoryOpsHelp"><summary>도움말 · 재고 화면은 어떤 순서로 보나요?</summary><div><p><b>오늘 재고 → 위험 재고</b> 순서로 품절과 저재고를 먼저 처리합니다. 채널마다 수량과 기준 시각이 함께 표시돼 오래된 수치를 구분할 수 있어요.</p><p><b>발주 미리보기</b>는 최근 7일 판매속도와 가장 적은 채널 재고를 사용합니다. 목표 보유일을 바꿔도 실제 재고나 플랫폼에는 반영되지 않아요.</p></div></details>
-
     <nav className="phase13WorkspaceNav inventory" aria-label="재고 작업공간">
       {WORKSPACES.map(([id,label,description])=><button type="button" className={workspace===id?'active':''} onClick={()=>openWorkspace(id)} key={id}><span>{label}</span><small>{description}</small><b>{count(workspaceCounts[id])}</b></button>)}
     </nav>
-
-    <section className="inventoryOpsKpis">
-      <span><small>판매 중 상품</small><b>{count(summary.sellable_products ?? sellableItems.length)}개</b></span>
-      <span><small>판매 상품 품절</small><b>{count(sellableOutCount)}개</b></span>
-      <span><small>저재고 채널</small><b>{count(summary.low_stock)}개</b></span>
-      <span><small>갱신 필요</small><b>{count(summary.stale)}개</b></span>
-      <span><small>발주 계산 가능</small><b>{count(summary.replenishment_ready)}개</b></span>
-    </section>
-
-    {workspace==='OVERVIEW'?<div className="operationsAiSlot inventoryAiSlot">{aiPanel}</div>:null}
 
     {['OVERVIEW','SKU','RISK'].includes(workspace)?<>
       <section className="inventoryOpsToolbar">
@@ -176,5 +162,7 @@ export default function UnifiedInventoryOperationsCenter({ center = {}, children
     {workspace==='HISTORY'?<section className="inventoryHistoryList"><header><div><span>COLLECTION HISTORY</span><h2>최근 채널 재고 기준 시각</h2></div><small>상품별 최신 30건</small></header>{history.length?history.map((item,index)=><article key={`${item.platform}-${item.name}-${index}`}><span className={String(item.state||'unknown').toLowerCase()}>{item.label}</span><b>{item.name}</b><small>{dateTime(item.updated_at)}</small></article>):<div className="inventoryOpsEmpty">재고 수집 기록이 없습니다.</div>}</section>:null}
 
     {workspace==='SKU'?<details className="inventoryOpsCoupangDetail"><summary><span><b>쿠팡 로켓그로스 상세 운영표</b><small>재고일수·30일 판매·판매촉진 판단이 필요할 때만 펼쳐보세요.</small></span><em>열기 / 접기</em></summary><div>{children}</div></details>:null}
-  </section>;
+    {workspace==='OVERVIEW'?<HarinPageAiRegion className="operationsAiSlot inventoryAiSlot" id="page-ai-analysis" title="재고·발주 AI 분석">{aiPanel}</HarinPageAiRegion>:null}
+    <details className="inventoryOpsHelp"><summary>도움말 · 재고 화면은 어떤 순서로 보나요?</summary><div><p><b>오늘 재고 → 위험 재고</b> 순서로 품절과 저재고를 먼저 처리합니다. 채널마다 수량과 기준 시각이 함께 표시돼 오래된 수치를 구분할 수 있어요.</p><p><b>발주 미리보기</b>는 최근 7일 판매속도와 가장 적은 채널 재고를 사용합니다. 목표 보유일을 바꿔도 실제 재고나 플랫폼에는 반영되지 않아요.</p></div></details>
+  </HarinPageFrame>;
 }

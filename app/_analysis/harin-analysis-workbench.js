@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useStoredState } from '../use-hub-preference.js';
+import { HarinPageAiRegion, HarinPageContent, HarinPageFrame, HarinPageHeader, HarinPageToolbar } from '../_design-system/harin-ui.js';
 
 const PLATFORM_LABELS={all:'전체',naver:'네이버',coupang:'쿠팡',cafe24:'Cafe24'};
 const WORKSPACE_META={
@@ -134,20 +135,22 @@ export default function HarinAnalysisWorkbench({view,workspace,platform='all',da
   const actualTerms=data.naver?.searchTermCenter?.summary?.total||0;
   const sellable=(data.products||[]).filter(item=>item.catalog_status==='SELLING').length;
   const heroMetrics=view==='insight'?[['저장 보고서',`${count(reportCount)}건`],['열린 이상징후',`${count(anomalyCount)}건`],['선택 범위',PLATFORM_LABELS[platform]]]:view==='keyword'?[['실제 검색어',`${count(actualTerms)}개`],['무전환 키워드',`${count(data.naver?.keywordWaste?.length)}개`],['선택 범위',PLATFORM_LABELS[platform]]]:[['판매중 상품',`${count(sellable)}개`],['채널 연결',`${count(data.productOperations?.summary?.all_channels_connected)}개`],['선택 범위',PLATFORM_LABELS[platform]]];
-  return <section className={`analysisV8 analysisV8-${view}`}>
-    <section className="analysisHero">
-      <div className="analysisHeroCopy"><span>{view==='insight'?'성과 분석':view==='keyword'?'광고 키워드 운영':'상품 성장 운영'}</span><div><i><Pictogram type={view}/></i><section><h1>{meta[0]}</h1><p>{meta[1]}</p></section></div><small>숫자는 서버 계산 · 자료 부족은 판단 보류 · 플랫폼 변경은 승인 전 실행 안 함</small></div>
-      <div className="analysisHeroMetrics">{heroMetrics.map(([label,value])=><span key={label}><small>{label}</small><b>{value}</b></span>)}</div>
-    </section>
-    <nav className="analysisFocusRail" aria-label="이 화면의 빠른 작업">
-      {view==='insight'?<><a href="#analysis-decision-desk"><i>↔</i><span><small>비교</small><b>저장한 기준과 비교</b></span></a><a href="#analysis-anomalies"><i>!</i><span><small>선택</small><b>이상징후 먼저 보기</b></span></a><a href="#page-ai-analysis"><i>AI</i><span><small>설명</small><b>인사이트 AI 분석</b></span></a></>:null}
-      {view==='keyword'?<><Link href="/keywords/search-terms"><i>⌕</i><span><small>탐색</small><b>실제 검색어 결정</b></span></Link><a href="#keyword-stop-loss"><i>₩</i><span><small>보호</small><b>손실 중지선 확인</b></span></a><a href="#page-ai-analysis"><i>AI</i><span><small>설명</small><b>키워드 AI 분석</b></span></a></>:null}
-      {view==='product'?<><Link href="/products/catalog"><i>□</i><span><small>상품</small><b>판매 가능 목록</b></span></Link><a href="#product-channel-differences"><i>≠</i><span><small>비교</small><b>채널 차이 확인</b></span></a><a href="#page-ai-analysis"><i>AI</i><span><small>설명</small><b>상품 AI 분석</b></span></a></>:null}
-    </nav>
-    {view==='insight'?<InsightComparison reports={data.reports||[]} alerts={data.alerts||[]} platform={platform}/>:null}
-    {view==='keyword'?<KeywordStopLoss data={data}/>:null}
-    {view==='product'?<ProductDifferenceDesk data={data}/>:null}
-    {aiPanel?<div className="analysisAiSlot" id="page-ai-analysis">{aiPanel}</div>:null}
-    <div className="analysisPageContent">{children}</div>
-  </section>;
+  const pageLabel=view==='insight'?'성과 분석':view==='keyword'?'광고 키워드 운영':'상품 성장 운영';
+  return <HarinPageFrame kind="analysis" className={`analysisV8 analysisV8-${view}`}>
+    <HarinPageHeader className="analysisHero" eyebrow={pageLabel} title={meta[0]} description={meta[1]} icon={view} tone={view==='keyword'?'mint':view==='product'?'amber':'lavender'} note="숫자는 서버 계산 · 자료 부족은 판단 보류 · 플랫폼 변경은 승인 전 실행 안 함" metrics={heroMetrics}/>
+    <HarinPageToolbar className="analysisFocusToolbar" label="빠른 작업" description="지금 필요한 분석 위치로 바로 이동해요.">
+      <nav className="analysisFocusRail" aria-label="이 화면의 빠른 작업">
+        {view==='insight'?<><a href="#analysis-decision-desk"><i>↔</i><span><small>비교</small><b>저장한 기준과 비교</b></span></a><a href="#analysis-anomalies"><i>!</i><span><small>선택</small><b>이상징후 먼저 보기</b></span></a><a href="#page-ai-analysis"><i>AI</i><span><small>설명</small><b>인사이트 AI 분석</b></span></a></>:null}
+        {view==='keyword'?<><Link href="/keywords/search-terms"><i>⌕</i><span><small>탐색</small><b>실제 검색어 결정</b></span></Link><a href="#keyword-stop-loss"><i>₩</i><span><small>보호</small><b>손실 중지선 확인</b></span></a><a href="#page-ai-analysis"><i>AI</i><span><small>설명</small><b>키워드 AI 분석</b></span></a></>:null}
+        {view==='product'?<><Link href="/products/catalog"><i>□</i><span><small>상품</small><b>판매 가능 목록</b></span></Link><a href="#product-channel-differences"><i>≠</i><span><small>비교</small><b>채널 차이 확인</b></span></a><a href="#page-ai-analysis"><i>AI</i><span><small>설명</small><b>상품 AI 분석</b></span></a></>:null}
+      </nav>
+    </HarinPageToolbar>
+    <HarinPageContent className="analysisPageContent">
+      {view==='insight'?<InsightComparison reports={data.reports||[]} alerts={data.alerts||[]} platform={platform}/>:null}
+      {view==='keyword'?<KeywordStopLoss data={data}/>:null}
+      {view==='product'?<ProductDifferenceDesk data={data}/>:null}
+      {children}
+    </HarinPageContent>
+    <HarinPageAiRegion className="analysisAiSlot" id="page-ai-analysis" title={`${pageLabel} AI 분석`}>{aiPanel}</HarinPageAiRegion>
+  </HarinPageFrame>;
 }
