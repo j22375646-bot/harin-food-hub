@@ -14,7 +14,7 @@ test('13-7 connects four separate workflow pages with real routes and mobile UI'
   for(const [id,href] of [['reports','/diagnoses'],['changes','/approvals'],['validation','/execution-validation'],['experiments','/ab-tests']]){
     assert.match(client,new RegExp(`id:'${id}',href:'${href.replaceAll('/','\\/')}'`));
   }
-  assert.match(shell,/14-2 · 셸·내비게이션/);
+  assert.match(shell,/메뉴·업무 찾기/);
   assert.match(css,/Phase 13-7: diagnosis, approval, validation, and experiment workflow/);
   assert.match(css,/\.executionWorkflow>nav\{display:flex;overflow-x:auto/);
 });

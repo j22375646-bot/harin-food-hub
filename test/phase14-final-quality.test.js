@@ -109,5 +109,5 @@ test('14-11 decision routes keep bounded query windows for faster navigation',()
 test('14-11 exposes one repeatable final verification command',()=>{
   const pkg=JSON.parse(read('package.json'));
   assert.equal(pkg.scripts['verify:phase14'],'pnpm test && pnpm build');
-  assert.match(read('app/_shell/harin-app-shell.js'),/14-11 · 최종 품질·운영 안정화/);
+  assert.doesNotMatch(read('app/_shell/harin-app-shell.js'),/14-11 · 최종 품질·운영 안정화/);
 });

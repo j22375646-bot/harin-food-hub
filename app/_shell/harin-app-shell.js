@@ -7,7 +7,6 @@ import { HarinIcon } from '../_design-system/harin-icon.js';
 
 const PRIMARY_MOBILE_VIEWS = ['main','orders','inventory','notifications'];
 const PRIMARY_MOBILE_VIEW_SET = new Set(PRIMARY_MOBILE_VIEWS);
-const SHELL_FOUNDATION = '14-2 · 셸·내비게이션';
 
 export function HarinTopbar({
   context,
@@ -38,11 +37,6 @@ export function HarinSidebar({ groups, view, openGroup, query, onQuery, onOpenGr
   const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(normalizedQuery))})).filter(group=>group.items.length);
   const actionCount=groups.reduce((sum,group)=>sum+Number(group.actionCount||0),0);
   return <aside className="desktopSidebar v8Sidebar" aria-label="허브 사이드바">
-    <div className="sidebarPhase">
-      <span><HarinIcon name="sparkles"/><em>V8 REMODEL</em></span>
-      <b>14-11 · 최종 품질·운영 안정화</b>
-      <small>모바일·접근성·속도·장애 복구까지 운영 기준으로 검증해요.</small>
-    </div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true"><HarinIcon name="search"/></i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴·업무 찾기" /></label>
     <div className="sidebarMenuHeading"><span>운영 메뉴</span>{actionCount>0?<b>확인할 일 {actionCount}건</b>:<b>새 알림 없음</b>}</div>
     <nav aria-label="허브 메뉴">

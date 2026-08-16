@@ -22,7 +22,7 @@ export default function ProductAdTargetsCenter({ center = {} }) {
   }
   return <section className="productAdTargetsCenter">
     <article className="productAdTargetsHero">
-      <div><span>PHASE 12-1 · N-1 DATA & PRODUCT TARGETS</span><h2>상품별 광고 목표 계산센터</h2><p>ROAS 700%를 모든 상품에 똑같이 적용하지 않고, 상품마다 실제로 돈이 남는 광고 한도를 계산합니다.</p></div>
+      <div><span>상품별 광고 안전선</span><h2>상품별 광고 목표 계산센터</h2><p>ROAS 700%를 모든 상품에 똑같이 적용하지 않고, 상품마다 실제로 돈이 남는 광고 한도를 계산합니다.</p></div>
       <aside><small>계산 가능</small><strong>{center.summary?.ready_products||0}개</strong><em>{center.period_start||'-'} ~ {center.period_end||'-'}</em></aside>
     </article>
     <details className="productAdTargetsHelp"><summary>이 숫자는 어떻게 계산하나요?</summary><div><p><b>계산 순서</b><br/>실제 매출에서 원가·수수료·배송비를 빼고, 사장님이 남기고 싶은 목표 이익률을 반영해 손익분기 ROAS → 목표 ROAS → 허용 CPA → 허용 CPC 순서로 계산합니다.</p><p><b>쉬운 예</b><br/>광고 전 주문당 10,000원이 남고 목표 이익이 4,000원이면 광고비는 주문당 최대 6,000원까지 쓸 수 있습니다. 전환율이 5%라면 허용 CPC는 300원입니다.</p><p><b>안전장치</b><br/>원가·정산·광고비 연결이 부족하거나 데이터가 오래되면 0원으로 계산하지 않고 ‘판단 보류’로 표시합니다.</p></div></details>

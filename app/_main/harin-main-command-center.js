@@ -119,7 +119,7 @@ export default function HarinMainCommandCenter({ center={}, onOpen, onOpenTarget
   const daily=center.daily||{},metrics=center.metrics||{},likelihood=center.likelihood||{};
   return <section className="mainV8CommandCenter">
     <section className="mainDailyHero">
-      <div className="mainDailyCopy"><span className="mainPhasePill"><HarinIcon name="sparkles" size={16}/>14-3 · DAILY COMMAND CENTER</span><RotatingGreeting total={daily.total} generatedAt={daily.generated_at}/><p>중복을 뺀 실제 주문·CS·재고·결정·오류만 세었어요. 중요한 일부터 누르면 바로 해당 화면으로 이동합니다.</p><QuickCommandBar daily={daily} onOpen={onOpen}/></div>
+      <div className="mainDailyCopy"><span className="mainPhasePill"><HarinIcon name="sparkles" size={16}/>오늘의 업무 요약</span><RotatingGreeting total={daily.total} generatedAt={daily.generated_at}/><p>중복을 뺀 실제 주문·CS·재고·결정·오류만 세었어요. 중요한 일부터 누르면 바로 해당 화면으로 이동합니다.</p><QuickCommandBar daily={daily} onOpen={onOpen}/></div>
       <aside><CutoffClock cutoffAt={daily.schedule?.cutoff_at} cutoffState={daily.schedule?.cutoff_state}/><div className="mainGoalPulse"><span>목표 달성 가능성</span><strong>{likelihood.label||'계산 대기'}</strong><small>{likelihood.description}</small><button type="button" onClick={onOpenTargets}>매출 목표 확인</button></div></aside>
       <div className="mainHeroOrb one"/><div className="mainHeroOrb two"/>
     </section>

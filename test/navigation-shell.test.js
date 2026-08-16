@@ -89,8 +89,11 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
   assert.match(styles,/Phase 10-4 — orders, CS, inventory and settlement are independent work pages/);
 });
 
-test('phase 11-8 keeps prior operations and adds unified data collection operations', () => {
-  assert.match(shell,/14-2 · 셸·내비게이션/);
+test('phase 15-1 keeps prior operations while removing repeated development chrome', () => {
+  assert.doesNotMatch(shell,/14-11 · 최종 품질·운영 안정화/);
+  assert.match(client,/function DataStatusPanel/);
+  assert.match(client,/pageDataStatus/);
+  assert.match(client,/embeddedHelpViews/);
   assert.match(client,/UnifiedProductOperationsCenter/);
   assert.match(client,/UnifiedInventoryOperationsCenter/);
   assert.match(client,/UnifiedSettlementOperationsCenter/);

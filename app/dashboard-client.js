@@ -46,6 +46,7 @@ const platformReportName = { all: 'ALL', naver: 'NAVER', coupang: 'COUPANG', caf
 const platformLabel = { all: '전체', naver: '네이버', coupang: '쿠팡', cafe24: 'Cafe24' };
 const channelScopedViews = new Set(['insight','keyword','product']);
 const financialContextViews = new Set(['insight','keyword','product']);
+const embeddedHelpViews = new Set(['orders','cs','inventory','settlement','collection']);
 async function coupangFixedIpResult(response) {
   const initial = await response.json();
   if (response.status !== 202 || !initial.request?.id) return initial;
@@ -88,7 +89,7 @@ function HelpBox({ help, compact=false, persistKey }) {
   </details>;
 }
 
-function DataStateBar({ data }) {
+function DataStatusPanel({ data, platform='all', onOpenCollection }) {
   const health=data.dataHealth?.channels||[];
   const stateFor=platform=>{
     const item=health.find(value=>value.platform===platform),status=item?.status;
@@ -100,11 +101,21 @@ function DataStateBar({ data }) {
     if(status==='STALE')return ['waiting','갱신 필요'];
     return ['waiting','수집 대기'];
   };
-  return <section className="dataStateBar" aria-label="채널별 데이터 상태">
-    <b>데이터 상태</b>
-    {[['NAVER','네이버'],['COUPANG','쿠팡'],['CAFE24','Cafe24']].map(([id,label])=>{const [tone,status]=stateFor(id);return <span className={tone} key={id}><i aria-hidden="true"/><strong>{label}</strong><em>{status}</em></span>})}
-    <small>숫자가 이상하면 데이터수집에서 해당 채널만 새로 가져오세요.</small>
-  </section>;
+  const selected=platform==='all'?null:health.find(item=>item.platform===platform.toUpperCase());
+  const affected=selected&&(selected.failedDatasets?.length||selected.dataMode==='PREVIOUS')
+    ? [selected]
+    : health.filter(item=>item.failedDatasets?.length||item.dataMode==='PREVIOUS'||['FAILED','PARTIAL','STALE'].includes(item.status));
+  return <details className={`pageDataStatus${affected.length?' warning':''}`}>
+    <summary aria-label="채널별 데이터 상태 열기">
+      <span className="pageDataStatusTitle"><i aria-hidden="true">D</i><span><b>데이터 상태</b><small>{affected.length?`${affected.length}개 채널 확인 필요`:'세 채널 최신 상태 확인'}</small></span></span>
+      <span className="pageDataStatusChannels">{[['NAVER','네이버'],['COUPANG','쿠팡'],['CAFE24','Cafe24']].map(([id,label])=>{const [tone,status]=stateFor(id);return <span className={tone} key={id}><i aria-hidden="true"/><strong>{label}</strong><em>{status}</em></span>})}</span>
+      <em className="pageDataStatusToggle">열기</em>
+    </summary>
+    <div className="pageDataStatusBody">
+      <DataHealthNotice dataHealth={data.dataHealth} platform={platform}/>
+      <div className="pageDataStatusGuide"><span><b>숫자가 이상할 때</b><small>실패한 값을 0으로 바꾸지 않습니다. 해당 채널만 다시 수집한 뒤 기준시각을 확인하세요.</small></span><button type="button" onClick={onOpenCollection}>데이터수집 열기</button></div>
+    </div>
+  </details>;
 }
 
 function DataHealthNotice({ dataHealth, platform='all' }) {
@@ -224,9 +235,8 @@ export default function Dashboard({ initialData, initialState }) {
         <span className="periodFilter">최근 7일 기준</span>
       </section>}
       <HarinFocusedWorkspaceNav view={view} workspace={workspace} platform={platform} period={period} product={selectedProduct}/>
-      {view!=='main'&&<DataStateBar data={initialData}/>}
-      {view!=='main'&&<DataHealthNotice dataHealth={initialData.dataHealth} platform={platform}/>}
-      <HelpBox key={view} help={getHubHelp(view)} persistKey={view}/>
+      {view!=='main'&&<DataStatusPanel data={initialData} platform={platform} onOpenCollection={()=>openView('collection')}/>}
+      {!embeddedHelpViews.has(view)&&!(view==='product'&&workspace==='catalog'&&platform==='all')&&!(view==='insight'&&workspace==='channels'&&platform==='coupang')&&<HelpBox key={`${view}:${workspace}:${platform}`} help={getHubHelp(view)} persistKey={`${view}:${workspace}:${platform}`}/>}
       {financialContextViews.has(view)&&<FinancialTrustBanner trust={initialData.financialTrust} onOpenProduct={()=>navigate({platform:'all',view:'product',workspace:'costs',product:'ALL'})}/>}
       {syncMessage && <div className="syncToast">{syncMessage}</div>}
 
@@ -283,7 +293,7 @@ function ExecutionWorkflowNav({view,data={}}){
     experiments:num(validation.linked_experiments)
   };
   return <section className="executionWorkflow" aria-label="진단부터 학습까지 운영 흐름">
-    <header><div><span>13-7 · DECIDE → VERIFY → LEARN</span><h1>한 번의 진단을 끝까지 이어서 확인해요</h1><p>페이지를 합치지 않고, 지금 할 단계와 다음 단계를 한 줄로 연결했습니다.</p></div><aside><b>{executionWorkflowSteps.findIndex(step=>step.id===view)+1}/4</b><small>현재 단계</small></aside></header>
+    <header><div><span>결정 → 검증 → 학습</span><h1>한 번의 진단을 끝까지 이어서 확인해요</h1><p>페이지를 합치지 않고, 지금 할 단계와 다음 단계를 한 줄로 연결했습니다.</p></div><aside><b>{executionWorkflowSteps.findIndex(step=>step.id===view)+1}/4</b><small>현재 단계</small></aside></header>
     <nav>{executionWorkflowSteps.map((step,index)=><div className="executionWorkflowStep" key={step.id}><Link href={step.href} className={view===step.id?'active':''} aria-current={view===step.id?'step':undefined}><i>{step.number}</i><span><b>{step.label}</b><small>{step.description}</small></span><em>{counts[step.id]}건</em></Link>{index<executionWorkflowSteps.length-1?<strong aria-hidden="true">→</strong>:null}</div>)}</nav>
   </section>;
 }
@@ -887,7 +897,7 @@ function FinancialReadinessCenter({ readiness={}, showAdTargets=true }) {
     try{const response=await fetch('/api/costs',{method:'PUT',headers:{'content-type':'application/json','idempotency-key':crypto.randomUUID()},body:JSON.stringify({type:'PRODUCT',master_product_id:product.master_product_id,...row})});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'승인 요청 생성 실패');setMessage(`${product.name} 원가 미리보기 완료 · 변경승인에서 승인하면 반영됩니다.`);}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setSaving('');}
   }
   return <><article className={`panel financialReadinessCenter ${String(readiness.status||'ACTION_REQUIRED').toLowerCase()}`}>
-    <header className="financialReadinessHead"><div><span>PHASE 9 · PROFIT READINESS</span><h2>이익 신뢰 회복센터</h2><p>실제 원가를 임의로 추정하지 않고, 매출 영향이 큰 상품부터 입력해 이익 계산을 안전하게 엽니다.</p></div><strong>{readiness.status==='READY'?'이익 계산 가능':'계산 보호 중'}</strong></header>
+    <header className="financialReadinessHead"><div><span>이익 계산 준비</span><h2>이익 신뢰 회복센터</h2><p>실제 원가를 임의로 추정하지 않고, 매출 영향이 큰 상품부터 입력해 이익 계산을 안전하게 엽니다.</p></div><strong>{readiness.status==='READY'?'이익 계산 가능':'계산 보호 중'}</strong></header>
     <div className="financialReadinessProgress"><div><span style={{width:`${Math.max(0,Math.min(100,num(coverage)))}%`}}/></div><p><b>현재 {coverage==null?'확인 필요':`${num(coverage).toFixed(1)}%`}</b><em>목표 {num(readiness.target_cost_coverage_rate||95).toFixed(0)}%</em></p></div>
     <div className="financialReadinessKpis"><span><small>우선 입력</small><b>{count(readiness.priority_input_count)}개</b><em>95% 달성 최소 묶음</em></span><span><small>미입력 매출</small><b>{won(readiness.missing_cost_revenue)}</b><em>{count(readiness.missing_cost_products)}개 상품</em></span><span><small>추가 반영 필요</small><b>{won(readiness.required_additional_revenue)}</b><em>매출 기준</em></span><span><small>미귀속 광고비</small><b>{won(readiness.unassigned_ad_spend)}</b><em>쿠팡 상품 연결 확인</em></span></div>
     <div className="financialReadinessChecklist">{(readiness.checklist||[]).map(item=><section className={String(item.status).toLowerCase()} key={item.id}><i>{item.status==='READY'?'✓':'!'}</i><div><b>{item.title}</b><p>{item.detail}</p></div><em>{statusLabel[item.status]||item.status}</em></section>)}</div>

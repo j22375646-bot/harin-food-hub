@@ -23,7 +23,7 @@ export default function NaverExecutiveBoard({board}){
   ];
   return <section className="naverExecutiveBoard">
     <header className="naverExecutiveHero">
-      <div><span>PHASE 12-3 · NAVER AD EXECUTIVE BOARD</span><h1>네이버 광고 경영판</h1><p>광고센터 성과와 실제 주문·정산·이익을 섞지 않고, 지금 막힌 지점과 다음 행동을 보여줍니다.</p></div>
+      <div><span>네이버 광고 · 경영 요약</span><h2>네이버 광고 경영판</h2><p>광고센터 성과와 실제 주문·정산·이익을 섞지 않고, 지금 막힌 지점과 다음 행동을 보여줍니다.</p></div>
       <div><small>분석 기간</small><b>{board.period_start||'확인 필요'} → {board.period_end||'확인 필요'}</b><em>목표 광고 ROAS {board.target_roas}%</em></div>
     </header>
 

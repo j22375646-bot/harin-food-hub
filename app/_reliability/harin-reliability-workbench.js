@@ -109,7 +109,7 @@ export default function HarinReliabilityWorkbench({mode='collection',center={},a
   ];
   return <section className={`reliabilityV8 ${mode}`}>
     <header className="reliabilityHero">
-      <div><span>{isCollection?'14-8 · LIVE DATA OPERATIONS':'14-8 · EXCEPTION INBOX'}</span><h1>{isCollection?'데이터가 멈추기 전에 먼저 알려드릴게요':'처리할 알림만 차분하게 모아봤어요'}</h1><p>{isCollection?'채널 연결, 최근 수집, 고정 IP 워커와 실패 작업을 한 흐름으로 확인합니다. 정상 채널은 그대로 두고 문제가 있는 작업만 다시 처리해요.':'수집 오류와 운영 이상을 중요도순으로 확인하고, 지금 처리하지 않을 알림은 잠시 숨길 수 있어요.'}</p></div>
+      <div><span>{isCollection?'실시간 데이터 운영':'확인할 알림'}</span><h1>{isCollection?'데이터가 멈추기 전에 먼저 알려드릴게요':'처리할 알림만 차분하게 모아봤어요'}</h1><p>{isCollection?'채널 연결, 최근 수집, 고정 IP 워커와 실패 작업을 한 흐름으로 확인합니다. 정상 채널은 그대로 두고 문제가 있는 작업만 다시 처리해요.':'수집 오류와 운영 이상을 중요도순으로 확인하고, 지금 처리하지 않을 알림은 잠시 숨길 수 있어요.'}</p></div>
       <aside className={exceptions.length?'attention':'clear'}><i aria-hidden="true">{exceptions.length?'!':'✓'}</i><span><small>{exceptions.length?'지금 확인할 신호':'현재 상태'}</small><b>{exceptions.length?`${exceptions.length}건`:'모두 안정적'}</b><em>{isCollection?`다음 자동수집 ${dateTime(center.next_scheduled_at)}`:'해결한 알림은 이력으로 남아요'}</em></span>{onPrimary?<button type="button" onClick={onPrimary} disabled={primaryBusy}>{primaryBusy?'처리 중…':primaryLabel}</button>:null}</aside>
     </header>
     <ChannelReadiness channels={center.channels||[]}/>

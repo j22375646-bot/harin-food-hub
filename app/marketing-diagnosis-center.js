@@ -35,7 +35,7 @@ export function MarketingInsightSummary({ diagnosis }) {
   if (!diagnosis?.items?.length) return null;
   const items = diagnosis.items.slice(0, 3);
   return <article className="panel marketingInsightSummary">
-    <header><div><span>PHASE 6 · DECISION EXPLANATION</span><h2>광고 판단을 이렇게 내렸어요</h2><p>ROAS 숫자만 보지 않고 관찰 → 영향 → 근거 → 추천 순서로 설명합니다.</p></div><b>{periodLabel(diagnosis.period)}</b></header>
+    <header><div><span>광고 판단 근거</span><h2>광고 판단을 이렇게 내렸어요</h2><p>ROAS 숫자만 보지 않고 관찰 → 영향 → 근거 → 추천 순서로 설명합니다.</p></div><b>{periodLabel(diagnosis.period)}</b></header>
     <div className="marketingSummaryRows">{items.map(item=><section key={item.ncc_keyword_id}><div className="marketingSummaryTitle"><strong>{item.keyword}</strong><span className={`marketingAction ${item.action_tone}`}>{item.action_label}</span><Confidence value={item.confidence}/></div><DiagnosisSequence item={item} compact/></section>)}</div>
   </article>;
 }
@@ -65,7 +65,7 @@ export default function MarketingDiagnosisCenter({ diagnosis, actioning, onActio
   const totals = diagnosis.totals || {}, summary = diagnosis.summary || {};
   return <section className="marketingDiagnosisCenter">{message&&<div className="syncToast">{message}</div>}
     <article className="panel marketingCenterHead">
-      <header><div><span>PHASE 6 · MARKETING DECISION CENTER</span><h2>키워드에서 주문까지 한눈에 보기</h2><p>검색량 자료가 아직 없어 실제 검색 노출을 수요 신호로 사용합니다. 방문·주문·매출은 수집된 실제 성과입니다.</p></div><b>{periodLabel(diagnosis.period)}</b></header>
+      <header><div><span>키워드 성과 흐름</span><h2>키워드에서 주문까지 한눈에 보기</h2><p>검색량 자료가 아직 없어 실제 검색 노출을 수요 신호로 사용합니다. 방문·주문·매출은 수집된 실제 성과입니다.</p></div><b>{periodLabel(diagnosis.period)}</b></header>
       <details className="marketingHelp"><summary>이 진단은 어떻게 보면 되나요?</summary><div><p><b>예시</b> “작두콩차효능”이 493회 노출되고 9번 방문했지만 주문이 없다면, 바로 광고를 끄지 않습니다. 방문 표본이 작으므로 더 지켜보되 건강 효능 표현은 광고문구에 그대로 쓰지 않도록 경고합니다.</p><p><b>판단 순서</b> 노출 → 방문 → 주문 → 매출을 먼저 보고, 가격·재고·리뷰·상세페이지가 주문을 막았는지 함께 확인합니다.</p><p><b>주의</b> “표본 부족”은 나쁜 결과가 아니라 아직 확실한 결론을 내릴 자료가 적다는 뜻입니다.</p></div></details>
       <div className="marketingFunnel" aria-label="검색 노출에서 매출까지 흐름">
         <section><span>1. 검색 노출</span><strong>{count(totals.impressions)}회</strong><small>검색량 대용 수요 신호</small></section><i>→</i>

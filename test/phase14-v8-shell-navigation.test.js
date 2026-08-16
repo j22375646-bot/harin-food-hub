@@ -18,7 +18,7 @@ test('14-2 loads an isolated shell layer and extracts navigation from the page r
     assert.match(client,new RegExp(`<${component}`));
   }
   assert.doesNotMatch(client,/function SidebarMenu|function MobileMoreMenu/);
-  assert.match(shell,/14-11 · 최종 품질·운영 안정화/);
+  assert.doesNotMatch(shell,/14-11 · 최종 품질·운영 안정화/);
 });
 
 test('14-2 keeps real URL navigation, prefetch, back restoration, and focused route links',()=>{

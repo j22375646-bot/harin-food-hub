@@ -42,7 +42,7 @@ export default function UnifiedProductOperationsCenter({ center = {} }) {
 
   return <section className="productOpsCenter">
     <div className="productOpsHero">
-      <div><span className="eyebrow">PHASE 11-5 · PRODUCT OPERATIONS</span><h1>통합 상품 운영센터</h1><p>같은 상품의 판매상태·가격·재고·연결 이상을 채널별로 한눈에 확인합니다.</p></div>
+      <div><span className="eyebrow">채널 상품 운영</span><h2>통합 상품 운영센터</h2><p>같은 상품의 판매상태·가격·재고·연결 이상을 채널별로 한눈에 확인합니다.</p></div>
       <aside><small>지금 확인할 상품</small><strong>{Number(summary.action_required || 0).toLocaleString('ko-KR')}개</strong><Link href="/products/mappings">상품 연결 검토</Link></aside>
     </div>
     <details className="productOpsHelp"><summary>이 화면은 어떻게 쓰나요?</summary><p><b>예:</b> Cafe24에서는 판매 중인데 쿠팡이 품절이면 해당 상품에 ‘쿠팡 품절’이 표시됩니다. 먼저 빨간 표시를 확인하고, 가격차나 미연결 상품을 이어서 검토하세요. 네이버 광고그룹은 스마트스토어 실상품으로 계산하지 않습니다.</p></details>

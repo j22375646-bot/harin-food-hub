@@ -681,7 +681,7 @@ export default function UnifiedCustomerServiceCenter({ center, aiPanel }) {
     <section className="unifiedCsCenter">
       <section className="unifiedCsHero">
         <div className="operationsHeroCopy">
-          <span>14-4 · CUSTOMER WORKBENCH</span>
+          <span>고객 문의·클레임 업무</span>
           <div className="operationsHeroTitle"><i><HarinIcon name="customer" size={28}/></i><h1>통합 CS·클레임센터</h1></div>
           <p>
             처리 요청, 클레임, 완료 이력, 답변 양식을 나눠 지금 할 일만

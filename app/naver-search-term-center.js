@@ -25,7 +25,7 @@ export default function NaverSearchTermCenter({initialData}) {
   }
   return <section className="searchTermCenter">
     <article className="searchTermHero">
-      <div><span className="eyebrow">PHASE 12-2 · ACTUAL SEARCH TERMS</span><h2>실제 검색어 운영센터</h2><p>고객이 실제로 검색한 말을 보고 제외·분리·랜딩 조치를 결정합니다. 등록 키워드와 섞지 않습니다.</p></div>
+      <div><span className="eyebrow">네이버 · 실제 검색어</span><h2>실제 검색어 운영센터</h2><p>고객이 실제로 검색한 말을 보고 제외·분리·랜딩 조치를 결정합니다. 등록 키워드와 섞지 않습니다.</p></div>
       <button onClick={collect} disabled={Boolean(busy)}>{busy==='collect'?'수집 중…':'최근 30일 검색어 수집'}</button>
     </article>
     <details className="searchTermHelp"><summary>이 기능은 뭐예요?</summary><div><p><b>예시</b> 등록 키워드가 ‘작두콩차’여도 고객은 ‘환절기 목관리 티백’을 검색해 들어올 수 있습니다.</p><p><b>보는 순서</b> 무관 검색어는 제외 검토, 브랜드는 별도 운영, 정보 검색은 FAQ, 구매 검색은 신규 키워드나 랜딩 점검 후보로 봅니다.</p><p><b>주의</b> 여기서는 검토 후보만 만듭니다. 네이버 광고를 자동 중지하거나 입찰가를 바꾸지 않습니다.</p></div></details>

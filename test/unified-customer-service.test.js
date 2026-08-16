@@ -281,7 +281,7 @@ test("14-4 CS 화면은 SLA 요청함과 빠른 양식, 별도 AI 영역을 유�
   const fs = require("node:fs");
   const path = require("node:path");
   const source = fs.readFileSync(path.join(__dirname, "../app/unified-customer-service-center.js"), "utf8");
-  assert.match(source, /14-4 · CUSTOMER WORKBENCH/);
+  assert.match(source, /고객 문의·클레임 업무/);
   assert.match(source, /기한 초과/);
   assert.match(source, /빠른 답변 양식/);
   assert.match(source, /csAiSlot/);

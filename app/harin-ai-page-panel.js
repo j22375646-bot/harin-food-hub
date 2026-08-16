@@ -66,7 +66,7 @@ export default function HarinAiPagePanel({ panel, children }) {
   return <details className={`aiPagePanel ${open?'open':''}`} open={open} onToggle={event=>setOpen(event.currentTarget.open)}>
     <summary>
       <div className="aiPagePulse" aria-hidden="true"><i/><i/><b>AI</b></div>
-      <div className="aiPageHeadline"><span>14-10 · PAGE AI STUDIO</span><h2>{panel.title}</h2><p>{panel.summary}</p></div>
+      <div className="aiPageHeadline"><span>페이지별 AI 분석</span><h2>{panel.title}</h2><p>{panel.summary}</p></div>
       <div className="aiPageStatus"><em className={enabled?'enabled':'locked'}>{enabled?'자동분석 사용 중':'사용 시작 전 · 비용 0원'}</em><strong>{panel.metric_value}</strong><small>{panel.metric_label}</small><b>{open?'접기 ↑':'결과 미리보기 ↓'}</b></div>
     </summary>
     <div className="aiPageBody">

@@ -33,7 +33,7 @@ test('14-5 재고 센터는 판매 중 상품과 품절·판매중단 상품을 
 
 test('14-5 재고 화면은 발주 미리보기와 접힌 판매 제외 그룹을 제공한다',()=>{
   const source=read('app/unified-inventory-operations-center.js');
-  for(const label of ['14-5 · INVENTORY WORKBENCH','발주 미리보기','목표 보유일을 골라보세요','품절·판매중단 상품']) assert.match(source,new RegExp(label));
+  for(const label of ['재고·발주 업무','발주 미리보기','목표 보유일을 골라보세요','품절·판매중단 상품']) assert.match(source,new RegExp(label));
   assert.match(source,/setTargetDays/);
   assert.match(source,/inventoryAiSlot/);
   assert.match(source,/실제 재고나 플랫폼에는 반영되지 않아요/);
@@ -41,7 +41,7 @@ test('14-5 재고 화면은 발주 미리보기와 접힌 판매 제외 그룹�
 
 test('14-5 정산 화면은 예상·실제 대조와 별도 정산 AI를 제공한다',()=>{
   const source=read('app/unified-settlement-operations-center.js');
-  for(const label of ['14-5 · SETTLEMENT WORKBENCH','정산·비용 대조센터','차이가 큰 채널부터 확인해요','매출에서 정산액까지']) assert.match(source,new RegExp(label));
+  for(const label of ['정산·비용 업무','정산·비용 대조센터','차이가 큰 채널부터 확인해요','매출에서 정산액까지']) assert.match(source,new RegExp(label));
   assert.match(source,/settlementAiSlot/);
   assert.match(source,/상품 원가와 광고비를 반영한 실제 이익은 상품 화면/);
   assert.match(source,/payout_variance/);

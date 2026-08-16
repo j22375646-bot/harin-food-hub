@@ -132,7 +132,7 @@ export default function UnifiedInventoryOperationsCenter({ center = {}, children
 
   return <section className="inventoryOpsCenter inventoryOpsV8">
     <section className="inventoryOpsHero">
-      <div className="operationsHeroCopy"><span>14-5 · INVENTORY WORKBENCH</span><div className="operationsHeroTitle"><i><HarinIcon name="inventory" size={28}/></i><h1>재고·발주 작업센터</h1></div><p>판매 중인 상품부터 확인하고, 품절 위험과 필요한 발주량을 실제 처리 순서대로 보여드려요.</p></div>
+      <div className="operationsHeroCopy"><span>재고·발주 업무</span><div className="operationsHeroTitle"><i><HarinIcon name="inventory" size={28}/></i><h1>재고·발주 작업센터</h1></div><p>판매 중인 상품부터 확인하고, 품절 위험과 필요한 발주량을 실제 처리 순서대로 보여드려요.</p></div>
       <div className="inventoryHeroMetrics"><span><small>판매 중 상품</small><b>{count(summary.sellable_products ?? sellableItems.length)}개</b></span><span><small>지금 확인할 상품</small><b>{count(workspaceCounts.OVERVIEW)}개</b></span><span><small>발주 추천</small><b>{count(workspaceCounts.REPLENISH)}개</b></span><span><small>접어둔 상품</small><b>{count(summary.unavailable_products ?? unavailableItems.length)}개</b></span></div>
     </section>
 

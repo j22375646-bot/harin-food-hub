@@ -15,7 +15,7 @@ test('14-3 loads a route-scoped Main command center and its isolated design laye
   assert.match(layout,/import '.\/_main\/harin-main-v8\.css'/);
   assert.match(client,/dynamic\(\(\)=>import\('\.\/_main\/harin-main-command-center\.js'\),\{loading:LazyWorkbenchFallback\}\)/);
   assert.match(client,/<Phase14MainCommandCenter center=\{initialData\.salesCommandCenter\}/);
-  assert.match(main,/14-3 · DAILY COMMAND CENTER/);
+  assert.match(main,/오늘의 업무 요약/);
   assert.match(main,/function QuickCommandBar/);
   assert.match(main,/function SmartSchedule/);
   assert.match(main,/function ExceptionInbox/);

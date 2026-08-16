@@ -89,7 +89,7 @@ export default function ProductGrowthCenter({ unifiedPerformance={} }) {
   ];
 
   return <article className="panel growthCenter" id="product-growth-center">
-    <header className="growthCenterHead"><div><span>PHASE 5 · PRODUCT GROWTH CENTER</span><h2>상품 성장센터</h2><p>할인이나 광고를 늘리기 전에 이 상품이 실제로 돈을 남기는지 확인합니다.</p></div><label><span>분석할 상품</span><select value={selectedId} onChange={event=>setSelectedId(event.target.value)}>{data?.items?.map(item=><option value={item.master_product.id} key={item.master_product.id}>{item.master_product.name}</option>)}</select></label></header>
+    <header className="growthCenterHead"><div><span>판매구성 · 이익 비교</span><h2>상품 성장센터</h2><p>할인이나 광고를 늘리기 전에 이 상품이 실제로 돈을 남기는지 확인합니다.</p></div><label><span>분석할 상품</span><select value={selectedId} onChange={event=>setSelectedId(event.target.value)}>{data?.items?.map(item=><option value={item.master_product.id} key={item.master_product.id}>{item.master_product.name}</option>)}</select></label></header>
     <GrowthHelp title="상품 성장센터는 무엇을 하나요?" summary="상품 정보부터 구성별 이익, 상세페이지 준비까지 한 순서로 점검합니다.">
       <p><b>쉽게 말하면:</b> 1개를 팔 때와 묶음으로 팔 때 각각 얼마가 남는지 계산하는 작업장입니다.</p>
       <p><b>예:</b> 2개 묶음 판매가가 30,000원이고 원가·수수료·배송·광고비가 23,000원이면 실제 이익은 7,000원입니다.</p>

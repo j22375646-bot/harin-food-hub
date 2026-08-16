@@ -79,7 +79,7 @@ export default function UnifiedSettlementOperationsCenter({ center = {}, childre
 
   return <section className="settlementOpsCenter settlementOpsV8">
     <section className="settlementOpsHero">
-      <div className="operationsHeroCopy"><span>14-5 · SETTLEMENT WORKBENCH</span><div className="operationsHeroTitle"><i><HarinIcon name="settlement" size={28}/></i><h1>정산·비용 대조센터</h1></div><p>예상 금액과 실제 지급액을 채널별로 맞춰보고, 차이가 난 곳부터 확인할 수 있어요.</p></div>
+      <div className="operationsHeroCopy"><span>정산·비용 업무</span><div className="operationsHeroTitle"><i><HarinIcon name="settlement" size={28}/></i><h1>정산·비용 대조센터</h1></div><p>예상 금액과 실제 지급액을 채널별로 맞춰보고, 차이가 난 곳부터 확인할 수 있어요.</p></div>
       <div className="settlementHeroMetrics"><span><small>확정 지급액</small><b>{wonOrCheck(summary.actual_payout)}</b></span><span><small>예상 정산액</small><b>{wonOrCheck(summary.estimated_payout)}</b></span><span><small>확인할 채널</small><b>{count(summary.check_required_channels)}개</b></span><span><small>차감 발생 채널</small><b>{count(negativeVariance.length)}개</b></span></div>
     </section>
 

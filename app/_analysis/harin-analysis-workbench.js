@@ -136,7 +136,7 @@ export default function HarinAnalysisWorkbench({view,workspace,platform='all',da
   const heroMetrics=view==='insight'?[['저장 보고서',`${count(reportCount)}건`],['열린 이상징후',`${count(anomalyCount)}건`],['선택 범위',PLATFORM_LABELS[platform]]]:view==='keyword'?[['실제 검색어',`${count(actualTerms)}개`],['무전환 키워드',`${count(data.naver?.keywordWaste?.length)}개`],['선택 범위',PLATFORM_LABELS[platform]]]:[['판매중 상품',`${count(sellable)}개`],['채널 연결',`${count(data.productOperations?.summary?.all_channels_connected)}개`],['선택 범위',PLATFORM_LABELS[platform]]];
   return <section className={`analysisV8 analysisV8-${view}`}>
     <section className="analysisHero">
-      <div className="analysisHeroCopy"><span>PHASE 14-6 · {view.toUpperCase()} WORKBENCH</span><div><i><Pictogram type={view}/></i><section><h1>{meta[0]}</h1><p>{meta[1]}</p></section></div><small>숫자는 서버 계산 · 자료 부족은 판단 보류 · 플랫폼 변경은 승인 전 실행 안 함</small></div>
+      <div className="analysisHeroCopy"><span>{view==='insight'?'성과 분석':view==='keyword'?'광고 키워드 운영':'상품 성장 운영'}</span><div><i><Pictogram type={view}/></i><section><h1>{meta[0]}</h1><p>{meta[1]}</p></section></div><small>숫자는 서버 계산 · 자료 부족은 판단 보류 · 플랫폼 변경은 승인 전 실행 안 함</small></div>
       <div className="analysisHeroMetrics">{heroMetrics.map(([label,value])=><span key={label}><small>{label}</small><b>{value}</b></span>)}</div>
     </section>
     <nav className="analysisFocusRail" aria-label="이 화면의 빠른 작업">
