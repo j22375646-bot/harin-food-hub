@@ -97,6 +97,8 @@ test('14-11 decision routes keep bounded query windows for faster navigation',()
   assert.match(page,/insight:\{orders:1200,items:2500,costs:1500\}/);
   assert.match(page,/keyword:\{orders:800,items:1500,costs:800\}/);
   assert.match(page,/settlement:\{orders:3000,items:5000,costs:5000\}/);
+  assert.match(page,/INSIGHT_OVERVIEW_TABLES = \['reports','platform_events','ai_analysis_results'\]/);
+  assert.match(page,/view==='insight'&&workspace==='overview'/);
 });
 
 test('14-11 exposes one repeatable final verification command',()=>{

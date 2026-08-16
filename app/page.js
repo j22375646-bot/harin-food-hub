@@ -114,6 +114,8 @@ const VIEW_TABLES = {
   notifications:['reports']
 };
 
+const INSIGHT_OVERVIEW_TABLES = ['reports','platform_events','ai_analysis_results'];
+
 function emptySupabaseQuery() {
   const result={ data:[], error:null, count:0, status:200, statusText:'OK', scopedOut:true };
   let query;
@@ -127,8 +129,16 @@ function emptySupabaseQuery() {
   return query;
 }
 
-function databaseForView(db, view) {
-  const allowed=new Set([...SHELL_TABLES,...(VIEW_TABLES[view]||VIEW_TABLES.main)]);
+function tablesForView(view, workspace) {
+  // The insight landing page is a saved-report decision desk. Live channel
+  // detail belongs to the causes/channels routes, so avoid fetching dozens of
+  // raw operational tables before the first useful screen can appear.
+  if(view==='insight'&&workspace==='overview')return INSIGHT_OVERVIEW_TABLES;
+  return VIEW_TABLES[view]||VIEW_TABLES.main;
+}
+
+function databaseForView(db, view, workspace) {
+  const allowed=new Set([...SHELL_TABLES,...tablesForView(view,workspace)]);
   return new Proxy(db,{
     get(target,key){
       if(key==='from')return table=>allowed.has(table)?target.from(table):emptySupabaseQuery();
@@ -140,7 +150,7 @@ function databaseForView(db, view) {
 
 async function getDashboardData(state) {
   const view=state?.view||'main';
-  const db = databaseForView(supabaseModule.getSupabase(), view);
+  const db = databaseForView(supabaseModule.getSupabase(), view, state?.workspace);
   const rowLimit=(kind, fallback)=>{
     const limits={
       // Decision pages only need the newest operational window. Keeping the

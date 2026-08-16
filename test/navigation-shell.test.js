@@ -50,7 +50,7 @@ test('mobile all-functions menu keeps the same groups and closes after selection
 
 test('phase 10-6 scopes database tables per page and shows useful loading feedback', () => {
   assert.match(page,/const VIEW_TABLES =/);
-  assert.match(page,/function databaseForView\(db, view\)/);
+  assert.match(page,/function databaseForView\(db, view, workspace\)/);
   assert.match(page,/loadedView:view/);
   assert.match(client,/viewIsLoading/);
   assert.match(client,/financialContextViews\.has\(view\)&&<FinancialTrustBanner/);
