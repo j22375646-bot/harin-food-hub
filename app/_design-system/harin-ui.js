@@ -53,6 +53,19 @@ export function HarinPageContent({ as:Element='div', className='', children, ...
   return <Element className={join('v8PageContent',className)} {...props}>{children}</Element>;
 }
 
+export function HarinProgressiveDetails({ eyebrow='상세 운영', title, description, count, action='열기', className='', children, defaultOpen=false, ...props }) {
+  if(!children)return null;
+  return <details className={join('v8ProgressiveDetails',className)} open={defaultOpen||undefined} {...props}>
+    <summary>
+      <span className="v8ProgressiveDetailsIcon"><HarinIcon name="chevron" size={18}/></span>
+      <span className="v8ProgressiveDetailsCopy"><small>{eyebrow}</small><b>{title}</b>{description?<em>{description}</em>:null}</span>
+      {count!=null?<strong>{count}</strong>:null}
+      <span className="v8ProgressiveDetailsAction">{action}</span>
+    </summary>
+    <div className="v8ProgressiveDetailsBody">{children}</div>
+  </details>;
+}
+
 export function HarinPageAiRegion({ title='이 페이지의 AI 분석', description='현재 화면의 자료만 따로 분석하며 다른 페이지 결과와 합치지 않아요.', className='', children, ...props }) {
   if(!children)return null;
   return <section className={join('v8PageAiRegion',className)} {...props}>

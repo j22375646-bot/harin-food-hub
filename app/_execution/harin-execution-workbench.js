@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { HarinPageAiRegion, HarinPageContent, HarinPageFrame, HarinPageHeader, HarinPageToolbar } from '../_design-system/harin-ui.js';
+import { HarinPageAiRegion, HarinPageContent, HarinPageFrame, HarinPageHeader, HarinPageToolbar, HarinProgressiveDetails } from '../_design-system/harin-ui.js';
 
 const STEPS=[
   {id:'reports',href:'/diagnoses',number:'01',label:'진단',description:'근거와 문제 확인'},
@@ -16,6 +16,13 @@ const META={
   changes:{eyebrow:'OWNER SAFETY',title:'실행 전에 바뀔 내용을 먼저 확인해요',description:'드라이런·안전조건·복구 가능 여부를 확인한 뒤 사장님이 승인한 값만 반영합니다.',tone:'pink'},
   validation:{eyebrow:'VERIFY',title:'7일과 14일 결과를 나란히 확인해요',description:'실행 전 기대치와 실제 매출·이익을 비교해 유지·복구·추가관찰을 결정합니다.',tone:'blue'},
   experiments:{eyebrow:'LEARN',title:'검증된 결과만 다음 운영 기준으로 남겨요',description:'표본과 신뢰도를 통과한 실험만 학습하고, 판단이 이른 실험은 그대로 보류합니다.',tone:'mint'}
+};
+
+const DETAIL_META={
+  reports:['진단 목록·보고서 전체 보기','저장된 보고서의 전체 근거와 인쇄·관리 도구를 확인합니다.'],
+  changes:['승인·실행 전체 작업대','승인 대기, 드라이런, 복구 기록과 실제 실행 버튼을 확인합니다.'],
+  validation:['실행 결과·기록 전체 보기','실행 전과 7일·14일 결과, 연결된 실험 기록을 자세히 확인합니다.'],
+  experiments:['A/B 테스트 등록·전체 기록','새 실험 등록과 진행·종료된 실험의 표본·결과를 자세히 확인합니다.']
 };
 
 const number=value=>Number(value||0).toLocaleString('ko-KR');
@@ -87,6 +94,7 @@ export default function HarinExecutionWorkbench({view,data={},aiPanel,children})
   const selected=selectedByView[view]||'';
   const setSelected=id=>setSelectedByView(current=>({...current,[view]:id}));
   const summary=data.retentionValidation?.execution?.summary||{};
+  const detailMeta=DETAIL_META[view]||DETAIL_META.reports;
   const heroMetrics=view==='reports'?[['저장 진단',`${number(counts.reports)}건`],['개선 신호',`${number(data.reportLearningHistory?.summary?.improved)}건`],['계산 잠금',`${number(data.reportLearningHistory?.summary?.blocked)}건`]]:view==='changes'?[['결정 대기',`${number(counts.changes)}건`],['검증 완료',`${number(summary.verified_changes)}건`],['서버 쓰기',data.naverBidWorkbench?.execution_enabled?'승인 후 가능':'잠금']]:view==='validation'?[['7일 결과',`${number(summary.day7_ready)}건`],['14일 결과',`${number(summary.day14_ready)}건`],['실험 연결',`${number(summary.linked_experiments)}건`]]:[['등록 실험',`${number(counts.experiments)}개`],['진행 중',`${number((data.experiments||[]).filter(item=>item.status==='RUNNING').length)}개`],['승자 확정',`${number((data.experiments||[]).filter(item=>item.evaluation_status==='WINNER').length)}개`]];
   return <HarinPageFrame kind="execution" className={`executionV8 executionV8-${meta.tone}`}>
     <HarinPageHeader className="executionHero" eyebrow={meta.eyebrow} title={meta.title} description={meta.description} icon={view} tone={meta.tone} note="AI는 설명만 · 실제 플랫폼 변경은 사장님 승인 뒤 · 자료가 부족하면 판단 보류" metrics={heroMetrics}/>
@@ -98,7 +106,9 @@ export default function HarinExecutionWorkbench({view,data={},aiPanel,children})
       {view==='changes'?<ApprovalDesk data={data} selected={selected} setSelected={setSelected}/>:null}
       {view==='validation'?<ValidationDesk data={data} selected={selected} setSelected={setSelected}/>:null}
       {view==='experiments'?<ExperimentDesk data={data} selected={selected} setSelected={setSelected}/>:null}
-      {children}
+      <HarinProgressiveDetails id="execution-full-workbench" className="executionFullWorkbench" eyebrow="상세 운영·기록" title={detailMeta[0]} description={detailMeta[1]} count={`${number(counts[view])}건`} action="상세 열기">
+        {children}
+      </HarinProgressiveDetails>
     </HarinPageContent>
     <HarinPageAiRegion className="executionAiSlot" id="page-ai-analysis" title={`${meta.title} · AI 분석`}>{aiPanel}</HarinPageAiRegion>
   </HarinPageFrame>;
