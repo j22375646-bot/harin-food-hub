@@ -315,4 +315,10 @@ body.harinV8{
 @media(prefers-reduced-motion:reduce){
   .harinV8 .hubMain>:where(section,article,details){animation:none}
   .v8Card-interactive,.v8Button{transition:none}
+  .harinV8 *,.harinV8 *::before,.harinV8 *::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
 }
+
+.harinV8 .lazyWorkbenchFallback{display:flex;min-height:150px;align-items:center;justify-content:center;gap:14px;border:1px solid var(--v8-line);border-radius:var(--v8-radius-lg);background:rgba(255,255,255,.9);padding:24px;color:var(--v8-ink-soft)}
+.harinV8 .lazyWorkbenchFallback>i{width:38px;height:38px;border:4px solid var(--v8-lavender-soft);border-top-color:var(--v8-lavender);border-radius:999px;animation:v8LazySpin .8s linear infinite}
+.harinV8 .lazyWorkbenchFallback>span{display:flex;flex-direction:column;gap:4px}.harinV8 .lazyWorkbenchFallback b{font-size:16px}.harinV8 .lazyWorkbenchFallback small{color:var(--v8-muted);font-size:13px}
+@keyframes v8LazySpin{to{transform:rotate(360deg)}}

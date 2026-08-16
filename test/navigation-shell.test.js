@@ -54,7 +54,7 @@ test('phase 10-6 scopes database tables per page and shows useful loading feedba
   assert.match(page,/loadedView:view/);
   assert.match(client,/viewIsLoading/);
   assert.match(client,/financialContextViews\.has\(view\)&&<FinancialTrustBanner/);
-  assert.match(client,/dynamic\(\(\)=>import\('\.\/product-growth-center\.js'\)\)/);
+  assert.match(client,/dynamic\(\(\)=>import\('\.\/product-growth-center\.js'\),\{loading:LazyWorkbenchFallback\}\)/);
   assert.match(loading,/Loading/);
 });
 

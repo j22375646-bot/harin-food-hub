@@ -143,14 +143,17 @@ async function getDashboardData(state) {
   const db = databaseForView(supabaseModule.getSupabase(), view);
   const rowLimit=(kind, fallback)=>{
     const limits={
-      main:{orders:2500,items:5000,costs:3000},
+      // Decision pages only need the newest operational window. Keeping the
+      // limits view-specific prevents a slow analytics route from delaying
+      // every navigation while preserving the wider settlement export window.
+      main:{orders:1500,items:3000,costs:2000},
       orders:{orders:1000,items:3000,costs:1000},
       cs:{orders:1000,items:2500,costs:500},
       settlement:{orders:3000,items:5000,costs:5000},
-      insight:{orders:2500,items:5000,costs:3000},
-      keyword:{orders:1500,items:3000,costs:1500},
-      product:{orders:2500,items:5000,costs:3000},
-      reports:{orders:1500,items:3000,costs:1500},
+      insight:{orders:1200,items:2500,costs:1500},
+      keyword:{orders:800,items:1500,costs:800},
+      product:{orders:1200,items:2500,costs:1500},
+      reports:{orders:1000,items:2000,costs:1000},
       changes:{orders:1000,items:2000,costs:1000}
     };
     return Math.min(fallback,limits[view]?.[kind]||fallback);

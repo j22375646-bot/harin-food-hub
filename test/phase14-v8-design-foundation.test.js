@@ -11,8 +11,8 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 test('14-1 activates the isolated V8 design layer from the root layout',()=>{
   const layout=read('app/layout.js');
   assert.match(layout,/import '.\/_design-system\/harin-v8\.css'/);
-  assert.match(layout,/data-harin-ui="v8"/);
-  assert.match(layout,/className="harinV8"/);
+  assert.match(layout,/data-harin-ui=\{ui\.version\}/);
+  assert.match(layout,/className=\{ui\.bodyClass\}/);
 });
 
 test('14-1 defines readable pastel tokens and preserves the approved production scale',()=>{

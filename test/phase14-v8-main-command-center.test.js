@@ -13,7 +13,7 @@ test('14-3 loads a route-scoped Main command center and its isolated design laye
   const client=read('app/dashboard-client.js');
   const main=read('app/_main/harin-main-command-center.js');
   assert.match(layout,/import '.\/_main\/harin-main-v8\.css'/);
-  assert.match(client,/dynamic\(\(\)=>import\('\.\/_main\/harin-main-command-center\.js'\)\)/);
+  assert.match(client,/dynamic\(\(\)=>import\('\.\/_main\/harin-main-command-center\.js'\),\{loading:LazyWorkbenchFallback\}\)/);
   assert.match(client,/<Phase14MainCommandCenter center=\{initialData\.salesCommandCenter\}/);
   assert.match(main,/14-3 · DAILY COMMAND CENTER/);
   assert.match(main,/function QuickCommandBar/);

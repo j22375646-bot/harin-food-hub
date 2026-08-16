@@ -40,8 +40,8 @@ export function HarinSidebar({ groups, view, openGroup, query, onQuery, onOpenGr
   return <aside className="desktopSidebar v8Sidebar" aria-label="허브 사이드바">
     <div className="sidebarPhase">
       <span><HarinIcon name="sparkles"/><em>V8 REMODEL</em></span>
-      <b>14-10 · 페이지별 AI 분석</b>
-      <small>자료 범위·신뢰도·비용을 확인하고 화면마다 따로 분석해요.</small>
+      <b>14-11 · 최종 품질·운영 안정화</b>
+      <small>모바일·접근성·속도·장애 복구까지 운영 기준으로 검증해요.</small>
     </div>
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true"><HarinIcon name="search"/></i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴·업무 찾기" /></label>
     <div className="sidebarMenuHeading"><span>운영 메뉴</span>{actionCount>0?<b>확인할 일 {actionCount}건</b>:<b>새 알림 없음</b>}</div>
@@ -55,11 +55,12 @@ export function HarinSidebar({ groups, view, openGroup, query, onQuery, onOpenGr
   </aside>;
 }
 
-function MobileMorePanel({ groups, view, actionCount, fontScale, onFontScale, onClose, onOpenView, onPrefetch, closeButtonRef }) {
+function MobileMorePanel({ groups, view, actionCount, fontScale, onFontScale, onClose, onOpenView, onPrefetch, closeButtonRef, panelRef }) {
   return <>
     <button type="button" className="mobileMenuBackdrop" aria-label="전체 메뉴 닫기" onClick={()=>onClose(true)} />
-    <section className="mobileGroupedMenu" role="dialog" aria-modal="true" aria-labelledby="mobile-menu-title">
+    <section ref={panelRef} className="mobileGroupedMenu" role="dialog" aria-modal="true" aria-labelledby="mobile-menu-title" aria-describedby="mobile-menu-description" tabIndex={-1}>
       <header className="mobileMenuPanelHead"><span><small>하린식품 운영 허브</small><b id="mobile-menu-title">전체 메뉴</b><em>{actionCount>0?`확인할 일 ${actionCount}건`:'새 알림 없음'}</em></span><button ref={closeButtonRef} type="button" aria-label="전체 메뉴 닫기" onClick={()=>onClose(true)}>×</button></header>
+      <p id="mobile-menu-description" className="srOnly">화면 설정과 모든 운영 메뉴를 선택할 수 있습니다.</p>
       <section className="mobileViewSettings"><b>화면 설정</b><label><span><strong>글자 크기</strong><small>모든 화면에 바로 적용됩니다.</small></span><select aria-label="모바일 허브 글자 크기" value={fontScale} onChange={event=>onFontScale(event.target.value)}><option value="large">큰 글씨</option><option value="xlarge">더 큰 글씨</option></select></label></section>
       <div className="mobileMenuGroups">
         {groups.map(group=><details className="mobileNavGroup" key={group.id} open={group.items.some(item=>item.id===view)}><summary><i aria-hidden="true"><HarinIcon name={group.id}/></i><span><b>{group.label}</b><small>{group.description}</small></span>{group.actionCount>0?<em>{group.actionCount}</em>:null}<strong aria-hidden="true">⌄</strong></summary><div>{group.items.map(item=><button type="button" key={item.id} className={view===item.id?'active':''} aria-current={view===item.id?'page':undefined} onPointerEnter={()=>onPrefetch(item.id)} onFocus={()=>onPrefetch(item.id)} onClick={()=>{onClose(false);onOpenView(item.id);}}><span><b>{item.label}</b><small>{item.description}</small></span>{item.badge>0?<em>{item.badge}</em>:null}</button>)}</div></details>)}
@@ -72,6 +73,7 @@ export function HarinMobileNavigation({ nav, groups, view, onOpenView, onPrefetc
   const [menuOpen,setMenuOpen]=useState(false);
   const triggerRef=useRef(null);
   const closeButtonRef=useRef(null);
+  const panelRef=useRef(null);
   const actionCount=groups.reduce((sum,group)=>sum+Number(group.actionCount||0),0);
   const closeMenu=returnFocus=>{
     setMenuOpen(false);
@@ -89,7 +91,15 @@ export function HarinMobileNavigation({ nav, groups, view, onOpenView, onPrefetc
     const previousOverflow=document.body.style.overflow;
     document.body.style.overflow='hidden';
     document.body.dataset.mobileMenuOpen='true';
-    const onKeyDown=event=>{if(event.key==='Escape')closeMenu(true);};
+    const onKeyDown=event=>{
+      if(event.key==='Escape'){closeMenu(true);return;}
+      if(event.key!=='Tab')return;
+      const focusable=[...(panelRef.current?.querySelectorAll('button:not([disabled]),select:not([disabled]),input:not([disabled]),summary,[href]')||[])].filter(item=>item.offsetParent!==null);
+      if(!focusable.length){event.preventDefault();panelRef.current?.focus();return;}
+      const first=focusable[0],last=focusable[focusable.length-1];
+      if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+      else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+    };
     document.addEventListener('keydown',onKeyDown);
     requestAnimationFrame(()=>closeButtonRef.current?.focus());
     return ()=>{
@@ -101,7 +111,7 @@ export function HarinMobileNavigation({ nav, groups, view, onOpenView, onPrefetc
   return <nav className="mobileBottomNav" aria-label="모바일 주요 메뉴">
     {PRIMARY_MOBILE_VIEWS.map(id=>nav.find(item=>item.id===id)).filter(Boolean).map(item=><button type="button" className={view===item.id?'active':''} aria-current={view===item.id?'page':undefined} onPointerEnter={()=>onPrefetch(item.id)} onFocus={()=>onPrefetch(item.id)} onClick={()=>onOpenView(item.id)} key={item.id}><i><HarinIcon name={item.id}/></i><span>{item.id==='notifications'?'알림':item.label}</span>{item.badge>0?<em>{item.badge}</em>:null}</button>)}
     <button ref={triggerRef} type="button" className={`mobileMoreTrigger${!PRIMARY_MOBILE_VIEW_SET.has(view)||menuOpen?' active':''}`} aria-expanded={menuOpen} aria-controls="mobile-more-panel" onClick={()=>setMenuOpen(open=>!open)}><i><HarinIcon name="menu"/></i><span>더보기</span>{actionCount>0?<em>{actionCount}</em>:null}</button>
-    {menuOpen?<div id="mobile-more-panel" className="mobileMoreLayer"><MobileMorePanel groups={groups} view={view} actionCount={actionCount} fontScale={fontScale} onFontScale={onFontScale} onClose={closeMenu} onOpenView={onOpenView} onPrefetch={onPrefetch} closeButtonRef={closeButtonRef}/></div>:null}
+    {menuOpen?<div id="mobile-more-panel" className="mobileMoreLayer"><MobileMorePanel groups={groups} view={view} actionCount={actionCount} fontScale={fontScale} onFontScale={onFontScale} onClose={closeMenu} onOpenView={onOpenView} onPrefetch={onPrefetch} closeButtonRef={closeButtonRef} panelRef={panelRef}/></div>:null}
   </nav>;
 }
 

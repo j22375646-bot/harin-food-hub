@@ -8,6 +8,7 @@ import './_execution/harin-execution-v8.css';
 import './_reliability/harin-reliability-v8.css';
 import './_workspace/harin-owner-workspace.css';
 import './_ai/harin-ai-page-v8.css';
+import uiFlags from '../lib/ui/feature-flags.js';
 
 export const metadata = {
   title: '하린식품 광고·매출 진단 허브',
@@ -15,5 +16,6 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
-  return <html lang="ko" data-harin-ui="v8"><body className="harinV8">{children}</body></html>;
+  const ui=uiFlags.harinUiConfig();
+  return <html lang="ko" data-harin-ui={ui.version} data-harin-rollback={ui.rollbackFlag}><body className={ui.bodyClass}>{children}</body></html>;
 }
