@@ -1,10 +1,10 @@
 /* Phase 16-8: final readable type, control and card density across every V8 route. */
 .harinV8{
-  --v8-readable-body:15px;
-  --v8-readable-support:13px;
-  --v8-readable-label:13px;
-  --v8-readable-control:14px;
-  --v8-readable-touch:46px;
+  --v8-readable-body:16px;
+  --v8-readable-support:14px;
+  --v8-readable-label:14px;
+  --v8-readable-control:15px;
+  --v8-readable-touch:48px;
 }
 
 html[data-font-scale="large"] .harinV8{
@@ -245,9 +245,9 @@ html[data-font-scale="xlarge"] .harinV8{
 
 @media(max-width:700px){
   .harinV8{
-    --v8-readable-body:15px;
-    --v8-readable-support:13px;
-    --v8-readable-label:13px;
+    --v8-readable-body:16px;
+    --v8-readable-support:14px;
+    --v8-readable-label:14px;
     --v8-readable-control:15px;
     --v8-readable-touch:48px;
   }

@@ -18,9 +18,9 @@ test('16-8 loads the final readability layer after every route stylesheet',()=>{
 
 test('16-8 keeps support text, controls and mobile inputs comfortably readable',()=>{
   const css=read('app/_design-system/harin-readability-v8.css');
-  assert.match(css,/--v8-readable-body:15px/);
-  assert.match(css,/--v8-readable-support:13px/);
-  assert.match(css,/--v8-readable-touch:46px/);
+  assert.match(css,/--v8-readable-body:16px/);
+  assert.match(css,/--v8-readable-support:14px/);
+  assert.match(css,/--v8-readable-touch:48px/);
   assert.match(css,/\.harinV8 main small,/);
   assert.match(css,/font-size:var\(--v8-readable-support\)!important/);
   assert.match(css,/input:not\(\[type="checkbox"\]\):not\(\[type="radio"\]\)/);
