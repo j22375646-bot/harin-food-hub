@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { HarinIcon } from './_design-system/harin-icon.js';
 import { useStoredState } from './use-hub-preference.js';
 
 const won = value => `${Math.round(Number(value || 0)).toLocaleString('ko-KR')}원`;
@@ -63,15 +64,18 @@ export default function MarketingDiagnosisCenter({ diagnosis, actioning, onActio
   const effectiveActioning = actioning || working;
   if (!diagnosis?.items?.length) return <article className="panel marketingEmpty"><h2>마케팅 진단 자료를 준비 중입니다</h2><p>키워드 성과를 한 번 갱신하면 검색 노출부터 매출까지 연결해 보여드립니다.</p></article>;
   const totals = diagnosis.totals || {}, summary = diagnosis.summary || {};
+  const funnelSteps=[
+    {label:'검색 노출',value:`${count(totals.impressions)}회`,note:'검색량 대용 수요 신호',icon:'search'},
+    {label:'방문',value:`${count(totals.visits)}회`,note:`클릭률 ${Number(totals.ctr || 0).toFixed(1)}%`,icon:'target'},
+    {label:'주문',value:`${count(totals.orders)}건`,note:`주문전환율 ${Number(totals.cvr || 0).toFixed(1)}%`,icon:'orders'},
+    {label:'매출',value:won(totals.revenue),note:`광고비 ${won(totals.cost)}`,icon:'growth'}
+  ];
   return <section className="marketingDiagnosisCenter">{message&&<div className="syncToast">{message}</div>}
     <article className="panel marketingCenterHead">
       <header><div><span>키워드 성과 흐름</span><h2>키워드에서 주문까지 한눈에 보기</h2><p>검색량 자료가 아직 없어 실제 검색 노출을 수요 신호로 사용합니다. 방문·주문·매출은 수집된 실제 성과입니다.</p></div><b>{periodLabel(diagnosis.period)}</b></header>
       <details className="marketingHelp"><summary>이 진단은 어떻게 보면 되나요?</summary><div><p><b>예시</b> “작두콩차효능”이 493회 노출되고 9번 방문했지만 주문이 없다면, 바로 광고를 끄지 않습니다. 방문 표본이 작으므로 더 지켜보되 건강 효능 표현은 광고문구에 그대로 쓰지 않도록 경고합니다.</p><p><b>판단 순서</b> 노출 → 방문 → 주문 → 매출을 먼저 보고, 가격·재고·리뷰·상세페이지가 주문을 막았는지 함께 확인합니다.</p><p><b>주의</b> “표본 부족”은 나쁜 결과가 아니라 아직 확실한 결론을 내릴 자료가 적다는 뜻입니다.</p></div></details>
       <div className="marketingFunnel" aria-label="검색 노출에서 매출까지 흐름">
-        <section><span>1. 검색 노출</span><strong>{count(totals.impressions)}회</strong><small>검색량 대용 수요 신호</small></section><i>→</i>
-        <section><span>2. 방문</span><strong>{count(totals.visits)}회</strong><small>클릭률 {Number(totals.ctr || 0).toFixed(1)}%</small></section><i>→</i>
-        <section><span>3. 주문</span><strong>{count(totals.orders)}건</strong><small>주문전환율 {Number(totals.cvr || 0).toFixed(1)}%</small></section><i>→</i>
-        <section><span>4. 매출</span><strong>{won(totals.revenue)}</strong><small>광고비 {won(totals.cost)}</small></section>
+        {funnelSteps.map((step,index)=><div className="marketingFunnelStage" key={step.label}><section><span className="marketingFunnelTitle"><i><HarinIcon name={step.icon} size={17}/></i><span><small>{String(index+1).padStart(2,'0')}</small><b>{step.label}</b></span></span><strong>{step.value}</strong><small>{step.note}</small></section>{index<funnelSteps.length-1?<i aria-hidden="true"><HarinIcon name="chevron" size={17}/></i>:null}</div>)}
       </div>
       <div className="marketingWarnings"><span>주의 표현 {count(summary.risky_expressions)}개</span><span>표본 부족 {count(summary.low_confidence)}개</span><span>노출 300회 이상·주문 0 {count(summary.high_exposure_no_order)}개</span></div>
     </article>
