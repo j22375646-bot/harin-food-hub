@@ -41,7 +41,7 @@ const ICONS = {
 const ALIASES = {
   main:'today', reports:'execution', changes:'approvals', validation:'execution',
   notifications:'alerts', knowledge:'ai', cs:'customer', insight:'analysis',
-  keywords:'keyword', products:'product', diagnoses:'execution', cafe24:'store',
+  keywords:'keyword', products:'product', diagnoses:'execution', market:'growth', cafe24:'store',
   naver:'naverStore', coupang:'shoppingBag'
 };
 

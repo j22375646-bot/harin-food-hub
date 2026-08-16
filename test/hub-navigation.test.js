@@ -4,10 +4,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { HUB_NAV, HUB_NAV_GROUPS, HUB_WORKSPACES, HUB_LEGACY_ROUTES, normalizeHubState, buildHubHref, parseHubHref, groupForView, navigationContext } = require('../lib/navigation/hub-routes.js');
 
-test('all fifteen hub functions have stable unique addresses', () => {
-  assert.equal(HUB_NAV.length,15);
-  assert.equal(new Set(HUB_NAV.map(item=>item.href)).size,15);
-  assert.deepEqual(HUB_NAV.map(item=>item.label),['메인','주문','CS','재고관리','정산·비용','데이터수집','인사이트','키워드','상품','AI 기준자료','진단목록','변경승인','실행검증','A/B 테스트','알림']);
+test('all sixteen hub functions have stable unique addresses', () => {
+  assert.equal(HUB_NAV.length,16);
+  assert.equal(new Set(HUB_NAV.map(item=>item.href)).size,16);
+  assert.deepEqual(HUB_NAV.map(item=>item.label),['메인','주문','CS','재고관리','정산·비용','데이터수집','인사이트','키워드','시장·전환','상품','AI 기준자료','진단목록','변경승인','실행검증','A/B 테스트','알림']);
   assert.equal(buildHubHref({view:'orders',platform:'naver'}),'/orders');
   assert.equal(buildHubHref({view:'cs'}),'/cs');
   assert.equal(buildHubHref({view:'inventory'}),'/inventory');
@@ -17,6 +17,7 @@ test('all fifteen hub functions have stable unique addresses', () => {
   assert.equal(buildHubHref({view:'collection'}),'/data-collection');
   assert.equal(buildHubHref({view:'notifications'}),'/notifications');
   assert.equal(buildHubHref({view:'knowledge'}),'/ai-knowledge');
+  assert.equal(buildHubHref({view:'market'}),'/market-intelligence');
 });
 
 test('platform, product, and period survive a refresh through the URL', () => {
@@ -49,7 +50,7 @@ test('only insight, keyword, and product pages retain a channel selection', () =
   for (const view of ['insight','keyword','product']) {
     assert.equal(normalizeHubState({view,platform:'naver'}).platform,'naver');
   }
-  for (const view of ['collection','knowledge','reports','changes','validation','experiments','notifications']) {
+  for (const view of ['market','collection','knowledge','reports','changes','validation','experiments','notifications']) {
     const state=normalizeHubState({view,platform:'naver',period:'MONTH',product:'ignored'});
     assert.deepEqual({platform:state.platform,period:state.period,product:state.product},{platform:'all',period:'DAY',product:'ALL'});
     assert.doesNotMatch(buildHubHref({view,platform:'naver',period:'MONTH',product:'ignored'}),/[?&](platform|period|product)=/);
@@ -100,6 +101,7 @@ test('all existing functions appear once in the nine owner-oriented sidebar grou
   assert.equal(groupForView('orders'),'orders');
   assert.equal(groupForView('cs'),'customer');
   assert.equal(groupForView('keyword'),'analysis');
+  assert.equal(groupForView('market'),'analysis');
   assert.equal(groupForView('product'),'inventory');
   assert.equal(groupForView('knowledge'),'settings');
   assert.equal(groupForView('changes'),'execution');

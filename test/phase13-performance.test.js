@@ -13,7 +13,13 @@ test('13-1 canonical menu addresses are real App Router pages',()=>{
   for(const item of HUB_NAV.filter(entry=>entry.href!=='/')){
     const page=path.join(root,'app',item.href.slice(1),'page.js');
     assert.equal(fs.existsSync(page),true,`${item.href} page is missing`);
-    assert.match(fs.readFileSync(page,'utf8'),new RegExp(`renderDashboardRoute\\('${item.id}'`));
+    const source=fs.readFileSync(page,'utf8');
+    if(item.id==='market'){
+      assert.match(source,/MarketProjectHome/);
+      assert.doesNotMatch(source,/renderDashboardRoute/);
+    }else{
+      assert.match(source,new RegExp(`renderDashboardRoute\\('${item.id}'`));
+    }
   }
   assert.match(read('app/page.js'),/export async function renderDashboardRoute/);
   assert.doesNotMatch(read('next.config.js'),/async rewrites\s*\(/);
