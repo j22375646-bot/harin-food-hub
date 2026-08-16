@@ -292,7 +292,7 @@ test('주문 상품 이미지 URL은 안전하게 정규화되고 플랫폼 상�
     [
       {platform:'CAFE24',external_product_id:'10',master_product_id:'MASTER-1',raw_data:{}},
       {platform:'COUPANG',external_product_id:'CP-20',master_product_id:'MASTER-1',raw_data:{}},
-      {platform:'NAVER',external_product_id:'NV-30',raw_data:{representativeImage:{url:'https://shop-phinf.pstatic.net/naver.jpg'}}}
+      {platform:'NAVER',external_product_id:'NV-30',external_product_name:'2026년 국내산 하린식품 작두콩차 36g',raw_data:{originProductNo:'ORIGIN-30',representativeImage:{url:'https://shop-phinf.pstatic.net/naver.jpg'}}}
     ]
   );
   const cafe=orders.attachOrderImages([{external_product_no:'10',product_name:'작두콩차'}],'CAFE24','external_product_no',catalog);
@@ -301,6 +301,10 @@ test('주문 상품 이미지 URL은 안전하게 정규화되고 플랫폼 상�
   assert.equal(cafe[0].image_url,'https://img.cafe24.com/tea.jpg');
   assert.equal(coupang[0].image_url,'https://img.cafe24.com/tea.jpg');
   assert.equal(naver[0].image_url,'https://shop-phinf.pstatic.net/naver.jpg');
+  const naverOrigin=orders.attachOrderImages([{product_id:'DIFFERENT-ID',original_product_id:'ORIGIN-30',product_name:'다른 이름'}],'NAVER','product_id',catalog);
+  const naverName=orders.attachOrderImages([{product_id:'UNKNOWN',product_name:'2026년 국내산 하린식품 작두콩차 36g, 3개'}],'NAVER','product_id',catalog);
+  assert.equal(naverOrigin[0].image_url,'https://shop-phinf.pstatic.net/naver.jpg');
+  assert.equal(naverName[0].image_url,'https://shop-phinf.pstatic.net/naver.jpg');
   const center=orders.buildUnifiedOrders({
     cafe24Orders:[{order_id:'IMG-1'}],
     cafe24OrderItems:[{order_id:'IMG-1',product_name:'작두콩차',quantity:1,image_url:cafe[0].image_url}]
