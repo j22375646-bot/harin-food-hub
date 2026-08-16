@@ -1,0 +1,278 @@
+/* Phase 16-8: final readable type, control and card density across every V8 route. */
+.harinV8{
+  --v8-readable-body:15px;
+  --v8-readable-support:13px;
+  --v8-readable-label:13px;
+  --v8-readable-control:14px;
+  --v8-readable-touch:46px;
+}
+
+html[data-font-scale="large"] .harinV8{
+  --v8-readable-body:16px;
+  --v8-readable-support:14px;
+  --v8-readable-label:14px;
+  --v8-readable-control:15px;
+  --v8-readable-touch:48px;
+}
+
+html[data-font-scale="xlarge"] .harinV8{
+  --v8-readable-body:17px;
+  --v8-readable-support:15px;
+  --v8-readable-label:15px;
+  --v8-readable-control:16px;
+  --v8-readable-touch:50px;
+}
+
+.harinV8 main{font-size:var(--v8-readable-body);line-height:1.58}
+.harinV8 main :where(p,li,label,dd){font-size:var(--v8-readable-body);line-height:1.58}
+.harinV8 main small,
+.harinV8 .topbar small,
+.harinV8 .desktopSidebar small,
+.harinV8 .mobileMenuPanel small,
+.harinV8 .ownerWorkspacePanel small{
+  font-size:var(--v8-readable-support)!important;
+  line-height:1.5;
+}
+
+.harinV8 main h1{font-size:clamp(29px,3.2vw,39px);line-height:1.16;letter-spacing:-.04em}
+.harinV8 main h2{font-size:clamp(20px,2vw,25px);line-height:1.28;letter-spacing:-.025em}
+.harinV8 main h3{font-size:clamp(17px,1.6vw,20px);line-height:1.35}
+
+.harinV8 button,
+.harinV8 input:not([type="checkbox"]):not([type="radio"]),
+.harinV8 select{
+  min-height:var(--v8-readable-touch);
+  font-size:var(--v8-readable-control)!important;
+  line-height:1.35;
+}
+.harinV8 textarea{font-size:var(--v8-readable-control)!important;line-height:1.6}
+.harinV8 button{padding-block:8px}
+
+.harinV8 main th{font-size:var(--v8-readable-label)!important;line-height:1.45}
+.harinV8 main td{font-size:var(--v8-readable-control)!important;line-height:1.55}
+.harinV8 main :where(dt,[class*="Eyebrow"],[class*="eyebrow"]){
+  font-size:var(--v8-readable-label)!important;
+  line-height:1.45;
+}
+.harinV8 main :where([class*="Badge"],[class*="badge"],[class*="Status"],[class*="status"],[class*="Tag"],[class*="tag"]){
+  font-size:var(--v8-readable-label)!important;
+  line-height:1.35;
+}
+
+/* Shared page frame: titles, metadata and collapsed panels keep one readable scale. */
+.harinV8 .v8PageHeaderCopy p{font-size:var(--v8-readable-body)}
+.harinV8 .v8PageHeaderNote,
+.harinV8 .v8PageHeaderMetrics em,
+.harinV8 .v8ProgressiveDetailsCopy em,
+.harinV8 .v8ProgressiveDetailsAction,
+.harinV8 .v8PageToolbar>header b,
+.harinV8 .v8ProgressiveDetails>summary>strong,
+.harinV8 .v8ProgressiveDetails[data-content-mounted="false"]>summary::after{
+  font-size:var(--v8-readable-support)!important;
+  line-height:1.5;
+}
+.harinV8 .v8ProgressiveDetails>summary{min-height:76px}
+.harinV8 .v8ProgressiveDetailsCopy b{font-size:calc(var(--v8-readable-body) + 1px)}
+.harinV8 .v8PageToolbar{padding:15px 17px}
+.harinV8 .v8PageToolbar>header{padding-bottom:12px}
+
+/* KPI cards use the same visual rhythm even when they come from different pages. */
+.harinV8 :where(
+  .keywordOpsSummary>span,
+  .productOpsKpis>span,
+  .collectionOpsKpis>article,
+  .inventoryOpsKpis>span,
+  .settlementOpsKpis>article,
+  .reliabilityKpis>article
+){
+  min-height:98px;
+  border-radius:18px;
+  padding:15px 16px;
+}
+.harinV8 :where(
+  .keywordOpsSummary b,
+  .productOpsKpis b,
+  .collectionOpsKpis strong,
+  .inventoryOpsKpis b,
+  .settlementOpsKpis strong,
+  .reliabilityKpis b
+){font-size:clamp(22px,2vw,27px)}
+
+/* Keyword operations: dense desktop table and mobile cards remain scannable. */
+.harinV8 .keywordOpsHeader>div>span,
+.harinV8 .keywordOpsSeparation,
+.harinV8 .keywordOpsHeader aside em,
+.harinV8 .keywordOpsToolbar label>span,
+.harinV8 .keywordOpsPreview,
+.harinV8 .keywordOpsDetail>header span,
+.harinV8 .keywordOpsReview>header span,
+.harinV8 .keywordOpsReviewFoot{
+  font-size:var(--v8-readable-label)!important;
+}
+.harinV8 .keywordOpsHeader p,
+.harinV8 .keywordOpsBatch>span b,
+.harinV8 .keywordOpsEmpty p,
+.harinV8 .keywordOpsPagination>span,
+.harinV8 .keywordOpsDetail section p,
+.harinV8 .keywordOpsDetail section li,
+.harinV8 .keywordOpsCapability>span small,
+.harinV8 .keywordOpsWingNotice>span,
+.harinV8 .keywordOpsWingResult{
+  font-size:var(--v8-readable-support)!important;
+}
+.harinV8 .keywordOpsToolbar input,
+.harinV8 .keywordOpsToolbar select,
+.harinV8 .keywordOpsDraft input,
+.harinV8 .keywordOpsWingList input,
+.harinV8 .keywordOpsWingList select{
+  min-height:var(--v8-readable-touch);
+  font-size:var(--v8-readable-control)!important;
+}
+.harinV8 .keywordOpsBatch button,
+.harinV8 .keywordOpsPagination button,
+.harinV8 .keywordOpsReview>footer button,
+.harinV8 .keywordOpsCapability>a,
+.harinV8 .keywordOpsWing>footer a.secondary{
+  min-height:var(--v8-readable-touch);
+  font-size:var(--v8-readable-control)!important;
+}
+.harinV8 .keywordOpsRow{min-height:76px;font-size:var(--v8-readable-control)!important}
+.harinV8 .keywordOpsRow.head{min-height:54px;font-size:var(--v8-readable-label)!important}
+.harinV8 .keywordOpsName b,
+.harinV8 .keywordOpsScope b,
+.harinV8 .keywordOpsRow>span>b,
+.harinV8 .keywordOpsReviewList article>span>b,
+.harinV8 .keywordOpsWingList article>header b{
+  font-size:var(--v8-readable-control)!important;
+  line-height:1.45;
+}
+.harinV8 .keywordOpsName small,
+.harinV8 .keywordOpsScope small,
+.harinV8 .keywordOpsDraft em,
+.harinV8 .keywordOpsDetailTitle small,
+.harinV8 .keywordOpsReviewList article>span>small,
+.harinV8 .keywordOpsReviewList article>small,
+.harinV8 .keywordOpsWingList article>header small,
+.harinV8 .keywordOpsWingList article>header em,
+.harinV8 .keywordOpsWingList label>span,
+.harinV8 .keywordOpsWingList article>footer span,
+.harinV8 .keywordOpsWingList article>footer strong{
+  font-size:var(--v8-readable-support)!important;
+}
+.harinV8 .keywordOpsStatus,
+.harinV8 .keywordOpsCapability>strong,
+.harinV8 .keywordOpsWingNotice>b,
+.harinV8 .keywordOpsWingNotice>em{
+  min-height:28px;
+  font-size:var(--v8-readable-label)!important;
+}
+.harinV8 .keywordOpsDetail dt,
+.harinV8 .keywordOpsDetail dd,
+.harinV8 .keywordOpsDetail>section>b,
+.harinV8 .keywordOpsReviewSafety span>small,
+.harinV8 .keywordOpsProposalResult>b,
+.harinV8 .keywordOpsProposalResult>small,
+.harinV8 .keywordOpsProposalResult>a{
+  font-size:var(--v8-readable-support)!important;
+}
+
+/* Reliability and live status: operational messages must never drop below support text. */
+.harinV8 .reliabilityChannelRail small,
+.harinV8 .reliabilityChannelRail em,
+.harinV8 .notificationActionBar small,
+.harinV8 .liveStatusToggle small,
+.harinV8 .liveStatusToggle>em,
+.harinV8 .liveStatusBody>header small,
+.harinV8 .liveStatusBody>section small,
+.harinV8 .liveStatusExceptions small,
+.harinV8 .liveStatusClear{
+  font-size:var(--v8-readable-support)!important;
+  line-height:1.5;
+}
+.harinV8 .notificationActionBar b,
+.harinV8 .liveStatusToggle b,
+.harinV8 .liveStatusBody>section b,
+.harinV8 .liveStatusExceptions b{
+  font-size:var(--v8-readable-control)!important;
+  line-height:1.45;
+}
+.harinV8 .notificationActionBar button,
+.harinV8 .liveStatusBody nav a{
+  min-height:var(--v8-readable-touch);
+  font-size:var(--v8-readable-control)!important;
+}
+.harinV8 .reliabilityChannelRail article{min-height:84px;padding:16px 17px}
+.harinV8 .liveStatusToggle{min-height:64px}
+.harinV8 .liveStatusBody>section article{min-height:66px}
+
+/* Workspace, AI, settlement and collection labels share the same support scale. */
+.harinV8 .ownerWorkspacePanel>header span,
+.harinV8 .ownerWorkspaceSearch kbd,
+.harinV8 .ownerWorkspacePanel>nav em,
+.harinV8 .ownerWorkspaceMessage,
+.harinV8 .ownerCommandResults button b,
+.harinV8 .ownerCommandResults button kbd,
+.harinV8 .ownerCaptureForm>div em,
+.harinV8 .ownerAutosaveEditor header span,
+.harinV8 .ownerWorkList article section em,
+.harinV8 .ownerWorkList article section p,
+.harinV8 .ownerWorkList article section a,
+.harinV8 .ownerWorkList article aside button,
+.harinV8 .savedViewOpen b,
+.harinV8 .ownerSavedTab article footer button,
+.harinV8 .aiPageHeadline>span,
+.harinV8 .settlementSectionTitle>span>small,
+.harinV8 .settlementOpsChannelTitle small,
+.harinV8 .settlementMoneyJourney .settlementJourneyCopy small>span,
+.harinV8 .collectionChannelTitle small{
+  font-size:var(--v8-readable-support)!important;
+  line-height:1.45;
+}
+.harinV8 .ownerWorkspacePanel>nav button,
+.harinV8 .ownerCaptureForm footer button,
+.harinV8 .ownerSavedTab form button,
+.harinV8 .ownerWorkTab>header button{
+  min-height:44px;
+  font-size:var(--v8-readable-control)!important;
+}
+.harinV8 .ownerWorkCheck{width:44px;height:44px}
+.harinV8 .settlementMoneyJourney .settlementJourneyCopy small,
+.harinV8 .collectionOpsChannelState>small,
+.harinV8 .collectionOpsChannel .collectionOpsAdvice{
+  font-size:var(--v8-readable-support)!important;
+  line-height:1.5;
+}
+
+@media(max-width:700px){
+  .harinV8{
+    --v8-readable-body:15px;
+    --v8-readable-support:13px;
+    --v8-readable-label:13px;
+    --v8-readable-control:15px;
+    --v8-readable-touch:48px;
+  }
+  .harinV8 main h1{font-size:29px}
+  .harinV8 main h2{font-size:21px}
+  .harinV8 input:not([type="checkbox"]):not([type="radio"]),
+  .harinV8 select,
+  .harinV8 textarea{font-size:16px!important}
+  .harinV8 .v8PageToolbar{padding:13px}
+  .harinV8 .v8ProgressiveDetails>summary{min-height:92px}
+  .harinV8 .keywordOpsRow{min-height:0;font-size:var(--v8-readable-control)!important}
+  .harinV8 .keywordOpsRow>span::before{font-size:var(--v8-readable-label)!important}
+  .harinV8 .keywordOpsDetail{position:relative;top:auto}
+  .harinV8 .keywordOpsReviewBackdrop{padding:12px}
+  .harinV8 .keywordOpsReview>header{padding:20px 18px 16px}
+  .harinV8 .keywordOpsReviewList{margin-inline:18px}
+  .harinV8 .keywordOpsReview>footer{padding-inline:18px}
+  .harinV8 .liveStatusDock{width:calc(100vw - 24px)}
+  .harinV8 .ownerWorkspacePanel>header span{font-size:var(--v8-readable-label)!important}
+  .harinV8 :where(
+    .keywordOpsSummary>span,
+    .productOpsKpis>span,
+    .collectionOpsKpis>article,
+    .inventoryOpsKpis>span,
+    .settlementOpsKpis>article,
+    .reliabilityKpis>article
+  ){min-height:104px;padding:15px}
+}

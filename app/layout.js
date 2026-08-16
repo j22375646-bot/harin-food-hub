@@ -10,6 +10,7 @@ import './_reliability/harin-reliability-v8.css';
 import './_workspace/harin-owner-workspace.css';
 import './_ai/harin-ai-page-v8.css';
 import './_shell/harin-entry-v8.css';
+import './_design-system/harin-readability-v8.css';
 import uiFlags from '../lib/ui/feature-flags.js';
 
 export const metadata = {
