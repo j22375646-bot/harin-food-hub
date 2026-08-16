@@ -25,6 +25,13 @@ test('recognizes the live ePost tracestatus field as an in-transit event',()=>{
   assert.equal(result.latestEvent.name,'발송');
 });
 
+test('treats ePost ERR-001 no-result as waiting instead of a failed API job',()=>{
+  const result=tracking.parseTrackingResponse('<?xml version="1.0"?><error><error_code>ERR-001</error_code><message>조회결과가 없습니다.</message></error>','1234567890123');
+  assert.equal(result.statusCode,'NOT_FOUND');
+  assert.equal(result.statusLabel,'우체국 접수 확인 전');
+  assert.equal(result.events.length,0);
+});
+
 test('tracking client requires the dedicated server key and uses the official trace target',async()=>{
   await assert.rejects(()=>tracking.trace('1234567890123',{env:{},fetchImpl:async()=>{}}),error=>error.code==='EPOST_TRACKING_KEY_REQUIRED');
   let called='';

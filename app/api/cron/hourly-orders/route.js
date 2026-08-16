@@ -39,15 +39,18 @@ export async function GET(request) {
   const db = supabaseModule.getSupabase();
   const latestNaver = await db
     .from("sync_logs")
-    .select("metadata")
+    .select("job_type,status,metadata")
     .eq("platform", "NAVER")
-    .eq("job_type", "COMMERCE_CONNECTION_TEST")
+    .in("job_type", ["COMMERCE_CONNECTION_TEST", "COMMERCE_SYNC"])
     .order("started_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   const naverReady =
     !latestNaver.error &&
-    Boolean(latestNaver.data?.metadata?.capabilities?.inquiries?.read);
+    (Boolean(latestNaver.data?.metadata?.capabilities?.inquiries?.read) ||
+      (latestNaver.data?.job_type === "COMMERCE_SYNC" &&
+        ["SUCCESS", "PARTIAL"].includes(latestNaver.data?.status) &&
+        latestNaver.data?.metadata?.fixedIp === true));
   const [cafe24, coupang, coupangCs, naverCommerce] = await Promise.allSettled([
     cafe24Sync.syncOrdersRealtime(cafe24Config.getConfig(), { days: 31 }),
     queueModule.queueRequest(db, "ORDER_REALTIME", {

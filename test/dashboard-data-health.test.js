@@ -44,6 +44,14 @@ test('data health marks only the affected channel partial and never calls it zer
   assert.equal(health.channels.find(item=>item.platform==='COUPANG').status,'READY');
 });
 
+test('data health uses actual completion time instead of array order', () => {
+  const result=buildDataHealth({now:'2026-08-17T00:10:00.000Z',syncs:[
+    {platform:'NAVER',status:'PARTIAL',started_at:'2026-08-17T00:01:04.000Z',finished_at:'2026-08-17T00:01:04.400Z',error_message:'부분 오류'},
+    {platform:'NAVER',status:'SUCCESS',started_at:'2026-08-17T00:00:45.000Z',finished_at:'2026-08-17T00:01:13.800Z'}
+  ]});
+  assert.equal(result.channels.find(item=>item.platform==='NAVER').status,'READY');
+});
+
 test('daily schedule is fixed to the next 05:30 KST', () => {
   assert.equal(nextDailyKst('2026-08-12T20:00:00.000Z'),'2026-08-12T20:30:00.000Z');
   assert.equal(nextDailyKst('2026-08-12T21:00:00.000Z'),'2026-08-13T20:30:00.000Z');

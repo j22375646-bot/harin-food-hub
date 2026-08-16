@@ -33,6 +33,15 @@ test('Naver credential failure stays setup required instead of looking connected
   assert.equal(result.capabilities.every(item => item.read.status === 'SETUP_REQUIRED'), true);
 });
 
+test('Naver successful fixed-IP commerce sync is current connection evidence', () => {
+  const result = channels.naverChannel([
+    { platform:'NAVER', job_type:'COMMERCE_CONNECTION_TEST', status:'FAILED', finished_at:'2026-08-16T08:00:00Z', metadata:{ code:'NAVER_COMMERCE_CONFIG_REQUIRED' } },
+    { platform:'NAVER', job_type:'COMMERCE_SYNC', status:'SUCCESS', finished_at:'2026-08-16T09:00:00Z', metadata:{ fixedIp:true, counts:{ products:203, orders:83, inquiries:1, claims:0, settlements:21 }, errors:[], writeEnabled:false } }
+  ]);
+  assert.equal(result.status, 'READ_READY');
+  assert.match(result.summary, /상품·주문/);
+});
+
 test('Cafe24 requires OAuth reconnect when newly requested write scopes are missing', () => {
   const token = { access_token:'token', scopes:['mall.read_product','mall.read_order','mall.read_community'] };
   const result = channels.cafe24Channel([{ platform:'CAFE24', job_type:'FETCH_ALL', status:'SUCCESS' }], token);
@@ -47,4 +56,14 @@ test('Coupang fixed-IP reads can be ready while product writes stay locked', () 
   assert.equal(result.status, 'READ_READY');
   assert.equal(result.capabilities.every(item => item.read.status === 'READY'), true);
   assert.equal(result.capabilities.find(item => item.key === 'products').write.status, 'LOCKED');
+});
+
+test('Coupang newer fixed-IP order and CS successes supersede an old direct-IP failure', () => {
+  const result = channels.coupangChannel([
+    { platform:'COUPANG', job_type:'FETCH_ALL', status:'FAILED', finished_at:'2026-08-16T08:00:00Z', error_message:'IP not allowed' },
+    { platform:'COUPANG', job_type:'ORDERS_REALTIME', status:'SUCCESS', finished_at:'2026-08-16T09:00:00Z', metadata:{ counts:{ orders:20 } } },
+    { platform:'COUPANG', job_type:'CUSTOMER_SERVICE', status:'SUCCESS', finished_at:'2026-08-16T09:01:00Z', metadata:{ fixedIp:true, counts:{ inquiries:0, returns:1 } } }
+  ], { products:1, orders:20 });
+  assert.equal(result.status, 'READ_READY');
+  assert.match(result.summary, /주문·CS 정상/);
 });

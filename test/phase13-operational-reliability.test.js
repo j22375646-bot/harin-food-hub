@@ -22,6 +22,15 @@ test('13-8 dead-letter workbench contains only terminal failures and no payload'
   assert.equal(Object.hasOwn(center.dead_letters[0],'payload'),false);
 });
 
+test('우체국 접수 전 조회결과 없음은 재처리할 실패 작업에서 제외한다',()=>{
+  const center=reliability.buildReliabilityCenter({operationRequests:[
+    {id:'tracking-wait',status:'FAILED',operation_type:'EPOST_TRACKING',error_message:'조회결과가 없습니다.'},
+    {id:'real-failure',status:'FAILED',operation_type:'UPLOAD_INVOICE',error_message:'권한 오류'}
+  ]});
+  assert.equal(center.dead_letter_count,1);
+  assert.equal(center.dead_letters[0].id,'real-failure');
+});
+
 test('13-8 keeps cost calls guarded and production test sends disabled',()=>{
   const migration=read('supabase/migrations/20260815003504_phase13_operational_reliability.sql');
   const watchdogMigration=read('supabase/migrations/20260815003600_schedule_worker_watchdog.sql');
