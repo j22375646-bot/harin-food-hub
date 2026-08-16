@@ -62,5 +62,7 @@ test('17-1 uses the shared pastel shell, readable controls and collapsed page AI
   assert.match(home,/판매 중 기준상품/);
   assert.match(home,/사용 시작 전 · 비용 0원/);
   assert.match(css,/@media\(max-width:700px\)/);
+  assert.match(css,/\.marketProductPicker>\*\{min-width:0\}/);
+  assert.match(css,/\.marketProductPicker select\{width:100%;min-width:0;max-width:100%/);
   assert.match(css,/prefers-reduced-motion/);
 });
