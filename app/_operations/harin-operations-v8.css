@@ -99,6 +99,8 @@
   .orderWorkspaceHeading{grid-template-columns:auto minmax(0,1fr);gap:12px;padding:15px}.orderWorkspaceHeadingIcon{width:44px;height:44px;border-radius:14px}.orderWorkspaceHeading h2{font-size:22px}.orderWorkspaceHeading p{font-size:13px!important}.orderWorkspaceHeadingCount{grid-column:1/-1;width:100%;min-width:0;align-items:center;justify-content:space-between;flex-direction:row;box-sizing:border-box}.orderWorkspaceHeadingCount b{font-size:23px}
 }
 
+.growthCenterTitle>div>span{color:var(--v8-lavender-strong);font-size:9px;font-weight:900;letter-spacing:.08em}
+
 /* Phase 14-5: Inventory planning and settlement reconciliation workbenches. */
 .inventoryOpsV8,.settlementOpsV8{gap:var(--v8-space-3)}
 .inventoryOpsV8 .inventoryOpsHero,.settlementOpsV8 .settlementOpsHero{
