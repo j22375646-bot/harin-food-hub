@@ -4,6 +4,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const operations=require('../lib/marketing/keyword-operations.js');
+const wing=require('../lib/marketing/coupang-wing-worklist.js');
 const routes=require('../lib/navigation/hub-routes.js');
 
 const naverCandidate={ncc_keyword_id:'nkw-1',ncc_adgroup_id:'group-1',keyword:'작두콩차',current_bid:320,recommended_bid:290,minimum_owner_bid:270,maximum_owner_bid:350,status:'READY',decision:'LOWER',can_request_approval:true,metrics:{impressions:1000,clicks:43,cost:18200,conversions:1,conversion_revenue:56400,roas:309.9},product_target:{name:'작두콩차 티백'},period_end:'2026-08-15'};
@@ -77,4 +78,50 @@ test('15-5 history uses financial change requests and preserves live verificatio
   const page=fs.readFileSync('app/page.js','utf8');
   assert.match(page,/before_value,proposed_value,impact_preview/);
   assert.match(page,/verification_result/);
+});
+
+test('15-6 builds a Coupang-only WING worklist and never mixes Naver rows',()=>{
+  const rows=[
+    {...operations.coupangKeywordRows({adKeywordWaste:[coupangKeyword]})[0]},
+    {...operations.naverRegisteredRows({candidates:[naverCandidate]})[0]}
+  ];
+  const coupangId=rows[0].id;
+  const items=wing.buildCoupangWingWorklist(rows,{[coupangId]:{action:'LOWER',currentBid:'320',targetBid:'290',memo:'무주문 감액'}});
+  assert.equal(items.length,1);
+  assert.equal(items[0].platform,'COUPANG');
+  assert.equal(items[0].keyword,'작두콩차');
+  assert.equal(items[0].currentBid,320);
+  assert.equal(items[0].targetBid,290);
+  assert.equal(items[0].status,'READY_FOR_WING');
+});
+
+test('15-6 keeps unknown Coupang bids blank instead of converting them to zero',()=>{
+  const rows=operations.coupangKeywordRows({adKeywordWaste:[coupangKeyword]});
+  const items=wing.buildCoupangWingWorklist(rows,{});
+  assert.equal(items[0].currentBid,null);
+  assert.equal(items[0].targetBid,null);
+  assert.equal(items[0].status,'WING_BID_REQUIRED');
+  const csv=wing.coupangWingCsv(items);
+  assert.match(csv,/WING 입찰가 확인 필요/);
+  assert.doesNotMatch(csv,/네이버/);
+});
+
+test('15-6 CSV escapes spreadsheet formulas and capability truthfully locks public bid writes',()=>{
+  const items=wing.buildCoupangWingWorklist([{...operations.coupangKeywordRows({adKeywordWaste:[coupangKeyword]})[0],keyword:'=CMD()'}],{});
+  const csv=wing.coupangWingCsv(items);
+  assert.match(csv,/"'=CMD\(\)"/);
+  assert.equal(wing.COUPANG_AD_CAPABILITY.publicBidWriteEndpointDocumented,false);
+  assert.equal(wing.COUPANG_AD_CAPABILITY.bidWrite,'MANUAL_REQUIRED');
+});
+
+test('15-6 exposes only a WING worklist UI for Coupang and no Coupang writer request',()=>{
+  const component=fs.readFileSync('app/_analysis/keyword-operations-table.js','utf8');
+  const css=fs.readFileSync('app/_analysis/harin-analysis-v8.css','utf8');
+  assert.match(component,/WING 작업표 열기/);
+  assert.match(component,/쿠팡에서 직접 반영할 작업만 정리했어요/);
+  assert.match(component,/CSV 내려받기/);
+  assert.match(component,/공개 Seller Open API 문서에서 광고 키워드 입찰 쓰기를 확인하지 못했습니다/);
+  assert.doesNotMatch(component,/fetch\(['"]\/api\/coupang\//);
+  assert.match(css,/\.keywordOpsWingList/);
+  assert.match(css,/\.keywordOpsCapability/);
 });
