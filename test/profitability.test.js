@@ -31,6 +31,14 @@ test('marks incomplete product cost coverage without inventing zero-cost confide
   assert.equal(result.products[0].contribution_before_ads,null);
 });
 
+test('keeps financial coverage unknown when an overview has no raw sales rows', () => {
+  const result = calculateProfitability({items:[]});
+  assert.equal(result.cost_coverage_rate,null);
+  assert.equal(result.cost_status,'NO_DATA');
+  assert.equal(result.financial_trust.status,'BLOCKED');
+  assert.equal(result.financial_trust.reasons[0].code,'COST_COVERAGE_UNKNOWN');
+});
+
 test('adds expected return and remote-area reserves without storing customer addresses', () => {
   const result = calculateProfitability({
     items:[{order_id:'O1',external_product_no:'10',product_name:'차',quantity:1,paid_amount:10000}],

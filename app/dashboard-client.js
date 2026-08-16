@@ -122,9 +122,11 @@ function ChannelUnavailable({ health, onOpenCollection }) {
 
 function FinancialTrustBanner({ trust={}, onOpenProduct }) {
   if (trust.status !== 'BLOCKED') return null;
-  const coverage=trust.cost_coverage_rate==null?'확인 필요':`${num(trust.cost_coverage_rate).toFixed(1)}%`;
-  const unassigned=trust.unassigned_ad_spend==null?'확인 필요':won(trust.unassigned_ad_spend);
-  return <section className="financialTrustBanner" role="alert"><div><span>FINANCIAL TRUST GATE · 미산정 보호</span><b>재무 지표를 임시 차단했습니다.</b><p>{(trust.reasons||[]).map(item=>item.message).join(' ')}</p><small>원가 반영률 {coverage} · 원가 미입력 {count(trust.missing_cost_products)}개 / {won(trust.missing_cost_revenue)} · 미귀속 광고비 {unassigned}</small></div><button type="button" onClick={onOpenProduct}>상품·원가 연결하기</button></section>;
+  const awaitingEvidence=trust.cost_coverage_rate==null;
+  const coverage=awaitingEvidence?'판단 보류':`${num(trust.cost_coverage_rate).toFixed(1)}%`;
+  const unassigned=trust.unassigned_ad_spend==null||awaitingEvidence?'판단 보류':won(trust.unassigned_ad_spend);
+  const costGap=awaitingEvidence?'원가 미입력 판단 보류':`원가 미입력 ${count(trust.missing_cost_products)}개 / ${won(trust.missing_cost_revenue)}`;
+  return <section className="financialTrustBanner" role="alert"><div><span>FINANCIAL TRUST GATE · 미산정 보호</span><b>재무 지표를 임시 차단했습니다.</b><p>{awaitingEvidence?'이 화면에는 계산할 원가·매출 근거가 없어 0으로 표시하지 않았습니다. 상품·원가 화면에서 실제 자료를 확인해주세요.':(trust.reasons||[]).map(item=>item.message).join(' ')}</p><small>원가 반영률 {coverage} · {costGap} · 미귀속 광고비 {unassigned}</small></div><button type="button" onClick={onOpenProduct}>상품·원가 연결하기</button></section>;
 }
 
 const metricStatusLabel={READY:'정상',PARTIAL:'표본 부족',BLOCKED:'차단',NO_DATA:'데이터 없음',PARSE_ERROR:'해석 오류',STALE:'확인 필요'};
