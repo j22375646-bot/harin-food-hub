@@ -25,6 +25,14 @@ test('recognizes the live ePost tracestatus field as an in-transit event',()=>{
   assert.equal(result.latestEvent.name,'발송');
 });
 
+test('keeps an accepted parcel waiting until ePost reports real movement',()=>{
+  const result=tracking.parseTrackingResponse('<?xml version="1.0"?><trace><item><eventhms>20260814110000</eventhms><eventnm>접수</eventnm><eventregiponm>승주우체국</eventregiponm></item></trace>','1234567890123');
+  assert.equal(result.statusCode,'ACCEPTED');
+  assert.equal(result.statusLabel,'우체국 접수중');
+  assert.equal(tracking.classifyEvent({name:'접수'}),'ACCEPTED');
+  assert.equal(tracking.classifyEvent({name:'발송'}),'IN_TRANSIT');
+});
+
 test('treats ePost ERR-001 no-result as waiting instead of a failed API job',()=>{
   const result=tracking.parseTrackingResponse('<?xml version="1.0"?><error><error_code>ERR-001</error_code><message>조회결과가 없습니다.</message></error>','1234567890123');
   assert.equal(result.statusCode,'NOT_FOUND');

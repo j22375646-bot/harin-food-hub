@@ -285,3 +285,19 @@ test('registered tracking numbers from channel data are retained in unified orde
   assert.equal(coupang.invoiceNumber,'9876543210987');
   assert.equal(coupang.deliveryCompanyCode,'EPOST');
 });
+
+test('registered Cafe24 invoices wait for real ePost movement before entering shipping',()=>{
+  const hubOrderId=orders.hubOrderId('CAFE24','C-WAITING');
+  const base={
+    asOf:'2026-08-17T00:00:00Z',
+    cafe24Orders:[{order_id:'C-WAITING',order_date:'2026-08-17T01:00:00Z',raw_data:{tracking_no:'1234567890123'}}],
+    cafe24OrderItems:[{order_id:'C-WAITING',external_item_id:'I-1',product_name:'Tea',quantity:1,raw_data:{order_status:'N22'}}]
+  };
+  const before=orders.buildUnifiedOrders({...base,trackingStates:{[hubOrderId]:{status:'SUCCESS',statusCode:'NOT_FOUND',statusLabel:'우체국 접수 확인 전'}}});
+  const accepted=orders.buildUnifiedOrders({...base,trackingStates:{[hubOrderId]:{status:'SUCCESS',statusCode:'ACCEPTED',statusLabel:'우체국 접수중'}}});
+  const moving=orders.buildUnifiedOrders({...base,trackingStates:{[hubOrderId]:{status:'SUCCESS',statusCode:'IN_TRANSIT',statusLabel:'배송중'}}});
+  assert.equal(before.orders[0].stage,'WAITING_FOR_CARRIER');
+  assert.equal(accepted.orders[0].stage,'WAITING_FOR_CARRIER');
+  assert.equal(before.orders[0].shippingEligible,false);
+  assert.equal(moving.orders[0].stage,'SHIPPING');
+});
