@@ -32,8 +32,11 @@ test('main is canonicalized to the all-channel command center', () => {
   assert.deepEqual(parseHubHref('/?platform=naver&period=WEEK&product=old-product'),{view:'main',workspace:null,platform:'all',product:'ALL',period:'DAY'});
 });
 
-test('Coupang operation pages stay locked to Coupang without a redundant query', () => {
-  for (const view of ['orders','cs','inventory','settlement']) {
+test('unified orders stay all-channel while Coupang-only operation pages remain locked', () => {
+  const ordersHref=buildHubHref({view:'orders',platform:'coupang'});
+  assert.equal(parseHubHref(ordersHref).platform,'all');
+  assert.doesNotMatch(ordersHref,/platform=/);
+  for (const view of ['cs','inventory','settlement']) {
     const href=buildHubHref({view,platform:'naver'});
     const state=parseHubHref(href);
     assert.equal(state.view,view);
