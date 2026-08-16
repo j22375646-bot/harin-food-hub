@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useStoredState } from "./use-hub-preference.js";
 import { HarinIcon } from "./_design-system/harin-icon.js";
 import { HarinPageAiRegion, HarinPageFrame, HarinPageHeader } from "./_design-system/harin-ui.js";
@@ -610,6 +610,7 @@ export default function UnifiedCustomerServiceCenter({ center, aiPanel }) {
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
   const [macroMessage, setMacroMessage] = useState("");
+  const [visibleCount, setVisibleCount] = useState(20);
   async function copyQuickReply(template) {
     try {
       if (!navigator.clipboard) {
@@ -671,6 +672,8 @@ export default function UnifiedCustomerServiceCenter({ center, aiPanel }) {
       return false;
     return true;
   });
+  useEffect(() => setVisibleCount(20), [workspace, platform, kind, due, query]);
+  const visibleRows = rows.slice(0, visibleCount);
   const kindTabs = [
     ["ALL", "전체"],
     ["INQUIRY", "문의"],
@@ -797,8 +800,8 @@ export default function UnifiedCustomerServiceCenter({ center, aiPanel }) {
           ))}</div>
         </section>
       ) : <div className="unifiedCsWorkList">
-        {rows.length ? (
-          rows.map((row) =>
+        {visibleRows.length ? (
+          visibleRows.map((row) =>
             row.kind === "INQUIRY" ? (
               <InquiryCard row={row} templates={data.templates} key={row.id} />
             ) : (
@@ -814,6 +817,7 @@ export default function UnifiedCustomerServiceCenter({ center, aiPanel }) {
           </div>
         )}
       </div>}
+      {workspace !== "TEMPLATES" && visibleRows.length < rows.length ? <button type="button" className="unifiedCsMore" onClick={() => setVisibleCount((value) => value + 20)}>CS 20건 더 보기 · 남은 {count(rows.length - visibleRows.length)}건</button> : null}
       <HarinPageAiRegion className="operationsAiSlot csAiSlot" id="page-ai-analysis" title="CS·클레임 AI 분석">{aiPanel}</HarinPageAiRegion>
       <details className="unifiedCsHelp">
         <summary><span><b>이 화면은 어떻게 쓰나요?</b><small>처리 순서와 표시 기준을 쉬운 말로 확인하세요.</small></span><em>도움말 열기</em></summary>

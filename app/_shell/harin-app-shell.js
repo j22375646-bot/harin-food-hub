@@ -113,11 +113,11 @@ export function HarinBreadcrumbBar({ context, refreshedLabel }) {
   return <nav className="hubBreadcrumb" aria-label="현재 위치"><ol><li>{context.group.label}</li><li>{context.item.label}</li><li>{context.platform}</li></ol><span>{refreshedLabel||'최근 갱신 기록 없음'}</span></nav>;
 }
 
-export function HarinFocusedWorkspaceNav({ view, workspace, platform, period, product }) {
+export function HarinFocusedWorkspaceNav({ view, workspace, pendingWorkspace, platform, period, product, onNavigate }) {
   const items=hubRoutesModule.HUB_WORKSPACES?.[view]||[];
   if(!items.length)return null;
   const pageLabel=hubRoutesModule.HUB_NAV.find(item=>item.id===view)?.label||view;
   return <nav className={`focusedWorkspaceNav ${view}`} aria-label={`${pageLabel} 작업공간`}>
-    {items.map((item,index)=><Link className={workspace===item.id?'active':''} aria-current={workspace===item.id?'page':undefined} href={hubRoutesModule.buildHubHref({view,workspace:item.id,platform,period,product})} key={item.id}><i>{String(index+1).padStart(2,'0')}</i><span><b>{item.label}</b><small>{item.description}</small></span><em aria-hidden="true">→</em></Link>)}
+    {items.map((item,index)=>{const active=(pendingWorkspace||workspace)===item.id;return <Link prefetch href={hubRoutesModule.buildHubHref({view,workspace:item.id,platform,period,product})} className={active?'active':''} aria-current={active?'page':undefined} onClick={()=>{if(item.id!==workspace)onNavigate?.(item.id);}} key={item.id}><i>{String(index+1).padStart(2,'0')}</i><span><b>{item.label}</b><small>{item.description}</small></span><em aria-hidden="true">→</em></Link>;})}
   </nav>;
 }

@@ -27,7 +27,8 @@ test('14-2 keeps real URL navigation, prefetch, back restoration, and focused ro
   assert.match(client,/window\.addEventListener\('popstate',syncFromAddress\)/);
   assert.match(client,/router\[replace\|\|current===href\?'replace':'push'\]\(href,\{scroll:false\}\)/);
   assert.match(client,/router\.prefetch\(hubRoutesModule\.buildHubHref/);
-  assert.match(shell,/<Link className=\{workspace===item\.id\?'active':''\}/);
+  assert.match(shell,/<Link prefetch href=/);
+  assert.match(shell,/const active=\(pendingWorkspace\|\|workspace\)===item\.id/);
   assert.match(shell,/hubRoutesModule\.buildHubHref/);
 });
 

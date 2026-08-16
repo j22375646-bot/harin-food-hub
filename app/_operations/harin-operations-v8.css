@@ -165,3 +165,6 @@
   .inventoryOpsV8 .inventoryOpsHero,.settlementOpsV8 .settlementOpsHero{padding:20px 18px;border-radius:22px}.inventoryOpsV8 .inventoryOpsHero h1,.settlementOpsV8 .settlementOpsHero h1{font-size:29px}.inventoryHeroMetrics,.settlementHeroMetrics{grid-template-columns:1fr 1fr}.inventoryHeroMetrics>span,.settlementHeroMetrics>span{min-height:84px;padding:13px}.inventoryOpsV8 .inventoryHeroMetrics b,.settlementOpsV8 .settlementHeroMetrics b{font-size:20px}
   .inventoryOpsV8 .inventoryOpsKpis,.settlementOpsV8 .settlementOpsKpis{grid-template-columns:1fr 1fr}.inventoryOpsV8 .inventoryOpsToolbar{padding:10px}.inventoryOpsV8 .inventoryOpsToolbar input{font-size:16px}.inventoryUnavailableGroup>summary{align-items:flex-start;flex-direction:column;justify-content:center;padding:15px 17px}.inventoryUnavailableGroup>summary em{padding-left:30px}.inventoryPlannerControls{padding:17px}.inventoryPlannerControls nav button{flex:0 0 62px}.settlementMoneyJourney{padding:15px}.settlementMoneyJourney>header{align-items:flex-start;flex-direction:column}.settlementMoneyJourney article>strong{font-size:19px}
 }
+
+/* Phase 15-8 WCAG contrast without changing the approved pastel surfaces. */
+.harinV8 .csQuickMacros>div>button small{color:#57536a}

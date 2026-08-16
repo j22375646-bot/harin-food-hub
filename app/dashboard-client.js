@@ -162,13 +162,14 @@ export default function Dashboard({ initialData, initialState }) {
   const [openNavGroup,setOpenNavGroup]=useState(hubRoutesModule.groupForView(normalizedInitial.view));
   const [navQuery,setNavQuery]=useState('');
   const [pendingView,setPendingView]=useState(null);
+  const [pendingWorkspace,setPendingWorkspace]=useState(null);
   const prefetchedViews=useRef(new Set([normalizedInitial.view]));
   const [fontScale,setFontScale]=useStoredState('font-scale','large',['large','xlarge']);
   useEffect(() => setMounted(true), []);
   useEffect(()=>{document.documentElement.dataset.fontScale=fontScale;},[fontScale]);
   useEffect(()=>{
     const next=hubRoutesModule.normalizeHubState(initialState);
-    setView(next.view);setWorkspace(next.workspace);setPlatform(next.platform);setSelectedProduct(next.product);setPeriod(next.period);setPendingView(null);
+    setView(next.view);setWorkspace(next.workspace);setPlatform(next.platform);setSelectedProduct(next.product);setPeriod(next.period);setPendingView(null);setPendingWorkspace(null);
     setOpenNavGroup(hubRoutesModule.groupForView(next.view));
   },[initialState.view,initialState.workspace,initialState.platform,initialState.product,initialState.period]);
   useEffect(()=>{
@@ -207,7 +208,7 @@ export default function Dashboard({ initialData, initialState }) {
   const connectionTone=readyChannelCount===3?'ready':'check';
   const selectedHealth=platform==='all'?null:initialData.dataHealth?.channels?.find(item=>item.platform===platform.toUpperCase());
   const channelUnavailable=Boolean(selectedHealth?.failedDatasets?.length);
-  const viewIsLoading=Boolean(pendingView||routePending||(initialData.loadedView&&view!==initialData.loadedView)||(initialData.loadedWorkspace!==undefined&&workspace!==initialData.loadedWorkspace));
+  const viewIsLoading=Boolean(pendingView||pendingWorkspace||routePending||(initialData.loadedView&&view!==initialData.loadedView)||(initialData.loadedWorkspace!==undefined&&workspace!==initialData.loadedWorkspace));
   function navigate(next={},replace=false){
     const state=hubRoutesModule.normalizeHubState({view,workspace,platform,product:selectedProduct,period,...next});
     if(state.view!==view)setPendingView(state.view);
@@ -228,14 +229,14 @@ export default function Dashboard({ initialData, initialState }) {
   return <div className="shell">
     <HarinTopbar context={navContext} connectionLabel={connectionLabel} connectionTone={connectionTone} fontScale={fontScale} onFontScale={setFontScale} syncing={syncing} onSync={runSync}/>
     <HarinSidebar groups={navGroups} view={pendingView||view} openGroup={openNavGroup} query={navQuery} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onOpenView={openView} onPrefetch={prefetchView}/>
-    <main className="hubMain">
+    <main className={`hubMain${viewIsLoading?' routePending':''}`} aria-busy={viewIsLoading?'true':'false'}>
       {viewIsLoading?<section className="viewLoadingRibbon" role="status"><span/><b>{nav.find(item=>item.id===(pendingView||view))?.label} 화면을 준비하고 있어요</b><small>보던 화면은 그대로 두고 필요한 자료만 빠르게 불러옵니다.</small></section>:null}
       <HarinBreadcrumbBar context={navContext} refreshedLabel={latestRefreshAt?`최근 갱신 ${dateTime(latestRefreshAt)}`:null}/>
       {channelScopedViews.has(view)&&(view!=='product'||workspace==='catalog')&&<section className="platformSwitch" aria-label="플랫폼 선택">
         {(view==='keyword'?[['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡']]:[['all','allDot','전체'],['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡'],['cafe24','cafeDot','Cafe24']]).map(([id,dot,label])=><button key={id} className={platform===id?'selected':''} onClick={()=>selectPlatform(id)}><i className={dot}/>{label}</button>)}
         <span className="periodFilter">{view==='keyword'?'플랫폼별 분리 운영 · 최근 7일':'최근 7일 기준'}</span>
       </section>}
-      <HarinFocusedWorkspaceNav view={view} workspace={workspace} platform={platform} period={period} product={selectedProduct}/>
+      <HarinFocusedWorkspaceNav view={view} workspace={workspace} pendingWorkspace={pendingWorkspace} platform={platform} period={period} product={selectedProduct} onNavigate={setPendingWorkspace}/>
       {view!=='main'&&<DataStatusPanel data={initialData} platform={platform} onOpenCollection={()=>openView('collection')}/>}
       {!embeddedHelpViews.has(view)&&!(view==='product'&&workspace==='catalog'&&platform==='all')&&!(view==='insight'&&workspace==='channels'&&platform==='coupang')&&<HelpBox key={`${view}:${workspace}:${platform}`} help={getHubHelp(view)} persistKey={`${view}:${workspace}:${platform}`}/>}
       {financialContextViews.has(view)&&<FinancialTrustBanner trust={initialData.financialTrust} onOpenProduct={()=>navigate({platform:'all',view:'product',workspace:'costs',product:'ALL'})}/>}
