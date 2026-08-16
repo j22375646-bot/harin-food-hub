@@ -8,6 +8,7 @@ import MarketProductBaseline from './data/product-baseline-client.js';
 import MarketProfileWorkbench from './market/market-profile-client.js';
 import CompetitionWorkbench from './competition/competition-client.js';
 import ConversionWorkbench from './conversion/conversion-client.js';
+import GrowthLoopWorkbench from './conversion/growth-loop-client.js';
 
 const STAGES={
   data:{number:'01',label:'자료실',eyebrow:'DATA ROOM',icon:'database',tone:'blue',description:'파일과 출처를 모으고 OCR 결과를 사장님이 확인하는 공간입니다.',empty:'아직 검수된 근거가 없습니다.',next:'자료 업로드·OCR·Evidence 연결'},
@@ -32,7 +33,7 @@ export async function renderMarketWorkspace({projectId,workspace}){
       {label:'프로젝트 상태',value:project.status==='ACTIVE'?'진행 중':'초안',description:'사장님 확인 전'}
     ]} actions={<HarinButton as="a" href="/market-intelligence" variant="secondary" icon="product">다른 상품 선택</HarinButton>}/>
     <nav className="marketWorkspaceTabs" aria-label="시장·전환 분석 단계">{tabs.map(([id,item])=><Link href={projectsModule.projectHref(project.id,id)} className={workspace===id?'active':''} aria-current={workspace===id?'page':undefined} data-tone={item.tone} key={id}><i>{item.number}</i><HarinPictogram icon={item.icon} tone={item.tone} size={18}/><span><b>{item.label}</b><small>{item.next}</small></span></Link>)}</nav>
-    {workspace==='data'?<><MarketProductBaseline projectId={project.id} productName={productName}/><MarketDataRoom projectId={project.id} productName={productName}/></>:workspace==='market'?<MarketProfileWorkbench projectId={project.id} productName={productName}/>:workspace==='competition'?<CompetitionWorkbench projectId={project.id} productName={productName}/>:workspace==='conversion'?<ConversionWorkbench projectId={project.id} productName={productName}/>:<HarinCard className="marketStageEmpty">
+    {workspace==='data'?<><MarketProductBaseline projectId={project.id} productName={productName}/><MarketDataRoom projectId={project.id} productName={productName}/></>:workspace==='market'?<MarketProfileWorkbench projectId={project.id} productName={productName}/>:workspace==='competition'?<CompetitionWorkbench projectId={project.id} productName={productName}/>:workspace==='conversion'?<><ConversionWorkbench projectId={project.id} productName={productName}/><GrowthLoopWorkbench projectId={project.id} productName={productName}/></>:<HarinCard className="marketStageEmpty">
       <HarinPictogram icon={stage.icon} tone={stage.tone} size={26}/><div><HarinBadge tone="neutral">{stage.number} · {stage.label}</HarinBadge><h2>{stage.empty}</h2><p>선택한 상품의 프로젝트와 버전 저장 공간은 준비되었습니다. 다음 세부 기능도 이 주소 안에 이어서 연결됩니다.</p></div>
     </HarinCard>}
     <section className="marketProjectIdentity"><article><small>상품 격리 키</small><b>{project.master_product_id}</b><p>상품을 바꾸면 별도 프로젝트를 엽니다.</p></article><article><small>재사용 템플릿</small><b>{project.template_id}</b><p>화면 구조만 같고 근거는 복사하지 않습니다.</p></article><article><small>최근 저장</small><b>{project.updated_at?new Date(project.updated_at).toLocaleString('ko-KR'):'기록 없음'}</b><p>모든 변경은 버전으로 남깁니다.</p></article></section>
