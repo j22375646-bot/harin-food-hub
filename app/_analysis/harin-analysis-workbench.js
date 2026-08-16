@@ -10,7 +10,8 @@ const WORKSPACE_META={
   insight:{
     overview:['오늘의 성과판','매출·광고·이익 변화와 이상징후를 한 번에 확인해요.'],
     causes:['왜 달라졌는지 찾기','좋아지거나 나빠진 숫자의 원인과 다음 행동을 연결해요.'],
-    channels:['채널별 성과 비교','네이버·쿠팡·Cafe24를 같은 기준으로 나란히 살펴봐요.']
+    channels:['채널별 성과 비교','네이버·쿠팡·Cafe24를 같은 기준으로 나란히 살펴봐요.'],
+    profitability:['실제 수익성 분석','매출에서 원가·수수료·배송비·광고비를 빼고 실제 남는 돈을 확인해요.']
   },
   keyword:{
     'search-terms':['고객이 실제로 검색한 말','등록 키워드와 분리해 고객 검색어의 기회와 낭비를 결정해요.'],
@@ -134,23 +135,129 @@ export default function HarinAnalysisWorkbench({view,workspace,platform='all',da
   const anomalyCount=(data.alerts||[]).filter(item=>item.source_type==='ANOMALY'&&scopePlatform(item.platform,platform)).length;
   const actualTerms=data.naver?.searchTermCenter?.summary?.total||0;
   const sellable=(data.products||[]).filter(item=>item.catalog_status==='SELLING').length;
-  const heroMetrics=view==='insight'?[['저장 보고서',`${count(reportCount)}건`],['열린 이상징후',`${count(anomalyCount)}건`],['선택 범위',PLATFORM_LABELS[platform]]]:view==='keyword'?[['실제 검색어',`${count(actualTerms)}개`],['무전환 키워드',`${count(data.naver?.keywordWaste?.length)}개`],['선택 범위',PLATFORM_LABELS[platform]]]:[['판매중 상품',`${count(sellable)}개`],['채널 연결',`${count(data.productOperations?.summary?.all_channels_connected)}개`],['선택 범위',PLATFORM_LABELS[platform]]];
+  const profitReady=data.financialTrust?.allowed?.contribution_profit===true;
+  const insightMetrics=workspace==='profitability'?[['실제 이익',profitReady?won(data.liveProfitability?.contribution_profit):'판단 보류'],['원가 준비율',percent(data.liveProfitability?.cost_coverage_rate)],['선택 범위',PLATFORM_LABELS[platform]]]:[['저장 보고서',`${count(reportCount)}건`],['열린 이상징후',`${count(anomalyCount)}건`],['선택 범위',PLATFORM_LABELS[platform]]];
+  const heroMetrics=view==='insight'?insightMetrics:view==='keyword'?[['실제 검색어',`${count(actualTerms)}개`],['무전환 키워드',`${count(data.naver?.keywordWaste?.length)}개`],['선택 범위',PLATFORM_LABELS[platform]]]:[['판매중 상품',`${count(sellable)}개`],['채널 연결',`${count(data.productOperations?.summary?.all_channels_connected)}개`],['선택 범위',PLATFORM_LABELS[platform]]];
   const pageLabel=view==='insight'?'성과 분석':view==='keyword'?'광고 키워드 운영':'상품 성장 운영';
   return <HarinPageFrame kind="analysis" className={`analysisV8 analysisV8-${view}`}>
     <HarinPageHeader className="analysisHero" eyebrow={pageLabel} title={meta[0]} description={meta[1]} icon={view} tone={view==='keyword'?'mint':view==='product'?'amber':'lavender'} note="숫자는 서버 계산 · 자료 부족은 판단 보류 · 플랫폼 변경은 승인 전 실행 안 함" metrics={heroMetrics}/>
     <HarinPageToolbar className="analysisFocusToolbar" label="빠른 작업" description="지금 필요한 분석 위치로 바로 이동해요.">
       <nav className="analysisFocusRail" aria-label="이 화면의 빠른 작업">
-        {view==='insight'?<><a href="#analysis-decision-desk"><i>↔</i><span><small>비교</small><b>저장한 기준과 비교</b></span></a><a href="#analysis-anomalies"><i>!</i><span><small>선택</small><b>이상징후 먼저 보기</b></span></a><a href="#page-ai-analysis"><i>AI</i><span><small>설명</small><b>인사이트 AI 분석</b></span></a></>:null}
+        {view==='insight'?<>{INSIGHT_ROUTES.map(([id,label,description],index)=>{const query=platform==='all'?'':`?platform=${platform}`;return <Link className={workspace===id?'active':''} href={`/insights/${id}${query}`} key={id}><i>{index+1}</i><span><small>{label}</small><b>{description}</b></span></Link>;})}</>:null}
         {view==='keyword'?<><Link href="/keywords/search-terms"><i>⌕</i><span><small>탐색</small><b>실제 검색어 결정</b></span></Link><a href="#keyword-stop-loss"><i>₩</i><span><small>보호</small><b>손실 중지선 확인</b></span></a><a href="#page-ai-analysis"><i>AI</i><span><small>설명</small><b>키워드 AI 분석</b></span></a></>:null}
         {view==='product'?<><Link href="/products/catalog"><i>□</i><span><small>상품</small><b>판매 가능 목록</b></span></Link><a href="#product-channel-differences"><i>≠</i><span><small>비교</small><b>채널 차이 확인</b></span></a><a href="#page-ai-analysis"><i>AI</i><span><small>설명</small><b>상품 AI 분석</b></span></a></>:null}
       </nav>
     </HarinPageToolbar>
     <HarinPageContent className="analysisPageContent">
-      {view==='insight'?<InsightComparison reports={data.reports||[]} alerts={data.alerts||[]} platform={platform}/>:null}
+      {view==='insight'&&workspace==='overview'?<><InsightOverviewDesk data={data} platform={platform}/><InsightComparison reports={data.reports||[]} alerts={data.alerts||[]} platform={platform}/></>:null}
+      {view==='insight'&&workspace==='causes'?<InsightCauseDesk data={data} platform={platform}/>:null}
+      {view==='insight'&&workspace==='channels'?<InsightChannelDesk data={data}/>:null}
+      {view==='insight'&&workspace==='profitability'?<InsightProfitabilityDesk data={data}/>:null}
       {view==='keyword'?<KeywordStopLoss data={data}/>:null}
       {view==='product'?<ProductDifferenceDesk data={data}/>:null}
-      {children}
+      {view==='insight'&&children?<details className="analysisDetailDisclosure"><summary><span><b>{workspace==='overview'?'목표·변경 이벤트 상세':workspace==='causes'?'상세 보고서·권고사항':'채널별 상세 보고서'}</b><small>기존 분석 기능은 필요할 때만 펼쳐보세요.</small></span><em>열기</em></summary><div>{children}</div></details>:children}
     </HarinPageContent>
     <HarinPageAiRegion className="analysisAiSlot" id="page-ai-analysis" title={`${pageLabel} AI 분석`}>{aiPanel}</HarinPageAiRegion>
   </HarinPageFrame>;
+}
+
+const INSIGHT_ROUTES=[
+  ['overview','요약','오늘의 변화'],
+  ['causes','원인','왜 달라졌는지'],
+  ['channels','채널','플랫폼 비교'],
+  ['profitability','수익','실제로 남는 돈']
+];
+
+function latestReport(reports=[],platform='all'){
+  return reports.find(report=>scopePlatform(report.platform,platform)&&report.summary_json)||null;
+}
+
+function reportPeriodLabel(report,index){
+  const label=String(report?.period_type||report?.period||'').toUpperCase();
+  if(label==='DAY')return '오늘';
+  if(label==='WEEK')return '최근 7일';
+  if(label==='MONTH')return '최근 30일';
+  return ['오늘','최근 7일','최근 30일'][index]||'저장 기간';
+}
+
+function InsightOverviewDesk({data={},platform='all'}){
+  const reports=(data.reports||[]).filter(report=>scopePlatform(report.platform,platform)&&report.summary_json);
+  const periodReports=['DAY','WEEK','MONTH'].map((period,index)=>reports.find(report=>String(report.period_type||report.period||'').toUpperCase()===period)||reports[index]||null);
+  const alerts=(data.alerts||[]).filter(item=>item.source_type==='ANOMALY'&&scopePlatform(item.platform,platform)).slice(0,3);
+  const items=data.unifiedProductPerformance?.items||[];
+  const ranked=[...items].filter(item=>number(item.revenue)!=null).sort((a,b)=>Number(b.revenue||0)-Number(a.revenue||0));
+  const growth=ranked[0], risk=ranked.find(item=>String(item.cost_status||'').toUpperCase()!=='CALCULATED')||ranked.at(-1);
+  return <section className="insightOverviewDesk" id="insight-overview">
+    <header><div><span>PERFORMANCE SNAPSHOT</span><h2>기간별 흐름과 지금 볼 신호를 함께 봐요</h2><p>보고서가 없는 기간은 다른 숫자로 채우지 않고 판단 보류로 표시합니다.</p></div><Link href="/insights/causes">원인 분석하기 <i>→</i></Link></header>
+    <div className="insightPeriodGrid">{periodReports.map((report,index)=>{const metric=reportMetric(report,platform)[0];return <article key={`${report?.id||'empty'}-${index}`}><i>{index+1}</i><span><small>{reportPeriodLabel(report,index)}</small><b>{displayMetric(metric?.[1],metric?.[2])}</b><em>{metric?.[0]||'자료 없음'} · {report?.title||'저장 보고서 없음'}</em></span>{index<2?<strong aria-hidden="true">→</strong>:null}</article>;})}</div>
+    <div className="insightSignalGrid">
+      <article><header><b>먼저 볼 이상징후</b><em>{alerts.length}건</em></header>{alerts.length?<ul>{alerts.map(item=><li key={item.id}><i className={String(item.severity||'').toLowerCase()}/><span><b>{item.title}</b><small>{item.message}</small></span></li>)}</ul>:<div className="analysisEmptyState"><b>열린 이상징후가 없어요</b><p>새 변화가 감지되면 이곳에 먼저 표시됩니다.</p></div>}</article>
+      <article><header><b>상품 신호</b><Link href="/products/profit">상품 이익 보기</Link></header><div className="insightProductSignals"><span className="good"><small>성장 후보</small><b>{growth?.name||growth?.product_name||'판단 보류'}</b><em>{growth?won(growth.revenue):'자료 부족'}</em></span><span className="risk"><small>확인 후보</small><b>{risk?.name||risk?.product_name||'판단 보류'}</b><em>{risk?String(risk.cost_status||'성과 확인 필요'):'자료 부족'}</em></span></div></article>
+    </div>
+  </section>;
+}
+
+function InsightCauseDesk({data={},platform='all'}){
+  const report=latestReport(data.reports||[],platform), summary=report?.summary_json||{}, profit=summary.profitability||{};
+  const channel=platform==='all'?summary:summary[platform]||{};
+  const steps=[
+    ['노출',number(channel.impressions??summary.naver?.impressions),'회'],
+    ['방문',number(channel.visitors??channel.clicks??summary.cafe24?.visitors),'명'],
+    ['주문',number(channel.orders??channel.conversions),'건'],
+    ['매출',number(channel.revenue??channel.conversion_revenue??profit.net_sales),'money'],
+    ['실제 이익',number(profit.contribution_profit),'money']
+  ];
+  const evidence=JSON.stringify(summary).toLowerCase();
+  const factors=[['가격','price','가격 변경·할인'],['재고','stock','품절·재고 부족'],['리뷰','review','리뷰·평점'],['광고','ad_','광고비·입찰'],['상세페이지','conversion','방문 후 전환']];
+  const events=(data.platformEvents||[]).filter(item=>scopePlatform(item.platform,platform)).slice(0,4);
+  const insight=Array.isArray(summary.insights)?summary.insights[0]:summary.insights;
+  return <section className="insightCauseDesk" id="insight-causes">
+    <header><div><span>CAUSE PATH</span><h2>매출이 달라진 길을 순서대로 확인해요</h2><p>관찰 → 영향 → 근거 → 다음 행동 순서로 읽으면 됩니다.</p></div><em>{report?.title||'저장 보고서 없음'}</em></header>
+    <div className="insightCauseFlow">{steps.map(([label,value,unit],index)=><article className={value==null?'blocked':''} key={label}><small>{index+1}. {label}</small><b>{unit==='money'?won(value):value==null?'판단 보류':`${count(value)}${unit}`}</b><em>{value==null?'자료 확인 필요':'서버 보고서 기준'}</em>{index<steps.length-1?<i aria-hidden="true">→</i>:null}</article>)}</div>
+    <div className="insightCauseColumns"><article><h3>원인별 근거 준비 상태</h3><div className="insightCauseFactors">{factors.map(([label,key,hint])=>{const ready=evidence.includes(key);return <span className={ready?'ready':'blocked'} key={label}><i>{ready?'✓':'?'}</i><b>{label}</b><small>{ready?hint:'직접 근거 없음'}</small></span>;})}</div></article><article><h3>관찰과 다음 행동</h3><div className="insightObservation"><span><small>관찰</small><b>{typeof insight==='string'?insight:insight?.title||report?.title||'비교할 보고서를 먼저 저장해 주세요.'}</b></span><span><small>영향</small><b>{profit.contribution_profit==null?'이익 영향 판단 보류':`공헌이익 ${won(profit.contribution_profit)}`}</b></span><span><small>추천</small><b>{alertsToRecommendation(data.alerts,platform)}</b></span></div></article></div>
+    <div className="insightEventTimeline"><header><b>변경·행사 시점</b><small>가격·광고 변경과 성과 변화를 같이 확인해요.</small></header>{events.length?<div>{events.map(item=><span key={item.id||`${item.event_type}-${item.occurred_at}`}><i/><small>{item.occurred_at||item.created_at||'시각 미기록'}</small><b>{item.title||item.event_type||'운영 변경'}</b></span>)}</div>:<div className="analysisEmptyState"><b>연결된 변경 기록이 없어요</b><p>가격·입찰·행사 변경을 기록하면 원인 분석 근거로 표시됩니다.</p></div>}</div>
+  </section>;
+}
+
+function alertsToRecommendation(alerts=[],platform='all'){
+  const alert=alerts.find(item=>item.source_type==='ANOMALY'&&scopePlatform(item.platform,platform));
+  return alert?`${alert.title}부터 확인하고 변경 전 수치를 저장해 주세요.`:'급한 이상징후가 없으니 현재 추세를 더 지켜보세요.';
+}
+
+function channelSnapshot(data={},platform){
+  const report=latestReport(data.reports||[],platform), summary=report?.summary_json||{}, channel=summary[platform]||{};
+  const health=(data.dataHealth?.channels||[]).find(item=>String(item.platform||'').toLowerCase()===platform);
+  return {
+    label:PLATFORM_LABELS[platform],
+    revenue:number(channel.revenue??channel.conversion_revenue??channel.gross_sales),
+    orders:number(channel.orders??channel.conversions),
+    adSpend:number(channel.ad_spend??channel.spend??channel.cost),
+    roas:number(channel.roas??channel.ad_roas),
+    status:health?.status||health?.state||(report?'REPORT':'NO_DATA'),
+    updated:health?.last_success_at||health?.updated_at||report?.created_at||null
+  };
+}
+
+function InsightChannelDesk({data={}}){
+  const channels=['naver','coupang','cafe24'].map(platform=>channelSnapshot(data,platform));
+  return <section className="insightChannelDesk" id="insight-channels">
+    <header><div><span>CHANNEL MATRIX</span><h2>세 채널을 같은 기준으로 비교해요</h2><p>한 채널 자료가 없어도 나머지 채널은 그대로 보여줍니다.</p></div><Link href="/data-collection">데이터 상태 확인</Link></header>
+    <div className="insightChannelTable" role="table" aria-label="채널별 성과 비교"><div className="head" role="row"><span>채널</span><span>매출</span><span>주문</span><span>광고비</span><span>ROAS</span><span>자료 상태</span></div>{channels.map(item=><div className="row" role="row" key={item.label}><span><i className={item.label.toLowerCase()}/><b>{item.label}</b></span><strong>{won(item.revenue)}</strong><strong>{item.orders==null?'판단 보류':`${count(item.orders)}건`}</strong><strong>{won(item.adSpend)}</strong><strong>{percent(item.roas)}</strong><span className="channelDataState"><em>{item.status}</em><small>{item.updated||'갱신 시각 없음'}</small></span></div>)}</div>
+    <footer><small>실제 이익은 원가·수수료·배송비가 모두 준비된 경우에만 수익성 분석에서 표시합니다.</small><Link href="/insights/profitability">수익성 분석으로 이동 <i>→</i></Link></footer>
+  </section>;
+}
+
+function InsightProfitabilityDesk({data={}}){
+  const profit=data.liveProfitability||{}, trust=data.financialTrust||{};
+  const ready=trust.allowed?.contribution_profit===true&&String(profit.cost_status||'').toUpperCase()!=='BLOCKED';
+  const values=[['매출',number(profit.revenue),false],['수수료',number(profit.fees),true],['배송비',number(profit.shipping_cost),true],['상품 원가',number(profit.product_cost),true],['광고비',number(profit.ad_spend),true],['실제 이익',ready?number(profit.contribution_profit):null,false]];
+  const scale=Math.max(1,number(profit.revenue)||0,...values.map(item=>Math.abs(item[1]||0)));
+  const products=(data.unifiedProductPerformance?.items||[]).slice(0,8);
+  return <section className="insightProfitDesk" id="insight-profitability">
+    <header><div><span>PROFIT WATERFALL</span><h2>매출에서 모든 비용을 빼고 실제 남는 돈을 봐요</h2><p>원가나 자료가 부족하면 0원이 아니라 판단 보류로 잠급니다.</p></div><em className={ready?'ready':'blocked'}>{ready?'계산 가능':'판단 보류'}</em></header>
+    <div className="profitGuardMetrics"><span><small>실제 이익</small><b>{ready?won(profit.contribution_profit):'판단 보류'}</b><em>{ready?percent(profit.contribution_margin_rate):'비용 자료 확인'}</em></span><span><small>손익분기 ROAS</small><b>{ready?percent(profit.break_even_roas):'판단 보류'}</b><em>이보다 높아야 안전</em></span><span><small>원가 준비율</small><b>{percent(profit.cost_coverage_rate)}</b><em>{count(profit.missing_cost_products)}개 확인 필요</em></span><span><small>광고비</small><b>{won(profit.ad_spend)}</b><em>서버 수집 기준</em></span></div>
+    <div className="profitWaterfall">{values.map(([label,value,isCost])=><article className={`${isCost?'cost':'value'} ${value==null?'blocked':''}`} key={label}><span><b>{label}</b><small>{value==null?'자료 부족':isCost?'차감 비용':'계산 결과'}</small></span><div><i style={{width:`${value==null?8:Math.max(8,Math.abs(value)/scale*100)}%`}}/></div><strong>{value==null?'판단 보류':`${isCost?'− ':''}${won(Math.abs(value))}`}</strong></article>)}</div>
+    <div className="profitProductTable"><header><div><h3>상품별 이익 준비 상태</h3><p>판매액이 커도 원가가 없으면 이익 순위를 만들지 않아요.</p></div><Link href="/products/costs">원가 입력</Link></header>{products.length?<div role="table"><div className="head" role="row"><span>상품</span><span>매출</span><span>광고비</span><span>실제 이익</span><span>상태</span></div>{products.map((item,index)=>{const itemReady=ready&&String(item.cost_status||'').toUpperCase()==='CALCULATED'&&number(item.contribution_profit)!=null;return <div className="row" role="row" key={item.id||item.master_product_id||index}><span><b>{item.name||item.product_name||`상품 ${index+1}`}</b></span><strong>{won(item.revenue)}</strong><strong>{won(item.ad_spend)}</strong><strong>{itemReady?won(item.contribution_profit):'판단 보류'}</strong><em className={itemReady?'ready':'blocked'}>{itemReady?'계산됨':'비용 확인'}</em></div>;})}</div>:<div className="analysisEmptyState"><b>비교할 상품 성과가 없어요</b><p>상품 매칭과 원가 입력 후 채널 데이터를 수집해 주세요.</p></div>}</div>
+    <footer><Link href="/products/profit">상품별 실제 이익</Link><Link href="/products/costs">원가 입력</Link><Link href="/settlement-costs">정산·비용 대조</Link></footer>
+  </section>;
 }
