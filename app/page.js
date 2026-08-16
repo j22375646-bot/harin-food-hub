@@ -806,7 +806,8 @@ async function getDashboardData(state) {
     now:generatedAt
   });
   const orderImageCatalog=unifiedOrdersModule.buildOrderImageCatalog(productsResult.data || [],[
-    ...allChannelProducts,
+    ...(channelsResult.data || []),
+    ...productMapping.links,
     ...(coupangProductsResult.data || []).map(product=>({
       platform:'COUPANG',external_product_id:product.seller_product_id,external_product_name:product.product_name,
       raw_data:{...(product.raw_data || {}),sellerProductId:product.seller_product_id}
