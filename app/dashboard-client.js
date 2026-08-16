@@ -11,6 +11,7 @@ import { useStoredState } from './use-hub-preference.js';
 import UnifiedOrdersCenter from './unified-orders-center.js';
 import { HarinBreadcrumbBar, HarinFocusedWorkspaceNav, HarinMobileNavigation, HarinSidebar, HarinTopbar } from './_shell/harin-app-shell.js';
 import { HarinProgressiveDetails } from './_design-system/harin-ui.js';
+import HarinLoadingScreen from './_design-system/harin-loading-screen.js';
 
 function LazyWorkbenchFallback(){
   return <section className="lazyWorkbenchFallback" role="status" aria-live="polite" aria-busy="true"><i aria-hidden="true"/><span><b>작업공간을 준비하고 있어요</b><small>현재 화면은 유지하고 필요한 기능만 불러옵니다.</small></span></section>;
@@ -181,7 +182,7 @@ export default function Dashboard({ initialData, initialState }) {
     window.addEventListener('popstate',syncFromAddress);
     return ()=>window.removeEventListener('popstate',syncFromAddress);
   },[]);
-  if (!mounted) return <main className="loadingPage"><div className="loadingMark">H</div><p>운영 데이터를 불러오는 중이에요…</p></main>;
+  if (!mounted) return <HarinLoadingScreen title="오늘의 운영 화면을 준비하고 있어요" description="주문·재고·성과 자료를 보기 좋게 정리하고 있습니다."/>;
   if (initialData.error) return <main className="errorPage"><div><b>데이터를 불러오지 못했어요</b><p>{initialData.error}</p></div></main>;
 
   const { kpis, products, syncs, reports, actions } = initialData;
