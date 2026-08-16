@@ -52,8 +52,10 @@ test("네이버 클레임 조회를 API 허용 범위인 24시간 이하로 나�
   } finally {
     client.request = original;
   }
-  assert.equal(ranges.length, 8);
+  assert.equal(ranges.length, 7);
   for (const range of ranges) {
-    assert.ok(Date.parse(range.lastChangedTo) - Date.parse(range.lastChangedFrom) < 24 * 60 * 60 * 1000);
+    const duration = Date.parse(range.lastChangedTo) - Date.parse(range.lastChangedFrom);
+    assert.ok(duration > 0);
+    assert.ok(duration < 24 * 60 * 60 * 1000);
   }
 });
