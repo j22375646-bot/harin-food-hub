@@ -23,14 +23,19 @@ function cookieValue(request) {
 async function naverReady(db) {
   const latest = await db
     .from("sync_logs")
-    .select("metadata")
+    .select("job_type,status,metadata")
     .eq("platform", "NAVER")
-    .eq("job_type", "COMMERCE_CONNECTION_TEST")
+    .in("job_type", ["COMMERCE_CONNECTION_TEST", "COMMERCE_SYNC"])
     .order("started_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (latest.error) throw latest.error;
-  return Boolean(latest.data?.metadata?.capabilities?.inquiries?.read);
+  return (
+    Boolean(latest.data?.metadata?.capabilities?.inquiries?.read) ||
+    (latest.data?.job_type === "COMMERCE_SYNC" &&
+      ["SUCCESS", "PARTIAL"].includes(latest.data?.status) &&
+      latest.data?.metadata?.fixedIp === true)
+  );
 }
 
 export async function POST(request) {
