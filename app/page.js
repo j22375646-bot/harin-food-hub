@@ -802,7 +802,8 @@ async function getDashboardData(state) {
     qualityChecks:qaResult.data || [],
     alerts:alertsResult.data || [],
     queueHealth:coupangQueueHealth,
-    reliability:reliabilityCenter
+    reliability:reliabilityCenter,
+    now:generatedAt
   });
   const unifiedOrders = unifiedOrdersModule.buildUnifiedOrders({
     cafe24Orders:ordersResult.data || [], cafe24OrderItems:itemsResult.data || [],

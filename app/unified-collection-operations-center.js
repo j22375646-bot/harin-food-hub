@@ -17,15 +17,17 @@ function ChannelCollectionCard({ channel, onRun, onConnect, busy }) {
   const handler=needsConnection?onConnect:onRun;
   const buttonLabel=needsConnection?channel.action?.label:channel.health_status==='READY'?'이 채널 새로 수집':channel.action?.label;
   const iconName={NAVER:'naver',CAFE24:'cafe24',COUPANG:'coupang'}[channel.platform]||'database';
-  return <article className={`collectionOpsChannel ${String(channel.health_status||'WAITING').toLowerCase()}`}>
+  const hasIssue=Boolean(channel.error_message)||['FAILED','PARTIAL','STALE'].includes(channel.health_status);
+  return <article className={`collectionOpsChannel ${String(channel.platform||'').toLowerCase()} ${String(channel.health_status||'WAITING').toLowerCase()}`}>
     <header><div className="collectionChannelTitle"><i><HarinIcon name={iconName} size={20}/></i><span><small>{channel.platform}</small><h2>{channel.label}</h2></span></div><em>{healthLabel[channel.health_status]||channel.health_status}</em></header>
-    <section className="collectionOpsChannelState"><span>{connectionLabel[channel.connection_status]||channel.connection_status}</span><strong>{channel.stored_summary}</strong><small>{channel.connection_summary}</small></section>
+    <section className="collectionOpsChannelState"><span>{connectionLabel[channel.connection_status]||channel.connection_status}</span><strong>{channel.stored_summary}</strong><small>{channel.latest_collection_summary}</small><small className="collectionOpsFreshness"><HarinIcon name="clock" size={13}/>{channel.freshness_label}</small></section>
     <dl>
-      <div><dt>마지막 성공</dt><dd>{displayDateTime(channel.last_success_at)}</dd></div>
-      <div><dt>마지막 시도</dt><dd>{displayDateTime(channel.last_attempt_at)}</dd></div>
-      <div><dt>다음 자동수집</dt><dd>{displayDateTime(channel.next_scheduled_at)}</dd></div>
+      <div><dt><HarinIcon name="link" size={14}/>연결 상태</dt><dd>{channel.connection_summary}</dd></div>
+      <div><dt><HarinIcon name="checklist" size={14}/>마지막 성공</dt><dd>{displayDateTime(channel.last_success_at)}</dd></div>
+      <div><dt><HarinIcon name="sync" size={14}/>마지막 시도</dt><dd>{displayDateTime(channel.last_attempt_at)}</dd></div>
+      <div><dt><HarinIcon name="clock" size={14}/>다음 자동수집</dt><dd>{displayDateTime(channel.next_scheduled_at)}</dd></div>
     </dl>
-    <p>{channel.error_message||channel.action?.message}</p>
+    <p className={`collectionOpsAdvice ${hasIssue?'attention':'ready'}`}><HarinIcon name={hasIssue?'warning':'shield'} size={16}/><span>{channel.error_message||channel.action?.message}</span></p>
     {channel.failed_datasets?.length?<small className="collectionOpsDatasets">확인할 자료 · {channel.failed_datasets.join(', ')}</small>:null}
     <button type="button" onClick={handler} disabled={busy||!handler}>{busy?'요청 중…':buttonLabel||'상태 확인'}</button>
   </article>;
