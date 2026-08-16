@@ -94,10 +94,15 @@ test('14-11 worker outage and AI gate remain recoverable and non-writing',()=>{
 
 test('14-11 decision routes keep bounded query windows for faster navigation',()=>{
   const page=read('app/page.js');
+  assert.match(page,/main:\{orders:600,items:1500,costs:500\}/);
   assert.match(page,/insight:\{orders:1200,items:2500,costs:1500\}/);
   assert.match(page,/keyword:\{orders:800,items:1500,costs:800\}/);
   assert.match(page,/settlement:\{orders:3000,items:5000,costs:5000\}/);
   assert.match(page,/INSIGHT_OVERVIEW_TABLES = \['reports','platform_events','ai_analysis_results'\]/);
+  const mainScope=page.match(/const MAIN_OVERVIEW_TABLES = \[([\s\S]*?)\n\];/)?.[1]||'';
+  assert.doesNotMatch(mainScope,/coupang_settlements|coupang_cost_transactions|coupang_ad_keyword_summary|naver_keyword_stats/);
+  assert.match(mainScope,/cafe24_orders/);
+  assert.match(mainScope,/customer_service_items/);
   assert.match(page,/view==='insight'&&workspace==='overview'/);
 });
 

@@ -87,17 +87,18 @@ function exchangeCaseView(item) {
 }
 
 const SHELL_TABLES = ['sync_logs','alerts','worker_heartbeats','coupang_operation_requests','coupang_sync_requests'];
+// Main is an operational decision surface, not a raw analytics export. Keep
+// current orders, task signals, inventory, pacing and trust inputs here; the
+// heavier settlement/keyword evidence remains on its dedicated real route.
+const MAIN_OVERVIEW_TABLES = [
+  'cafe24_orders','cafe24_order_items','cafe24_products','reports','actions','master_products','channel_products',
+  'naver_stats_daily','automation_runs','data_quality_checks','action_evaluations','product_costs','channel_cost_settings','channel_shipping_rules',
+  'coupang_products','coupang_orders','coupang_order_items','coupang_rg_inventory','coupang_rg_orders','coupang_returns','coupang_exchanges','coupang_inquiries',
+  'coupang_item_inventory','coupang_product_items','coupang_rg_order_items','coupang_ad_daily_summary','coupang_ad_keyword_daily',
+  'naver_commerce_orders','naver_commerce_order_items','business_targets','ai_analysis_results','customer_service_items'
+];
 const VIEW_TABLES = {
-  main:[
-    'cafe24_orders','cafe24_order_items','cafe24_traffic_daily','cafe24_referrers_daily','cafe24_products',
-    'reports','actions','master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_stats_daily',
-    'automation_runs','data_quality_checks','action_evaluations','platform_events','product_costs','channel_cost_settings','channel_shipping_rules',
-    'coupang_products','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_inventory','coupang_sync_requests',
-    'coupang_rg_orders','coupang_item_inventory','coupang_product_items','coupang_rg_order_items','coupang_cost_transactions',
-    'coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily',
-    'naver_keyword_stats','naver_commerce_orders','naver_commerce_order_items','naver_commerce_settlements',
-    'coupang_ad_keyword_daily','business_targets','budget_snapshots','ai_analysis_results'
-  ],
+  main:MAIN_OVERVIEW_TABLES,
   orders:['cafe24_orders','cafe24_order_items','naver_commerce_orders','naver_commerce_order_items','coupang_orders','coupang_order_items','coupang_rg_orders','coupang_rg_order_items','coupang_returns'],
   cs:['cafe24_orders','cafe24_order_items','coupang_orders','coupang_order_items','coupang_returns','coupang_exchanges','coupang_inquiries','coupang_operation_requests','customer_service_items'],
   inventory:['master_products','channel_products','cafe24_products','coupang_products','coupang_rg_inventory','coupang_item_inventory','coupang_product_items','ai_analysis_results'],
@@ -156,7 +157,7 @@ async function getDashboardData(state) {
       // Decision pages only need the newest operational window. Keeping the
       // limits view-specific prevents a slow analytics route from delaying
       // every navigation while preserving the wider settlement export window.
-      main:{orders:1500,items:3000,costs:2000},
+      main:{orders:600,items:1500,costs:500},
       orders:{orders:1000,items:3000,costs:1000},
       cs:{orders:1000,items:2500,costs:500},
       settlement:{orders:3000,items:5000,costs:5000},
