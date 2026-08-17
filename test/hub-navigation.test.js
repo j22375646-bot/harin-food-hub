@@ -76,7 +76,7 @@ test('visible hub addresses restore the matching client view', () => {
 
 test('phase 13-6 focused workspaces have real addresses and restore their exact state', () => {
   assert.deepEqual(Object.keys(HUB_WORKSPACES),['collection','insight','keyword','product']);
-  assert.deepEqual(HUB_WORKSPACES.collection.map(item=>item.id),['overview','naver-api','advertising','owned-site','shipping-reference','operations-health']);
+  assert.deepEqual(HUB_WORKSPACES.collection.map(item=>item.id),['overview','naver-api','advertising','provider-fallback','owned-site','shipping-reference','operations-health']);
   assert.deepEqual(HUB_WORKSPACES.insight.map(item=>item.id),['overview','causes','channels','profitability']);
   assert.deepEqual(HUB_WORKSPACES.keyword.map(item=>item.id),['search-terms','registered','diagnosis','history']);
   assert.deepEqual(HUB_WORKSPACES.product.map(item=>item.id),['catalog','mappings','costs','profit','offers','ad-targets']);

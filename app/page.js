@@ -35,6 +35,7 @@ import ownedSiteReadinessModule from '../lib/google-owned-site/readiness.js';
 import shippingReferenceModule from '../lib/shipping-reference/readiness.js';
 import operationsHealthModule from '../lib/operations-health/readiness.js';
 import advertisingChannelModule from '../lib/advertising/channel-center.js';
+import providerFallbackModule from '../lib/provider-fallback/center.js';
 import aiFoundationModule from '../lib/ai/foundation.js';
 import openaiClientModule from '../lib/ai/openai-client.js';
 import aiPagePanelsModule from '../lib/ai/page-panels.js';
@@ -864,6 +865,9 @@ async function getDashboardData(state) {
     },
     now:generatedAt
   });
+  const providerFallbackCenter=providerFallbackModule.buildProviderFallbackCenter({
+    naverApiCenter,ownedSiteCenter,env:process.env,now:generatedAt
+  });
   const orderImageCatalog=unifiedOrdersModule.buildOrderImageCatalog(productsResult.data || [],[
     ...(channelsResult.data || []),
     ...productMapping.links,
@@ -961,6 +965,7 @@ async function getDashboardData(state) {
     shippingReferenceCenter,
     operationsHealthCenter,
     advertisingChannelCenter,
+    providerFallbackCenter,
     unifiedOrders,
     customerService,
     metricSnapshots,
