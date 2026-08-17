@@ -38,6 +38,7 @@ import advertisingChannelModule from '../lib/advertising/channel-center.js';
 import providerFallbackModule from '../lib/provider-fallback/center.js';
 import optionalProviderModule from '../lib/optional-providers/readiness.js';
 import providerOperationsModule from '../lib/provider-operations/center.js';
+import executionTopologyModule from '../lib/infrastructure/execution-topology.js';
 import aiFoundationModule from '../lib/ai/foundation.js';
 import openaiClientModule from '../lib/ai/openai-client.js';
 import aiPagePanelsModule from '../lib/ai/page-panels.js';
@@ -111,7 +112,7 @@ const VIEW_TABLES = {
   cs:['cafe24_orders','cafe24_order_items','coupang_orders','coupang_order_items','coupang_returns','coupang_exchanges','coupang_inquiries','coupang_operation_requests','customer_service_items'],
   inventory:['master_products','channel_products','cafe24_products','coupang_products','coupang_rg_inventory','coupang_item_inventory','coupang_product_items','ai_analysis_results'],
   settlement:['cafe24_orders','naver_commerce_orders','naver_commerce_settlements','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_orders','coupang_rg_order_items','coupang_settlement_summaries','coupang_promotion_budgets','coupang_product_items','coupang_cost_transactions','coupang_cost_imports','channel_cost_settings','channel_shipping_rules','ai_analysis_results'],
-  collection:['cafe24_products','automation_runs','data_quality_checks','coupang_sync_requests','coupang_operation_requests','worker_heartbeats','coupang_products','coupang_api_capabilities','owned_site_api_snapshots','shipping_reference_snapshots','operations_health_snapshots','optional_provider_snapshots','naver_campaigns','naver_adgroups','naver_keywords','naver_stats_daily','coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily'],
+  collection:['cafe24_products','automation_runs','data_quality_checks','coupang_sync_requests','coupang_operation_requests','worker_heartbeats','execution_path_controls','coupang_products','coupang_api_capabilities','owned_site_api_snapshots','shipping_reference_snapshots','operations_health_snapshots','optional_provider_snapshots','naver_campaigns','naver_adgroups','naver_keywords','naver_stats_daily','coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily'],
   insight:['cafe24_orders','cafe24_order_items','cafe24_traffic_daily','cafe24_referrers_daily','reports','actions','platform_events','master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_stats_daily','naver_keyword_stats','naver_search_terms','naver_commerce_orders','naver_commerce_order_items','naver_commerce_settlements','product_costs','product_ad_targets','channel_cost_settings','channel_shipping_rules','product_detail_checklists','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_inventory','coupang_rg_orders','coupang_product_items','coupang_rg_order_items','coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily','coupang_ad_keyword_daily','ai_analysis_results'],
   keyword:['master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_stats_daily','naver_keyword_stats','naver_search_terms','product_detail_checklists','product_costs','channel_cost_settings','channel_shipping_rules','coupang_products','coupang_rg_inventory','coupang_item_inventory','coupang_product_items','coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily','coupang_ad_keyword_daily','ai_analysis_results'],
   product:['cafe24_orders','cafe24_order_items','cafe24_products','master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_keyword_stats','product_costs','product_ad_targets','channel_cost_settings','channel_shipping_rules','product_mapping_history','product_detail_checklists','coupang_products','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_inventory','coupang_item_inventory','coupang_product_items','coupang_rg_orders','coupang_rg_order_items','coupang_cost_transactions','coupang_ad_keyword_daily','ai_analysis_results'],
@@ -248,7 +249,15 @@ async function getDashboardData(state) {
       db.from('provider_request_runs').select('id,provider,request_hash,status,quota_summary,source_timestamp,started_at,finished_at,expires_at,parent_run_id,error_code,metadata,created_at').order('created_at',{ascending:false}).limit(500),
       db.from('market_context_snapshots').select('provider,status,result_count,fetched_at,expires_at,error_code').order('fetched_at',{ascending:false}).limit(300),
       db.from('market_sources').select('ocr_engine,uploaded_at,created_at').eq('source_kind','API').not('ocr_engine','is',null).order('created_at',{ascending:false}).limit(500)
-    ]) : Promise.resolve(Array.from({length:3},()=>({status:'fulfilled',value:{data:[],error:null}})))
+    ]) : Promise.resolve(Array.from({length:3},()=>({status:'fulfilled',value:{data:[],error:null}}))),
+    executionPaths:view==='collection'&&state?.workspace==='execution-paths' ? Promise.allSettled([
+      db.from('execution_path_controls').select('lane_key,label,current_trigger,current_executor,queue_backend,desired_trigger,desired_executor,desired_queue_backend,mode,migration_authorized,schedule_label,source_path,safety_rules,notes,updated_at').order('lane_key'),
+      db.from('coupang_sync_requests').select('id,request_type,status,requested_at,started_at,finished_at,idempotency_key,scheduled_for,kst_execution_date').order('requested_at',{ascending:false}).limit(800),
+      db.from('coupang_operation_requests').select('id,operation_type,target_type,status,created_at,started_at,executed_at,idempotency_key').order('created_at',{ascending:false}).limit(1200),
+      db.from('automation_runs').select('id,job_name,trigger_type,status,started_at,finished_at,idempotency_key,scheduled_for,kst_execution_date').order('started_at',{ascending:false}).limit(500),
+      db.from('worker_heartbeats').select('worker_id,service_name,status,source_ip,last_seen_at,last_success_at,updated_at').order('last_seen_at',{ascending:false}).limit(20),
+      db.from('sync_logs').select('platform,job_type,status,started_at,finished_at').order('started_at',{ascending:false}).limit(300)
+    ]) : Promise.resolve(Array.from({length:6},()=>({status:'fulfilled',value:{data:[],error:null}})))
   };
   const settledQueries = await Promise.allSettled([
     db.from('cafe24_orders').select('order_id,order_date,customer_id,payment_status,paid_amount,order_price,cancel_amount,refund_amount,raw_data').order('order_date', { ascending: false }).limit(rowLimit('orders',10000)),
@@ -377,6 +386,16 @@ async function getDashboardData(state) {
   const providerRuntimeRuns=providerRuntimeSettled.results[0].data||[];
   const providerContextSnapshots=providerRuntimeSettled.results[1].data||[];
   const providerApiSources=providerRuntimeSettled.results[2].data||[];
+  const executionPathSettled=dataHealthModule.settleQueries(await supplementalQueries.executionPaths,[
+    {platform:'SHARED',dataset:'execution_path_controls'},
+    {platform:'COUPANG',dataset:'execution_path_sync_requests'},
+    {platform:'SHARED',dataset:'execution_path_operation_requests'},
+    {platform:'SHARED',dataset:'execution_path_automation_runs'},
+    {platform:'SHARED',dataset:'execution_path_worker_heartbeats'},
+    {platform:'SHARED',dataset:'execution_path_sync_logs'}
+  ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+  queryIssues.push(...executionPathSettled.issues);
+  const [executionPathControlsResult,executionPathSyncResult,executionPathOperationResult,executionPathAutomationResult,executionPathHeartbeatResult,executionPathSyncLogsResult]=executionPathSettled.results;
   let keywordTop=[],keywordWaste=[];
   if(keywordPeriod){const keywordStatsSettled=dataHealthModule.settleQueries(await Promise.allSettled([db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).order('conversion_revenue',{ascending:false}).limit(20),db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).eq('conversion_revenue',0).gt('cost',0).order('cost',{ascending:false}).limit(20)]),[{platform:'NAVER',dataset:'naver_keyword_stats_top'},{platform:'NAVER',dataset:'naver_keyword_stats_waste'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));queryIssues.push(...keywordStatsSettled.issues);keywordTop=keywordStatsSettled.results[0].data||[];keywordWaste=keywordStatsSettled.results[1].data||[];}
   let marketingKeywordStats=[],marketingKeywordCatalog=[],marketingDetailChecklists=[];
@@ -894,6 +913,16 @@ async function getDashboardData(state) {
   });
   const optionalProviderCenter=optionalProviderModule.buildOptionalProviderCenter({snapshots:optionalProviderSnapshots,env:process.env,now:generatedAt});
   const providerOperationsCenter=providerOperationsModule.buildProviderOperationsCenter({runtimeRuns:providerRuntimeRuns,ownedSiteCenter,shippingReferenceCenter,operationsHealthCenter,optionalProviderCenter,naverApiCenter,sources:providerApiSources,contextSnapshots:providerContextSnapshots,env:process.env,now:generatedAt});
+  const executionPathCenter=executionTopologyModule.buildExecutionTopology({
+    controls:executionPathControlsResult.data||[],
+    syncRequests:executionPathSyncResult.data||[],
+    operationRequests:executionPathOperationResult.data||[],
+    automationRuns:executionPathAutomationResult.data||[],
+    heartbeats:executionPathHeartbeatResult.data||[],
+    syncLogs:executionPathSyncLogsResult.data||[],
+    nativeQueueEnabled:process.env.SUPABASE_NATIVE_QUEUE_ENABLED==='true',
+    now:generatedAt
+  });
   const orderImageCatalog=unifiedOrdersModule.buildOrderImageCatalog(productsResult.data || [],[
     ...(channelsResult.data || []),
     ...productMapping.links,
@@ -994,6 +1023,7 @@ async function getDashboardData(state) {
     providerFallbackCenter,
     optionalProviderCenter,
     providerOperationsCenter,
+    executionPathCenter,
     unifiedOrders,
     customerService,
     metricSnapshots,
