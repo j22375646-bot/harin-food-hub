@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import RepurchaseMessagingClient from './repurchase-messaging-client.js';
 
 const count=value=>value==null?'계산 대기':`${Number(value).toLocaleString('ko-KR')}명`;
 const number=value=>Number(value||0).toLocaleString('ko-KR');
@@ -41,6 +42,8 @@ function CustomerTab({customer}){
       <article><span>재구매 예정</span><strong>{summary.due_customers==null?<Waiting/>:count(summary.due_customers)}</strong><small>평소 구매시기가 가까운 고객</small></article>
       <article><span>휴면 가능</span><strong>{summary.dormant_customers==null?<Waiting/>:count(summary.dormant_customers)}</strong><small>평소보다 오래 구매하지 않은 고객</small></article>
     </section>
+
+    <RepurchaseMessagingClient/>
 
     <div className="phase7Columns">
       <section className="phase7Panel">
