@@ -27,6 +27,12 @@ test('provider kill switches and credentials never leak across domains',()=>{
   assert.equal(Object.hasOwn(page,'clientEmail'),false);
 });
 
+test('PageSpeed only requires a public store URL and keeps its API key optional',()=>{
+  const page=config.providerConfig('PAGESPEED',{HUB_OWNED_SITE_URL:'https://shop.example.com'});
+  assert.deepEqual(config.missingFields('PAGESPEED',page),[]);
+  assert.equal(page.apiKey,'');
+});
+
 test('a failed provider preserves another provider success',()=>{
   const env={HUB_OWNED_SITE_URL:'https://shop.example.com',GOOGLE_PAGESPEED_API_KEY:'page-key',GOOGLE_CRUX_API_KEY:'crux-key'};
   const center=readiness.buildOwnedSiteReadiness({env,snapshots:[
@@ -43,6 +49,20 @@ test('PageSpeed and CrUX adapters use official endpoints and preserve no-data',a
   assert.match(pageUrl,/pagespeedonline\/v5\/runPagespeed/);assert.equal(page.metricSummary.performanceScore,92);
   const field=await crux.probe({config:{origin:'https://shop.example.com',apiKey:'key'},fetchImpl:async()=>({ok:false,status:404,json:async()=>({})})});
   assert.equal(field.status,'NO_DATA');assert.equal(field.metricSummary.reason,'CRUX_SAMPLE_UNAVAILABLE');
+});
+
+test('PageSpeed omits an empty optional API key from the provider request',async()=>{
+  let pageUrl='';
+  await pageSpeed.probe({config:{siteUrl:'https://shop.example.com',apiKey:''},fetchImpl:async url=>{pageUrl=String(url);return {ok:true,json:async()=>({lighthouseResult:{categories:{performance:{score:.8}},audits:{}}})};}});
+  assert.equal(new URL(pageUrl).searchParams.has('key'),false);
+});
+
+test('PageSpeed explains exhausted shared no-key quota without leaking provider payloads',async()=>{
+  await assert.rejects(()=>pageSpeed.probe({config:{siteUrl:'https://shop.example.com',apiKey:''},fetchImpl:async()=>({ok:false,status:429,json:async()=>({error:{message:'raw quota payload'}})})}),error=>{
+    assert.equal(error.code,'PAGESPEED_PUBLIC_QUOTA_EXHAUSTED');
+    assert.match(error.message,/API 키/);
+    return true;
+  });
 });
 
 test('owned-site workspace and owner session probe routes are real',()=>{

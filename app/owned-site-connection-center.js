@@ -18,7 +18,7 @@ function ServiceCard({service,working,onProbe}){
   const isWorking=working===service.key;
   return <article className={`naverApiServiceCard ${String(service.status||'').toLowerCase()}`}>
     <header><span className="naverApiServiceIcon"><HarinIcon name={service.icon} size={24}/></span><div><small>SERVER READ-ONLY</small><h2>{service.label}</h2><p>{service.subtitle}</p></div><StatusBadge status={service.status}/></header>
-    <div className="naverApiServiceSummary"><strong>{service.summary}</strong><p>{service.errorMessage||service.detail}{service.previousSuccess?' · 이전 성공 자료는 보존 중입니다.':''}</p></div>
+    <div className="naverApiServiceSummary"><strong>{service.summary}</strong><p>{service.errorMessage||service.detail}{service.previousSuccess?' · 이전 성공 자료는 보존 중입니다.':''}</p>{service.optionalNotice?<small>{service.optionalNotice}</small>:null}</div>
     <dl className="naverApiDates"><div><dt>마지막 성공</dt><dd><DateValue value={service.lastSuccessAt}/></dd></div><div><dt>마지막 확인</dt><dd><DateValue value={service.lastAttemptAt}/></dd></div></dl>
     <section className="naverApiChecks" aria-label={`${service.label} 준비 상태`}>{service.checks.map(item=><div key={item.key}><span>{item.label}</span><StatusBadge status={item.status}/></div>)}</section>
     <details className="naverApiCapabilities"><summary><span><HarinIcon name="checklist" size={19}/><b>수집 범위 자세히</b></span><em>열기</em></summary><div>{service.capabilities.map(item=><div key={item.key}><span>{item.label}</span><StatusBadge status={item.readStatus}/><StatusBadge status={item.writeStatus}/></div>)}</div></details>
