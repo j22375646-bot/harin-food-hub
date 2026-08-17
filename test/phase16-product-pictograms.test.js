@@ -8,15 +8,17 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
-test('16-5 상품 연결은 쿠팡 실상품만 노출하고 네이버 광고그룹을 제외한다', () => {
+test('16-5 상품 연결은 커머스 실상품만 노출하고 네이버 광고그룹을 제외한다', () => {
   const service = read('lib/products/mapping-service.js');
   const dashboard = read('app/dashboard-client.js');
-  assert.match(service, /const PLATFORMS = new Set\(\['COUPANG'\]\)/);
+  assert.match(service, /const PLATFORMS = new Set\(\['NAVER','COUPANG'\]\)/);
+  assert.match(service, /NAVER_COMMERCE_PRODUCT/);
   assert.doesNotMatch(service, /source_type:'NAVER_ADGROUP'/);
-  assert.match(service, /네이버 광고그룹은 상품이 아니므로 상품 연결에서 제외/);
-  assert.match(dashboard, /title="쿠팡 실상품 연결"/);
+  assert.match(service, /네이버 광고그룹은 제외되며 스마트스토어 실상품만 연결/);
+  assert.match(dashboard, /mappingPlatformTabs/);
+  assert.match(dashboard, /네이버 스마트스토어/);
   assert.match(dashboard, /네이버 광고그룹 제외/);
-  assert.doesNotMatch(dashboard, /네이버·쿠팡 기준상품 연결/);
+  assert.match(dashboard, /채널별 탭에서 따로 연결/);
 });
 
 test('16-5 상품 목록과 성장센터는 의미 기반 팩토그램을 사용한다', () => {
