@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import supabaseModule from '../../../lib/cafe24/supabase.js';
 import projectsModule from '../../../lib/market-intelligence/projects.js';
-import { HarinBadge, HarinButton, HarinCard, HarinPageFrame, HarinPageHeader, HarinPictogram, HarinProgressiveDetails } from '../../_design-system/harin-ui.js';
+import { HarinBadge, HarinButton, HarinCard, HarinPageFrame, HarinPageHeader, HarinPictogram } from '../../_design-system/harin-ui.js';
 import MarketDataRoom from './data/data-room-client.js';
 import MarketProductBaseline from './data/product-baseline-client.js';
 import MarketProfileWorkbench from './market/market-profile-client.js';
@@ -10,6 +10,7 @@ import CompetitionWorkbench from './competition/competition-client.js';
 import ConversionWorkbench from './conversion/conversion-client.js';
 import GrowthLoopWorkbench from './conversion/growth-loop-client.js';
 import ExecutionBridgeWorkbench from './conversion/execution-bridge-client.js';
+import MarketPageAi from './market-page-ai-client.js';
 
 const STAGES={
   data:{number:'01',label:'자료실',eyebrow:'DATA ROOM',icon:'database',tone:'blue',description:'파일과 출처를 모으고 OCR 결과를 사장님이 확인하는 공간입니다.',empty:'아직 검수된 근거가 없습니다.',next:'자료 업로드·OCR·Evidence 연결'},
@@ -38,7 +39,9 @@ export async function renderMarketWorkspace({projectId,workspace}){
       <HarinPictogram icon={stage.icon} tone={stage.tone} size={26}/><div><HarinBadge tone="neutral">{stage.number} · {stage.label}</HarinBadge><h2>{stage.empty}</h2><p>선택한 상품의 프로젝트와 버전 저장 공간은 준비되었습니다. 다음 세부 기능도 이 주소 안에 이어서 연결됩니다.</p></div>
     </HarinCard>}
     <section className="marketProjectIdentity"><article><small>상품 격리 키</small><b>{project.master_product_id}</b><p>상품을 바꾸면 별도 프로젝트를 엽니다.</p></article><article><small>재사용 템플릿</small><b>{project.template_id}</b><p>화면 구조만 같고 근거는 복사하지 않습니다.</p></article><article><small>최근 저장</small><b>{project.updated_at?new Date(project.updated_at).toLocaleString('ko-KR'):'기록 없음'}</b><p>모든 변경은 버전으로 남깁니다.</p></article></section>
-    <HarinProgressiveDetails eyebrow="이 페이지의 AI" title={`${stage.label} AI 분석`} description="현재 상품과 이 페이지의 검수된 자료만 따로 사용합니다." count="사용 시작 전 · 비용 0원"><div className="marketAiPreview"><HarinPictogram icon="ai" tone="lavender"/><span><b>외부 AI 호출은 아직 잠겨 있어요.</b><p>근거가 준비되지 않으면 숫자를 만들지 않고 판단 보류로 유지합니다.</p></span></div></HarinProgressiveDetails>
+    <section className="marketPageAiPlacement" aria-label="이 페이지의 AI" data-progressive-contract="HarinProgressiveDetails" data-operating-mode="사용 시작 전 · 비용 0원">
+      <MarketPageAi projectId={project.id} workspace={workspace} productName={productName}/>
+    </section>
   </HarinPageFrame>;
 }
 
