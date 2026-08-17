@@ -46,3 +46,8 @@ test('phase 18-6 migration and search flow preserve product isolation and stale 
   assert.match(source,/NAVER_API_HUB_CONFIG_REQUIRED/);
   assert.match(source,/request_count:requestCount/);
 });
+
+test('phase 18-6 refreshes the quota and cache summary after each search',()=>{
+  const client=fs.readFileSync(path.join(root,'app/market-intelligence/[projectId]/data/naver-evidence-client.js'),'utf8');
+  assert.match(client,/setResult\(data\);setMessage\([\s\S]*?await load\(\)/);
+});

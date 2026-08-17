@@ -33,7 +33,7 @@ export default function MarketNaverEvidenceSearch({projectId,productName}){
     event.preventDefault();setWorking('SEARCH');setMessage('선택 상품과 관련된 공개 검색 결과를 가져오는 중이에요.');
     try{
       const data=await requestJson(endpoint,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'SEARCH',query,types,display:5,sort:'sim'}),timeoutMs:25000});
-      setResult(data);setMessage(data.message||'근거 후보를 가져왔습니다.');
+      setResult(data);setMessage(data.message||'근거 후보를 가져왔습니다.');await load();
     }catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setWorking('');}
   }
 
