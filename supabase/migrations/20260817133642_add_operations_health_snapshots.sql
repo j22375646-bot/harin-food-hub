@@ -1,0 +1,25 @@
+create table if not exists public.operations_health_snapshots (
+  id uuid primary key default gen_random_uuid(),
+  provider text not null check (provider in ('AWS_CLOUDWATCH','VERCEL')),
+  status text not null check (status in ('SUCCESS','PARTIAL','NO_DATA','FAILED')),
+  metric_summary jsonb not null default '{}'::jsonb check (jsonb_typeof(metric_summary) = 'object'),
+  source_timestamp timestamptz,
+  fetched_at timestamptz not null default now(),
+  error_code text,
+  error_message text,
+  metadata jsonb not null default '{}'::jsonb check (jsonb_typeof(metadata) = 'object'),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists operations_health_provider_fetched_idx
+  on public.operations_health_snapshots(provider, fetched_at desc);
+create index if not exists operations_health_success_idx
+  on public.operations_health_snapshots(provider, fetched_at desc)
+  where status = 'SUCCESS';
+
+alter table public.operations_health_snapshots enable row level security;
+revoke all on table public.operations_health_snapshots from anon, authenticated;
+grant select, insert, update, delete on table public.operations_health_snapshots to service_role;
+
+comment on table public.operations_health_snapshots is
+  'Phase 19-4 aggregated worker infrastructure and deployment health metrics only.';
