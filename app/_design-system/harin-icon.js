@@ -12,6 +12,7 @@ const ICONS = {
   target: <><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="m15 9 6-6M17 3h4v4"/></>,
   price: <><path d="M4 7V4h16v3M6 7h12v13H6V7Z"/><path d="M9 11h6M9 15h6"/></>,
   checklist: <><path d="M9 5h10M9 12h10M9 19h10"/><path d="m3 5 1.5 1.5L7 3.5M3 12l1.5 1.5L7 10.5M3 19l1.5 1.5L7 17.5"/></>,
+  check: <><circle cx="12" cy="12" r="9"/><path d="m8 12 2.6 2.6L16.5 9"/></>,
   growth: <><path d="M4 19h16M6 16l4-4 3 2 5-7"/><path d="M15 7h3v3"/></>,
   speed: <><path d="M4.2 17.5a8.5 8.5 0 1 1 15.6 0"/><path d="m12 13 4.5-4.5"/><circle cx="12" cy="13" r="1.6"/><path d="M6.5 18h11"/></>,
   mobile: <><rect x="6.5" y="2.5" width="11" height="19" rx="2.2"/><path d="M10 5h4M11 18.5h2"/></>,

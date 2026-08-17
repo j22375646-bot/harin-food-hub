@@ -3,22 +3,34 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const topology=require('../lib/infrastructure/execution-topology.js');
+const credentials=require('../lib/infrastructure/deferred-credential-checklist.js');
 const routeGuard=require('../lib/infrastructure/execution-route-guard.js');
 const routes=require('../lib/navigation/hub-routes.js');
 
 const root=path.resolve(__dirname,'..');
 const now=new Date('2026-08-18T00:10:00Z');
 
-test('phase 21-5 and 21-6 extend guards while preserving the dry-run result',()=>{
-  const center=topology.buildExecutionTopology({now,heartbeats:[{service_name:'harin-coupang-worker',status:'ONLINE',source_ip:'13.124.12.17',last_seen_at:'2026-08-18T00:05:00Z'}],syncRequests:[{request_type:'ORDERS_REALTIME',status:'SUCCESS',idempotency_key:'orders-hourly:2026-08-18T00',finished_at:'2026-08-18T00:01:00Z'}]});
-  assert.equal(center.phase,'21-5 · 21-6');assert.equal(center.mode,'RECOVERY_GUARDED');assert.equal(center.summary.lanes,6);assert.equal(center.worker.ready,true);
+test('phase 21-7 and 21-8 preserve the guarded routes and add final readiness evidence',()=>{
+  const center=topology.buildExecutionTopology({env:{},now,heartbeats:[{service_name:'harin-coupang-worker',status:'ONLINE',source_ip:'13.124.12.17',last_seen_at:'2026-08-18T00:05:00Z'}],syncRequests:[{request_type:'ORDERS_REALTIME',status:'SUCCESS',idempotency_key:'orders-hourly:2026-08-18T00',finished_at:'2026-08-18T00:01:00Z'}]});
+  assert.equal(center.phase,'21-7 · 21-8');assert.equal(center.mode,'FINAL_READINESS');assert.equal(center.summary.lanes,6);assert.equal(center.worker.ready,true);
   assert.equal(center.summary.protectedLanes,6);assert.equal(center.summary.manualLocks,0);assert.equal(center.summary.switchReady,true);
   assert.equal(center.dryRun.status,'PASS');assert.equal(center.dryRun.guardedLanes,6);assert.equal(center.dryRun.changesApplied,false);
   assert.equal(center.recovery.status,'READY');assert.equal(center.recovery.previousSuccessPreserved,true);
+  assert.equal(center.handover.status,'READY');assert.equal(center.handover.ownershipChanges,0);assert.equal(center.handover.changesApplied,false);assert.match(center.handover.snapshotHash,/^[a-f0-9]{12}$/);
+  assert.equal(center.credentialChecklist.status,'SETUP_REQUIRED');assert.equal(center.credentialChecklist.secretValuesExposed,false);assert.equal(center.credentialChecklist.writesUnlocked,false);
   assert.ok(center.lanes.every(lane=>lane.guardMode&&lane.guardLabel));
   assert.ok(center.lanes.every(lane=>lane.mode==='OBSERVE'&&!lane.migration_authorized));
   assert.equal(center.lanes.find(lane=>lane.lane_key==='HOURLY_ORDERS').current_trigger,'AWS_SYSTEMD');
   assert.equal(center.lanes.find(lane=>lane.lane_key==='COUPANG_FIXED_IP_QUEUE').current_executor,'AWS_FIXED_IP_WORKER');
+});
+
+test('deferred credential checklist returns readiness booleans and never secret values',()=>{
+  const apiKey='must-never-leave-the-server';
+  const checklist=credentials.buildDeferredCredentialChecklist({KMA_API_HUB_KEY:apiKey,HUB_OWNED_SITE_URL:'https://example.com'});
+  const serialized=JSON.stringify(checklist);
+  assert.equal(checklist.groups.length,6);assert.ok(checklist.ready>=2);assert.ok(checklist.missing>0);
+  assert.doesNotMatch(serialized,new RegExp(apiKey));assert.match(serialized,/KMA_API_HUB_KEY/);assert.match(serialized,/valueExposed/);
+  assert.ok(checklist.groups.every(group=>group.destination==='Vercel 운영 환경 변수'));
 });
 
 test('active duplicate idempotency keys block the topology instead of looking successful',()=>{
@@ -49,10 +61,10 @@ test('execution path route, combined dry-run check and service-role-only registr
   const css=fs.readFileSync(path.join(root,'app/_reliability/harin-naver-api-center.css'),'utf8');
   const migration=fs.readFileSync(path.join(root,'supabase/migrations/20260817173843_add_execution_path_controls.sql'),'utf8');
   const checkRoute=fs.readFileSync(path.join(root,'app/api/infrastructure/execution-paths/check/route.js'),'utf8');
-  assert.match(ui,/작업 실행 경로·전환센터/);assert.match(ui,/자동 임대·복구/);assert.match(ui,/중복·드라이런 확인/);assert.match(ui,/21-3 전환 드라이런/);assert.match(ui,/21-6 자동 복구 상태/);assert.match(css,/@media\(max-width:760px\).*executionRecovery/s);
+  assert.match(ui,/작업 실행 경로·전환센터/);assert.match(ui,/검수·키 준비/);assert.match(ui,/최종 상태 다시 확인/);assert.match(ui,/21-3 전환 드라이런/);assert.match(ui,/21-6 자동 복구 상태/);assert.match(ui,/전환 결과 대조·소유권 인수 조건/);assert.match(ui,/나중에 한 번에 입력할 API 준비표/);assert.match(css,/@media\(max-width:760px\).*executionCredentials/s);
   assert.match(migration,/migration_authorized or mode = 'OBSERVE'/);assert.match(migration,/revoke all.*public,anon,authenticated/s);assert.match(migration,/service_role/);
   assert.match(checkRoute,/isAuthorized/);assert.match(checkRoute,/loadExecutionTopology/);assert.doesNotMatch(checkRoute,/\.insert\(|\.update\(|\.delete\(/);
-  assert.doesNotMatch(ui,/비밀번호|잠금 해제|CUTOVER/);
+  assert.doesNotMatch(ui,/비밀번호|잠금 해제|CUTOVER/);assert.match(ui,/소유권 변경 0건/);
 });
 
 test('route guard executes once and returns a stored response for duplicates',async()=>{

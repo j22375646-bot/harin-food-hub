@@ -920,6 +920,8 @@ async function getDashboardData(state) {
     automationRuns:executionPathAutomationResult.data||[],
     heartbeats:executionPathHeartbeatResult.data||[],
     syncLogs:executionPathSyncLogsResult.data||[],
+    issues:executionPathSettled.issues,
+    env:process.env,
     nativeQueueEnabled:process.env.SUPABASE_NATIVE_QUEUE_ENABLED==='true',
     now:generatedAt
   });
