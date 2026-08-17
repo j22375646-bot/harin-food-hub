@@ -49,6 +49,12 @@ test('Vercel can verify the public production URL while API credentials are defe
   assert.equal(calls,1);assert.equal(result.status,'PARTIAL');assert.equal(result.metricSummary.public_ok,true);assert.equal(result.metricSummary.setup_required,true);
 });
 
+test('Vercel public health probe stays available before private credentials are added',()=>{
+  const source=fs.readFileSync(path.join(root,'app/operations-health-center.js'),'utf8');
+  assert.match(source,/SETUP_REQUIRED'&&service\.key!=='vercel'/);
+  assert.match(source,/disabled=\{Boolean\(working\)\|\|setupBlocked\|\|service\.status==='LOCKED'\}/);
+});
+
 test('one provider failure preserves another provider success',()=>{
   const env={AWS_CLOUDWATCH_ACCESS_KEY_ID:'id',AWS_CLOUDWATCH_SECRET_ACCESS_KEY:'secret',AWS_CLOUDWATCH_INSTANCE_ID:'i-123',VERCEL_HEALTH_TOKEN:'token',VERCEL_HEALTH_PROJECT_ID:'project',VERCEL_HEALTH_TEAM_ID:'team',PUBLIC_APP_URL:'https://example.com'};
   const center=readiness.buildOperationsHealth({env,snapshots:[{provider:'AWS_CLOUDWATCH',status:'FAILED',fetched_at:'2026-08-17T09:01:00Z',error_message:'denied'},{provider:'VERCEL',status:'SUCCESS',fetched_at:'2026-08-17T09:00:00Z',metric_summary:{public_status:200,deployment_state:'READY'}}]});

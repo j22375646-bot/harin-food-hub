@@ -10,14 +10,15 @@ function Status({value}){const [label,tone]=STATUS[value]||[value||'확인 필�
 function DateValue({value}){return value?<time dateTime={value}>{KST.format(new Date(value))}</time>:<span>기록 없음</span>;}
 
 function HealthCard({service,working,onProbe}){
-  const busy=working===service.key;const setup=service.status==='SETUP_REQUIRED';
+  const busy=working===service.key;
+  const setupBlocked=service.status==='SETUP_REQUIRED'&&service.key!=='vercel';
   return <article className={`naverApiServiceCard operationsHealthCard ${String(service.status||'').toLowerCase()}`}>
     <header><span className="naverApiServiceIcon"><HarinIcon name={service.icon} size={24}/></span><div><small>READ-ONLY HEALTH SIGNAL</small><h2>{service.label}</h2><p>{service.subtitle}</p></div><Status value={service.status}/></header>
     <div className="naverApiServiceSummary"><strong>{service.summary}</strong><p>{service.errorMessage||service.detail}{service.previousSuccess?' · 이전 성공 자료는 보존 중입니다.':''}</p></div>
     <dl className="naverApiDates"><div><dt>마지막 성공</dt><dd><DateValue value={service.lastSuccessAt}/></dd></div><div><dt>마지막 확인</dt><dd><DateValue value={service.lastAttemptAt}/></dd></div></dl>
     <section className="naverApiChecks" aria-label={`${service.label} 상태`}>{service.checks.map(item=><div key={item.key}><span>{item.label}</span><Status value={item.status}/></div>)}</section>
     <details className="naverApiCapabilities"><summary><span><HarinIcon name="checklist" size={19}/><b>확인 범위 자세히</b></span><em>열기</em></summary><div>{service.capabilities.map(item=><div key={item.key}><span>{item.label}</span><Status value={item.readStatus}/><Status value={item.writeStatus}/></div>)}</div></details>
-    {service.action?<button type="button" className="naverApiProbeButton" disabled={Boolean(working)||setup||service.status==='LOCKED'} onClick={()=>onProbe(service)}><HarinIcon name={busy?'sync':'shield'} size={20}/>{busy?'운영 신호 확인 중…':service.action.label}</button>:<div className="operationsHealthPassive"><HarinIcon name="server" size={19}/><span>워커가 자동으로 보내는 신호예요.</span></div>}
+    {service.action?<button type="button" className="naverApiProbeButton" disabled={Boolean(working)||setupBlocked||service.status==='LOCKED'} onClick={()=>onProbe(service)}><HarinIcon name={busy?'sync':'shield'} size={20}/>{busy?'운영 신호 확인 중…':service.action.label}</button>:<div className="operationsHealthPassive"><HarinIcon name="server" size={19}/><span>워커가 자동으로 보내는 신호예요.</span></div>}
   </article>;
 }
 
