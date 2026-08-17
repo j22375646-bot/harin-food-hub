@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import {HarinBadge,HarinButton,HarinCard,HarinPictogram,HarinProgressiveDetails,HarinSectionHeading,HarinStateCard} from '../../../_design-system/harin-ui.js';
 
 const toneFor=status=>status==='READY'?'success':status==='PARTIAL'||status==='READ_PROBE_REQUIRED'?'warning':['BLOCKED','LOCKED','SETUP_REQUIRED'].includes(status)?'danger':'neutral';
@@ -37,7 +36,7 @@ export default function B2BOpportunityWorkbench({center}){
       <HarinCard className="b2bConnectionCard" tone="soft">
         <header><HarinPictogram icon="shield" tone="lavender" size={24}/><span><small>SAFE CONNECTION</small><h3>나라장터는 아직 호출하지 않아요</h3></span></header>
         <p>{center.nextAction}</p><dl><div><dt>사업 시작 확인</dt><dd>{center.provider.businessActive?'확인됨':'아직'}</dd></div><div><dt>서버 안전 스위치</dt><dd>{center.provider.enabled?'열림':'잠금'}</dd></div><div><dt>서비스 키</dt><dd>{center.provider.credentialReady?'준비됨':'나중에 입력'}</dd></div><div><dt>자동 입찰·제출</dt><dd>사용 안 함</dd></div></dl>
-        <HarinButton as={Link} href="/data-collection/optional-providers" variant="secondary" icon="store">조달 API 준비 상태 보기</HarinButton>
+        <HarinButton as="a" href="/data-collection/optional-providers" variant="secondary" icon="store">조달 API 준비 상태 보기</HarinButton>
       </HarinCard>
     </section>
 

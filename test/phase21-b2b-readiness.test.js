@@ -48,6 +48,8 @@ test('21-9 UI separates presets from real notices and keeps its AI collapsed',()
   assert.match(component,/자동 입찰·제출/);
   assert.match(component,/사용 시작 전 · 비용 0원/);
   assert.match(component,/HarinProgressiveDetails/);
+  assert.doesNotMatch(component,/as=\{Link\}/);
+  assert.match(component,/as="a" href="\/data-collection\/optional-providers"/);
   assert.match(workspace,/B2BOpportunityWorkbench/);
   assert.match(css,/b2bOpportunityGrid/);
   assert.match(css,/@media\(max-width:760px\)/);
