@@ -81,7 +81,7 @@ function TimingBadge({ badge }) {
 
 function TimingNotice({ badge }) {
   if(!badge)return null;
-  const action=badge.type==='DELAYED'?'출고 상태를 바로 확인하세요':'오늘 출고할 주문입니다';
+  const action={DELAYED:'출고 상태를 바로 확인하세요',SAME_DAY:'오늘 출고할 주문입니다',SAME_DAY_PARTIAL:'공휴일 여부를 한 번 확인하세요',CHECK_REQUIRED:'공휴일 연결 후 지연 여부가 확정됩니다',SCHEDULED:'예정일에 맞춰 준비하세요'}[badge.type]||'출고 일정을 확인하세요';
   return <div className={`orderTimingNotice ${badge.type.toLowerCase()}`}><span>{badge.detail}</span><b>{action}</b></div>;
 }
 

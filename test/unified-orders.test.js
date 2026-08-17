@@ -196,14 +196,16 @@ test('old active work stays visible while completed deliveries are limited to 30
 });
 
 test('15시까지 오늘 주문은 당일출고, 다음 날까지 준비중이면 배송지연이다',()=>{
-  const sameDay=orders.fulfillmentTiming({orderedAt:'2026-08-14T14:59:00+09:00',stage:'PREPARING'},new Date('2026-08-14T06:00:00Z'));
-  const atCutoff=orders.fulfillmentTiming({orderedAt:'2026-08-14T15:00:00+09:00',stage:'PREPARING'},new Date('2026-08-14T06:01:00Z'));
-  const afterCutoff=orders.fulfillmentTiming({orderedAt:'2026-08-14T15:01:00+09:00',stage:'PREPARING'},new Date('2026-08-14T07:00:00Z'));
-  const delayed=orders.fulfillmentTiming({orderedAt:'2026-08-13T16:00:00+09:00',stage:'PREPARING'},new Date('2026-08-14T00:00:00Z'));
+  const calendar={holidayReady:true,holidayDates:[]};
+  const sameDay=orders.fulfillmentTiming({orderedAt:'2026-08-14T14:59:00+09:00',stage:'PREPARING'},new Date('2026-08-14T06:00:00Z'),calendar);
+  const atCutoff=orders.fulfillmentTiming({orderedAt:'2026-08-14T15:00:00+09:00',stage:'PREPARING'},new Date('2026-08-14T06:01:00Z'),calendar);
+  const afterCutoff=orders.fulfillmentTiming({orderedAt:'2026-08-14T15:01:00+09:00',stage:'PREPARING'},new Date('2026-08-14T07:00:00Z'),calendar);
+  const delayed=orders.fulfillmentTiming({orderedAt:'2026-08-13T16:00:00+09:00',stage:'PREPARING'},new Date('2026-08-14T00:00:00Z'),calendar);
   assert.equal(sameDay.timingBadge.type,'SAME_DAY');
   assert.equal(atCutoff.timingBadge.type,'SAME_DAY');
-  assert.equal(afterCutoff.timingBadge,null);
-  assert.equal(delayed.timingBadge.type,'DELAYED');
+  assert.equal(afterCutoff.timingBadge.type,'SCHEDULED');
+  assert.equal(delayed.timingBadge.type,'SAME_DAY');
+  assert.equal(delayed.shippingEstimate.plannedShipDate,'2026-08-14');
 });
 
 test('live work window uses the Korea business date on a UTC deployment',()=>{

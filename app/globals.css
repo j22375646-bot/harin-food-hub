@@ -553,12 +553,16 @@ html[data-font-scale="xlarge"] .unifiedOrdersCenter{--order-badge-height:34px;--
 .unifiedOrderCard .orderStageBadge{background:#eaf6f0;color:#236f51}
 .unifiedOrderCard .orderTimingBadge.same_day{background:#e5f4ff;color:#17679d}
 .unifiedOrderCard .orderTimingBadge.delayed{background:#ffe7e3;color:#ad3a31;box-shadow:none}
+.unifiedOrderCard .orderTimingBadge.same_day_partial,.unifiedOrderCard .orderTimingBadge.check_required{background:var(--v8-amber-soft);color:var(--v8-amber-strong);box-shadow:none}
+.unifiedOrderCard .orderTimingBadge.scheduled{background:var(--v8-lavender-soft);color:var(--v8-lavender-strong);box-shadow:none}
 .unifiedOrderCard .orderAmount{display:inline-flex;min-height:var(--order-badge-height);align-items:center;margin-left:4px;color:#15221d;font-size:19px;line-height:1;white-space:nowrap}
 .orderTimingNotice{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 16px 14px;border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.45}
 .orderTimingNotice span{font-size:12px;font-weight:750}
 .orderTimingNotice b{font-size:12px;text-align:right}
 .orderTimingNotice.same_day{background:#f0f8fd;color:#276b96}
 .orderTimingNotice.delayed{background:#fff1ef;color:#a33c33}
+.orderTimingNotice.same_day_partial,.orderTimingNotice.check_required{background:var(--v8-amber-soft);color:var(--v8-amber-strong)}
+.orderTimingNotice.scheduled{background:var(--v8-lavender-soft);color:var(--v8-lavender-strong)}
 .unifiedOrderCard>section{gap:9px;padding:14px 16px}
 .unifiedOrderCard>section>div{padding:11px 12px;border-radius:10px}
 .unifiedOrderCard section span,.orderItemRow small,.orderDeliveryInfo>div small{color:#748079;font-size:var(--order-label-size)!important;font-weight:750;line-height:1.35}
