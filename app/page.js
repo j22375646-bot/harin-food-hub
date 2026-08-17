@@ -30,6 +30,7 @@ import naverBidWorkbenchModule from '../lib/marketing/naver-bid-workbench.js';
 import naverBidExecutionModule from '../lib/naver/bid-execution.js';
 import naverSearchTermCenterModule from '../lib/naver/search-term-center.js';
 import naverExecutiveBoardModule from '../lib/marketing/naver-executive-board.js';
+import naverApiReadinessModule from '../lib/naver/api-readiness.js';
 import aiFoundationModule from '../lib/ai/foundation.js';
 import openaiClientModule from '../lib/ai/openai-client.js';
 import aiPagePanelsModule from '../lib/ai/page-panels.js';
@@ -217,7 +218,13 @@ async function getDashboardData(state) {
     reliability:Promise.allSettled([
       db.from('worker_heartbeats').select('worker_id,service_name,collector,status,source_ip,current_job_type,current_job_id,started_at,last_seen_at,last_success_at,last_error,updated_at').order('last_seen_at',{ascending:false}).limit(20),
       db.from('coupang_operation_requests').select('id,operation_type,target_type,target_id,status,error_message,attempt_count,manual_retry_count,dead_lettered_at,executed_at,created_at').eq('status','FAILED').order('created_at',{ascending:false}).limit(50)
-    ])
+    ]),
+    naverApiReadiness:view==='collection' ? Promise.allSettled([
+      db.from('sync_logs').select('id,platform,job_type,status,started_at,finished_at,rows_received,error_message,metadata')
+        .eq('platform','NAVER')
+        .in('job_type',['COMMERCE_CONNECTION_TEST','COMMERCE_SYNC','SEARCH_AD_CONNECTION_TEST','FETCH_ALL','SEARCH_TERMS','API_HUB_CONNECTION_TEST'])
+        .order('started_at',{ascending:false}).limit(1000)
+    ]) : Promise.resolve([{ status:'fulfilled', value:{ data:[], error:null } }])
   };
   const settledQueries = await Promise.allSettled([
     db.from('cafe24_orders').select('order_id,order_date,customer_id,payment_status,paid_amount,order_price,cancel_amount,refund_amount,raw_data').order('order_date', { ascending: false }).limit(rowLimit('orders',10000)),
@@ -312,6 +319,11 @@ async function getDashboardData(state) {
   queryIssues.push(...reliabilitySettled.issues);
   const workerHeartbeats=reliabilitySettled.results[0].data||[];
   const operationDeadLetters=reliabilitySettled.results[1].data||[];
+  const naverApiSettled=dataHealthModule.settleQueries(await supplementalQueries.naverApiReadiness,[
+    {platform:'NAVER',dataset:'naver_api_connection_logs'}
+  ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+  queryIssues.push(...naverApiSettled.issues);
+  const naverApiSyncs=naverApiSettled.results[0].data||[];
   let keywordTop=[],keywordWaste=[];
   if(keywordPeriod){const keywordStatsSettled=dataHealthModule.settleQueries(await Promise.allSettled([db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).order('conversion_revenue',{ascending:false}).limit(20),db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).eq('conversion_revenue',0).gt('cost',0).order('cost',{ascending:false}).limit(20)]),[{platform:'NAVER',dataset:'naver_keyword_stats_top'},{platform:'NAVER',dataset:'naver_keyword_stats_waste'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));queryIssues.push(...keywordStatsSettled.issues);keywordTop=keywordStatsSettled.results[0].data||[];keywordWaste=keywordStatsSettled.results[1].data||[];}
   let marketingKeywordStats=[],marketingKeywordCatalog=[],marketingDetailChecklists=[];
@@ -805,6 +817,10 @@ async function getDashboardData(state) {
     reliability:reliabilityCenter,
     now:generatedAt
   });
+  const naverApiCenter = naverApiReadinessModule.buildNaverApiReadiness({
+    syncs:naverApiSyncs,
+    now:generatedAt
+  });
   const orderImageCatalog=unifiedOrdersModule.buildOrderImageCatalog(productsResult.data || [],[
     ...(channelsResult.data || []),
     ...productMapping.links,
@@ -896,6 +912,7 @@ async function getDashboardData(state) {
     dataHealth,
     channelConnections,
     collectionCenter,
+    naverApiCenter,
     unifiedOrders,
     customerService,
     metricSnapshots,

@@ -75,7 +75,8 @@ test('visible hub addresses restore the matching client view', () => {
 });
 
 test('phase 13-6 focused workspaces have real addresses and restore their exact state', () => {
-  assert.deepEqual(Object.keys(HUB_WORKSPACES),['insight','keyword','product']);
+  assert.deepEqual(Object.keys(HUB_WORKSPACES),['collection','insight','keyword','product']);
+  assert.deepEqual(HUB_WORKSPACES.collection.map(item=>item.id),['overview','naver-api']);
   assert.deepEqual(HUB_WORKSPACES.insight.map(item=>item.id),['overview','causes','channels','profitability']);
   assert.deepEqual(HUB_WORKSPACES.keyword.map(item=>item.id),['search-terms','registered','diagnosis','history']);
   assert.deepEqual(HUB_WORKSPACES.product.map(item=>item.id),['catalog','mappings','costs','profit','offers','ad-targets']);
@@ -83,10 +84,10 @@ test('phase 13-6 focused workspaces have real addresses and restore their exact 
     for (const item of items) {
       const href=buildHubHref({view,workspace:item.id,platform:'naver'});
       const state=parseHubHref(href);
-      assert.equal(href,item.href+(view==='product'&&item.id!=='catalog'?'':'?platform=naver'));
+      assert.equal(href,view==='collection'?item.href:item.href+(view==='product'&&item.id!=='catalog'?'':'?platform=naver'));
       assert.equal(state.view,view);
       assert.equal(state.workspace,item.id);
-      assert.equal(state.platform,view==='product'&&item.id!=='catalog'?'all':'naver');
+      assert.equal(state.platform,view==='collection'||view==='product'&&item.id!=='catalog'?'all':'naver');
     }
   }
 });
