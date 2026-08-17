@@ -63,7 +63,8 @@ begin
   ) then
     raise exception 'market NAVER ad research product does not match project';
   end if;
-  if tg_table_name = 'market_naver_ad_research_snapshots' and new.profile_id <> new.project_id then
+  if tg_table_name = 'market_naver_ad_research_snapshots'
+    and (to_jsonb(new)->>'profile_id')::uuid <> new.project_id then
     raise exception 'market NAVER ad research profile does not match project';
   end if;
   return new;

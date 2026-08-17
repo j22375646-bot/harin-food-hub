@@ -56,6 +56,7 @@ test('18-3 uses only official read and estimate endpoints and never performs an 
 test('18-3 database isolates research profiles and snapshots by both project and product',()=>{
   const sql=read('supabase/migrations/20260817190000_add_market_naver_ad_research.sql');
   const hardening=read('supabase/migrations/20260817191500_harden_market_naver_ad_research.sql');
+  const triggerFix=read('supabase/migrations/20260817193000_fix_market_naver_ad_research_trigger.sql');
   for(const table of ['market_naver_ad_research_profiles','market_naver_ad_research_snapshots']){
     assert.match(sql,new RegExp(`create table if not exists public\\.${table}`));
     assert.match(sql,new RegExp(`alter table public\\.${table} enable row level security`));
@@ -69,6 +70,9 @@ test('18-3 database isolates research profiles and snapshots by both project and
   assert.match(hardening,/market_naver_ad_research_profiles_product_idx/);
   assert.match(hardening,/market_naver_ad_research_snapshots_profile_idx/);
   assert.match(hardening,/for all\s+to anon, authenticated\s+using \(false\)\s+with check \(false\)/s);
+  assert.match(sql,/to_jsonb\(new\)->>'profile_id'/);
+  assert.match(triggerFix,/to_jsonb\(new\)->>'profile_id'/);
+  assert.doesNotMatch(triggerFix,/and new\.profile_id/);
 });
 
 test('18-3 route is owner-session protected and product page AI stays separate',()=>{
