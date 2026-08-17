@@ -47,7 +47,7 @@ export default function MarketProjectHome({initialData}){
     <section className="marketFlowSection">
       <HarinSectionHeading eyebrow="REUSABLE WORKFLOW" title="모든 상품을 같은 네 단계로 살펴봐요" description="화면 구조만 재사용하고, 근거와 숫자는 선택한 상품별로 새로 확인합니다." icon="growth"/>
       <div className="marketFlowGrid">
-        {[['01','database','blue','자료실','파일·출처·OCR 근거'],['02','analysis','lavender','시장 분석','시장범위·수요 신호'],['03','search','pink','경쟁 분석','리뷰 불편·차별화'],['04','target','mint','구매 전환','장벽·구성·재구매']].map(([number,icon,tone,title,description])=><article data-tone={tone} key={number}><i>{number}</i><HarinPictogram icon={icon} tone={tone} size={20}/><span><b>{title}</b><small>{description}</small></span></article>)}
+        {[['01','database','blue','자료실','파일·출처·OCR 근거'],['02','analysis','lavender','시장 분석','시장범위·수요 신호'],['03','search','pink','경쟁 분석','리뷰 불편·차별화'],['04','target','mint','구매 전환','장벽·구성·재구매'],['05','store','amber','B2B·조달','납품 준비·공고 연결']].map(([number,icon,tone,title,description])=><article data-tone={tone} key={number}><i>{number}</i><HarinPictogram icon={icon} tone={tone} size={20}/><span><b>{title}</b><small>{description}</small></span></article>)}
       </div>
     </section>
 
