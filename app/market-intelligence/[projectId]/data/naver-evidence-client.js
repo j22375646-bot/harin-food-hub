@@ -12,6 +12,7 @@ const TYPE_META={
   NEWS:{label:'뉴스',icon:'document',tone:'pink'}
 };
 const date=value=>value?new Date(value).toLocaleDateString('ko-KR'):'날짜 정보 없음';
+const CACHE_META={FRESH:{label:'방금 수집',tone:'blue'},HIT:{label:'저장 결과 재사용',tone:'lavender'},STALE_FALLBACK:{label:'이전 성공 자료',tone:'warning'}};
 
 export default function MarketNaverEvidenceSearch({projectId,productName}){
   const endpoint=`/api/market-intelligence/projects/${projectId}/naver-evidence`;
@@ -44,11 +45,13 @@ export default function MarketNaverEvidenceSearch({projectId,productName}){
     }catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setWorking('');}
   }
 
-  const summary=config?.summary||{},items=result?.results||[];
+  const summary=config?.summary||{},items=result?.results||[],reliability=config?.readiness||{};
   return <section className="marketNaverEvidenceWorkbench">
     <HarinSectionHeading eyebrow="NAVER PUBLIC EVIDENCE" title="네이버 공개 근거 후보 찾기" description={`${productName} 프로젝트에만 블로그·카페·지식iN·뉴스 후보를 모아요.`} icon="search" aside={<HarinBadge tone={config?.readiness?.configured?'success':'danger'}>{config?.readiness?.configured?'API HUB 연결됨':'연결 확인 필요'}</HarinBadge>}/>
     <section className="marketNaverEvidenceKpis">
-      <HarinStateCard icon="search" label="수집 방식" value="직접 실행" description="화면을 열었다고 과금하지 않음"/>
+      <HarinStateCard tone={reliability.enabled?'success':'danger'} icon="search" label="검색 수집" value={reliability.enabled?'사용 중':'일시 중지'} description="화면 열기만으로 호출하지 않음"/>
+      <HarinStateCard tone={reliability.status==='QUOTA_BLOCKED'?'danger':reliability.status==='WARNING'?'warning':'neutral'} icon="chart" label="오늘 외부 호출" value={reliability.used===null?'확인 필요':`${reliability.used||0}/${reliability.budget||0}회`} description="캐시 재사용은 호출에서 제외"/>
+      <HarinStateCard tone="lavender" icon="folder" label="재사용 캐시" value={reliability.cache_rows===null?'확인 필요':`${reliability.cache_rows||0}개`} description={`${reliability.cache_minutes||360}분 동안 재사용`}/>
       <HarinStateCard tone="success" icon="folder" label="저장한 후보" value={`${summary.saved||0}개`} description={`${productName} 전용 자료실`}/>
       <HarinStateCard tone={summary.review_required?'warning':'success'} icon="shield" label="원문 확인 필요" value={`${summary.review_required||0}개`} description="확인 전 분석 사용 금지"/>
       <HarinStateCard tone="neutral" icon="ai" label="외부 AI" value="사용 안 함" description="OpenAI 비용 0원"/>
@@ -63,9 +66,9 @@ export default function MarketNaverEvidenceSearch({projectId,productName}){
       <p><HarinPictogram icon="shield" tone="amber" size={16}/><span><b>검색 결과는 사실 확정이 아니에요.</b> 제목·요약·날짜·원문 링크를 보관하고, 원문을 직접 확인한 뒤에만 분석 Evidence로 사용합니다.</span></p>
     </HarinCard>
     {result?<HarinCard className="marketNaverEvidenceResults">
-      <HarinSectionHeading eyebrow="SEARCH CANDIDATES" title="원문 확인할 후보" description={`검색어 “${result.query}” · ${date(result.fetched_at)}`} icon="folder" aside={<HarinBadge tone={result.errors?.length?'warning':'lavender'}>{items.length}개</HarinBadge>}/>
+      <HarinSectionHeading eyebrow="SEARCH CANDIDATES" title="원문 확인할 후보" description={`검색어 “${result.query}” · 외부 호출 ${result.quota?.used??'-'}/${result.quota?.budget??'-'}회`} icon="folder" aside={<><HarinBadge tone={result.errors?.length?'warning':'lavender'}>{items.length}개</HarinBadge>{result.cache_summary?.hits?<HarinBadge tone="lavender">캐시 {result.cache_summary.hits}개</HarinBadge>:null}{result.cache_summary?.stale?<HarinBadge tone="warning">이전 자료 {result.cache_summary.stale}개</HarinBadge>:null}</>}/>
       {items.length?<div className="marketNaverEvidenceList">{items.map(item=>{const meta=TYPE_META[item.source_type]||TYPE_META.BLOG,isSaved=savedUrls.has(item.source_url);return <article key={item.external_key}>
-        <header><HarinPictogram icon={meta.icon} tone={meta.tone} size={18}/><span><HarinBadge tone={meta.tone}>{meta.label}</HarinBadge><small>{date(item.published_at)} · {item.source_name}</small></span></header>
+        <header><HarinPictogram icon={meta.icon} tone={meta.tone} size={18}/><span><HarinBadge tone={meta.tone}>{meta.label}</HarinBadge><HarinBadge tone={CACHE_META[item.cache_status]?.tone||'neutral'}>{CACHE_META[item.cache_status]?.label||'수집 결과'}</HarinBadge><small>{date(item.published_at)} · {item.source_name}</small></span></header>
         <b>{item.title}</b><p>{item.description}</p>
         <footer><HarinButton as="a" href={item.source_url} target="_blank" rel="noreferrer" variant="ghost" size="small" icon="link">원문 열기</HarinButton><HarinButton variant={isSaved?'ghost':'secondary'} size="small" icon={isSaved?'shield':'folder'} disabled={isSaved||Boolean(working)} onClick={()=>save(item)}>{working===`SAVE:${item.external_key}`?'저장 중…':isSaved?'저장됨':'근거 후보 저장'}</HarinButton></footer>
       </article>;})}</div>:<HarinEmptyState icon="search" title="검색 결과가 없어요" description="상품 이름을 조금 짧게 바꾸거나 다른 표현으로 다시 찾아보세요."/>}

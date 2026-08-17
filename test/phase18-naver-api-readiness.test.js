@@ -11,7 +11,7 @@ const root = path.join(__dirname, '..');
 
 test('phase 18-1 keeps all three Naver credential domains separate', () => {
   const center = readiness.buildNaverApiReadiness({ syncs:[], env:{}, now:new Date('2026-08-17T01:00:00Z') });
-  assert.equal(center.phase, '18-1');
+  assert.equal(center.phase, '18-6');
   assert.deepEqual(center.services.map(item => item.key), ['commerce','searchAds','apiHub']);
   assert.equal(center.services.every(item => item.status === 'SETUP_REQUIRED'), true);
   assert.equal(center.services.every(item => item.writeEnabled === false), true);
@@ -45,6 +45,24 @@ test('API HUB usage counts only this month requests attempted by the hub', () =>
   assert.equal(quota.used, 2);
   assert.equal(quota.limit, 50_000);
   assert.equal(quota.consoleExcluded, true);
+});
+
+test('API HUB public search quota counts only real external requests and exposes the kill switch', () => {
+  const center = readiness.buildNaverApiReadiness({
+    syncs:[
+      {platform:'NAVER',job_type:'API_HUB_SEARCH_EVIDENCE_COLLECT',status:'SUCCESS',started_at:'2026-08-16T23:10:00Z',metadata:{request_count:4,cache_hits:0}},
+      {platform:'NAVER',job_type:'API_HUB_SEARCH_EVIDENCE_COLLECT',status:'SUCCESS',started_at:'2026-08-17T00:10:00Z',metadata:{request_count:0,cache_hits:8}},
+      {platform:'NAVER',job_type:'API_HUB_SEARCH_EVIDENCE_COLLECT',status:'SUCCESS',started_at:'2026-08-16T01:10:00Z',metadata:{request_count:9}}
+    ],
+    env:{NAVER_API_HUB_SEARCH_ENABLED:'false',NAVER_API_HUB_SEARCH_DAILY_BUDGET:'12'},
+    now:new Date('2026-08-17T01:00:00Z')
+  });
+  const service=center.services.find(item=>item.key==='apiHub');
+  assert.equal(service.searchQuota.used,4);
+  assert.equal(service.searchQuota.limit,12);
+  assert.equal(service.searchQuota.officialLimit,25_000);
+  assert.equal(service.killSwitch.enabled,false);
+  assert.equal(service.checks.find(item=>item.key==='search-switch').status,'LOCKED');
 });
 
 test('data collection exposes a real Naver API workspace route', () => {

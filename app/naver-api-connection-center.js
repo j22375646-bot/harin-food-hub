@@ -45,9 +45,17 @@ function DateValue({ value }) {
   return <time dateTime={value}>{formatted}</time>;
 }
 
+function QuotaMeter({ quota, tone='' }) {
+  const quotaPercent=Math.min(100,(quota.used/quota.limit)*100);
+  return <section className={`naverApiQuota ${tone}`}>
+    <header><span><b>{quota.label}</b><small>{quota.source} · 콘솔 외 호출 미포함</small></span><strong>{quota.used.toLocaleString('ko-KR')} / {quota.limit.toLocaleString('ko-KR')}회</strong></header>
+    <div aria-label={`사용률 ${quotaPercent.toFixed(1)}%`}><i style={{width:`${quotaPercent}%`}}/></div>
+    {quota.officialLimit?<p>네이버 공식 한도 {quota.officialLimit.toLocaleString('ko-KR')}회 안에서 허브 자체 예산을 더 작게 적용합니다.</p>:null}
+  </section>;
+}
+
 function ServiceCard({ service, working, onProbe }) {
   const isWorking = working === service.key || service.status === 'RUNNING';
-  const quotaPercent = service.quota ? Math.min(100, (service.quota.used / service.quota.limit) * 100) : 0;
   return <article className={`naverApiServiceCard ${String(service.status || '').toLowerCase()}`}>
     <header>
       <span className="naverApiServiceIcon"><HarinIcon name={service.icon} size={24}/></span>
@@ -69,10 +77,9 @@ function ServiceCard({ service, working, onProbe }) {
       <summary><span><HarinIcon name="checklist" size={19}/><b>읽기 범위 자세히</b></span><em>열기</em></summary>
       <div>{service.capabilities.map(item=><div key={item.key}><span>{item.label}</span><StatusBadge status={item.readStatus}/><StatusBadge status={item.writeStatus}/></div>)}</div>
     </details>
-    {service.quota?<section className="naverApiQuota">
-      <header><span><b>{service.quota.label}</b><small>{service.quota.source} · 콘솔 외 호출 미포함</small></span><strong>{service.quota.used.toLocaleString('ko-KR')} / {service.quota.limit.toLocaleString('ko-KR')}회</strong></header>
-      <div aria-label={`사용률 ${quotaPercent.toFixed(1)}%`}><i style={{ width:`${quotaPercent}%` }}/></div>
-    </section>:null}
+    {service.killSwitch?<div className={`naverApiSwitchState ${service.killSwitch.enabled?'enabled':'disabled'}`}><HarinIcon name={service.killSwitch.enabled?'shield':'warning'} size={18}/><span><b>{service.killSwitch.enabled?'공개 검색 사용 중':'공개 검색 일시 중지'}</b><small>같은 검색은 {service.killSwitch.cacheMinutes}분 동안 저장 결과 재사용</small></span></div>:null}
+    {service.quota?<QuotaMeter quota={service.quota}/>:null}
+    {service.searchQuota?<QuotaMeter quota={service.searchQuota} tone={service.searchQuota.blocked?'blocked':service.searchQuota.warning?'warning':''}/>:null}
     <button type="button" className="naverApiProbeButton" disabled={Boolean(working) || isWorking} onClick={()=>onProbe(service)}>
       <HarinIcon name={isWorking?'sync':'shield'} size={20}/>{isWorking?'읽기 권한 확인 중…':service.action.label}
     </button>
@@ -105,7 +112,7 @@ export default function NaverApiConnectionCenter({ center }) {
   return <section className="naverApiCenter">
     <header className="naverApiHero">
       <div className="naverApiHeroIcon"><HarinIcon name="naver" size={30}/></div>
-      <div><span>PHASE 18-1 · NAVER CONNECTIONS</span><h1>네이버 API 연결센터</h1><p>커머스, 검색광고, API HUB를 섞지 않고 각각 읽기 상태와 사용 준비도를 확인해요.</p></div>
+      <div><span>PHASE {center?.phase || '18-6'} · NAVER RELIABILITY</span><h1>네이버 API 연결센터</h1><p>커머스, 검색광고, API HUB를 섞지 않고 연결·호출량·재사용 캐시를 각각 확인해요.</p></div>
       <aside><span><b>{center?.summary?.ready || 0}</b>개 정상</span><span><b>{center?.summary?.attention || 0}</b>개 확인</span></aside>
     </header>
     {message?<div className="naverApiToast" role="status" aria-live="polite"><HarinIcon name={working?'sync':'note'} size={20}/><span>{message}</span></div>:null}

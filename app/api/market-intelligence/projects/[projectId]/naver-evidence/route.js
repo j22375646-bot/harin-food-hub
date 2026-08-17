@@ -22,7 +22,12 @@ export async function POST(request,{params}){
     const {projectId}=await params,body=await apiSafety.readJson(request,{maxBytes:64*1024}),db=supabaseModule.getSupabase(),actor=authModule.requestActor(request);
     if(body.action==='SEARCH'){
       const result=await naverEvidence.searchEvidence({db,projectId,input:body,actor});
-      return apiSafety.json({ok:true,...result,message:result.errors.length?'일부 출처는 확인이 필요하지만 나머지 근거 후보를 가져왔습니다.':'네이버 근거 후보를 가져왔습니다.'});
+      const message=result.cache_summary?.stale
+        ?'새 수집에 문제가 있어 이전 성공 자료를 표시합니다.'
+        :result.cache_summary?.hits&&!result.cache_summary?.fresh
+          ?'같은 검색의 저장 결과를 재사용했습니다. 외부 API는 다시 호출하지 않았습니다.'
+          :result.errors.length?'일부 출처는 확인이 필요하지만 나머지 근거 후보를 가져왔습니다.':'네이버 근거 후보를 가져왔습니다.';
+      return apiSafety.json({ok:true,...result,message});
     }
     if(body.action==='SAVE'){
       const result=await naverEvidence.saveCandidate({db,projectId,input:body.candidate||{},actor});
