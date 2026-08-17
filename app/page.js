@@ -37,6 +37,7 @@ import operationsHealthModule from '../lib/operations-health/readiness.js';
 import advertisingChannelModule from '../lib/advertising/channel-center.js';
 import providerFallbackModule from '../lib/provider-fallback/center.js';
 import optionalProviderModule from '../lib/optional-providers/readiness.js';
+import providerOperationsModule from '../lib/provider-operations/center.js';
 import aiFoundationModule from '../lib/ai/foundation.js';
 import openaiClientModule from '../lib/ai/openai-client.js';
 import aiPagePanelsModule from '../lib/ai/page-panels.js';
@@ -231,18 +232,23 @@ async function getDashboardData(state) {
         .in('job_type',['COMMERCE_CONNECTION_TEST','COMMERCE_SYNC','SEARCH_AD_CONNECTION_TEST','FETCH_ALL','SEARCH_TERMS','API_HUB_CONNECTION_TEST'])
         .order('started_at',{ascending:false}).limit(1000)
     ]) : Promise.resolve([{ status:'fulfilled', value:{ data:[], error:null } }]),
-    ownedSiteReadiness:view==='collection'&&state?.workspace==='owned-site' ? Promise.allSettled([
+    ownedSiteReadiness:view==='collection'&&['owned-site','provider-runtime'].includes(state?.workspace) ? Promise.allSettled([
       db.from('owned_site_api_snapshots').select('id,provider,site_url,status,metric_summary,quota_summary,source_timestamp,fetched_at,error_code,error_message,metadata').order('fetched_at',{ascending:false}).limit(200)
     ]) : Promise.resolve([{ status:'fulfilled', value:{ data:[], error:null } }]),
-    shippingReference:(view==='orders'||(view==='collection'&&state?.workspace==='shipping-reference')) ? Promise.allSettled([
+    shippingReference:(view==='orders'||(view==='collection'&&['shipping-reference','provider-runtime'].includes(state?.workspace))) ? Promise.allSettled([
       db.from('shipping_reference_snapshots').select('id,provider,status,reference_year,metric_summary,source_data,source_timestamp,fetched_at,error_code,error_message,metadata').order('fetched_at',{ascending:false}).limit(200)
     ]) : Promise.resolve([{ status:'fulfilled', value:{ data:[], error:null } }]),
-    operationsHealth:view==='collection'&&state?.workspace==='operations-health' ? Promise.allSettled([
+    operationsHealth:view==='collection'&&['operations-health','provider-runtime'].includes(state?.workspace) ? Promise.allSettled([
       db.from('operations_health_snapshots').select('id,provider,status,metric_summary,source_timestamp,fetched_at,error_code,error_message,metadata').order('fetched_at',{ascending:false}).limit(100)
     ]) : Promise.resolve([{ status:'fulfilled', value:{ data:[], error:null } }]),
-    optionalProviders:view==='collection'&&state?.workspace==='optional-providers' ? Promise.allSettled([
+    optionalProviders:view==='collection'&&['optional-providers','provider-runtime'].includes(state?.workspace) ? Promise.allSettled([
       db.from('optional_provider_snapshots').select('id,provider,status,metric_summary,fetched_at,error_code,error_message,metadata').order('fetched_at',{ascending:false}).limit(60)
-    ]) : Promise.resolve([{ status:'fulfilled', value:{ data:[], error:null } }])
+    ]) : Promise.resolve([{ status:'fulfilled', value:{ data:[], error:null } }]),
+    providerRuntime:view==='collection'&&state?.workspace==='provider-runtime' ? Promise.allSettled([
+      db.from('provider_request_runs').select('id,provider,request_hash,status,quota_summary,source_timestamp,started_at,finished_at,expires_at,parent_run_id,error_code,metadata,created_at').order('created_at',{ascending:false}).limit(500),
+      db.from('market_context_snapshots').select('provider,status,result_count,fetched_at,expires_at,error_code').order('fetched_at',{ascending:false}).limit(300),
+      db.from('market_sources').select('ocr_engine,uploaded_at,created_at').eq('source_kind','API').not('ocr_engine','is',null).order('created_at',{ascending:false}).limit(500)
+    ]) : Promise.resolve(Array.from({length:3},()=>({status:'fulfilled',value:{data:[],error:null}})))
   };
   const settledQueries = await Promise.allSettled([
     db.from('cafe24_orders').select('order_id,order_date,customer_id,payment_status,paid_amount,order_price,cancel_amount,refund_amount,raw_data').order('order_date', { ascending: false }).limit(rowLimit('orders',10000)),
@@ -362,6 +368,15 @@ async function getDashboardData(state) {
   ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
   queryIssues.push(...optionalProviderSettled.issues);
   const optionalProviderSnapshots=optionalProviderSettled.results[0].data||[];
+  const providerRuntimeSettled=dataHealthModule.settleQueries(await supplementalQueries.providerRuntime,[
+    {platform:'SHARED',dataset:'provider_request_runs'},
+    {platform:'PUBLIC',dataset:'market_context_snapshots_runtime'},
+    {platform:'PUBLIC',dataset:'market_sources_api_runtime'}
+  ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+  queryIssues.push(...providerRuntimeSettled.issues);
+  const providerRuntimeRuns=providerRuntimeSettled.results[0].data||[];
+  const providerContextSnapshots=providerRuntimeSettled.results[1].data||[];
+  const providerApiSources=providerRuntimeSettled.results[2].data||[];
   let keywordTop=[],keywordWaste=[];
   if(keywordPeriod){const keywordStatsSettled=dataHealthModule.settleQueries(await Promise.allSettled([db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).order('conversion_revenue',{ascending:false}).limit(20),db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).eq('conversion_revenue',0).gt('cost',0).order('cost',{ascending:false}).limit(20)]),[{platform:'NAVER',dataset:'naver_keyword_stats_top'},{platform:'NAVER',dataset:'naver_keyword_stats_waste'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));queryIssues.push(...keywordStatsSettled.issues);keywordTop=keywordStatsSettled.results[0].data||[];keywordWaste=keywordStatsSettled.results[1].data||[];}
   let marketingKeywordStats=[],marketingKeywordCatalog=[],marketingDetailChecklists=[];
@@ -878,6 +893,7 @@ async function getDashboardData(state) {
     naverApiCenter,ownedSiteCenter,env:process.env,now:generatedAt
   });
   const optionalProviderCenter=optionalProviderModule.buildOptionalProviderCenter({snapshots:optionalProviderSnapshots,env:process.env,now:generatedAt});
+  const providerOperationsCenter=providerOperationsModule.buildProviderOperationsCenter({runtimeRuns:providerRuntimeRuns,ownedSiteCenter,shippingReferenceCenter,operationsHealthCenter,optionalProviderCenter,naverApiCenter,sources:providerApiSources,contextSnapshots:providerContextSnapshots,env:process.env,now:generatedAt});
   const orderImageCatalog=unifiedOrdersModule.buildOrderImageCatalog(productsResult.data || [],[
     ...(channelsResult.data || []),
     ...productMapping.links,
@@ -977,6 +993,7 @@ async function getDashboardData(state) {
     advertisingChannelCenter,
     providerFallbackCenter,
     optionalProviderCenter,
+    providerOperationsCenter,
     unifiedOrders,
     customerService,
     metricSnapshots,

@@ -42,6 +42,7 @@ const NaverApiConnectionCenter=dynamic(()=>import('./naver-api-connection-center
 const AdvertisingChannelCenter=dynamic(()=>import('./advertising-channel-center.js'),{loading:LazyWorkbenchFallback});
 const ProviderFallbackCenter=dynamic(()=>import('./provider-fallback-center.js'),{loading:LazyWorkbenchFallback});
 const OptionalProviderCenter=dynamic(()=>import('./optional-provider-center.js'),{loading:LazyWorkbenchFallback});
+const ProviderOperationsCenter=dynamic(()=>import('./provider-operations-center.js'),{loading:LazyWorkbenchFallback});
 const OwnedSiteConnectionCenter=dynamic(()=>import('./owned-site-connection-center.js'),{loading:LazyWorkbenchFallback});
 const ShippingReferenceCenter=dynamic(()=>import('./shipping-reference-center.js'),{loading:LazyWorkbenchFallback});
 const OperationsHealthCenter=dynamic(()=>import('./operations-health-center.js'),{loading:LazyWorkbenchFallback});
@@ -259,6 +260,7 @@ export default function Dashboard({ initialData, initialState }) {
       {view==='collection' && workspace==='advertising' && <AdvertisingChannelCenter center={initialData.advertisingChannelCenter}/>}
       {view==='collection' && workspace==='provider-fallback' && <ProviderFallbackCenter center={initialData.providerFallbackCenter}/>}
       {view==='collection' && workspace==='optional-providers' && <OptionalProviderCenter center={initialData.optionalProviderCenter}/>}
+      {view==='collection' && workspace==='provider-runtime' && <ProviderOperationsCenter center={initialData.providerOperationsCenter}/>}
       {view==='collection' && workspace==='owned-site' && <OwnedSiteConnectionCenter center={initialData.ownedSiteCenter}/>}
       {view==='collection' && workspace==='shipping-reference' && <ShippingReferenceCenter center={initialData.shippingReferenceCenter}/>}
       {view==='collection' && workspace==='operations-health' && <OperationsHealthCenter center={initialData.operationsHealthCenter}/>}
