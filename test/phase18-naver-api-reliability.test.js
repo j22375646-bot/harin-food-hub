@@ -43,5 +43,6 @@ test('phase 18-6 migration and search flow preserve product isolation and stale 
   assert.match(migration,/revoke all .* anon, authenticated/i);
   assert.match(source,/STALE_FALLBACK/);
   assert.match(source,/NAVER_API_HUB_SEARCH_QUOTA_BLOCKED/);
-  assert.match(source,/request_count:requestTypes\.length/);
+  assert.match(source,/NAVER_API_HUB_CONFIG_REQUIRED/);
+  assert.match(source,/request_count:requestCount/);
 });
