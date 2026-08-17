@@ -46,7 +46,9 @@ test('API는 인증과 명시적 승인 상태 전환을 요구한다',()=>{
 
 test('전환 워크스페이스는 17-8을 연결하고 기존 페이지별 AI를 유지한다',()=>{
   const workspace=read('app/market-intelligence/[projectId]/workspace-page.js');
-  assert.ok(workspace.includes('ExecutionBridgeWorkbench'));assert.ok(workspace.includes('GrowthLoopWorkbench'));assert.ok(workspace.includes('ConversionWorkbench'));assert.ok(workspace.includes('이 페이지의 AI'));
+  const stage=read('app/market-intelligence/[projectId]/conversion/conversion-stage-client.js');
+  assert.ok(workspace.includes('ConversionStage'));assert.ok(stage.includes('ExecutionBridgeWorkbench'));assert.ok(stage.includes('GrowthLoopWorkbench'));assert.ok(stage.includes('ConversionWorkbench'));assert.ok(workspace.includes('이 페이지의 AI'));
+  assert.match(stage,/opened\.execution\?<ExecutionBridgeWorkbench/);
   const client=read('app/market-intelligence/[projectId]/conversion/execution-bridge-client.js');
   for(const label of ['실행계획','사장님 승인','실험실 초안','상품 보고서','플랫폼 자동 변경 없음'])assert.ok(client.includes(label),label);
 });

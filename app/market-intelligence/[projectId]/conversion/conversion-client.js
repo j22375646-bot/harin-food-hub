@@ -3,6 +3,10 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { HarinBadge, HarinButton, HarinCard, HarinEmptyState, HarinPictogram, HarinProgressiveDetails, HarinSectionHeading, HarinStateCard } from '../../../_design-system/harin-ui.js';
+import requestSafety from '../../../../lib/market-intelligence/request-safety.js';
+import { MarketWorkbenchError } from '../market-workbench-state.js';
+
+const {requestJson}=requestSafety;
 
 const statusMeta={VERIFIED:['확인 완료','success'],REVIEW_REQUIRED:['검토 필요','warning'],DRAFT:['초안','neutral'],BLOCKED:['사용 중지','danger']};
 const platformMeta={NAVER:{label:'네이버',icon:'naver',tone:'mint'},CAFE24:{label:'Cafe24',icon:'store',tone:'blue'},COUPANG:{label:'쿠팡',icon:'coupang',tone:'pink'}};
@@ -19,15 +23,15 @@ function draftFor(type,stored){return stored?{...stored,evidence_ids:stored.evid
 export default function ConversionWorkbench({projectId,productName}){
   const endpoint=`/api/market-intelligence/projects/${projectId}/conversion`;
   const [data,setData]=useState(null),[loading,setLoading]=useState(true),[working,setWorking]=useState(''),[message,setMessage]=useState(''),[activePlatform,setActivePlatform]=useState('NAVER'),[selectedType,setSelectedType]=useState('TARGETING'),[barrierDraft,setBarrierDraft]=useState(null),[feedbackDraft,setFeedbackDraft]=useState(blankFeedback);
-  async function load(){setLoading(true);try{const response=await fetch(endpoint,{cache:'no-store'}),result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'구매 전환 자료 조회 실패');setData(result);const available=result.funnels.find(item=>item.status!=='BLOCKED');if(available)setActivePlatform(available.platform);const type=result.barrier_types[0],stored=result.barriers.find(item=>item.barrier_type===type.id);setSelectedType(type.id);setBarrierDraft(draftFor(type,stored));}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setLoading(false);}}
-  useEffect(()=>{load();},[projectId]);
+  async function load(signal){setLoading(true);setMessage('');try{const result=await requestJson(endpoint,{signal});setData(result);const available=result.funnels.find(item=>item.status!=='BLOCKED');if(available)setActivePlatform(available.platform);const type=result.barrier_types[0],stored=result.barriers.find(item=>item.barrier_type===type.id);setSelectedType(type.id);setBarrierDraft(draftFor(type,stored));}catch(error){if(error.code!=='REQUEST_ABORTED')setMessage(`확인 필요 · ${error.message}`);}finally{setLoading(false);}}
+  useEffect(()=>{const controller=new AbortController();load(controller.signal);return()=>controller.abort();},[projectId]);
   async function run(action,payload){setWorking(action);setMessage('');try{const response=await fetch(endpoint,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({action,...payload})}),result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'구매 전환 작업 실패');setData(result);if(action==='SAVE_BARRIER'){const type=result.barrier_types.find(item=>item.id===selectedType),stored=result.barriers.find(item=>item.barrier_type===selectedType);setBarrierDraft(draftFor(type,stored));}if(action==='SAVE_FEEDBACK')setFeedbackDraft(blankFeedback);setMessage(result.message);}catch(error){setMessage(`판단 보류 · ${error.message}`);}finally{setWorking('');}}
   const barrierMap=useMemo(()=>new Map((data?.barriers||[]).map(item=>[item.barrier_type,item])),[data?.barriers]);
   const activeFunnel=data?.funnels?.find(item=>item.platform===activePlatform);
   const selectBarrier=type=>{setSelectedType(type.id);setBarrierDraft(draftFor(type,barrierMap.get(type.id)));};
   const toggle=(draft,setDraft,field,id,checked)=>setDraft(current=>({...current,[field]:checked?[...new Set([...(current[field]||[]),id])]:(current[field]||[]).filter(item=>item!==id)}));
   if(loading)return <HarinCard className="marketConversionLoading"><HarinPictogram icon="target" tone="mint"/><span><b>{productName} 전환 흐름을 연결하는 중이에요…</b><small>상품 매칭과 기간이 같은 자료만 계산합니다.</small></span></HarinCard>;
-  if(!data)return <HarinEmptyState icon="target" title="구매 전환 자료를 불러오지 못했어요" description={message||'잠시 뒤 다시 시도해주세요.'}/>;
+  if(!data)return <MarketWorkbenchError title="구매 전환 자료를 불러오지 못했어요" message={message||'잠시 뒤 다시 시도해주세요.'} onRetry={()=>load()}/>;
   const summary=data.summary;
   return <section className="marketConversionWorkbench">
     <HarinSectionHeading eyebrow="AD → PRODUCT → ORDER" title="광고에서 주문까지" description="네이버·Cafe24·쿠팡을 섞지 않고 선택 상품에 연결된 자료만 봐요." icon="target" aside={<HarinBadge tone={summary.readiness==='READY'?'success':'warning'}>{summary.readiness==='READY'?'분석 준비':'판단 보류'}</HarinBadge>}/>

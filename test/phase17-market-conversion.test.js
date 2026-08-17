@@ -51,13 +51,15 @@ test('summary requires a complete channel and verified barrier',()=>{
 
 test('phase 17-6 route, database isolation and responsive workbench are wired',()=>{
   const workspace=read('app/market-intelligence/[projectId]/workspace-page.js');
+  const stage=read('app/market-intelligence/[projectId]/conversion/conversion-stage-client.js');
   const client=read('app/market-intelligence/[projectId]/conversion/conversion-client.js');
   const route=read('app/api/market-intelligence/projects/[projectId]/conversion/route.js');
   const migration=read('supabase/migrations/20260816202253_add_market_conversion_barriers.sql');
   const hardening=read('supabase/migrations/20260817002000_harden_market_feedback_verified_barriers.sql');
   const indexes=read('supabase/migrations/20260817002500_add_market_conversion_product_indexes.sql');
   const css=read('app/_analysis/harin-market-intelligence.css');
-  assert.match(workspace,/ConversionWorkbench/);
+  assert.match(workspace,/ConversionStage/);
+  assert.match(stage,/ConversionWorkbench/);
   assert.match(client,/10 PURCHASE BARRIERS/);
   assert.match(client,/네이버·Cafe24·쿠팡을 섞지 않고/);
   assert.match(client,/판단 보류/);

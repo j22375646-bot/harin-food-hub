@@ -5,18 +5,15 @@ import { usePathname, useRouter } from 'next/navigation';
 import hubRoutesModule from '../../lib/navigation/hub-routes.js';
 import { useStoredState } from '../use-hub-preference.js';
 import { HarinMobileNavigation, HarinSidebar, HarinTopbar } from './harin-app-shell.js';
-import HarinLoadingScreen from '../_design-system/harin-loading-screen.js';
 
 export default function MarketIntelligenceShell({children}){
   const router=useRouter();
   const pathname=usePathname();
-  const [mounted,setMounted]=useState(false);
   const [fontScale,setFontScale]=useStoredState('font-scale','large',['large','xlarge']);
   const [openGroup,setOpenGroup]=useState('analysis');
   const [query,setQuery]=useState('');
   const [syncing,setSyncing]=useState(false);
   const [syncMessage,setSyncMessage]=useState('');
-  useEffect(()=>setMounted(true),[]);
   useEffect(()=>{document.documentElement.dataset.fontScale=fontScale;},[fontScale]);
 
   const nav=hubRoutesModule.HUB_NAV.map(item=>({...item,badge:0}));
@@ -37,7 +34,6 @@ export default function MarketIntelligenceShell({children}){
     }catch(error){setSyncMessage(`확인 필요 · ${error.message}`);}
     finally{setSyncing(false);}
   }
-  if(!mounted)return <HarinLoadingScreen title="상품별 성장 프로젝트를 준비하고 있어요" description="판매 중인 상품과 최근 분석을 안전하게 연결하고 있습니다."/>;
   const context={group:{label:'분석'},item:{label:'시장·전환'},platform:'선택 상품'};
   return <div className="shell marketHubShell">
     <HarinTopbar context={context} connectionLabel="상품별 분석 공간" connectionTone="check" fontScale={fontScale} onFontScale={setFontScale} syncing={syncing} onSync={runSync}/>

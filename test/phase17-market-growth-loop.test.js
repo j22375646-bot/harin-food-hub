@@ -59,11 +59,14 @@ test('growth lever input fixes platform by lever and keeps approval evidence fie
 
 test('phase 17-7 route, RLS storage, responsive UI and ownership links are wired',()=>{
   const workspace=read('app/market-intelligence/[projectId]/workspace-page.js');
+  const stage=read('app/market-intelligence/[projectId]/conversion/conversion-stage-client.js');
   const client=read('app/market-intelligence/[projectId]/conversion/growth-loop-client.js');
   const route=read('app/api/market-intelligence/projects/[projectId]/growth-loop/route.js');
   const migration=read('supabase/migrations/20260817010000_add_market_growth_loop.sql');
   const css=read('app/_analysis/harin-market-intelligence.css');
-  assert.match(workspace,/GrowthLoopWorkbench/);
+  assert.match(workspace,/ConversionStage/);
+  assert.match(stage,/GrowthLoopWorkbench/);
+  assert.match(stage,/opened\.growth\?<GrowthLoopWorkbench/);
   assert.match(client,/혜택에서 재구매까지/);
   assert.match(client,/상품 성장센터 원본/);
   assert.match(client,/고객 식별값은 서버/);

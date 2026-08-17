@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { HarinBadge, HarinButton, HarinCard, HarinEmptyState, HarinPictogram, HarinProgressiveDetails, HarinSectionHeading, HarinStateCard } from '../../../_design-system/harin-ui.js';
+import requestSafety from '../../../../lib/market-intelligence/request-safety.js';
+import { MarketWorkbenchError } from '../market-workbench-state.js';
+
+const {requestJson}=requestSafety;
 
 const statusMeta={VERIFIED:['확인 완료','success'],REVIEW_REQUIRED:['검토 필요','warning'],DRAFT:['초안','neutral'],BLOCKED:['사용 중지','danger']};
 const claimMeta={ALLOWED:['사용 가능','success'],VERIFY:['표현 확인','warning'],BLOCKED:['사용 금지','danger']};
@@ -18,15 +22,15 @@ export default function CompetitionWorkbench({projectId,productName}){
   const endpoint=`/api/market-intelligence/projects/${projectId}/competition`;
   const [data,setData]=useState(null),[loading,setLoading]=useState(true),[working,setWorking]=useState(''),[message,setMessage]=useState('');
   const [competitorDraft,setCompetitorDraft]=useState(blankCompetitor),[reviewDraft,setReviewDraft]=useState(blankReview),[appealDraft,setAppealDraft]=useState(blankAppeal);
-  async function load(){setLoading(true);try{const response=await fetch(endpoint,{cache:'no-store'}),result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'경쟁 분석 자료 조회 실패');setData(result);}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setLoading(false);}}
-  useEffect(()=>{load();},[projectId]);
+  async function load(signal){setLoading(true);setMessage('');try{setData(await requestJson(endpoint,{signal}));}catch(error){if(error.code!=='REQUEST_ABORTED')setMessage(`확인 필요 · ${error.message}`);}finally{setLoading(false);}}
+  useEffect(()=>{const controller=new AbortController();load(controller.signal);return()=>controller.abort();},[projectId]);
   async function run(action,payload){setWorking(action);setMessage('');try{const response=await fetch(endpoint,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({action,...payload})}),result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'경쟁 분석 작업 실패');setData(result);if(action==='SAVE_COMPETITOR')setCompetitorDraft(blankCompetitor);if(action==='SAVE_COMPETITOR_REVIEW')setReviewDraft(blankReview);if(action==='SAVE_APPEAL')setAppealDraft(blankAppeal);setMessage(result.message);}catch(error){setMessage(`판단 보류 · ${error.message}`);}finally{setWorking('');}}
   const competitorMap=useMemo(()=>new Map((data?.competitors||[]).map(item=>[item.id,item])),[data?.competitors]);
   const verifiedReviews=useMemo(()=>(data?.reviews||[]).filter(item=>item.status==='VERIFIED'),[data?.reviews]);
   const painSignals=useMemo(()=>[...new Set(verifiedReviews.flatMap(item=>item.pain_points||[]))].slice(0,12),[verifiedReviews]);
   const setEvidence=(draft,setDraft,field,id,checked)=>setDraft(current=>({...current,[field]:checked?[...new Set([...(current[field]||[]),id])]:(current[field]||[]).filter(item=>item!==id)}));
   if(loading)return <HarinCard className="marketCompetitionLoading"><HarinPictogram icon="search" tone="pink"/><span><b>{productName} 경쟁근거를 여는 중이에요…</b><small>다른 상품 프로젝트의 경쟁자료는 섞지 않습니다.</small></span></HarinCard>;
-  if(!data)return <HarinEmptyState icon="search" title="경쟁 분석 자료를 불러오지 못했어요" description={message||'잠시 뒤 다시 시도해주세요.'}/>;
+  if(!data)return <MarketWorkbenchError title="경쟁 분석 자료를 불러오지 못했어요" message={message||'잠시 뒤 다시 시도해주세요.'} onRetry={()=>load()}/>;
   const summary=data.summary;
   return <section className="marketCompetitionWorkbench">
     <HarinSectionHeading eyebrow="COMPETITOR · REVIEW · APPEAL" title="경쟁상품과 소구점" description="경쟁상품의 반복 불편과 우리 상품의 해결 근거를 양쪽으로 확인해요." icon="search" aside={<HarinBadge tone={summary.readiness==='READY'?'success':'warning'}>{summary.readiness==='READY'?'차별화 준비':'판단 보류'}</HarinBadge>}/>

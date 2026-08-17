@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { HarinBadge, HarinButton, HarinCard, HarinEmptyState, HarinPictogram, HarinProgressiveDetails, HarinSectionHeading, HarinStateCard } from '../../../_design-system/harin-ui.js';
+import requestSafety from '../../../../lib/market-intelligence/request-safety.js';
+import { MarketWorkbenchError } from '../market-workbench-state.js';
+
+const {requestJson}=requestSafety;
 
 const roles={STANDARD:'기준 판매상품',OPTION:'옵션 상품',BUNDLE:'묶음 상품',GIFT:'사은품'};
 const policyMeta={ALLOWED:['사용 가능','success'],VERIFY:['근거 확인','warning'],BLOCKED:['사용 중지','danger'],EMPTY:['미입력','neutral']};
@@ -12,14 +16,14 @@ const won=value=>value==null?'가격 미확인':`${Number(value).toLocaleString(
 export default function MarketProductBaseline({projectId,productName}){
   const endpoint=`/api/market-intelligence/projects/${projectId}/baseline`;
   const [data,setData]=useState(null),[draft,setDraft]=useState(null),[loading,setLoading]=useState(true),[working,setWorking]=useState(''),[message,setMessage]=useState('');
-  async function load(){setLoading(true);try{const response=await fetch(endpoint,{cache:'no-store'}),result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'상품 기준선 조회 실패');setData(result);setDraft(result.baseline);}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setLoading(false);}}
-  useEffect(()=>{load();},[projectId]);
+  async function load(signal){setLoading(true);setMessage('');try{const result=await requestJson(endpoint,{signal});setData(result);setDraft(result.baseline);}catch(error){if(error.code!=='REQUEST_ABORTED')setMessage(`확인 필요 · ${error.message}`);}finally{setLoading(false);}}
+  useEffect(()=>{const controller=new AbortController();load(controller.signal);return()=>controller.abort();},[projectId]);
   async function run(action,baseline){setWorking(action);setMessage('');try{const response=await fetch(endpoint,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({action,baseline})}),result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'상품 기준선 작업 실패');setData(result);setDraft(result.baseline);setMessage(result.message);}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setWorking('');}}
   const checkCount=useMemo(()=>Object.values(draft?.checklist_items||{}).filter(Boolean).length,[draft?.checklist_items]);
   const update=(field,value)=>setDraft(current=>({...current,[field]:value}));
   const save=event=>{event.preventDefault();run('SAVE',draft);};
   if(loading)return <HarinCard className="marketBaselineLoading"><HarinPictogram icon="product" tone="lavender"/><span><b>{productName} 기준선을 여는 중이에요…</b><small>기존 자료와 연결 옵션을 안전하게 비교하고 있습니다.</small></span></HarinCard>;
-  if(!data)return <HarinEmptyState icon="product" title="상품 기준선을 불러오지 못했어요" description={message||'잠시 뒤 다시 시도해주세요.'}/>;
+  if(!data)return <MarketWorkbenchError title="상품 기준선을 불러오지 못했어요" message={message||'잠시 뒤 다시 시도해주세요.'} onRetry={()=>load()}/>;
   if(!data.prepared)return <HarinCard className="marketBaselineStart"><HarinSectionHeading eyebrow="PRODUCT BASELINE" title="상품·옵션·정책 기준선" description="기존 성장센터 원본은 그대로 두고, 이 상품 프로젝트에서 확인할 읽기 전용 복사본을 만들어요." icon="product"/><div><HarinPictogram icon="shield" tone="mint"/><span><b>{data.compatibility.label}</b><p>{data.compatibility.message}</p></span></div><HarinButton variant="primary" icon="sparkles" disabled={Boolean(working)} onClick={()=>run('PREPARE')}>{working?'기준선 준비 중…':'상품 기준선 준비'}</HarinButton></HarinCard>;
   return <section className="marketBaseline">
     <HarinSectionHeading eyebrow="PRODUCT BASELINE" title="상품·옵션·정책 기준선" description="상품을 바꾸면 별도 기준선을 열며, 채널 옵션은 읽기 전용으로만 보관해요." icon="product" aside={<HarinBadge tone={data.compatibility.state==='SOURCE_CHANGED'?'warning':'info'}>{data.compatibility.label}</HarinBadge>}/>

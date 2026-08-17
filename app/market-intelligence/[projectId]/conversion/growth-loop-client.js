@@ -3,6 +3,10 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { HarinBadge, HarinButton, HarinCard, HarinEmptyState, HarinPictogram, HarinProgressiveDetails, HarinSectionHeading, HarinStateCard } from '../../../_design-system/harin-ui.js';
+import requestSafety from '../../../../lib/market-intelligence/request-safety.js';
+import { MarketWorkbenchError } from '../market-workbench-state.js';
+
+const {requestJson}=requestSafety;
 
 const statusMeta={VERIFIED:['확인 완료','success'],REVIEW_REQUIRED:['검토 필요','warning'],BLOCKED:['판단 보류','danger'],READY:['확인 가능','success'],PARTIAL:['일부 자료','warning']};
 const money=value=>value==null?'확인 필요':`${Math.round(Number(value)).toLocaleString('ko-KR')}원`;
@@ -13,14 +17,14 @@ const blankFor=type=>({lever_type:type.id,platform:type.platform,current_state:'
 export default function GrowthLoopWorkbench({projectId,productName}){
   const endpoint=`/api/market-intelligence/projects/${projectId}/growth-loop`;
   const [data,setData]=useState(null),[loading,setLoading]=useState(true),[working,setWorking]=useState(false),[message,setMessage]=useState(''),[selected,setSelected]=useState('NDELIVERY'),[draft,setDraft]=useState(null);
-  async function load(){setLoading(true);try{const response=await fetch(endpoint,{cache:'no-store'}),result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'성장 흐름 조회 실패');setData(result);const type=result.lever_types[0],stored=result.levers.find(item=>item.lever_type===type.id);setSelected(type.id);setDraft(stored?{...stored,evidence_ids:stored.evidence_ids||[]}:blankFor(type));}catch(error){setMessage(`판단 보류 · ${error.message}`);}finally{setLoading(false);}}
-  useEffect(()=>{load();},[projectId]);
+  async function load(signal){setLoading(true);setMessage('');try{const result=await requestJson(endpoint,{signal});setData(result);const type=result.lever_types[0],stored=result.levers.find(item=>item.lever_type===type.id);setSelected(type.id);setDraft(stored?{...stored,evidence_ids:stored.evidence_ids||[]}:blankFor(type));}catch(error){if(error.code!=='REQUEST_ABORTED')setMessage(`판단 보류 · ${error.message}`);}finally{setLoading(false);}}
+  useEffect(()=>{const controller=new AbortController();load(controller.signal);return()=>controller.abort();},[projectId]);
   const leverMap=useMemo(()=>new Map((data?.levers||[]).map(item=>[item.lever_type,item])),[data?.levers]);
   const selectLever=type=>{setSelected(type.id);const stored=leverMap.get(type.id);setDraft(stored?{...stored,evidence_ids:stored.evidence_ids||[]}:blankFor(type));};
   const toggleEvidence=(id,checked)=>setDraft(current=>({...current,evidence_ids:checked?[...new Set([...(current.evidence_ids||[]),id])]:(current.evidence_ids||[]).filter(item=>item!==id)}));
   async function save(){setWorking(true);setMessage('');try{const response=await fetch(endpoint,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({action:'SAVE_LEVER',lever:draft})}),result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'성장 가설 저장 실패');setData(result);const stored=result.levers.find(item=>item.lever_type===selected);setDraft(stored?{...stored,evidence_ids:stored.evidence_ids||[]}:draft);setMessage(result.message);}catch(error){setMessage(`판단 보류 · ${error.message}`);}finally{setWorking(false);}}
   if(loading)return <HarinCard className="marketGrowthLoading"><HarinPictogram icon="sync" tone="lavender"/><span><b>{productName} 성장 흐름을 연결하는 중이에요…</b><small>상품 구성과 재구매 집계는 기존 운영 자료를 읽기 전용으로 사용합니다.</small></span></HarinCard>;
-  if(!data)return <HarinEmptyState icon="growth" title="성장 흐름을 불러오지 못했어요" description={message||'잠시 뒤 다시 시도해주세요.'}/>;
+  if(!data)return <MarketWorkbenchError title="성장 흐름을 불러오지 못했어요" message={message||'잠시 뒤 다시 시도해주세요.'} onRetry={()=>load()}/>;
   const activeType=data.lever_types.find(item=>item.id===selected),activeStored=leverMap.get(selected),storedMeta=activeStored?(statusMeta[activeStored.status]||statusMeta.REVIEW_REQUIRED):['아직 미확인','neutral'];
   const retention=data.retention,summary=data.summary;
   return <section className="marketGrowthLoopWorkbench">

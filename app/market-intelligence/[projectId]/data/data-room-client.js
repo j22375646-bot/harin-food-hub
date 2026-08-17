@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { HarinBadge, HarinButton, HarinCard, HarinEmptyState, HarinPictogram, HarinProgressiveDetails, HarinSectionHeading, HarinStateCard } from '../../../_design-system/harin-ui.js';
+import requestSafety from '../../../../lib/market-intelligence/request-safety.js';
+import { MarketWorkbenchError } from '../market-workbench-state.js';
+
+const {requestJson}=requestSafety;
 
 const statusMeta={
   UPLOAD_PENDING:['업로드 확인 중','neutral'],UPLOADED:['업로드 완료','info'],OCR_PENDING:['판독 대기','warning'],
@@ -20,12 +24,13 @@ export default function MarketDataRoom({projectId,productName}){
   const [evidence,setEvidence]=useState({source_id:'',evidence_type:'OCR_ESTIMATE',label:'',value_text:'',unit:'',confidence:'100',owner_confirmed:false,locator:''});
   const endpoint=`/api/market-intelligence/projects/${projectId}`;
 
-  async function load({quiet=false}={}){
+  async function load({quiet=false,signal}={}){
     if(!quiet)setLoading(true);
-    try{const response=await fetch(`${endpoint}/sources`,{cache:'no-store'}),result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'자료실 조회 실패');setData(result);}
-    catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{if(!quiet)setLoading(false);}
+    if(!quiet)setMessage('');
+    try{setData(await requestJson(`${endpoint}/sources`,{signal}));}
+    catch(error){if(error.code!=='REQUEST_ABORTED')setMessage(`확인 필요 · ${error.message}`);}finally{if(!quiet)setLoading(false);}
   }
-  useEffect(()=>{load();},[projectId]);
+  useEffect(()=>{const controller=new AbortController();load({signal:controller.signal});return()=>controller.abort();},[projectId]);
   const selected=useMemo(()=>(data?.sources||[]).find(item=>item.id===selectedSourceId)||null,[data,selectedSourceId]);
   useEffect(()=>{
     if(!selected)return;
@@ -63,6 +68,7 @@ export default function MarketDataRoom({projectId,productName}){
     setWorking(`EVIDENCE:${item.id}`);try{const response=await fetch(`${endpoint}/evidence/${item.id}`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({action:'CONFIRM'})}),result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'근거 확인 실패');setMessage(result.message);await load({quiet:true});}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setWorking('');}
   }
 
+  if(!loading&&!data)return <MarketWorkbenchError title="상품 자료실을 불러오지 못했어요" message={message||'잠시 뒤 다시 시도해주세요.'} onRetry={()=>load()}/>;
   const summary=data?.summary||{},sources=data?.sources||[],evidences=data?.evidence||[];
   return <section className="marketDataRoom">
     <section className="marketDataKpis">

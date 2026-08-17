@@ -2,6 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { HarinBadge, HarinButton, HarinCard, HarinEmptyState, HarinPictogram, HarinProgressiveDetails, HarinSectionHeading, HarinStateCard } from '../../../_design-system/harin-ui.js';
+import requestSafety from '../../../../lib/market-intelligence/request-safety.js';
+import { MarketWorkbenchError } from '../market-workbench-state.js';
+
+const {requestJson}=requestSafety;
 
 const scopeCopy={L0:['선택 상품','지금 분석하는 판매상품'],L1:['직접 시장','같은 목적·형태 상품'],L2:['인접 시장','비슷한 상황의 대안 상품'],L3:['상위 욕구','고객이 해결하려는 더 큰 문제'],L4:['생활 장면','구매가 일어나는 일상 맥락'],L5:['확장 기회','새 고객·새 쓰임 가능성'],EX:['제외 범위','이 분석에서 섞지 않을 시장']};
 const statusMeta={VERIFIED:['확인 완료','success'],REVIEW_REQUIRED:['검토 필요','warning'],DRAFT:['초안','neutral'],BLOCKED:['판단 보류','danger']};
@@ -15,14 +19,14 @@ export default function MarketProfileWorkbench({projectId,productName}){
   const [data,setData]=useState(null),[loading,setLoading]=useState(true),[working,setWorking]=useState(''),[message,setMessage]=useState('');
   const [scopeDraft,setScopeDraft]=useState({scope_level:'L1',label:'',description:'',relationship:'',evidence_ids:[],owner_confirmed:false});
   const [reviewDraft,setReviewDraft]=useState(blankReview),[personaDraft,setPersonaDraft]=useState(null);
-  async function load(){setLoading(true);try{const response=await fetch(endpoint,{cache:'no-store'}),result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'시장 분석 자료 조회 실패');setData(result);}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setLoading(false);}}
-  useEffect(()=>{load();},[projectId]);
+  async function load(signal){setLoading(true);setMessage('');try{setData(await requestJson(endpoint,{signal}));}catch(error){if(error.code!=='REQUEST_ABORTED')setMessage(`확인 필요 · ${error.message}`);}finally{setLoading(false);}}
+  useEffect(()=>{const controller=new AbortController();load(controller.signal);return()=>controller.abort();},[projectId]);
   async function run(action,payload={}){setWorking(action);setMessage('');try{const response=await fetch(endpoint,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({action,...payload})}),result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'시장 분석 작업 실패');if(action==='DRAFT_PERSONA')setPersonaDraft(result.draft);else{setData(result);if(action==='SAVE_REVIEW')setReviewDraft(blankReview);if(action==='SAVE_PERSONA')setPersonaDraft(null);}setMessage(result.message);}catch(error){setMessage(`판단 보류 · ${error.message}`);}finally{setWorking('');}}
   const scopeMap=useMemo(()=>new Map((data?.scopes||[]).map(item=>[item.scope_level,item])),[data?.scopes]);
   const setScopeLevel=level=>{const existing=scopeMap.get(level);setScopeDraft(existing?{scope_level:level,label:existing.label,description:existing.description,relationship:existing.relationship,evidence_ids:existing.evidence_ids||[],owner_confirmed:Boolean(existing.owner_confirmed)}:{scope_level:level,label:level==='L0'?productName:'',description:'',relationship:'',evidence_ids:[],owner_confirmed:false});};
   const updateEvidence=(draft,setDraft,id,checked)=>setDraft(current=>({...current,evidence_ids:checked?[...new Set([...(current.evidence_ids||[]),id])]:(current.evidence_ids||[]).filter(item=>item!==id)}));
   if(loading)return <HarinCard className="marketProfileLoading"><HarinPictogram icon="analysis" tone="lavender"/><span><b>{productName} 시장범위를 여는 중이에요…</b><small>이 상품 프로젝트의 근거만 확인하고 있습니다.</small></span></HarinCard>;
-  if(!data)return <HarinEmptyState icon="analysis" title="시장 분석 자료를 불러오지 못했어요" description={message||'잠시 뒤 다시 시도해주세요.'}/>;
+  if(!data)return <MarketWorkbenchError title="시장 분석 자료를 불러오지 못했어요" message={message||'잠시 뒤 다시 시도해주세요.'} onRetry={()=>load()}/>;
   const summary=data.summary;
   return <section className="marketProfileWorkbench">
     <HarinSectionHeading eyebrow="MARKET SCOPE · REVIEW · PERSONA" title="시장범위와 고객 신호" description="시장 지도를 먼저 정하고, 개인정보 없는 리뷰 집계로 고객 모습을 확인해요." icon="analysis" aside={<HarinBadge tone={summary.readiness==='READY'?'success':'warning'}>{summary.readiness==='READY'?'분석 준비':'판단 보류'}</HarinBadge>}/>

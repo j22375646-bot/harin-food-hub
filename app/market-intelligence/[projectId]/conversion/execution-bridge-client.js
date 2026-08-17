@@ -3,6 +3,10 @@
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { HarinBadge, HarinButton, HarinCard, HarinEmptyState, HarinPictogram, HarinProgressiveDetails, HarinSectionHeading, HarinStateCard } from '../../../_design-system/harin-ui.js';
+import requestSafety from '../../../../lib/market-intelligence/request-safety.js';
+import { MarketWorkbenchError } from '../market-workbench-state.js';
+
+const {requestJson}=requestSafety;
 
 const sourceNames={GROWTH_LEVER:'성장 가설',BARRIER:'구매 장벽',FEEDBACK:'상세 수정안'};
 const platformNames={ALL:'전체',NAVER:'네이버',CAFE24:'Cafe24',COUPANG:'쿠팡'};
@@ -14,14 +18,14 @@ const draftFor=source=>({source_type:source.source_type,source_id:source.id,titl
 export default function ExecutionBridgeWorkbench({projectId,productName}){
   const endpoint=`/api/market-intelligence/projects/${projectId}/execution`;
   const [data,setData]=useState(null),[loading,setLoading]=useState(true),[working,setWorking]=useState(''),[message,setMessage]=useState(''),[selectedPlanId,setSelectedPlanId]=useState(''),[draft,setDraft]=useState(null),[rejectionNote,setRejectionNote]=useState('');
-  async function load(){setLoading(true);try{const response=await fetch(endpoint,{cache:'no-store'}),result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'실행 연결 조회 실패');setData(result);const first=result.plans[0];if(first){setSelectedPlanId(first.id);setDraft({...first,evidence_ids:first.evidence_ids||[]});}else if(result.sources[0])setDraft(draftFor(result.sources[0]));}catch(error){setMessage(`판단 보류 · ${error.message}`);}finally{setLoading(false);}}
-  useEffect(()=>{load();},[projectId]);
+  async function load(signal){setLoading(true);setMessage('');try{const result=await requestJson(endpoint,{signal});setData(result);const first=result.plans[0];if(first){setSelectedPlanId(first.id);setDraft({...first,evidence_ids:first.evidence_ids||[]});}else if(result.sources[0])setDraft(draftFor(result.sources[0]));}catch(error){if(error.code!=='REQUEST_ABORTED')setMessage(`판단 보류 · ${error.message}`);}finally{setLoading(false);}}
+  useEffect(()=>{const controller=new AbortController();load(controller.signal);return()=>controller.abort();},[projectId]);
   const selectedPlan=useMemo(()=>data?.plans?.find(item=>item.id===selectedPlanId)||null,[data?.plans,selectedPlanId]);
   function selectSource(source){const existing=data.plans.find(item=>item.source_type===source.source_type&&item.source_id===source.id);if(existing){setSelectedPlanId(existing.id);setDraft({...existing,evidence_ids:existing.evidence_ids||[]});}else{setSelectedPlanId('');setDraft(draftFor(source));}setMessage('');}
   function selectPlan(plan){setSelectedPlanId(plan.id);setDraft({...plan,evidence_ids:plan.evidence_ids||[]});setMessage('');}
   async function run(action,payload={}){setWorking(action);setMessage('');try{const response=await fetch(endpoint,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({action,...payload})}),result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'실행 연결 작업 실패');setData(result);const current=result.plans.find(item=>item.id===(payload.plan_id||selectedPlanId))||result.plans[0];if(current){setSelectedPlanId(current.id);setDraft({...current,evidence_ids:current.evidence_ids||[]});}setMessage(result.message);}catch(error){setMessage(`판단 보류 · ${error.message}`);}finally{setWorking('');}}
   if(loading)return <HarinCard className="marketExecutionLoading"><HarinPictogram icon="execution" tone="lavender"/><span><b>{productName} 실행 연결을 여는 중이에요…</b><small>승인·실험·보고서는 기존 운영 기록과 안전하게 연결합니다.</small></span></HarinCard>;
-  if(!data)return <HarinEmptyState icon="execution" title="실행 연결을 불러오지 못했어요" description={message||'잠시 뒤 다시 시도해주세요.'}/>;
+  if(!data)return <MarketWorkbenchError title="실행 연결을 불러오지 못했어요" message={message||'잠시 뒤 다시 시도해주세요.'} onRetry={()=>load()}/>;
   const summary=data.summary,verifiedSources=data.sources.filter(item=>item.status==='VERIFIED'),meta=selectedPlan?approvalMeta[selectedPlan.approval_status]:approvalMeta.DRAFT;
   return <section className="marketExecutionWorkbench">
     <HarinSectionHeading eyebrow="PLAN → APPROVE → TEST → REPORT" title="확인한 근거를 실행까지 연결" description="사장님 승인 전에는 멈추고, 승인 후에도 기존 실험실에 초안만 만들어요." icon="execution" aside={<HarinBadge tone={summary.approved?'success':'warning'}>{summary.approved?`승인 ${summary.approved}건`:'승인 전'}</HarinBadge>}/>
