@@ -39,6 +39,7 @@ const HarinReliabilityWorkbench=dynamic(()=>import('./_reliability/harin-reliabi
 const HarinLiveStatusDock=dynamic(()=>import('./_reliability/harin-reliability-workbench.js').then(module=>module.HarinLiveStatusDock),{loading:LazyWorkbenchFallback});
 const HarinOwnerWorkspace=dynamic(()=>import('./_workspace/harin-owner-workspace.js'),{loading:LazyWorkbenchFallback});
 const NaverApiConnectionCenter=dynamic(()=>import('./naver-api-connection-center.js'),{loading:LazyWorkbenchFallback});
+const AdvertisingChannelCenter=dynamic(()=>import('./advertising-channel-center.js'),{loading:LazyWorkbenchFallback});
 const OwnedSiteConnectionCenter=dynamic(()=>import('./owned-site-connection-center.js'),{loading:LazyWorkbenchFallback});
 const ShippingReferenceCenter=dynamic(()=>import('./shipping-reference-center.js'),{loading:LazyWorkbenchFallback});
 const OperationsHealthCenter=dynamic(()=>import('./operations-health-center.js'),{loading:LazyWorkbenchFallback});
@@ -253,6 +254,7 @@ export default function Dashboard({ initialData, initialState }) {
       {view==='main' && platform==='all' && !channelUnavailable && <div className="mainAiSlot"><HarinAiPagePanel panel={initialData.aiPagePanels?.main}/></div>}
       {view==='main' && platform==='all' && !channelUnavailable && <details className="commandEvidence" id="monthly-target-details"><summary><span><b>목표 설정·계산 근거 보기</b><small>월 목표를 바꾸거나 숫자의 출처를 확인할 때만 열어보세요.</small></span><em>열기</em></summary><div><BusinessPacingPanel platform={platform} pacing={initialData.pacing}/><MetricProvenanceStrip snapshots={initialData.metricSnapshots||[]}/></div></details>}
       {view==='collection' && workspace==='naver-api' && <NaverApiConnectionCenter center={initialData.naverApiCenter}/>}
+      {view==='collection' && workspace==='advertising' && <AdvertisingChannelCenter center={initialData.advertisingChannelCenter}/>}
       {view==='collection' && workspace==='owned-site' && <OwnedSiteConnectionCenter center={initialData.ownedSiteCenter}/>}
       {view==='collection' && workspace==='shipping-reference' && <ShippingReferenceCenter center={initialData.shippingReferenceCenter}/>}
       {view==='collection' && workspace==='operations-health' && <OperationsHealthCenter center={initialData.operationsHealthCenter}/>}
