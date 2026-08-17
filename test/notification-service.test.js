@@ -17,13 +17,17 @@ test('notification settings validate and normalize email and severity', () => {
 });
 
 test('email delivery configuration never exposes or accepts missing server secrets', () => {
-  const beforeKey=process.env.RESEND_API_KEY,beforeFrom=process.env.REPORT_FROM_EMAIL;
+  const beforeKey=process.env.RESEND_API_KEY,beforeFrom=process.env.REPORT_FROM_EMAIL,beforeWrites=process.env.RESEND_ALERT_WRITES_ENABLED;
   delete process.env.RESEND_API_KEY;delete process.env.REPORT_FROM_EMAIL;
+  delete process.env.RESEND_ALERT_WRITES_ENABLED;
+  assert.match(service.deliveryConfiguration({email_enabled:true,recipient_email:'owner@example.com'}).reason,/안전 스위치/);
+  process.env.RESEND_ALERT_WRITES_ENABLED='true';
   assert.match(service.deliveryConfiguration({email_enabled:true,recipient_email:'owner@example.com'}).reason,/RESEND_API_KEY/);
   process.env.RESEND_API_KEY='server-secret';
   assert.match(service.deliveryConfiguration({email_enabled:true,recipient_email:'owner@example.com'}).reason,/REPORT_FROM_EMAIL/);
   if(beforeKey===undefined)delete process.env.RESEND_API_KEY;else process.env.RESEND_API_KEY=beforeKey;
   if(beforeFrom===undefined)delete process.env.REPORT_FROM_EMAIL;else process.env.REPORT_FROM_EMAIL=beforeFrom;
+  if(beforeWrites===undefined)delete process.env.RESEND_ALERT_WRITES_ENABLED;else process.env.RESEND_ALERT_WRITES_ENABLED=beforeWrites;
 });
 
 test('report email contains computed summary and escaped content', () => {

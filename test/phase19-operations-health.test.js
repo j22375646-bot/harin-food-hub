@@ -12,13 +12,15 @@ const routes=require('../lib/navigation/hub-routes.js');
 
 const root=path.join(__dirname,'..');
 
-test('phase 19-4 keeps worker, CloudWatch, and Vercel health isolated',()=>{
+test('phase 20-4 preserves the Phase 19 infrastructure group and isolates release alerts',()=>{
   const center=readiness.buildOperationsHealth({snapshots:[],heartbeats:[],env:{PUBLIC_APP_URL:'https://example.com'},now:new Date('2026-08-17T10:00:00Z')});
-  assert.equal(center.phase,'19-4');
-  assert.deepEqual(center.services.map(item=>item.key),['worker','cloudwatch','vercel']);
+  assert.equal(center.phase,'20-4');
+  assert.deepEqual(center.infrastructureServices.map(item=>item.key),['worker','cloudwatch','vercel']);
+  assert.deepEqual(center.releaseAlertServices.map(item=>item.key),['github','uptimerobot','telegram','resend']);
   assert.equal(center.services.find(item=>item.key==='cloudwatch').status,'SETUP_REQUIRED');
   assert.equal(center.services.find(item=>item.key==='vercel').status,'SETUP_REQUIRED');
-  assert.equal(center.services.flatMap(item=>item.capabilities).every(item=>item.writeStatus==='NOT_APPLICABLE'),true);
+  assert.equal(center.services.find(item=>item.key==='telegram').capabilities.at(-1).writeStatus,'SETUP_REQUIRED');
+  assert.equal(center.services.find(item=>item.key==='resend').capabilities.at(-1).writeStatus,'SETUP_REQUIRED');
 });
 
 test('CloudWatch and Vercel credentials never leak across providers',()=>{
@@ -64,7 +66,7 @@ test('one provider failure preserves another provider success',()=>{
 test('operations health workspace, protected probes, and service-role storage are real',()=>{
   assert.equal(routes.buildHubHref({view:'collection',workspace:'operations-health'}),'/data-collection/operations-health');
   assert.equal(fs.existsSync(path.join(root,'app/data-collection/operations-health/page.js')),true);
-  const source=['cloudwatch','vercel'].map(name=>fs.readFileSync(path.join(root,`app/api/operations-health/${name}/probe/route.js`),'utf8')).join('\n')+fs.readFileSync(path.join(root,'lib/operations-health/route-handler.js'),'utf8');
+  const source=['cloudwatch','vercel','github','uptimerobot','telegram','resend'].map(name=>fs.readFileSync(path.join(root,`app/api/operations-health/${name}/probe/route.js`),'utf8')).join('\n')+fs.readFileSync(path.join(root,'lib/operations-health/route-handler.js'),'utf8');
   assert.match(source,/verifySession/);assert.doesNotMatch(source,/NEXT_PUBLIC_/);
   const migration=fs.readFileSync(path.join(root,'supabase/migrations/20260817133642_add_operations_health_snapshots.sql'),'utf8');
   assert.match(migration,/enable row level security/i);assert.match(migration,/revoke all.*anon, authenticated/i);assert.match(migration,/grant select, insert, update, delete.*service_role/i);

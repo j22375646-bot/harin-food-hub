@@ -25,7 +25,7 @@ export async function POST(request){
     if(body.action==='TEST'){
       if(process.env.NODE_ENV==='production')return Response.json({ok:false,error:'운영 환경에서는 테스트 발송을 사용할 수 없습니다.',code:'TEST_API_DISABLED'},{status:404});
       const bucket=Math.floor(Date.now()/(10*60*1000));
-      const delivery=await notificationService.deliver({eventType:'TEST',subject:'[하린식품] 이메일 알림 연결 테스트',html:'<div style="font-family:Arial,sans-serif"><h1>연결 성공</h1><p>하린식품 통합 관리 허브의 이메일 발송이 정상 연결되었습니다.</p></div>',triggerType:'MANUAL',force:false,dedupeKey:`manual-test:${bucket}`,db});
+      const delivery=await notificationService.deliver({eventType:'TEST',subject:'[하린식품] 이메일 알림 연결 테스트',html:'<div style="font-family:Arial,sans-serif"><h1>연결 성공</h1><p>하린식품 통합 관리 허브의 이메일 발송이 정상 연결되었습니다.</p></div>',triggerType:'MANUAL',force:false,dedupKey:`manual-test:${bucket}`,db});
       return responseFor(delivery);
     }
     return Response.json({ok:false,error:'지원하지 않는 발송 요청입니다.'},{status:400});
