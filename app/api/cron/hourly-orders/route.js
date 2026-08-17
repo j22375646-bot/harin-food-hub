@@ -5,6 +5,8 @@ import queueModule from "../../../../lib/coupang/request-queue.js";
 import operationQueue from "../../../../lib/coupang/operation-queue.js";
 import unifiedOrdersModule from "../../../../lib/orders/unified-orders.js";
 import trackingQueue from "../../../../lib/shipping/tracking-queue.js";
+import executionGuard from "../../../../lib/infrastructure/execution-route-guard.js";
+import scheduleKeys from "../../../../lib/automation/kst-schedule.js";
 import crypto from "node:crypto";
 
 export const runtime = "nodejs";
@@ -37,6 +39,11 @@ export async function GET(request) {
   const startedAt = new Date();
   const hourKey = startedAt.toISOString().slice(0, 13);
   const db = supabaseModule.getSupabase();
+  const guarded=await executionGuard.runGuardedRoute({
+    db,laneKey:'HOURLY_ORDERS',ownerKey:'AWS_SYSTEMD:VERCEL_FUNCTION',
+    runKey:`HOURLY_ORDERS:${hourKey}`,scheduledFor:startedAt.toISOString(),
+    kstExecutionDate:scheduleKeys.kstDateKey(startedAt),staleAfterMs:15*60*1000
+  },async()=>{
   const latestNaver = await db
     .from("sync_logs")
     .select("job_type,status,metadata")
@@ -132,14 +139,16 @@ export async function GET(request) {
   ];
   const available = jobs.filter((job) => !job.skipped);
   const ok = available.every((job) => job.ok);
-  return Response.json(
-    {
+  return {
+    status:ok?200:207,
+    body:{
       ok,
       started_at: startedAt.toISOString(),
       finished_at: new Date().toISOString(),
       schedule: "0 * * * *",
       jobs,
     },
-    { status: ok ? 200 : 207 },
-  );
+  };
+  });
+  return Response.json(guarded.body,{status:guarded.status});
 }

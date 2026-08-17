@@ -7,6 +7,7 @@ import queueModule from '../../../../lib/coupang/request-queue.js';
 import scheduleKeys from '../../../../lib/automation/kst-schedule.js';
 import naverSearchTermSync from '../../../../lib/naver/sync.js';
 import naverBidPerformance from '../../../../lib/naver/bid-performance.js';
+import executionGuard from '../../../../lib/infrastructure/execution-route-guard.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,6 +27,12 @@ export async function GET(request) {
   const now = new Date();
   const startedAt = now.toISOString();
   const runOptions = jobName => scheduleKeys.cronExecution(jobName, { now, hour: 5, minute: 30 });
+  const routeSchedule=runOptions('DAILY_COLLECTION_ROUTE');
+  const guarded=await executionGuard.runGuardedRoute({
+    db:supabaseModule.getSupabase(),laneKey:'DAILY_COLLECTION',ownerKey:'VERCEL_CRON:VERCEL_FUNCTION',
+    runKey:routeSchedule.idempotencyKey,scheduledFor:routeSchedule.scheduledFor,
+    kstExecutionDate:routeSchedule.kstExecutionDate,staleAfterMs:45*60*1000
+  },async()=>{
   // Coupang API calls are queued here and executed by the Seoul fixed-IP worker.
   // This keeps all platform collection aligned at 05:30 KST without using a home PC.
   const sync = await Promise.allSettled([
@@ -51,5 +58,7 @@ export async function GET(request) {
     settled('NAVER_BID_EVALUATION', evaluation[2])
   ];
   const ok = jobs.every(job => job.ok);
-  return Response.json({ ok, started_at: startedAt, finished_at: new Date().toISOString(), jobs }, { status: ok ? 200 : 207 });
+  return {status:ok?200:207,body:{ok,started_at:startedAt,finished_at:new Date().toISOString(),jobs}};
+  });
+  return Response.json(guarded.body,{status:guarded.status});
 }
