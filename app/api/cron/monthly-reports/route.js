@@ -1,5 +1,7 @@
 import scheduleModule from '../../../../lib/automation/report-scheduler.js';
 import scheduleKeys from '../../../../lib/automation/kst-schedule.js';
+import supabaseModule from '../../../../lib/cafe24/supabase.js';
+import executionGuard from '../../../../lib/infrastructure/execution-route-guard.js';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -17,8 +19,8 @@ export async function GET(request){
     if(!stage)return Response.json({ok:true,skipped:true,reason:'월간 보고서는 한국시간 1일과 5일에만 생성합니다.'});
     const jobName=`MONTHLY_PLATFORM_REPORTS_${stage}`;
     const runOptions=scheduleKeys.cronExecution(jobName,{now,hour:8,minute:0});
-    const result=await scheduleModule.generateMonthly({triggerType:'CRON',stage,now,runOptions});
-    return Response.json({ok:true,stage,...result,finished_at:new Date().toISOString()});
+    const guarded=await executionGuard.runGuardedRoute({db:supabaseModule.getSupabase(),laneKey:'REPORT_SCHEDULES',ownerKey:'VERCEL_CRON:VERCEL_FUNCTION',runKey:`REPORT_SCHEDULES_MONTHLY_ROUTE:${stage}:KST:${runOptions.kstExecutionDate}`,scheduledFor:runOptions.scheduledFor,kstExecutionDate:runOptions.kstExecutionDate,staleAfterMs:60*60*1000},async()=>({status:200,body:{ok:true,stage,...await scheduleModule.generateMonthly({triggerType:'CRON',stage,now,runOptions}),finished_at:new Date().toISOString()}}));
+    return Response.json(guarded.body,{status:guarded.status});
   }catch(error){
     console.error('[monthly reports]',error);
     return Response.json({ok:false,error:error.message||'월간 보고서 생성 실패'},{status:500});
