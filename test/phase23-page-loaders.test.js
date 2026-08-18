@@ -28,20 +28,30 @@ test('23-2 gives orders and Rocket Growth inventory independent table profiles',
 test('23-2 never mixes Naver and Coupang keyword provider queries',()=>{
   const naver=loaders.profileForState({view:'keyword',workspace:'registered',platform:'naver'});
   const coupang=loaders.profileForState({view:'keyword',workspace:'registered',platform:'coupang'});
+  const searchTerms=loaders.profileForState({view:'keyword',workspace:'search-terms',platform:'naver'});
+  const diagnosisNaver=loaders.profileForState({view:'keyword',workspace:'diagnosis',platform:'naver'});
+  const diagnosisCoupang=loaders.profileForState({view:'keyword',workspace:'diagnosis',platform:'coupang'});
   assert.ok(naver.tables.includes('naver_keywords'));
   assert.equal(naver.tables.some(table=>table.startsWith('coupang_')),false);
   assert.ok(coupang.tables.includes('coupang_ad_keyword_summary'));
   assert.equal(coupang.tables.some(table=>table.startsWith('naver_')),false);
   assert.equal(naver.tables.includes('cafe24_oauth_tokens'),true);
   assert.equal(coupang.tables.includes('cafe24_oauth_tokens'),true);
+  assert.equal(naver.tables.includes('product_ad_targets'),true);
+  assert.deepEqual(searchTerms.tables,['naver_keywords','naver_search_terms','cafe24_oauth_tokens','ai_analysis_results']);
+  assert.equal(diagnosisNaver.tables.some(table=>table.startsWith('coupang_')),false);
+  assert.equal(diagnosisCoupang.tables.some(table=>table.startsWith('naver_')),false);
+  assert.equal(diagnosisNaver.tables.includes('product_detail_checklists'),true);
   assert.equal(naver.target_ms,4000);
 });
 
 test('23-2 scopes insight and product workspaces to the data they render',()=>{
   const overview=loaders.profileForState({view:'insight',workspace:'overview',platform:'all'});
+  const causes=loaders.profileForState({view:'insight',workspace:'causes',platform:'all'});
   const profit=loaders.profileForState({view:'insight',workspace:'profitability',platform:'all'});
   const costs=loaders.profileForState({view:'product',workspace:'costs',platform:'all'});
   assert.deepEqual(overview.tables,['reports','platform_events','alerts','cafe24_oauth_tokens','ai_analysis_results']);
+  assert.deepEqual(causes.tables,['reports','actions','platform_events','alerts','cafe24_oauth_tokens','ai_analysis_results']);
   assert.ok(profit.tables.includes('product_costs'));
   assert.ok(profit.tables.includes('coupang_settlements'));
   assert.ok(costs.tables.includes('product_costs'));
@@ -80,17 +90,23 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/cafe24_products'[\s\S]*?\.limit\(view==='orders'\?100:500\)/);
   assert.match(page,/if\(view==='orders'\)\{[\s\S]*?return buildOrdersDashboardData\(/);
   assert.match(page,/buildOrdersDashboardData[\s\S]*?finalizeAiPagePanels\(\{orders:builtPanels\.orders\}/);
-  assert.match(page,/if\(view==='inventory'\|\|\(view==='insight'&&state\?\.workspace==='overview'\)\|\|\(view==='product'&&state\?\.workspace==='costs'\)\)\{/);
+  assert.match(page,/if\(view==='inventory'\|\|focusedInsightReport\|\|\(view==='product'&&state\?\.workspace==='costs'\)\)\{/);
   assert.match(page,/return buildInventoryDashboardData\(/);
   assert.match(page,/buildInventoryDashboardData[\s\S]*?finalizeAiPagePanels\(\{inventory:builtPanels\.inventory\}/);
   assert.match(page,/return buildInsightOverviewDashboardData\(/);
   assert.match(page,/buildInsightOverviewDashboardData[\s\S]*?finalizeAiPagePanels\(\{insight:builtPanels\.insight\}/);
   assert.match(page,/return buildProductCostsDashboardData\(/);
   assert.match(page,/buildProductCostsDashboardData[\s\S]*?finalizeAiPagePanels\(\{product:builtPanels\.product\}/);
-  assert.match(page,/focusedRegisteredKeyword=view==='keyword'&&state\?\.workspace==='registered'/);
+  assert.match(page,/focusedSearchTerms=view==='keyword'&&state\?\.workspace==='search-terms'/);
+  assert.match(page,/return buildSearchTermsDashboardData\(/);
+  assert.match(page,/buildSearchTermsDashboardData[\s\S]*?finalizeAiPagePanels\(\{keyword:builtPanels\.keyword\}/);
+  assert.match(page,/focusedKeywordWorkspace=view==='keyword'&&\['registered','diagnosis'\]\.includes\(state\?\.workspace\)/);
   assert.match(page,/return buildRegisteredKeywordDashboardData\(/);
   assert.match(page,/buildRegisteredKeywordDashboardData[\s\S]*?finalizeAiPagePanels\(\{keyword:builtPanels\.keyword\}/);
   assert.match(page,/selectedPlatform==='naver'[\s\S]*?registered_keyword_performance[\s\S]*?registered_keyword_catalog/);
+  assert.match(page,/workspace==='diagnosis'&&isNaver\?marketingDiagnosisModule\.buildMarketingDiagnosis/);
+  assert.match(page,/return buildInsightCausesDashboardData\(/);
+  assert.match(page,/buildInsightCausesDashboardData[\s\S]*?loadedWorkspace:'causes'/);
   assert.match(page,/reportsResult\.count\?\?reportsResult\.data\?\.length\?\?0/);
   assert.match(page,/view==='insight'&&state\?\.workspace==='overview'[\s\S]*?select\(reportFields,\{count:'exact'\}\)[\s\S]*?limit\(12\)/);
   assert.match(page,/focusedEarlyReturn\?Promise\.resolve\(\{data:null,error:null\}\):db\.from\('sync_logs'\)/);

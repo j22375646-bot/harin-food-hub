@@ -328,6 +328,55 @@ async function buildInsightOverviewDashboardData({
   };
 }
 
+async function buildInsightCausesDashboardData({
+  loaderSession,generatedAt,queryIssues,syncResult,reportsResult,actionsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults
+}) {
+  const dashboard=await buildInsightOverviewDashboardData({
+    loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults
+  });
+  return {
+    ...dashboard,
+    loadedWorkspace:'causes',
+    actions:actionsResult.data||[]
+  };
+}
+
+async function buildSearchTermsDashboardData({
+  loaderSession,generatedAt,queryIssues,syncResult,alertsResult,
+  searchTermRows,searchTermPeriod,searchTermSync,registeredKeywords,cafe24Token,latestAiPageResults
+}) {
+  const searchTermCenter=naverSearchTermCenterModule.buildSearchTermCenter({
+    rows:searchTermRows,
+    registeredKeywords,
+    period:searchTermPeriod,
+    lastError:searchTermSync?.status==='FAILED'?searchTermSync.error_message:null,
+    collectionTotal:searchTermSync?.metadata?.counts?.search_terms
+  });
+  searchTermCenter.latest_sync=searchTermSync;
+  const shell=await buildFocusedShellData({
+    queryIssues,syncResult,alertsResult,generatedAt,cafe24Token,
+    summaries:{NAVER:`${number(searchTermCenter.summary?.total).toLocaleString('ko-KR')}개 실제 검색어`,CAFE24:'채널 연결 상태',COUPANG:'선택하지 않은 플랫폼'}
+  });
+  const builtPanels=aiPagePanelsModule.buildAiPagePanels({
+    dataHealth:shell.dataHealth,collectionCenter:shell.collectionCenter,alerts:shell.alerts,
+    searchTermCenter,aiConfiguration:openaiClientModule.configuration(),generatedAt,
+    period:searchTermPeriod?.period_end||kstScheduleModule.kstDateKey(generatedAt)
+  });
+  const aiPagePanels=finalizeAiPagePanels({keyword:builtPanels.keyword},latestAiPageResults,generatedAt,['keyword']);
+  return {
+    loadedView:'keyword',loadedWorkspace:'search-terms',loaderPerformance:loaderSession.snapshot(),generatedAt,
+    dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
+    aiPagePanels,financialTrust:{},productAdTargets:{summary:{},items:[]},naverBidWorkbench:{summary:{},candidates:[]},
+    masterProducts:[],channelProducts:[],productCosts:[],products:[],syncs:shell.syncs,reports:[],actions:[],alerts:shell.alerts,
+    automationRuns:[],qualityChecks:[],metricSnapshots:[],
+    kpis:{sales:0,orders:0,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:0},
+    naver:{
+      campaigns:0,adgroups:0,keywords:registeredKeywords.length,keywordPeriod:null,keywordTop:[],keywordWaste:[],searchTermCenter
+    },
+    coupang:{}
+  };
+}
+
 async function buildProductCostsDashboardData({
   loaderSession,generatedAt,queryIssues,
   productsResult,syncResult,alertsResult,masterResult,channelsResult,costsResult,
@@ -403,11 +452,12 @@ async function buildProductCostsDashboardData({
 }
 
 async function buildRegisteredKeywordDashboardData({
-  loaderSession,generatedAt,queryIssues,platform,
+  loaderSession,generatedAt,queryIssues,platform,workspace='registered',
   syncResult,alertsResult,masterResult,channelsResult,costsResult,
   naverCampaignResult,naverGroupResult,naverKeywordResult,
-  coupangProductsResult,coupangAdDailyResult,coupangAdKeywordTopResult,coupangAdKeywordWasteResult,coupangAdCampaignResult,coupangAdBillingResult,
-  keywordPeriod,marketingKeywordStats,marketingKeywordCatalog,productAdTargetRows,naverKeywordProductLinks,
+  coupangProductsResult,coupangProductItemsResult,coupangInventoryResult,coupangItemInventoryResult,
+  coupangAdDailyResult,coupangAdKeywordTopResult,coupangAdKeywordWasteResult,coupangAdCampaignResult,coupangAdBillingResult,
+  keywordPeriod,marketingKeywordStats,marketingKeywordCatalog,marketingDetailChecklists,productAdTargetRows,naverKeywordProductLinks,
   cafe24Token,latestAiPageResults
 }) {
   const isNaver=platform==='naver';
@@ -447,6 +497,18 @@ async function buildRegisteredKeywordDashboardData({
     const snapshot=naverBidWorkbenchModule.proposalSnapshot(candidate);
     return {...candidate,snapshot_token:snapshot?authModule.signBidProposalSnapshot(snapshot):null};
   })};
+  const marketingDiagnosis=workspace==='diagnosis'&&isNaver?marketingDiagnosisModule.buildMarketingDiagnosis({
+    keywordStats:marketingKeywordStats,
+    naverKeywords:marketingKeywordCatalog,
+    masterProducts:activeMasterProducts,
+    channelProducts:channelsResult.data||[],
+    productItems:coupangProductItemsResult.data||[],
+    itemInventory:coupangItemInventoryResult.data||[],
+    rgInventory:coupangInventoryResult.data||[],
+    checklists:marketingDetailChecklists,
+    period:keywordPeriod,
+    targetRoas:Number(process.env.NAVER_TARGET_ROAS_PERCENT||250)
+  }):null;
   const coupangTop=isCoupang?(coupangAdKeywordTopResult.data||[]):[];
   const coupangWaste=isCoupang?(coupangAdKeywordWasteResult.data||[]):[];
   const visibleKeywordCount=isNaver?naverBidWorkbench.candidates.length:coupangTop.length+coupangWaste.length;
@@ -467,7 +529,7 @@ async function buildRegisteredKeywordDashboardData({
   });
   const aiPagePanels=finalizeAiPagePanels({keyword:builtPanels.keyword},latestAiPageResults,generatedAt,['keyword']);
   return {
-    loadedView:'keyword',loadedWorkspace:'registered',loaderPerformance:loaderSession.snapshot(),generatedAt,
+    loadedView:'keyword',loadedWorkspace:workspace,loaderPerformance:loaderSession.snapshot(),generatedAt,
     dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
     aiPagePanels,financialTrust,productAdTargets,naverBidWorkbench,
     masterProducts:activeMasterProducts,channelProducts:channelsResult.data||[],productCosts:costsResult.data||[],
@@ -479,7 +541,7 @@ async function buildRegisteredKeywordDashboardData({
       keywords:isNaver?(naverKeywordResult.count||marketingKeywordCatalog.length):0,
       keywordPeriod:isNaver?keywordPeriod:null,
       keywordTop:keywordTop.map(withAdMetrics),keywordWaste:keywordWaste.map(withAdMetrics),
-      searchTermCenter:{summary:{total:0,terms:0},items:[]}
+      searchTermCenter:{summary:{total:0,terms:0},items:[]},marketingDiagnosis
     },
     coupang:{
       products:isCoupang?(coupangProductsResult.data||[]):[],
@@ -659,9 +721,11 @@ async function getDashboardData(state) {
     };
     return Math.min(fallback,limits[view]?.[kind]||fallback);
   };
-  const needsPacing=new Set(['main','insight','keyword','product','reports','changes']).has(view);
-  const focusedRegisteredKeyword=view==='keyword'&&state?.workspace==='registered'&&['naver','coupang'].includes(String(state?.platform||'').toLowerCase());
-  const focusedEarlyReturn=view==='orders'||view==='inventory'||(view==='insight'&&state?.workspace==='overview')||(view==='product'&&state?.workspace==='costs')||focusedRegisteredKeyword;
+  const focusedSearchTerms=view==='keyword'&&state?.workspace==='search-terms'&&String(state?.platform||'naver').toLowerCase()==='naver';
+  const focusedKeywordWorkspace=view==='keyword'&&['registered','diagnosis'].includes(state?.workspace)&&['naver','coupang'].includes(String(state?.platform||'').toLowerCase());
+  const focusedInsightReport=view==='insight'&&['overview','causes'].includes(state?.workspace);
+  const focusedEarlyReturn=view==='orders'||view==='inventory'||focusedInsightReport||(view==='product'&&state?.workspace==='costs')||focusedSearchTerms||focusedKeywordWorkspace;
+  const needsPacing=new Set(['main','insight','keyword','product','reports','changes']).has(view)&&!focusedEarlyReturn;
   const pacingPromise = (needsPacing?pacingService.buildPacingDashboard({ db }):Promise.resolve({status:'NO_DATA',channels:[],reasons:[]})).catch(error => {
     console.error('[dashboard] pacing unavailable', error);
     return { status:'NO_DATA', channels:[], reasons:['목표 진행률을 불러오지 못했습니다.'] };
@@ -757,7 +821,7 @@ async function getDashboardData(state) {
     ]) : Promise.resolve(Array.from({length:6},()=>({status:'fulfilled',value:{data:[],error:null}})))
   };
   const reportFields='id,platform,report_type,period_start,period_end,title,status,summary_json,version,supersedes_report_id,is_latest,revision_note,approved_at,approved_by,created_at';
-  const reportsQuery=view==='insight'&&state?.workspace==='overview'
+  const reportsQuery=view==='insight'&&['overview','causes'].includes(state?.workspace)
     ? db.from('reports').select(reportFields,{count:'exact'}).order('period_end',{ascending:false}).order('created_at',{ascending:false}).limit(12)
     : db.from('reports').select(reportFields).order('period_end',{ascending:false}).order('created_at',{ascending:false}).limit(80);
   const settledQueries = await Promise.allSettled([
@@ -815,17 +879,51 @@ async function getDashboardData(state) {
   });
   const queryIssues = [...settled.issues];
   const [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, shippingRulesResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult] = settled.results;
-  if(focusedRegisteredKeyword){
+  if(focusedSearchTerms){
+    const [searchTermRowsRaw,searchTermSyncRaw,registeredKeywordsRaw,aiResultsRaw,cafe24TokenRaw]=await Promise.all([
+      Promise.allSettled([
+        db.from('naver_search_terms').select('id,period_start,period_end,ncc_adgroup_id,search_term,impressions,clicks,cost,conversions,conversion_revenue,classification_auto,classification_override,classification_confidence,recommended_action,action_reason,action_status,is_registered_exact,owner_note,collected_at').order('period_end',{ascending:false}).order('period_start',{ascending:false}).order('cost',{ascending:false}).limit(500)
+      ]),
+      Promise.allSettled([
+        db.from('sync_logs').select('status,error_message,finished_at,metadata').eq('platform','NAVER').eq('job_type','SEARCH_TERMS').order('started_at',{ascending:false}).limit(1).maybeSingle()
+      ]),
+      Promise.allSettled([
+        db.from('naver_keywords').select('ncc_keyword_id,keyword').limit(5000)
+      ]),
+      supplementalQueries.aiResults,
+      supplementalQueries.cafe24Token
+    ]);
+    const searchTermRowsSettled=dataHealthModule.settleQueries(searchTermRowsRaw,[{platform:'NAVER',dataset:'naver_search_terms'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const searchTermSyncSettled=dataHealthModule.settleQueries(searchTermSyncRaw,[{platform:'NAVER',dataset:'naver_search_terms_sync'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const registeredKeywordsSettled=dataHealthModule.settleQueries(registeredKeywordsRaw,[{platform:'NAVER',dataset:'naver_search_term_registered_keywords'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const aiResultsSettled=dataHealthModule.settleQueries(aiResultsRaw,[{platform:'SHARED',dataset:'ai_analysis_results'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const cafe24TokenSettled=dataHealthModule.settleQueries(cafe24TokenRaw,[{platform:'CAFE24',dataset:'cafe24_oauth_tokens'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    queryIssues.push(...searchTermRowsSettled.issues,...searchTermSyncSettled.issues,...registeredKeywordsSettled.issues,...aiResultsSettled.issues,...cafe24TokenSettled.issues);
+    const allSearchTermRows=searchTermRowsSettled.results[0].data||[];
+    const newestSearchTerm=allSearchTermRows[0]||null;
+    const searchTermPeriod=newestSearchTerm?{period_start:newestSearchTerm.period_start,period_end:newestSearchTerm.period_end}:null;
+    const searchTermRows=searchTermPeriod?allSearchTermRows.filter(item=>item.period_start===searchTermPeriod.period_start&&item.period_end===searchTermPeriod.period_end):[];
+    return buildSearchTermsDashboardData({
+      loaderSession,generatedAt,queryIssues,syncResult,alertsResult,
+      searchTermRows,searchTermPeriod,searchTermSync:searchTermSyncSettled.results[0].data||null,
+      registeredKeywords:registeredKeywordsSettled.results[0].data||[],
+      cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,
+      latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[])
+    });
+  }
+  if(focusedKeywordWorkspace){
     const selectedPlatform=String(state.platform).toLowerCase();
-    const [keywordPeriodRaw,productTargetsRaw,bidLinksRaw,aiResultsRaw,cafe24TokenRaw]=await Promise.all([
-      supplementalQueries.keywordPeriod,supplementalQueries.productTargets,supplementalQueries.bidLinks,supplementalQueries.aiResults,supplementalQueries.cafe24Token
+    const [keywordPeriodRaw,productTargetsRaw,bidLinksRaw,aiResultsRaw,cafe24TokenRaw,detailChecklistsRaw]=await Promise.all([
+      supplementalQueries.keywordPeriod,supplementalQueries.productTargets,supplementalQueries.bidLinks,supplementalQueries.aiResults,supplementalQueries.cafe24Token,
+      state.workspace==='diagnosis'?Promise.allSettled([db.from('product_detail_checklists').select('master_product_id,items,notes')]):Promise.resolve([{status:'fulfilled',value:{data:[],error:null}}])
     ]);
     const keywordPeriodSettled=dataHealthModule.settleQueries(keywordPeriodRaw,[{platform:'NAVER',dataset:'naver_keyword_stats_period'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
     const productTargetsSettled=dataHealthModule.settleQueries(productTargetsRaw,[{platform:'SHARED',dataset:'product_ad_targets'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
     const bidLinksSettled=dataHealthModule.settleQueries(bidLinksRaw,[{platform:'NAVER',dataset:'naver_keyword_product_links'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
     const aiResultsSettled=dataHealthModule.settleQueries(aiResultsRaw,[{platform:'SHARED',dataset:'ai_analysis_results'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
     const cafe24TokenSettled=dataHealthModule.settleQueries(cafe24TokenRaw,[{platform:'CAFE24',dataset:'cafe24_oauth_tokens'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
-    queryIssues.push(...keywordPeriodSettled.issues,...productTargetsSettled.issues,...bidLinksSettled.issues,...aiResultsSettled.issues,...cafe24TokenSettled.issues);
+    const detailChecklistsSettled=dataHealthModule.settleQueries(detailChecklistsRaw,[{platform:'SHARED',dataset:'product_detail_checklists'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    queryIssues.push(...keywordPeriodSettled.issues,...productTargetsSettled.issues,...bidLinksSettled.issues,...aiResultsSettled.issues,...cafe24TokenSettled.issues,...detailChecklistsSettled.issues);
     const keywordPeriod=selectedPlatform==='naver'?keywordPeriodSettled.results[0].data:null;
     let marketingKeywordStats=[],marketingKeywordCatalog=[];
     if(selectedPlatform==='naver'){
@@ -841,18 +939,20 @@ async function getDashboardData(state) {
       marketingKeywordCatalog=naverRegisteredSettled.results[1].data||[];
     }
     return buildRegisteredKeywordDashboardData({
-      loaderSession,generatedAt,queryIssues,platform:selectedPlatform,
+      loaderSession,generatedAt,queryIssues,platform:selectedPlatform,workspace:state.workspace,
       syncResult,alertsResult,masterResult,channelsResult,costsResult,
       naverCampaignResult,naverGroupResult,naverKeywordResult,
-      coupangProductsResult,coupangAdDailyResult,coupangAdKeywordTopResult,coupangAdKeywordWasteResult,coupangAdCampaignResult,coupangAdBillingResult,
+      coupangProductsResult,coupangProductItemsResult,coupangInventoryResult,coupangItemInventoryResult,
+      coupangAdDailyResult,coupangAdKeywordTopResult,coupangAdKeywordWasteResult,coupangAdCampaignResult,coupangAdBillingResult,
       keywordPeriod,marketingKeywordStats,marketingKeywordCatalog,
+      marketingDetailChecklists:detailChecklistsSettled.results[0].data||[],
       productAdTargetRows:productTargetsSettled.results[0].data||[],
       naverKeywordProductLinks:bidLinksSettled.results[0].data||[],
       cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,
       latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[])
     });
   }
-  if(view==='inventory'||(view==='insight'&&state?.workspace==='overview')||(view==='product'&&state?.workspace==='costs')){
+  if(view==='inventory'||focusedInsightReport||(view==='product'&&state?.workspace==='costs')){
     const [aiResultsRaw,cafe24TokenRaw]=await Promise.all([supplementalQueries.aiResults,supplementalQueries.cafe24Token]);
     const aiResultsSettled=dataHealthModule.settleQueries(aiResultsRaw,[
       {platform:'SHARED',dataset:'ai_analysis_results'}
@@ -875,9 +975,10 @@ async function getDashboardData(state) {
         channelCostsResult,shippingRulesResult,coupangProductsResult,coupangProductItemsResult,cafe24Token,latestAiPageResults
       });
     }
-    return buildInsightOverviewDashboardData({
-      loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults
+    if(state?.workspace==='causes')return buildInsightCausesDashboardData({
+      loaderSession,generatedAt,queryIssues,syncResult,reportsResult,actionsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults
     });
+    return buildInsightOverviewDashboardData({loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults});
   }
   if(view==='orders'){
     const [naverCommerceRaw,aiResultsRaw,shippingReferenceRaw,cafe24TokenRaw]=await Promise.all([
