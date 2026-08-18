@@ -15,6 +15,7 @@ test('23-2 gives orders and Rocket Growth inventory independent table profiles',
   assert.ok(orders.tables.includes('cafe24_orders'));
   assert.ok(orders.tables.includes('naver_commerce_orders'));
   assert.ok(orders.tables.includes('coupang_orders'));
+  assert.equal(orders.tables.includes('coupang_rg_order_items'),false);
   assert.equal(inventory.tables.includes('coupang_rg_inventory'),true);
   assert.equal(inventory.tables.includes('cafe24_products'),false);
   assert.equal(inventory.tables.includes('naver_commerce_orders'),false);
@@ -60,6 +61,9 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/pageLoaderProfilesModule\.createLoaderSession/);
   assert.match(page,/loaderPerformance:loaderSession\.snapshot\(\)/);
   assert.match(page,/databaseForLoaderState\(db, view, workspace, platform='all', loaderSession=null\)/);
+  assert.match(page,/orders:\{orders:500,items:1500,costs:500\}/);
+  assert.match(page,/\['main','collection'\]\.includes\(view\)\?SHELL_TABLES:LIGHT_SHELL_TABLES/);
+  assert.match(page,/coupang_orders'[\s\S]*?limit\(rowLimit\('orders',2000\)\)/);
   assert.match(dashboard,/data-loader-profile=\{initialData\.loaderPerformance\?\.profile/);
   assert.match(dashboard,/data-loader-ms=\{initialData\.loaderPerformance\?\.duration_ms/);
 });

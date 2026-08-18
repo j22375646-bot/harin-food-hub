@@ -97,6 +97,7 @@ function exchangeCaseView(item) {
 }
 
 const SHELL_TABLES = ['sync_logs','alerts','worker_heartbeats','coupang_operation_requests','coupang_sync_requests'];
+const LIGHT_SHELL_TABLES = ['sync_logs','alerts'];
 // Main is an operational decision surface, not a raw analytics export. Keep
 // current orders, task signals, inventory, pacing and trust inputs here; the
 // heavier settlement/keyword evidence remains on its dedicated real route.
@@ -149,7 +150,8 @@ function tablesForView(view, workspace, platform='all') {
 }
 
 function databaseForLoaderState(db, view, workspace, platform='all', loaderSession=null) {
-  const allowed=new Set([...SHELL_TABLES,...tablesForView(view,workspace,platform)]);
+  const shellTables=['main','collection'].includes(view)?SHELL_TABLES:LIGHT_SHELL_TABLES;
+  const allowed=new Set([...shellTables,...tablesForView(view,workspace,platform)]);
   return new Proxy(db,{
     get(target,key){
       if(key==='from')return table=>{
@@ -180,7 +182,7 @@ async function getDashboardData(state) {
       // limits view-specific prevents a slow analytics route from delaying
       // every navigation while preserving the wider settlement export window.
       main:{orders:600,items:1500,costs:500},
-      orders:{orders:1000,items:3000,costs:1000},
+      orders:{orders:500,items:1500,costs:500},
       cs:{orders:1000,items:2500,costs:500},
       settlement:{orders:3000,items:5000,costs:5000},
       insight:{orders:1200,items:2500,costs:1500},
@@ -297,12 +299,12 @@ async function getDashboardData(state) {
     db.from('channel_cost_settings').select('platform,commission_rate,payment_fee_rate,default_shipping_cost,notes'),
     db.from('channel_shipping_rules').select('platform,return_shipping_cost,return_rate,remote_area_surcharge,remote_area_rate,notes,updated_at'),
     db.from('coupang_products').select('seller_product_id,product_name,status,raw_data').order('updated_at',{ascending:false}).limit(100),
-    db.from('coupang_orders').select('shipment_box_id,order_id,ordered_at,paid_at,status,gross_amount,raw_data').order('ordered_at',{ascending:false}).limit(2000),
+    db.from('coupang_orders').select('shipment_box_id,order_id,ordered_at,paid_at,status,gross_amount,raw_data').order('ordered_at',{ascending:false}).limit(rowLimit('orders',2000)),
     db.from('coupang_order_items').select('external_item_key,shipment_box_id,order_id,vendor_item_id,seller_product_id,product_name,quantity,unit_price,paid_amount,status,raw_data').limit(rowLimit('items',5000)),
     db.from('coupang_settlements').select('order_id,vendor_item_id,recognition_date,sale_type,sale_amount,service_fee,service_fee_vat,settlement_amount,quantity').order('recognition_date',{ascending:false}).limit(5000),
     db.from('coupang_rg_inventory').select('vendor_item_id,external_sku_id,total_orderable_quantity,sales_last_30_days,average_daily_sales,days_of_stock,stock_status,snapshot_at').order('days_of_stock',{ascending:true,nullsFirst:false}).limit(500),
     db.from('coupang_sync_requests').select('id,request_type,status,requested_at,started_at,finished_at,error_message,attempt_count,next_attempt_at,idempotency_key,scheduled_for,kst_execution_date').order('requested_at',{ascending:false}).limit(50),
-    db.from('coupang_rg_orders').select('order_id,status,paid_at,total_amount,item_count').order('paid_at',{ascending:false}).limit(2000),
+    db.from('coupang_rg_orders').select('order_id,status,paid_at,total_amount,item_count').order('paid_at',{ascending:false}).limit(rowLimit('orders',2000)),
     db.from('coupang_returns').select('receipt_id,order_id,status,cancel_type,reason_text,requested_at,amount,raw_data').order('requested_at',{ascending:false}).limit(100),
     db.from('coupang_exchanges').select('exchange_id,order_id,status,reason_text,requested_at,item_count,raw_data').order('requested_at',{ascending:false}).limit(100),
     db.from('coupang_inquiries').select('inquiry_key,inquiry_type,inquiry_id,status,answered,product_id,seller_product_id,vendor_item_id,order_id,question_text,parent_answer_id,inquired_at,raw_data').order('inquired_at',{ascending:false}).limit(100),
