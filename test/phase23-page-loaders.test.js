@@ -48,11 +48,13 @@ test('23-2 records real, skipped and target loader telemetry',()=>{
   const session=loaders.createLoaderSession({view:'inventory',platform:'coupang'});
   session.mark('coupang_rg_inventory',true);
   session.mark('cafe24_orders',false);
+  session.finish('coupang_rg_inventory',180,false);
   const snapshot=session.snapshot();
   assert.equal(snapshot.profile,'inventory:default:coupang');
   assert.equal(snapshot.remote_query_count,1);
   assert.deepEqual(snapshot.remote_tables,['coupang_rg_inventory']);
   assert.equal(snapshot.skipped_query_count,1);
+  assert.deepEqual(snapshot.slow_queries,[{table:'coupang_rg_inventory',duration_ms:180,failed:false}]);
   assert.equal(snapshot.within_target,true);
 });
 
@@ -68,4 +70,5 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/shippingReference:view==='orders'[\s\S]*?\.eq\('provider','HOLIDAY_CALENDAR'\)[\s\S]*?\.limit\(10\)/);
   assert.match(dashboard,/data-loader-profile=\{initialData\.loaderPerformance\?\.profile/);
   assert.match(dashboard,/data-loader-ms=\{initialData\.loaderPerformance\?\.duration_ms/);
+  assert.match(dashboard,/data-loader-slowest=\{/);
 });

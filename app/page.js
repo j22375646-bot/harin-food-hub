@@ -152,12 +152,40 @@ function tablesForView(view, workspace, platform='all') {
 function databaseForLoaderState(db, view, workspace, platform='all', loaderSession=null) {
   const shellTables=['main','collection'].includes(view)?SHELL_TABLES:LIGHT_SHELL_TABLES;
   const allowed=new Set([...shellTables,...tablesForView(view,workspace,platform)]);
+  const wrappedQueries=new WeakMap();
+  const instrumentQuery=(query,table)=>{
+    if(!loaderSession||!query||!['object','function'].includes(typeof query))return query;
+    if(wrappedQueries.has(query))return wrappedQueries.get(query);
+    const proxy=new Proxy(query,{
+      get(target,key){
+        if(key==='then')return (onFulfilled,onRejected)=>{
+          const startedAt=Date.now();
+          return target.then(
+            value=>{
+              loaderSession.finish(table,Date.now()-startedAt,value?.error||null);
+              return typeof onFulfilled==='function'?onFulfilled(value):value;
+            },
+            error=>{
+              loaderSession.finish(table,Date.now()-startedAt,error);
+              if(typeof onRejected==='function')return onRejected(error);
+              throw error;
+            }
+          );
+        };
+        const value=Reflect.get(target,key,target);
+        if(typeof value!=='function')return value;
+        return (...args)=>instrumentQuery(value.apply(target,args),table);
+      }
+    });
+    wrappedQueries.set(query,proxy);
+    return proxy;
+  };
   return new Proxy(db,{
     get(target,key){
       if(key==='from')return table=>{
         const isAllowed=allowed.has(table);
         loaderSession?.mark(table,isAllowed);
-        return isAllowed?target.from(table):emptySupabaseQuery();
+        return isAllowed?instrumentQuery(target.from(table),table):emptySupabaseQuery();
       };
       const value=target[key];
       return typeof value==='function'?value.bind(target):value;
