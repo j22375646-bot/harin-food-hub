@@ -58,6 +58,12 @@ export const dynamic = 'force-dynamic';
 
 const number = value => Number(value || 0);
 const dateOnly = value => String(value || '').slice(0, 10);
+const seoulDateKey = value => {
+  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{
+    timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'
+  }).formatToParts(new Date(value)).filter(item=>item.type!=='literal').map(item=>[item.type,item.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+};
 
 function orderAmount(order) {
   return number(order.paid_amount ?? order.raw_data?.payment_amount ?? order.raw_data?.actual_order_amount?.payment_amount);
@@ -526,10 +532,10 @@ async function buildProductPerformanceDashboardData({
     item.platform==='CAFE24'||item.platform==='COUPANG'||
     (item.platform==='NAVER'&&String(item.raw_data?.source_type||'').toUpperCase()==='NAVER_COMMERCE_PRODUCT')
   ));
-  const periodEnd=seoulDate(generatedAt);
+  const periodEnd=seoulDateKey(generatedAt);
   const periodStartDate=new Date(`${periodEnd}T00:00:00+09:00`);
   periodStartDate.setUTCDate(periodStartDate.getUTCDate()-6);
-  const periodStart=seoulDate(periodStartDate);
+  const periodStart=seoulDateKey(periodStartDate);
   let performance;
   try {
     performance=await productPerformance.loadUnifiedProductPerformance({

@@ -124,6 +124,7 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/focusedProductPerformance=view==='product'/);
   assert.match(page,/return buildProductPerformanceDashboardData\(/);
   assert.match(page,/buildProductPerformanceDashboardData[\s\S]*?loadUnifiedProductPerformance/);
+  assert.match(page,/const seoulDateKey[\s\S]*?periodEnd=seoulDateKey\(generatedAt\)/);
   assert.match(page,/focusedSearchTerms=view==='keyword'&&state\?\.workspace==='search-terms'/);
   assert.match(page,/return buildSearchTermsDashboardData\(/);
   assert.match(page,/buildSearchTermsDashboardData[\s\S]*?finalizeAiPagePanels\(\{keyword:builtPanels\.keyword\}/);
