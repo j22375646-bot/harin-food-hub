@@ -42,6 +42,12 @@ test('23-2 never mixes Naver and Coupang keyword provider queries',()=>{
   assert.equal(diagnosisNaver.tables.some(table=>table.startsWith('coupang_')),false);
   assert.equal(diagnosisCoupang.tables.some(table=>table.startsWith('naver_')),false);
   assert.equal(diagnosisNaver.tables.includes('product_detail_checklists'),true);
+  assert.equal(diagnosisCoupang.tables.includes('channel_products'),false);
+  assert.equal(diagnosisCoupang.tables.includes('product_costs'),false);
+  assert.deepEqual(diagnosisCoupang.tables,[
+    'cafe24_oauth_tokens','ai_analysis_results','coupang_ad_daily_summary',
+    'coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily'
+  ]);
   assert.equal(naver.target_ms,4000);
 });
 
