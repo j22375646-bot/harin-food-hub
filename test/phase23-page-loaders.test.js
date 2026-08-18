@@ -58,6 +58,9 @@ test('23-2 scopes insight and product workspaces to the data they render',()=>{
   const costs=loaders.profileForState({view:'product',workspace:'costs',platform:'all'});
   const mappings=loaders.profileForState({view:'product',workspace:'mappings',platform:'all'});
   const catalog=loaders.profileForState({view:'product',workspace:'catalog',platform:'all'});
+  const naverCatalog=loaders.profileForState({view:'product',workspace:'catalog',platform:'naver'});
+  const productProfit=loaders.profileForState({view:'product',workspace:'profit',platform:'all'});
+  const adTargets=loaders.profileForState({view:'product',workspace:'ad-targets',platform:'all'});
   assert.deepEqual(overview.tables,['reports','platform_events','alerts','cafe24_oauth_tokens','ai_analysis_results']);
   assert.deepEqual(causes.tables,['reports','actions','platform_events','alerts','cafe24_oauth_tokens','ai_analysis_results']);
   assert.ok(profit.tables.includes('product_costs'));
@@ -70,6 +73,11 @@ test('23-2 scopes insight and product workspaces to the data they render',()=>{
   assert.equal(mappings.tables.includes('coupang_orders'),false);
   assert.equal(mappings.tables.includes('cafe24_oauth_tokens'),true);
   assert.equal(catalog.tables.includes('cafe24_oauth_tokens'),true);
+  assert.deepEqual(naverCatalog.tables,['channel_products','cafe24_oauth_tokens','ai_analysis_results']);
+  assert.equal(productProfit.tables.includes('coupang_settlements'),false);
+  assert.equal(productProfit.tables.includes('naver_commerce_orders'),false);
+  assert.equal(productProfit.tables.includes('coupang_ad_keyword_daily'),true);
+  assert.equal(adTargets.tables.includes('product_ad_targets'),true);
 });
 
 test('23-2 records real, skipped and target loader telemetry',()=>{
@@ -113,6 +121,9 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/focusedProductWorkspace=view==='product'/);
   assert.match(page,/return buildProductCatalogDashboardData\(/);
   assert.match(page,/buildProductCatalogDashboardData[\s\S]*?mappingService\.buildMappingDashboard/);
+  assert.match(page,/focusedProductPerformance=view==='product'/);
+  assert.match(page,/return buildProductPerformanceDashboardData\(/);
+  assert.match(page,/buildProductPerformanceDashboardData[\s\S]*?loadUnifiedProductPerformance/);
   assert.match(page,/focusedSearchTerms=view==='keyword'&&state\?\.workspace==='search-terms'/);
   assert.match(page,/return buildSearchTermsDashboardData\(/);
   assert.match(page,/buildSearchTermsDashboardData[\s\S]*?finalizeAiPagePanels\(\{keyword:builtPanels\.keyword\}/);

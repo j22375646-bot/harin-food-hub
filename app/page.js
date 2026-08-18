@@ -500,6 +500,108 @@ async function buildProductCatalogDashboardData({
   };
 }
 
+async function buildProductPerformanceDashboardData({
+  db,loaderSession,generatedAt,queryIssues,workspace,
+  productsResult,ordersResult,itemsResult,syncResult,alertsResult,masterResult,channelsResult,costsResult,
+  channelCostsResult,shippingRulesResult,coupangOrdersResult,coupangItemsResult,coupangProductItemsResult,
+  coupangRgOrdersResult,coupangRgOrderItemsResult,productAdTargetRows,cafe24Token,latestAiPageResults
+}) {
+  const sourceProducts=productsResult.data||[];
+  const sourceChannels=channelsResult.data||[];
+  const products=sourceProducts.map(product=>{
+    const catalog=cafe24CatalogModule.catalogProduct(product);
+    return {
+      id:product.external_product_no,name:product.product_name,price:number(product.price),
+      selling:product.selling,display:product.display,catalog_status:catalog.catalog_status,
+      status_label:catalog.status_label,is_sellable:catalog.is_sellable,excluded:catalog.excluded,
+      exclusion_reason:catalog.exclusion_reason,image:product.raw_data?.small_image||product.raw_data?.list_image||null
+    };
+  });
+  const sellableCafe24Ids=new Set(products.filter(product=>product.is_sellable).map(product=>String(product.id)));
+  const sellableMasterIds=new Set(sourceChannels
+    .filter(item=>item.platform==='CAFE24'&&item.is_active!==false&&sellableCafe24Ids.has(String(item.external_product_id)))
+    .map(item=>item.master_product_id));
+  const masterProducts=(masterResult.data||[]).filter(item=>item.is_active!==false&&sellableMasterIds.has(item.id));
+  const channelProducts=sourceChannels.filter(item=>item.is_active!==false&&(
+    item.platform==='CAFE24'||item.platform==='COUPANG'||
+    (item.platform==='NAVER'&&String(item.raw_data?.source_type||'').toUpperCase()==='NAVER_COMMERCE_PRODUCT')
+  ));
+  const periodEnd=seoulDate(generatedAt);
+  const periodStartDate=new Date(`${periodEnd}T00:00:00+09:00`);
+  periodStartDate.setUTCDate(periodStartDate.getUTCDate()-6);
+  const periodStart=seoulDate(periodStartDate);
+  let performance;
+  try {
+    performance=await productPerformance.loadUnifiedProductPerformance({
+      db,periodStart,periodEnd,masterProducts,channelProducts,productCosts:costsResult.data||[],
+      channelCostSettings:channelCostsResult.data||[],channelShippingRules:shippingRulesResult.data||[],
+      cafe24Orders:ordersResult.data||[],cafe24OrderItems:itemsResult.data||[],
+      coupangOrders:coupangOrdersResult.data||[],coupangOrderItems:coupangItemsResult.data||[],
+      coupangProductItems:coupangProductItemsResult.data||[],coupangRgOrders:coupangRgOrdersResult.data||[],
+      coupangRgOrderItems:coupangRgOrderItemsResult.data||[]
+    });
+  } catch (error) {
+    const issue=dataHealthModule.safeError(error,{platform:'SHARED',dataset:'product_workspace_performance'});
+    queryIssues.push(issue);
+    console.error('[dashboard] focused product performance unavailable',error);
+    performance=productPerformance.buildUnifiedProductPerformance({
+      periodStart,periodEnd,masterProducts,channelProducts,productCosts:costsResult.data||[],
+      channelCostSettings:channelCostsResult.data||[],channelShippingRules:shippingRulesResult.data||[],
+      cafe24Orders:ordersResult.data||[],cafe24OrderItems:itemsResult.data||[],
+      coupangOrders:coupangOrdersResult.data||[],coupangOrderItems:coupangItemsResult.data||[],
+      coupangProductItems:coupangProductItemsResult.data||[],coupangRgOrders:coupangRgOrdersResult.data||[],
+      coupangRgOrderItems:coupangRgOrderItemsResult.data||[]
+    });
+  }
+  const financialTrust=financialTrustModule.evaluateFinancialTrust({
+    costCoverageRate:performance.summary?.cost_coverage_rate,
+    unassignedAdSpend:performance.summary?.coupang_ad_spend_unassigned,
+    missingCostProducts:performance.summary?.missing_cost_products,
+    missingCostRevenue:performance.summary?.missing_cost_revenue
+  });
+  const trustedPerformance=financialTrustModule.applyProductPerformanceGate(performance,financialTrust);
+  const rawProfitability={
+    contribution_profit:performance.summary?.contribution_profit,
+    cost_coverage_rate:performance.summary?.cost_coverage_rate,
+    missing_cost_products:performance.summary?.missing_cost_products,
+    missing_cost_revenue:performance.summary?.missing_cost_revenue
+  };
+  const liveProfitability=financialTrustModule.applyProfitabilityGate(rawProfitability,financialTrust);
+  const productAdTargets=productAdTargetsModule.buildProductAdTargets({
+    performance,targets:productAdTargetRows||[],financialTrust,asOf:generatedAt
+  });
+  const financialReadiness=financialReadinessModule.buildFinancialReadiness({
+    performance,profitability:rawProfitability,financialTrust,productCosts:costsResult.data||[],
+    channelCostSettings:channelCostsResult.data||[],channelShippingRules:shippingRulesResult.data||[],productAdTargets
+  });
+  const productOperations=productOperationsModule.buildUnifiedProductOperations({
+    masterProducts,channelProducts,cafe24Products:sourceProducts,
+    coupangProductItems:coupangProductItemsResult.data||[]
+  });
+  const shell=await buildFocusedShellData({
+    queryIssues,syncResult,alertsResult,generatedAt,cafe24Token,
+    cafe24Counts:{products:sourceProducts.length,orders:ordersResult.data?.length||0},
+    summaries:{CAFE24:`${sourceProducts.length.toLocaleString('ko-KR')}개 상품`,NAVER:'상품별 광고 성과',COUPANG:'상품별 매출·광고 성과'}
+  });
+  const builtPanels=aiPagePanelsModule.buildAiPagePanels({
+    dataHealth:shell.dataHealth,productOperations,productAdTargets,collectionCenter:shell.collectionCenter,alerts:shell.alerts,
+    aiConfiguration:openaiClientModule.configuration(),generatedAt,period:periodEnd
+  });
+  const aiPagePanels=finalizeAiPagePanels({product:builtPanels.product},latestAiPageResults,generatedAt,['product']);
+  return {
+    loadedView:'product',loadedWorkspace:workspace,loaderPerformance:loaderSession.snapshot(),generatedAt,
+    dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
+    aiPagePanels,financialTrust,financialReadiness,liveProfitability,
+    products,masterProducts,channelProducts,productCosts:costsResult.data||[],
+    channelCostSettings:channelCostsResult.data||[],channelShippingRules:shippingRulesResult.data||[],
+    productOperations,productMapping:{summary:{},candidates:[],links:[]},productAdTargets,
+    unifiedProductPerformance:trustedPerformance,costCalibration:{},shippingRuleEvidence:{},
+    kpis:{sales:performance.summary?.revenue||0,orders:0,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:masterProducts.length},
+    syncs:shell.syncs,reports:[],actions:[],alerts:shell.alerts,automationRuns:[],qualityChecks:[],metricSnapshots:[],
+    naver:{},coupang:{}
+  };
+}
+
 async function buildRegisteredKeywordDashboardData({
   loaderSession,generatedAt,queryIssues,platform,workspace='registered',
   syncResult,alertsResult,masterResult,channelsResult,costsResult,
@@ -773,8 +875,9 @@ async function getDashboardData(state) {
   const focusedSearchTerms=view==='keyword'&&state?.workspace==='search-terms'&&String(state?.platform||'naver').toLowerCase()==='naver';
   const focusedKeywordWorkspace=view==='keyword'&&['registered','diagnosis'].includes(state?.workspace)&&['naver','coupang'].includes(String(state?.platform||'').toLowerCase());
   const focusedInsightReport=view==='insight'&&['overview','causes'].includes(state?.workspace);
-  const focusedProductWorkspace=view==='product'&&(state?.workspace==='mappings'||(state?.workspace==='catalog'&&state?.platform!=='coupang'));
-  const focusedEarlyReturn=view==='orders'||view==='inventory'||focusedInsightReport||(view==='product'&&state?.workspace==='costs')||focusedProductWorkspace||focusedSearchTerms||focusedKeywordWorkspace;
+  const focusedProductWorkspace=view==='product'&&(['mappings','offers'].includes(state?.workspace)||(state?.workspace==='catalog'&&state?.platform!=='coupang'));
+  const focusedProductPerformance=view==='product'&&['profit','ad-targets'].includes(state?.workspace);
+  const focusedEarlyReturn=view==='orders'||view==='inventory'||focusedInsightReport||(view==='product'&&state?.workspace==='costs')||focusedProductWorkspace||focusedProductPerformance||focusedSearchTerms||focusedKeywordWorkspace;
   const needsPacing=new Set(['main','insight','keyword','product','reports','changes']).has(view)&&!focusedEarlyReturn;
   const pacingPromise = (needsPacing?pacingService.buildPacingDashboard({ db }):Promise.resolve({status:'NO_DATA',channels:[],reasons:[]})).catch(error => {
     console.error('[dashboard] pacing unavailable', error);
@@ -1024,6 +1127,29 @@ async function getDashboardData(state) {
       productsResult,syncResult,alertsResult,masterResult,channelsResult,costsResult,
       channelCostsResult,shippingRulesResult,coupangProductsResult,coupangProductItemsResult,
       mappingHistoryResult:mappingHistorySettled.results[0],
+      cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,
+      latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[])
+    });
+  }
+  if(focusedProductPerformance){
+    const [aiResultsRaw,cafe24TokenRaw,productTargetsRaw]=await Promise.all([
+      supplementalQueries.aiResults,supplementalQueries.cafe24Token,supplementalQueries.productTargets
+    ]);
+    const aiResultsSettled=dataHealthModule.settleQueries(aiResultsRaw,[
+      {platform:'SHARED',dataset:'ai_analysis_results'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const cafe24TokenSettled=dataHealthModule.settleQueries(cafe24TokenRaw,[
+      {platform:'CAFE24',dataset:'cafe24_oauth_tokens'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const productTargetsSettled=dataHealthModule.settleQueries(productTargetsRaw,[
+      {platform:'SHARED',dataset:'product_ad_targets'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    queryIssues.push(...aiResultsSettled.issues,...cafe24TokenSettled.issues,...productTargetsSettled.issues);
+    return buildProductPerformanceDashboardData({
+      db,loaderSession,generatedAt,queryIssues,workspace:state.workspace,
+      productsResult,ordersResult,itemsResult,syncResult,alertsResult,masterResult,channelsResult,costsResult,
+      channelCostsResult,shippingRulesResult,coupangOrdersResult,coupangItemsResult,coupangProductItemsResult,
+      coupangRgOrdersResult,coupangRgOrderItemsResult,productAdTargetRows:productTargetsSettled.results[0].data||[],
       cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,
       latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[])
     });
