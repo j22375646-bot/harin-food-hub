@@ -872,16 +872,15 @@ main :where(button,a,input,select,textarea):focus-visible,.topbar :where(button,
   .kpi strong,.decisionMetrics .kpi strong,.notificationKpis article>b,.financialChangeKpis article>b{font-size:var(--ui-font-kpi)}
 }
 
-/* Phase 13-3: nine owner-oriented groups with concrete second-level URLs. */
+/* Phase 22-4: approved flat operations plus analysis, development and system groups. */
 .sidebarGroupButton[aria-controls="sidebar-group-today"]>i{background:#e8f2ec;color:#155f42}
 .sidebarGroupButton[aria-controls="sidebar-group-orders"]>i{background:#eaf1fb;color:#315e99}
 .sidebarGroupButton[aria-controls="sidebar-group-customer"]>i{background:#f4eefc;color:#7251a6}
 .sidebarGroupButton[aria-controls="sidebar-group-inventory"]>i{background:#eef5e9;color:#4d752e}
 .sidebarGroupButton[aria-controls="sidebar-group-settlement"]>i{background:#fff3df;color:#9a6215}
 .sidebarGroupButton[aria-controls="sidebar-group-analysis"]>i{background:#eaf4f5;color:#276b70}
-.sidebarGroupButton[aria-controls="sidebar-group-execution"]>i{background:#f8eceb;color:#984a43}
-.sidebarGroupButton[aria-controls="sidebar-group-collection"]>i{background:#eef1f5;color:#536477}
-.sidebarGroupButton[aria-controls="sidebar-group-settings"]>i{background:#f1eff0;color:#675b61}
+.sidebarGroupButton[aria-controls="sidebar-group-development"]>i{background:#f8ecef;color:#8f596d}
+.sidebarGroupButton[aria-controls="sidebar-group-system"]>i{background:#eaf2fb;color:#4d6d92}
 
 @media(max-width:600px){
   .hubMain{padding-inline:14px}

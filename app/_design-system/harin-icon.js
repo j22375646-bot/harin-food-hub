@@ -51,7 +51,7 @@ const ALIASES = {
   main:'today', reports:'execution', changes:'approvals', validation:'execution',
   notifications:'alerts', knowledge:'ai', cs:'customer', insight:'analysis',
   keywords:'keyword', products:'product', diagnoses:'execution', market:'growth', cafe24:'store',
-  naver:'naverStore', coupang:'shoppingBag'
+  naver:'naverStore', coupang:'shoppingBag', development:'experiments', system:'settings'
 };
 
 export function HarinIcon({ name, size=20, title, className='' }) {

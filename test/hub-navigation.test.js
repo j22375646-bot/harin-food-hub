@@ -92,8 +92,8 @@ test('phase 13-6 focused workspaces have real addresses and restore their exact 
   }
 });
 
-test('all existing functions appear once in the nine owner-oriented sidebar groups', () => {
-  assert.deepEqual(HUB_NAV_GROUPS.map(group=>group.label),['오늘','주문·배송','고객·CS','재고·상품','정산·비용','분석','실행','수집상태','설정']);
+test('all existing functions appear once in the eight owner-oriented sidebar groups', () => {
+  assert.deepEqual(HUB_NAV_GROUPS.map(group=>group.label),['오늘','주문·배송','고객·CS','재고·상품','정산·비용','분석','개발','시스템']);
   const grouped=HUB_NAV_GROUPS.flatMap(group=>group.items);
   assert.equal(grouped.length,HUB_NAV.length);
   assert.equal(new Set(grouped).size,HUB_NAV.length);
@@ -102,12 +102,15 @@ test('all existing functions appear once in the nine owner-oriented sidebar grou
   assert.equal(groupForView('orders'),'orders');
   assert.equal(groupForView('cs'),'customer');
   assert.equal(groupForView('keyword'),'analysis');
-  assert.equal(groupForView('market'),'analysis');
+  assert.equal(groupForView('market'),'development');
   assert.equal(groupForView('product'),'inventory');
-  assert.equal(groupForView('knowledge'),'settings');
-  assert.equal(groupForView('changes'),'execution');
-  assert.equal(groupForView('notifications'),'execution');
-  assert.equal(groupForView('collection'),'collection');
+  assert.equal(groupForView('reports'),'analysis');
+  assert.equal(groupForView('knowledge'),'system');
+  assert.equal(groupForView('changes'),'system');
+  assert.equal(groupForView('notifications'),'system');
+  assert.equal(groupForView('collection'),'system');
+  assert.equal(groupForView('validation'),'development');
+  assert.equal(groupForView('experiments'),'development');
 });
 
 test('breadcrumb context uses group, function, and selected platform', () => {

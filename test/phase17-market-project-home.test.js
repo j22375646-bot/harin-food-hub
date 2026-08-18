@@ -34,7 +34,7 @@ test('17-1 migration keeps project and versions server-only with RLS',()=>{
 
 test('17-1 exposes the new section and four actual project routes',()=>{
   assert.equal(routes.HUB_NAV.find(item=>item.id==='market')?.href,'/market-intelligence');
-  assert.ok(routes.HUB_NAV_GROUPS.find(group=>group.id==='analysis').items.includes('market'));
+  assert.ok(routes.HUB_NAV_GROUPS.find(group=>group.id==='development').items.includes('market'));
   for(const workspace of ['data','market','competition','conversion']){
     const file=`app/market-intelligence/[projectId]/${workspace}/page.js`;
     assert.ok(fs.existsSync(path.join(root,file)),file);

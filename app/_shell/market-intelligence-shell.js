@@ -10,7 +10,7 @@ export default function MarketIntelligenceShell({children}){
   const router=useRouter();
   const pathname=usePathname();
   const [fontScale,setFontScale]=useStoredState('font-scale','large',['large','xlarge']);
-  const [openGroup,setOpenGroup]=useState('analysis');
+  const [openGroup,setOpenGroup]=useState('development');
   const [query,setQuery]=useState('');
   const [syncing,setSyncing]=useState(false);
   const [syncMessage,setSyncMessage]=useState('');
@@ -34,12 +34,12 @@ export default function MarketIntelligenceShell({children}){
     }catch(error){setSyncMessage(`확인 필요 · ${error.message}`);}
     finally{setSyncing(false);}
   }
-  const context={group:{label:'분석'},item:{label:'시장·전환'},platform:'선택 상품'};
+  const context={group:{label:'개발'},item:{label:'시장·전환'},platform:'선택 상품'};
   return <div className="shell marketHubShell">
     <HarinTopbar context={context} connectionLabel="상품별 분석 공간" connectionTone="check" fontScale={fontScale} onFontScale={setFontScale} syncing={syncing} onSync={runSync}/>
     <HarinSidebar groups={groups} view="market" openGroup={openGroup} query={query} onQuery={setQuery} onOpenGroup={setOpenGroup} onOpenView={openView} onPrefetch={prefetchView}/>
     <main className="hubMain marketHubMain" data-path={pathname}>
-      <nav className="marketBreadcrumb" aria-label="현재 위치"><span>분석</span><i>›</i><b>시장·전환</b></nav>
+      <nav className="marketBreadcrumb" aria-label="현재 위치"><span>개발</span><i>›</i><b>시장·전환</b></nav>
       {syncMessage?<div className="syncToast">{syncMessage}</div>:null}
       {children}
     </main>

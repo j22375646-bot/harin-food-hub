@@ -92,7 +92,7 @@ function ExecutionTab({execution}){
     <section className="phase7Panel">
       <div className="phase7PanelHead"><div><span>CHANGE HISTORY</span><h3>승인·변경·복구 기록</h3></div><small>검증 완료 {number(summary.verified_changes)} · 복구 {number(summary.rolled_back)}</small></div>
       {(execution?.changes||[]).length?<div className="phase7ChangeList">{execution.changes.slice(0,12).map(change=><article key={change.id}><div><span>{changeTypeLabel[change.change_type]||change.change_type}</span><b>{change.target_key}</b><small>{platformLabel[change.platform]||change.platform||'공통'} · {date(change.created_at)}</small></div><strong>{changeStatusLabel[change.status]||change.status}</strong><p>기록 {number(change.audit_count)}개{change.last_event?` · 최근 ${change.last_event}`:''}</p></article>)}</div>:<p className="phase7Empty">승인·변경 기록이 없습니다.</p>}
-      <div className="phase7Links"><a href="/approvals">변경승인 열기</a><a href="/diagnoses">저장된 진단 열기</a></div>
+      <div className="phase7Links"><a href="/approvals">변경기록 열기</a><a href="/diagnoses">저장된 진단 열기</a></div>
     </section>
   </div>;
 }

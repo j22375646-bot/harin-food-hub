@@ -16,7 +16,8 @@ test('16-1 assigns stable work-category tones to desktop and mobile navigation',
     "inventory:'apricot'",
     "settlement:'butter'",
     "analysis:'lilac'",
-    "execution:'rose'"
+    "development:'blush'",
+    "system:'sky'"
   ])assert.match(shell,new RegExp(pair));
   for(const pair of ["product:'apricot'","settlement:'butter'","insight:'lilac'","keyword:'lilac'","collection:'sky'"]){
     assert.match(shell,new RegExp(pair));

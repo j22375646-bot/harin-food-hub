@@ -14,9 +14,8 @@ const NAV_TONES = {
   inventory:'apricot',
   settlement:'butter',
   analysis:'lilac',
-  execution:'rose',
-  collection:'sky',
-  settings:'lavender'
+  development:'blush',
+  system:'sky'
 };
 const VIEW_TONES = {
   main:'lavender',
@@ -27,13 +26,14 @@ const VIEW_TONES = {
   settlement:'butter',
   insight:'lilac',
   keyword:'lilac',
-  reports:'rose',
-  changes:'rose',
-  validation:'rose',
-  experiments:'rose',
+  reports:'lilac',
+  market:'blush',
+  changes:'sky',
+  validation:'blush',
+  experiments:'blush',
   collection:'sky',
-  knowledge:'lavender',
-  notifications:'rose'
+  knowledge:'sky',
+  notifications:'sky'
 };
 const toneForGroup=groupId=>NAV_TONES[groupId]||'lavender';
 const toneForView=view=>VIEW_TONES[view]||'lavender';

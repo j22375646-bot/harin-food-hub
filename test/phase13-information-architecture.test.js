@@ -9,8 +9,8 @@ const { HUB_NAV, HUB_NAV_GROUPS, HUB_LEGACY_ROUTES, buildHubHref, parseHubHref, 
 const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
-test('13-3 exposes nine owner-oriented groups and preserves every concrete function URL',()=>{
-  assert.deepEqual(HUB_NAV_GROUPS.map(group=>group.id),['today','orders','customer','inventory','settlement','analysis','execution','collection','settings']);
+test('22-4 keeps the approved operating groups and adds focused analysis, development and system groups',()=>{
+  assert.deepEqual(HUB_NAV_GROUPS.map(group=>group.id),['today','orders','customer','inventory','settlement','analysis','development','system']);
   const ids=HUB_NAV_GROUPS.flatMap(group=>group.items);
   assert.equal(ids.length,HUB_NAV.length);
   assert.equal(new Set(ids).size,HUB_NAV.length);
@@ -20,11 +20,12 @@ test('13-3 exposes nine owner-oriented groups and preserves every concrete funct
   }
 });
 
-test('13-3 keeps product operations with inventory and AI reference material in settings',()=>{
+test('22-4 keeps product operations with inventory and moves support tools into system',()=>{
   assert.equal(navigationContext('product').group.label,'재고·상품');
   assert.equal(navigationContext('keyword').group.label,'분석');
-  assert.equal(navigationContext('knowledge').group.label,'설정');
-  assert.equal(navigationContext('collection').group.label,'수집상태');
+  assert.equal(navigationContext('market').group.label,'개발');
+  assert.equal(navigationContext('knowledge').group.label,'시스템');
+  assert.equal(navigationContext('collection').group.label,'시스템');
 });
 
 test('13-3 keeps legacy addresses and browser history restoration behavior',()=>{
@@ -40,6 +41,6 @@ test('13-3 renders concrete second-level items on desktop and collapsible groups
   assert.match(shell,/className="sidebarItems"/);
   assert.match(shell,/className="mobileNavGroup"/);
   assert.match(shell,/group\.items\.map\(item=>/);
-  assert.match(css,/Phase 13-3: nine owner-oriented groups/);
+  assert.match(css,/Phase 22-4: approved flat operations/);
   assert.match(css,/\.mobileNavGroup\[open\]/);
 });
