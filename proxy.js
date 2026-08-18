@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import authModule from './lib/dashboard-auth.js';
+import hubRoutesModule from './lib/navigation/hub-routes.js';
 
 function isPublic(pathname) {
   return pathname === '/login'
@@ -36,6 +37,10 @@ export async function proxy(request) {
   }
 
   const method = request.method.toUpperCase();
+  if (['GET','HEAD'].includes(method)) {
+    const canonicalHref=hubRoutesModule.canonicalLegacyHubHref(`${pathname}${request.nextUrl.search}`);
+    if (canonicalHref) return NextResponse.redirect(new URL(canonicalHref, request.url), 308);
+  }
   const mutation = !['GET', 'HEAD', 'OPTIONS'].includes(method);
   if (session.role !== 'OWNER') {
     if (pathname.startsWith('/api/')) return apiDenied(403, 'OWNER 권한이 필요한 작업입니다.', 'ROLE_FORBIDDEN');
