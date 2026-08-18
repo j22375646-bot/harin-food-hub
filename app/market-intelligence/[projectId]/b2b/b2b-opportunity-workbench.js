@@ -9,7 +9,7 @@ export default function B2BOpportunityWorkbench({center}){
     <section className="b2bReadinessKpis" aria-label="B2B 준비 현황">
       <HarinStateCard tone={summary.status==='BLOCKED'?'warning':'success'} icon="checklist" label="전체 준비도" value={`${summary.ready}/${summary.total}`} description={summary.label}/>
       <HarinStateCard tone="neutral" icon="product" label="선택 상품" value={center.product.name} description={won(center.product.sellingPrice)}/>
-      <HarinStateCard tone={center.provider.status==='READ_PROBE_REQUIRED'?'warning':'neutral'} icon="store" label="나라장터 연결" value={center.provider.label} description="읽기 전용 · 자동 제출 없음"/>
+      <HarinStateCard tone={center.provider.status==='READY'?'success':center.provider.status==='READ_PROBE_REQUIRED'?'warning':'neutral'} icon="store" label="나라장터 연결" value={center.provider.label} description="읽기 전용 · 자동 제출 없음"/>
       <HarinStateCard tone="success" icon="shield" label="현재 비용" value="0원" description="외부 API 호출 0회"/>
     </section>
 
@@ -34,7 +34,7 @@ export default function B2BOpportunityWorkbench({center}){
         <div className="b2bChecklist">{center.checks.map(item=><article key={item.id}><HarinPictogram icon={item.status==='READY'?'check':'warning'} tone={item.status==='READY'?'mint':'amber'} size={18}/><span><b>{item.label}</b><small>{item.detail}</small></span><HarinBadge tone={toneFor(item.status)}>{item.status==='READY'?'준비됨':item.status==='PARTIAL'?'확인 중':item.id==='PROVIDER'?center.provider.label:'확인 필요'}</HarinBadge></article>)}</div>
       </HarinCard>
       <HarinCard className="b2bConnectionCard" tone="soft">
-        <header><HarinPictogram icon="shield" tone="lavender" size={24}/><span><small>SAFE CONNECTION</small><h3>나라장터는 아직 호출하지 않아요</h3></span></header>
+        <header><HarinPictogram icon="shield" tone="lavender" size={24}/><span><small>SAFE CONNECTION</small><h3>{center.provider.status==='READY'?'나라장터 읽기 연결을 확인했어요':'나라장터는 자동 호출하지 않아요'}</h3></span></header>
         <p>{center.nextAction}</p><dl><div><dt>사업 시작 확인</dt><dd>{center.provider.businessActive?'확인됨':'아직'}</dd></div><div><dt>서버 안전 스위치</dt><dd>{center.provider.enabled?'열림':'잠금'}</dd></div><div><dt>서비스 키</dt><dd>{center.provider.credentialReady?'준비됨':'나중에 입력'}</dd></div><div><dt>자동 입찰·제출</dt><dd>사용 안 함</dd></div></dl>
         <HarinButton as="a" href="/data-collection/optional-providers" variant="secondary" icon="store">조달 API 준비 상태 보기</HarinButton>
       </HarinCard>

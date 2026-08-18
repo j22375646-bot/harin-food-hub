@@ -40,6 +40,11 @@ test('공식 특일 XML을 최소 공개 필드로 정규화한다',()=>{
   assert.deepEqual(rows,[{date:'20260815',name:'광복절',isHoliday:true}]);
 });
 
+test('공공데이터포털의 URL 인코딩 키를 한 번만 디코딩해 요청한다',async()=>{
+  let requested;await holiday.readYear({config:{endpoint:'https://apis.data.go.kr/example',apiKey:'abc%2B123%3D'},year:2026,fetchImpl:async url=>{requested=url;return {ok:true,status:200,text:async()=>'<response><header><resultCode>00</resultCode><resultMsg>NORMAL SERVICE.</resultMsg></header><body><items></items></body></response>'};}});
+  assert.equal(requested.searchParams.get('ServiceKey'),'abc+123=');
+});
+
 test('주소 조회 성공 기록에는 원문과 후보를 저장하지 않는다',async()=>{
   let saved;
   const db={from(){return {insert(row){saved=row;return {select(){return {single:async()=>({data:{id:'1',provider:row.provider,status:row.status,fetched_at:row.fetched_at},error:null})}}}}}}};

@@ -31,6 +31,12 @@ test('21-9 only advances to an official read probe after every provider gate',()
   assert.doesNotMatch(JSON.stringify(center),/private-service-key/);
 });
 
+test('21-9 marks procurement ready only after a successful stored read probe',()=>{
+  const env={PUBLIC_PROCUREMENT_B2B_ACTIVE:'true',PUBLIC_PROCUREMENT_ENABLED:'true',DATA_GO_KR_SERVICE_KEY:'private-service-key'};
+  const center=b2b.buildB2BReadiness({project:{analysis_config:{evidence_ids:[]}},product:{id:'product-2',name:'레드비트차',selling_price:15000,is_active:true},env,snapshots:[{provider:'PUBLIC_PROCUREMENT',status:'SUCCESS',fetched_at:'2026-08-18T03:00:00Z'}]});
+  assert.equal(center.provider.status,'READY');assert.match(center.nextAction,/읽기 연결이 확인/);assert.doesNotMatch(JSON.stringify(center),/private-service-key/);
+});
+
 test('21-9 exposes a fifth product-isolated B2B workspace and real route',()=>{
   assert.ok(projects.WORKSPACES.has('b2b'));
   assert.equal(projects.projectHref('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','b2b'),'/market-intelligence/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/b2b');

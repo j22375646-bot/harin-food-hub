@@ -6,6 +6,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const config=require('../lib/optional-providers/config.js');
 const deepl=require('../lib/optional-providers/deepl-client.js');
+const procurement=require('../lib/optional-providers/procurement-client.js');
 const readiness=require('../lib/optional-providers/readiness.js');
 const routes=require('../lib/navigation/hub-routes.js');
 const root=path.resolve(__dirname,'..');
@@ -32,9 +33,16 @@ test('keys and business flags never bypass manual probes or access gates',()=>{
   assert.equal(center.services.find(item=>item.provider==='DEEPL').status,'VERIFY_REQUIRED');
   assert.equal(center.services.find(item=>item.provider==='GOOGLE_TRENDS_ALPHA').status,'READ_PROBE_REQUIRED');
   assert.equal(center.services.find(item=>item.provider==='PUBLIC_PROCUREMENT').status,'READ_PROBE_REQUIRED');
-  assert.equal(center.services.filter(item=>item.action).length,1);
+  assert.equal(center.services.filter(item=>item.action).length,2);
   assert.doesNotMatch(JSON.stringify(center),/secret/);
   assert.equal(config.providerConfig('PUBLIC_PROCUREMENT',env).businessActive,true);
+});
+
+test('public procurement probe decodes the portal key and reads only a known goods notice',async()=>{
+  let requested;const result=await procurement.probe({config:{endpoint:'https://apis.data.go.kr/example',apiKey:'abc%2B123%3D'},fetchImpl:async url=>{requested=url;return {ok:true,status:200,text:async()=>'<response><header><resultCode>00</resultCode><resultMsg>정상</resultMsg></header><body><items><item><bidNtceNo>20160234982</bidNtceNo><bidNtceNm>물품 조회</bidNtceNm></item></items><totalCount>1</totalCount></body></response>'};}});
+  assert.equal(requested.searchParams.get('ServiceKey'),'abc+123=');
+  assert.equal(result.status,'SUCCESS');assert.equal(result.totalCount,1);
+  assert.doesNotMatch(JSON.stringify(result),/abc\+123/u);
 });
 
 test('one failed DeepL attempt does not change gated Trends or procurement states',()=>{
@@ -49,6 +57,6 @@ test('one failed DeepL attempt does not change gated Trends or procurement state
 test('optional providers have a real owner-only route, storage and responsive UI',()=>{
   assert.equal(routes.buildHubHref({view:'collection',workspace:'optional-providers'}),'/data-collection/optional-providers');
   assert.deepEqual(routes.parseHubHref('/data-collection/optional-providers'),{view:'collection',workspace:'optional-providers',platform:'all',period:'DAY',product:'ALL'});
-  const page=fs.readFileSync(path.join(root,'app/data-collection/optional-providers/page.js'),'utf8');const api=fs.readFileSync(path.join(root,'app/api/optional-providers/deepl/probe/route.js'),'utf8');const ui=fs.readFileSync(path.join(root,'app/optional-provider-center.js'),'utf8');const css=fs.readFileSync(path.join(root,'app/_reliability/harin-naver-api-center.css'),'utf8');const migration=fs.readFileSync(path.join(root,'supabase/migrations/20260818120000_add_optional_provider_snapshots.sql'),'utf8');
-  assert.match(page,/renderDashboardRoute\('collection'/);assert.match(api,/handleDeepLProbe/);assert.match(ui,/조건이 맞을 때만 쓰는 자료 API/);assert.match(ui,/fetch\(service\.action\.endpoint/);assert.match(css,/optionalProviderGrid/);assert.match(css,/@media\(max-width:760px\)/);assert.match(migration,/enable row level security/);assert.match(migration,/revoke all .*anon, authenticated/);
+  const page=fs.readFileSync(path.join(root,'app/data-collection/optional-providers/page.js'),'utf8');const api=fs.readFileSync(path.join(root,'app/api/optional-providers/deepl/probe/route.js'),'utf8');const procurementApi=fs.readFileSync(path.join(root,'app/api/optional-providers/public-procurement/probe/route.js'),'utf8');const ui=fs.readFileSync(path.join(root,'app/optional-provider-center.js'),'utf8');const css=fs.readFileSync(path.join(root,'app/_reliability/harin-naver-api-center.css'),'utf8');const migration=fs.readFileSync(path.join(root,'supabase/migrations/20260818120000_add_optional_provider_snapshots.sql'),'utf8');
+  assert.match(page,/renderDashboardRoute\('collection'/);assert.match(api,/handleDeepLProbe/);assert.match(procurementApi,/handleProcurementProbe/);assert.match(ui,/조건이 맞을 때만 쓰는 자료 API/);assert.match(ui,/fetch\(service\.action\.endpoint/);assert.match(css,/optionalProviderGrid/);assert.match(css,/@media\(max-width:760px\)/);assert.match(migration,/enable row level security/);assert.match(migration,/revoke all .*anon, authenticated/);
 });

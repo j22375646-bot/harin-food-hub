@@ -31,6 +31,10 @@ test('FoodSafetyKorea client uses the official HTTPS service path and preserves 
   assert.equal(result.status,'NO_DATA');assert.equal(result.totalCount,0);
 });
 
+test('FoodSafetyKorea distinguishes a valid key with missing service approval',async()=>{
+  await assert.rejects(()=>foodClient.fetchService({apiKey:'secret',serviceId:'C002',fetchImpl:async()=>({ok:true,json:async()=>({C002:{RESULT:{CODE:'INFO-110',MSG:'활용신청 내역이 없습니다.'}}})})}),error=>error.code==='FOOD_SAFETY_SERVICE_NOT_APPROVED'&&/활용신청/u.test(error.message));
+});
+
 test('official food product and recall rows keep useful business evidence without contact PII',()=>{
   const product=foodProduct.normalizeRow({PRDLST_NM:'작두콩차',PRDLST_REPORT_NO:'2026001',BSSH_NM:'하린식품',PRDLST_DCNM:'침출차',RAWMTRL_NM:'작두콩 100%',PRMS_DT:'20260801'},'2026-08-17T00:00:00.000Z');
   assert.equal(product.metadata.report_no,'2026001');assert.match(product.summary,/작두콩 100%/);assert.equal(product.provider,'FOOD_SAFETY_PRODUCT');
