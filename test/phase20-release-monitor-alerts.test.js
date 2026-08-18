@@ -57,3 +57,8 @@ test('phase 20-4 UI, protected routes, migration and deferred environment checkl
   for(const key of ['GITHUB_RELEASE_TOKEN','UPTIMEROBOT_READ_ONLY_API_KEY','TELEGRAM_BOT_TOKEN','TELEGRAM_ALERT_WRITES_ENABLED=false','RESEND_ALERT_WRITES_ENABLED=false'])assert.match(env,new RegExp(key));
   for(const provider of ['GITHUB_RELEASES','UPTIMEROBOT','TELEGRAM_BOT','RESEND'])assert.match(migration,new RegExp(provider));
 });
+
+test('manual operations-health probes store provider snapshots without the automatic request ledger',()=>{
+  const source=fs.readFileSync(path.join(root,'lib/operations-health/route-handler.js'),'utf8');
+  assert.match(source,/readiness\.probeProvider\(provider,\{db\}\)/);assert.doesNotMatch(source,/protectedRead|provider_request_runs/);
+});
