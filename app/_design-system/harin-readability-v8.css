@@ -243,6 +243,63 @@ html[data-font-scale="xlarge"] .harinV8{
   line-height:1.5;
 }
 
+/* Phase 22-7: page AI, selection bars and reliability use one readable support scale. */
+.harinV8 .aiResultStory article small,
+.harinV8 .aiResultPreview>header span,
+.harinV8 .aiResultPreview>header small,
+.harinV8 .aiResultPreview>footer span,
+.harinV8 .aiPageTaskList>header small,
+.harinV8 .aiAnalysisManifest>header small,
+.harinV8 .aiManifestGrid article small,
+.harinV8 .aiManifestGrid article p,
+.harinV8 .aiManifestGrid article.inputs p>em,
+.harinV8 .aiManifestExclusions>summary b,
+.harinV8 .aiManifestExclusions>summary span,
+.harinV8 .v8BulkSelectionBar>header small,
+.harinV8 .v8BulkSelectionPreview,
+.harinV8 .reliabilityHero>div>span,
+.harinV8 .reliabilityHero>aside small,
+.harinV8 .reliabilityHero>aside em,
+.harinV8 .reliabilityKpis small,
+.harinV8 .reliabilityKpis span,
+.harinV8 .reliabilityWorkerSignals header small,
+.harinV8 .reliabilityExceptionPreview header small,
+.harinV8 .reliabilityExceptionPreview header p,
+.harinV8 .reliabilityWorkerSignals article small,
+.harinV8 .reliabilityWorkerSignals article>em,
+.harinV8 .reliabilityExceptionPreview article small,
+.harinV8 .reliabilityExceptionPreview article p,
+.harinV8 .reliabilityAllClear small{
+  font-size:var(--v8-readable-support)!important;
+  line-height:1.5;
+}
+.harinV8 .aiResultStory article b,
+.harinV8 .aiResultPreview>footer b,
+.harinV8 .aiPageTaskList>div span,
+.harinV8 .v8BulkSelectionBar>header b,
+.harinV8 .reliabilityWorkerSignals article b,
+.harinV8 .reliabilityExceptionPreview article b,
+.harinV8 .reliabilityAllClear b{
+  font-size:var(--v8-readable-control)!important;
+  line-height:1.5;
+}
+.harinV8 .v8BulkSelectionBar button,
+.harinV8 .reliabilityExceptionPreview article button,
+.harinV8 .reliabilityRetryAll{
+  min-height:var(--v8-readable-touch);
+  font-size:var(--v8-readable-control)!important;
+}
+.harinV8 .reliabilityChannelRail article>i svg,
+.harinV8 .reliabilityHero>aside>i svg,
+.harinV8 .reliabilityExceptionPreview article>i svg,
+.harinV8 .reliabilityAllClear>i svg{display:block}
+
+/* The legacy five-step order cards used content-box sizing and overflowed their mobile rail. */
+.harinV8 .orderProcessNode,
+.harinV8 .orderProcessNode>button{box-sizing:border-box;max-width:100%}
+.harinV8 .orderProcessNode>button{overflow:hidden}
+.harinV8 .orderProcessNode :where(small,strong,span){max-width:100%;overflow-wrap:anywhere;white-space:normal}
+
 @media(max-width:700px){
   .harinV8{
     --v8-readable-body:16px;
@@ -266,6 +323,9 @@ html[data-font-scale="xlarge"] .harinV8{
   .harinV8 .keywordOpsReviewList{margin-inline:18px}
   .harinV8 .keywordOpsReview>footer{padding-inline:18px}
   .harinV8 .liveStatusDock{width:calc(100vw - 24px)}
+  .harinV8 .orderProcessFlow{gap:24px}
+  .harinV8 .orderProcessNode{flex-basis:min(72vw,250px)}
+  .harinV8 .orderProcessNode>i{right:-23px}
   .harinV8 .ownerWorkspacePanel>header span{font-size:var(--v8-readable-label)!important}
   .harinV8 :where(
     .keywordOpsSummary>span,

@@ -44,7 +44,8 @@ const ICONS = {
   image: <><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="m5 18 5-5 3 3 2-2 4 4"/></>,
   shield: <><path d="M12 3 5 6v5c0 4.7 2.8 8 7 10 4.2-2 7-5.3 7-10V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></>,
   sparkles: <><path d="m12 3 1.4 3.6L17 8l-3.6 1.4L12 13l-1.4-3.6L7 8l3.6-1.4L12 3Z"/><path d="m18 14 .8 1.7 1.7.8-1.7.8L18 19l-.8-1.7-1.7-.8 1.7-.8L18 14Z"/></>,
-  chevron: <path d="m9 6 6 6-6 6"/>
+  chevron: <path d="m9 6 6 6-6 6"/>,
+  close: <><path d="m6 6 12 12"/><path d="M18 6 6 18"/></>
 };
 
 const ALIASES = {
