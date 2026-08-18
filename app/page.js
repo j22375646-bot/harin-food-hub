@@ -219,6 +219,114 @@ function finalizeAiPagePanels(panels, latestAiPageResults, generatedAt, pageKeys
   return panels;
 }
 
+async function buildFocusedShellData({
+  queryIssues, syncResult, alertsResult, generatedAt,
+  cafe24Counts={}, coupangCounts={}, summaries={}
+}) {
+  const syncs=syncResult.data||[];
+  const alerts=alertsResult.data||[];
+  const dataHealth=dataHealthModule.buildDataHealth({
+    issues:queryIssues,
+    syncs,
+    automationRuns:[],
+    coupangRequests:[],
+    summaries,
+    now:generatedAt
+  });
+  const channelConnections=await channelCapabilitiesModule.buildChannelCapabilities({
+    syncs,
+    cafe24Counts,
+    coupangCounts
+  });
+  const collectionCenter=unifiedCollectionModule.buildUnifiedCollectionCenter({
+    dataHealth,
+    channelConnections,
+    syncs,
+    automationRuns:[],
+    qualityChecks:[],
+    alerts,
+    now:generatedAt
+  });
+  return {syncs,alerts,dataHealth,channelConnections,collectionCenter};
+}
+
+async function buildInventoryDashboardData({
+  loaderSession,generatedAt,queryIssues,
+  syncResult,alertsResult,coupangProductsResult,coupangProductItemsResult,coupangInventoryResult,
+  latestAiPageResults
+}) {
+  const rawInventory=coupangInventoryResult.data||[];
+  const shell=await buildFocusedShellData({
+    queryIssues,syncResult,alertsResult,generatedAt,
+    coupangCounts:{products:coupangProductsResult.data?.length||0,orders:0,inquiries:0,claims:0},
+    summaries:{COUPANG:coupangInventoryResult.unavailable?'저장량 확인 불가':`${rawInventory.length.toLocaleString('ko-KR')}개 로켓그로스 SKU`}
+  });
+  const productItemMap=new Map((coupangProductItemsResult.data||[]).map(item=>[String(item.vendor_item_id),item]));
+  const inventoryBase=rawInventory.map(item=>({
+    ...item,
+    productItem:productItemMap.get(String(item.vendor_item_id))||null
+  }));
+  const {items:rgInventory,summary:inventoryMarketing}=coupangMarketingModule.buildInventoryMarketing(inventoryBase);
+  const builtPanels=aiPagePanelsModule.buildAiPagePanels({
+    dataHealth:shell.dataHealth,
+    rocketGrowthInventory:rgInventory,
+    collectionCenter:shell.collectionCenter,
+    alerts:shell.alerts,
+    aiConfiguration:openaiClientModule.configuration(),
+    generatedAt,
+    period:kstScheduleModule.kstDateKey(generatedAt)
+  });
+  const aiPagePanels=finalizeAiPagePanels({inventory:builtPanels.inventory},latestAiPageResults,generatedAt,['inventory']);
+  return {
+    loadedView:'inventory',loadedWorkspace:null,loaderPerformance:loaderSession.snapshot(),generatedAt,
+    dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
+    aiPagePanels,
+    kpis:{sales:0,orders:0,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:0},
+    products:[],syncs:shell.syncs,reports:[],actions:[],alerts:shell.alerts,automationRuns:[],qualityChecks:[],metricSnapshots:[],
+    financialTrust:{},
+    coupang:{
+      products:coupangProductsResult.data||[],
+      productCount:coupangProductsResult.data?.length||0,
+      rgInventory,
+      rgInventoryCount:rgInventory.length,
+      rgTotalOrderable:rgInventory.reduce((sum,item)=>sum+number(item.total_orderable_quantity),0),
+      rgSalesLast30Days:rgInventory.reduce((sum,item)=>sum+number(item.sales_last_30_days),0),
+      rgOutOfStock:rgInventory.filter(item=>item.stock_status==='OUT_OF_STOCK').length,
+      rgLowStock:rgInventory.filter(item=>['CRITICAL','LOW'].includes(item.stock_status)).length,
+      inventoryMarketing,
+      latestSync:shell.syncs.find(item=>item.platform==='COUPANG')||null
+    }
+  };
+}
+
+async function buildInsightOverviewDashboardData({
+  loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,latestAiPageResults
+}) {
+  const shell=await buildFocusedShellData({
+    queryIssues,syncResult,alertsResult,generatedAt,
+    summaries:{NAVER:'저장 보고서 기준',CAFE24:'저장 보고서 기준',COUPANG:'저장 보고서 기준'}
+  });
+  const builtPanels=aiPagePanelsModule.buildAiPagePanels({
+    dataHealth:shell.dataHealth,
+    collectionCenter:shell.collectionCenter,
+    alerts:shell.alerts,
+    aiConfiguration:openaiClientModule.configuration(),
+    generatedAt,
+    period:kstScheduleModule.kstDateKey(generatedAt)
+  });
+  const aiPagePanels=finalizeAiPagePanels({insight:builtPanels.insight},latestAiPageResults,generatedAt,['insight']);
+  return {
+    loadedView:'insight',loadedWorkspace:'overview',loaderPerformance:loaderSession.snapshot(),generatedAt,
+    dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
+    aiPagePanels,aiFoundation:{},financialTrust:{},
+    kpis:{sales:0,orders:0,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:0},
+    products:[],syncs:shell.syncs,reports:reportsResult.data||[],actions:[],alerts:shell.alerts,
+    platformEvents:eventsResult.data||[],automationRuns:[],qualityChecks:[],metricSnapshots:[],
+    unifiedProductPerformance:{summary:{},items:[]},
+    naver:{},coupang:{}
+  };
+}
+
 async function buildOrdersDashboardData({
   loaderSession, generatedAt, queryIssues,
   ordersResult, itemsResult, productsResult, syncResult, alertsResult, channelsResult,
@@ -533,6 +641,22 @@ async function getDashboardData(state) {
   });
   const queryIssues = [...settled.issues];
   const [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, shippingRulesResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult] = settled.results;
+  if(view==='inventory'||(view==='insight'&&state?.workspace==='overview')){
+    const aiResultsSettled=dataHealthModule.settleQueries(await supplementalQueries.aiResults,[
+      {platform:'SHARED',dataset:'ai_analysis_results'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    queryIssues.push(...aiResultsSettled.issues);
+    const latestAiPageResults=aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[]);
+    if(view==='inventory'){
+      return buildInventoryDashboardData({
+        loaderSession,generatedAt,queryIssues,syncResult,alertsResult,
+        coupangProductsResult,coupangProductItemsResult,coupangInventoryResult,latestAiPageResults
+      });
+    }
+    return buildInsightOverviewDashboardData({
+      loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,latestAiPageResults
+    });
+  }
   if(view==='orders'){
     const [naverCommerceRaw,aiResultsRaw,shippingReferenceRaw]=await Promise.all([
       supplementalQueries.naverCommerce,

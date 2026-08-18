@@ -74,6 +74,11 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/cafe24_products'[\s\S]*?\.limit\(view==='orders'\?100:500\)/);
   assert.match(page,/if\(view==='orders'\)\{[\s\S]*?return buildOrdersDashboardData\(/);
   assert.match(page,/buildOrdersDashboardData[\s\S]*?finalizeAiPagePanels\(\{orders:builtPanels\.orders\}/);
+  assert.match(page,/if\(view==='inventory'\|\|\(view==='insight'&&state\?\.workspace==='overview'\)\)\{/);
+  assert.match(page,/return buildInventoryDashboardData\(/);
+  assert.match(page,/buildInventoryDashboardData[\s\S]*?finalizeAiPagePanels\(\{inventory:builtPanels\.inventory\}/);
+  assert.match(page,/return buildInsightOverviewDashboardData\(/);
+  assert.match(page,/buildInsightOverviewDashboardData[\s\S]*?finalizeAiPagePanels\(\{insight:builtPanels\.insight\}/);
   assert.match(dashboard,/data-loader-profile=\{initialData\.loaderPerformance\?\.profile/);
   assert.match(dashboard,/data-loader-ms=\{initialData\.loaderPerformance\?\.duration_ms/);
   assert.match(dashboard,/data-loader-slowest=\{/);
