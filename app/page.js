@@ -210,7 +210,7 @@ async function getDashboardData(state) {
       // limits view-specific prevents a slow analytics route from delaying
       // every navigation while preserving the wider settlement export window.
       main:{orders:600,items:1500,costs:500},
-      orders:{orders:500,items:1500,costs:500},
+      orders:{orders:200,items:600,costs:300},
       cs:{orders:1000,items:2500,costs:500},
       settlement:{orders:3000,items:5000,costs:5000},
       insight:{orders:1200,items:2500,costs:1500},
@@ -323,7 +323,9 @@ async function getDashboardData(state) {
     db.from('reports').select('id,platform,report_type,period_start,period_end,title,status,summary_json,version,supersedes_report_id,is_latest,revision_note,approved_at,approved_by,created_at').order('period_end', { ascending: false }).order('created_at',{ascending:false}).limit(80),
     db.from('actions').select('id,platform,target_type,target_id,target_name,action_type,reason,status,before_value,after_value,decided_at,executed_at,review_after,priority,assignee,due_at,hold_reason,review_result,created_at').order('decided_at', { ascending: false }).limit(100),
     db.from('master_products').select('id,name,selling_price,is_active').order('updated_at',{ascending:false}).limit(200),
-    db.from('channel_products').select('id,master_product_id,platform,external_product_id,external_product_name,selling_price,is_active,match_method,match_confidence,matched_at,matched_by,raw_data,updated_at').order('updated_at',{ascending:false}).limit(500),
+    db.from('channel_products')
+      .select(view==='orders'?'master_product_id,platform,external_product_id,external_product_name,raw_data,updated_at':'id,master_product_id,platform,external_product_id,external_product_name,selling_price,is_active,match_method,match_confidence,matched_at,matched_by,raw_data,updated_at')
+      .order('updated_at',{ascending:false}).limit(view==='orders'?100:500),
     db.from('naver_campaigns').select('ncc_campaign_id,name,campaign_type,status,user_lock'),
     db.from('naver_adgroups').select('ncc_adgroup_id,ncc_campaign_id,name,status,user_lock',{count:'exact'}).limit(1000),
     db.from('naver_keywords').select('*',{count:'exact',head:true}),
@@ -351,7 +353,7 @@ async function getDashboardData(state) {
     db.from('coupang_settlement_summaries').select('recognition_month,settlement_type,settlement_date,status,total_sale,service_fee,settlement_target_amount,settlement_amount,last_amount,pending_released_amount,final_amount').order('recognition_month',{ascending:false}).order('settlement_date',{ascending:false}).limit(24),
     db.from('coupang_promotion_budgets').select('budget_key,status,budget_amount,used_amount,remaining_amount,checked_at').order('checked_at',{ascending:false}).limit(20),
     db.from('coupang_api_capabilities').select('feature_key,family,title,method,mode,status,risk_level,sync_frequency').order('family').order('title'),
-    db.from('coupang_product_items').select('vendor_item_id,seller_product_id,item_name,sale_price,status,raw_data').limit(1000),
+    db.from('coupang_product_items').select('vendor_item_id,seller_product_id,item_name,sale_price,status,raw_data').limit(view==='orders'?200:1000),
     db.from('coupang_rg_order_items').select('order_id,vendor_item_id,product_name,quantity,amount').limit(rowLimit('items',5000)),
     db.from('coupang_cost_transactions').select('source_type,transaction_type,event_date,recognition_date,order_id,reference_id,vendor_item_id,sku_id,product_name,option_name,quantity,gross_sales,seller_discount,cost_amount,cost_vat,credit_amount,raw_data').order('event_date',{ascending:false}).limit(rowLimit('costs',10000)),
     db.from('coupang_cost_imports').select('id,file_name,source_types,status,input_rows,stored_rows,duplicate_rows,invalid_rows,gross_sales,cost_amount,cost_vat,credit_amount,period_start,period_end,imported_at').order('imported_at',{ascending:false}).limit(30),
