@@ -21,6 +21,7 @@ import financialTrustModule from '../lib/analytics/financial-trust.js';
 import financialReadinessModule from '../lib/analytics/financial-readiness.js';
 import priorityCenterModule from '../lib/actions/priority-center.js';
 import dataHealthModule from '../lib/dashboard/data-health.js';
+import pageLoaderProfilesModule from '../lib/dashboard/page-loader-profiles.js';
 import coupangQueueHealthModule from '../lib/dashboard/coupang-queue-health.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
 import salesCommandCenterModule from '../lib/dashboard/sales-command-center.js';
@@ -139,28 +140,40 @@ function emptySupabaseQuery() {
   return query;
 }
 
-function tablesForView(view, workspace) {
+function tablesForView(view, workspace, platform='all') {
   // The insight landing page is a saved-report decision desk. Live channel
   // detail belongs to the causes/channels routes, so avoid fetching dozens of
   // raw operational tables before the first useful screen can appear.
-  if(view==='insight'&&workspace==='overview')return INSIGHT_OVERVIEW_TABLES;
-  return VIEW_TABLES[view]||VIEW_TABLES.main;
+  const fallback=view==='insight'&&workspace==='overview'?INSIGHT_OVERVIEW_TABLES:(VIEW_TABLES[view]||VIEW_TABLES.main);
+  return pageLoaderProfilesModule.profileForState({view,workspace,platform},fallback).tables;
 }
 
-function databaseForView(db, view, workspace) {
-  const allowed=new Set([...SHELL_TABLES,...tablesForView(view,workspace)]);
+function databaseForLoaderState(db, view, workspace, platform='all', loaderSession=null) {
+  const allowed=new Set([...SHELL_TABLES,...tablesForView(view,workspace,platform)]);
   return new Proxy(db,{
     get(target,key){
-      if(key==='from')return table=>allowed.has(table)?target.from(table):emptySupabaseQuery();
+      if(key==='from')return table=>{
+        const isAllowed=allowed.has(table);
+        loaderSession?.mark(table,isAllowed);
+        return isAllowed?target.from(table):emptySupabaseQuery();
+      };
       const value=target[key];
       return typeof value==='function'?value.bind(target):value;
     }
   });
 }
 
+// Compatibility entry point used by older route-level checks. New routes pass
+// the full state through databaseForLoaderState so platform profiles stay split.
+function databaseForView(db, view, workspace) {
+  return databaseForLoaderState(db,view,workspace);
+}
+
 async function getDashboardData(state) {
   const view=state?.view||'main';
-  const db = databaseForView(supabaseModule.getSupabase(), view, state?.workspace);
+  const fallbackTables=view==='insight'&&state?.workspace==='overview'?INSIGHT_OVERVIEW_TABLES:(VIEW_TABLES[view]||VIEW_TABLES.main);
+  const loaderSession=pageLoaderProfilesModule.createLoaderSession(state,fallbackTables);
+  const db = databaseForLoaderState(supabaseModule.getSupabase(), view, state?.workspace, state?.platform, loaderSession);
   const rowLimit=(kind, fallback)=>{
     const limits={
       // Decision pages only need the newest operational window. Keeping the
@@ -1013,6 +1026,7 @@ async function getDashboardData(state) {
   return {
     loadedView:view,
     loadedWorkspace:state?.workspace||null,
+    loaderPerformance:loaderSession.snapshot(),
     generatedAt,
     dataHealth,
     channelConnections,

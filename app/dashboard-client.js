@@ -250,7 +250,7 @@ export default function Dashboard({ initialData, initialState }) {
   return <div className="shell">
     <HarinTopbar context={navContext} connectionLabel={connectionLabel} connectionTone={connectionTone} fontScale={fontScale} onFontScale={setFontScale} syncing={syncing} onSync={runSync}/>
     <HarinSidebar groups={navGroups} view={pendingView||view} openGroup={openNavGroup} query={navQuery} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onOpenView={openView} onPrefetch={prefetchView}/>
-    <main className={`hubMain${viewIsLoading?' routePending':''}`} aria-busy={viewIsLoading?'true':'false'}>
+    <main className={`hubMain${viewIsLoading?' routePending':''}`} aria-busy={viewIsLoading?'true':'false'} data-loader-profile={initialData.loaderPerformance?.profile||undefined} data-loader-ms={initialData.loaderPerformance?.duration_ms??undefined} data-loader-target={initialData.loaderPerformance?.target_ms??undefined}>
       {viewIsLoading?<section className="viewLoadingRibbon" role="status" aria-live="polite">
         <span className="viewLoadingSpinner" aria-hidden="true"/>
         <span className="viewLoadingCopy"><b>{nav.find(item=>item.id===(pendingView||view))?.label} 화면으로 이동하고 있어요</b><small>허브 메뉴는 그대로 두고 필요한 자료만 불러옵니다.</small></span>
