@@ -37,9 +37,10 @@ test('13-1 limits heavy route payloads and long client lists',()=>{
 });
 
 test('13-1 isolates route errors and disables live test APIs in production',()=>{
-  for(const file of ['app/loading.js','app/error.js','app/global-error.js','app/not-found.js']){
+  for(const file of ['app/error.js','app/global-error.js','app/not-found.js']){
     assert.equal(fs.existsSync(path.join(root,file)),true,`${file} is missing`);
   }
+  assert.equal(fs.existsSync(path.join(root,'app/loading.js')),false,'root loading boundary must not replace the persistent hub shell');
   assert.match(read('app/api/epost/test-issue/route.js'),/NODE_ENV === 'production'/);
   assert.match(read('app/api/cafe24/test/route.js'),/NODE_ENV === 'production'/);
 });

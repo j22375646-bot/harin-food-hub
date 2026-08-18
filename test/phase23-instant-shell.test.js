@@ -9,10 +9,8 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('23-1 keeps the current hub shell visible during App Router navigation',()=>{
-  const rootLoading=read('app/loading.js');
   const dashboard=read('app/dashboard-client.js');
-  assert.match(rootLoading,/return null/);
-  assert.doesNotMatch(rootLoading,/routeLoading|HarinLoadingScreen/);
+  assert.equal(fs.existsSync(path.join(root,'app/loading.js')),false);
   assert.doesNotMatch(dashboard,/const \[mounted|setMounted\(true\)|if \(!mounted\)/);
   assert.match(dashboard,/view=\{pendingView\|\|view\}/);
   assert.match(dashboard,/setPendingView\(state\.view\)/);

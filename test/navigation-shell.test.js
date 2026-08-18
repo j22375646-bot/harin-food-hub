@@ -11,7 +11,6 @@ const styles=fs.readFileSync(path.join(__dirname,'..','app','globals.css'),'utf8
 const shellStyles=fs.readFileSync(path.join(__dirname,'..','app','_shell','harin-shell-v8.css'),'utf8');
 const validation=fs.readFileSync(path.join(__dirname,'..','app','customer-retention-validation-center.js'),'utf8');
 const page=fs.readFileSync(path.join(__dirname,'..','app','page.js'),'utf8');
-const loading=fs.readFileSync(path.join(__dirname,'..','app','loading.js'),'utf8');
 const preferences=fs.readFileSync(path.join(__dirname,'..','app','use-hub-preference.js'),'utf8');
 const collectionCenter=fs.readFileSync(path.join(__dirname,'..','app','unified-collection-operations-center.js'),'utf8');
 
@@ -55,7 +54,8 @@ test('phase 10-6 scopes database tables per page and shows useful loading feedba
   assert.match(client,/viewIsLoading/);
   assert.match(client,/financialContextViews\.has\(view\)&&<FinancialTrustBanner/);
   assert.match(client,/dynamic\(\(\)=>import\('\.\/product-growth-center\.js'\),\{loading:LazyWorkbenchFallback\}\)/);
-  assert.match(loading,/Loading/);
+  assert.equal(fs.existsSync(path.join(__dirname,'..','app','loading.js')),false);
+  assert.match(client,/className="viewLoadingRibbon"/);
 });
 
 test('12-3 uses stable date keys across the executive board and legacy Naver snapshot', () => {

@@ -25,12 +25,10 @@ test('16-2 keeps password-only owner login while adding the pastel welcome layou
 });
 
 test('23-1 supersedes full route and hydration loading with the persistent shell',()=>{
-  const routeLoading=read('app/loading.js');
   const dashboard=read('app/dashboard-client.js');
   const shared=read('app/_design-system/harin-loading-screen.js');
   const marketLoading=read('app/market-intelligence/loading.js');
-  assert.match(routeLoading,/return null/);
-  assert.doesNotMatch(routeLoading,/HarinLoadingScreen/);
+  assert.equal(fs.existsSync(path.join(root,'app/loading.js')),false);
   assert.doesNotMatch(dashboard,/if \(!mounted\)|HarinLoadingScreen/);
   assert.match(dashboard,/className="viewLoadingSkeleton"/);
   assert.match(marketLoading,/HarinRouteSkeleton/);
