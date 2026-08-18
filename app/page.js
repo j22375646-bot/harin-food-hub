@@ -402,6 +402,95 @@ async function buildProductCostsDashboardData({
   };
 }
 
+async function buildRegisteredKeywordDashboardData({
+  loaderSession,generatedAt,queryIssues,platform,
+  syncResult,alertsResult,masterResult,channelsResult,costsResult,
+  naverCampaignResult,naverGroupResult,naverKeywordResult,
+  coupangProductsResult,coupangAdDailyResult,coupangAdKeywordTopResult,coupangAdKeywordWasteResult,coupangAdCampaignResult,coupangAdBillingResult,
+  keywordPeriod,marketingKeywordStats,marketingKeywordCatalog,productAdTargetRows,naverKeywordProductLinks,
+  cafe24Token,latestAiPageResults
+}) {
+  const isNaver=platform==='naver';
+  const isCoupang=platform==='coupang';
+  const keywordTop=isNaver?marketingKeywordStats.filter(item=>number(item.conversion_revenue)>0).sort((left,right)=>number(right.conversion_revenue)-number(left.conversion_revenue)).slice(0,50):[];
+  const keywordWaste=isNaver?marketingKeywordStats.filter(item=>number(item.conversion_revenue)<=0&&number(item.cost)>0).sort((left,right)=>number(right.cost)-number(left.cost)).slice(0,50):[];
+  const withAdMetrics=item=>({...item,metrics:metricCalculator.calculatePerformance({
+    impressions:item.impressions,clicks:item.clicks,cost:item.cost,conversions:item.conversions,
+    revenue:item.conversion_revenue??item.revenue,targetRoasPercent:Number(process.env.NAVER_TARGET_ROAS_PERCENT||250)
+  })});
+  const activeMasterProducts=(masterResult.data||[]).filter(item=>item.is_active!==false);
+  const costIds=new Set((costsResult.data||[]).filter(item=>number(item.unit_cost)+number(item.packaging_cost)+number(item.other_unit_cost)>0).map(item=>String(item.master_product_id)));
+  const costCoverageRate=activeMasterProducts.length?activeMasterProducts.filter(item=>costIds.has(String(item.id))).length/activeMasterProducts.length*100:null;
+  const financialTrust=financialTrustModule.evaluateFinancialTrust({
+    costCoverageRate,
+    missingCostProducts:activeMasterProducts.filter(item=>!costIds.has(String(item.id))).length,
+    requireAdAssignment:false
+  });
+  // Registered keyword operations only need the stored owner target settings.
+  // Revenue attribution remains on the product/profit workbench, so missing
+  // sales evidence stays BLOCKED instead of being invented as zero profit.
+  const productAdTargets=productAdTargetsModule.buildProductAdTargets({
+    performance:{period_start:keywordPeriod?.period_start||null,period_end:keywordPeriod?.period_end||null,items:[]},
+    targets:productAdTargetRows,financialTrust,asOf:generatedAt
+  });
+  const naverBidWorkbenchRaw=naverBidWorkbenchModule.buildNaverBidWorkbench({
+    keywords:isNaver?marketingKeywordCatalog:[],
+    stats:isNaver?marketingKeywordStats:[],
+    productTargets:productAdTargets.items||[],
+    keywordProductLinks:isNaver?naverKeywordProductLinks:[],
+    masterProducts:activeMasterProducts,
+    financialTrust:{allowed_cpc:financialTrust.allowed?.allowed_cpc===true,financial_actions:financialTrust.allowed?.bid_increase===true},
+    period:keywordPeriod||{},
+    executionEnabled:naverBidExecutionModule.configuration().write_enabled
+  });
+  const naverBidWorkbench={...naverBidWorkbenchRaw,candidates:naverBidWorkbenchRaw.candidates.map(candidate=>{
+    const snapshot=naverBidWorkbenchModule.proposalSnapshot(candidate);
+    return {...candidate,snapshot_token:snapshot?authModule.signBidProposalSnapshot(snapshot):null};
+  })};
+  const coupangTop=isCoupang?(coupangAdKeywordTopResult.data||[]):[];
+  const coupangWaste=isCoupang?(coupangAdKeywordWasteResult.data||[]):[];
+  const visibleKeywordCount=isNaver?naverBidWorkbench.candidates.length:coupangTop.length+coupangWaste.length;
+  const shell=await buildFocusedShellData({
+    queryIssues,syncResult,alertsResult,generatedAt,cafe24Token,
+    cafe24Counts:{products:0,orders:0},
+    coupangCounts:{products:coupangProductsResult.data?.length||0,orders:0,inquiries:0,claims:0},
+    summaries:{
+      NAVER:isNaver?`${visibleKeywordCount.toLocaleString('ko-KR')}개 등록 키워드`:'선택하지 않은 플랫폼',
+      CAFE24:'채널 연결 상태',
+      COUPANG:isCoupang?`${visibleKeywordCount.toLocaleString('ko-KR')}개 광고 키워드`:'선택하지 않은 플랫폼'
+    }
+  });
+  const aiConfiguration=openaiClientModule.configuration();
+  const builtPanels=aiPagePanelsModule.buildAiPagePanels({
+    dataHealth:shell.dataHealth,collectionCenter:shell.collectionCenter,alerts:shell.alerts,aiConfiguration,
+    searchTermCenter:{summary:{terms:visibleKeywordCount}},generatedAt,period:keywordPeriod?.period_end||kstScheduleModule.kstDateKey(generatedAt)
+  });
+  const aiPagePanels=finalizeAiPagePanels({keyword:builtPanels.keyword},latestAiPageResults,generatedAt,['keyword']);
+  return {
+    loadedView:'keyword',loadedWorkspace:'registered',loaderPerformance:loaderSession.snapshot(),generatedAt,
+    dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
+    aiPagePanels,financialTrust,productAdTargets,naverBidWorkbench,
+    masterProducts:activeMasterProducts,channelProducts:channelsResult.data||[],productCosts:costsResult.data||[],
+    products:[],syncs:shell.syncs,reports:[],actions:[],alerts:shell.alerts,automationRuns:[],qualityChecks:[],metricSnapshots:[],
+    kpis:{sales:0,orders:0,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:0},
+    naver:{
+      campaigns:isNaver?(naverCampaignResult.data?.length||0):0,
+      adgroups:isNaver?(naverGroupResult.count||0):0,
+      keywords:isNaver?(naverKeywordResult.count||marketingKeywordCatalog.length):0,
+      keywordPeriod:isNaver?keywordPeriod:null,
+      keywordTop:keywordTop.map(withAdMetrics),keywordWaste:keywordWaste.map(withAdMetrics),
+      searchTermCenter:{summary:{total:0,terms:0},items:[]}
+    },
+    coupang:{
+      products:isCoupang?(coupangProductsResult.data||[]):[],
+      adDaily:isCoupang?(coupangAdDailyResult.data||[]):[],
+      adKeywordTop:coupangTop,adKeywordWaste:coupangWaste,
+      adCampaigns:isCoupang?(coupangAdCampaignResult.data||[]):[],
+      adBilling:isCoupang?(coupangAdBillingResult.data||[]):[]
+    }
+  };
+}
+
 async function buildOrdersDashboardData({
   loaderSession, generatedAt, queryIssues,
   ordersResult, itemsResult, productsResult, syncResult, alertsResult, channelsResult,
@@ -571,7 +660,8 @@ async function getDashboardData(state) {
     return Math.min(fallback,limits[view]?.[kind]||fallback);
   };
   const needsPacing=new Set(['main','insight','keyword','product','reports','changes']).has(view);
-  const focusedEarlyReturn=view==='orders'||view==='inventory'||(view==='insight'&&state?.workspace==='overview')||(view==='product'&&state?.workspace==='costs');
+  const focusedRegisteredKeyword=view==='keyword'&&state?.workspace==='registered'&&['naver','coupang'].includes(String(state?.platform||'').toLowerCase());
+  const focusedEarlyReturn=view==='orders'||view==='inventory'||(view==='insight'&&state?.workspace==='overview')||(view==='product'&&state?.workspace==='costs')||focusedRegisteredKeyword;
   const pacingPromise = (needsPacing?pacingService.buildPacingDashboard({ db }):Promise.resolve({status:'NO_DATA',channels:[],reasons:[]})).catch(error => {
     console.error('[dashboard] pacing unavailable', error);
     return { status:'NO_DATA', channels:[], reasons:['목표 진행률을 불러오지 못했습니다.'] };
@@ -725,6 +815,43 @@ async function getDashboardData(state) {
   });
   const queryIssues = [...settled.issues];
   const [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, shippingRulesResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult] = settled.results;
+  if(focusedRegisteredKeyword){
+    const selectedPlatform=String(state.platform).toLowerCase();
+    const [keywordPeriodRaw,productTargetsRaw,bidLinksRaw,aiResultsRaw,cafe24TokenRaw]=await Promise.all([
+      supplementalQueries.keywordPeriod,supplementalQueries.productTargets,supplementalQueries.bidLinks,supplementalQueries.aiResults,supplementalQueries.cafe24Token
+    ]);
+    const keywordPeriodSettled=dataHealthModule.settleQueries(keywordPeriodRaw,[{platform:'NAVER',dataset:'naver_keyword_stats_period'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const productTargetsSettled=dataHealthModule.settleQueries(productTargetsRaw,[{platform:'SHARED',dataset:'product_ad_targets'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const bidLinksSettled=dataHealthModule.settleQueries(bidLinksRaw,[{platform:'NAVER',dataset:'naver_keyword_product_links'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const aiResultsSettled=dataHealthModule.settleQueries(aiResultsRaw,[{platform:'SHARED',dataset:'ai_analysis_results'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const cafe24TokenSettled=dataHealthModule.settleQueries(cafe24TokenRaw,[{platform:'CAFE24',dataset:'cafe24_oauth_tokens'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    queryIssues.push(...keywordPeriodSettled.issues,...productTargetsSettled.issues,...bidLinksSettled.issues,...aiResultsSettled.issues,...cafe24TokenSettled.issues);
+    const keywordPeriod=selectedPlatform==='naver'?keywordPeriodSettled.results[0].data:null;
+    let marketingKeywordStats=[],marketingKeywordCatalog=[];
+    if(selectedPlatform==='naver'){
+      const naverRegisteredSettled=dataHealthModule.settleQueries(await Promise.allSettled([
+        keywordPeriod?db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,period_start,period_end,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).order('cost',{ascending:false}).limit(5000):Promise.resolve({data:[],error:null}),
+        db.from('naver_keywords').select('ncc_keyword_id,ncc_adgroup_id,keyword,bid_amount,status,user_lock,updated_at').limit(5000)
+      ]),[
+        {platform:'NAVER',dataset:'registered_keyword_performance'},
+        {platform:'NAVER',dataset:'registered_keyword_catalog'}
+      ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+      queryIssues.push(...naverRegisteredSettled.issues);
+      marketingKeywordStats=naverRegisteredSettled.results[0].data||[];
+      marketingKeywordCatalog=naverRegisteredSettled.results[1].data||[];
+    }
+    return buildRegisteredKeywordDashboardData({
+      loaderSession,generatedAt,queryIssues,platform:selectedPlatform,
+      syncResult,alertsResult,masterResult,channelsResult,costsResult,
+      naverCampaignResult,naverGroupResult,naverKeywordResult,
+      coupangProductsResult,coupangAdDailyResult,coupangAdKeywordTopResult,coupangAdKeywordWasteResult,coupangAdCampaignResult,coupangAdBillingResult,
+      keywordPeriod,marketingKeywordStats,marketingKeywordCatalog,
+      productAdTargetRows:productTargetsSettled.results[0].data||[],
+      naverKeywordProductLinks:bidLinksSettled.results[0].data||[],
+      cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,
+      latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[])
+    });
+  }
   if(view==='inventory'||(view==='insight'&&state?.workspace==='overview')||(view==='product'&&state?.workspace==='costs')){
     const [aiResultsRaw,cafe24TokenRaw]=await Promise.all([supplementalQueries.aiResults,supplementalQueries.cafe24Token]);
     const aiResultsSettled=dataHealthModule.settleQueries(aiResultsRaw,[

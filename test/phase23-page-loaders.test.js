@@ -32,6 +32,8 @@ test('23-2 never mixes Naver and Coupang keyword provider queries',()=>{
   assert.equal(naver.tables.some(table=>table.startsWith('coupang_')),false);
   assert.ok(coupang.tables.includes('coupang_ad_keyword_summary'));
   assert.equal(coupang.tables.some(table=>table.startsWith('naver_')),false);
+  assert.equal(naver.tables.includes('cafe24_oauth_tokens'),true);
+  assert.equal(coupang.tables.includes('cafe24_oauth_tokens'),true);
   assert.equal(naver.target_ms,4000);
 });
 
@@ -85,6 +87,10 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/buildInsightOverviewDashboardData[\s\S]*?finalizeAiPagePanels\(\{insight:builtPanels\.insight\}/);
   assert.match(page,/return buildProductCostsDashboardData\(/);
   assert.match(page,/buildProductCostsDashboardData[\s\S]*?finalizeAiPagePanels\(\{product:builtPanels\.product\}/);
+  assert.match(page,/focusedRegisteredKeyword=view==='keyword'&&state\?\.workspace==='registered'/);
+  assert.match(page,/return buildRegisteredKeywordDashboardData\(/);
+  assert.match(page,/buildRegisteredKeywordDashboardData[\s\S]*?finalizeAiPagePanels\(\{keyword:builtPanels\.keyword\}/);
+  assert.match(page,/selectedPlatform==='naver'[\s\S]*?registered_keyword_performance[\s\S]*?registered_keyword_catalog/);
   assert.match(page,/reportsResult\.count\?\?reportsResult\.data\?\.length\?\?0/);
   assert.match(page,/view==='insight'&&state\?\.workspace==='overview'[\s\S]*?select\(reportFields,\{count:'exact'\}\)[\s\S]*?limit\(12\)/);
   assert.match(page,/focusedEarlyReturn\?Promise\.resolve\(\{data:null,error:null\}\):db\.from\('sync_logs'\)/);
