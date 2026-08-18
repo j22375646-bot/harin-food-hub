@@ -54,6 +54,8 @@ test('23-2 never mixes Naver and Coupang keyword provider queries',()=>{
 test('23-2 scopes insight and product workspaces to the data they render',()=>{
   const overview=loaders.profileForState({view:'insight',workspace:'overview',platform:'all'});
   const causes=loaders.profileForState({view:'insight',workspace:'causes',platform:'all'});
+  const channels=loaders.profileForState({view:'insight',workspace:'channels',platform:'all'});
+  const history=loaders.profileForState({view:'keyword',workspace:'history',platform:'naver'});
   const profit=loaders.profileForState({view:'insight',workspace:'profitability',platform:'all'});
   const costs=loaders.profileForState({view:'product',workspace:'costs',platform:'all'});
   const mappings=loaders.profileForState({view:'product',workspace:'mappings',platform:'all'});
@@ -63,6 +65,8 @@ test('23-2 scopes insight and product workspaces to the data they render',()=>{
   const adTargets=loaders.profileForState({view:'product',workspace:'ad-targets',platform:'all'});
   assert.deepEqual(overview.tables,['reports','platform_events','alerts','cafe24_oauth_tokens','ai_analysis_results']);
   assert.deepEqual(causes.tables,['reports','actions','platform_events','alerts','cafe24_oauth_tokens','ai_analysis_results']);
+  assert.deepEqual(channels.tables,['reports','actions','platform_events','alerts','cafe24_oauth_tokens','ai_analysis_results']);
+  assert.deepEqual(history.tables,['financial_change_requests','cafe24_oauth_tokens','ai_analysis_results']);
   assert.ok(profit.tables.includes('product_costs'));
   assert.ok(profit.tables.includes('coupang_settlements'));
   assert.ok(costs.tables.includes('product_costs'));
@@ -125,6 +129,9 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/return buildProductPerformanceDashboardData\(/);
   assert.match(page,/buildProductPerformanceDashboardData[\s\S]*?loadUnifiedProductPerformance/);
   assert.match(page,/const seoulDateKey[\s\S]*?periodEnd=seoulDateKey\(generatedAt\)/);
+  assert.match(page,/focusedKeywordHistory=view==='keyword'/);
+  assert.match(page,/return buildKeywordHistoryDashboardData\(/);
+  assert.match(page,/buildInsightChannelsDashboardData/);
   assert.match(page,/focusedSearchTerms=view==='keyword'&&state\?\.workspace==='search-terms'/);
   assert.match(page,/return buildSearchTermsDashboardData\(/);
   assert.match(page,/buildSearchTermsDashboardData[\s\S]*?finalizeAiPagePanels\(\{keyword:builtPanels\.keyword\}/);

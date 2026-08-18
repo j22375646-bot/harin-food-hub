@@ -347,6 +347,34 @@ async function buildInsightCausesDashboardData({
   };
 }
 
+async function buildInsightChannelsDashboardData(input) {
+  const dashboard=await buildInsightCausesDashboardData(input);
+  return {...dashboard,loadedWorkspace:'channels'};
+}
+
+async function buildKeywordHistoryDashboardData({
+  loaderSession,generatedAt,queryIssues,syncResult,alertsResult,financialChanges,cafe24Token,latestAiPageResults
+}) {
+  const shell=await buildFocusedShellData({
+    queryIssues,syncResult,alertsResult,generatedAt,cafe24Token,
+    summaries:{NAVER:`${number(financialChanges.length).toLocaleString('ko-KR')}개 변경 기록`,CAFE24:'선택하지 않은 플랫폼',COUPANG:'플랫폼별 기록 분리'}
+  });
+  const builtPanels=aiPagePanelsModule.buildAiPagePanels({
+    dataHealth:shell.dataHealth,collectionCenter:shell.collectionCenter,alerts:shell.alerts,
+    aiConfiguration:openaiClientModule.configuration(),generatedAt,period:kstScheduleModule.kstDateKey(generatedAt)
+  });
+  const aiPagePanels=finalizeAiPagePanels({keyword:builtPanels.keyword},latestAiPageResults,generatedAt,['keyword']);
+  return {
+    loadedView:'keyword',loadedWorkspace:'history',loaderPerformance:loaderSession.snapshot(),generatedAt,
+    dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
+    aiPagePanels,financialChanges,financialTrust:{},productAdTargets:{summary:{},items:[]},naverBidWorkbench:{summary:{},candidates:[]},
+    masterProducts:[],channelProducts:[],productCosts:[],products:[],syncs:shell.syncs,reports:[],actions:[],alerts:shell.alerts,
+    automationRuns:[],qualityChecks:[],metricSnapshots:[],
+    kpis:{sales:0,orders:0,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:0},
+    naver:{},coupang:{}
+  };
+}
+
 async function buildSearchTermsDashboardData({
   loaderSession,generatedAt,queryIssues,syncResult,alertsResult,
   searchTermRows,searchTermPeriod,searchTermSync,registeredKeywords,cafe24Token,latestAiPageResults
@@ -880,10 +908,11 @@ async function getDashboardData(state) {
   };
   const focusedSearchTerms=view==='keyword'&&state?.workspace==='search-terms'&&String(state?.platform||'naver').toLowerCase()==='naver';
   const focusedKeywordWorkspace=view==='keyword'&&['registered','diagnosis'].includes(state?.workspace)&&['naver','coupang'].includes(String(state?.platform||'').toLowerCase());
-  const focusedInsightReport=view==='insight'&&['overview','causes'].includes(state?.workspace);
+  const focusedInsightReport=view==='insight'&&['overview','causes','channels'].includes(state?.workspace);
+  const focusedKeywordHistory=view==='keyword'&&state?.workspace==='history'&&['naver','coupang'].includes(String(state?.platform||'').toLowerCase());
   const focusedProductWorkspace=view==='product'&&(['mappings','offers'].includes(state?.workspace)||(state?.workspace==='catalog'&&state?.platform!=='coupang'));
   const focusedProductPerformance=view==='product'&&['profit','ad-targets'].includes(state?.workspace);
-  const focusedEarlyReturn=view==='orders'||view==='inventory'||focusedInsightReport||(view==='product'&&state?.workspace==='costs')||focusedProductWorkspace||focusedProductPerformance||focusedSearchTerms||focusedKeywordWorkspace;
+  const focusedEarlyReturn=view==='orders'||view==='inventory'||focusedInsightReport||focusedKeywordHistory||(view==='product'&&state?.workspace==='costs')||focusedProductWorkspace||focusedProductPerformance||focusedSearchTerms||focusedKeywordWorkspace;
   const needsPacing=new Set(['main','insight','keyword','product','reports','changes']).has(view)&&!focusedEarlyReturn;
   const pacingPromise = (needsPacing?pacingService.buildPacingDashboard({ db }):Promise.resolve({status:'NO_DATA',channels:[],reasons:[]})).catch(error => {
     console.error('[dashboard] pacing unavailable', error);
@@ -983,7 +1012,7 @@ async function getDashboardData(state) {
     ]) : Promise.resolve(Array.from({length:6},()=>({status:'fulfilled',value:{data:[],error:null}})))
   };
   const reportFields='id,platform,report_type,period_start,period_end,title,status,summary_json,version,supersedes_report_id,is_latest,revision_note,approved_at,approved_by,created_at';
-  const reportsQuery=view==='insight'&&['overview','causes'].includes(state?.workspace)
+  const reportsQuery=view==='insight'&&['overview','causes','channels'].includes(state?.workspace)
     ? db.from('reports').select(reportFields,{count:'exact'}).order('period_end',{ascending:false}).order('created_at',{ascending:false}).limit(12)
     : db.from('reports').select(reportFields).order('period_end',{ascending:false}).order('created_at',{ascending:false}).limit(80);
   const settledQueries = await Promise.allSettled([
@@ -1186,7 +1215,33 @@ async function getDashboardData(state) {
     if(state?.workspace==='causes')return buildInsightCausesDashboardData({
       loaderSession,generatedAt,queryIssues,syncResult,reportsResult,actionsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults
     });
+    if(state?.workspace==='channels')return buildInsightChannelsDashboardData({
+      loaderSession,generatedAt,queryIssues,syncResult,reportsResult,actionsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults
+    });
     return buildInsightOverviewDashboardData({loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults});
+  }
+  if(focusedKeywordHistory){
+    const [phase7Raw,aiResultsRaw,cafe24TokenRaw]=await Promise.all([
+      supplementalQueries.phase7,supplementalQueries.aiResults,supplementalQueries.cafe24Token
+    ]);
+    const phase7Settled=dataHealthModule.settleQueries(phase7Raw,[
+      {platform:'SHARED',dataset:'financial_change_requests'},
+      {platform:'SHARED',dataset:'financial_change_audit_logs'},
+      {platform:'SHARED',dataset:'ab_tests'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const aiResultsSettled=dataHealthModule.settleQueries(aiResultsRaw,[
+      {platform:'SHARED',dataset:'ai_analysis_results'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const cafe24TokenSettled=dataHealthModule.settleQueries(cafe24TokenRaw,[
+      {platform:'CAFE24',dataset:'cafe24_oauth_tokens'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    queryIssues.push(...phase7Settled.issues,...aiResultsSettled.issues,...cafe24TokenSettled.issues);
+    return buildKeywordHistoryDashboardData({
+      loaderSession,generatedAt,queryIssues,syncResult,alertsResult,
+      financialChanges:phase7Settled.results[0].data||[],
+      cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,
+      latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[])
+    });
   }
   if(view==='orders'){
     const [naverCommerceRaw,aiResultsRaw,shippingReferenceRaw,cafe24TokenRaw]=await Promise.all([
