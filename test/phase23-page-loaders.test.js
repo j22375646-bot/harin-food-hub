@@ -61,6 +61,7 @@ test('23-2 records real, skipped and target loader telemetry',()=>{
 test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   const page=read('app/page.js');
   const dashboard=read('app/dashboard-client.js');
+  const analysis=read('app/_analysis/harin-analysis-workbench.js');
   assert.match(page,/pageLoaderProfilesModule\.createLoaderSession/);
   assert.match(page,/loaderPerformance:loaderSession\.snapshot\(\)/);
   assert.match(page,/databaseForLoaderState\(db, view, workspace, platform='all', loaderSession=null\)/);
@@ -79,6 +80,10 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/buildInventoryDashboardData[\s\S]*?finalizeAiPagePanels\(\{inventory:builtPanels\.inventory\}/);
   assert.match(page,/return buildInsightOverviewDashboardData\(/);
   assert.match(page,/buildInsightOverviewDashboardData[\s\S]*?finalizeAiPagePanels\(\{insight:builtPanels\.insight\}/);
+  assert.match(page,/reportsResult\.count\?\?reportsResult\.data\?\.length\?\?0/);
+  assert.match(page,/view==='insight'&&state\?\.workspace==='overview'[\s\S]*?select\(reportFields,\{count:'exact'\}\)[\s\S]*?limit\(24\)/);
+  assert.match(page,/focusedEarlyReturn\?Promise\.resolve\(\{data:null,error:null\}\):db\.from\('sync_logs'\)/);
+  assert.match(analysis,/platform==='all'&&Number\.isFinite\(Number\(data\.reportCount\)\)/);
   assert.match(dashboard,/data-loader-profile=\{initialData\.loaderPerformance\?\.profile/);
   assert.match(dashboard,/data-loader-ms=\{initialData\.loaderPerformance\?\.duration_ms/);
   assert.match(dashboard,/data-loader-slowest=\{/);

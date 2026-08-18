@@ -134,7 +134,8 @@ function ProductDifferenceDesk({data={}}){
 
 export default function HarinAnalysisWorkbench({view,workspace,platform='all',data={},aiPanel,children}){
   const meta=WORKSPACE_META[view]?.[workspace]||['분석 작업대','필요한 숫자와 다음 행동을 한 화면에서 확인해요.'];
-  const reportCount=(data.reports||[]).filter(report=>scopePlatform(report.platform,platform)).length;
+  const loadedReportCount=(data.reports||[]).filter(report=>scopePlatform(report.platform,platform)).length;
+  const reportCount=platform==='all'&&Number.isFinite(Number(data.reportCount))?Number(data.reportCount):loadedReportCount;
   const anomalyCount=(data.alerts||[]).filter(item=>item.source_type==='ANOMALY'&&scopePlatform(item.platform,platform)).length;
   const actualTerms=data.naver?.searchTermCenter?.summary?.total||0;
   const coupangTerms=(data.coupang?.adKeywordTop?.length||0)+(data.coupang?.adKeywordWaste?.length||0);

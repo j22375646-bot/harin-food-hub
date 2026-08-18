@@ -320,7 +320,7 @@ async function buildInsightOverviewDashboardData({
     dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
     aiPagePanels,aiFoundation:{},financialTrust:{},
     kpis:{sales:0,orders:0,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:0},
-    products:[],syncs:shell.syncs,reports:reportsResult.data||[],actions:[],alerts:shell.alerts,
+    products:[],syncs:shell.syncs,reports:reportsResult.data||[],reportCount:reportsResult.count??reportsResult.data?.length??0,actions:[],alerts:shell.alerts,
     platformEvents:eventsResult.data||[],automationRuns:[],qualityChecks:[],metricSnapshots:[],
     unifiedProductPerformance:{summary:{},items:[]},
     naver:{},coupang:{}
@@ -495,6 +495,7 @@ async function getDashboardData(state) {
     return Math.min(fallback,limits[view]?.[kind]||fallback);
   };
   const needsPacing=new Set(['main','insight','keyword','product','reports','changes']).has(view);
+  const focusedEarlyReturn=view==='orders'||view==='inventory'||(view==='insight'&&state?.workspace==='overview');
   const pacingPromise = (needsPacing?pacingService.buildPacingDashboard({ db }):Promise.resolve({status:'NO_DATA',channels:[],reasons:[]})).catch(error => {
     console.error('[dashboard] pacing unavailable', error);
     return { status:'NO_DATA', channels:[], reasons:['목표 진행률을 불러오지 못했습니다.'] };
@@ -586,14 +587,18 @@ async function getDashboardData(state) {
       db.from('sync_logs').select('platform,job_type,status,started_at,finished_at').order('started_at',{ascending:false}).limit(300)
     ]) : Promise.resolve(Array.from({length:6},()=>({status:'fulfilled',value:{data:[],error:null}})))
   };
+  const reportFields='id,platform,report_type,period_start,period_end,title,status,summary_json,version,supersedes_report_id,is_latest,revision_note,approved_at,approved_by,created_at';
+  const reportsQuery=view==='insight'&&state?.workspace==='overview'
+    ? db.from('reports').select(reportFields,{count:'exact'}).order('period_end',{ascending:false}).order('created_at',{ascending:false}).limit(24)
+    : db.from('reports').select(reportFields).order('period_end',{ascending:false}).order('created_at',{ascending:false}).limit(80);
   const settledQueries = await Promise.allSettled([
     db.from('cafe24_orders').select('order_id,order_date,customer_id,payment_status,paid_amount,order_price,cancel_amount,refund_amount,raw_data').order('order_date', { ascending: false }).limit(rowLimit('orders',10000)),
     db.from('cafe24_order_items').select('order_id,external_item_id,external_product_no,product_name,option_name,quantity,unit_price,paid_amount,raw_data').limit(rowLimit('items',10000)),
     db.from('cafe24_traffic_daily').select('date,visitors,pageviews,source_status,raw_data').order('date', { ascending: true }).limit(31),
     db.from('cafe24_referrers_daily').select('date,source,visitors,orders,revenue').order('visitors', { ascending: false }).limit(500),
     db.from('cafe24_products').select('external_product_no,product_name,price,display,selling,raw_data,updated_at').order('updated_at', { ascending: false }).limit(view==='orders'?100:500),
-    db.from('sync_logs').select('id,platform,job_type,status,started_at,finished_at,rows_received,error_message,metadata').in('job_type', ['FETCH_ALL','FILE_IMPORT','ORDERS_REALTIME','RG_INVENTORY','RG_REALTIME','LOCAL_IP_CHECK','COMMERCE_CONNECTION_TEST','COMMERCE_SYNC','CUSTOMER_SERVICE']).order('started_at', { ascending: false }).limit(80),
-    db.from('reports').select('id,platform,report_type,period_start,period_end,title,status,summary_json,version,supersedes_report_id,is_latest,revision_note,approved_at,approved_by,created_at').order('period_end', { ascending: false }).order('created_at',{ascending:false}).limit(80),
+    db.from('sync_logs').select('id,platform,job_type,status,started_at,finished_at,rows_received,error_message,metadata').in('job_type', ['FETCH_ALL','FILE_IMPORT','ORDERS_REALTIME','RG_INVENTORY','RG_REALTIME','LOCAL_IP_CHECK','COMMERCE_CONNECTION_TEST','COMMERCE_SYNC','CUSTOMER_SERVICE']).order('started_at', { ascending: false }).limit(focusedEarlyReturn?30:80),
+    reportsQuery,
     db.from('actions').select('id,platform,target_type,target_id,target_name,action_type,reason,status,before_value,after_value,decided_at,executed_at,review_after,priority,assignee,due_at,hold_reason,review_result,created_at').order('decided_at', { ascending: false }).limit(100),
     db.from('master_products').select('id,name,selling_price,is_active').order('updated_at',{ascending:false}).limit(200),
     db.from('channel_products')
@@ -602,7 +607,7 @@ async function getDashboardData(state) {
     db.from('naver_campaigns').select('ncc_campaign_id,name,campaign_type,status,user_lock'),
     db.from('naver_adgroups').select('ncc_adgroup_id,ncc_campaign_id,name,status,user_lock',{count:'exact'}).limit(1000),
     db.from('naver_keywords').select('*',{count:'exact',head:true}),
-    db.from('sync_logs').select('status,finished_at,error_message,metadata').eq('platform','NAVER').eq('job_type','FETCH_ALL').order('started_at',{ascending:false}).limit(1).maybeSingle(),
+    focusedEarlyReturn?Promise.resolve({data:null,error:null}):db.from('sync_logs').select('status,finished_at,error_message,metadata').eq('platform','NAVER').eq('job_type','FETCH_ALL').order('started_at',{ascending:false}).limit(1).maybeSingle(),
     db.from('naver_stats_daily').select('date,entity_id,impressions,clicks,cost,conversions,conversion_revenue').order('date',{ascending:false}).limit(1200),
     db.from('automation_runs').select('id,job_name,trigger_type,status,started_at,finished_at,attempt_count,result_json,error_message,idempotency_key,scheduled_for,kst_execution_date,recovery_count').order('started_at',{ascending:false}).limit(20),
     db.from('data_quality_checks').select('id,platform,dataset,status_code,severity,rows_checked,duplicate_count,message,remediation,checked_at').order('checked_at',{ascending:false}).limit(40),
