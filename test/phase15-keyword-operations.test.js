@@ -39,13 +39,14 @@ test('15-4 renders a responsive table, mobile cards, drafts and a detail panel',
   const component=fs.readFileSync('app/_analysis/keyword-operations-table.js','utf8');
   const dashboard=fs.readFileSync('app/dashboard-client.js','utf8');
   const css=fs.readFileSync('app/_analysis/harin-analysis-v8.css','utf8');
+  const bulkCss=fs.readFileSync('app/_design-system/harin-bulk-selection.css','utf8');
   assert.match(component,/네이버와 쿠팡은 서로 섞지 않고/);
   assert.match(component,/추천가 채우기/);
   assert.match(component,/변경 전 검토/);
   assert.match(component,/마지막 확인 뒤 네이버 반영과 재조회까지/);
   assert.match(dashboard,/플랫폼별 분리 운영/);
   assert.match(css,/\.keywordOpsTable/);
-  assert.match(css,/\.keywordOpsMobileAction/);
+  assert.match(bulkCss,/\.v8BulkSelectionBar\.active/);
   assert.match(css,/content-visibility:auto/);
 });
 

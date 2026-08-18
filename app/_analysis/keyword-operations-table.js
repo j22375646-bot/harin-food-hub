@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import keywordOperationsModule from '../../lib/marketing/keyword-operations.js';
 import coupangWingWorklistModule from '../../lib/marketing/coupang-wing-worklist.js';
 import { useStoredState } from '../use-hub-preference.js';
+import { HarinBulkCheckbox, HarinBulkSelectionBar, useHarinBulkSelection } from '../_design-system/harin-bulk-selection.js';
 
 const {normalizeKeywordRows,filterKeywordRows,paginateKeywordRows,keywordOperationSummary}=keywordOperationsModule;
 const {COUPANG_AD_CAPABILITY,ACTION_LABELS,buildCoupangWingWorklist,coupangWingCsv,coupangWingClipboard}=coupangWingWorklistModule;
@@ -42,7 +43,6 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const sort=['COST_DESC','CLICKS_DESC','ROAS_DESC','KEYWORD_ASC'].includes(settings?.sort)?settings.sort:'COST_DESC';
   const pageSize=[25,50,100].includes(Number(settings?.pageSize))?Number(settings.pageSize):25;
   const [page,setPage]=useState(1);
-  const [selected,setSelected]=useState([]);
   const [drafts,setDrafts]=useState({});
   const [detailId,setDetailId]=useState('');
   const [reviewOpen,setReviewOpen]=useState(false);
@@ -55,9 +55,11 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const rows=useMemo(()=>filterKeywordRows(sourceRows,{query,quickFilter,sort}),[sourceRows,query,quickFilter,sort]);
   const pagination=useMemo(()=>paginateKeywordRows(rows,page,pageSize),[rows,page,pageSize]);
   const summary=useMemo(()=>keywordOperationSummary(sourceRows),[sourceRows]);
-  const visibleIds=pagination.items.map(item=>item.id);
-  const visibleSelected=visibleIds.length>0&&visibleIds.every(id=>selected.includes(id));
-  const selectedRows=sourceRows.filter(item=>selected.includes(item.id));
+  const allIds=useMemo(()=>sourceRows.map(item=>item.id),[sourceRows]);
+  const filteredIds=useMemo(()=>rows.map(item=>item.id),[rows]);
+  const visibleIds=useMemo(()=>pagination.items.map(item=>item.id),[pagination.items]);
+  const selection=useHarinBulkSelection({allIds,filteredIds,visibleIds});
+  const selectedRows=sourceRows.filter(item=>selection.selectedSet.has(String(item.id)));
   const draftableSelected=selectedRows.filter(item=>item.canDraft);
   const coupangSelected=selectedRows.filter(item=>item.platform==='COUPANG'&&item.applicationMode==='MANUAL_REQUIRED');
   const changedRows=draftableSelected.filter(item=>number(drafts[item.id])!=null&&number(drafts[item.id])!==item.currentBid);
@@ -66,12 +68,10 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const currentTotal=changedRows.reduce((sum,item)=>sum+Number(item.currentBid||0),0);
   const draftTotal=changedRows.reduce((sum,item)=>sum+Number(drafts[item.id]||0),0);
 
-  useEffect(()=>{setPage(1);setSelected([]);setDrafts({});setDetailId('');setReviewOpen(false);setProposalResult(null);setWingOpen(false);setWingNotice('');},[workspace,platform]);
+  useEffect(()=>{setPage(1);selection.clear();setDrafts({});setDetailId('');setReviewOpen(false);setProposalResult(null);setWingOpen(false);setWingNotice('');},[workspace,platform]);
   useEffect(()=>{setPage(1);},[query,quickFilter,sort,pageSize]);
 
   function saveSettings(next){setSettings({...settings,...next});}
-  function toggle(id){setSelected(current=>current.includes(id)?current.filter(item=>item!==id):[...current,id]);}
-  function toggleVisible(){setSelected(current=>visibleSelected?current.filter(id=>!visibleIds.includes(id)):[...new Set([...current,...visibleIds])]);}
   function setDraft(row,value){
     if(!row.canDraft)return;
     if(value===''){setDrafts(current=>({...current,[row.id]:''}));return;}
@@ -120,7 +120,7 @@ export default function KeywordOperationsTable({workspace='registered',platform=
       }catch(error){failed.push({id:row.id,keyword:row.keyword,error:error.message||'변경 실행 실패'});}
     }
     setProposalResult({applied,failed});setWorking(false);
-    if(applied.length){setSelected([]);setDrafts({});router.refresh();}
+    if(applied.length){selection.clear();setDrafts({});router.refresh();}
   }
 
   return <section className={`keywordOps workspace-${workspace} platform-${platform}`} id="keyword-operations-table">
@@ -133,17 +133,15 @@ export default function KeywordOperationsTable({workspace='registered',platform=
       <label><span>정렬</span><select value={sort} onChange={event=>saveSettings({sort:event.target.value})}><option value="COST_DESC">광고비 높은 순</option><option value="CLICKS_DESC">클릭 많은 순</option><option value="ROAS_DESC">ROAS 높은 순</option><option value="KEYWORD_ASC">키워드 이름 순</option></select></label>
       <label><span>한 페이지</span><select value={pageSize} onChange={event=>saveSettings({pageSize:Number(event.target.value)})}><option value="25">25개</option><option value="50">50개</option><option value="100">100개</option></select></label>
     </div>
-    <div className={`keywordOpsBatch ${selected.length?'active':''}`}>
-      <span><b>{selected.length}개 선택</b><small>{isCoupang?`쿠팡 WING 작업 대상 ${coupangSelected.length}개`:`네이버 초안 가능 ${draftableSelected.length}개 · 변경값 입력 ${changedRows.length}개`}</small></span>
-      <div>{isCoupang?<button type="button" className="review" onClick={openWingWorklist} disabled={!coupangSelected.length}>WING 작업표 열기</button>:<><button type="button" onClick={applyRecommended} disabled={!draftableSelected.length}>추천가 채우기</button><button type="button" onClick={()=>applyPercent(-.1)} disabled={!draftableSelected.length}>10% 인하</button><button type="button" onClick={()=>applyPercent(.1)} disabled={!draftableSelected.length}>10% 인상</button><button type="button" className="review" onClick={()=>setReviewOpen(true)} disabled={!changedRows.length}>변경 전 검토</button></>}</div>
-      {isCoupang&&coupangSelected.length?<small className="keywordOpsPreview">선택 항목만 쿠팡 전용 작업표에 들어갑니다. 작업표를 내려받아도 쿠팡에는 자동 반영되지 않습니다.</small>:changedRows.length?<small className="keywordOpsPreview">현재 합계 {won(currentTotal)} → 변경 합계 {won(draftTotal)} · 마지막 확인 뒤 네이버 반영과 재조회까지 한 번에 끝냅니다.</small>:null}
-    </div>
+    <HarinBulkSelectionBar className="keywordOpsBulkBar" selectedCount={selection.selectedCount} visibleCount={visibleIds.length} filteredCount={filteredIds.length} visibleState={selection.visibleState} filteredState={selection.filteredState} onToggleVisible={checked=>selection.toggleScope(visibleIds,checked)} onToggleFiltered={checked=>selection.toggleScope(filteredIds,checked)} onClear={selection.clear} summary={isCoupang?`쿠팡 WING 작업 대상 ${coupangSelected.length}개`:`네이버 변경 가능 ${draftableSelected.length}개 · 변경값 입력 ${changedRows.length}개`} preview={isCoupang&&coupangSelected.length?'선택 항목만 쿠팡 전용 작업표에 들어갑니다. 작업표를 내려받아도 쿠팡에는 자동 반영되지 않습니다.':changedRows.length?`현재 합계 ${won(currentTotal)} → 변경 합계 ${won(draftTotal)} · 마지막 확인 뒤 네이버 반영과 재조회까지 한 번에 끝냅니다.`:''}>
+      {isCoupang?<button type="button" className="review" onClick={openWingWorklist} disabled={!coupangSelected.length}>WING 작업표 열기</button>:<><button type="button" onClick={applyRecommended} disabled={!draftableSelected.length}>추천가 채우기</button><button type="button" onClick={()=>applyPercent(-.1)} disabled={!draftableSelected.length}>10% 인하</button><button type="button" onClick={()=>applyPercent(.1)} disabled={!draftableSelected.length}>10% 인상</button><button type="button" className="review" onClick={()=>setReviewOpen(true)} disabled={!changedRows.length}>변경 전 검토</button></>}
+    </HarinBulkSelectionBar>
     <div className={`keywordOpsLayout ${detail?'hasDetail':''}`}>
       <div className="keywordOpsTableWrap">
         <div className="keywordOpsTable" role="table" aria-label={`${PLATFORM_LABEL[String(platform).toUpperCase()]} 키워드 운영표`}>
-          <div className="keywordOpsRow head" role="row"><span><input type="checkbox" aria-label="현재 페이지 전체 선택" checked={visibleSelected} onChange={toggleVisible}/></span><span>키워드·플랫폼</span><span>캠페인·상품</span><span>{workspace==='history'?'변경 전':isCoupang?'WING 현재가':'현재 입찰가'}</span><span>{workspace==='history'?'변경 값':isCoupang?'권장 조치':'추천 입찰가'}</span><span>{workspace==='history'?'현재 확인':isCoupang?'작업표':'변경 입찰가'}</span><span>클릭</span><span>광고비</span><span>주문</span><span>ROAS</span><span>실제 이익</span><span>상태</span></div>
-          {pagination.items.map(row=>{const changed=number(drafts[row.id])!=null&&number(drafts[row.id])!==row.currentBid;return <div className={`keywordOpsRow ${selected.includes(row.id)?'selected':''} ${changed?'changed':''}`} role="row" key={row.id} onClick={()=>setDetailId(row.id)}>
-            <span onClick={event=>event.stopPropagation()}><input type="checkbox" aria-label={`${row.keyword} 선택`} checked={selected.includes(row.id)} onChange={()=>toggle(row.id)}/></span>
+          <div className="keywordOpsRow head" role="row"><span><HarinBulkCheckbox label="현재 페이지 전체 선택" checked={selection.visibleState.checked} mixed={selection.visibleState.mixed} onChange={event=>selection.toggleScope(visibleIds,event.target.checked)}/></span><span>키워드·플랫폼</span><span>캠페인·상품</span><span>{workspace==='history'?'변경 전':isCoupang?'WING 현재가':'현재 입찰가'}</span><span>{workspace==='history'?'변경 값':isCoupang?'권장 조치':'추천 입찰가'}</span><span>{workspace==='history'?'현재 확인':isCoupang?'작업표':'변경 입찰가'}</span><span>클릭</span><span>광고비</span><span>주문</span><span>ROAS</span><span>실제 이익</span><span>상태</span></div>
+          {pagination.items.map(row=>{const changed=number(drafts[row.id])!=null&&number(drafts[row.id])!==row.currentBid;return <div className={`keywordOpsRow ${selection.selectedSet.has(String(row.id))?'selected':''} ${changed?'changed':''}`} role="row" key={row.id} onClick={()=>setDetailId(row.id)}>
+            <span onClick={event=>event.stopPropagation()}><HarinBulkCheckbox label={`${row.keyword} 선택`} checked={selection.selectedSet.has(String(row.id))} onChange={event=>selection.toggle(row.id,event.target.checked)}/></span>
             <span className="keywordOpsName"><i className={row.platform.toLowerCase()}>{row.platform==='NAVER'?'N':'C'}</i><b>{row.keyword}</b><small>{PLATFORM_LABEL[row.platform]} · {row.source==='SEARCH_TERM'?'실제 검색어':row.source==='HISTORY'?'변경 기록':'광고 키워드'}</small></span>
             <span className="keywordOpsScope"><b>{row.campaign}</b><small>{row.product}</small></span>
             <span><b>{row.applicationMode==='MANUAL_REQUIRED'?'WING 확인':won(row.currentBid)}</b></span><span className="recommended"><b>{row.applicationMode==='MANUAL_REQUIRED'?(DECISION_LABEL[row.decision]||'관찰'):won(row.recommendedBid)}</b></span>
@@ -158,6 +156,5 @@ export default function KeywordOperationsTable({workspace='registered',platform=
     </div>
     {wingOpen?<div className="keywordOpsReviewBackdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)setWingOpen(false);}}><section className="keywordOpsReview keywordOpsWing" role="dialog" aria-modal="true" aria-labelledby="coupang-wing-title"><header><div><span>COUPANG WING WORKLIST</span><h2 id="coupang-wing-title">쿠팡에서 직접 반영할 작업만 정리했어요</h2><p>네이버 변경안과 분리된 쿠팡 전용 작업표입니다. 허브가 쿠팡 반영 성공으로 표시하지 않습니다.</p></div><button type="button" onClick={()=>setWingOpen(false)} aria-label="WING 작업표 닫기">×</button></header><div className="keywordOpsReviewSafety"><span><b>1</b><small>광고 성과 확인</small></span><i>→</i><span><b>2</b><small>WING 현재가 입력</small></span><i>→</i><span><b>3</b><small>WING 직접 반영</small></span><i>→</i><span><b>4</b><small>다음 자료로 확인</small></span></div><div className="keywordOpsWingNotice"><b>자동 입찰 API 잠금</b><span>공개 Seller Open API 문서에서 광고 입찰 쓰기 엔드포인트를 확인하지 못했습니다.</span><em>{COUPANG_AD_CAPABILITY.verifiedAt}</em></div><div className="keywordOpsWingList">{wingItems.map(item=><article key={item.id}><header><span><i>C</i><b>{item.keyword}</b><small>{item.campaign} · {item.product}</small></span><em>{item.orders<=0&&item.cost>0?'무주문 광고비':'성과 확인'}</em></header><div><label><span>할 일</span><select value={item.action} onChange={event=>setWingDraft(item.id,'action',event.target.value)}>{Object.entries(ACTION_LABELS).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select></label><label><span>WING 현재 입찰가</span><input type="number" inputMode="numeric" min="1" value={wingDrafts?.[item.id]?.currentBid??''} placeholder="직접 확인" onChange={event=>setWingDraft(item.id,'currentBid',event.target.value)}/></label><label><span>WING 적용 입찰가</span><input type="number" inputMode="numeric" min="1" value={wingDrafts?.[item.id]?.targetBid??''} placeholder="적용할 금액" onChange={event=>setWingDraft(item.id,'targetBid',event.target.value)}/></label><label className="memo"><span>메모</span><input value={wingDrafts?.[item.id]?.memo??''} maxLength="120" placeholder="예: 무주문 비용 확인 후 감액" onChange={event=>setWingDraft(item.id,'memo',event.target.value)}/></label></div><footer><span>광고비 <b>{won(item.cost)}</b></span><span>주문 <b>{count(item.orders)}건</b></span><span>ROAS <b>{percent(item.roas)}</b></span><strong>{item.status==='READY_FOR_WING'?'WING 반영 대기':'입찰가 확인 필요'}</strong></footer></article>)}</div>{wingNotice?<p className="keywordOpsWingResult" aria-live="polite">{wingNotice}</p>:null}<footer><a className="secondary" href="https://wing.coupang.com/" target="_blank" rel="noreferrer">쿠팡 WING 열기 ↗</a><button type="button" className="secondary" onClick={copyWingWorklist}>작업표 복사</button><button type="button" className="primary" onClick={downloadWingWorklist}>CSV 내려받기</button></footer><small className="keywordOpsReviewFoot">현재가나 적용가를 비우면 0원이 아니라 빈칸·확인 필요로 내보냅니다.</small></section></div>:null}
     {reviewOpen?<div className="keywordOpsReviewBackdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&!working)setReviewOpen(false);}}><section className="keywordOpsReview" role="dialog" aria-modal="true" aria-labelledby="keyword-review-title"><header><div><span>NAVER BID CONFIRM</span><h2 id="keyword-review-title">네이버 입찰 변경 전 마지막으로 확인해요</h2><p>아래 버튼을 누르면 현재값 재확인, 네이버 반영, 결과 재조회까지 한 번에 진행됩니다.</p></div><button type="button" onClick={()=>setReviewOpen(false)} disabled={working} aria-label="검토 닫기">×</button></header><div className="keywordOpsReviewSafety"><span><b>1</b><small>변경값 확인</small></span><i>→</i><span><b>2</b><small>현재값 재확인</small></span><i>→</i><span><b>3</b><small>네이버 반영</small></span><i>→</i><span><b>4</b><small>결과 재조회</small></span></div><div className="keywordOpsReviewList">{changedRows.map(row=>{const desired=number(drafts[row.id]);const delta=desired==null||row.currentBid==null?null:(desired-row.currentBid)/Math.max(1,row.currentBid)*100;return <article key={row.id}><span><i>N</i><b>{row.keyword}</b><small>{row.campaign}</small></span><em>{won(row.currentBid)}</em><i>→</i><strong>{won(desired)}</strong><small className={delta!=null&&delta>0?'up':'down'}>{delta==null?'확인 필요':`${delta>0?'+':''}${delta.toFixed(1)}%`}</small></article>;})}</div>{proposalResult?<div className={`keywordOpsProposalResult ${proposalResult.failed.length?'warning':'success'}`}><b>{proposalResult.applied.length}건 변경·재확인 완료{proposalResult.failed.length?` · ${proposalResult.failed.length}건 확인 필요`:''}</b>{proposalResult.failed.map(item=><small key={item.id}>{item.keyword} · {item.error}</small>)}</div>:null}<footer><button type="button" className="secondary" onClick={()=>setReviewOpen(false)} disabled={working}>계속 수정</button><button type="button" className="primary" onClick={applyConfirmedChanges} disabled={working||!changedRows.length}>{working?'네이버 반영·확인 중…':`${changedRows.length}건 지금 변경하기`}</button></footer><small className="keywordOpsReviewFoot">쿠팡 항목은 이 흐름에 들어오지 않으며 WING 수동 적용 목록으로만 관리됩니다.</small></section></div>:null}
-    {selected.length?<div className="keywordOpsMobileAction"><span><b>선택 {selected.length}개</b><small>{isCoupang?`WING 대상 ${coupangSelected.length}개`:`변경 초안 ${changedRows.length}개`}</small></span>{isCoupang?<button type="button" onClick={openWingWorklist} disabled={!coupangSelected.length}>WING 작업표</button>:changedRows.length?<button type="button" onClick={()=>setReviewOpen(true)}>변경 전 검토</button>:<button type="button" onClick={applyRecommended} disabled={!draftableSelected.length}>추천가 채우기</button>}</div>:null}
   </section>;
 }

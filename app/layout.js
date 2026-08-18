@@ -1,6 +1,7 @@
 import './globals.css';
 import './_design-system/harin-v8.css';
 import './_design-system/harin-page-frame.css';
+import './_design-system/harin-bulk-selection.css';
 import './_shell/harin-shell-v8.css';
 import './_main/harin-main-v8.css';
 import './_operations/harin-operations-v8.css';
