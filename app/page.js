@@ -594,11 +594,26 @@ async function buildProductPerformanceDashboardData({
     missingCostRevenue:performance.summary?.missing_cost_revenue
   });
   const trustedPerformance=financialTrustModule.applyProductPerformanceGate(performance,financialTrust);
+  const performanceItems=performance.items||[];
+  const revenue=number(performance.summary?.revenue);
+  const adSpend=number(performance.summary?.ad_spend);
+  const productCost=performanceItems.reduce((sum,item)=>sum+number(item.product_cost),0);
+  const fees=performanceItems.reduce((sum,item)=>sum+Object.values(item.channels||{}).reduce((channelSum,channel)=>channelSum+number(channel.platform_fees),0),0);
+  const shippingCost=performanceItems.reduce((sum,item)=>sum+Object.values(item.channels||{}).reduce((channelSum,channel)=>channelSum+number(channel.shipping_cost)+number(channel.return_reserve)+number(channel.remote_area_reserve),0),0);
+  const contributionProfit=performance.summary?.contribution_profit==null?null:number(performance.summary.contribution_profit);
+  const contributionBeforeAds=contributionProfit==null?null:contributionProfit+adSpend;
+  const contributionMarginRate=contributionBeforeAds==null||!revenue?null:contributionBeforeAds/revenue*100;
+  const costCoverageRate=performance.summary?.cost_coverage_rate??null;
   const rawProfitability={
-    contribution_profit:performance.summary?.contribution_profit,
-    cost_coverage_rate:performance.summary?.cost_coverage_rate,
+    revenue,fees,shipping_cost:shippingCost,product_cost:productCost,ad_spend:adSpend,
+    contribution_before_ads:contributionBeforeAds,contribution_profit:contributionProfit,
+    contribution_margin_rate:contributionMarginRate,
+    break_even_roas:contributionMarginRate&&contributionMarginRate>0?100/(contributionMarginRate/100):null,
+    cost_coverage_rate:costCoverageRate,
+    cost_status:costCoverageRate==null?'NO_DATA':number(costCoverageRate)>=financialTrustModule.MIN_COST_COVERAGE_RATE?'COMPLETE':number(costCoverageRate)>0?'PARTIAL':'COST_DATA_REQUIRED',
     missing_cost_products:performance.summary?.missing_cost_products,
-    missing_cost_revenue:performance.summary?.missing_cost_revenue
+    missing_cost_revenue:performance.summary?.missing_cost_revenue,
+    products:performanceItems
   };
   const liveProfitability=financialTrustModule.applyProfitabilityGate(rawProfitability,financialTrust);
   const productAdTargets=productAdTargetsModule.buildProductAdTargets({
@@ -633,6 +648,22 @@ async function buildProductPerformanceDashboardData({
     kpis:{sales:performance.summary?.revenue||0,orders:0,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:masterProducts.length},
     syncs:shell.syncs,reports:[],actions:[],alerts:shell.alerts,automationRuns:[],qualityChecks:[],metricSnapshots:[],
     naver:{},coupang:{}
+  };
+}
+
+async function buildInsightProfitabilityDashboardData(input) {
+  const dashboard=await buildProductPerformanceDashboardData({...input,workspace:'profitability'});
+  const builtPanels=aiPagePanelsModule.buildAiPagePanels({
+    dataHealth:dashboard.dataHealth,productOperations:dashboard.productOperations,
+    collectionCenter:dashboard.collectionCenter,alerts:dashboard.alerts,
+    aiConfiguration:openaiClientModule.configuration(),generatedAt:input.generatedAt,
+    period:dashboard.unifiedProductPerformance?.period_end||kstScheduleModule.kstDateKey(input.generatedAt)
+  });
+  return {
+    ...dashboard,
+    loadedView:'insight',
+    loadedWorkspace:'profitability',
+    aiPagePanels:finalizeAiPagePanels({insight:builtPanels.insight},input.latestAiPageResults,input.generatedAt,['insight'])
   };
 }
 
@@ -912,7 +943,8 @@ async function getDashboardData(state) {
   const focusedKeywordHistory=view==='keyword'&&state?.workspace==='history'&&['naver','coupang'].includes(String(state?.platform||'').toLowerCase());
   const focusedProductWorkspace=view==='product'&&(['mappings','offers'].includes(state?.workspace)||(state?.workspace==='catalog'&&state?.platform!=='coupang'));
   const focusedProductPerformance=view==='product'&&['profit','ad-targets'].includes(state?.workspace);
-  const focusedEarlyReturn=view==='orders'||view==='inventory'||focusedInsightReport||focusedKeywordHistory||(view==='product'&&state?.workspace==='costs')||focusedProductWorkspace||focusedProductPerformance||focusedSearchTerms||focusedKeywordWorkspace;
+  const focusedInsightProfitability=view==='insight'&&state?.workspace==='profitability';
+  const focusedEarlyReturn=view==='orders'||view==='inventory'||focusedInsightReport||focusedInsightProfitability||focusedKeywordHistory||(view==='product'&&state?.workspace==='costs')||focusedProductWorkspace||focusedProductPerformance||focusedSearchTerms||focusedKeywordWorkspace;
   const needsPacing=new Set(['main','insight','keyword','product','reports','changes']).has(view)&&!focusedEarlyReturn;
   const pacingPromise = (needsPacing?pacingService.buildPacingDashboard({ db }):Promise.resolve({status:'NO_DATA',channels:[],reasons:[]})).catch(error => {
     console.error('[dashboard] pacing unavailable', error);
@@ -1166,7 +1198,7 @@ async function getDashboardData(state) {
       latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[])
     });
   }
-  if(focusedProductPerformance){
+  if(focusedProductPerformance||focusedInsightProfitability){
     const [aiResultsRaw,cafe24TokenRaw,productTargetsRaw]=await Promise.all([
       supplementalQueries.aiResults,supplementalQueries.cafe24Token,supplementalQueries.productTargets
     ]);
@@ -1180,14 +1212,17 @@ async function getDashboardData(state) {
       {platform:'SHARED',dataset:'product_ad_targets'}
     ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
     queryIssues.push(...aiResultsSettled.issues,...cafe24TokenSettled.issues,...productTargetsSettled.issues);
-    return buildProductPerformanceDashboardData({
+    const performanceInput={
       db,loaderSession,generatedAt,queryIssues,workspace:state.workspace,
       productsResult,ordersResult,itemsResult,syncResult,alertsResult,masterResult,channelsResult,costsResult,
       channelCostsResult,shippingRulesResult,coupangOrdersResult,coupangItemsResult,coupangProductItemsResult,
       coupangRgOrdersResult,coupangRgOrderItemsResult,productAdTargetRows:productTargetsSettled.results[0].data||[],
       cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,
       latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[])
-    });
+    };
+    return focusedInsightProfitability
+      ? buildInsightProfitabilityDashboardData(performanceInput)
+      : buildProductPerformanceDashboardData(performanceInput);
   }
   if(view==='inventory'||focusedInsightReport||(view==='product'&&state?.workspace==='costs')){
     const [aiResultsRaw,cafe24TokenRaw]=await Promise.all([supplementalQueries.aiResults,supplementalQueries.cafe24Token]);

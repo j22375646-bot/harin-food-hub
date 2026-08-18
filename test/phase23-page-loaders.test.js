@@ -67,8 +67,13 @@ test('23-2 scopes insight and product workspaces to the data they render',()=>{
   assert.deepEqual(causes.tables,['reports','actions','platform_events','alerts','cafe24_oauth_tokens','ai_analysis_results']);
   assert.deepEqual(channels.tables,['reports','actions','platform_events','alerts','cafe24_oauth_tokens','ai_analysis_results']);
   assert.deepEqual(history.tables,['financial_change_requests','cafe24_oauth_tokens','ai_analysis_results']);
+  assert.deepEqual(profit.tables,[
+    'master_products','channel_products','product_costs','channel_cost_settings','channel_shipping_rules','ai_analysis_results',
+    'cafe24_products','cafe24_orders','cafe24_order_items','cafe24_oauth_tokens','naver_keywords','naver_keyword_stats',
+    'coupang_orders','coupang_order_items','coupang_product_items','coupang_rg_orders','coupang_rg_order_items','coupang_ad_keyword_daily','alerts'
+  ]);
   assert.ok(profit.tables.includes('product_costs'));
-  assert.ok(profit.tables.includes('coupang_settlements'));
+  assert.equal(profit.tables.includes('coupang_settlements'),false);
   assert.ok(costs.tables.includes('product_costs'));
   assert.equal(costs.tables.includes('coupang_orders'),false);
   assert.equal(costs.tables.includes('cafe24_oauth_tokens'),true);
@@ -126,12 +131,15 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/return buildProductCatalogDashboardData\(/);
   assert.match(page,/buildProductCatalogDashboardData[\s\S]*?mappingService\.buildMappingDashboard/);
   assert.match(page,/focusedProductPerformance=view==='product'/);
-  assert.match(page,/return buildProductPerformanceDashboardData\(/);
+  assert.match(page,/: buildProductPerformanceDashboardData\(performanceInput\)/);
   assert.match(page,/buildProductPerformanceDashboardData[\s\S]*?loadUnifiedProductPerformance/);
   assert.match(page,/const seoulDateKey[\s\S]*?periodEnd=seoulDateKey\(generatedAt\)/);
   assert.match(page,/focusedKeywordHistory=view==='keyword'/);
   assert.match(page,/return buildKeywordHistoryDashboardData\(/);
   assert.match(page,/buildInsightChannelsDashboardData/);
+  assert.match(page,/focusedInsightProfitability=view==='insight'/);
+  assert.match(page,/return focusedInsightProfitability[\s\S]*?buildInsightProfitabilityDashboardData/);
+  assert.match(page,/buildInsightProfitabilityDashboardData[\s\S]*?finalizeAiPagePanels\(\{insight:builtPanels\.insight\}/);
   assert.match(page,/focusedSearchTerms=view==='keyword'&&state\?\.workspace==='search-terms'/);
   assert.match(page,/return buildSearchTermsDashboardData\(/);
   assert.match(page,/buildSearchTermsDashboardData[\s\S]*?finalizeAiPagePanels\(\{keyword:builtPanels\.keyword\}/);
