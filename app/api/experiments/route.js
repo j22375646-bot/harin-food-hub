@@ -11,7 +11,10 @@ function authorized(request) {
 
 export async function GET(request) {
   if (!authorized(request)) return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
-  try { return Response.json({ ok: true, ...(await service.listLab()) }); }
+  try {
+    const masterProductId=new URL(request.url).searchParams.get('master_product_id');
+    return Response.json({ ok: true, ...(await service.listLab({masterProductId})) });
+  }
   catch (error) { return Response.json({ ok: false, error: error.message }, { status: 500 }); }
 }
 

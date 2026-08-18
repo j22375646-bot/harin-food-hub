@@ -507,6 +507,10 @@ html[data-font-scale="xlarge"] main th{font-size:15px!important}html[data-font-s
 
 /* Phase 10-5 — analysis and execution pages use only relevant channel controls. */
 .phase7Center,.experimentIntro{scroll-margin-top:104px}
+
+/* Phase 22-5 · product-scoped experiment selector. */
+.harinV8 .experimentProductScope{display:grid;grid-template-columns:minmax(220px,.75fr) minmax(280px,1fr) auto;align-items:end;gap:13px;margin:12px 0 18px;border:1px solid #ddd7ec;border-radius:20px;background:linear-gradient(135deg,#fff,#f6f2fc);padding:16px 18px}.harinV8 .experimentProductScope>div{display:flex;align-items:center;gap:10px}.harinV8 .experimentProductScope>div>svg{flex:none;color:#8173b6}.harinV8 .experimentProductScope>div>span,.harinV8 .experimentProductScope>label{display:flex;min-width:0;flex-direction:column;gap:4px}.harinV8 .experimentProductScope small,.harinV8 .experimentProductScope label>span{color:var(--v8-muted);font-size:13px}.harinV8 .experimentProductScope b{overflow:hidden;color:var(--v8-ink);font-size:17px;text-overflow:ellipsis;white-space:nowrap}.harinV8 .experimentProductScope select{width:100%;min-height:46px;border:1px solid #d9d3e7;border-radius:13px;background:#fff;padding:0 13px;color:var(--v8-ink);font:inherit;font-weight:800}.harinV8 .experimentProductScope>a{display:inline-flex;min-height:46px;align-items:center;justify-content:center;border:1px solid #d8d1e8;border-radius:13px;background:#fff;padding:0 14px;color:#6f619f;font-weight:900;text-decoration:none}.harinV8 .experimentProductScope select:focus,.harinV8 .experimentProductScope>a:focus-visible{outline:3px solid rgba(158,145,207,.24);outline-offset:2px}
+@media(max-width:760px){.harinV8 .experimentProductScope{grid-template-columns:1fr;padding:15px}.harinV8 .experimentProductScope>a{width:100%}}
 .phase7HeroBadge b{max-width:130px;text-align:center}
 .phase8Automation>div{grid-template-columns:repeat(3,1fr)}
 

@@ -34,16 +34,16 @@ export default function MarketIntelligenceShell({children}){
     }catch(error){setSyncMessage(`확인 필요 · ${error.message}`);}
     finally{setSyncing(false);}
   }
-  const context={group:{label:'개발'},item:{label:'시장·전환'},platform:'선택 상품'};
+  const context={group:{label:'개발'},item:{label:'상품개발'},platform:'선택 상품'};
   return <div className="shell marketHubShell">
     <HarinTopbar context={context} connectionLabel="상품별 분석 공간" connectionTone="check" fontScale={fontScale} onFontScale={setFontScale} syncing={syncing} onSync={runSync}/>
     <HarinSidebar groups={groups} view="market" openGroup={openGroup} query={query} onQuery={setQuery} onOpenGroup={setOpenGroup} onOpenView={openView} onPrefetch={prefetchView}/>
     <main className="hubMain marketHubMain" data-path={pathname}>
-      <nav className="marketBreadcrumb" aria-label="현재 위치"><span>개발</span><i>›</i><b>시장·전환</b></nav>
+      <nav className="marketBreadcrumb" aria-label="현재 위치"><span>개발</span><i>›</i><b>상품개발</b></nav>
       {syncMessage?<div className="syncToast">{syncMessage}</div>:null}
       {children}
     </main>
     <HarinMobileNavigation nav={nav} groups={groups} view="market" onOpenView={openView} onPrefetch={prefetchView} fontScale={fontScale} onFontScale={setFontScale}/>
-    <footer className="hubFooter">하린식품 시장·전환 성장센터 <span>·</span> 상품별 근거와 실행을 따로 관리합니다</footer>
+    <footer className="hubFooter">하린식품 상품개발센터 <span>·</span> 상품별 근거·실험·결과를 따로 관리합니다</footer>
   </div>;
 }

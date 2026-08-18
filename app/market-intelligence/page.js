@@ -9,6 +9,6 @@ export default async function Page(){
     const data=await projectsModule.loadProjectHome({db:supabaseModule.getSupabase()});
     return <MarketProjectHome initialData={data}/>;
   }catch(error){
-    return <MarketProjectHome initialData={{products:[],projects:[],summary:{saleable_products:0,active_projects:0,versions:0},error:error.message}}/>;
+    return <MarketProjectHome initialData={{products:[],projects:[],summary:{saleable_products:0,active_projects:0,versions:0,experiments:0,completed_products:0},error:error.message}}/>;
   }
 }
