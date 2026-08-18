@@ -42,23 +42,23 @@ test('15-4 renders a responsive table, mobile cards, drafts and a detail panel',
   assert.match(component,/네이버와 쿠팡은 서로 섞지 않고/);
   assert.match(component,/추천가 채우기/);
   assert.match(component,/변경 전 검토/);
-  assert.match(component,/아직 네이버에는 반영되지 않습니다/);
+  assert.match(component,/마지막 확인 뒤 네이버 반영과 재조회까지/);
   assert.match(dashboard,/플랫폼별 분리 운영/);
   assert.match(css,/\.keywordOpsTable/);
   assert.match(css,/\.keywordOpsMobileAction/);
   assert.match(css,/content-visibility:auto/);
 });
 
-test('15-5 creates Naver approval previews only and never routes Coupang through the writer',()=>{
+test('22-1 confirms and executes Naver changes directly while keeping Coupang out of the writer',()=>{
   const component=fs.readFileSync('app/_analysis/keyword-operations-table.js','utf8');
   const writer=fs.readFileSync('lib/naver/bid-execution.js','utf8');
   assert.match(component,/platform!==['"]naver['"]/);
   assert.match(component,/fetch\(['"]\/api\/naver\/bid-proposals['"]/);
-  assert.match(component,/승인안 생성/);
-  assert.match(component,/사장님 승인/);
-  assert.match(component,/현재값 재조회/);
+  assert.match(component,/CONFIRM_EXECUTE/);
+  assert.match(component,/변경값 확인/);
+  assert.match(component,/결과 재조회/);
   assert.match(component,/쿠팡 항목은 이 흐름에 들어오지 않으며 WING 수동 적용/);
-  assert.doesNotMatch(component,/\/api\/financial-changes\/\$\{/);
+  assert.match(component,/\/api\/financial-changes\/\$\{/);
   assert.doesNotMatch(component,/\/api\/coupang\//);
   assert.match(writer,/await fetchKeyword\(request\.target_key, api\)/);
   assert.match(writer,/const observed = await fetchKeyword\(live\.nccKeywordId, api\)/);

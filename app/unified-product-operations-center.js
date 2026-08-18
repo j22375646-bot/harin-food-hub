@@ -72,6 +72,6 @@ export default function UnifiedProductOperationsCenter({ center = {} }) {
       <div className="productOpsChannels">{CHANNELS.map(([id,label,icon]) => <ProductChannel key={id} label={label} icon={icon} channel={item.channels?.[id]}/>)}</div>
     </article>)}{!filtered.length && <div className="productOpsEmpty">이 조건에서 확인할 상품이 없습니다.</div>}</div>
     {visibleCount<filtered.length&&<button className="opsLoadMore" type="button" onClick={()=>setVisibleCount(count=>count+24)}>상품 24개 더 보기 <small>{visible.length}/{filtered.length}</small></button>}
-    <p className="productOpsLock"><HarinIcon name="shield" size={17}/>실제 가격·판매상태 변경은 자동 실행하지 않습니다. 변경승인에서 검토한 뒤 실행하도록 잠겨 있습니다.</p>
+    <p className="productOpsLock"><HarinIcon name="shield" size={17}/>실제 가격·판매상태 변경은 자동 실행하지 않습니다. 변경값 확인 팝업 뒤에만 실행하도록 잠겨 있습니다.</p>
   </section>;
 }

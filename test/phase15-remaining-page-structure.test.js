@@ -22,7 +22,7 @@ test('15-7 keeps current execution decisions visible and folds full tools and re
   const detailIndex=source.indexOf('<HarinProgressiveDetails id="execution-full-workbench"');
   const aiIndex=source.lastIndexOf('<HarinPageAiRegion');
   assert.ok(deskIndex>=0&&detailIndex>deskIndex&&aiIndex>detailIndex);
-  for(const label of ['진단 목록·보고서 전체 보기','승인·실행 전체 작업대','실행 결과·기록 전체 보기','A/B 테스트 등록·전체 기록'])assert.match(source,new RegExp(label));
+  for(const label of ['진단 목록·보고서 전체 보기','변경·복구 기록 전체 보기','실행 결과·기록 전체 보기','A/B 테스트 등록·전체 기록'])assert.match(source,new RegExp(label));
 });
 
 test('15-7 separates current notifications from delivery settings and completed history',()=>{

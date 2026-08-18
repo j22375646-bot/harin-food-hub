@@ -7,7 +7,7 @@ const { HUB_NAV, HUB_NAV_GROUPS, HUB_WORKSPACES, HUB_LEGACY_ROUTES, normalizeHub
 test('all sixteen hub functions have stable unique addresses', () => {
   assert.equal(HUB_NAV.length,16);
   assert.equal(new Set(HUB_NAV.map(item=>item.href)).size,16);
-  assert.deepEqual(HUB_NAV.map(item=>item.label),['메인','주문','CS','재고관리','정산·비용','데이터수집','인사이트','키워드','시장·전환','상품','AI 기준자료','진단목록','변경승인','실행검증','A/B 테스트','알림']);
+  assert.deepEqual(HUB_NAV.map(item=>item.label),['메인','주문','CS','재고관리','정산·비용','데이터수집','인사이트','키워드','시장·전환','상품','AI 기준자료','진단목록','변경기록','실행검증','A/B 테스트','알림']);
   assert.equal(buildHubHref({view:'orders',platform:'naver'}),'/orders');
   assert.equal(buildHubHref({view:'cs'}),'/cs');
   assert.equal(buildHubHref({view:'inventory'}),'/inventory');
