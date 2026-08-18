@@ -83,3 +83,9 @@ test('22-6 connects the shared bulk controls to notifications and Rocket Growth 
   assert.match(inventory,/replenishmentRowsToCsv/);
   assert.match(inventory,/쿠팡 재고와 입고 요청은 변경하지 않습니다/);
 });
+
+test('22-6 mobile bulk bars are fixed to the viewport after the page entrance animation',()=>{
+  const design=fs.readFileSync('app/_design-system/harin-v8.css','utf8');
+  assert.match(design,/@keyframes v8SurfaceEnter\{from\{opacity:0;transform:translateY\(7px\)\}to\{opacity:1;transform:none\}\}/);
+  assert.doesNotMatch(design,/v8SurfaceEnter 260ms[^\n}]*\bboth\b/);
+});

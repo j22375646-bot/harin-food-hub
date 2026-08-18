@@ -288,8 +288,10 @@ body.harinV8{
 .harinV8 .mobileBottomNav :where(button,summary,select):focus-visible,
 .harinV8 :where(.v8Button,.v8Card-interactive):focus-visible{outline:3px solid rgba(116,107,178,.34);outline-offset:2px;box-shadow:var(--v8-focus)}
 
-@keyframes v8SurfaceEnter{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
-.harinV8 .hubMain>:where(section,article,details){animation:v8SurfaceEnter 260ms cubic-bezier(.2,.8,.2,1) both}
+@keyframes v8SurfaceEnter{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+/* Do not retain the final keyframe. A retained identity transform still creates
+   a containing block and traps mobile fixed action bars inside long pages. */
+.harinV8 .hubMain>:where(section,article,details){animation:v8SurfaceEnter 260ms cubic-bezier(.2,.8,.2,1)}
 
 @media(hover:hover) and (pointer:fine){
   .v8Card-interactive:hover,.harinV8 .hubMain>:where(.panel,.contentCard,.statusCard,.kpi):hover{transform:translateY(-2px);border-color:#d4cfdf;box-shadow:0 17px 42px rgba(54,52,82,.11)}
