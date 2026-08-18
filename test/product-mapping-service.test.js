@@ -84,3 +84,32 @@ test('판매 중단 외부 상품은 매칭 후보와 연결 집계에서 제외
   assert.equal(dashboard.summary.inactive_sources, 1);
   assert.deepEqual(dashboard.links.map(item=>item.external_product_id), ['ACTIVE']);
 });
+
+test('일괄 자동연결은 선택한 플랫폼의 고신뢰 실상품만 계획한다', () => {
+  const dashboard = {
+    candidates:[
+      {platform:'NAVER',external_product_id:'N1',auto_eligible:true,candidates:[{master_product_id:'M1',score:0.98}]},
+      {platform:'NAVER',external_product_id:'N2',auto_eligible:false,candidates:[{master_product_id:'M2',score:0.72}]},
+      {platform:'COUPANG',external_product_id:'C1',auto_eligible:true,candidates:[{master_product_id:'M3',score:0.99}]}
+    ],
+    links:[]
+  };
+  const plan = service.planBulkMappingOperations({ dashboard, action:'BULK_AUTO_LINK', platform:'NAVER', externalProductIds:['N1','N2','C1'] });
+  assert.equal(plan.requested, 3);
+  assert.equal(plan.skipped, 2);
+  assert.deepEqual(plan.operations.map(item=>[item.source.platform,item.source.external_product_id,item.masterProductId]), [['NAVER','N1','M1']]);
+});
+
+test('일괄 연결해제도 플랫폼을 섞지 않고 선택한 연결만 계획한다', () => {
+  const dashboard = {
+    candidates:[],
+    links:[
+      {platform:'NAVER',external_product_id:'SAME',external_product_name:'네이버 상품'},
+      {platform:'COUPANG',external_product_id:'SAME',external_product_name:'쿠팡 상품'}
+    ]
+  };
+  const plan = service.planBulkMappingOperations({ dashboard, action:'BULK_UNLINK', platform:'COUPANG', externalProductIds:['SAME'] });
+  assert.equal(plan.operations.length, 1);
+  assert.equal(plan.operations[0].source.platform, 'COUPANG');
+  assert.equal(plan.operations[0].rpcAction, 'UNLINK');
+});

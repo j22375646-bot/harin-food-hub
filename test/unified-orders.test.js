@@ -244,7 +244,8 @@ test('phase 11-9 preserves bulk selection and retry while focusing the postal au
   const route=fs.readFileSync(path.join(__dirname,'..','app','api','shipping','actions','route.js'),'utf8');
   const transfer=fs.readFileSync(path.join(__dirname,'..','lib','shipping','channel-transfer.js'),'utf8');
   assert.match(center,/선택 주문 출고 작업/);
-  assert.match(center,/출고 가능 주문 전체선택/);
+  assert.match(center,/현재 화면 또는 검색 결과의 출고 가능 주문만 선택합니다/);
+  assert.match(center,/HarinBulkSelectionBar/);
   assert.match(center,/bulkEligible=visible\.filter/);
   assert.match(center,/className=\{`orderInvoiceEntry/);
   assert.match(center,/우체국 송장번호/);

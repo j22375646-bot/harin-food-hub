@@ -34,3 +34,24 @@ test('22-2 exposes one reusable accessible bulk bar and connects the keyword ref
   assert.match(css,/\.v8BulkSelectionBar\.active/);
   assert.match(css,/@media\(max-width:700px\)/);
 });
+
+test('22-3 applies the shared bulk bar to orders and product mapping',()=>{
+  const orders=fs.readFileSync('app/unified-orders-center.js','utf8');
+  const products=fs.readFileSync('app/dashboard-client.js','utf8');
+  assert.match(orders,/useHarinBulkSelection/);
+  assert.match(orders,/현재 화면 또는 검색 결과의 출고 가능 주문만 선택합니다/);
+  assert.match(orders,/로켓그로스·취소 완료·선택 불가 주문은 일괄 작업에서 자동 제외됩니다/);
+  assert.match(products,/BULK_AUTO_LINK/);
+  assert.match(products,/BULK_REJECT/);
+  assert.match(products,/BULK_UNLINK/);
+});
+
+test('22-3 keeps Naver and Coupang mapping and keyword workspaces separated',()=>{
+  const products=fs.readFileSync('app/dashboard-client.js','utf8');
+  const keywords=fs.readFileSync('app/_analysis/keyword-operations-table.js','utf8');
+  assert.match(products,/\['NAVER','naver','네이버 스마트스토어'\],\['COUPANG','coupang','쿠팡'\]/);
+  assert.match(products,/다른 채널 상품에는 적용되지 않습니다/);
+  assert.match(products,/네이버 광고그룹은 계속 제외됩니다/);
+  assert.match(keywords,/platform==='NAVER'/);
+  assert.match(keywords,/platform==='COUPANG'/);
+});

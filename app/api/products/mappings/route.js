@@ -27,7 +27,7 @@ export async function POST(request) {
     const result = await mappingService.mutateMapping({ db:supabaseModule.getSupabase(), body:await request.json(), actor:authModule.requestActor(request) });
     return Response.json({ ok:true, result });
   } catch (error) {
-    const validation = /확인|찾지 못|지원하지/.test(error.message || '');
+    const validation = /확인|선택|찾지 못|지원하지/.test(error.message || '');
     return Response.json({ ok:false, error:error.message || '상품 매핑 변경 실패' }, { status:validation ? 400 : 500 });
   }
 }
