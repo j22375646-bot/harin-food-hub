@@ -44,6 +44,7 @@ test('23-2 scopes insight and product workspaces to the data they render',()=>{
   assert.ok(profit.tables.includes('coupang_settlements'));
   assert.ok(costs.tables.includes('product_costs'));
   assert.equal(costs.tables.includes('coupang_orders'),false);
+  assert.equal(costs.tables.includes('cafe24_oauth_tokens'),true);
 });
 
 test('23-2 records real, skipped and target loader telemetry',()=>{
@@ -77,11 +78,13 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/cafe24_products'[\s\S]*?\.limit\(view==='orders'\?100:500\)/);
   assert.match(page,/if\(view==='orders'\)\{[\s\S]*?return buildOrdersDashboardData\(/);
   assert.match(page,/buildOrdersDashboardData[\s\S]*?finalizeAiPagePanels\(\{orders:builtPanels\.orders\}/);
-  assert.match(page,/if\(view==='inventory'\|\|\(view==='insight'&&state\?\.workspace==='overview'\)\)\{/);
+  assert.match(page,/if\(view==='inventory'\|\|\(view==='insight'&&state\?\.workspace==='overview'\)\|\|\(view==='product'&&state\?\.workspace==='costs'\)\)\{/);
   assert.match(page,/return buildInventoryDashboardData\(/);
   assert.match(page,/buildInventoryDashboardData[\s\S]*?finalizeAiPagePanels\(\{inventory:builtPanels\.inventory\}/);
   assert.match(page,/return buildInsightOverviewDashboardData\(/);
   assert.match(page,/buildInsightOverviewDashboardData[\s\S]*?finalizeAiPagePanels\(\{insight:builtPanels\.insight\}/);
+  assert.match(page,/return buildProductCostsDashboardData\(/);
+  assert.match(page,/buildProductCostsDashboardData[\s\S]*?finalizeAiPagePanels\(\{product:builtPanels\.product\}/);
   assert.match(page,/reportsResult\.count\?\?reportsResult\.data\?\.length\?\?0/);
   assert.match(page,/view==='insight'&&state\?\.workspace==='overview'[\s\S]*?select\(reportFields,\{count:'exact'\}\)[\s\S]*?limit\(12\)/);
   assert.match(page,/focusedEarlyReturn\?Promise\.resolve\(\{data:null,error:null\}\):db\.from\('sync_logs'\)/);

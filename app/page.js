@@ -328,6 +328,80 @@ async function buildInsightOverviewDashboardData({
   };
 }
 
+async function buildProductCostsDashboardData({
+  loaderSession,generatedAt,queryIssues,
+  productsResult,syncResult,alertsResult,masterResult,channelsResult,costsResult,
+  channelCostsResult,shippingRulesResult,coupangProductsResult,coupangProductItemsResult,
+  cafe24Token,latestAiPageResults
+}) {
+  const sourceProducts=productsResult.data||[];
+  const channelProducts=channelsResult.data||[];
+  const masterProducts=masterResult.data||[];
+  const productCosts=costsResult.data||[];
+  const shell=await buildFocusedShellData({
+    queryIssues,syncResult,alertsResult,generatedAt,cafe24Token,
+    cafe24Counts:{products:sourceProducts.length,orders:0},
+    coupangCounts:{products:coupangProductsResult.data?.length||0,orders:0,inquiries:0,claims:0},
+    summaries:{CAFE24:`${sourceProducts.length.toLocaleString('ko-KR')}개 상품`,COUPANG:'상품 연결 자료',NAVER:'상품 연결 자료'}
+  });
+  const products=sourceProducts.map(product=>{
+    const catalog=cafe24CatalogModule.catalogProduct(product);
+    return {
+      id:product.external_product_no,name:product.product_name,price:number(product.price),
+      selling:product.selling,display:product.display,catalog_status:catalog.catalog_status,
+      status_label:catalog.status_label,is_sellable:catalog.is_sellable,excluded:catalog.excluded,
+      exclusion_reason:catalog.exclusion_reason,image:product.raw_data?.small_image||product.raw_data?.list_image||null
+    };
+  });
+  const sellableCafe24Ids=new Set(products.filter(product=>product.is_sellable).map(product=>String(product.id)));
+  const sellableMasterIds=new Set(channelProducts
+    .filter(item=>item.platform==='CAFE24'&&item.is_active!==false&&sellableCafe24Ids.has(String(item.external_product_id)))
+    .map(item=>item.master_product_id));
+  const sellableMasterProducts=masterProducts.filter(item=>item.is_active!==false&&sellableMasterIds.has(item.id));
+  const productOperations=productOperationsModule.buildUnifiedProductOperations({
+    masterProducts:sellableMasterProducts,channelProducts,cafe24Products:sourceProducts,
+    coupangProducts:coupangProductsResult.data||[],coupangProductItems:coupangProductItemsResult.data||[],coupangItemInventory:[]
+  });
+  const emptyPerformance={summary:{revenue:0,active_products:0,cost_coverage_rate:null,coupang_ad_spend_unassigned:0},items:[]};
+  const rawProfitability=profitabilityModule.calculateProfitability({
+    items:[],productLinks:channelProducts.filter(item=>item.platform==='CAFE24'),productCosts,
+    channelSetting:(channelCostsResult.data||[]).find(item=>item.platform==='CAFE24')||{},
+    shippingRule:(shippingRulesResult.data||[]).find(item=>item.platform==='CAFE24')||{},adSpend:0
+  });
+  const financialTrust=financialTrustModule.evaluateFinancialTrust({
+    costCoverageRate:rawProfitability.cost_coverage_rate,
+    missingCostProducts:rawProfitability.missing_cost_products,
+    missingCostRevenue:rawProfitability.missing_cost_revenue,
+    requireAdAssignment:false
+  });
+  const liveProfitability=financialTrustModule.applyProfitabilityGate(rawProfitability,financialTrust);
+  const financialReadiness=financialReadinessModule.buildFinancialReadiness({
+    performance:emptyPerformance,profitability:rawProfitability,financialTrust,productCosts,
+    channelCostSettings:channelCostsResult.data||[],channelShippingRules:shippingRulesResult.data||[]
+  });
+  const costCalibration=costCalibrationModule.calculateCoupangCostCalibration({
+    settlements:[],costTransactions:[],currentSetting:(channelCostsResult.data||[]).find(item=>item.platform==='COUPANG')||{}
+  });
+  const shippingRuleEvidence=shippingRulesModule.buildCoupangShippingEvidence({returns:[],costTransactions:[]});
+  const builtPanels=aiPagePanelsModule.buildAiPagePanels({
+    dataHealth:shell.dataHealth,productOperations,collectionCenter:shell.collectionCenter,alerts:shell.alerts,
+    aiConfiguration:openaiClientModule.configuration(),generatedAt,period:kstScheduleModule.kstDateKey(generatedAt)
+  });
+  const aiPagePanels=finalizeAiPagePanels({product:builtPanels.product},latestAiPageResults,generatedAt,['product']);
+  return {
+    loadedView:'product',loadedWorkspace:'costs',loaderPerformance:loaderSession.snapshot(),generatedAt,
+    dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
+    aiPagePanels,financialTrust,financialReadiness,liveProfitability,costCalibration,shippingRuleEvidence,
+    products,masterProducts,channelProducts,productCosts,
+    channelCostSettings:channelCostsResult.data||[],channelShippingRules:shippingRulesResult.data||[],
+    productOperations,productMapping:{summary:{},candidates:[],links:[]},
+    productAdTargets:{summary:{},items:[]},unifiedProductPerformance:emptyPerformance,
+    kpis:{sales:0,orders:0,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:sourceProducts.length},
+    syncs:shell.syncs,reports:[],actions:[],alerts:shell.alerts,automationRuns:[],qualityChecks:[],metricSnapshots:[],
+    naver:{},coupang:{}
+  };
+}
+
 async function buildOrdersDashboardData({
   loaderSession, generatedAt, queryIssues,
   ordersResult, itemsResult, productsResult, syncResult, alertsResult, channelsResult,
@@ -497,7 +571,7 @@ async function getDashboardData(state) {
     return Math.min(fallback,limits[view]?.[kind]||fallback);
   };
   const needsPacing=new Set(['main','insight','keyword','product','reports','changes']).has(view);
-  const focusedEarlyReturn=view==='orders'||view==='inventory'||(view==='insight'&&state?.workspace==='overview');
+  const focusedEarlyReturn=view==='orders'||view==='inventory'||(view==='insight'&&state?.workspace==='overview')||(view==='product'&&state?.workspace==='costs');
   const pacingPromise = (needsPacing?pacingService.buildPacingDashboard({ db }):Promise.resolve({status:'NO_DATA',channels:[],reasons:[]})).catch(error => {
     console.error('[dashboard] pacing unavailable', error);
     return { status:'NO_DATA', channels:[], reasons:['목표 진행률을 불러오지 못했습니다.'] };
@@ -651,7 +725,7 @@ async function getDashboardData(state) {
   });
   const queryIssues = [...settled.issues];
   const [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, shippingRulesResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult] = settled.results;
-  if(view==='inventory'||(view==='insight'&&state?.workspace==='overview')){
+  if(view==='inventory'||(view==='insight'&&state?.workspace==='overview')||(view==='product'&&state?.workspace==='costs')){
     const [aiResultsRaw,cafe24TokenRaw]=await Promise.all([supplementalQueries.aiResults,supplementalQueries.cafe24Token]);
     const aiResultsSettled=dataHealthModule.settleQueries(aiResultsRaw,[
       {platform:'SHARED',dataset:'ai_analysis_results'}
@@ -666,6 +740,12 @@ async function getDashboardData(state) {
       return buildInventoryDashboardData({
         loaderSession,generatedAt,queryIssues,syncResult,alertsResult,
         coupangProductsResult,coupangProductItemsResult,coupangInventoryResult,cafe24Token,latestAiPageResults
+      });
+    }
+    if(view==='product'){
+      return buildProductCostsDashboardData({
+        loaderSession,generatedAt,queryIssues,productsResult,syncResult,alertsResult,masterResult,channelsResult,costsResult,
+        channelCostsResult,shippingRulesResult,coupangProductsResult,coupangProductItemsResult,cafe24Token,latestAiPageResults
       });
     }
     return buildInsightOverviewDashboardData({
