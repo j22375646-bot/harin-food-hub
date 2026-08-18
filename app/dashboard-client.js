@@ -1031,7 +1031,9 @@ function ProductMappingCandidate({ item, masterProducts, onMutate, working, sele
 }
 
 function ProductMappingWorkbench({ mapping={}, masterProducts=[] }) {
-  const summary=mapping.summary||{}, candidates=mapping.candidates||[], links=mapping.links||[];
+  const [currentMapping,setCurrentMapping]=useState(mapping);
+  useEffect(()=>setCurrentMapping(mapping),[mapping]);
+  const summary=currentMapping.summary||{}, candidates=currentMapping.candidates||[], links=currentMapping.links||[];
   const [view,setView]=useStoredState('filter:product-mapping-view','CANDIDATES',['CANDIDATES','LINKED']);
   const [platform,setPlatform]=useStoredState('filter:product-mapping-platform','NAVER',['NAVER','COUPANG']);
   const [working,setWorking]=useState(''),[message,setMessage]=useState('');
@@ -1052,7 +1054,17 @@ function ProductMappingWorkbench({ mapping={}, masterProducts=[] }) {
     if(payload.action==='AUTO_LINK_ALL'&&!window.confirm(`${platformName} 고신뢰 후보 ${autoCount}개를 자동 연결할까요?`))return;
     if(payload.action==='UNLINK'&&!window.confirm('이 채널 상품의 연결을 해제할까요?'))return;
     setWorking(key);setMessage('매핑을 저장하는 중…');
-    try{const response=await fetch('/api/products/mappings',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'매핑 저장 실패');const bulk=payload.action.startsWith('BULK_');setMessage(bulk?`일괄 작업 ${result.result?.processed||0}개 완료${result.result?.failed?` · 실패 ${result.result.failed}개`:''}${result.result?.skipped?` · 조건 불일치 ${result.result.skipped}개`:''}`:payload.action==='AUTO_LINK_ALL'?`자동연결 ${result.result?.linked||0}개 완료`:'매핑이 저장되었습니다.');if(bulk)selection.clear();setTimeout(()=>window.location.reload(),900);}catch(error){setMessage(`확인 필요 · ${error.message}`);setWorking('');}
+    try{
+      const response=await fetch('/api/products/mappings',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
+      const result=await response.json();
+      if(!response.ok||!result.ok)throw new Error(result.error||'매핑 저장 실패');
+      const refreshedResponse=await fetch('/api/products/mappings',{cache:'no-store'});
+      const refreshed=await refreshedResponse.json();
+      if(refreshedResponse.ok&&refreshed.ok)setCurrentMapping({summary:refreshed.summary,candidates:refreshed.candidates,links:refreshed.links});
+      const bulk=payload.action.startsWith('BULK_');
+      setMessage(bulk?`일괄 작업 ${result.result?.processed||0}개 완료${result.result?.failed?` · 실패 ${result.result.failed}개`:''}${result.result?.skipped?` · 조건 불일치 ${result.result.skipped}개`:''} · 목록에 바로 반영했습니다.`:payload.action==='AUTO_LINK_ALL'?`자동연결 ${result.result?.linked||0}개 완료 · 목록에 바로 반영했습니다.`:'매핑을 저장하고 목록에 바로 반영했습니다.');
+      selection.clear();
+    }catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setWorking('');}
   }
   async function runBulk(action){
     const eligible=action==='BULK_AUTO_LINK'?selectedRows.filter(item=>item.auto_eligible&&item.candidates?.[0]?.master_product_id):action==='BULK_REJECT'?selectedRows.filter(item=>item.candidates?.[0]?.master_product_id):selectedRows;

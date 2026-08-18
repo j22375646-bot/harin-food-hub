@@ -38,3 +38,15 @@ test('23-3 keeps the order center mounted after shipment registration refresh',(
   assert.doesNotMatch(completion,/router\.refresh|window\.location\.reload/);
   assert.doesNotMatch(orders,/useRouter/);
 });
+
+test('23-3 reloads product mapping data inside the workbench instead of the page',()=>{
+  const dashboard=read('app/dashboard-client.js');
+  const start=dashboard.indexOf('function ProductMappingWorkbench');
+  const end=dashboard.indexOf('const shippingPlatforms',start);
+  const workbench=dashboard.slice(start,end);
+  assert.match(workbench,/const \[currentMapping,setCurrentMapping\]=useState\(mapping\)/);
+  assert.match(workbench,/fetch\('\/api\/products\/mappings',\{cache:'no-store'\}\)/);
+  assert.match(workbench,/setCurrentMapping\(\{summary:refreshed\.summary,candidates:refreshed\.candidates,links:refreshed\.links\}\)/);
+  assert.doesNotMatch(workbench,/window\.location\.reload|router\.refresh/);
+  assert.match(workbench,/finally\{setWorking\(''\);\}/);
+});
