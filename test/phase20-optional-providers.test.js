@@ -45,6 +45,13 @@ test('public procurement probe decodes the portal key and reads only a known goo
   assert.doesNotMatch(JSON.stringify(result),/abc\+123/u);
 });
 
+test('public procurement readiness stores only columns supported by optional provider snapshots',async()=>{
+  let inserted;const db={from(table){assert.equal(table,'optional_provider_snapshots');return {insert(row){inserted=row;return {select(){return {async single(){return {data:{id:'snapshot-1',provider:row.provider,status:row.status,fetched_at:row.fetched_at},error:null};}};}};}};}};
+  const env={PUBLIC_PROCUREMENT_B2B_ACTIVE:'true',PUBLIC_PROCUREMENT_ENABLED:'true',DATA_GO_KR_SERVICE_KEY:'abc%2B123%3D'};
+  const result=await readiness.probeProcurement({db,env,now:new Date('2026-08-18T09:20:00Z'),fetchImpl:async()=>({ok:true,status:200,text:async()=>'<response><header><resultCode>00</resultCode><resultMsg>정상</resultMsg></header><body><items><item><bidNtceNo>20160234982</bidNtceNo></item></items><totalCount>1</totalCount></body></response>'})});
+  assert.equal(result.snapshot.id,'snapshot-1');assert.equal(inserted.metric_summary.item_count,1);assert.equal(inserted.metadata.read_only,true);assert.equal(inserted.metadata.sample_notice_number,'20160234982');assert.equal('source_data' in inserted,false);assert.equal('source_timestamp' in inserted,false);
+});
+
 test('one failed DeepL attempt does not change gated Trends or procurement states',()=>{
   const env={DEEPL_TRANSLATION_ENABLED:'true',DEEPL_API_KEY:'secret'};
   const center=readiness.buildOptionalProviderCenter({env,snapshots:[{provider:'DEEPL',status:'SUCCESS',fetched_at:'2026-08-18T01:00:00Z',metric_summary:{character_count:50,character_limit:500000}},{provider:'DEEPL',status:'FAILED',fetched_at:'2026-08-18T02:00:00Z',error_message:'quota'}]});
