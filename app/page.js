@@ -251,7 +251,18 @@ async function getDashboardData(state) {
     ownedSiteReadiness:view==='collection'&&['owned-site','provider-runtime'].includes(state?.workspace) ? Promise.allSettled([
       db.from('owned_site_api_snapshots').select('id,provider,site_url,status,metric_summary,quota_summary,source_timestamp,fetched_at,error_code,error_message,metadata').order('fetched_at',{ascending:false}).limit(200)
     ]) : Promise.resolve([{ status:'fulfilled', value:{ data:[], error:null } }]),
-    shippingReference:(view==='orders'||(view==='collection'&&['shipping-reference','provider-runtime'].includes(state?.workspace))) ? Promise.allSettled([
+    shippingReference:view==='orders' ? Promise.allSettled([
+      // Orders only need the compact holiday calendar used by same-day and
+      // delayed-shipping badges. Address probes, failures and provider
+      // metadata belong to the collection workbench and made this hot path
+      // download up to 200 source snapshots on every navigation.
+      db.from('shipping_reference_snapshots')
+        .select('provider,status,reference_year,source_data,source_timestamp,fetched_at')
+        .eq('provider','HOLIDAY_CALENDAR')
+        .eq('status','SUCCESS')
+        .order('fetched_at',{ascending:false})
+        .limit(10)
+    ]) : view==='collection'&&['shipping-reference','provider-runtime'].includes(state?.workspace) ? Promise.allSettled([
       db.from('shipping_reference_snapshots').select('id,provider,status,reference_year,metric_summary,source_data,source_timestamp,fetched_at,error_code,error_message,metadata').order('fetched_at',{ascending:false}).limit(200)
     ]) : Promise.resolve([{ status:'fulfilled', value:{ data:[], error:null } }]),
     operationsHealth:view==='collection'&&['operations-health','provider-runtime'].includes(state?.workspace) ? Promise.allSettled([
