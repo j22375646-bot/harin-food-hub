@@ -221,7 +221,7 @@ function finalizeAiPagePanels(panels, latestAiPageResults, generatedAt, pageKeys
 
 async function buildFocusedShellData({
   queryIssues, syncResult, alertsResult, generatedAt,
-  cafe24Counts={}, coupangCounts={}, summaries={}
+  cafe24Token=null, cafe24Counts={}, coupangCounts={}, summaries={}
 }) {
   const syncs=syncResult.data||[];
   const alerts=alertsResult.data||[];
@@ -235,6 +235,7 @@ async function buildFocusedShellData({
   });
   const channelConnections=await channelCapabilitiesModule.buildChannelCapabilities({
     syncs,
+    cafe24Token,
     cafe24Counts,
     coupangCounts
   });
@@ -253,11 +254,11 @@ async function buildFocusedShellData({
 async function buildInventoryDashboardData({
   loaderSession,generatedAt,queryIssues,
   syncResult,alertsResult,coupangProductsResult,coupangProductItemsResult,coupangInventoryResult,
-  latestAiPageResults
+  cafe24Token,latestAiPageResults
 }) {
   const rawInventory=coupangInventoryResult.data||[];
   const shell=await buildFocusedShellData({
-    queryIssues,syncResult,alertsResult,generatedAt,
+    queryIssues,syncResult,alertsResult,generatedAt,cafe24Token,
     coupangCounts:{products:coupangProductsResult.data?.length||0,orders:0,inquiries:0,claims:0},
     summaries:{COUPANG:coupangInventoryResult.unavailable?'저장량 확인 불가':`${rawInventory.length.toLocaleString('ko-KR')}개 로켓그로스 SKU`}
   });
@@ -300,10 +301,10 @@ async function buildInventoryDashboardData({
 }
 
 async function buildInsightOverviewDashboardData({
-  loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,latestAiPageResults
+  loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults
 }) {
   const shell=await buildFocusedShellData({
-    queryIssues,syncResult,alertsResult,generatedAt,
+    queryIssues,syncResult,alertsResult,generatedAt,cafe24Token,
     summaries:{NAVER:'저장 보고서 기준',CAFE24:'저장 보고서 기준',COUPANG:'저장 보고서 기준'}
   });
   const builtPanels=aiPagePanelsModule.buildAiPagePanels({
@@ -333,7 +334,7 @@ async function buildOrdersDashboardData({
   coupangProductsResult, coupangProductItemsResult, coupangOrdersResult, coupangItemsResult,
   coupangRgOrdersResult, coupangRgOrderItemsResult, coupangReturnsResult,
   naverCommerceOrdersResult, naverCommerceItemsResult,
-  shippingReferenceSnapshots, latestAiPageResults
+  shippingReferenceSnapshots, cafe24Token, latestAiPageResults
 }) {
   const syncs=syncResult.data||[];
   const cafe24Orders=ordersResult.data||[];
@@ -353,6 +354,7 @@ async function buildOrdersDashboardData({
   });
   const channelConnections=await channelCapabilitiesModule.buildChannelCapabilities({
     syncs,
+    cafe24Token,
     cafe24Counts:{products:productsResult.data?.length||0,orders:cafe24Orders.length},
     coupangCounts:{products:coupangProductsResult.data?.length||0,orders:coupangOrders.length,inquiries:0,claims:coupangReturnsResult.data?.length||0}
   });
@@ -511,6 +513,9 @@ async function getDashboardData(state) {
   // Start independent view queries together. Previously these waited for the large
   // base query one group at a time, which made every navigation inherit the full waterfall.
   const supplementalQueries={
+    cafe24Token:focusedEarlyReturn ? Promise.allSettled([
+      db.from('cafe24_oauth_tokens').select('token_data').eq('mall_id',process.env.CAFE24_MALL_ID).maybeSingle()
+    ]) : Promise.resolve([{status:'fulfilled',value:{data:null,error:null}}]),
     productTargets:Promise.allSettled([
       db.from('product_ad_targets').select('master_product_id,target_profit_margin_rate,notes,formula_version,updated_at').limit(500)
     ]),
@@ -647,26 +652,32 @@ async function getDashboardData(state) {
   const queryIssues = [...settled.issues];
   const [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, shippingRulesResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult] = settled.results;
   if(view==='inventory'||(view==='insight'&&state?.workspace==='overview')){
-    const aiResultsSettled=dataHealthModule.settleQueries(await supplementalQueries.aiResults,[
+    const [aiResultsRaw,cafe24TokenRaw]=await Promise.all([supplementalQueries.aiResults,supplementalQueries.cafe24Token]);
+    const aiResultsSettled=dataHealthModule.settleQueries(aiResultsRaw,[
       {platform:'SHARED',dataset:'ai_analysis_results'}
     ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
-    queryIssues.push(...aiResultsSettled.issues);
+    const cafe24TokenSettled=dataHealthModule.settleQueries(cafe24TokenRaw,[
+      {platform:'CAFE24',dataset:'cafe24_oauth_tokens'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    queryIssues.push(...aiResultsSettled.issues,...cafe24TokenSettled.issues);
+    const cafe24Token=cafe24TokenSettled.results[0].data?.token_data||null;
     const latestAiPageResults=aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[]);
     if(view==='inventory'){
       return buildInventoryDashboardData({
         loaderSession,generatedAt,queryIssues,syncResult,alertsResult,
-        coupangProductsResult,coupangProductItemsResult,coupangInventoryResult,latestAiPageResults
+        coupangProductsResult,coupangProductItemsResult,coupangInventoryResult,cafe24Token,latestAiPageResults
       });
     }
     return buildInsightOverviewDashboardData({
-      loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,latestAiPageResults
+      loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults
     });
   }
   if(view==='orders'){
-    const [naverCommerceRaw,aiResultsRaw,shippingReferenceRaw]=await Promise.all([
+    const [naverCommerceRaw,aiResultsRaw,shippingReferenceRaw,cafe24TokenRaw]=await Promise.all([
       supplementalQueries.naverCommerce,
       supplementalQueries.aiResults,
-      supplementalQueries.shippingReference
+      supplementalQueries.shippingReference,
+      supplementalQueries.cafe24Token
     ]);
     const naverCommerceSettled=dataHealthModule.settleQueries(naverCommerceRaw,[
       {platform:'NAVER',dataset:'naver_commerce_orders'},
@@ -679,7 +690,10 @@ async function getDashboardData(state) {
     const shippingReferenceSettled=dataHealthModule.settleQueries(shippingReferenceRaw,[
       {platform:'PUBLIC',dataset:'shipping_reference_snapshots'}
     ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
-    queryIssues.push(...naverCommerceSettled.issues,...aiResultsSettled.issues,...shippingReferenceSettled.issues);
+    const cafe24TokenSettled=dataHealthModule.settleQueries(cafe24TokenRaw,[
+      {platform:'CAFE24',dataset:'cafe24_oauth_tokens'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    queryIssues.push(...naverCommerceSettled.issues,...aiResultsSettled.issues,...shippingReferenceSettled.issues,...cafe24TokenSettled.issues);
     const [naverCommerceOrdersResult,naverCommerceItemsResult]=naverCommerceSettled.results;
     return buildOrdersDashboardData({
       loaderSession,generatedAt,queryIssues,
@@ -688,6 +702,7 @@ async function getDashboardData(state) {
       coupangRgOrdersResult,coupangRgOrderItemsResult,coupangReturnsResult,
       naverCommerceOrdersResult,naverCommerceItemsResult,
       shippingReferenceSnapshots:shippingReferenceSettled.results[0].data||[],
+      cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,
       latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[])
     });
   }

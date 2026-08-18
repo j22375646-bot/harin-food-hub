@@ -17,9 +17,11 @@ test('23-2 gives orders and Rocket Growth inventory independent table profiles',
   assert.ok(orders.tables.includes('coupang_orders'));
   assert.equal(orders.tables.includes('coupang_rg_order_items'),false);
   assert.equal(orders.tables.includes('shipping_reference_snapshots'),true);
+  assert.equal(orders.tables.includes('cafe24_oauth_tokens'),true);
   assert.equal(inventory.tables.includes('coupang_rg_inventory'),true);
   assert.equal(inventory.tables.includes('cafe24_products'),false);
   assert.equal(inventory.tables.includes('naver_commerce_orders'),false);
+  assert.equal(inventory.tables.includes('cafe24_oauth_tokens'),true);
   assert.equal(inventory.target_ms,2500);
 });
 
@@ -37,7 +39,7 @@ test('23-2 scopes insight and product workspaces to the data they render',()=>{
   const overview=loaders.profileForState({view:'insight',workspace:'overview',platform:'all'});
   const profit=loaders.profileForState({view:'insight',workspace:'profitability',platform:'all'});
   const costs=loaders.profileForState({view:'product',workspace:'costs',platform:'all'});
-  assert.deepEqual(overview.tables,['reports','platform_events','alerts','ai_analysis_results']);
+  assert.deepEqual(overview.tables,['reports','platform_events','alerts','cafe24_oauth_tokens','ai_analysis_results']);
   assert.ok(profit.tables.includes('product_costs'));
   assert.ok(profit.tables.includes('coupang_settlements'));
   assert.ok(costs.tables.includes('product_costs'));
@@ -83,6 +85,8 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/reportsResult\.count\?\?reportsResult\.data\?\.length\?\?0/);
   assert.match(page,/view==='insight'&&state\?\.workspace==='overview'[\s\S]*?select\(reportFields,\{count:'exact'\}\)[\s\S]*?limit\(24\)/);
   assert.match(page,/focusedEarlyReturn\?Promise\.resolve\(\{data:null,error:null\}\):db\.from\('sync_logs'\)/);
+  assert.match(page,/cafe24Token:focusedEarlyReturn \? Promise\.allSettled/);
+  assert.match(page,/cafe24Token:cafe24TokenSettled\.results\[0\]\.data\?\.token_data\|\|null/);
   assert.match(analysis,/platform==='all'&&Number\.isFinite\(Number\(data\.reportCount\)\)/);
   assert.match(dashboard,/data-loader-profile=\{initialData\.loaderPerformance\?\.profile/);
   assert.match(dashboard,/data-loader-ms=\{initialData\.loaderPerformance\?\.duration_ms/);
