@@ -24,15 +24,18 @@ test('16-2 keeps password-only owner login while adding the pastel welcome layou
   assert.doesNotMatch(login,/name="(?:account|username|email)"/);
 });
 
-test('16-2 shares one accessible loading surface for route and hydration states',()=>{
+test('23-1 supersedes full route and hydration loading with the persistent shell',()=>{
   const routeLoading=read('app/loading.js');
   const dashboard=read('app/dashboard-client.js');
   const shared=read('app/_design-system/harin-loading-screen.js');
-  assert.match(routeLoading,/<HarinLoadingScreen\/>/);
-  assert.match(dashboard,/if \(!mounted\) return <HarinLoadingScreen/);
+  const marketLoading=read('app/market-intelligence/loading.js');
+  assert.match(routeLoading,/return null/);
+  assert.doesNotMatch(routeLoading,/HarinLoadingScreen/);
+  assert.doesNotMatch(dashboard,/if \(!mounted\)|HarinLoadingScreen/);
+  assert.match(dashboard,/className="viewLoadingSkeleton"/);
+  assert.match(marketLoading,/HarinRouteSkeleton/);
   assert.match(shared,/aria-live="polite" aria-busy="true"/);
-  assert.match(shared,/className="routeLoadingBar"/);
-  for(const icon of ['orders','inventory','analysis'])assert.match(shared,new RegExp(`name="${icon}"`));
+  assert.match(shared,/className="routePartialSkeleton"/);
 });
 
 test('16-2 entry motion is pastel, responsive and reduced-motion safe',()=>{

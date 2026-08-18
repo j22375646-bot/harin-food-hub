@@ -13,7 +13,6 @@ import UnifiedOrdersCenter from './unified-orders-center.js';
 import { HarinBreadcrumbBar, HarinFocusedWorkspaceNav, HarinMobileNavigation, HarinSidebar, HarinTopbar } from './_shell/harin-app-shell.js';
 import { HarinProgressiveDetails } from './_design-system/harin-ui.js';
 import { HarinBulkCheckbox, HarinBulkSelectionBar, useHarinBulkSelection } from './_design-system/harin-bulk-selection.js';
-import HarinLoadingScreen from './_design-system/harin-loading-screen.js';
 import HarinIcon from './_design-system/harin-icon.js';
 
 const { buildAlertBulkPlan } = remainingBulkModule;
@@ -176,7 +175,6 @@ export default function Dashboard({ initialData, initialState }) {
   const router=useRouter();
   const [routePending,startRouteTransition]=useTransition();
   const normalizedInitial=hubRoutesModule.normalizeHubState(initialState);
-  const [mounted, setMounted] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncMessage, setSyncMessage] = useState('');
   const [platform, setPlatform] = useState(normalizedInitial.platform);
@@ -190,7 +188,6 @@ export default function Dashboard({ initialData, initialState }) {
   const [pendingWorkspace,setPendingWorkspace]=useState(null);
   const prefetchedViews=useRef(new Set([normalizedInitial.view]));
   const [fontScale,setFontScale]=useStoredState('font-scale','large',['large','xlarge']);
-  useEffect(() => setMounted(true), []);
   useEffect(()=>{document.documentElement.dataset.fontScale=fontScale;},[fontScale]);
   useEffect(()=>{
     const next=hubRoutesModule.normalizeHubState(initialState);
@@ -206,7 +203,6 @@ export default function Dashboard({ initialData, initialState }) {
     window.addEventListener('popstate',syncFromAddress);
     return ()=>window.removeEventListener('popstate',syncFromAddress);
   },[]);
-  if (!mounted) return <HarinLoadingScreen title="오늘의 운영 화면을 준비하고 있어요" description="주문·재고·성과 자료를 보기 좋게 정리하고 있습니다."/>;
   if (initialData.error) return <main className="errorPage"><div><b>데이터를 불러오지 못했어요</b><p>{initialData.error}</p></div></main>;
 
   const { kpis, products, syncs, reports, actions } = initialData;
@@ -255,7 +251,11 @@ export default function Dashboard({ initialData, initialState }) {
     <HarinTopbar context={navContext} connectionLabel={connectionLabel} connectionTone={connectionTone} fontScale={fontScale} onFontScale={setFontScale} syncing={syncing} onSync={runSync}/>
     <HarinSidebar groups={navGroups} view={pendingView||view} openGroup={openNavGroup} query={navQuery} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onOpenView={openView} onPrefetch={prefetchView}/>
     <main className={`hubMain${viewIsLoading?' routePending':''}`} aria-busy={viewIsLoading?'true':'false'}>
-      {viewIsLoading?<section className="viewLoadingRibbon" role="status"><span/><b>{nav.find(item=>item.id===(pendingView||view))?.label} 화면을 준비하고 있어요</b><small>보던 화면은 그대로 두고 필요한 자료만 빠르게 불러옵니다.</small></section>:null}
+      {viewIsLoading?<section className="viewLoadingRibbon" role="status" aria-live="polite">
+        <span className="viewLoadingSpinner" aria-hidden="true"/>
+        <span className="viewLoadingCopy"><b>{nav.find(item=>item.id===(pendingView||view))?.label} 화면으로 이동하고 있어요</b><small>허브 메뉴는 그대로 두고 필요한 자료만 불러옵니다.</small></span>
+        <span className="viewLoadingSkeleton" aria-hidden="true"><i/><i/><i/></span>
+      </section>:null}
       <HarinBreadcrumbBar context={navContext} refreshedLabel={latestRefreshAt?`최근 갱신 ${dateTime(latestRefreshAt)}`:null}/>
       {channelScopedViews.has(view)&&(view!=='product'||workspace==='catalog')&&<section className="platformSwitch" aria-label="플랫폼 선택">
         {(view==='keyword'?[['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡']]:[['all','allDot','전체'],['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡'],['cafe24','cafeDot','Cafe24']]).map(([id,dot,label])=><button key={id} className={platform===id?'selected':''} onClick={()=>selectPlatform(id)}><i className={dot}/>{label}</button>)}

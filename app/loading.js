@@ -1,5 +1,5 @@
-import HarinLoadingScreen from './_design-system/harin-loading-screen.js';
-
 export default function Loading() {
-  return <HarinLoadingScreen/>;
+  // Keep the current page and hub shell visible while the destination RSC
+  // payload is prepared. The dashboard paints compact feedback on click.
+  return null;
 }

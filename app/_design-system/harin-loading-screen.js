@@ -23,4 +23,18 @@ export function HarinLoadingScreen({
   </main>;
 }
 
+export function HarinRouteSkeleton({
+  title='필요한 내용을 불러오고 있어요',
+  description='허브 메뉴는 그대로 두고 이 화면의 내용만 준비합니다.'
+}) {
+  return <section className="routePartialSkeleton" role="status" aria-live="polite" aria-busy="true">
+    <header>
+      <span aria-hidden="true"><HarinIcon name="sparkles" size={19}/></span>
+      <div><b>{title}</b><small>{description}</small></div>
+    </header>
+    <div className="routePartialSkeletonMetrics" aria-hidden="true"><i/><i/><i/></div>
+    <div className="routePartialSkeletonBody" aria-hidden="true"><i/><i/><i/><i/></div>
+  </section>;
+}
+
 export default HarinLoadingScreen;

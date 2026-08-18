@@ -43,6 +43,7 @@ test('15-8 mobile shell and route feedback stay usable without horizontal clippi
   assert.match(shellCss,/max-height:min\(76dvh,700px\)/);
   assert.match(frameCss,/v8ProgressiveDetailsBody\{overflow-x:auto/);
   assert.match(globalCss,/\.hubMain\.routePending>:not\(\.viewLoadingRibbon\)\{opacity:\.56;pointer-events:none/);
+  assert.match(globalCss,/\.harinV8 \.hubMain\.routePending>:not\(\.viewLoadingRibbon\)\{opacity:\.72\}/);
   assert.match(globalCss,/\.unifiedCsMore\{width:100%\}/);
 });
 

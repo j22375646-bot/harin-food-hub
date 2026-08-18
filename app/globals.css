@@ -974,3 +974,15 @@ main :where(button,a,input,select,textarea):focus-visible,.topbar :where(button,
   .marketWorkbenchError{align-items:flex-start;flex-wrap:wrap;padding:18px}.marketWorkbenchError .harinButton{width:100%}
   .marketRouteError{padding:15px}.marketRouteError>.harinCard{grid-template-columns:1fr;padding:22px}.marketRouteError>article>div{display:grid;grid-column:auto}.marketRouteError .harinButton{width:100%;min-height:48px}
 }
+
+/* Phase 23-1: instant route feedback without replacing the persistent shell. */
+.harinV8 .viewLoadingRibbon{grid-template-columns:28px minmax(0,1fr) minmax(130px,28%);gap:11px;border-color:#ddd8ec;border-radius:14px;background:rgba(251,250,254,.96);color:#504877;box-shadow:0 8px 24px rgba(77,67,120,.1)}
+.harinV8 .viewLoadingRibbon .viewLoadingSpinner{display:block;width:24px;height:24px;border:3px solid #e7e2f2;border-top-color:#8478bd;border-radius:50%;animation:aiRouteSpin .8s linear infinite}
+.harinV8 .viewLoadingCopy{display:flex;min-width:0;width:auto;height:auto;flex-direction:column;gap:2px;border:0;border-radius:0;animation:none}.harinV8 .viewLoadingRibbon .viewLoadingCopy b{font-size:13px}.harinV8 .viewLoadingRibbon .viewLoadingCopy small{justify-self:auto;color:#777287;font-size:12px}
+.harinV8 .viewLoadingSkeleton{display:grid;width:auto;height:auto;grid-template-columns:1.3fr 1fr .72fr;gap:7px;border:0;border-radius:0;animation:none}.harinV8 .viewLoadingSkeleton i{display:block;height:9px;border-radius:999px;background:linear-gradient(90deg,#edeaf5 20%,#ddd7ec 50%,#edeaf5 80%);background-size:220% 100%;animation:routeSkeletonSweep 1.15s ease-in-out infinite}
+.harinV8 .viewLoadingRibbon:after{background:linear-gradient(90deg,#9c91cf,#e7b7c7,#9bbfd8);background-size:200% 100%}
+.harinV8 .hubMain.routePending>:not(.viewLoadingRibbon){opacity:.72}
+@keyframes routeSkeletonSweep{0%{background-position:110% 0}100%{background-position:-110% 0}}
+@media(max-width:900px){.harinV8 .viewLoadingRibbon{grid-template-columns:27px minmax(0,1fr)}.harinV8 .viewLoadingSkeleton{display:none}.harinV8 .viewLoadingRibbon .viewLoadingCopy small{display:block}}
+@media(max-width:520px){.harinV8 .viewLoadingRibbon .viewLoadingCopy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+@media(prefers-reduced-motion:reduce){.harinV8 .viewLoadingSpinner,.harinV8 .viewLoadingSkeleton i{animation:none}}
