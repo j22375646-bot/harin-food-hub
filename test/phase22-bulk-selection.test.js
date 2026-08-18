@@ -4,6 +4,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const selection=require('../lib/ui/bulk-selection.js');
+const remaining=require('../lib/operations/remaining-bulk-workflows.js');
 
 test('22-2 selects the visible page without losing earlier selections',()=>{
   const selected=selection.toggleSelectionScope(['outside'],['page-1','page-2'],true);
@@ -54,4 +55,31 @@ test('22-3 keeps Naver and Coupang mapping and keyword workspaces separated',()=
   assert.match(products,/네이버 광고그룹은 계속 제외됩니다/);
   assert.match(keywords,/platform==='NAVER'/);
   assert.match(keywords,/platform==='COUPANG'/);
+});
+
+test('22-6 plans only alert actions that match the current alert state',()=>{
+  const alerts=[{id:'open',status:'OPEN'},{id:'done',status:'RESOLVED'},{id:'seen',status:'ACKNOWLEDGED'}];
+  const resolve=remaining.buildAlertBulkPlan(alerts,['open','done','seen'],'RESOLVE');
+  assert.deepEqual(resolve.eligible.map(item=>item.id),['open','seen']);
+  assert.deepEqual(resolve.skipped.map(item=>item.id),['done']);
+  assert.equal(remaining.alertSupportsAction(alerts[1],'REOPEN'),true);
+  assert.equal(remaining.alertSupportsAction(alerts[0],'REOPEN'),false);
+});
+
+test('22-6 builds a read-only Rocket Growth replenishment work list',()=>{
+  const rows=remaining.replenishmentRows([{vendor_item_id:12,external_sku_id:'RG-12',total_orderable_quantity:5,sales_last_30_days:30,productItem:{item_name:'작두콩차'}}],14);
+  assert.equal(rows[0].recommendedQuantity,9);
+  assert.match(remaining.replenishmentRowsToCsv(rows),/상품명,SKU,쿠팡 상품번호/);
+  assert.match(remaining.replenishmentRowsToText(rows),/14일 목표 9개 입고 검토/);
+});
+
+test('22-6 connects the shared bulk controls to notifications and Rocket Growth inventory',()=>{
+  const dashboard=fs.readFileSync('app/dashboard-client.js','utf8');
+  const inventory=fs.readFileSync('app/unified-inventory-operations-center.js','utf8');
+  assert.match(dashboard,/notificationBulkSelectionBar/);
+  assert.match(dashboard,/실패 \$\{failed\.length\}건은 다시 선택해 두었습니다/);
+  assert.match(dashboard,/외부 이메일은 발송하지 않고 허브 안의 알림 상태만 바꿉니다/);
+  assert.match(inventory,/inventoryBulkSelectionBar/);
+  assert.match(inventory,/replenishmentRowsToCsv/);
+  assert.match(inventory,/쿠팡 재고와 입고 요청은 변경하지 않습니다/);
 });

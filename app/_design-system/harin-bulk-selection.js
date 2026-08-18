@@ -27,6 +27,7 @@ export function useHarinBulkSelection({ allIds=EMPTY_IDS, visibleIds=EMPTY_IDS, 
   const toggle=useCallback((id,checked)=>setSelectedIds(current=>toggleSelection(current,id,checked)),[]);
   const toggleScope=useCallback((scopeIds,checked)=>setSelectedIds(current=>toggleSelectionScope(current,scopeIds,checked)),[]);
   const clear=useCallback(()=>setSelectedIds([]),[]);
+  const replace=useCallback(ids=>setSelectedIds(reconcileSelection(ids,normalizedAll)),[normalizedAll]);
 
   return {
     selectedIds,
@@ -37,7 +38,8 @@ export function useHarinBulkSelection({ allIds=EMPTY_IDS, visibleIds=EMPTY_IDS, 
     isSelected:useCallback(id=>selectedSet.has(String(id)),[selectedSet]),
     toggle,
     toggleScope,
-    clear
+    clear,
+    replace
   };
 }
 
