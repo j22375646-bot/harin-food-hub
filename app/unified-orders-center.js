@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import { HarinIcon } from './_design-system/harin-icon.js';
 import { HarinPageAiRegion, HarinPageFrame, HarinPageHeader } from './_design-system/harin-ui.js';
 import { HarinBulkSelectionBar, useHarinBulkSelection } from './_design-system/harin-bulk-selection.js';
@@ -372,7 +371,6 @@ function ShippingWorkbench({ mode, orders, selectedIds, invoices, setInvoices, a
 }
 
 export default function UnifiedOrdersCenter({ center, children, aiPanel }) {
-  const router=useRouter();
   const [currentCenter,setCurrentCenter]=useState(center);
   const [liveState,setLiveState]=useState({status:'IDLE',message:'매시 정각 자동수집 · 필요할 때 아래 버튼으로 즉시 수집할 수 있습니다.'});
   const [completionNotice,setCompletionNotice]=useState(null);
@@ -488,7 +486,6 @@ export default function UnifiedOrdersCenter({ center, children, aiPanel }) {
     openWorkspace('REGISTER');
     setCompletionNotice({status:'LOADING',message:`송장 자동등록 ${count(completed)}건 완료 · 전체 택배 연동 플랫폼을 최신 상태로 다시 불러오고 있어요.`});
     const refreshed=await refreshLiveOrders({afterShipping:true});
-    router.refresh();
     setCompletionNotice(refreshed.ok
       ?{status:refreshed.partial?'PARTIAL':'SUCCESS',message:refreshed.partial?'송장 등록은 완료됐어요. 일부 채널 최신 조회만 다시 확인해 주세요.':'송장 자동등록이 완료됐어요. 전체 플랫폼 최신 상태를 반영했고 배송대기중으로 옮겼습니다.'}
       :{status:'PARTIAL',message:`송장 등록은 완료됐어요. 최신 주문 재수집은 다시 확인이 필요합니다 · ${refreshed.error}`});

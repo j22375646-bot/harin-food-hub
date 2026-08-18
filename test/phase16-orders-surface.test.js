@@ -43,7 +43,8 @@ test('16-11 moves registered invoices through ePost waiting and shipping workspa
   assert.match(center,/label:'배송대기중'.*송장등록완료/);
   assert.match(center,/workspace==='IN_TRANSIT'\)return tracking\?\.statusCode==='IN_TRANSIT'/);
   assert.match(center,/onTransfersCompleted=\{handleTransfersCompleted\}/);
-  assert.match(center,/router\.refresh\(\)/);
+  assert.match(center,/await refreshLiveOrders\(\{afterShipping:true\}\)/);
+  assert.doesNotMatch(center,/router\.refresh\(\)/);
   assert.match(center,/송장 자동등록이 완료됐어요/);
   assert.match(route,/NAVER_COMMERCE_SYNC/);
   assert.match(route,/coupangRequestId/);

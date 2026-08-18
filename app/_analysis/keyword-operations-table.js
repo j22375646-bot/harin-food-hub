@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import keywordOperationsModule from '../../lib/marketing/keyword-operations.js';
 import coupangWingWorklistModule from '../../lib/marketing/coupang-wing-worklist.js';
 import { useStoredState } from '../use-hub-preference.js';
@@ -26,14 +25,16 @@ const clamp=(value,min,max)=>Math.min(max??value,Math.max(min??value,value));
 
 function KeywordPictogram(){return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6.5h14M5 12h8M5 17.5h5"/><circle cx="17" cy="15.5" r="3.5"/><path d="m19.5 18 2 2"/></svg>;}
 
-function StatusPill({row}){
+function StatusPill({row,mutationState}){
+  if(mutationState==='APPLYING')return <span className="keywordOpsStatus history">적용 중</span>;
+  if(mutationState==='APPLIED')return <span className="keywordOpsStatus ready">반영 완료</span>;
+  if(mutationState==='FAILED')return <span className="keywordOpsStatus blocked">다시 확인</span>;
   const label=row.applicationMode==='MANUAL_REQUIRED'?'수동 적용 필요':row.applicationMode==='HISTORY'?(HISTORY_STATUS[row.status]||row.status||'기록 확인'):row.canDraft?'변경안 작성 가능':DECISION_LABEL[row.decision]||row.status||'확인 필요';
   const tone=row.applicationMode==='MANUAL_REQUIRED'?'manual':row.canDraft?'ready':row.applicationMode==='HISTORY'?'history':'blocked';
   return <span className={`keywordOpsStatus ${tone}`}>{label}</span>;
 }
 
 export default function KeywordOperationsTable({workspace='registered',platform='naver',data={}}){
-  const router=useRouter();
   const [query,setQuery]=useState('');
   const isCoupang=platform==='coupang';
   const [settings,setSettings]=useStoredState('keyword-operations-view',{quickFilter:'ALL',sort:'COST_DESC',pageSize:25});
@@ -44,6 +45,8 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const pageSize=[25,50,100].includes(Number(settings?.pageSize))?Number(settings.pageSize):25;
   const [page,setPage]=useState(1);
   const [drafts,setDrafts]=useState({});
+  const [instantRows,setInstantRows]=useState({});
+  const [mutationStates,setMutationStates]=useState({});
   const [detailId,setDetailId]=useState('');
   const [reviewOpen,setReviewOpen]=useState(false);
   const [working,setWorking]=useState(false);
@@ -51,7 +54,8 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const [wingOpen,setWingOpen]=useState(false);
   const [wingNotice,setWingNotice]=useState('');
   const copy=WORKSPACE_COPY[workspace]||WORKSPACE_COPY.registered;
-  const sourceRows=useMemo(()=>normalizeKeywordRows({naverBidWorkbench:data.naverBidWorkbench,searchTermCenter:data.naver?.searchTermCenter,coupang:data.coupang,financialChanges:data.financialChanges,workspace,platform}),[data.naverBidWorkbench,data.naver?.searchTermCenter,data.coupang,data.financialChanges,workspace,platform]);
+  const rawSourceRows=useMemo(()=>normalizeKeywordRows({naverBidWorkbench:data.naverBidWorkbench,searchTermCenter:data.naver?.searchTermCenter,coupang:data.coupang,financialChanges:data.financialChanges,workspace,platform}),[data.naverBidWorkbench,data.naver?.searchTermCenter,data.coupang,data.financialChanges,workspace,platform]);
+  const sourceRows=useMemo(()=>rawSourceRows.map(row=>instantRows[row.id]?{...row,...instantRows[row.id]}:row),[rawSourceRows,instantRows]);
   const rows=useMemo(()=>filterKeywordRows(sourceRows,{query,quickFilter,sort}),[sourceRows,query,quickFilter,sort]);
   const pagination=useMemo(()=>paginateKeywordRows(rows,page,pageSize),[rows,page,pageSize]);
   const summary=useMemo(()=>keywordOperationSummary(sourceRows),[sourceRows]);
@@ -68,7 +72,7 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const currentTotal=changedRows.reduce((sum,item)=>sum+Number(item.currentBid||0),0);
   const draftTotal=changedRows.reduce((sum,item)=>sum+Number(drafts[item.id]||0),0);
 
-  useEffect(()=>{setPage(1);selection.clear();setDrafts({});setDetailId('');setReviewOpen(false);setProposalResult(null);setWingOpen(false);setWingNotice('');},[workspace,platform]);
+  useEffect(()=>{setPage(1);selection.clear();setDrafts({});setInstantRows({});setMutationStates({});setDetailId('');setReviewOpen(false);setProposalResult(null);setWingOpen(false);setWingNotice('');},[workspace,platform]);
   useEffect(()=>{setPage(1);},[query,quickFilter,sort,pageSize]);
 
   function saveSettings(next){setSettings({...settings,...next});}
@@ -102,7 +106,8 @@ export default function KeywordOperationsTable({workspace='registered',platform=
     const applied=[],failed=[];
     for(const row of changedRows){
       const desired=number(drafts[row.id]);
-      if(!row.snapshotToken||desired==null){failed.push({id:row.id,keyword:row.keyword,error:'서버 미리보기를 새로 받아주세요.'});continue;}
+      setMutationStates(current=>({...current,[row.id]:'APPLYING'}));
+      if(!row.snapshotToken||desired==null){failed.push({id:row.id,keyword:row.keyword,error:'서버 미리보기를 새로 받아주세요.'});setMutationStates(current=>({...current,[row.id]:'FAILED'}));continue;}
       const snapshotKey=String(row.snapshotToken).slice(-20).replace(/[^A-Za-z0-9._:-]/g,'');
       const idempotencyKey=`kwbid:${row.id}:${desired}:${snapshotKey}`.slice(0,128);
       try{
@@ -116,11 +121,18 @@ export default function KeywordOperationsTable({workspace='registered',platform=
         if(!executeResponse.ok||!executed.ok)throw new Error(executed.error||'네이버에 반영하지 못했습니다.');
         if(executed.blocked||executed.applied===false)throw new Error(executed.request?.error_message||'현재값이 달라져 실행을 멈췄습니다.');
         if(!executed.verified)throw new Error(executed.request?.error_message||'반영 후 현재값이 일치하지 않습니다.');
-        applied.push({id:row.id,keyword:row.keyword,requestId,reused:executed.reused===true});
-      }catch(error){failed.push({id:row.id,keyword:row.keyword,error:error.message||'변경 실행 실패'});}
+        applied.push({id:row.id,keyword:row.keyword,requestId,reused:executed.reused===true,desired});
+        setInstantRows(current=>({...current,[row.id]:{currentBid:desired,observedBid:desired,canDraft:false,status:'VERIFIED',decision:'WATCH',reasons:['네이버 반영 후 현재값 재조회까지 완료했습니다.']}}));
+        setMutationStates(current=>({...current,[row.id]:'APPLIED'}));
+      }catch(error){failed.push({id:row.id,keyword:row.keyword,error:error.message||'변경 실행 실패'});setMutationStates(current=>({...current,[row.id]:'FAILED'}));}
     }
     setProposalResult({applied,failed});setWorking(false);
-    if(applied.length){selection.clear();setDrafts({});router.refresh();}
+    if(applied.length){
+      const appliedIds=applied.map(item=>item.id);
+      const appliedIdSet=new Set(appliedIds.map(String));
+      selection.toggleScope(appliedIds,false);
+      setDrafts(current=>Object.fromEntries(Object.entries(current).filter(([id])=>!appliedIdSet.has(String(id)))));
+    }
   }
 
   return <section className={`keywordOps workspace-${workspace} platform-${platform}`} id="keyword-operations-table">
@@ -146,7 +158,7 @@ export default function KeywordOperationsTable({workspace='registered',platform=
             <span className="keywordOpsScope"><b>{row.campaign}</b><small>{row.product}</small></span>
             <span><b>{row.applicationMode==='MANUAL_REQUIRED'?'WING 확인':won(row.currentBid)}</b></span><span className="recommended"><b>{row.applicationMode==='MANUAL_REQUIRED'?(DECISION_LABEL[row.decision]||'관찰'):won(row.recommendedBid)}</b></span>
             <span className="keywordOpsDraft" onClick={event=>event.stopPropagation()}>{row.canDraft?<input type="number" step="10" min={row.minimumBid??100} max={row.maximumBid??100000} value={drafts[row.id]??''} placeholder={row.recommendedBid??'-'} aria-label={`${row.keyword} 변경 입찰가`} onChange={event=>setDraft(row,event.target.value)} onBlur={()=>{const value=number(drafts[row.id]);if(value!=null)setDraft(row,clamp(value,row.minimumBid,row.maximumBid));}}/>:<em>{row.applicationMode==='MANUAL_REQUIRED'?'작업표 입력':row.applicationMode==='HISTORY'?(row.observedBid==null?'재조회 전':won(row.observedBid)):'-'}</em>}</span>
-            <span>{count(row.clicks)}</span><span><b>{won(row.cost)}</b></span><span>{count(row.orders)}</span><span>{percent(row.roas)}</span><span className="blockedValue">판단 보류</span><span><StatusPill row={row}/></span>
+            <span>{count(row.clicks)}</span><span><b>{won(row.cost)}</b></span><span>{count(row.orders)}</span><span>{percent(row.roas)}</span><span className="blockedValue">판단 보류</span><span><StatusPill row={row} mutationState={mutationStates[row.id]}/></span>
           </div>;})}
           {!pagination.items.length?<div className="keywordOpsEmpty"><i><KeywordPictogram/></i><b>{workspace==='history'?'아직 표시할 키워드 변경 기록이 없어요':'조건에 맞는 키워드가 없어요'}</b><p>{workspace==='history'?'확인 후 실행한 변경은 이 화면에서 성과검증까지 연결됩니다.':'검색어나 빠른 보기를 바꾸면 원본 데이터를 다시 확인할 수 있습니다.'}</p></div>:null}
         </div>
