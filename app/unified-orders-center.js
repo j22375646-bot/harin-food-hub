@@ -29,7 +29,14 @@ const ORDER_WORKSPACE_PRESENTATION={
 };
 const money=value=>`${Math.round(Number(value||0)).toLocaleString('ko-KR')}원`;
 const count=value=>Number(value||0).toLocaleString('ko-KR');
-const dateTime=value=>value?new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date(value)):'주문일 확인 필요';
+const dateTime=value=>{
+  if(!value)return '주문일 확인 필요';
+  const date=new Date(value);if(Number.isNaN(date.getTime()))return '주문일 확인 필요';
+  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{
+    timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
+  }).formatToParts(date).filter(part=>part.type!=='literal').map(part=>[part.type,part.value]));
+  return `${parts.year}. ${Number(parts.month)}. ${Number(parts.day)}. ${parts.hour}:${parts.minute}`;
+};
 const postalTracking=value=>String(value||'').replace(/\D/g,'').slice(0,13);
 const productImageLoader=({src})=>src;
 
