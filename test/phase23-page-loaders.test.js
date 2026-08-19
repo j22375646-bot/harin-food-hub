@@ -111,7 +111,7 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/loaderPerformance:loaderSession\.snapshot\(\)/);
   assert.match(page,/databaseForLoaderState\(db, view, workspace, platform='all', loaderSession=null\)/);
   assert.match(page,/orders:\{orders:200,items:400,costs:300\}/);
-  assert.match(page,/\['main','collection'\]\.includes\(view\)\?SHELL_TABLES:LIGHT_SHELL_TABLES/);
+  assert.match(page,/view==='collection'\?SHELL_TABLES:LIGHT_SHELL_TABLES/);
   assert.match(page,/coupang_orders'[\s\S]*?limit\(rowLimit\('orders',2000\)\)/);
   assert.match(page,/shippingReference:view==='orders'[\s\S]*?\.eq\('provider','HOLIDAY_CALENDAR'\)[\s\S]*?\.limit\(10\)/);
   assert.match(page,/\.limit\(view==='orders'\?100:500\)/);
