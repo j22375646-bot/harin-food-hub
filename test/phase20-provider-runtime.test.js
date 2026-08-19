@@ -42,6 +42,12 @@ test('provider guard still performs an isolated read when the runtime ledger can
   assert.equal(calls,1);assert.equal(result.status,'SUCCESS');assert.equal(result.runtime.kind,'LIVE');assert.equal(result.runtime.runId,null);
 });
 
+test('provider guard does not break a read-only connector when the runtime ledger insert throws',async()=>{
+  const base=fakeDb();let calls=0;const db={rows:base.rows,from(table){const query=base.from(table);if(table==='provider_request_runs')query.insert=()=>({select:()=>({single:async()=>{const error=new Error("Cannot read properties of null (reading 'id')");throw error;}})});return query;}};
+  const result=await guard.protectedRead({db,provider:'HOLIDAY_CALENDAR',requestInput:{year:2026},cacheResponse:false,now:new Date('2026-08-20T00:00:00Z'),execute:async()=>{calls++;return {provider:'HOLIDAY_CALENDAR',status:'SUCCESS',count:18};}});
+  assert.equal(calls,1);assert.equal(result.status,'SUCCESS');assert.equal(result.runtime.runId,null);assert.equal(result.runtime.ledgerRecorded,false);assert.match(result.runtime.ledgerWarning,/null/);
+});
+
 test('provider kill switch is checked before a cached response',async()=>{
   const hash=guard.requestHash('DEEPL',{probe:'usage'}),db=fakeDb([{id:'cached',provider:'DEEPL',request_hash:hash,status:'SUCCESS',response_summary:{provider:'DEEPL',status:'SUCCESS'},started_at:'2026-08-18T00:00:00Z',finished_at:'2026-08-18T00:00:00Z',expires_at:'2026-08-18T01:00:00Z'}]);
   await assert.rejects(()=>guard.protectedRead({db,provider:'DEEPL',requestInput:{probe:'usage'},killSwitchEnabled:false,now:new Date('2026-08-18T00:10:00Z'),execute:async()=>({})}),error=>error.code==='PROVIDER_DISABLED'&&error.status===423);
