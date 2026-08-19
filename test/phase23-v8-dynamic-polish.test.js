@@ -43,3 +43,13 @@ test('feedback, readable text, mobile touch and reduced-motion safeguards share 
   assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
   assert.match(css,/animation:none!important/);
 });
+
+test('consolidation keeps navigation interactive and defers the orders workbench bundle',()=>{
+  const css=read('app/_design-system/harin-interactions-v8.css');
+  const dashboard=read('app/dashboard-client.js');
+  assert.match(css,/routePending>:not\(\.viewLoadingRibbon\)\{opacity:1;pointer-events:auto/);
+  assert.match(css,/scrollbar-gutter:stable/);
+  assert.match(css,/font-variant-numeric:tabular-nums/);
+  assert.match(dashboard,/const UnifiedOrdersCenter=dynamic\(\(\)=>import\('\.\/unified-orders-center\.js'\)/);
+  assert.doesNotMatch(dashboard,/^import UnifiedOrdersCenter from/m);
+});

@@ -71,6 +71,14 @@ export function HarinInlineStatus({ tone='neutral', icon, title, description, ac
   </section>;
 }
 
+export function HarinRouteProgress({ label='다음', description='현재 화면은 그대로 두고 필요한 자료만 바꿉니다.' }) {
+  return <section className="viewLoadingRibbon" role="status" aria-live="polite" aria-atomic="true">
+    <span className="viewLoadingSpinner" aria-hidden="true"/>
+    <span className="viewLoadingCopy"><b>{label} 화면을 여는 중이에요</b><small>{description}</small></span>
+    <span className="viewLoadingProgress" aria-hidden="true"><i/></span>
+  </section>;
+}
+
 export function HarinPageContent({ as:Element='div', className='', children, ...props }) {
   return <Element className={join('v8PageContent',className)} {...props}>{children}</Element>;
 }

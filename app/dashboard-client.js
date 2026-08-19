@@ -11,9 +11,8 @@ import densityWorkbenchModule from '../lib/ui/density-workbench.js';
 import { COUPANG_SECTION_HELP, getHubHelp } from '../lib/ui/help-content.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
 import { useStoredState } from './use-hub-preference.js';
-import UnifiedOrdersCenter from './unified-orders-center.js';
 import { HarinBreadcrumbBar, HarinFocusedWorkspaceNav, HarinMobileNavigation, HarinSidebar, HarinTopbar } from './_shell/harin-app-shell.js';
-import { HarinProgressiveDetails } from './_design-system/harin-ui.js';
+import { HarinProgressiveDetails, HarinRouteProgress } from './_design-system/harin-ui.js';
 import { HarinBulkCheckbox, HarinBulkSelectionBar, useHarinBulkSelection } from './_design-system/harin-bulk-selection.js';
 import HarinIcon from './_design-system/harin-icon.js';
 
@@ -24,6 +23,7 @@ const { ALERT_PAGE_SIZES, paginateDensityRows } = densityWorkbenchModule;
 function LazyWorkbenchFallback(){
   return <section className="lazyWorkbenchFallback" role="status" aria-live="polite" aria-busy="true"><i aria-hidden="true"/><span><b>작업공간을 준비하고 있어요</b><small>현재 화면은 유지하고 필요한 기능만 불러옵니다.</small></span></section>;
 }
+const UnifiedOrdersCenter=dynamic(()=>import('./unified-orders-center.js'),{loading:LazyWorkbenchFallback});
 const ProductGrowthCenter=dynamic(()=>import('./product-growth-center.js'),{loading:LazyWorkbenchFallback});
 const ProductAdTargetsCenter=dynamic(()=>import('./product-ad-targets-center.js'),{loading:LazyWorkbenchFallback});
 const NaverSearchTermCenter=dynamic(()=>import('./naver-search-term-center.js'),{loading:LazyWorkbenchFallback});
@@ -262,11 +262,7 @@ export default function Dashboard({ initialData, initialState }) {
     <HarinTopbar context={navContext} connectionLabel={connectionLabel} connectionTone={connectionTone} fontScale={fontScale} onFontScale={setFontScale} syncing={syncing} onSync={runSync}/>
     <HarinSidebar groups={navGroups} view={pendingView||view} openGroup={openNavGroup} query={navQuery} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onOpenView={openView} onPrefetch={prefetchView}/>
     <main className={`hubMain${viewIsLoading?' routePending':''}`} aria-busy={viewIsLoading?'true':'false'} data-loader-profile={initialData.loaderPerformance?.profile||undefined} data-loader-ms={initialData.loaderPerformance?.duration_ms??undefined} data-loader-target={initialData.loaderPerformance?.target_ms??undefined} data-loader-within-target={initialData.loaderPerformance?.within_target===undefined?undefined:String(initialData.loaderPerformance.within_target)} data-loader-remote-queries={initialData.loaderPerformance?.remote_query_count??undefined} data-loader-slowest={(initialData.loaderPerformance?.slow_queries||[]).map(item=>`${item.table}:${item.duration_ms}`).join(',')||undefined}>
-      {viewIsLoading?<section className="viewLoadingRibbon" role="status" aria-live="polite">
-        <span className="viewLoadingSpinner" aria-hidden="true"/>
-        <span className="viewLoadingCopy"><b>{nav.find(item=>item.id===(pendingView||view))?.label} 화면으로 이동하고 있어요</b><small>허브 메뉴는 그대로 두고 필요한 자료만 불러옵니다.</small></span>
-        <span className="viewLoadingSkeleton" aria-hidden="true"><i/><i/><i/></span>
-      </section>:null}
+      {viewIsLoading?<HarinRouteProgress label={nav.find(item=>item.id===(pendingView||view))?.label}/>:null}
       <HarinBreadcrumbBar context={navContext} refreshedLabel={latestRefreshAt?`최근 갱신 ${dateTime(latestRefreshAt)}`:null}/>
       {channelScopedViews.has(view)&&(view!=='product'||workspace==='catalog')&&<section className="platformSwitch" aria-label="플랫폼 선택">
         {(view==='keyword'?[['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡']]:[['all','allDot','전체'],['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡'],['cafe24','cafeDot','Cafe24']]).map(([id,dot,label])=><button key={id} className={platform===id?'selected':''} onClick={()=>selectPlatform(id)}><i className={dot}/>{label}</button>)}

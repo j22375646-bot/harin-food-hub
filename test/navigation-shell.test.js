@@ -55,7 +55,7 @@ test('phase 10-6 scopes database tables per page and shows useful loading feedba
   assert.match(client,/financialContextViews\.has\(view\)&&<FinancialTrustBanner/);
   assert.match(client,/dynamic\(\(\)=>import\('\.\/product-growth-center\.js'\),\{loading:LazyWorkbenchFallback\}\)/);
   assert.equal(fs.existsSync(path.join(__dirname,'..','app','loading.js')),false);
-  assert.match(client,/className="viewLoadingRibbon"/);
+  assert.match(client,/<HarinRouteProgress label=/);
 });
 
 test('12-3 uses stable date keys across the executive board and legacy Naver snapshot', () => {

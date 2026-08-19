@@ -30,7 +30,7 @@ test('23-1 supersedes full route and hydration loading with the persistent shell
   const marketLoading=read('app/market-intelligence/loading.js');
   assert.equal(fs.existsSync(path.join(root,'app/loading.js')),false);
   assert.doesNotMatch(dashboard,/if \(!mounted\)|HarinLoadingScreen/);
-  assert.match(dashboard,/className="viewLoadingSkeleton"/);
+  assert.match(dashboard,/<HarinRouteProgress label=/);
   assert.match(marketLoading,/HarinRouteSkeleton/);
   assert.match(shared,/aria-live="polite" aria-busy="true"/);
   assert.match(shared,/className="routePartialSkeleton"/);

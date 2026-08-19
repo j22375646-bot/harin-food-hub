@@ -4,7 +4,50 @@ html[data-harin-ui="v8"]{
   --v8-motion-fast:150ms cubic-bezier(.2,.8,.2,1);
   --v8-motion-enter:280ms cubic-bezier(.16,1,.3,1);
   --v8-motion-spring:360ms cubic-bezier(.2,1.35,.4,1);
+  scrollbar-gutter:stable;
 }
+
+/* Consolidation pass 1 · navigation never blanks, dims or locks the current job. */
+.harinV8 :where(button,a,summary,[role="button"]){touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.harinV8 :where(h1,h2,h3){text-wrap:balance}
+.harinV8 :where(.v8PageHeaderCopy p,.v8SectionHeadingCopy p,.pageIntro p,.pageHeader p){text-wrap:pretty}
+.harinV8 :where(.kpi,.v8PageHeaderMetrics,.keywordOpsTable,.inventoryOpsCenter,.settlementOpsCenter,.mainCommandCenter){font-variant-numeric:tabular-nums}
+.harinV8 main :where(section,article,details,[id]){scroll-margin-top:calc(var(--v8-topbar-height,84px) + 18px)}
+
+.harinV8 .hubMain.routePending>:not(.viewLoadingRibbon){opacity:1;pointer-events:auto;transition:none}
+.harinV8 .viewLoadingRibbon{
+  position:fixed;
+  z-index:65;
+  top:calc(var(--v8-topbar-height,84px) + 12px);
+  left:calc(50% + 136px);
+  display:grid;
+  width:min(430px,calc(100vw - var(--hub-sidebar-width,272px) - 32px));
+  min-height:62px;
+  grid-template-columns:24px minmax(0,1fr);
+  align-items:center;
+  gap:11px;
+  overflow:hidden;
+  box-sizing:border-box;
+  margin:0;
+  border:1px solid #d9d4e8;
+  border-radius:18px;
+  background:rgba(255,254,255,.96);
+  padding:11px 15px 13px;
+  color:var(--v8-ink-soft);
+  box-shadow:0 18px 52px rgba(54,52,82,.16);
+  opacity:0;
+  pointer-events:none;
+  transform:translateX(-50%) translateY(-6px);
+  backdrop-filter:blur(18px);
+  animation:v8RouteFeedbackIn 180ms 90ms var(--v8-motion-enter) forwards;
+}
+.harinV8 .viewLoadingSpinner{display:block;width:22px;height:22px;box-sizing:border-box;border:3px solid var(--v8-lavender-soft);border-top-color:var(--v8-lavender);border-radius:50%;animation:v8ControlSpin .72s linear infinite}
+.harinV8 .viewLoadingCopy{display:flex;min-width:0;flex-direction:column;gap:1px}
+.harinV8 .viewLoadingCopy b{overflow:hidden;color:var(--v8-ink);font-size:14px;line-height:1.35;text-overflow:ellipsis;white-space:nowrap}
+.harinV8 .viewLoadingCopy small{overflow:hidden;color:var(--v8-muted);font-size:13px!important;line-height:1.4;text-overflow:ellipsis;white-space:nowrap}
+.harinV8 .viewLoadingProgress{position:absolute;right:0;bottom:0;left:0;display:block;width:auto;height:3px;border:0;border-radius:0;background:#ece9f5;animation:none}
+.harinV8 .viewLoadingProgress i{display:block;width:42%;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--v8-lavender),#a89cd7,var(--v8-blue));animation:v8RouteProgress 1.05s ease-in-out infinite}
+.harinV8 .viewLoadingRibbon:after{content:none}
 
 .harinV8 .v8QuickAction{
   --quick-accent:var(--v8-lavender-strong);
@@ -69,6 +112,8 @@ html[data-harin-ui="v8"]{
 @keyframes v8ControlSpin{to{transform:rotate(360deg)}}
 @keyframes v8FeedbackEnter{from{opacity:0;transform:translateY(6px) scale(.992)}to{opacity:1;transform:none}}
 @keyframes v8SoftPulse{50%{box-shadow:0 0 0 7px rgba(116,107,178,.09);transform:scale(1.025)}}
+@keyframes v8RouteFeedbackIn{to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes v8RouteProgress{0%{transform:translateX(-105%)}55%{transform:translateX(88%)}100%{transform:translateX(250%)}}
 
 @media(hover:hover) and (pointer:fine){
   .harinV8 .v8QuickAction:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--quick-accent) 25%,var(--v8-line));box-shadow:0 14px 32px rgba(54,52,82,.085)}
@@ -80,9 +125,12 @@ html[data-harin-ui="v8"]{
   .harinV8 .v8QuickAction{min-height:92px;grid-template-columns:44px minmax(0,1fr) 18px;padding:14px}
   .harinV8 .v8InlineStatus{grid-template-columns:42px minmax(0,1fr);padding:14px}
   .harinV8 .v8InlineStatus>div{grid-column:1/-1}.harinV8 .v8InlineStatus>div>*{width:100%}
+  .harinV8 .viewLoadingRibbon{top:calc(var(--v8-topbar-height,74px) + 9px);left:50%;width:calc(100vw - 24px);min-height:58px;border-radius:16px;padding:10px 13px 12px}
+  .harinV8 .viewLoadingCopy small{font-size:12px!important}
 }
 
 @media(prefers-reduced-motion:reduce){
   .harinV8 .v8QuickAction,.harinV8 .v8QuickAction:after,.harinV8 .v8QuickActionArrow,.harinV8 .v8Button,.harinV8 .v8Pictogram{transition:none!important}
-  .harinV8 .v8ButtonSpinner,.harinV8 .v8InlineStatus,.harinV8 .v8InlineStatus-busy .v8Pictogram{animation:none!important}
+  .harinV8 .v8ButtonSpinner,.harinV8 .v8InlineStatus,.harinV8 .v8InlineStatus-busy .v8Pictogram,.harinV8 .viewLoadingRibbon,.harinV8 .viewLoadingSpinner,.harinV8 .viewLoadingProgress i{animation:none!important}
+  .harinV8 .viewLoadingRibbon{opacity:1;transform:translateX(-50%)}
 }

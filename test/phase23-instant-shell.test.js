@@ -18,13 +18,15 @@ test('23-1 keeps the current hub shell visible during App Router navigation',()=
 
 test('23-1 gives immediate compact feedback and a content-only skeleton',()=>{
   const dashboard=read('app/dashboard-client.js');
+  const ui=read('app/_design-system/harin-ui.js');
   const sharedLoading=read('app/_design-system/harin-loading-screen.js');
   const marketLoading=read('app/market-intelligence/loading.js');
-  const css=read('app/globals.css');
+  const css=read('app/_design-system/harin-interactions-v8.css');
   const entryCss=read('app/_shell/harin-entry-v8.css');
-  assert.match(dashboard,/className="viewLoadingRibbon" role="status" aria-live="polite"/);
-  assert.match(dashboard,/className="viewLoadingSkeleton"/);
-  assert.match(css,/\.viewLoadingSkeleton/);
+  assert.match(dashboard,/<HarinRouteProgress label=/);
+  assert.match(ui,/export function HarinRouteProgress/);
+  assert.match(ui,/className="viewLoadingRibbon" role="status" aria-live="polite"/);
+  assert.match(css,/\.viewLoadingProgress/);
   assert.match(sharedLoading,/export function HarinRouteSkeleton/);
   assert.match(marketLoading,/<HarinRouteSkeleton/);
   assert.match(entryCss,/\.harinV8 \.routePartialSkeleton/);
