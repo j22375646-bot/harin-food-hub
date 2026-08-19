@@ -52,3 +52,13 @@ test('23-R1 applies one Rocket Growth policy to focused inventory and the legacy
   assert.match(page,/buildOperationalInventoryCenter\(rgInventory\)/);
   assert.match(page,/gt\('total_orderable_quantity',0\)\.gt\('sales_last_30_days',0\)/);
 });
+
+test('23-R1 keeps first-render time labels deterministic across server and browser',()=>{
+  const dashboard=read('app/dashboard-client.js');
+  const inventoryCenter=read('app/unified-inventory-operations-center.js');
+  const reliability=read('app/_reliability/harin-reliability-workbench.js');
+  assert.match(dashboard,/hourCycle:'h23'/);
+  assert.match(inventoryCenter,/hourCycle:'h23'/);
+  assert.match(reliability,/const \[clock,setClock\]=useState\(null\)/);
+  assert.match(reliability,/clock==null\|\|Number\.isNaN\(generated\)\?null/);
+});

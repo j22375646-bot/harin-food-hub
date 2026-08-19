@@ -59,8 +59,22 @@ const won = value => `${Math.round(Number(value || 0)).toLocaleString('ko-KR')}�
 const count = value => Number(value || 0).toLocaleString('ko-KR');
 const num = value => Number(value || 0);
 const shortDate = value => String(value || '').slice(5).replace('-', '.');
-const dateTime = value => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' }).format(new Date(value));
-const dateLabel = value => new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'numeric', day: 'numeric' }).format(new Date(value));
+function kstParts(value) {
+  const date=new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
+    timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',
+    hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'
+  }).formatToParts(date).filter(part=>part.type!=='literal').map(part=>[part.type,part.value]));
+}
+const dateTime = value => {
+  const parts=kstParts(value);
+  return parts?`${parts.year}. ${Number(parts.month)}. ${Number(parts.day)}. ${parts.hour}:${parts.minute}:${parts.second}`:'시각 확인 필요';
+};
+const dateLabel = value => {
+  const parts=kstParts(value);
+  return parts?`${parts.year}. ${Number(parts.month)}. ${Number(parts.day)}.`:'날짜 확인 필요';
+};
 const platformReportName = { all: 'ALL', naver: 'NAVER', coupang: 'COUPANG', cafe24: 'CAFE24' };
 const platformLabel = { all: '전체', naver: '네이버', coupang: '쿠팡', cafe24: 'Cafe24' };
 const channelScopedViews = new Set(['insight','keyword','product']);

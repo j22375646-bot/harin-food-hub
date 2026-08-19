@@ -130,13 +130,17 @@ export default function HarinReliabilityWorkbench({mode='collection',center={},a
 
 export function HarinLiveStatusDock({center={},alerts=[],generatedAt}){
   const [open,setOpen]=useState(false);
-  const [clock,setClock]=useState(()=>Date.now());
-  useEffect(()=>{const timer=window.setInterval(()=>setClock(Date.now()),30000);return()=>window.clearInterval(timer);},[]);
+  const [clock,setClock]=useState(null);
+  useEffect(()=>{
+    setClock(Date.now());
+    const timer=window.setInterval(()=>setClock(Date.now()),30000);
+    return()=>window.clearInterval(timer);
+  },[]);
   const exceptions=useMemo(()=>buildExceptions(center,alerts),[center,alerts]);
   const ready=Number(center.summary?.ready_channels||0);
   const workerReady=workerHeartbeatReady(center.reliability||{});
   const generated=new Date(generatedAt||Date.now()).getTime();
-  const age=Number.isNaN(generated)?null:Math.max(0,Math.floor((clock-generated)/60000));
+  const age=clock==null||Number.isNaN(generated)?null:Math.max(0,Math.floor((clock-generated)/60000));
   const healthy=ready===3&&workerReady&&!exceptions.length;
   return <aside className={`liveStatusDock ${open?'open':''} ${healthy?'healthy':'attention'}`} aria-label="실시간 운영 상태">
     <button className="liveStatusToggle" type="button" onClick={()=>setOpen(value=>!value)} aria-expanded={open}><i aria-hidden="true"/><span><b>{healthy?'운영 정상':`확인 ${exceptions.length}건`}</b><small>채널 {ready}/3 · 워커 {workerReady?'연결':'확인'}</small></span><em>{age==null?'갱신 확인':age<1?'방금':`${age}분 전`}</em><u aria-hidden="true"><HarinIcon name="chevron" size={17}/></u></button>
