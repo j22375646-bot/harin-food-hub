@@ -58,6 +58,20 @@ test('Coupang fixed-IP reads can be ready while product writes stay locked', () 
   assert.equal(result.capabilities.find(item => item.key === 'products').write.status, 'LOCKED');
 });
 
+test('Cafe24 realtime order success is current connection evidence', () => {
+  const token = {
+    access_token:'token',
+    scopes:['mall.read_product','mall.write_product','mall.read_order','mall.write_order','mall.read_community','mall.write_community']
+  };
+  const result = channels.cafe24Channel([
+    { platform:'CAFE24', job_type:'FETCH_ALL', status:'FAILED', finished_at:'2026-08-16T08:00:00Z' },
+    { platform:'CAFE24', job_type:'ORDERS_REALTIME', status:'SUCCESS', finished_at:'2026-08-16T09:00:00Z' }
+  ], token);
+  assert.equal(result.status, 'WRITE_READY');
+  assert.equal(result.capabilities.every(item => item.read.status === 'READY'), true);
+  assert.equal(result.lastVerifiedAt, '2026-08-16T09:00:00Z');
+});
+
 test('Coupang newer fixed-IP order and CS successes supersede an old direct-IP failure', () => {
   const result = channels.coupangChannel([
     { platform:'COUPANG', job_type:'FETCH_ALL', status:'FAILED', finished_at:'2026-08-16T08:00:00Z', error_message:'IP not allowed' },

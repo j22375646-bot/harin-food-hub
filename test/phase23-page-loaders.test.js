@@ -65,7 +65,7 @@ test('23-2 scopes insight and product workspaces to the data they render',()=>{
   const productProfit=loaders.profileForState({view:'product',workspace:'profit',platform:'all'});
   const adTargets=loaders.profileForState({view:'product',workspace:'ad-targets',platform:'all'});
   assert.deepEqual(collection.tables,[
-    'cafe24_oauth_tokens','cafe24_products','coupang_products','automation_runs','data_quality_checks','ai_analysis_results',
+    'cafe24_oauth_tokens','cafe24_products','coupang_products','automation_runs',
     'coupang_sync_requests','coupang_operation_requests','worker_heartbeats'
   ]);
   assert.equal(collection.tables.some(table=>table.startsWith('coupang_ad_')),false);
