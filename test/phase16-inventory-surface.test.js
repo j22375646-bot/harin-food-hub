@@ -16,14 +16,16 @@ test('16-4 renders inventory from Coupang Rocket Growth only',()=>{
   assert.doesNotMatch(component,/center\.items/);
   assert.doesNotMatch(component,/inventoryOpsChannels/);
   assert.match(dashboard,/UnifiedInventoryOperationsCenter coupang=\{initialData\.coupang\}/);
-  assert.match(dashboard,/rgOutOfStock\)\+num\(initialData\.coupang\?\.rgLowStock/);
+  assert.match(dashboard,/const inventoryActionCount=/);
+  assert.match(dashboard,/inventory:num\(inventoryActionCount\)/);
 });
 
-test('16-4 provides risk, replenishment, collection, and collapsed zero-stock workflows',()=>{
+test('16-4 provides active inventory, risk, replenishment, and collection workflows',()=>{
   const component=read('app/unified-inventory-operations-center.js');
-  for(const label of ['판매가능 0개','저재고','판매 촉진','입고 미리보기','SKU별 최근 재고 기준 시각'])assert.match(component,new RegExp(label));
+  for(const label of ['지금 판매 중인 재고','판매 상품 전체','저재고','입고 미리보기','SKU별 최근 재고 기준 시각'])assert.match(component,new RegExp(label));
   assert.match(component,/\/api\/coupang\/rg-inventory\/sync/);
-  assert.match(component,/rgZeroStockGroup/);
+  assert.match(component,/sales_last_30_days\)>0&&number\(item\.total_orderable_quantity\)>0/);
+  assert.doesNotMatch(component,/rgZeroStockGroup/);
   assert.match(component,/실제 쿠팡 재고나 입고 요청은 변경하지 않습니다/);
 });
 

@@ -31,9 +31,11 @@ test('14-5 재고 센터는 판매 중 상품과 품절·판매중단 상품을 
   assert.equal(center.items.some(item=>item.master_product_id==='m4'),false);
 });
 
-test('14-5/16-4 재고 화면은 로켓그로스 입고 미리보기와 접힌 품절 그룹을 제공한다',()=>{
+test('14-5/16-4 재고 화면은 판매 중 로켓그로스 목록과 입고 미리보기를 제공한다',()=>{
   const source=read('app/unified-inventory-operations-center.js');
-  for(const label of ['쿠팡 로켓그로스 재고','입고 미리보기','목표 보유일을 골라보세요','판매가능 0개 SKU']) assert.match(source,new RegExp(label));
+  for(const label of ['쿠팡 로켓그로스 재고','지금 판매 중인 재고','입고 미리보기','목표 보유일을 골라보세요']) assert.match(source,new RegExp(label));
+  assert.match(source,/판매가능 0개 SKU는 운영 화면에서 제외/);
+  assert.doesNotMatch(source,/rgZeroStockGroup/);
   assert.match(source,/setTargetDays/);
   assert.match(source,/inventoryAiSlot/);
   assert.match(source,/실제 쿠팡 재고나 입고 요청은 변경하지 않습니다/);
@@ -49,7 +51,7 @@ test('14-5 정산 화면은 예상·실제 대조와 별도 정산 AI를 제공�
 
 test('14-5 재고·정산 작업대는 모바일용 가로 집중 카드와 단일 열 흐름을 갖는다',()=>{
   const css=read('app/_operations/harin-operations-v8.css');
-  assert.match(css,/\.inventoryFocusRail/);
+  assert.match(css,/\.inventoryOpsToolbar/);
   assert.match(css,/\.settlementFocusRail/);
   assert.match(css,/\.settlementMoneyJourney/);
   assert.match(css,/@media\(max-width:600px\)/);

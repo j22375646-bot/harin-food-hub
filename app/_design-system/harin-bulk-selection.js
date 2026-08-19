@@ -58,7 +58,7 @@ export function HarinBulkSelectionBar({ selectedCount=0, visibleCount=0, filtere
       <button type="button" className={filteredState.checked?'selected':''} onClick={()=>onToggleFiltered?.(!filteredState.checked)} disabled={!filteredCount}>{filteredState.checked?'검색 결과 선택 해제':`검색 결과 ${filteredCount}개 선택`}</button>
       {active?<button type="button" className="clear" onClick={onClear}>전체 선택 해제</button>:null}
     </div>
-    {children?<div className="v8BulkSelectionActions">{children}</div>:null}
-    {preview?<small className="v8BulkSelectionPreview">{preview}</small>:null}
+    {active&&children?<div className="v8BulkSelectionActions">{children}</div>:null}
+    {active&&preview?<small className="v8BulkSelectionPreview">{preview}</small>:null}
   </section>;
 }

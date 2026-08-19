@@ -30,9 +30,13 @@ test('22-2 exposes one reusable accessible bulk bar and connects the keyword ref
   assert.match(component,/export function useHarinBulkSelection/);
   assert.match(component,/aria-checked=\{mixed\?'mixed'/);
   assert.match(component,/검색 결과 \$\{filteredCount\}개 선택/);
+  assert.match(component,/active&&children/);
+  assert.match(component,/active&&preview/);
   assert.match(keyword,/HarinBulkSelectionBar/);
   assert.match(keyword,/onToggleFiltered=\{checked=>selection\.toggleScope\(filteredIds,checked\)\}/);
   assert.match(css,/\.v8BulkSelectionBar\.active/);
+  assert.match(css,/\.v8BulkSelectionBar:not\(\.active\)/);
+  assert.match(css,/@media\(max-width:700px\)\{\.v8BulkSelectionBar,\.v8BulkSelectionBar:not\(\.active\)\{grid-template-columns:1fr/);
   assert.match(css,/@media\(max-width:700px\)/);
 });
 

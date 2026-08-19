@@ -14,9 +14,9 @@ test('13-5 CS 화면은 처리·클레임·이력·답변 양식을 분리한다
   assert.match(source,/workspace === "TEMPLATES"/);
 });
 
-test('13-5/16-4 재고 화면은 로켓그로스 SKU·위험·입고·수집 기준을 작업공간으로 분리한다',()=>{
+test('13-5/16-4 재고 화면은 판매 중 로켓그로스·재입고·입고·수집 기준을 작업공간으로 분리한다',()=>{
   const source=read('app/unified-inventory-operations-center.js');
-  for(const label of ['전체 SKU','재입고 위험','입고 미리보기','수집 기준']) assert.match(source,new RegExp(label));
+  for(const label of ['판매 상품','재입고 점검','입고 미리보기','수집 기준']) assert.match(source,new RegExp(label));
   assert.match(source,/targetQuantity/);
   assert.match(source,/days_of_stock/);
 });

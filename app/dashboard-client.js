@@ -228,7 +228,9 @@ export default function Dashboard({ initialData, initialState }) {
     finally { setSyncing(false); }
   }
 
-  const operationBadges={orders:num(initialData.unifiedOrders?.summary?.actionRequired),cs:num(initialData.coupang?.unansweredInquiries),inventory:num(initialData.coupang?.rgOutOfStock)+num(initialData.coupang?.rgLowStock),notifications:initialData.alerts.length||0};
+  const operatingInventory=Array.isArray(initialData.coupang?.rgInventory)?initialData.coupang.rgInventory.filter(item=>num(item.sales_last_30_days)>0&&num(item.total_orderable_quantity)>0):[];
+  const inventoryActionCount=initialData.unifiedInventory?.summary?.action_required??operatingInventory.filter(item=>['CRITICAL','LOW'].includes(String(item.stock_status||'').toUpperCase())).length;
+  const operationBadges={orders:num(initialData.unifiedOrders?.summary?.actionRequired),cs:num(initialData.coupang?.unansweredInquiries),inventory:num(inventoryActionCount),notifications:initialData.alerts.length||0};
   const nav = hubRoutesModule.HUB_NAV.map(item=>({...item,badge:operationBadges[item.id]||0}));
   const navGroups=hubRoutesModule.HUB_NAV_GROUPS.map(group=>{const items=group.items.map(id=>nav.find(item=>item.id===id)).filter(Boolean);return {...group,items,actionCount:items.reduce((sum,item)=>sum+num(item.badge),0)};});
   const navContext=hubRoutesModule.navigationContext(view,platform);

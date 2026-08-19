@@ -1153,6 +1153,10 @@ async function getDashboardData(state) {
   const reportsQuery=view==='insight'&&['overview','causes','channels'].includes(state?.workspace)
     ? db.from('reports').select(reportFields,{count:'exact'}).order('period_end',{ascending:false}).order('created_at',{ascending:false}).limit(12)
     : db.from('reports').select(reportFields).order('period_end',{ascending:false}).order('created_at',{ascending:false}).limit(80);
+  const rocketGrowthInventoryQuery=(view==='main'||view==='inventory'
+    ? db.from('coupang_rg_inventory').select('vendor_item_id,external_sku_id,total_orderable_quantity,sales_last_30_days,average_daily_sales,days_of_stock,stock_status,snapshot_at').gt('total_orderable_quantity',0).gt('sales_last_30_days',0)
+    : db.from('coupang_rg_inventory').select('vendor_item_id,external_sku_id,total_orderable_quantity,sales_last_30_days,average_daily_sales,days_of_stock,stock_status,snapshot_at'))
+    .order('days_of_stock',{ascending:true,nullsFirst:false}).limit(500);
   const settledQueries = await Promise.allSettled([
     db.from('cafe24_orders').select('order_id,order_date,customer_id,payment_status,paid_amount,order_price,cancel_amount,refund_amount,raw_data').order('order_date', { ascending: false }).limit(rowLimit('orders',10000)),
     db.from('cafe24_order_items').select('order_id,external_item_id,external_product_no,product_name,option_name,quantity,unit_price,paid_amount,raw_data').limit(rowLimit('items',10000)),
@@ -1183,7 +1187,7 @@ async function getDashboardData(state) {
     db.from('coupang_orders').select('shipment_box_id,order_id,ordered_at,paid_at,status,gross_amount,raw_data').order('ordered_at',{ascending:false}).limit(rowLimit('orders',2000)),
     db.from('coupang_order_items').select('external_item_key,shipment_box_id,order_id,vendor_item_id,seller_product_id,product_name,quantity,unit_price,paid_amount,status,raw_data').limit(rowLimit('items',5000)),
     db.from('coupang_settlements').select('order_id,vendor_item_id,recognition_date,sale_type,sale_amount,service_fee,service_fee_vat,settlement_amount,quantity').order('recognition_date',{ascending:false}).limit(5000),
-    db.from('coupang_rg_inventory').select('vendor_item_id,external_sku_id,total_orderable_quantity,sales_last_30_days,average_daily_sales,days_of_stock,stock_status,snapshot_at').order('days_of_stock',{ascending:true,nullsFirst:false}).limit(500),
+    rocketGrowthInventoryQuery,
     db.from('coupang_sync_requests').select('id,request_type,status,requested_at,started_at,finished_at,error_message,attempt_count,next_attempt_at,idempotency_key,scheduled_for,kst_execution_date').order('requested_at',{ascending:false}).limit(50),
     db.from('coupang_rg_orders').select('order_id,status,paid_at,total_amount,item_count').order('paid_at',{ascending:false}).limit(rowLimit('orders',2000)),
     db.from('coupang_returns').select('receipt_id,order_id,status,cancel_type,reason_text,requested_at,amount,raw_data').order('requested_at',{ascending:false}).limit(100),

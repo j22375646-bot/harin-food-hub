@@ -18,12 +18,13 @@ test('23-R1 keeps only recently selling active Rocket Growth SKUs',()=>{
     {vendor_item_id:'SOLDOUT',sales_last_30_days:8,total_orderable_quantity:0,stock_status:'OUT_OF_STOCK',productItem:{status:'APPROVED',item_name:'최근 판매 품절'}}
   ];
   const result=inventory.splitOperationalInventory(rows);
-  assert.deepEqual(result.active.map(item=>item.vendor_item_id),['ACTIVE','SOLDOUT']);
+  assert.deepEqual(result.active.map(item=>item.vendor_item_id),['ACTIVE']);
   assert.equal(result.excluded.find(item=>item.vendor_item_id==='OLD').operational_exclusion_reason,'NO_RECENT_SALES');
   assert.equal(result.excluded.find(item=>item.vendor_item_id==='STOP').operational_exclusion_reason,'INACTIVE_PRODUCT');
+  assert.equal(result.excluded.find(item=>item.vendor_item_id==='SOLDOUT').operational_exclusion_reason,'NO_ORDERABLE_STOCK');
   const center=inventory.buildOperationalInventoryCenter(result.active);
-  assert.equal(center.summary.products,2);
-  assert.equal(center.summary.action_required,1);
+  assert.equal(center.summary.products,1);
+  assert.equal(center.summary.action_required,0);
 });
 
 test('23-R1 gives Main a bounded dedicated loader instead of the generic dashboard profile',()=>{
@@ -49,4 +50,5 @@ test('23-R1 applies one Rocket Growth policy to focused inventory and the legacy
   assert.match(page,/splitOperationalInventory\(coupangInventoryBase\)/);
   assert.match(page,/rgInventoryExcludedCount/);
   assert.match(page,/buildOperationalInventoryCenter\(rgInventory\)/);
+  assert.match(page,/gt\('total_orderable_quantity',0\)\.gt\('sales_last_30_days',0\)/);
 });
