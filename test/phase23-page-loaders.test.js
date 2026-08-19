@@ -65,8 +65,8 @@ test('23-2 scopes insight and product workspaces to the data they render',()=>{
   const productProfit=loaders.profileForState({view:'product',workspace:'profit',platform:'all'});
   const adTargets=loaders.profileForState({view:'product',workspace:'ad-targets',platform:'all'});
   assert.deepEqual(collection.tables,[
-    'cafe24_oauth_tokens','cafe24_products','automation_runs','data_quality_checks','ai_analysis_results',
-    'coupang_products','coupang_sync_requests','coupang_operation_requests','worker_heartbeats'
+    'cafe24_oauth_tokens','cafe24_products','coupang_products','automation_runs','data_quality_checks','ai_analysis_results',
+    'coupang_sync_requests','coupang_operation_requests','worker_heartbeats'
   ]);
   assert.equal(collection.tables.some(table=>table.startsWith('coupang_ad_')),false);
   assert.deepEqual(overview.tables,['reports','platform_events','alerts','cafe24_oauth_tokens','ai_analysis_results']);
@@ -93,6 +93,23 @@ test('23-2 scopes insight and product workspaces to the data they render',()=>{
   assert.equal(productProfit.tables.includes('naver_commerce_orders'),false);
   assert.equal(productProfit.tables.includes('coupang_ad_keyword_daily'),true);
   assert.equal(adTargets.tables.includes('product_ad_targets'),true);
+});
+
+test('23-R3 scopes every collection workspace to its own provider data',()=>{
+  const naver=loaders.profileForState({view:'collection',workspace:'naver-api',platform:'all'});
+  const advertising=loaders.profileForState({view:'collection',workspace:'advertising',platform:'all'});
+  const shipping=loaders.profileForState({view:'collection',workspace:'shipping-reference',platform:'all'});
+  const operations=loaders.profileForState({view:'collection',workspace:'operations-health',platform:'all'});
+  const runtime=loaders.profileForState({view:'collection',workspace:'provider-runtime',platform:'all'});
+  assert.deepEqual(naver.tables,['cafe24_oauth_tokens','cafe24_products','coupang_products']);
+  assert.equal(advertising.tables.includes('naver_stats_daily'),true);
+  assert.equal(advertising.tables.includes('coupang_ad_keyword_summary'),true);
+  assert.equal(shipping.tables.includes('shipping_reference_snapshots'),true);
+  assert.equal(shipping.tables.includes('operations_health_snapshots'),false);
+  assert.equal(operations.tables.includes('operations_health_snapshots'),true);
+  assert.equal(operations.tables.some(table=>table.startsWith('coupang_ad_')),false);
+  assert.equal(runtime.tables.includes('provider_request_runs'),true);
+  assert.equal(runtime.tables.includes('optional_provider_snapshots'),true);
 });
 
 test('23-2 records real, skipped and target loader telemetry',()=>{
@@ -159,7 +176,7 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/reportsResult\.count\?\?reportsResult\.data\?\.length\?\?0/);
   assert.match(page,/view==='insight'&&state\?\.workspace==='overview'[\s\S]*?select\(reportFields,\{count:'exact'\}\)[\s\S]*?limit\(12\)/);
   assert.match(page,/focusedEarlyReturn\?Promise\.resolve\(\{data:null,error:null\}\):db\.from\('sync_logs'\)/);
-  assert.match(page,/cafe24Token:focusedEarlyReturn \? Promise\.allSettled/);
+  assert.match(page,/cafe24Token:focusedEarlyReturn\|\|view==='collection' \? Promise\.allSettled/);
   assert.match(page,/cafe24Token:cafe24TokenSettled\.results\[0\]\.data\?\.token_data\|\|null/);
   assert.match(analysis,/loadedReportCount=\(data\.reports\|\|\[\]\)\.filter\(report=>scopeReportPlatform\(report\.platform,platform\)\)\.length/);
   assert.match(dashboard,/data-loader-profile=\{initialData\.loaderPerformance\?\.profile/);

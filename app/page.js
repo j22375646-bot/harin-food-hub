@@ -1065,7 +1065,7 @@ async function getDashboardData(state) {
     mainTargets:view==='main' ? Promise.allSettled([
       db.from('business_targets').select('id,target_month,platform,revenue_target,ad_budget,target_roas,notes,updated_at').eq('target_month',`${kstScheduleModule.kstDateKey(generatedAt).slice(0,7)}-01`)
     ]) : Promise.resolve([{status:'fulfilled',value:{data:[],error:null}}]),
-    cafe24Token:focusedEarlyReturn ? Promise.allSettled([
+    cafe24Token:focusedEarlyReturn||view==='collection' ? Promise.allSettled([
       db.from('cafe24_oauth_tokens').select('token_data').eq('mall_id',process.env.CAFE24_MALL_ID).maybeSingle()
     ]) : Promise.resolve([{status:'fulfilled',value:{data:null,error:null}}]),
     productTargets:Promise.allSettled([
@@ -1110,7 +1110,7 @@ async function getDashboardData(state) {
         .in('job_type',['COMMERCE_CONNECTION_TEST','COMMERCE_SYNC','SEARCH_AD_CONNECTION_TEST','FETCH_ALL','SEARCH_TERMS','API_HUB_CONNECTION_TEST'])
         .order('started_at',{ascending:false}).limit(1000)
     ]) : Promise.resolve([{ status:'fulfilled', value:{ data:[], error:null } }]),
-    ownedSiteReadiness:view==='collection'&&['owned-site','provider-runtime'].includes(state?.workspace) ? Promise.allSettled([
+    ownedSiteReadiness:view==='collection'&&['owned-site','provider-fallback','provider-runtime'].includes(state?.workspace) ? Promise.allSettled([
       db.from('owned_site_api_snapshots').select('id,provider,site_url,status,metric_summary,quota_summary,source_timestamp,fetched_at,error_code,error_message,metadata').order('fetched_at',{ascending:false}).limit(200)
     ]) : Promise.resolve([{ status:'fulfilled', value:{ data:[], error:null } }]),
     shippingReference:view==='orders' ? Promise.allSettled([
@@ -1470,6 +1470,11 @@ async function getDashboardData(state) {
   const aiResultsSettled=dataHealthModule.settleQueries(await supplementalQueries.aiResults,[{platform:'SHARED',dataset:'ai_analysis_results'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
   queryIssues.push(...aiResultsSettled.issues);
   const latestAiPageResults=aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[]);
+  const collectionCafe24TokenSettled=dataHealthModule.settleQueries(await supplementalQueries.cafe24Token,[
+    {platform:'CAFE24',dataset:'cafe24_oauth_tokens'}
+  ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+  queryIssues.push(...collectionCafe24TokenSettled.issues);
+  const collectionCafe24Token=view==='collection'?collectionCafe24TokenSettled.results[0].data?.token_data||null:undefined;
   const bidLinksSettled=dataHealthModule.settleQueries(await supplementalQueries.bidLinks,[{platform:'NAVER',dataset:'naver_keyword_product_links'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
   queryIssues.push(...bidLinksSettled.issues);
   const naverKeywordProductLinks=bidLinksSettled.results[0].data||[];
@@ -2000,6 +2005,7 @@ async function getDashboardData(state) {
   ];
   const channelConnections = await channelCapabilitiesModule.buildChannelCapabilities({
     syncs:syncResult.data || [],
+    cafe24Token:collectionCafe24Token,
     cafe24Counts:{ products:productsResult.data?.length || 0, orders:orders.length },
     coupangCounts:{
       products:coupangProductsResult.data?.length || 0,
