@@ -57,11 +57,16 @@ test('23-R1 keeps first-render time labels deterministic across server and brows
   const dashboard=read('app/dashboard-client.js');
   const inventoryCenter=read('app/unified-inventory-operations-center.js');
   const ordersCenter=read('app/unified-orders-center.js');
+  const collectionCenter=read('app/unified-collection-operations-center.js');
   const reliability=read('app/_reliability/harin-reliability-workbench.js');
   assert.match(dashboard,/hourCycle:'h23'/);
   assert.match(inventoryCenter,/hourCycle:'h23'/);
   assert.match(ordersCenter,/hourCycle:'h23'/);
+  assert.match(collectionCenter,/hourCycle:'h23'/);
+  assert.match(reliability,/hourCycle:'h23'/);
   assert.doesNotMatch(ordersCenter,/hour:'numeric'/);
+  assert.doesNotMatch(collectionCenter,/hour:'numeric'/);
+  assert.doesNotMatch(reliability,/hour:'numeric'/);
   assert.match(reliability,/const \[clock,setClock\]=useState\(null\)/);
   assert.match(reliability,/clock==null\|\|Number\.isNaN\(generated\)\?null/);
 });

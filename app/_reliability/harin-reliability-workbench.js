@@ -19,7 +19,10 @@ function dateTime(value){
   if(!value)return '기록 없음';
   const date=new Date(value);
   if(Number.isNaN(date.getTime()))return '시각 확인 필요';
-  return new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}).format(date);
+  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{
+    timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
+  }).formatToParts(date).filter(part=>part.type!=='literal').map(part=>[part.type,part.value]));
+  return `${Number(parts.month)}. ${Number(parts.day)}. ${parts.hour}:${parts.minute}`;
 }
 
 function channelTone(channel={}){
