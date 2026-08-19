@@ -195,6 +195,7 @@ export default function Dashboard({ initialData, initialState }) {
   useEffect(()=>{document.documentElement.dataset.fontScale=fontScale;},[fontScale]);
   useEffect(()=>{
     const next=hubRoutesModule.normalizeHubState(initialState);
+    window.__HARIN_CLIENT_HEALTH__?.finishRoute?.(hubRoutesModule.buildHubHref(next));
     setView(next.view);setWorkspace(next.workspace);setPlatform(next.platform);setSelectedProduct(next.product);setPeriod(next.period);setPendingView(null);setPendingWorkspace(null);
     setOpenNavGroup(hubRoutesModule.groupForView(next.view));
   },[initialState.view,initialState.workspace,initialState.platform,initialState.product,initialState.period]);
@@ -242,6 +243,7 @@ export default function Dashboard({ initialData, initialState }) {
     setOpenNavGroup(hubRoutesModule.groupForView(state.view));
     const href=hubRoutesModule.buildHubHref(state);
     const current=`${window.location.pathname}${window.location.search}`;
+    window.__HARIN_CLIENT_HEALTH__?.startRoute?.(href);
     startRouteTransition(()=>router[replace||current===href?'replace':'push'](href,{scroll:false}));
   }
   const openView=id=>navigate({view:id,product:'ALL',period:'DAY'});
@@ -255,7 +257,7 @@ export default function Dashboard({ initialData, initialState }) {
   return <div className="shell">
     <HarinTopbar context={navContext} connectionLabel={connectionLabel} connectionTone={connectionTone} fontScale={fontScale} onFontScale={setFontScale} syncing={syncing} onSync={runSync}/>
     <HarinSidebar groups={navGroups} view={pendingView||view} openGroup={openNavGroup} query={navQuery} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onOpenView={openView} onPrefetch={prefetchView}/>
-    <main className={`hubMain${viewIsLoading?' routePending':''}`} aria-busy={viewIsLoading?'true':'false'} data-loader-profile={initialData.loaderPerformance?.profile||undefined} data-loader-ms={initialData.loaderPerformance?.duration_ms??undefined} data-loader-target={initialData.loaderPerformance?.target_ms??undefined} data-loader-slowest={(initialData.loaderPerformance?.slow_queries||[]).map(item=>`${item.table}:${item.duration_ms}`).join(',')||undefined}>
+    <main className={`hubMain${viewIsLoading?' routePending':''}`} aria-busy={viewIsLoading?'true':'false'} data-loader-profile={initialData.loaderPerformance?.profile||undefined} data-loader-ms={initialData.loaderPerformance?.duration_ms??undefined} data-loader-target={initialData.loaderPerformance?.target_ms??undefined} data-loader-within-target={initialData.loaderPerformance?.within_target===undefined?undefined:String(initialData.loaderPerformance.within_target)} data-loader-remote-queries={initialData.loaderPerformance?.remote_query_count??undefined} data-loader-slowest={(initialData.loaderPerformance?.slow_queries||[]).map(item=>`${item.table}:${item.duration_ms}`).join(',')||undefined}>
       {viewIsLoading?<section className="viewLoadingRibbon" role="status" aria-live="polite">
         <span className="viewLoadingSpinner" aria-hidden="true"/>
         <span className="viewLoadingCopy"><b>{nav.find(item=>item.id===(pendingView||view))?.label} 화면으로 이동하고 있어요</b><small>허브 메뉴는 그대로 두고 필요한 자료만 불러옵니다.</small></span>
@@ -266,7 +268,7 @@ export default function Dashboard({ initialData, initialState }) {
         {(view==='keyword'?[['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡']]:[['all','allDot','전체'],['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡'],['cafe24','cafeDot','Cafe24']]).map(([id,dot,label])=><button key={id} className={platform===id?'selected':''} onClick={()=>selectPlatform(id)}><i className={dot}/>{label}</button>)}
         <span className="periodFilter">{view==='keyword'?'플랫폼별 분리 운영 · 최근 7일':'최근 7일 기준'}</span>
       </section>}
-      <HarinFocusedWorkspaceNav view={view} workspace={workspace} pendingWorkspace={pendingWorkspace} platform={platform} period={period} product={selectedProduct} onNavigate={setPendingWorkspace}/>
+      <HarinFocusedWorkspaceNav view={view} workspace={workspace} pendingWorkspace={pendingWorkspace} platform={platform} period={period} product={selectedProduct} onNavigate={nextWorkspace=>{setPendingWorkspace(nextWorkspace);window.__HARIN_CLIENT_HEALTH__?.startRoute?.(hubRoutesModule.buildHubHref({view,workspace:nextWorkspace,platform,period,product:selectedProduct}));}}/>
       {view!=='main'&&<DataStatusPanel data={initialData} platform={platform} onOpenCollection={()=>openView('collection')}/>}
       {!embeddedHelpViews.has(view)&&!(view==='product'&&workspace==='catalog'&&platform==='all')&&!(view==='insight'&&workspace==='channels'&&platform==='coupang')&&<HelpBox key={`${view}:${workspace}:${platform}`} help={getHubHelp(view)} persistKey={`${view}:${workspace}:${platform}`}/>}
       {financialContextViews.has(view)&&<FinancialTrustBanner trust={initialData.financialTrust} onOpenProduct={()=>navigate({platform:'all',view:'product',workspace:'costs',product:'ALL'})}/>}
