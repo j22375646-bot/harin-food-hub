@@ -53,3 +53,18 @@
 @media(max-width:900px){.keywordOpsWingList article>div{grid-template-columns:1fr 1fr}.keywordOpsWingList label.memo{grid-column:1/-1}}
 @media(max-width:700px){.keywordOpsCapability{grid-template-columns:38px minmax(0,1fr);padding:12px}.keywordOpsCapability>i{width:38px;height:38px;border-radius:12px}.keywordOpsCapability>a,.keywordOpsCapability>strong{grid-column:2;justify-self:start}.keywordOpsCapability>a{min-height:36px}.keywordOps.platform-coupang .keywordOpsRow:not(.head)>span:nth-child(4)::before{content:'WING 현재가'}.keywordOps.platform-coupang .keywordOpsRow:not(.head)>span:nth-child(5)::before{content:'권장 조치'}.keywordOps.platform-coupang .keywordOpsRow:not(.head)>span:nth-child(6)::before{content:'작업표'}.keywordOpsWingNotice{grid-template-columns:1fr;margin:11px 18px 0}.keywordOpsWingList{margin:11px 18px 0}.keywordOpsWingList article>div{grid-template-columns:1fr}.keywordOpsWingList label.memo{grid-column:1}.keywordOpsWingList article>footer{align-items:flex-start;flex-wrap:wrap}.keywordOpsWingList article>footer strong{width:100%;margin-left:0}.keywordOpsWing>footer{grid-template-columns:1fr 1fr}.keywordOpsWing>footer a.secondary{grid-column:1/-1;justify-content:center}.keywordOpsWingResult{margin:10px 18px 0}}
 .productSourceCatalogDisclosure .v8ProgressiveDetailsIcon{background:var(--v8-amber-soft);color:var(--v8-amber-strong)}.productSourceCatalogDisclosure .v8ProgressiveDetailsCopy small,.productSourceCatalogDisclosure .v8ProgressiveDetailsAction{color:var(--v8-amber-strong)}.productSourceCatalogDisclosure .catalogStatusCenter{margin:0}.productSourceCatalogDisclosure .pageIntro{display:none}
+/* Phase 23-4B: keyword tables render no row editors and paginate both marketplace workbenches. */
+.keywordOpsDraft em.changed{background:var(--v8-lavender-soft);color:var(--v8-lavender-strong)}
+.keywordOpsDetail>section.keywordOpsDetailBid{background:var(--v8-lavender-soft)}
+.keywordOpsDetailBid>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;margin-top:9px}
+.keywordOpsDetailBid input{width:100%;min-width:0;height:46px;box-sizing:border-box;border:1px solid #cabfe3;border-radius:11px;background:#fff;padding:0 11px;color:var(--v8-ink);font-size:16px;font-weight:850;outline:none}
+.keywordOpsDetailBid input:focus{border-color:var(--v8-lavender-strong);box-shadow:0 0 0 3px rgba(123,104,173,.13)}
+.keywordOpsDetailBid button{min-width:68px;border:0;border-radius:11px;background:var(--v8-lavender-strong);color:#fff;font-size:12px;font-weight:900}
+.keywordOpsDetailBid button:disabled{opacity:.4}
+.keywordOpsDetailBid>small{display:block;margin-top:7px;color:var(--v8-muted);font-size:10px;line-height:1.45}
+.keywordOpsWingPager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:11px 18px 0;border:1px solid var(--v8-line);border-radius:13px;background:var(--v8-surface-soft);padding:9px 11px}
+.keywordOpsWingPager>span{color:var(--v8-muted);font-size:11px;font-weight:850}
+.keywordOpsWingPager>div{display:flex;gap:6px}
+.keywordOpsWingPager button{min-width:62px;min-height:38px;border:1px solid var(--v8-line-strong);border-radius:10px;background:#fff;color:var(--v8-ink);font-size:11px;font-weight:900}
+.keywordOpsWingPager button:disabled{opacity:.4}
+@media(max-width:700px){.keywordOpsWingPager{align-items:flex-start;flex-direction:column}.keywordOpsWingPager>div{display:grid;width:100%;grid-template-columns:1fr 1fr}.keywordOpsWingPager button{width:100%}.keywordOpsDetailBid>div{grid-template-columns:1fr}.keywordOpsDetailBid button{min-height:44px}}

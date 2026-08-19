@@ -23,8 +23,8 @@ test('15-4 filters, sorts and paginates keyword operations without platform writ
   const rows=operations.normalizeKeywordRows({naverBidWorkbench:{candidates:[naverCandidate,{...naverCandidate,ncc_keyword_id:'nkw-2',keyword:'레드비트차',metrics:{...naverCandidate.metrics,cost:5000,conversions:0}}]},workspace:'registered',platform:'naver'});
   const filtered=operations.filterKeywordRows(rows,{quickFilter:'NO_ORDER_COST',sort:'COST_DESC'});
   assert.deepEqual(filtered.map(item=>item.keyword),['레드비트차']);
-  const page=operations.paginateKeywordRows(rows,1,25);
-  assert.equal(page.total,2);assert.equal(page.pageSize,25);
+  const page=operations.paginateKeywordRows(rows,1,12);
+  assert.equal(page.total,2);assert.equal(page.pageSize,12);
   assert.equal(operations.keywordOperationSummary(rows).ready,2);
 });
 
