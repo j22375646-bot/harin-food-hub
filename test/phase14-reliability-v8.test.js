@@ -49,7 +49,7 @@ test('14-9 promotes notification snooze to cross-device server state and keeps e
   assert.match(route,/action==='SNOOZE'/);
   assert.match(migration,/snoozed_until timestamptz/);
   assert.match(dashboard,/1시간 숨김/);
-  assert.match(dashboard,/updateAlert\(item\.id,'RESOLVE'\)/);
+  assert.match(dashboard,/updateAlert\(detailAlert\.id,'RESOLVE'\)/);
 });
 
 test('14-8 keeps isolated zero-cost AI panels for collection and notifications',()=>{

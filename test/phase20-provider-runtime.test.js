@@ -64,5 +64,5 @@ test('provider runtime route, UI and service-role-only migration exist',()=>{
   assert.equal(routes.buildHubHref({view:'collection',workspace:'provider-runtime'}),'/data-collection/provider-runtime');
   assert.equal(fs.existsSync(path.join(root,'app/data-collection/provider-runtime/page.js')),true);
   const ui=fs.readFileSync(path.join(root,'app/provider-operations-center.js'),'utf8');const css=fs.readFileSync(path.join(root,'app/_reliability/harin-naver-api-center.css'),'utf8');const migration=fs.readFileSync(path.join(root,'supabase/migrations/20260818150000_add_provider_runtime_requests.sql'),'utf8');
-  assert.match(ui,/API 사용량·안전센터/);assert.match(ui,/providerRuntimeGroups/);assert.match(css,/@media\(max-width:760px\).*providerRuntimeRow/s);assert.match(migration,/where status='RUNNING'/);assert.match(migration,/revoke all.*public,anon,authenticated/s);assert.match(migration,/service_role/);
+  assert.match(ui,/API 사용량·안전센터/);assert.match(ui,/providerRuntimeWorkbench/);assert.match(css,/@media\(max-width:760px\).*providerRuntimeCompactRow/s);assert.match(migration,/where status='RUNNING'/);assert.match(migration,/revoke all.*public,anon,authenticated/s);assert.match(migration,/service_role/);
 });
