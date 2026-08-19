@@ -19,7 +19,7 @@ function ChannelCollectionCard({ channel, onRun, onConnect, busy }) {
   const iconName={NAVER:'naver',CAFE24:'cafe24',COUPANG:'coupang'}[channel.platform]||'database';
   const hasIssue=Boolean(channel.error_message)||['FAILED','PARTIAL','STALE'].includes(channel.health_status);
   return <article className={`collectionOpsChannel ${String(channel.platform||'').toLowerCase()} ${String(channel.health_status||'WAITING').toLowerCase()}`}>
-    <header><div className="collectionChannelTitle"><i><HarinIcon name={iconName} size={20}/></i><span><small>{channel.platform}</small><h2>{channel.label}</h2></span></div><em>{healthLabel[channel.health_status]||channel.health_status}</em></header>
+    <header><div className="collectionChannelTitle"><i><HarinIcon name={iconName} size={20}/></i><span><small>{channel.platform}</small><h2>{channel.label}</h2></span></div><em>{needsConnection?'연결 확인':healthLabel[channel.health_status]||channel.health_status}</em></header>
     <section className="collectionOpsChannelState"><span>{connectionLabel[channel.connection_status]||channel.connection_status}</span><strong>{channel.stored_summary}</strong><small>{channel.latest_collection_summary}</small><small className="collectionOpsFreshness"><HarinIcon name="clock" size={13}/>{channel.freshness_label}</small></section>
     <dl>
       <div><dt><HarinIcon name="link" size={14}/>연결 상태</dt><dd>{channel.connection_summary}</dd></div>

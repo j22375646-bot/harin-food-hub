@@ -52,6 +52,7 @@ test('23-2 never mixes Naver and Coupang keyword provider queries',()=>{
 });
 
 test('23-2 scopes insight and product workspaces to the data they render',()=>{
+  const collection=loaders.profileForState({view:'collection',workspace:'overview',platform:'all'});
   const overview=loaders.profileForState({view:'insight',workspace:'overview',platform:'all'});
   const causes=loaders.profileForState({view:'insight',workspace:'causes',platform:'all'});
   const channels=loaders.profileForState({view:'insight',workspace:'channels',platform:'all'});
@@ -63,6 +64,11 @@ test('23-2 scopes insight and product workspaces to the data they render',()=>{
   const naverCatalog=loaders.profileForState({view:'product',workspace:'catalog',platform:'naver'});
   const productProfit=loaders.profileForState({view:'product',workspace:'profit',platform:'all'});
   const adTargets=loaders.profileForState({view:'product',workspace:'ad-targets',platform:'all'});
+  assert.deepEqual(collection.tables,[
+    'cafe24_oauth_tokens','cafe24_products','automation_runs','data_quality_checks','ai_analysis_results',
+    'coupang_products','coupang_sync_requests','coupang_operation_requests','worker_heartbeats'
+  ]);
+  assert.equal(collection.tables.some(table=>table.startsWith('coupang_ad_')),false);
   assert.deepEqual(overview.tables,['reports','platform_events','alerts','cafe24_oauth_tokens','ai_analysis_results']);
   assert.deepEqual(causes.tables,['reports','actions','platform_events','alerts','cafe24_oauth_tokens','ai_analysis_results']);
   assert.deepEqual(channels.tables,['reports','actions','platform_events','alerts','cafe24_oauth_tokens','ai_analysis_results']);

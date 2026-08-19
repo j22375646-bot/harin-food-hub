@@ -120,8 +120,11 @@ function HelpBox({ help, compact=false, persistKey }) {
 
 function DataStatusPanel({ data, platform='all', onOpenCollection }) {
   const health=data.dataHealth?.channels||[];
+  const connectionByPlatform=new Map((data.collectionCenter?.channels||[]).map(item=>[item.platform,item]));
   const stateFor=platform=>{
     const item=health.find(value=>value.platform===platform),status=item?.status;
+    const connection=connectionByPlatform.get(platform);
+    if(connection&&!['READ_READY','WRITE_READY'].includes(connection.connection_status))return ['partial','연결 확인'];
     if(item?.dataMode==='PREVIOUS')return ['partial','이전 자료'];
     if(status==='READY')return ['ready','정상'];
     if(status==='PARTIAL')return ['partial','일부 확인'];
@@ -131,12 +134,13 @@ function DataStatusPanel({ data, platform='all', onOpenCollection }) {
     return ['waiting','수집 대기'];
   };
   const selected=platform==='all'?null:health.find(item=>item.platform===platform.toUpperCase());
-  const affected=selected&&(selected.failedDatasets?.length||selected.dataMode==='PREVIOUS')
+  const connectionAffected=(data.collectionCenter?.channels||[]).filter(item=>!['READ_READY','WRITE_READY'].includes(item.connection_status));
+  const affected=selected&&(selected.failedDatasets?.length||selected.dataMode==='PREVIOUS'||connectionAffected.some(item=>item.platform===selected.platform))
     ? [selected]
-    : health.filter(item=>item.failedDatasets?.length||item.dataMode==='PREVIOUS'||['FAILED','PARTIAL','STALE'].includes(item.status));
+    : health.filter(item=>item.failedDatasets?.length||item.dataMode==='PREVIOUS'||['FAILED','PARTIAL','STALE'].includes(item.status)||connectionAffected.some(connection=>connection.platform===item.platform));
   return <details className={`pageDataStatus${affected.length?' warning':''}`}>
     <summary aria-label="채널별 데이터 상태 열기">
-      <span className="pageDataStatusTitle"><i aria-hidden="true">D</i><span><b>데이터 상태</b><small>{affected.length?`${affected.length}개 채널 확인 필요`:'세 채널 최신 상태 확인'}</small></span></span>
+      <span className="pageDataStatusTitle"><i aria-hidden="true">D</i><span><b>데이터·연결 상태</b><small>{affected.length?`${affected.length}개 채널 확인 필요`:'세 채널 최신 자료·연결 확인'}</small></span></span>
       <span className="pageDataStatusChannels">{[['NAVER','네이버'],['COUPANG','쿠팡'],['CAFE24','Cafe24']].map(([id,label])=>{const [tone,status]=stateFor(id);return <span className={tone} key={id}><i aria-hidden="true"/><strong>{label}</strong><em>{status}</em></span>})}</span>
       <em className="pageDataStatusToggle">열기</em>
     </summary>
