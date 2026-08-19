@@ -36,6 +36,7 @@ const count=value=>Number(value||0).toLocaleString('ko-KR');
 const won=value=>value==null?'판단 보류':`${Math.round(Number(value)).toLocaleString('ko-KR')}원`;
 const percent=value=>value==null?'판단 보류':`${Number(value).toFixed(1)}%`;
 const scopePlatform=(value,platform)=>platform==='all'||String(value||'ALL').toLowerCase()===platform||String(value||'ALL').toUpperCase()==='ALL';
+const scopeReportPlatform=(value,platform)=>String(value||'ALL').toUpperCase()===(platform==='all'?'ALL':String(platform).toUpperCase());
 
 function Pictogram({type}){
   if(type==='keyword')return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="5.5"/><path d="m14.5 14.5 5 5M8 10h4M10 8v4"/></svg>;
@@ -74,8 +75,29 @@ function displayMetric(value,type){
   return `${count(value)}건`;
 }
 
+function actionIcon(area=''){
+  const key=String(area).toUpperCase();
+  if(key.includes('KEYWORD')||key.includes('ADS'))return 'keyword';
+  if(key.includes('PROFIT')||key.includes('COST'))return 'settlement';
+  if(key.includes('DATA')||key.includes('COLLECTION'))return 'collection';
+  return 'search';
+}
+
+function InsightDecisionBrief({decision={}}){
+  const metrics=decision.metrics||[],actions=decision.actions||[],trust=decision.trust||{};
+  const ready=trust.status==='READY';
+  return <section className="insightDecisionBrief" id="insight-owner-brief">
+    <header><div><span>OWNER DECISION BRIEF</span><h2>{decision.headline?.title||'비교할 보고서를 준비하고 있어요'}</h2><p>{decision.current_report?`${decision.current_report.title} · 같은 범위의 이전 보고서와 비교`:'다른 채널 숫자를 임의로 합치지 않고 선택 범위 자료만 사용합니다.'}</p></div><em className={ready?'ready':'blocked'}>{trust.label||'수집 상태 확인 필요'}</em></header>
+    <div className="insightDecisionLayout">
+      <article className="insightDecisionChanges"><h3>무엇이 변했나요?</h3><div>{metrics.map(item=><span className={item.change_rate<0?'down':item.change_rate>0?'up':'blocked'} key={item.label}><small>{item.label}</small><b>{displayMetric(item.value,item.type)}</b><em>{item.change_rate==null?'비교 보류':`${item.change_rate>0?'+':''}${item.change_rate.toFixed(1)}%`}</em></span>)}</div></article>
+      <article className="insightDecisionActions"><h3>지금 무엇을 할까요?</h3>{actions.length?<div>{actions.map(item=><Link href={item.href} key={item.id}><i><HarinIcon name={actionIcon(item.area)} size={20}/></i><span><small>{item.rank}. {item.priority==='HIGH'?'먼저 확인':'다음 확인'}</small><b>{item.title}</b><em>{item.reason}</em></span><strong>→</strong></Link>)}</div>:<div className="analysisEmptyState"><b>지금 바로 처리할 긴급 행동이 없어요</b><p>새 보고서나 이상징후가 생기면 우선순위 3개를 이곳에 표시합니다.</p></div>}</article>
+    </div>
+    {decision.caveats?.length?<details><summary>판단할 때 주의할 점 {decision.caveats.length}개</summary><ul>{decision.caveats.map((item,index)=><li key={`${item}-${index}`}>{item}</li>)}</ul></details>:null}
+  </section>;
+}
+
 function InsightComparison({reports=[],alerts=[],platform}){
-  const scoped=useMemo(()=>reports.filter(report=>scopePlatform(report.platform,platform)&&report.summary_json),[reports,platform]);
+  const scoped=useMemo(()=>reports.filter(report=>scopeReportPlatform(report.platform,platform)&&report.summary_json),[reports,platform]);
   const defaults=[scoped[0]?.id||'',scoped[1]?.id||scoped[0]?.id||''];
   const [saved,setSaved]=useStoredState(`analysis:comparison:${platform}`,defaults);
   const savedSelection=Array.isArray(saved)&&saved.length===2?saved:defaults;
@@ -134,8 +156,8 @@ function ProductDifferenceDesk({data={}}){
 
 export default function HarinAnalysisWorkbench({view,workspace,platform='all',data={},aiPanel,children}){
   const meta=WORKSPACE_META[view]?.[workspace]||['분석 작업대','필요한 숫자와 다음 행동을 한 화면에서 확인해요.'];
-  const loadedReportCount=(data.reports||[]).filter(report=>scopePlatform(report.platform,platform)).length;
-  const reportCount=platform==='all'&&Number.isFinite(Number(data.reportCount))?Number(data.reportCount):loadedReportCount;
+  const loadedReportCount=(data.reports||[]).filter(report=>scopeReportPlatform(report.platform,platform)).length;
+  const reportCount=loadedReportCount;
   const anomalyCount=(data.alerts||[]).filter(item=>item.source_type==='ANOMALY'&&scopePlatform(item.platform,platform)).length;
   const actualTerms=data.naver?.searchTermCenter?.summary?.total||0;
   const coupangTerms=(data.coupang?.adKeywordTop?.length||0)+(data.coupang?.adKeywordWaste?.length||0);
@@ -157,7 +179,7 @@ export default function HarinAnalysisWorkbench({view,workspace,platform='all',da
       </nav>
     </HarinPageToolbar>
     <HarinPageContent className="analysisPageContent">
-      {view==='insight'&&workspace==='overview'?<><InsightOverviewDesk data={data} platform={platform}/><InsightComparison reports={data.reports||[]} alerts={data.alerts||[]} platform={platform}/></>:null}
+      {view==='insight'&&workspace==='overview'?<><InsightDecisionBrief decision={data.insightDecision}/><InsightOverviewDesk data={data} platform={platform}/><InsightComparison reports={data.reports||[]} alerts={data.alerts||[]} platform={platform}/></>:null}
       {view==='insight'&&workspace==='causes'?<InsightCauseDesk data={data} platform={platform}/>:null}
       {view==='insight'&&workspace==='channels'?<InsightChannelDesk data={data}/>:null}
       {view==='insight'&&workspace==='profitability'?<InsightProfitabilityDesk data={data}/>:null}
@@ -191,7 +213,7 @@ const KEYWORD_QUICK_ACTIONS=[
 ];
 
 function latestReport(reports=[],platform='all'){
-  return reports.find(report=>scopePlatform(report.platform,platform)&&report.summary_json)||null;
+  return reports.find(report=>scopeReportPlatform(report.platform,platform)&&report.summary_json)||null;
 }
 
 function reportPeriodLabel(report,index){
@@ -203,7 +225,7 @@ function reportPeriodLabel(report,index){
 }
 
 function InsightOverviewDesk({data={},platform='all'}){
-  const reports=(data.reports||[]).filter(report=>scopePlatform(report.platform,platform)&&report.summary_json);
+  const reports=(data.reports||[]).filter(report=>scopeReportPlatform(report.platform,platform)&&report.summary_json);
   const periodReports=['DAY','WEEK','MONTH'].map((period,index)=>reports.find(report=>String(report.period_type||report.period||'').toUpperCase()===period)||reports[index]||null);
   const alerts=(data.alerts||[]).filter(item=>item.source_type==='ANOMALY'&&scopePlatform(item.platform,platform)).slice(0,3);
   const items=data.unifiedProductPerformance?.items||[];
@@ -221,6 +243,7 @@ function InsightOverviewDesk({data={},platform='all'}){
 
 function InsightCauseDesk({data={},platform='all'}){
   const report=latestReport(data.reports||[],platform), summary=report?.summary_json||{}, profit=summary.profitability||{};
+  const decision=data.insightDecision||{};
   const channel=platform==='all'?summary:summary[platform]||{};
   const steps=[
     ['노출',number(channel.impressions??summary.naver?.impressions),'회'],
@@ -236,7 +259,7 @@ function InsightCauseDesk({data={},platform='all'}){
   return <section className="insightCauseDesk" id="insight-causes">
     <header><div><span>CAUSE PATH</span><h2>매출이 달라진 길을 순서대로 확인해요</h2><p>관찰 → 영향 → 근거 → 다음 행동 순서로 읽으면 됩니다.</p></div><em>{report?.title||'저장 보고서 없음'}</em></header>
     <div className="insightCauseFlow">{steps.map(([label,value,unit],index)=><article className={value==null?'blocked':''} key={label}><small>{index+1}. {label}</small><b>{unit==='money'?won(value):value==null?'판단 보류':`${count(value)}${unit}`}</b><em>{value==null?'자료 확인 필요':'서버 보고서 기준'}</em>{index<steps.length-1?<i aria-hidden="true">→</i>:null}</article>)}</div>
-    <div className="insightCauseColumns"><article><h3>원인별 근거 준비 상태</h3><div className="insightCauseFactors">{factors.map(([label,key,hint])=>{const ready=evidence.includes(key);return <span className={ready?'ready':'blocked'} key={label}><i>{ready?'✓':'?'}</i><b>{label}</b><small>{ready?hint:'직접 근거 없음'}</small></span>;})}</div></article><article><h3>관찰과 다음 행동</h3><div className="insightObservation"><span><small>관찰</small><b>{typeof insight==='string'?insight:insight?.title||report?.title||'비교할 보고서를 먼저 저장해 주세요.'}</b></span><span><small>영향</small><b>{profit.contribution_profit==null?'이익 영향 판단 보류':`공헌이익 ${won(profit.contribution_profit)}`}</b></span><span><small>추천</small><b>{alertsToRecommendation(data.alerts,platform)}</b></span></div></article></div>
+    <div className="insightCauseColumns"><article><h3>원인별 근거 준비 상태</h3><div className="insightCauseFactors">{factors.map(([label,key,hint])=>{const ready=evidence.includes(key);return <span className={ready?'ready':'blocked'} key={label}><i>{ready?'✓':'?'}</i><b>{label}</b><small>{ready?hint:'직접 근거 없음'}</small></span>;})}</div></article><article><h3>관찰과 다음 행동</h3><div className="insightObservation"><span><small>관찰</small><b>{decision.headline?.title||typeof insight==='string'&&insight||insight?.title||report?.title||'비교할 보고서를 먼저 저장해 주세요.'}</b></span><span><small>영향</small><b>{profit.contribution_profit==null?'이익 영향 판단 보류':`공헌이익 ${won(profit.contribution_profit)}`}</b></span><span><small>추천</small><b>{decision.actions?.[0]?.title||alertsToRecommendation(data.alerts,platform)}</b></span></div></article></div>
     <div className="insightEventTimeline"><header><b>변경·행사 시점</b><small>가격·광고 변경과 성과 변화를 같이 확인해요.</small></header>{events.length?<div>{events.map(item=><span key={item.id||`${item.event_type}-${item.occurred_at}`}><i/><small>{item.occurred_at||item.created_at||'시각 미기록'}</small><b>{item.title||item.event_type||'운영 변경'}</b></span>)}</div>:<div className="analysisEmptyState"><b>연결된 변경 기록이 없어요</b><p>가격·입찰·행사 변경을 기록하면 원인 분석 근거로 표시됩니다.</p></div>}</div>
   </section>;
 }
@@ -256,7 +279,7 @@ function channelSnapshot(data={},platform){
     adSpend:number(channel.ad_spend??channel.spend??channel.cost),
     roas:number(channel.roas??channel.ad_roas),
     status:health?.status||health?.state||(report?'REPORT':'NO_DATA'),
-    updated:health?.last_success_at||health?.updated_at||report?.created_at||null
+    updated:health?.lastSuccessAt||health?.last_success_at||health?.updated_at||report?.created_at||null
   };
 }
 

@@ -155,7 +155,7 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/focusedEarlyReturn\?Promise\.resolve\(\{data:null,error:null\}\):db\.from\('sync_logs'\)/);
   assert.match(page,/cafe24Token:focusedEarlyReturn \? Promise\.allSettled/);
   assert.match(page,/cafe24Token:cafe24TokenSettled\.results\[0\]\.data\?\.token_data\|\|null/);
-  assert.match(analysis,/platform==='all'&&Number\.isFinite\(Number\(data\.reportCount\)\)/);
+  assert.match(analysis,/loadedReportCount=\(data\.reports\|\|\[\]\)\.filter\(report=>scopeReportPlatform\(report\.platform,platform\)\)\.length/);
   assert.match(dashboard,/data-loader-profile=\{initialData\.loaderPerformance\?\.profile/);
   assert.match(dashboard,/data-loader-ms=\{initialData\.loaderPerformance\?\.duration_ms/);
   assert.match(dashboard,/data-loader-slowest=\{/);

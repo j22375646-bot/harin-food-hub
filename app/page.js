@@ -6,6 +6,7 @@ import coupangMarketingModule from '../lib/coupang/marketing.js';
 import metricCalculator from '../lib/metrics/calculator.js';
 import metricSnapshotModule from '../lib/metrics/snapshot.js';
 import pacingService from '../lib/analytics/pacing-service.js';
+import insightDecisionWorkbenchModule from '../lib/analytics/insight-decision-workbench.js';
 import cafe24AnalyticsModule from '../lib/cafe24/analytics.js';
 import mappingService from '../lib/products/mapping-service.js';
 import productPerformance from '../lib/products/performance.js';
@@ -307,7 +308,7 @@ async function buildInventoryDashboardData({
 }
 
 async function buildInsightOverviewDashboardData({
-  loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults
+  loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,platform='all'
 }) {
   const shell=await buildFocusedShellData({
     queryIssues,syncResult,alertsResult,generatedAt,cafe24Token,
@@ -322,23 +323,26 @@ async function buildInsightOverviewDashboardData({
     period:kstScheduleModule.kstDateKey(generatedAt)
   });
   const aiPagePanels=finalizeAiPagePanels({insight:builtPanels.insight},latestAiPageResults,generatedAt,['insight']);
+  const insightDecision=insightDecisionWorkbenchModule.buildInsightDecisionWorkbench({
+    reports:reportsResult.data||[],alerts:shell.alerts,dataHealth:shell.dataHealth,platform,generatedAt
+  });
   return {
     loadedView:'insight',loadedWorkspace:'overview',loaderPerformance:loaderSession.snapshot(),generatedAt,
     dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
     aiPagePanels,aiFoundation:{},financialTrust:{},
     kpis:{sales:0,orders:0,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:0},
     products:[],syncs:shell.syncs,reports:reportsResult.data||[],reportCount:reportsResult.count??reportsResult.data?.length??0,actions:[],alerts:shell.alerts,
-    platformEvents:eventsResult.data||[],automationRuns:[],qualityChecks:[],metricSnapshots:[],
+    platformEvents:eventsResult.data||[],insightDecision,automationRuns:[],qualityChecks:[],metricSnapshots:[],
     unifiedProductPerformance:{summary:{},items:[]},
     naver:{},coupang:{}
   };
 }
 
 async function buildInsightCausesDashboardData({
-  loaderSession,generatedAt,queryIssues,syncResult,reportsResult,actionsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults
+  loaderSession,generatedAt,queryIssues,syncResult,reportsResult,actionsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,platform='all'
 }) {
   const dashboard=await buildInsightOverviewDashboardData({
-    loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults
+    loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,platform
   });
   return {
     ...dashboard,
@@ -1248,12 +1252,14 @@ async function getDashboardData(state) {
       });
     }
     if(state?.workspace==='causes')return buildInsightCausesDashboardData({
-      loaderSession,generatedAt,queryIssues,syncResult,reportsResult,actionsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults
+      loaderSession,generatedAt,queryIssues,syncResult,reportsResult,actionsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,
+      platform:state.platform
     });
     if(state?.workspace==='channels')return buildInsightChannelsDashboardData({
-      loaderSession,generatedAt,queryIssues,syncResult,reportsResult,actionsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults
+      loaderSession,generatedAt,queryIssues,syncResult,reportsResult,actionsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,
+      platform:state.platform
     });
-    return buildInsightOverviewDashboardData({loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults});
+    return buildInsightOverviewDashboardData({loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,platform:state.platform});
   }
   if(focusedKeywordHistory){
     const [phase7Raw,aiResultsRaw,cafe24TokenRaw]=await Promise.all([
