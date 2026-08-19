@@ -220,7 +220,7 @@ test("이미 등록된 쿠팡 송장번호를 주문과 옵션 행에서 찾아 
   );
 });
 
-test("daily cron queues Coupang and production data source is no longer HOME_PC", () => {
+test("daily cron uses the connected-provider collector and production data source is no longer HOME_PC", () => {
   const root = path.resolve(__dirname, "..");
   const cron = fs.readFileSync(
     path.join(root, "app/api/cron/daily-sync/route.js"),
@@ -231,10 +231,13 @@ test("daily cron queues Coupang and production data source is no longer HOME_PC"
     path.join(root, "scripts/coupang-local-worker.js"),
     "utf8",
   );
-  assert.match(
-    cron,
-    /queueRequest\(supabaseModule\.getSupabase\(\), 'FULL', runOptions\('COUPANG_SYNC_REQUEST'\)\)/,
+  const connectedSync = fs.readFileSync(
+    path.join(root, "lib/automation/sync-all.js"),
+    "utf8",
   );
+  assert.match(cron, /syncAllPlatforms/);
+  assert.match(connectedSync, /queueRequest\(db, 'FULL', runOptions\)/);
+  assert.match(connectedSync, /coupangWorkerReady/);
   assert.match(page, /FIXED_IP_WORKER/);
   assert.doesNotMatch(`${page}\n${workerSource}`, /HOME_PC/);
 });

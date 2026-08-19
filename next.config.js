@@ -13,6 +13,7 @@ const securityHeaders = [
 
 module.exports = {
   poweredByHeader:false,
+  distDir:process.env.NEXT_DIST_DIR || '.next',
   turbopack:{root:__dirname},
   async redirects() {
     return HUB_LEGACY_ROUTES.map(item=>({source:item.href,destination:routeFor(item.view),permanent:true}));
