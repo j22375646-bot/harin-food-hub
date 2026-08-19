@@ -14,6 +14,7 @@ import './_ai/harin-ai-page-v8.css';
 import './_shell/harin-entry-v8.css';
 import './_analysis/harin-market-intelligence.css';
 import './_design-system/harin-readability-v8.css';
+import './_design-system/harin-interactions-v8.css';
 import uiFlags from '../lib/ui/feature-flags.js';
 
 export const metadata = {

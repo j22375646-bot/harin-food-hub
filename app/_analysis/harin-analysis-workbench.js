@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useStoredState } from '../use-hub-preference.js';
 import { HarinIcon } from '../_design-system/harin-icon.js';
-import { HarinPageAiRegion, HarinPageContent, HarinPageFrame, HarinPageHeader, HarinPageToolbar } from '../_design-system/harin-ui.js';
+import { HarinPageAiRegion, HarinPageContent, HarinPageFrame, HarinPageHeader, HarinPageToolbar, HarinQuickAction } from '../_design-system/harin-ui.js';
 import KeywordOperationsTable from './keyword-operations-table.js';
 
 const PLATFORM_LABELS={all:'전체',naver:'네이버',coupang:'쿠팡',cafe24:'Cafe24'};
@@ -173,9 +173,9 @@ export default function HarinAnalysisWorkbench({view,workspace,platform='all',da
     <HarinPageHeader className="analysisHero" eyebrow={pageLabel} title={meta[0]} description={meta[1]} icon={view} tone={view==='keyword'?'mint':view==='product'?'amber':'lavender'} note="숫자는 서버 계산 · 자료 부족은 판단 보류 · 플랫폼 변경은 승인 전 실행 안 함" metrics={heroMetrics}/>
     <HarinPageToolbar className="analysisFocusToolbar" label="빠른 작업" description="지금 필요한 분석 위치로 바로 이동해요.">
       <nav className="analysisFocusRail" aria-label="이 화면의 빠른 작업">
-        {view==='insight'?<>{INSIGHT_ROUTES.map(([id,label,description,icon,tone])=>{const query=platform==='all'?'':`?platform=${platform}`;return <Link className={`${workspace===id?'active ':''}tone-${tone}`.trim()} href={`/insights/${id}${query}`} key={id}><QuickActionIcon name={icon}/><span><small>{label}</small><b>{description}</b></span></Link>;})}</>:null}
-        {view==='keyword'?<>{KEYWORD_QUICK_ACTIONS.map(([id,href,label,description,icon,tone])=><Link className={`${workspace===id?'active ':''}tone-${tone}`.trim()} href={href} key={id}><QuickActionIcon name={icon}/><span><small>{label}</small><b>{description}</b></span></Link>)}</>:null}
-        {view==='product'?<><Link className={`${workspace==='catalog'?'active ':''}tone-amber`.trim()} href="/products/catalog"><QuickActionIcon name="product"/><span><small>상품</small><b>판매 가능 목록</b></span></Link><a className="tone-blue" href="#product-channel-differences"><QuickActionIcon name="link"/><span><small>비교</small><b>채널 차이 확인</b></span></a><a className="tone-lavender" href="#page-ai-analysis"><QuickActionIcon name="ai"/><span><small>설명</small><b>상품 AI 분석</b></span></a></>:null}
+        {view==='insight'?<>{INSIGHT_ROUTES.map(([id,label,description,icon,tone])=>{const query=platform==='all'?'':`?platform=${platform}`;return <HarinQuickAction as={Link} active={workspace===id} href={`/insights/${id}${query}`} icon={icon} tone={tone} eyebrow={label} title={description} key={id}/>;})}</>:null}
+        {view==='keyword'?<>{KEYWORD_QUICK_ACTIONS.map(([id,href,label,description,icon,tone])=><HarinQuickAction as={Link} active={workspace===id} href={href} icon={icon} tone={tone} eyebrow={label} title={description} key={id}/>)}</>:null}
+        {view==='product'?<><HarinQuickAction as={Link} active={workspace==='catalog'} href="/products/catalog" icon="product" tone="amber" eyebrow="상품" title="판매 가능 목록"/><HarinQuickAction href="#product-channel-differences" icon="link" tone="blue" eyebrow="비교" title="채널 차이 확인"/><HarinQuickAction href="#page-ai-analysis" icon="ai" tone="lavender" eyebrow="설명" title="상품 AI 분석"/></>:null}
       </nav>
     </HarinPageToolbar>
     <HarinPageContent className="analysisPageContent">
@@ -192,10 +192,6 @@ export default function HarinAnalysisWorkbench({view,workspace,platform='all',da
     </HarinPageContent>
     <HarinPageAiRegion className="analysisAiSlot" id="page-ai-analysis" title={`${pageLabel} AI 분석`}>{aiPanel}</HarinPageAiRegion>
   </HarinPageFrame>;
-}
-
-function QuickActionIcon({name}){
-  return <i aria-hidden="true"><HarinIcon name={name} size={22}/></i>;
 }
 
 const INSIGHT_ROUTES=[

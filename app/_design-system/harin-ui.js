@@ -13,9 +13,10 @@ export function HarinCard({ as:Element='article', tone='plain', interactive=fals
   return <Element className={join('v8Card',`v8Card-${tone}`,interactive&&'v8Card-interactive',className)} {...props}>{children}</Element>;
 }
 
-export function HarinButton({ as:Element='button', variant='secondary', size='medium', icon, children, className='', type, ...props }) {
+export function HarinButton({ as:Element='button', variant='secondary', size='medium', icon, busy=false, busyLabel='처리 중…', children, className='', type, disabled, ...props }) {
   const elementProps=Element==='button'?{type:type||'button'}:{};
-  return <Element className={join('v8Button',`v8Button-${variant}`,`v8Button-${size}`,className)} {...elementProps} {...props}>{icon?<HarinIcon name={icon} size={18}/>:null}<span>{children}</span></Element>;
+  const busyProps=busy?{'aria-busy':'true','aria-live':'polite'}:{};
+  return <Element className={join('v8Button',`v8Button-${variant}`,`v8Button-${size}`,busy&&'v8Button-busy',className)} disabled={Element==='button'?(disabled||busy):undefined} {...elementProps} {...busyProps} {...props}>{busy?<span className="v8ButtonSpinner" aria-hidden="true"/>:icon?<HarinIcon name={icon} size={18}/>:null}<span>{busy?busyLabel:children}</span></Element>;
 }
 
 export function HarinBadge({ tone='neutral', icon, children, className='', ...props }) {
@@ -49,6 +50,24 @@ export function HarinPageToolbar({ label='보기 조건', description, aside, cl
   return <section className={join('v8PageToolbar',className)}>
     <header><span><b>{label}</b>{description?<small>{description}</small>:null}</span>{aside?<aside>{aside}</aside>:null}</header>
     <div className="v8PageToolbarBody">{children}</div>
+  </section>;
+}
+
+export function HarinQuickAction({ as:Element='a', href, icon='sparkles', tone='lavender', eyebrow, title, active=false, className='', children, ...props }) {
+  const elementProps=href?{href}:{};
+  return <Element className={join('v8QuickAction',`v8QuickAction-${tone}`,active&&'active',className)} aria-current={active?'page':undefined} {...elementProps} {...props}>
+    <HarinPictogram icon={icon} tone={tone} size={21}/>
+    <span>{eyebrow?<small>{eyebrow}</small>:null}<b>{title||children}</b></span>
+    <HarinIcon className="v8QuickActionArrow" name="chevron" size={17}/>
+  </Element>;
+}
+
+export function HarinInlineStatus({ tone='neutral', icon, title, description, action, busy=false, className='', ...props }) {
+  const statusIcon=icon||(busy?'sync':tone==='success'?'check':tone==='danger'?'warning':tone==='warning'?'clock':'sparkles');
+  return <section className={join('v8InlineStatus',`v8InlineStatus-${tone}`,busy&&'v8InlineStatus-busy',className)} role="status" aria-live="polite" aria-busy={busy?'true':undefined} {...props}>
+    <HarinPictogram icon={statusIcon} tone={tone==='success'?'mint':tone==='danger'?'pink':tone==='warning'?'amber':tone==='info'?'blue':'lavender'} size={18}/>
+    <span><b>{title}</b>{description?<small>{description}</small>:null}</span>
+    {action?<div>{action}</div>:null}
   </section>;
 }
 
