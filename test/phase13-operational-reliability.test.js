@@ -16,6 +16,15 @@ test('13-8 marks a fixed-IP worker silent after fifteen minutes',()=>{
   assert.equal(health.workers[0].stale,true);
 });
 
+test('23 polish accepts an ISO generated-at value when checking worker silence',()=>{
+  const health=reliability.buildWorkerHealth([
+    {worker_id:'FIXED_IP_WORKER',service_name:'harin-coupang-worker',collector:'FIXED_IP_WORKER',status:'ONLINE',last_seen_at:'2026-08-20T00:00:00Z'}
+  ],'2026-08-20T13:00:00Z');
+  assert.equal(health.status,'CHECK');
+  assert.equal(health.workers[0].silence_minutes,780);
+  assert.equal(health.workers[0].stale,true);
+});
+
 test('13-8 dead-letter workbench contains only terminal failures and no payload',()=>{
   const center=reliability.buildReliabilityCenter({operationRequests:[{id:'op-1',status:'FAILED',operation_type:'INVOICE_UPLOAD',target_type:'ORDER',target_id:'100',error_message:'failed',attempt_count:2},{id:'op-2',status:'SUCCESS',operation_type:'ORDER_DETAIL'}],syncRequests:[{id:'sync-1',status:'FAILED',request_type:'FULL',error_message:'timeout'}]});
   assert.equal(center.dead_letter_count,2);

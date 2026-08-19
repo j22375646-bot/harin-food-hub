@@ -208,6 +208,15 @@ test('15시까지 오늘 주문은 당일출고, 다음 날까지 준비중이�
   assert.equal(delayed.shippingEstimate.plannedShipDate,'2026-08-14');
 });
 
+test('출고 예정일이 지난 결제완료·준비중·출고대기 주문은 모두 배송지연이다',()=>{
+  const calendar={holidayReady:true,holidayDates:[]};
+  for(const stage of ['PAID','PREPARING','READY_TO_SHIP']){
+    const result=orders.fulfillmentTiming({orderedAt:'2026-08-13T10:00:00+09:00',stage},new Date('2026-08-14T01:00:00Z'),calendar);
+    assert.equal(result.timingBadge.type,'DELAYED',stage);
+    assert.equal(result.shippingEstimate.plannedShipDate,'2026-08-13',stage);
+  }
+});
+
 test('live work window uses the Korea business date on a UTC deployment',()=>{
   const center=orders.buildUnifiedOrders({asOf:'2026-08-13T15:30:00Z'});
   assert.equal(center.summary.windowEnd,'2026-08-14');
