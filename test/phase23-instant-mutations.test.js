@@ -50,3 +50,38 @@ test('23-3 reloads product mapping data inside the workbench instead of the page
   assert.doesNotMatch(workbench,/window\.location\.reload|router\.refresh/);
   assert.match(workbench,/finally\{setWorking\(''\);\}/);
 });
+
+test('23-3 refreshes collection, CS, and provider cards without reloading the page',()=>{
+  const files=[
+    'app/naver-api-connection-center.js',
+    'app/operations-health-center.js',
+    'app/optional-provider-center.js',
+    'app/owned-site-connection-center.js',
+    'app/unified-customer-service-center.js',
+    'app/advertising-channel-center.js',
+    'app/shipping-reference-center.js'
+  ];
+  for(const file of files)assert.doesNotMatch(read(file),/window\.location\.reload|location\.reload|router\.refresh/,file);
+  assert.match(read('app/_reliability/instant-probe-state.js'),/export function mergeProbeService/);
+  assert.match(read('app/dashboard-client.js'),/const \[liveCollectionCenter,setLiveCollectionCenter\]=useState/);
+  assert.match(read('app/unified-customer-service-center.js'),/setData\(\(current\) =>/);
+});
+
+test('23-3 returns fresh Naver search-term rows and replaces the list in place',()=>{
+  const route=read('app/api/naver/search-terms/route.js');
+  const center=read('app/naver-search-term-center.js');
+  assert.match(route,/buildSearchTermCenter\(\{rows,registeredKeywords/);
+  assert.match(route,/Response\.json\(\{ok:true,\.\.\.syncResult,center\}/);
+  assert.match(center,/setCenter\(result\.center\)/);
+  assert.match(center,/setItems\(result\.center\?\.items\|\|\[\]\)/);
+  assert.doesNotMatch(center,/window\.location\.reload|location\.reload|router\.refresh/);
+});
+
+test('23-3 keeps public holiday dates in the guarded response for instant calendar updates',()=>{
+  const guard=read('lib/provider-operations/request-guard.js');
+  const readiness=read('lib/shipping-reference/readiness.js');
+  const center=read('app/shipping-reference-center.js');
+  assert.match(guard,/holidays:Array\.isArray\(result\.holidays\)\?result\.holidays:undefined/);
+  assert.match(readiness,/holidays:result\.holidays,sourceTimestamp:result\.sourceTimestamp/);
+  assert.match(center,/setCalendar\(current=>\(\{\.\.\.current,ready:true,holidays/);
+});

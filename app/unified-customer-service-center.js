@@ -578,13 +578,13 @@ function ClaimCard(props) {
 }
 
 export default function UnifiedCustomerServiceCenter({ center, aiPanel }) {
-  const data = center || {
+  const [data,setData] = useState(center || {
     rows: [],
     active: [],
     channelStates: [],
     templates: [],
     summary: {},
-  };
+  });
   const [platform, setPlatform] = useStoredState("filter:cs-platform", "ALL", [
     "ALL",
     "NAVER",
@@ -646,8 +646,19 @@ export default function UnifiedCustomerServiceCenter({ center, aiPanel }) {
             : `${platformLabel[job.platform]} ${job.ok ? "요청 완료" : "실패"}`,
         )
         .join(" · ");
-      setSyncMessage(`${summary} · 잠시 뒤 화면을 새로고침합니다.`);
-      window.setTimeout(() => window.location.reload(), 2500);
+      setData((current) => ({
+        ...current,
+        channelStates: (current.channelStates || []).map((item) => {
+          const job = (result.jobs || []).find((candidate) => candidate.platform === item.platform);
+          if (!job) return item;
+          if (job.skipped) return {...item,status:"SETUP_REQUIRED",statusLabel:"설정 필요",message:"연결 설정 뒤 수집할 수 있어요."};
+          if (!job.ok) return {...item,status:"FAILED",statusLabel:"다시 확인",message:job.error || "수집 요청 실패"};
+          return item.platform === "CAFE24"
+            ? {...item,status:"READY",statusLabel:"방금 수집",message:"새 CS 자료를 저장했어요."}
+            : {...item,status:"RUNNING",statusLabel:"수집 요청",message:"서울 고정 IP 서버가 새 자료를 확인 중이에요."};
+        }),
+      }));
+      setSyncMessage(`${summary} · 화면을 유지한 채 채널 상태에 바로 반영했어요.`);
     } catch (error) {
       setSyncMessage(`전체 CS 수집 실패 · ${error.message}`);
     } finally {

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import HarinIcon from './_design-system/harin-icon.js';
+import {failProbeService,mergeProbeService,replaceProbeService,serviceSummary} from './_reliability/instant-probe-state.js';
 
 const STATUS = {
   READY:{ label:'정상 연결', tone:'ready' }, PARTIAL:{ label:'일부 확인', tone:'partial' },
@@ -11,7 +12,6 @@ const STATUS = {
   NOT_APPLICABLE:{ label:'해당 없음', tone:'muted' }, NOT_TESTED:{ label:'미검증', tone:'verify' }
 };
 
-const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
 const KST_DATE_TIME = new Intl.DateTimeFormat('ko-KR', {
   timeZone:'Asia/Seoul', month:'numeric', day:'numeric', hour:'numeric', minute:'2-digit'
 });
@@ -89,7 +89,8 @@ function ServiceCard({ service, working, onProbe }) {
 export default function NaverApiConnectionCenter({ center }) {
   const [working,setWorking] = useState('');
   const [message,setMessage] = useState('');
-  const services = center?.services || [];
+  const [services,setServices] = useState(center?.services || []);
+  const summary=serviceSummary(services);
 
   async function probe(service) {
     setWorking(service.key);
@@ -98,13 +99,15 @@ export default function NaverApiConnectionCenter({ center }) {
       const response = await fetch(service.action.endpoint, { method:'POST', headers:{ Accept:'application/json' } });
       const result = service.fixedIp ? await fixedIpResult(response) : await json(response);
       const probeResult = result.naverCommerce || result.result || result;
+      const nextService=mergeProbeService(service,probeResult,{summary:probeResult.status==='PARTIAL'?`${service.label} 일부 읽기 권한을 확인했어요.`:`${service.label} 읽기 연결을 방금 확인했어요.`});
+      setServices(current=>replaceProbeService(current,service.key,nextService));
       setMessage(probeResult.status === 'PARTIAL'
         ? `${service.label} 일부 권한을 확인했습니다. 실패 항목을 다시 살펴봐주세요.`
-        : `${service.label} 읽기 연결을 확인했습니다. 화면을 최신 상태로 바꿀게요.`);
-      await wait(850);
-      window.location.reload();
+        : `${service.label} 읽기 연결을 확인했습니다. 이 카드에 바로 반영했어요.`);
     } catch (error) {
+      setServices(current=>replaceProbeService(current,service.key,failProbeService(service,error)));
       setMessage(`확인 필요 · ${error.message}`);
+    } finally {
       setWorking('');
     }
   }
@@ -113,7 +116,7 @@ export default function NaverApiConnectionCenter({ center }) {
     <header className="naverApiHero">
       <div className="naverApiHeroIcon"><HarinIcon name="naver" size={30}/></div>
       <div><span>PHASE {center?.phase || '18-6'} · NAVER RELIABILITY</span><h1>네이버 API 연결센터</h1><p>커머스, 검색광고, API HUB를 섞지 않고 연결·호출량·재사용 캐시를 각각 확인해요.</p></div>
-      <aside><span><b>{center?.summary?.ready || 0}</b>개 정상</span><span><b>{center?.summary?.attention || 0}</b>개 확인</span></aside>
+      <aside><span><b>{summary.ready}</b>개 정상</span><span><b>{summary.attention}</b>개 확인</span></aside>
     </header>
     {message?<div className="naverApiToast" role="status" aria-live="polite"><HarinIcon name={working?'sync':'note'} size={20}/><span>{message}</span></div>:null}
     <section className="naverApiRules">

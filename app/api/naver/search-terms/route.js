@@ -12,7 +12,18 @@ function unauthorized(request){return !authModule.verifySession(cookieValue(requ
 
 export async function POST(request){
   if(unauthorized(request))return Response.json({ok:false,error:'Unauthorized'},{status:401});
-  try{return Response.json({ok:true,...await syncModule.syncSearchTermsLogged(supabaseModule.getSupabase(),30)});}
+  try{
+    const db=supabaseModule.getSupabase(),syncResult=await syncModule.syncSearchTermsLogged(db,30);
+    const [rowsResult,keywordsResult]=await Promise.all([
+      db.from('naver_search_terms').select('id,period_start,period_end,ncc_adgroup_id,search_term,impressions,clicks,cost,conversions,conversion_revenue,classification_auto,classification_override,classification_confidence,recommended_action,action_reason,action_status,is_registered_exact,owner_note,collected_at').order('period_end',{ascending:false}).order('period_start',{ascending:false}).order('cost',{ascending:false}).limit(500),
+      db.from('naver_keywords').select('ncc_keyword_id,keyword').limit(5000)
+    ]);
+    if(rowsResult.error)throw rowsResult.error;if(keywordsResult.error)throw keywordsResult.error;
+    const allRows=rowsResult.data||[],newest=allRows[0]||null,period=newest?{period_start:newest.period_start,period_end:newest.period_end}:null;
+    const rows=period?allRows.filter(item=>item.period_start===period.period_start&&item.period_end===period.period_end):[];
+    const center=searchTermCenter.buildSearchTermCenter({rows,registeredKeywords:keywordsResult.data||[],period,collectionTotal:syncResult.rows});
+    return Response.json({ok:true,...syncResult,center},{headers:{'Cache-Control':'no-store'}});
+  }
   catch(error){return Response.json({ok:false,error:error.message},{status:error.status||500});}
 }
 

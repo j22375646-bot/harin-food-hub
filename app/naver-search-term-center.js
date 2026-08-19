@@ -10,13 +10,13 @@ const count=value=>Number(value||0).toLocaleString('ko-KR');
 
 export default function NaverSearchTermCenter({initialData}) {
   const source=initialData||{status:'COLLECTION_PENDING',summary:{},items:[]};
-  const [items,setItems]=useState(source.items||[]),[filter,setFilter]=useState('ALL'),[message,setMessage]=useState(''),[busy,setBusy]=useState('');
+  const [center,setCenter]=useState(source),[items,setItems]=useState(source.items||[]),[filter,setFilter]=useState('ALL'),[message,setMessage]=useState(''),[busy,setBusy]=useState('');
   const visible=useMemo(()=>items.filter(item=>filter==='ALL'||item.classification===filter).slice(0,100),[items,filter]);
-  const summary=source.summary||{};
+  const summary=center.summary||{};
   async function collect(){
     setBusy('collect');setMessage('네이버 쇼핑검색광고의 최근 30일 실제 검색어를 가져오는 중이에요…');
-    try{const response=await fetch('/api/naver/search-terms',{method:'POST'});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'검색어 수집 실패');setMessage(`수집 완료 · 실제 검색어 ${count(result.rows)}개 · 광고그룹 ${count(result.successfulGroups)}개`);setTimeout(()=>window.location.reload(),900);}
-    catch(error){setMessage(`수집 확인 필요 · ${error.message}`);setBusy('');}
+    try{const response=await fetch('/api/naver/search-terms',{method:'POST'});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'검색어 수집 실패');setCenter(result.center);setItems(result.center?.items||[]);setMessage(`수집 완료 · 실제 검색어 ${count(result.rows)}개 · 광고그룹 ${count(result.successfulGroups)}개 · 목록에 바로 반영했어요.`);}
+    catch(error){setMessage(`수집 확인 필요 · ${error.message}`);}finally{setBusy('');}
   }
   async function correct(item,classification){
     setBusy(item.id);setMessage(`‘${item.search_term}’ 분류를 저장하는 중이에요…`);
@@ -36,10 +36,10 @@ export default function NaverSearchTermCenter({initialData}) {
       <article className="danger"><span>제외 검토</span><strong>{count(summary.negative_candidates)}개</strong><small>무관·과소비 후보</small></article>
       <article><span>콘텐츠 후보</span><strong>{count(summary.content_candidates)}개</strong><small>FAQ·상세페이지 보강</small></article>
     </div>
-    {source.status!=='READY'?<div className={`searchTermEmpty ${source.status==='COLLECTION_ERROR'?'error':''}`}><b>{source.status==='COLLECTION_ERROR'?'검색어 수집을 다시 확인해주세요':'아직 실제 검색어를 수집하지 않았습니다'}</b><p>{source.last_error||'위의 ‘최근 30일 검색어 수집’을 누르면 네이버 쇼핑검색광고 원본을 가져옵니다.'}</p></div>:<>
-      <div className="searchTermTabs"><button className={filter==='ALL'?'active':''} onClick={()=>setFilter('ALL')}>성과 상위 {count(summary.displayed||items.length)}개</button>{CATEGORIES.map(category=><button className={filter===category?'active':''} onClick={()=>setFilter(category)} key={category}>{LABELS[category]} {count(source.classification_counts?.[category])}</button>)}</div>
+    {center.status!=='READY'?<div className={`searchTermEmpty ${center.status==='COLLECTION_ERROR'?'error':''}`}><b>{center.status==='COLLECTION_ERROR'?'검색어 수집을 다시 확인해주세요':'아직 실제 검색어를 수집하지 않았습니다'}</b><p>{center.last_error||'위의 ‘최근 30일 검색어 수집’을 누르면 네이버 쇼핑검색광고 원본을 가져옵니다.'}</p></div>:<>
+      <div className="searchTermTabs"><button className={filter==='ALL'?'active':''} onClick={()=>setFilter('ALL')}>성과 상위 {count(summary.displayed||items.length)}개</button>{CATEGORIES.map(category=><button className={filter===category?'active':''} onClick={()=>setFilter(category)} key={category}>{LABELS[category]} {count(center.classification_counts?.[category])}</button>)}</div>
       <div className="searchTermTable"><div className="searchTermTableHead"><span>실제 검색어·분류</span><span>최근 30일 성과</span><span>추천 조치</span></div>{visible.map(item=><article key={item.id} className="searchTermRow"><div><strong>{item.search_term}</strong><select aria-label={`${item.search_term} 분류`} value={item.classification} disabled={busy===item.id} onChange={event=>correct(item,event.target.value)}>{CATEGORIES.map(category=><option value={category} key={category}>{LABELS[category]}</option>)}</select>{item.classification_override&&<small>직접 수정됨</small>}</div><div><b>{won(item.cost)}</b><small>노출 {count(item.impressions)} · 클릭 {count(item.clicks)} · 전환 {count(item.conversions)}</small><small>CPC {won(item.cpc)} · ROAS {Number(item.roas||0).toFixed(0)}%</small></div><div><span className={`searchTermAction ${item.recommended_action==='NEGATIVE_REVIEW'?'danger':''}`}>{ACTION_LABELS[item.recommended_action]||item.action_label}</span><p>{item.action_reason}</p>{item.is_registered_exact&&<small>정확히 등록된 키워드</small>}</div></article>)}{!visible.length&&<div className="searchTermEmpty"><b>이 분류에 해당하는 검색어가 없습니다.</b></div>}</div>
-      <p className="searchTermFootnote">기간 {source.period?.period_start} ~ {source.period?.period_end} · 전체 {count(summary.total)}개 중 광고비가 높은 {count(summary.displayed||items.length)}개 표시 · 표시 목록 광고비 {won(summary.cost)}</p>
+      <p className="searchTermFootnote">기간 {center.period?.period_start} ~ {center.period?.period_end} · 전체 {count(summary.total)}개 중 광고비가 높은 {count(summary.displayed||items.length)}개 표시 · 표시 목록 광고비 {won(summary.cost)}</p>
     </>}
   </section>;
 }

@@ -107,7 +107,7 @@ test('phase 15-1 keeps prior operations while removing repeated development chro
   assert.match(client,/<CoupangSettlementView coupang=\{initialData\.coupang\}\/><\/UnifiedSettlementOperationsCenter>/);
   assert.match(styles,/Phase 11-7 · unified settlement and cost operations/);
   assert.match(styles,/Phase 11-8 · unified data collection operations/);
-  assert.match(client,/center=\{collectionCenter\}/);
+  assert.match(client,/center=\{liveCollectionCenter\}/);
   assert.match(collectionCenter,/전체 수집 \+ 검증/);
   assert.match(client,/view==='validation' && <HarinExecutionWorkbench view="validation".*<CustomerRetentionValidationCenter/);
   assert.match(client,/view==='experiments' && <HarinExecutionWorkbench view="experiments".*<ExperimentLab/);
