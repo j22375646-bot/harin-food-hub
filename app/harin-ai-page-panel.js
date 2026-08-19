@@ -9,7 +9,12 @@ const CONFIDENCE_LABELS={HIGH:'높음',MEDIUM:'보통',LOW:'낮음'};
 function kstDate(value){
   if(!value)return '아직 저장 안 됨';
   try{
-    return new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date(value));
+    const date=new Date(value);
+    if(Number.isNaN(date.getTime()))return '시각 확인 필요';
+    const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{
+      timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
+    }).formatToParts(date).filter(part=>part.type!=='literal').map(part=>[part.type,part.value]));
+    return `${parts.year}. ${Number(parts.month)}. ${Number(parts.day)}. ${parts.hour}:${parts.minute}`;
   }catch{return String(value);}
 }
 
