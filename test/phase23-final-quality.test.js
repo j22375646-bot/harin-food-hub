@@ -14,8 +14,10 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('23-8 keeps private client quality telemetry bounded and free of payload text',()=>{
   const source=read('instrumentation-client.js');
+  const layout=read('app/layout.js');
   assert.match(source,/MAX_HEALTH_ENTRIES=30/);
   assert.match(source,/dataset\.harinHealthVersion=globalHealth\.version/);
+  assert.match(layout,/data-harin-health-version="23-8"/);
   assert.match(source,/Nothing is transmitted or persisted/);
   assert.match(source,/startRoute=function startRoute/);
   assert.match(source,/finishRoute=function finishRoute/);

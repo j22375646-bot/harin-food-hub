@@ -24,5 +24,5 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   const ui=uiFlags.harinUiConfig();
-  return <html lang="ko" data-harin-ui={ui.version} data-harin-rollback={ui.rollbackFlag}><body className={ui.bodyClass}>{children}</body></html>;
+  return <html lang="ko" data-harin-ui={ui.version} data-harin-rollback={ui.rollbackFlag} data-harin-health-version="23-8"><body className={ui.bodyClass}>{children}</body></html>;
 }
