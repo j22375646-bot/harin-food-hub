@@ -67,3 +67,12 @@ test('19-3 real route and owner-only probe endpoints stay wired',()=>{
   assert.match(migration,/enable row level security/);
   assert.match(migration,/shipping_reference_address_source_empty/);
 });
+
+test('23 recovery lets the first road-address sample verify a pending connector',()=>{
+  const root=path.join(__dirname,'..');
+  const center=fs.readFileSync(path.join(root,'app','shipping-reference-center.js'),'utf8');
+  const guard=fs.readFileSync(path.join(root,'lib','provider-operations','request-guard.js'),'utf8');
+  assert.match(center,/!\['SETUP_REQUIRED','LOCKED'\]\.includes\(addressService\.status\)/);
+  assert.match(center,/도로명주소 첫 샘플 조회가 연결 확인/);
+  assert.match(guard,/active\?\.id\|\|null/);
+});

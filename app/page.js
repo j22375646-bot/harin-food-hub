@@ -111,7 +111,8 @@ const LIGHT_SHELL_TABLES = ['sync_logs','alerts'];
 // current orders, task signals, inventory, pacing and trust inputs here; the
 // heavier settlement/keyword evidence remains on its dedicated real route.
 const MAIN_OVERVIEW_TABLES = [
-  'cafe24_orders','naver_commerce_orders','coupang_orders','coupang_rg_orders',
+  'cafe24_orders','cafe24_order_items','naver_commerce_orders','naver_commerce_order_items',
+  'coupang_orders','coupang_order_items','coupang_rg_orders','coupang_returns',
   'coupang_rg_inventory','business_targets','customer_service_items'
 ];
 const VIEW_TABLES = {
@@ -292,8 +293,9 @@ function buildMainPacing({ generatedAt, targets = [], cafe24Orders = [], naverOr
 
 async function buildMainDashboardData({
   loaderSession,generatedAt,queryIssues,syncResult,alertsResult,
-  ordersResult,coupangOrdersResult,coupangInventoryResult,coupangRgOrdersResult,
-  naverCommerceOrdersResult,businessTargetsResult,customerServiceRows
+  ordersResult,itemsResult,coupangOrdersResult,coupangItemsResult,coupangReturnsResult,
+  coupangInventoryResult,coupangRgOrdersResult,
+  naverCommerceOrdersResult,naverCommerceItemsResult,businessTargetsResult,customerServiceRows
 }) {
   const rawInventory=coupangInventoryResult.data||[];
   const {active:operationalInventory,excluded:excludedInventory}=coupangOperationalInventoryModule.splitOperationalInventory(rawInventory);
@@ -309,10 +311,10 @@ async function buildMainDashboardData({
     }
   });
   const unifiedOrders=unifiedOrdersModule.buildUnifiedOrders({
-    cafe24Orders:ordersResult.data||[],cafe24OrderItems:[],
-    coupangOrders:coupangOrdersResult.data||[],coupangOrderItems:[],coupangReturns:[],
+    cafe24Orders:ordersResult.data||[],cafe24OrderItems:itemsResult.data||[],
+    coupangOrders:coupangOrdersResult.data||[],coupangOrderItems:coupangItemsResult.data||[],coupangReturns:coupangReturnsResult.data||[],
     coupangRgOrders:coupangRgOrdersResult.data||[],coupangRgOrderItems:[],
-    naverOrders:naverCommerceOrdersResult.data||[],naverOrderItems:[],
+    naverOrders:naverCommerceOrdersResult.data||[],naverOrderItems:naverCommerceItemsResult.data||[],
     channelConnections:shell.channelConnections.channels||[],asOf:generatedAt,refreshedAt:generatedAt
   });
   const activeCs=(customerServiceRows||[]).filter(item=>!item.completed);
@@ -1026,7 +1028,7 @@ async function getDashboardData(state) {
       // Decision pages only need the newest operational window. Keeping the
       // limits view-specific prevents a slow analytics route from delaying
       // every navigation while preserving the wider settlement export window.
-      main:{orders:600,items:1500,costs:500},
+      main:{orders:200,items:400,costs:300},
       orders:{orders:200,items:400,costs:300},
       cs:{orders:1000,items:2500,costs:500},
       settlement:{orders:3000,items:5000,costs:5000},
@@ -1223,8 +1225,8 @@ async function getDashboardData(state) {
     ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
     queryIssues.push(...naverCommerceSettled.issues,...targetSettled.issues,...channelCsSettled.issues);
     return buildMainDashboardData({
-      loaderSession,generatedAt,queryIssues,syncResult,alertsResult,ordersResult,coupangOrdersResult,coupangInventoryResult,coupangRgOrdersResult,
-      naverCommerceOrdersResult:naverCommerceSettled.results[0],businessTargetsResult:targetSettled.results[0],
+      loaderSession,generatedAt,queryIssues,syncResult,alertsResult,ordersResult,itemsResult,coupangOrdersResult,coupangItemsResult,coupangReturnsResult,coupangInventoryResult,coupangRgOrdersResult,
+      naverCommerceOrdersResult:naverCommerceSettled.results[0],naverCommerceItemsResult:naverCommerceSettled.results[1],businessTargetsResult:targetSettled.results[0],
       customerServiceRows:channelCsSettled.results[0].data||[]
     });
   }

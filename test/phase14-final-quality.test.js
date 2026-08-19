@@ -94,7 +94,7 @@ test('14-11 worker outage and AI gate remain recoverable and non-writing',()=>{
 
 test('14-11 decision routes keep bounded query windows for faster navigation',()=>{
   const page=read('app/page.js');
-  assert.match(page,/main:\{orders:600,items:1500,costs:500\}/);
+  assert.match(page,/main:\{orders:200,items:400,costs:300\}/);
   assert.match(page,/insight:\{orders:1200,items:2500,costs:1500\}/);
   assert.match(page,/keyword:\{orders:800,items:1500,costs:800\}/);
   assert.match(page,/settlement:\{orders:3000,items:5000,costs:5000\}/);

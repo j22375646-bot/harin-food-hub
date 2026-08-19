@@ -15,13 +15,14 @@ test('23-4B keeps keyword pages below the high-density input threshold',()=>{
   assert.equal(operations.paginateKeywordRows(rows,1,36).items.length,36);
 });
 
-test('23-4B edits one selected Naver bid instead of rendering an input per table row',()=>{
+test('23-R5 renders only the paginated Naver row inputs and keeps the detail editor',()=>{
   const component=read('app/_analysis/keyword-operations-table.js');
   assert.match(component,/keyword-operations-view-\$\{platform\}/);
   assert.match(component,/className="keywordOpsDetailBid"/);
   assert.match(component,/setDetailDraft\(detail,event\.target\.value\)/);
-  assert.match(component,/선택해 입력/);
-  assert.doesNotMatch(component,/className="keywordOpsDraft"[^\n]*<input/);
+  assert.match(component,/className="keywordOpsDraft"[^\n]*<input/);
+  assert.match(component,/placeholder="직접 입력"/);
+  assert.match(component,/pagination\.items\.map/);
 });
 
 test('23-4B paginates the Coupang WING editor while exporting the complete selection',()=>{

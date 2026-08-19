@@ -11,11 +11,28 @@ const stats = { ncc_keyword_id:keyword.ncc_keyword_id, period_start:'2026-08-07'
 const target = { master_product_id:'123e4567-e89b-12d3-a456-426614174000', name:'작두콩차', status:'READY', allowable_cpc:100, allowable_cpa:6000 };
 const link = { ncc_keyword_id:keyword.ncc_keyword_id, master_product_id:target.master_product_id };
 
-test('missing financial trust and product link blocks a bid recommendation', () => {
+test('missing financial trust and product link blocks recommendations but keeps owner reductions available', () => {
   const result=bidWorkbench.buildNaverBidWorkbench({keywords:[keyword],stats:[stats],financialTrust:{allowed_cpc:false}});
   assert.equal(result.summary.blocked_candidates,1);
+  assert.equal(result.summary.owner_editable_candidates,1);
+  assert.equal(result.summary.direct_lower_only_candidates,1);
   assert.equal(result.candidates[0].recommended_bid,null);
+  assert.equal(result.candidates[0].can_request_approval,true);
+  assert.equal(result.candidates[0].manual_decrease_only,true);
+  assert.equal(result.candidates[0].minimum_owner_bid,850);
+  assert.equal(result.candidates[0].maximum_owner_bid,1000);
   assert.deepEqual(result.candidates[0].reasons.map(item=>item.code),['FINANCIAL_TRUST_BLOCKED','PRODUCT_TARGET_LINK_REQUIRED']);
+  const snapshot=bidWorkbench.proposalSnapshot(result.candidates[0]);
+  assert.equal(snapshot.recommended_bid,null);
+  assert.equal(snapshot.manual_decrease_only,true);
+});
+
+test('ineligible or locked keywords remain unavailable to owner direct editing', () => {
+  const ineligible={...keyword,status:'PAUSED'};
+  const locked={...keyword,ncc_keyword_id:'nkw-a001-01-000000000002',user_lock:true};
+  const result=bidWorkbench.buildNaverBidWorkbench({keywords:[ineligible,locked],stats:[stats],financialTrust:{allowed_cpc:false}});
+  assert.deepEqual(result.candidates.map(item=>item.can_request_approval),[false,false]);
+  assert.deepEqual(result.candidates.map(item=>item.status),['BLOCKED','BLOCKED']);
 });
 
 test('safe bid reductions are capped at fifteen percent per approval', () => {

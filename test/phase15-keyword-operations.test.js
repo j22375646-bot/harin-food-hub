@@ -42,7 +42,7 @@ test('15-4 renders a responsive table, mobile cards, drafts and a detail panel',
   const bulkCss=fs.readFileSync('app/_design-system/harin-bulk-selection.css','utf8');
   assert.match(component,/네이버와 쿠팡은 서로 섞지 않고/);
   assert.match(component,/추천가 채우기/);
-  assert.match(component,/변경 전 검토/);
+  assert.match(component,/변경 전 확인/);
   assert.match(component,/마지막 확인 뒤 네이버 반영과 재조회까지/);
   assert.match(dashboard,/플랫폼별 분리 운영/);
   assert.match(css,/\.keywordOpsTable/);

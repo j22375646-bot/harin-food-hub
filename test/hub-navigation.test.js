@@ -78,7 +78,7 @@ test('phase 13-6 focused workspaces have real addresses and restore their exact 
   assert.deepEqual(Object.keys(HUB_WORKSPACES),['collection','insight','keyword','product']);
   assert.deepEqual(HUB_WORKSPACES.collection.map(item=>item.id),['overview','naver-api','advertising','provider-fallback','optional-providers','provider-runtime','execution-paths','owned-site','shipping-reference','operations-health']);
   assert.deepEqual(HUB_WORKSPACES.insight.map(item=>item.id),['overview','causes','channels','profitability']);
-  assert.deepEqual(HUB_WORKSPACES.keyword.map(item=>item.id),['search-terms','registered','diagnosis','history']);
+  assert.deepEqual(HUB_WORKSPACES.keyword.map(item=>item.id),['registered','search-terms','diagnosis','history']);
   assert.deepEqual(HUB_WORKSPACES.product.map(item=>item.id),['catalog','mappings','costs','profit','offers','ad-targets']);
   for (const [view,items] of Object.entries(HUB_WORKSPACES)) {
     for (const item of items) {
