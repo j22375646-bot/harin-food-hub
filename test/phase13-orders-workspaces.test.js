@@ -30,7 +30,10 @@ test('phase 13-4 preserves seller-delivery automation and isolates each contextu
 });
 
 test('phase 13-4 workspaces remain readable on desktop and mobile',()=>{
-  const css=fs.readFileSync(path.join(root,'app','globals.css'),'utf8');
+  const css=[
+    fs.readFileSync(path.join(root,'app','globals.css'),'utf8'),
+    fs.readFileSync(path.join(root,'app','_operations','harin-operations-v8.css'),'utf8')
+  ].join('\n');
   assert.match(css,/\.orderWorkspaceNav\{[^}]*grid-template-columns:repeat\(6/);
   assert.match(css,/@media\(max-width:1180px\)\{\.orderWorkspaceNav\{grid-template-columns:repeat\(3/);
   assert.match(css,/@media\(max-width:820px\)[^\n]*\.orderWorkspaceNav\{grid-template-columns:1fr 1fr\}/);

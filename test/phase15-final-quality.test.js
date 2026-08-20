@@ -38,7 +38,7 @@ test('15-8 bounds the CS work list to 20 rows and resets on every filter',()=>{
 test('15-8 mobile shell and route feedback stay usable without horizontal clipping',()=>{
   const shellCss=read('app/_shell/harin-shell-v8.css');
   const frameCss=read('app/_design-system/harin-page-frame.css');
-  const globalCss=read('app/globals.css');
+  const globalCss=[read('app/globals.css'),read('app/_operations/harin-operations-v8.css')].join('\n');
   assert.match(shellCss,/grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
   assert.match(shellCss,/max-height:min\(76dvh,700px\)/);
   assert.match(frameCss,/v8ProgressiveDetailsBody\{overflow-x:auto/);

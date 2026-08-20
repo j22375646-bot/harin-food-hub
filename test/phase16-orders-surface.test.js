@@ -54,7 +54,7 @@ test('16-11 moves registered invoices through ePost waiting and shipping workspa
 
 test('16-12 shows linked product images with a pastel fallback in every order card',()=>{
   const center=read('app/unified-orders-center.js');
-  const css=read('app/globals.css');
+  const css=[read('app/globals.css'),read('app/_operations/harin-operations-v8.css')].join('\n');
   assert.match(center,/function OrderProductImage/);
   assert.match(center,/loading="lazy"/);
   assert.match(center,/<OrderProductImage item=\{item\}\/?>/);

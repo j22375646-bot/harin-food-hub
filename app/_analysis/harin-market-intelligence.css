@@ -1,3 +1,22 @@
+/* Route-scoped legacy styles moved from globals.css in Phase 23 hardening. */
+/* Phase 17-10: instant workspace paint, lazy secondary workbenches, and isolated recovery. */
+.marketDeferredWorkbenches{display:grid;gap:14px;margin-top:18px}
+.marketDeferredWorkbench{overflow:hidden;border:1px solid #e0dced;border-radius:22px;background:linear-gradient(145deg,#fff,#faf8ff);box-shadow:0 12px 32px rgba(84,70,126,.07)}
+.marketDeferredWorkbench>button{display:grid;width:100%;min-height:96px;grid-template-columns:46px minmax(0,1fr) auto 24px;align-items:center;gap:14px;border:0;background:transparent;padding:17px 20px;color:#282638;text-align:left;cursor:pointer}
+.marketDeferredWorkbench>button>span{display:flex;min-width:0;flex-direction:column;gap:2px}.marketDeferredWorkbench>button small{color:#7a6dad;font-size:11px;font-weight:950;letter-spacing:.08em;text-transform:uppercase}.marketDeferredWorkbench>button b{font-size:18px}.marketDeferredWorkbench>button em{overflow:hidden;color:#696777;font-size:14px;font-style:normal;line-height:1.5;text-overflow:ellipsis;white-space:nowrap}.marketDeferredWorkbench>button>i{color:#7567b0;font-size:22px;font-style:normal;font-weight:500}
+.marketDeferredWorkbench.open{border-color:#cfc6e8;background:#fff}.marketDeferredWorkbenchBody{border-top:1px solid #ebe7f3;padding:22px 20px 4px}
+.marketDeferredLoading,.marketWorkbenchError{display:flex;min-height:112px;align-items:center;gap:15px}.marketDeferredLoading>span,.marketWorkbenchError>span{display:flex;min-width:0;flex:1;flex-direction:column}.marketDeferredLoading small,.marketWorkbenchError p{margin:4px 0 0;color:#696777;line-height:1.55}.marketWorkbenchError{border-color:#edcfcc;background:linear-gradient(145deg,#fff,#fff7f6)}.marketWorkbenchError>span>b{font-size:18px}.marketWorkbenchError .harinButton{min-height:48px}
+.marketRouteError{display:grid;min-height:70vh;place-items:center;padding:28px}.marketRouteError>.harinCard{display:grid;max-width:760px;grid-template-columns:auto minmax(0,1fr);gap:18px;padding:28px}.marketRouteError h1{margin:5px 0;font-size:clamp(24px,4vw,36px)}.marketRouteError p{color:#696777;line-height:1.65}.marketRouteError>article>div{display:flex;grid-column:1/-1;gap:10px}
+@media(hover:hover) and (pointer:fine){.marketDeferredWorkbench>button{transition:background-color var(--ui-motion),transform var(--ui-motion)}.marketDeferredWorkbench:not(.open)>button:hover{background:#f7f3ff;transform:translateY(-1px)}}
+@media(max-width:700px){
+  .marketWorkspaceTabs{display:flex!important;overflow-x:auto;grid-template-columns:none!important;gap:9px;padding:2px 1px 10px;scroll-snap-type:x proximity}
+  .marketWorkspaceTabs>a{flex:0 0 210px;min-height:78px;scroll-snap-align:start}
+  .marketWorkspaceTabs>a small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .marketDeferredWorkbench>button{min-height:108px;grid-template-columns:42px minmax(0,1fr) 22px;padding:15px}.marketDeferredWorkbench>button>.harinBadge{display:none}.marketDeferredWorkbench>button em{white-space:normal}.marketDeferredWorkbenchBody{padding:18px 14px 2px}
+  .marketWorkbenchError{align-items:flex-start;flex-wrap:wrap;padding:18px}.marketWorkbenchError .harinButton{width:100%}
+  .marketRouteError{padding:15px}.marketRouteError>.harinCard{grid-template-columns:1fr;padding:22px}.marketRouteError>article>div{display:grid;grid-column:auto}.marketRouteError .harinButton{width:100%;min-height:48px}
+}
+
 /* Phase 17-1 · reusable product-selectable market and conversion workspace. */
 .harinV8 .marketHubMain{min-height:calc(100vh - var(--v8-topbar-height));padding-bottom:110px;background:radial-gradient(circle at 90% 4%,rgba(220,213,246,.2),transparent 25%),transparent}
 .harinV8 .marketBreadcrumb{display:flex;align-items:center;gap:9px;margin-bottom:16px;color:var(--v8-muted);font-size:14px}.harinV8 .marketBreadcrumb i{color:#aaa1c8;font-style:normal}.harinV8 .marketBreadcrumb b{color:var(--v8-ink-soft)}

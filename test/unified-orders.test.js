@@ -239,7 +239,10 @@ test('orders center labels seller delivery and refreshes current channel status'
   assert.match(center,/orderTimingNotice/);
   assert.match(center,/오늘 출고할 주문입니다/);
   assert.doesNotMatch(center,/orderTimingBadge[^\n]*<small>/);
-  const css=fs.readFileSync(path.join(__dirname,'..','app','globals.css'),'utf8');
+  const css=[
+    fs.readFileSync(path.join(__dirname,'..','app','globals.css'),'utf8'),
+    fs.readFileSync(path.join(__dirname,'..','app','_operations','harin-operations-v8.css'),'utf8')
+  ].join('\n');
   assert.match(css,/--order-badge-height:32px/);
   assert.match(css,/--order-badge-size:12px/);
   assert.match(css,/data-font-scale="xlarge"[^\n]*--order-badge-height:34px/);

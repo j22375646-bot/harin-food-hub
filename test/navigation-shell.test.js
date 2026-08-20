@@ -7,7 +7,10 @@ const path = require('node:path');
 
 const client=fs.readFileSync(path.join(__dirname,'..','app','dashboard-client.js'),'utf8');
 const shell=fs.readFileSync(path.join(__dirname,'..','app','_shell','harin-app-shell.js'),'utf8');
-const styles=fs.readFileSync(path.join(__dirname,'..','app','globals.css'),'utf8');
+const styles=[
+  fs.readFileSync(path.join(__dirname,'..','app','globals.css'),'utf8'),
+  fs.readFileSync(path.join(__dirname,'..','app','_operations','harin-operations-v8.css'),'utf8')
+].join('\n');
 const shellStyles=fs.readFileSync(path.join(__dirname,'..','app','_shell','harin-shell-v8.css'),'utf8');
 const validation=fs.readFileSync(path.join(__dirname,'..','app','customer-retention-validation-center.js'),'utf8');
 const page=fs.readFileSync(path.join(__dirname,'..','app','page.js'),'utf8');

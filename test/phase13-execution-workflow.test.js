@@ -10,7 +10,7 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 test('13-7 connects four separate workflow pages with real routes and mobile UI',()=>{
   const client=read('app/dashboard-client.js');
   const shell=read('app/_shell/harin-app-shell.js');
-  const css=read('app/globals.css');
+  const css=[read('app/globals.css'),read('app/_execution/harin-execution-v8.css')].join('\n');
   for(const [id,href] of [['reports','/diagnoses'],['changes','/approvals'],['validation','/execution-validation'],['experiments','/ab-tests']]){
     assert.match(client,new RegExp(`id:'${id}',href:'${href.replaceAll('/','\\/')}'`));
   }

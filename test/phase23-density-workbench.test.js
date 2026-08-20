@@ -52,5 +52,5 @@ test('23-4 uses a paged spreadsheet grid and one-confirmation bulk save',()=>{
   assert.match(manager,/window\.confirm\(`작성한 상품 원가 \$\{products\.length\}개를 한 번에 저장할까요/);
   assert.doesNotMatch(manager,/masterProducts\.slice\(0,20\)/);
   assert.doesNotMatch(manager,/value=\{row\[field\]\?\?0\}/);
-  assert.match(read('app/globals.css'),/Phase 23-4B: spreadsheet product costs/);
+  assert.match(read('app/_analysis/harin-analysis-v8.css'),/Phase 23-4B: spreadsheet product costs/);
 });

@@ -56,7 +56,7 @@ test('every phase 17 workbench exposes isolated retry recovery',()=>{
 });
 
 test('mobile stage navigation is horizontal and recovery controls remain touch sized',()=>{
-  const css=read('app/globals.css');
+  const css=[read('app/globals.css'),read('app/_analysis/harin-market-intelligence.css')].join('\n');
   assert.match(css,/\.marketWorkspaceTabs\{display:flex!important;overflow-x:auto/u);
   assert.match(css,/\.marketWorkbenchError \.harinButton\{min-height:48px/u);
 });
