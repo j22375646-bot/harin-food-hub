@@ -78,11 +78,13 @@ test('main renders only the all-channel command center and links channel details
 });
 
 test('phase 10-4 separates Coupang work into four sidebar pages', () => {
+  const coupangSales=fs.readFileSync(path.join(__dirname,'..','app','_analysis','coupang-sales-center.js'),'utf8');
   assert.match(client,/function CoupangOrdersView/);
   assert.match(client,/function CoupangCsView/);
   assert.match(client,/function CoupangInventoryView/);
   assert.match(client,/function CoupangSettlementView/);
-  assert.match(client,/function CoupangSalesCenter/);
+  assert.match(client,/const CoupangSalesCenter=dynamic\(\(\)=>import\('\.\/_analysis\/coupang-sales-center\.js'\)/);
+  assert.match(coupangSales,/export default function CoupangSalesCenter/);
   assert.doesNotMatch(client,/function CoupangCommandCenter/);
   assert.match(client,/view==='orders' && \(<UnifiedOrdersCenter/);
   assert.match(client,/<CoupangOrdersView coupang=\{initialData\.coupang\}\/>/);
