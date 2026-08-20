@@ -27,13 +27,13 @@ test('23-4C filters providers without turning setup or stale data into ready dat
 });
 
 test('23-4C uses compact paged lists and selected detail panels',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const notifications=read('app/_reliability/harin-notification-center.js');
   const provider=read('app/provider-operations-center.js');
   const notificationCss=read('app/_reliability/harin-reliability-v8.css');
   const providerCss=read('app/_reliability/harin-naver-api-center.css');
-  assert.match(dashboard,/alertPagination\.items\.map/);
-  assert.match(dashboard,/notificationAlertDetail/);
-  assert.match(dashboard,/deliveryPagination\.items\.map/);
+  assert.match(notifications,/alertPagination\.items\.map/);
+  assert.match(notifications,/notificationAlertDetail/);
+  assert.match(notifications,/deliveryPagination\.items\.map/);
   assert.match(provider,/pagination\.items\.map/);
   assert.match(provider,/ProviderDetail service=\{detail\}/);
   assert.match(notificationCss,/\.notificationDensityGrid/);

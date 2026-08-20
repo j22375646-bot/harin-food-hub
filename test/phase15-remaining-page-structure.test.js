@@ -26,7 +26,7 @@ test('15-7 keeps current execution decisions visible and folds full tools and re
 });
 
 test('15-7 separates current notifications from delivery settings and completed history',()=>{
-  const source=read('app/dashboard-client.js');
+  const source=read('app/_reliability/harin-notification-center.js');
   const currentIndex=source.indexOf('className="notificationCurrentWork"');
   const settingsIndex=source.indexOf('className="notificationSettingsDisclosure"');
   const historyIndex=source.indexOf('className="notificationHistoryDisclosure"');

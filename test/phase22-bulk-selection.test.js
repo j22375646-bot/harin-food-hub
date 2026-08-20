@@ -78,11 +78,11 @@ test('22-6 builds a read-only Rocket Growth replenishment work list',()=>{
 });
 
 test('22-6 connects the shared bulk controls to notifications and Rocket Growth inventory',()=>{
-  const dashboard=fs.readFileSync('app/dashboard-client.js','utf8');
+  const notifications=fs.readFileSync('app/_reliability/harin-notification-center.js','utf8');
   const inventory=fs.readFileSync('app/unified-inventory-operations-center.js','utf8');
-  assert.match(dashboard,/notificationBulkSelectionBar/);
-  assert.match(dashboard,/실패 \$\{failed\.length\}건은 다시 선택해 두었습니다/);
-  assert.match(dashboard,/외부 이메일은 발송하지 않고 허브 안의 알림 상태만 바꿉니다/);
+  assert.match(notifications,/notificationBulkSelectionBar/);
+  assert.match(notifications,/실패 \$\{failed\.length\}건은 다시 선택해 두었습니다/);
+  assert.match(notifications,/외부 이메일은 발송하지 않고 허브 안의 알림 상태만 바꿉니다/);
   assert.match(inventory,/inventoryBulkSelectionBar/);
   assert.match(inventory,/replenishmentRowsToCsv/);
   assert.match(inventory,/쿠팡 재고와 입고 요청은 변경하지 않습니다/);

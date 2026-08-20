@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const client=fs.readFileSync(path.join(__dirname,'..','app','dashboard-client.js'),'utf8');
+const notifications=fs.readFileSync(path.join(__dirname,'..','app','_reliability','harin-notification-center.js'),'utf8');
 const shell=fs.readFileSync(path.join(__dirname,'..','app','_shell','harin-app-shell.js'),'utf8');
 const styles=[
   fs.readFileSync(path.join(__dirname,'..','app','globals.css'),'utf8'),
@@ -131,7 +132,7 @@ test('phase 10-7 remembers reading scale, help state, and primary list filters',
   assert.match(client,/useStoredState\(`help:/);
   assert.match(client,/filter:orders-status/);
   assert.match(client,/filter:inventory/);
-  assert.match(client,/filter:notifications/);
+  assert.match(notifications,/filter:notifications/);
   assert.match(styles,/data-font-scale="xlarge"/);
   assert.match(client,/fontScale=\{fontScale\} onFontScale=\{setFontScale\}/);
 });
