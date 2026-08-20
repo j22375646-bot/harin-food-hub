@@ -75,5 +75,6 @@ test('14-7 imports the pastel responsive execution workbench stylesheet',()=>{
   assert.match(css,/var\(--v8-blue-soft\)/);
   assert.match(css,/var\(--v8-mint-soft\)/);
   assert.match(css,/@media\(max-width:700px\)/);
-  assert.match(read('app/layout.js'),/harin-execution-v8\.css/);
+  assert.match(read('app/_execution/harin-execution-workbench.js'),/harin-execution-v8\.css/);
+  assert.doesNotMatch(read('app/layout.js'),/harin-execution-v8\.css/);
 });

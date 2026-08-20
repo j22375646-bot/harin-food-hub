@@ -8,10 +8,13 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
-test('16-2 loads the isolated entry stylesheet after the shared V8 layers',()=>{
+test('23-8 loads the isolated entry stylesheet only on entry surfaces',()=>{
   const layout=read('app/layout.js');
-  assert.match(layout,/import '.\/_shell\/harin-entry-v8\.css'/);
-  assert.ok(layout.indexOf("harin-entry-v8.css")>layout.indexOf("harin-ai-page-v8.css"));
+  const login=read('app/login/page.js');
+  const loading=read('app/_design-system/harin-loading-screen.js');
+  assert.doesNotMatch(layout,/harin-entry-v8\.css/);
+  assert.match(login,/harin-entry-v8\.css/);
+  assert.match(loading,/harin-entry-v8\.css/);
 });
 
 test('16-2 keeps password-only owner login while adding the pastel welcome layout',()=>{

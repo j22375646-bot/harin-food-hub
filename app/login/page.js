@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import '../_shell/harin-entry-v8.css';
 import authModule from '../../lib/dashboard-auth.js';
 import { HarinIcon } from '../_design-system/harin-icon.js';
 

@@ -1,5 +1,6 @@
 'use client';
 
+import './_operations/harin-operations-v8.css';
 import { useDeferredValue, useMemo, useState } from 'react';
 import Link from 'next/link';
 import HarinIcon from './_design-system/harin-icon.js';

@@ -10,11 +10,12 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('22-7 replaces reliability text symbols with shared semantic pictograms',()=>{
   const workbench=read('app/_reliability/harin-reliability-workbench.js');
+  const dock=read('app/_reliability/harin-live-status-dock.js');
   const icons=read('app/_design-system/harin-icon.js');
   assert.match(workbench,/import HarinIcon from '..\/_design-system\/harin-icon\.js'/);
   assert.match(workbench,/const PLATFORM_ICON=\{NAVER:'naverStore',COUPANG:'shoppingBag',CAFE24:'store',EPOST:'truck',ALL:'database'\}/);
   assert.match(workbench,/<HarinIcon name=\{exceptionIcon\(item\.kind\)\}/);
-  assert.match(workbench,/<HarinIcon name="close"/);
+  assert.match(dock,/<HarinIcon name="close"/);
   assert.doesNotMatch(workbench,/item\.kind==='DEAD_LETTER'\?'↻'/);
   assert.match(icons,/close: <><path d="m6 6 12 12"/);
 });

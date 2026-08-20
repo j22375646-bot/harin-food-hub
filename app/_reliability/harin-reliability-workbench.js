@@ -1,10 +1,10 @@
 'use client';
 
-import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import './harin-reliability-v8.css';
+import { useMemo } from 'react';
 import HarinIcon from '../_design-system/harin-icon.js';
+import { buildExceptions, dateTime, PLATFORM_LABEL, workerHeartbeatReady } from './harin-reliability-model.js';
 
-const PLATFORM_LABEL={NAVER:'네이버',COUPANG:'쿠팡',CAFE24:'Cafe24',EPOST:'우체국',ALL:'전체'};
 const HEALTH_LABEL={READY:'정상',RUNNING:'수집 중',PARTIAL:'일부 확인',FAILED:'수집 실패',STALE:'갱신 필요',WAITING:'수집 대기'};
 const CONNECTION_LABEL={READ_READY:'읽기 연결',WRITE_READY:'읽기·쓰기 연결',RECONNECT_REQUIRED:'재연결 필요',SETUP_REQUIRED:'설정 필요',VERIFY_REQUIRED:'연결 확인',FAILED:'연결 실패'};
 const PLATFORM_ICON={NAVER:'naverStore',COUPANG:'shoppingBag',CAFE24:'store',EPOST:'truck',ALL:'database'};
@@ -14,60 +14,11 @@ function exceptionIcon(kind){
   if(kind==='CHANNEL')return 'link';
   return 'warning';
 }
-
-function dateTime(value){
-  if(!value)return '기록 없음';
-  const date=new Date(value);
-  if(Number.isNaN(date.getTime()))return '시각 확인 필요';
-  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{
-    timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
-  }).formatToParts(date).filter(part=>part.type!=='literal').map(part=>[part.type,part.value]));
-  return `${Number(parts.month)}. ${Number(parts.day)}. ${parts.hour}:${parts.minute}`;
-}
-
 function channelTone(channel={}){
   if(['FAILED','PARTIAL'].includes(channel.health_status))return 'danger';
   if(['STALE','WAITING'].includes(channel.health_status)||!['READ_READY','WRITE_READY'].includes(channel.connection_status))return 'warning';
   if(channel.health_status==='RUNNING')return 'running';
   return 'ready';
-}
-
-function friendlyMessage(value){
-  if(!value)return '';
-  if(typeof value!=='string')return String(value);
-  const trimmed=value.trim();
-  if(!trimmed.startsWith('[')&&!trimmed.startsWith('{'))return trimmed;
-  try{
-    const parsed=JSON.parse(trimmed);
-    const rows=Array.isArray(parsed)?parsed:[parsed];
-    const messages=rows.map(item=>item?.message||item?.error).filter(Boolean);
-    return messages.length?messages.join(' · '):trimmed;
-  }catch{return trimmed;}
-}
-
-function workerHeartbeatReady(reliability={}){
-  const workers=reliability.worker?.workers||[];
-  return workers.length>0&&workers.every(worker=>!worker.stale);
-}
-
-function buildExceptions(center={},alerts=[]){
-  const deadLetters=center.reliability?.dead_letters||[];
-  const channelItems=(center.channels||[]).filter(item=>channelTone(item)!=='ready'&&channelTone(item)!=='running').map(item=>({
-    id:`channel-${item.platform}`,kind:'CHANNEL',tone:channelTone(item),platform:item.platform,
-    title:`${item.label||PLATFORM_LABEL[item.platform]} ${item.health_status==='READY'?(CONNECTION_LABEL[item.connection_status]||'연결 확인'):(HEALTH_LABEL[item.health_status]||'상태 확인')}`,
-    message:friendlyMessage(item.error_message||item.action?.message||item.connection_summary),
-    at:item.last_attempt_at
-  }));
-  const failedItems=deadLetters.map(item=>({id:`${item.kind}-${item.id}`,kind:'DEAD_LETTER',tone:'danger',platform:/EPOST/i.test(`${item.kind||''} ${item.title||''}`)?'EPOST':item.target||'COUPANG',title:item.title,message:friendlyMessage(item.error),at:item.failed_at,raw:item}));
-  const alertItems=(alerts||[]).filter(item=>String(item.status||'OPEN').toUpperCase()==='OPEN').map(item=>({id:`alert-${item.id}`,kind:'ALERT',tone:item.severity==='ERROR'?'danger':'warning',platform:item.platform,title:item.title,message:friendlyMessage(item.message),at:item.created_at}));
-  const seen=new Set();
-  return [...failedItems,...channelItems,...alertItems].filter(item=>{
-    const normalizedTitle=String(item.title||'').trim().replace(/\s+/g,' ').toLowerCase();
-    const key=`${item.platform||'ALL'}:${normalizedTitle}`;
-    if(seen.has(key))return false;
-    seen.add(key);
-    return true;
-  });
 }
 
 function ChannelReadiness({channels=[]}){
@@ -82,7 +33,6 @@ function ChannelReadiness({channels=[]}){
     })}
   </section>;
 }
-
 function WorkerSignals({reliability={}}){
   const workers=reliability.worker?.workers||[];
   const heartbeatReady=workerHeartbeatReady(reliability);
@@ -129,24 +79,4 @@ export default function HarinReliabilityWorkbench({mode='collection',center={},a
     {aiPanel?<div className="reliabilityAiSlot">{aiPanel}</div>:null}
     <div className="reliabilityPageBody">{children}</div>
   </section>;
-}
-
-export function HarinLiveStatusDock({center={},alerts=[],generatedAt}){
-  const [open,setOpen]=useState(false);
-  const [clock,setClock]=useState(null);
-  useEffect(()=>{
-    setClock(Date.now());
-    const timer=window.setInterval(()=>setClock(Date.now()),30000);
-    return()=>window.clearInterval(timer);
-  },[]);
-  const exceptions=useMemo(()=>buildExceptions(center,alerts),[center,alerts]);
-  const ready=Number(center.summary?.ready_channels||0);
-  const workerReady=workerHeartbeatReady(center.reliability||{});
-  const generated=new Date(generatedAt||Date.now()).getTime();
-  const age=clock==null||Number.isNaN(generated)?null:Math.max(0,Math.floor((clock-generated)/60000));
-  const healthy=ready===3&&workerReady&&!exceptions.length;
-  return <aside className={`liveStatusDock ${open?'open':''} ${healthy?'healthy':'attention'}`} aria-label="실시간 운영 상태">
-    <button className="liveStatusToggle" type="button" onClick={()=>setOpen(value=>!value)} aria-expanded={open}><i aria-hidden="true"/><span><b>{healthy?'운영 정상':`확인 ${exceptions.length}건`}</b><small>채널 {ready}/3 · 워커 {workerReady?'연결':'확인'}</small></span><em>{age==null?'갱신 확인':age<1?'방금':`${age}분 전`}</em><u aria-hidden="true"><HarinIcon name="chevron" size={17}/></u></button>
-    {open?<div className="liveStatusBody"><header><span><small>LIVE STATUS</small><b>운영 신호 바로보기</b></span><button type="button" onClick={()=>setOpen(false)} aria-label="상태 도크 닫기"><HarinIcon name="close" size={20}/></button></header><section><article><i className={ready===3?'ready':'warning'}/><span><b>채널 준비 {ready}/3</b><small>정상 자료만 계산에 사용합니다.</small></span></article><article><i className={workerReady?'ready':'danger'}/><span><b>고정 IP 워커 {workerReady?'연결됨':'확인 필요'}</b><small>쿠팡·네이버 작업 서버 신호</small></span></article></section>{exceptions.length?<div className="liveStatusExceptions">{exceptions.slice(0,3).map(item=><p key={item.id}><i/><span><b>{item.title}</b><small>{PLATFORM_LABEL[item.platform]||item.platform}</small></span></p>)}</div>:<p className="liveStatusClear">새로운 실패·지연 신호가 없습니다.</p>}<nav><Link href="/data-collection">데이터수집 보기</Link><Link href="/notifications">알림 처리하기</Link></nav></div>:null}
-  </aside>;
 }

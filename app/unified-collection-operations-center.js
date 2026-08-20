@@ -1,5 +1,6 @@
 'use client';
 
+import './_operations/harin-operations-v8.css';
 import HarinIcon from './_design-system/harin-icon.js';
 
 const healthLabel={READY:'정상',RUNNING:'수집 중',PARTIAL:'일부 확인',FAILED:'수집 실패',STALE:'갱신 필요',WAITING:'수집 대기'};

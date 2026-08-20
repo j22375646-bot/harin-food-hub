@@ -102,7 +102,8 @@ test('14-10 UI exposes inputs exclusions freshness confidence cost and owner app
   assert.match(panel,/\/api\/ai\/page-analysis/);
   assert.match(panel,/다른 화면 자료와 섞지 않고/);
   assert.match(panel,/추천만 · 자동 변경 없음/);
-  assert.match(layout,/import '.\/_ai\/harin-ai-page-v8\.css'/);
+  assert.match(panel,/harin-ai-page-v8\.css/);
+  assert.doesNotMatch(layout,/harin-ai-page-v8\.css/);
   assert.match(css,/@media\(max-width:700px\)/);
   assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
 }

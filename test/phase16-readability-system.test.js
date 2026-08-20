@@ -8,12 +8,14 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
-test('16-8 loads the final readability layer after every route stylesheet',()=>{
+test('23-8 keeps readability global while route styles stay out of the root layout',()=>{
   const layout=read('app/layout.js');
-  const entryIndex=layout.indexOf("import './_shell/harin-entry-v8.css'");
   const readabilityIndex=layout.indexOf("import './_design-system/harin-readability-v8.css'");
-  assert.ok(entryIndex>=0);
-  assert.ok(readabilityIndex>entryIndex);
+  const shellIndex=layout.indexOf("import './_shell/harin-shell-v8.css'");
+  assert.ok(readabilityIndex>shellIndex);
+  for(const routeCss of ['harin-main-v8.css','harin-analysis-v8.css','harin-execution-v8.css','harin-reliability-v8.css','harin-entry-v8.css']){
+    assert.equal(layout.includes(routeCss),false);
+  }
 });
 
 test('16-8 keeps support text, controls and mobile inputs comfortably readable',()=>{

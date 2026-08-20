@@ -1,5 +1,6 @@
 'use client';
 
+import './_ai/harin-ai-page-v8.css';
 import { useEffect, useState } from 'react';
 import HarinIcon from './_design-system/harin-icon.js';
 

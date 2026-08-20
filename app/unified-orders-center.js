@@ -1,5 +1,6 @@
 'use client';
 
+import './_operations/harin-operations-v8.css';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { HarinIcon } from './_design-system/harin-icon.js';

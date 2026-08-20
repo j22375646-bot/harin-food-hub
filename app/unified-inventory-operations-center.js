@@ -1,5 +1,6 @@
 'use client';
 
+import './_operations/harin-operations-v8.css';
 import { useDeferredValue, useMemo, useState } from 'react';
 import remainingBulkModule from '../lib/operations/remaining-bulk-workflows.js';
 import { HarinBulkCheckbox, HarinBulkSelectionBar, useHarinBulkSelection } from './_design-system/harin-bulk-selection.js';

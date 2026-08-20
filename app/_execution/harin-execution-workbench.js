@@ -1,5 +1,6 @@
 'use client';
 
+import './harin-execution-v8.css';
 import Link from 'next/link';
 import { useState } from 'react';
 import { HarinPageAiRegion, HarinPageContent, HarinPageFrame, HarinPageHeader, HarinPageToolbar, HarinProgressiveDetails } from '../_design-system/harin-ui.js';

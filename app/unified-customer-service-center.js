@@ -1,5 +1,6 @@
 "use client";
 
+import "./_operations/harin-operations-v8.css";
 import { useEffect, useState } from "react";
 import { useStoredState } from "./use-hub-preference.js";
 import { HarinIcon } from "./_design-system/harin-icon.js";

@@ -51,5 +51,6 @@ test('14-6 has responsive pastel workbench styles and readable mobile layouts',(
   assert.match(css,/var\(--v8-blue-soft\)/);
   assert.match(css,/var\(--v8-mint-soft\)/);
   assert.match(css,/@media\(max-width:600px\)/);
-  assert.match(read('app/layout.js'),/harin-analysis-v8\.css/);
+  assert.match(read('app/_analysis/harin-analysis-workbench.js'),/harin-analysis-v8\.css/);
+  assert.doesNotMatch(read('app/layout.js'),/harin-analysis-v8\.css/);
 });

@@ -1,5 +1,6 @@
 'use client';
 
+import './harin-main-v8.css';
 import { useEffect, useMemo, useState } from 'react';
 import { HarinIcon } from '../_design-system/harin-icon.js';
 

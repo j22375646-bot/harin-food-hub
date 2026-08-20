@@ -1,5 +1,6 @@
 'use client';
 
+import './harin-owner-workspace.css';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import hubRoutesModule from '../../lib/navigation/hub-routes.js';

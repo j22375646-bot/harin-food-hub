@@ -1,5 +1,6 @@
 'use client';
 
+import './_reliability/harin-naver-api-center.css';
 import { useState } from 'react';
 import HarinIcon from './_design-system/harin-icon.js';
 import {failProbeService,mergeProbeService,replaceProbeService,serviceSummary} from './_reliability/instant-probe-state.js';

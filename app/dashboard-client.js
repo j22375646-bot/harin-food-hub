@@ -45,7 +45,7 @@ const Phase14MainCommandCenter=dynamic(()=>import('./_main/harin-main-command-ce
 const HarinAnalysisWorkbench=dynamic(()=>import('./_analysis/harin-analysis-workbench.js'),{loading:LazyWorkbenchFallback});
 const HarinExecutionWorkbench=dynamic(()=>import('./_execution/harin-execution-workbench.js'),{loading:LazyWorkbenchFallback});
 const HarinReliabilityWorkbench=dynamic(()=>import('./_reliability/harin-reliability-workbench.js'),{loading:LazyWorkbenchFallback});
-const HarinLiveStatusDock=dynamic(()=>import('./_reliability/harin-reliability-workbench.js').then(module=>module.HarinLiveStatusDock),{loading:LazyWorkbenchFallback});
+const HarinLiveStatusDock=dynamic(()=>import('./_reliability/harin-live-status-dock.js'),{loading:LazyWorkbenchFallback});
 const HarinOwnerWorkspace=dynamic(()=>import('./_workspace/harin-owner-workspace.js'),{loading:LazyWorkbenchFallback});
 const NaverApiConnectionCenter=dynamic(()=>import('./naver-api-connection-center.js'),{loading:LazyWorkbenchFallback});
 const AdvertisingChannelCenter=dynamic(()=>import('./advertising-channel-center.js'),{loading:LazyWorkbenchFallback});

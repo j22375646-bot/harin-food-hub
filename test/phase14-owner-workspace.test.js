@@ -43,7 +43,8 @@ test('14-9 installs a global command palette quick capture saved views and autos
   assert.match(component,/자동저장됨/);
   assert.match(component,/contextHref:href/);
   assert.doesNotMatch(component,/setHref\(currentLocation\(\)\);load\(\)/);
-  assert.match(layout,/harin-owner-workspace\.css/);
+  assert.match(component,/harin-owner-workspace\.css/);
+  assert.doesNotMatch(layout,/harin-owner-workspace\.css/);
 });
 
 test('14-9 keeps order scan usable without a camera and opens it from global commands',()=>{

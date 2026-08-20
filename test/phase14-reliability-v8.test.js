@@ -18,24 +18,26 @@ test('14-8 keeps collection and notifications on separate real routes and workbe
 
 test('14-8 exposes channel readiness heartbeat exception inbox and safe retry',()=>{
   const source=read('app/_reliability/harin-reliability-workbench.js');
+  const model=read('app/_reliability/harin-reliability-model.js');
   assert.match(source,/채널 준비 상태/);
   assert.match(source,/WORKER HEARTBEAT/);
   assert.match(source,/GLOBAL EXCEPTION INBOX/);
   assert.match(source,/다시 처리/);
   assert.match(source,/개인정보/);
-  assert.match(source,/function workerHeartbeatReady/);
-  assert.match(source,/EPOST:'우체국'/);
-  assert.match(source,/function friendlyMessage/);
+  assert.match(model,/function workerHeartbeatReady/);
+  assert.match(model,/EPOST:'우체국'/);
+  assert.match(model,/function friendlyMessage/);
 });
 
 test('14-8 adds a compact global live status dock without merging pages',()=>{
-  const source=read('app/_reliability/harin-reliability-workbench.js');
+  const source=read('app/_reliability/harin-live-status-dock.js');
   const dashboard=read('app/dashboard-client.js');
   const page=read('app/page.js');
-  assert.match(source,/export function HarinLiveStatusDock/);
+  assert.match(source,/export default function HarinLiveStatusDock/);
   assert.match(source,/운영 신호 바로보기/);
   assert.match(source,/href="\/data-collection"/);
   assert.match(source,/href="\/notifications"/);
+  assert.match(dashboard,/harin-live-status-dock\.js/);
   assert.match(dashboard,/HarinLiveStatusDock center=\{initialData\.collectionCenter\}/);
   assert.match(page,/SHELL_TABLES = \['sync_logs','alerts','worker_heartbeats','coupang_operation_requests','coupang_sync_requests'\]/);
 });
@@ -64,8 +66,10 @@ test('14-8 keeps isolated zero-cost AI panels for collection and notifications',
 
 test('14-8 imports readable responsive pastel reliability styles',()=>{
   const css=read('app/_reliability/harin-reliability-v8.css');
+  const dockCss=read('app/_reliability/harin-live-status-dock.css');
   assert.match(css,/\.reliabilityHero/);
-  assert.match(css,/\.liveStatusDock/);
+  assert.match(dockCss,/\.liveStatusDock/);
   assert.match(css,/@media\(max-width:700px\)/);
-  assert.match(read('app/layout.js'),/harin-reliability-v8\.css/);
+  assert.match(read('app/_reliability/harin-reliability-workbench.js'),/harin-reliability-v8\.css/);
+  assert.doesNotMatch(read('app/layout.js'),/harin-reliability-v8\.css/);
 });

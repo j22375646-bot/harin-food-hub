@@ -1,5 +1,6 @@
 'use client';
 
+import './harin-analysis-v8.css';
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useStoredState } from '../use-hub-preference.js';

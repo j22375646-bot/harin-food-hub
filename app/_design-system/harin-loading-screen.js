@@ -1,3 +1,4 @@
+import '../_shell/harin-entry-v8.css';
 import { HarinIcon } from './harin-icon.js';
 
 export function HarinLoadingScreen({
