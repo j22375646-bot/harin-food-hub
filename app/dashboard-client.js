@@ -8,6 +8,7 @@ import reportVersioning from '../lib/reports/versioning.js';
 import remainingBulkModule from '../lib/operations/remaining-bulk-workflows.js';
 import costWorkbenchModule from '../lib/products/cost-workbench.js';
 import densityWorkbenchModule from '../lib/ui/density-workbench.js';
+import freshnessModule from '../lib/ui/freshness.js';
 import { COUPANG_SECTION_HELP, getHubHelp } from '../lib/ui/help-content.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
 import { useStoredState } from './use-hub-preference.js';
@@ -19,6 +20,7 @@ import HarinIcon from './_design-system/harin-icon.js';
 const { buildAlertBulkPlan } = remainingBulkModule;
 const { PAGE_SIZE:COST_PAGE_SIZE, COST_FIELDS, costStatus, filterCostProducts, paginateCostProducts, summarizeCostProgress } = costWorkbenchModule;
 const { ALERT_PAGE_SIZES, paginateDensityRows } = densityWorkbenchModule;
+const { relativeFreshnessLabel } = freshnessModule;
 
 function LazyWorkbenchFallback(){
   return <section className="lazyWorkbenchFallback" role="status" aria-live="polite" aria-busy="true"><i aria-hidden="true"/><span><b>작업공간을 준비하고 있어요</b><small>현재 화면은 유지하고 필요한 기능만 불러옵니다.</small></span></section>;
@@ -132,7 +134,17 @@ function HelpBox({ help, compact=false, persistKey }) {
   </details>;
 }
 
-function DataStatusPanel({ data, platform='all', onOpenCollection }) {
+function DataStatusPanel({ data, platform='all', refreshedAt, generatedAt, onOpenCollection }) {
+  const initialClock=useMemo(()=>{
+    const value=new Date(generatedAt||refreshedAt||0).getTime();
+    return Number.isNaN(value)||value<=0?0:value;
+  },[generatedAt,refreshedAt]);
+  const [clock,setClock]=useState(initialClock);
+  useEffect(()=>{
+    setClock(Date.now());
+    const timer=window.setInterval(()=>setClock(Date.now()),60*1000);
+    return ()=>window.clearInterval(timer);
+  },[]);
   const health=data.dataHealth?.channels||[];
   const connectionByPlatform=new Map((data.collectionCenter?.channels||[]).map(item=>[item.platform,item]));
   const stateFor=platform=>{
@@ -152,10 +164,12 @@ function DataStatusPanel({ data, platform='all', onOpenCollection }) {
   const affected=selected&&(selected.failedDatasets?.length||selected.dataMode==='PREVIOUS'||connectionAffected.some(item=>item.platform===selected.platform))
     ? [selected]
     : health.filter(item=>item.failedDatasets?.length||item.dataMode==='PREVIOUS'||['FAILED','PARTIAL','STALE'].includes(item.status)||connectionAffected.some(connection=>connection.platform===item.platform));
+  const relativeNow=clock||initialClock;
+  const refreshAge=relativeFreshnessLabel(refreshedAt,relativeNow);
   return <details className={`pageDataStatus${affected.length?' warning':''}`}>
     <summary aria-label="채널별 데이터 상태 열기">
-      <span className="pageDataStatusTitle"><i aria-hidden="true">D</i><span><b>데이터·연결 상태</b><small>{affected.length?`${affected.length}개 채널 확인 필요`:'세 채널 최신 자료·연결 확인'}</small></span></span>
-      <span className="pageDataStatusChannels">{[['NAVER','네이버'],['COUPANG','쿠팡'],['CAFE24','Cafe24']].map(([id,label])=>{const [tone,status]=stateFor(id);return <span className={tone} key={id}><i aria-hidden="true"/><strong>{label}</strong><em>{status}</em></span>})}</span>
+      <span className="pageDataStatusTitle"><i aria-hidden="true"><HarinIcon name="database" size={18}/></i><span><b>데이터·연결 상태</b><small>{affected.length?`${affected.length}개 채널 확인 필요`:'세 채널 자료 확인'} · 최근 전체 갱신 {refreshAge}</small></span></span>
+      <span className="pageDataStatusChannels">{[['NAVER','네이버'],['COUPANG','쿠팡'],['CAFE24','Cafe24']].map(([id,label])=>{const [tone,status]=stateFor(id);const channelHealth=health.find(item=>item.platform===id);const connection=connectionByPlatform.get(id);const lastAt=connection?.last_success_at||channelHealth?.lastSuccessAt||connection?.last_attempt_at||channelHealth?.lastAttemptAt;return <span className={tone} title={lastAt?`${dateTime(lastAt)} 갱신`:'갱신 기록 없음'} key={id}><i aria-hidden="true"/><span><strong>{label}</strong><em>{status} · {relativeFreshnessLabel(lastAt,relativeNow)}</em></span></span>})}</span>
       <em className="pageDataStatusToggle">열기</em>
     </summary>
     <div className="pageDataStatusBody">
@@ -279,13 +293,13 @@ export default function Dashboard({ initialData, initialState }) {
     <HarinSidebar groups={navGroups} view={pendingView||view} openGroup={openNavGroup} query={navQuery} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onOpenView={openView} onPrefetch={prefetchView}/>
     <main className={`hubMain${viewIsLoading?' routePending':''}`} aria-busy={viewIsLoading?'true':'false'} data-loader-profile={initialData.loaderPerformance?.profile||undefined} data-loader-ms={initialData.loaderPerformance?.duration_ms??undefined} data-loader-target={initialData.loaderPerformance?.target_ms??undefined} data-loader-within-target={initialData.loaderPerformance?.within_target===undefined?undefined:String(initialData.loaderPerformance.within_target)} data-loader-remote-queries={initialData.loaderPerformance?.remote_query_count??undefined} data-loader-slowest={(initialData.loaderPerformance?.slow_queries||[]).map(item=>`${item.table}:${item.duration_ms}`).join(',')||undefined}>
       {viewIsLoading?<HarinRouteProgress label={nav.find(item=>item.id===(pendingView||view))?.label}/>:null}
-      <HarinBreadcrumbBar context={navContext} refreshedLabel={latestRefreshAt?`최근 갱신 ${dateTime(latestRefreshAt)}`:null}/>
+      <HarinBreadcrumbBar context={navContext}/>
       {channelScopedViews.has(view)&&(view!=='product'||workspace==='catalog')&&<section className="platformSwitch" aria-label="플랫폼 선택">
         {(view==='keyword'?[['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡']]:[['all','allDot','전체'],['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡'],['cafe24','cafeDot','Cafe24']]).map(([id,dot,label])=><button key={id} className={platform===id?'selected':''} onClick={()=>selectPlatform(id)}><i className={dot}/>{label}</button>)}
         <span className="periodFilter">{view==='keyword'?'플랫폼별 분리 운영 · 최근 7일':'최근 7일 기준'}</span>
       </section>}
       <HarinFocusedWorkspaceNav view={view} workspace={workspace} pendingWorkspace={pendingWorkspace} platform={platform} period={period} product={selectedProduct} onNavigate={nextWorkspace=>{setPendingWorkspace(nextWorkspace);window.__HARIN_CLIENT_HEALTH__?.startRoute?.(hubRoutesModule.buildHubHref({view,workspace:nextWorkspace,platform,period,product:selectedProduct}));}}/>
-      {view!=='main'&&<DataStatusPanel data={initialData} platform={platform} onOpenCollection={()=>openView('collection')}/>}
+      <DataStatusPanel data={initialData} platform={platform} refreshedAt={latestRefreshAt} generatedAt={initialData.generatedAt} onOpenCollection={()=>openView('collection')}/>
       {!embeddedHelpViews.has(view)&&!(view==='product'&&workspace==='catalog'&&platform==='all')&&!(view==='insight'&&workspace==='channels'&&platform==='coupang')&&<HelpBox key={`${view}:${workspace}:${platform}`} help={getHubHelp(view)} persistKey={`${view}:${workspace}:${platform}`}/>}
       {financialContextViews.has(view)&&<FinancialTrustBanner trust={initialData.financialTrust} onOpenProduct={()=>navigate({platform:'all',view:'product',workspace:'costs',product:'ALL'})}/>}
       {syncMessage && <div className="syncToast">{syncMessage}</div>}

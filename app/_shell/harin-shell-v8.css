@@ -84,7 +84,6 @@ html[data-harin-ui="v8"]{
 .harinV8 .hubBreadcrumb{min-height:34px;margin-bottom:18px}
 .harinV8 .hubBreadcrumb li{font-size:14px}
 .harinV8 .hubBreadcrumb li:last-child{color:var(--v8-lavender-strong)}
-.harinV8 .hubBreadcrumb>span{color:var(--v8-muted);font-size:13px}
 .harinV8 .focusedWorkspaceNav[data-tone]>a.active{border-color:var(--nav-line);background:radial-gradient(circle at 95% 0,rgba(255,255,255,.82),transparent 44%),linear-gradient(145deg,var(--nav-soft-strong),var(--nav-soft));color:var(--nav-ink);box-shadow:0 12px 28px var(--nav-shadow)}
 .harinV8 .focusedWorkspaceNav[data-tone]>a.active:before{background:var(--nav-ink)}
 .harinV8 .focusedWorkspaceNav[data-tone]>a.active>i{border:1px solid var(--nav-line);background:rgba(255,255,255,.68);color:var(--nav-ink)}
@@ -114,7 +113,6 @@ html[data-harin-ui="v8"]{
   .harinV8 .hubMain{width:100%;margin-left:0;padding:24px 15px 112px}
   .harinV8 .hubFooter{width:100%;margin-left:0;padding-bottom:104px}
   .harinV8 .hubBreadcrumb{align-items:flex-start;flex-direction:column;gap:4px}
-  .harinV8 .hubBreadcrumb>span{white-space:normal}
 
   .harinV8 .mobileBottomNav{
     position:fixed;

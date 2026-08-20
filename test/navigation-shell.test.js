@@ -19,7 +19,8 @@ test('desktop navigation includes grouped expansion, menu search, badges, and br
   assert.match(shell,/placeholder="메뉴·업무 찾기"/);
   assert.match(shell,/aria-expanded=\{expanded\}/);
   assert.match(shell,/function HarinBreadcrumbBar/);
-  assert.match(shell,/최근 갱신/);
+  assert.doesNotMatch(shell,/최근 갱신/);
+  assert.match(client,/최근 전체 갱신/);
   assert.match(shellStyles,/\.harinV8 \.sidebarGroup\.expanded/);
   assert.match(shellStyles,/\.harinV8 \.hubBreadcrumb/);
 });

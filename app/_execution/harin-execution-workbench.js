@@ -12,10 +12,10 @@ const STEPS=[
 ];
 
 const META={
-  reports:{eyebrow:'DIAGNOSE',title:'진단 근거를 실행 후보로 정리해요',description:'중복된 경고는 묶고, 실제로 결정할 수 있는 근거와 다음 행동만 보여드립니다.',tone:'lavender'},
-  changes:{eyebrow:'OWNER SAFETY',title:'바꾼 값과 실행 결과를 한곳에서 확인해요',description:'확인 팝업 한 번 뒤 바로 실행하고, 실제 저장값 재조회와 복구 기록까지 남깁니다.',tone:'pink'},
-  validation:{eyebrow:'VERIFY',title:'7일과 14일 결과를 나란히 확인해요',description:'실행 전 기대치와 실제 매출·이익을 비교해 유지·복구·추가관찰을 결정합니다.',tone:'blue'},
-  experiments:{eyebrow:'LEARN',title:'검증된 결과만 다음 운영 기준으로 남겨요',description:'표본과 신뢰도를 통과한 실험만 학습하고, 판단이 이른 실험은 그대로 보류합니다.',tone:'mint'}
+  reports:{eyebrow:'진단 근거',title:'진단 근거를 실행 후보로 정리해요',description:'중복된 경고는 묶고, 실제로 결정할 수 있는 근거와 다음 행동만 보여드립니다.',tone:'lavender'},
+  changes:{eyebrow:'변경 안전 기록',title:'바꾼 값과 실행 결과를 한곳에서 확인해요',description:'확인 팝업 한 번 뒤 바로 실행하고, 실제 저장값 재조회와 복구 기록까지 남깁니다.',tone:'pink'},
+  validation:{eyebrow:'실행 결과 검증',title:'7일과 14일 결과를 나란히 확인해요',description:'실행 전 기대치와 실제 매출·이익을 비교해 유지·복구·추가관찰을 결정합니다.',tone:'blue'},
+  experiments:{eyebrow:'실험 학습',title:'검증된 결과만 다음 운영 기준으로 남겨요',description:'표본과 신뢰도를 통과한 실험만 학습하고, 판단이 이른 실험은 그대로 보류합니다.',tone:'mint'}
 };
 
 const DETAIL_META={

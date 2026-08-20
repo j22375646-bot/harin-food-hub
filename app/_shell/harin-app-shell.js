@@ -139,8 +139,8 @@ export function HarinMobileNavigation({ nav, groups, view, onOpenView, onPrefetc
   </nav>;
 }
 
-export function HarinBreadcrumbBar({ context, refreshedLabel }) {
-  return <nav className="hubBreadcrumb" aria-label="현재 위치"><ol><li>{context.group.label}</li><li>{context.item.label}</li><li>{context.platform}</li></ol><span>{refreshedLabel||'최근 갱신 기록 없음'}</span></nav>;
+export function HarinBreadcrumbBar({ context }) {
+  return <nav className="hubBreadcrumb" aria-label="현재 위치"><ol><li>{context.group.label}</li><li>{context.item.label}</li><li>{context.platform}</li></ol></nav>;
 }
 
 export function HarinFocusedWorkspaceNav({ view, workspace, pendingWorkspace, platform, period, product, onNavigate }) {
