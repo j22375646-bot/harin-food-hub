@@ -43,7 +43,7 @@ test('23-4 calculates visible progress without treating unknown costs as zero',(
 test('23-4 uses a paged spreadsheet grid and one-confirmation bulk save',()=>{
   const dashboard=read('app/dashboard-client.js');
   const start=dashboard.indexOf('function CostManager');
-  const end=dashboard.indexOf('function ReportsView',start);
+  const end=dashboard.indexOf('function SyncTable',start);
   const manager=dashboard.slice(start,end);
   assert.match(dashboard,/function ProductCostQuickGrid/);
   assert.match(dashboard,/className="productCostQuickGrid"/);

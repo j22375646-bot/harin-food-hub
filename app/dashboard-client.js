@@ -4,7 +4,6 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import reportVersioning from '../lib/reports/versioning.js';
 import remainingBulkModule from '../lib/operations/remaining-bulk-workflows.js';
 import costWorkbenchModule from '../lib/products/cost-workbench.js';
 import densityWorkbenchModule from '../lib/ui/density-workbench.js';
@@ -45,6 +44,7 @@ const Phase14MainCommandCenter=dynamic(()=>import('./_main/harin-main-command-ce
 const HarinAnalysisWorkbench=dynamic(()=>import('./_analysis/harin-analysis-workbench.js'),{loading:LazyWorkbenchFallback});
 const CoupangSalesCenter=dynamic(()=>import('./_analysis/coupang-sales-center.js'),{loading:LazyWorkbenchFallback});
 const HarinExecutionWorkbench=dynamic(()=>import('./_execution/harin-execution-workbench.js'),{loading:LazyWorkbenchFallback});
+const HarinReportsCenter=dynamic(()=>import('./_execution/harin-reports-center.js'),{loading:LazyWorkbenchFallback});
 const HarinReliabilityWorkbench=dynamic(()=>import('./_reliability/harin-reliability-workbench.js'),{loading:LazyWorkbenchFallback});
 const HarinLiveStatusDock=dynamic(()=>import('./_reliability/harin-live-status-dock.js'),{loading:LazyWorkbenchFallback});
 const HarinOwnerWorkspace=dynamic(()=>import('./_workspace/harin-owner-workspace.js'),{loading:LazyWorkbenchFallback});
@@ -336,7 +336,7 @@ export default function Dashboard({ initialData, initialState }) {
         <PlatformProductView key={`product-${platform}-${workspace}`} platform={platform} workspace={workspace} data={initialData}/>
       </HarinAnalysisWorkbench>}
       {view==='knowledge' && <AiKnowledgeCenter />}
-      {view==='reports' && <HarinExecutionWorkbench view="reports" data={initialData} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.reports}/>}><ReportsView reports={reports} learningHistory={initialData.reportLearningHistory}/></HarinExecutionWorkbench>}
+      {view==='reports' && <HarinExecutionWorkbench view="reports" data={initialData} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.reports}/>}><HarinReportsCenter reports={reports} learningHistory={initialData.reportLearningHistory}/></HarinExecutionWorkbench>}
       {view==='changes' && <HarinExecutionWorkbench view="changes" data={initialData} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.changes}/>}><FinancialChangeCenter bidWorkbench={initialData.naverBidWorkbench} actions={actions} financialTrustToken={initialData.financialTrustToken}/></HarinExecutionWorkbench>}
       {view==='validation' && <HarinExecutionWorkbench view="validation" data={initialData} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.validation}/>}><CustomerRetentionValidationCenter data={initialData.retentionValidation}/></HarinExecutionWorkbench>}
       {view==='experiments' && <HarinExecutionWorkbench view="experiments" data={initialData} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.experiments}/>}><ExperimentLab /></HarinExecutionWorkbench>}
@@ -495,64 +495,6 @@ function ExperimentCard({test,busy,onAction}){
 }
 
 function BenchmarkCard({benchmark,comparison}){const value=comparison?.value;return <article className={`benchmarkCard ${String(comparison?.status||'NO_DATA').toLowerCase()}`}><header><span>{benchmark.platform} · {experimentMetricLabel[benchmark.metric]}</span><em>{({TARGET:'목표 달성',WATCH:'관찰',RISK:'기준 미달',NO_DATA:'데이터 없음'})[comparison?.status]||'확인 중'}</em></header><b>{benchmark.name}</b><div><section><small>최근 7일</small><strong>{value==null?'-':experimentValue(benchmark.metric,value)}</strong></section><i/><section><small>목표</small><strong>{experimentValue(benchmark.metric,benchmark.target_value)}</strong></section></div><footer><span>차이 {comparison?.gap_percent==null?'-':`${comparison.gap_percent>0?'+':''}${num(comparison.gap_percent).toFixed(1)}%`}</span><small>{benchmark.source_name||benchmark.source_type} · 표본 {count(comparison?.sample)}</small></footer></article>}
-
-function reportMetricLabel(key) {
-  return {score:'운영점수',cafe24Revenue:'Cafe24 매출',naverSpend:'네이버 광고비',naverRoas:'네이버 ROAS',coupangSales:'쿠팡 매출',coupangAdSpend:'쿠팡 광고비',coupangAdRoas:'쿠팡 ROAS'}[key] || key;
-}
-
-function reportMetricValue(key,value) {
-  if(value==null)return '-';
-  if(key==='score')return `${num(value).toFixed(0)}점`;
-  if(key.toLowerCase().includes('roas'))return `${num(value).toFixed(1)}%`;
-  return won(value);
-}
-
-function VersionedReportList({ reports }) {
-  const groups=reportVersioning.groupVersions(reports);
-  const [open,setOpen]=useState('');
-  const [historyOpen,setHistoryOpen]=useState('');
-  const [busy,setBusy]=useState('');
-  const [message,setMessage]=useState('');
-  async function action(report,actionName){
-    setBusy(`${report.id}-${actionName}`);setMessage('');
-    try{
-      const response=await fetch(`/api/reports/${report.id}/action`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:actionName})});
-      const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'처리 실패');
-      setMessage(actionName==='APPROVE'?'최신 보고서를 승인했습니다.':'선택한 버전을 새 최신본으로 복원했습니다.');
-      setTimeout(()=>window.location.reload(),700);
-    }catch(error){setMessage(`확인 필요 · ${error.message}`);setBusy('');}
-  }
-  async function sendReport(report){
-    setBusy(`${report.id}-SEND`);setMessage('보고서를 이메일로 발송하는 중입니다.');
-    try{
-      const response=await fetch('/api/notifications/send',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'REPORT',report_id:report.id})});
-      const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.delivery?.reason||result.delivery?.error||result.error||'발송 실패');
-      setMessage('보고서를 설정된 이메일로 발송했습니다.');setBusy('');
-    }catch(error){setMessage(`확인 필요 · ${error.message}`);setBusy('');}
-  }
-  return <article className="panel versionedReports">
-    <PanelTitle tag="REPORT ARCHIVE" title="보고서 이력·버전관리" right={`${groups.length}개 보고서 · ${reports.length}개 버전`}/>
-    {message&&<div className="reportVersionMessage">{message}</div>}
-    {groups.length?<div className="reportSeriesList">{groups.map(group=>{
-      const r=group.latest,summary=r.summary_json||{},previous=group.versions[1];
-      const changes=previous?reportVersioning.compareVersions(r,previous):null;
-      const changeRows=changes?Object.entries(changes).filter(([,item])=>item.current!=null&&item.previous!=null).slice(0,4):[];
-      return <section className={`reportSeries ${open===group.key?'open':''}`} key={group.key}>
-        <button className="reportSeriesHead" onClick={()=>setOpen(open===group.key?'':group.key)}>
-          <div><span className={`platformBadge ${String(r.platform).toLowerCase()}`}>{r.platform}</span><b>{r.title}</b><small>{r.period_start} ~ {r.period_end} · {r.report_type}</small></div>
-          <div className="reportSeriesStatus"><em className={r.approved_at?'approved':''}>{r.approved_at?'승인본':'최신본'}</em><strong>v{r.version||1}</strong><span>{group.count}개 버전</span></div>
-        </button>
-        {open===group.key&&<div className="reportSeriesBody">
-          <section className="reportVersionKpis"><span><small>운영점수</small><b>{summary.score??'-'}점</b></span><span><small>Cafe24 매출</small><b>{summary.cafe24?won(summary.cafe24.revenue):'-'}</b></span><span><small>네이버 ROAS</small><b>{summary.naver?`${num(summary.naver.roas).toFixed(1)}%`:'-'}</b></span><span><small>쿠팡 매출</small><b>{summary.coupang?won(summary.coupang.gross_sales):'-'}</b></span></section>
-          {changeRows.length>0&&<section className="versionDelta"><b>직전 버전 대비</b>{changeRows.map(([key,item])=><span key={key}><small>{reportMetricLabel(key)}</small><em className={item.delta>0?'up':item.delta<0?'down':''}>{item.delta>0?'+':''}{reportMetricValue(key,item.delta)}</em></span>)}</section>}
-          <div className="reportOutputActions"><a href={`/api/reports/${r.id}/print`} target="_blank" rel="noreferrer">상세 보고서 · PDF/인쇄</a><a className="owner" href={`/api/reports/${r.id}/print?mode=owner`} target="_blank" rel="noreferrer">사장님 1페이지 · PDF/인쇄</a><a href={`/api/reports/${r.id}/download`}>HTML 저장</a><button className="emailReport" onClick={()=>sendReport(r)} disabled={Boolean(busy)}>{busy===`${r.id}-SEND`?'발송 중…':'이메일 발송'}</button>{!r.approved_at&&<button onClick={()=>action(r,'APPROVE')} disabled={Boolean(busy)}>{busy===`${r.id}-APPROVE`?'승인 중…':'최신본 승인'}</button>}</div>
-          <button className="historyToggle" onClick={()=>setHistoryOpen(historyOpen===group.key?'':group.key)}>{historyOpen===group.key?'버전 이력 닫기':`과거 버전 ${group.count}개 보기`}</button>
-          {historyOpen===group.key&&<div className="reportVersionTimeline">{group.versions.map(version=><div key={version.id}><span className="versionNumber">v{version.version||1}</span><section><b>{version.is_latest?'현재 최신본':version.approved_at?'당시 승인본':'보관본'}</b><small>{dateTime(version.created_at)} · {version.revision_note||'기존 보고서'}</small></section><div><a href={`/api/reports/${version.id}/print`} target="_blank" rel="noreferrer">열기</a>{!version.is_latest&&<button onClick={()=>action(version,'RESTORE')} disabled={Boolean(busy)}>{busy===`${version.id}-RESTORE`?'복원 중…':'이 버전 복원'}</button>}</div></div>)}</div>}
-        </div>}
-      </section>;
-    })}</div>:<Empty>저장된 보고서가 없습니다.</Empty>}
-  </article>;
-}
 
 function NotificationCenter({ reports, center, aiPanel }) {
   const [data,setData]=useState(null),[form,setForm]=useState(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(''),[message,setMessage]=useState('');
@@ -1215,58 +1157,6 @@ function CostManager({ masterProducts, productCosts, channelCostSettings, channe
   async function applyCalibration(){if(!window.confirm('쿠팡 실제 정산값을 기본 비용 설정으로 저장할까요?\n변경 전후 값과 실행 결과는 기록에 남습니다.'))return;setSaving('calibration');setMessage('실제 정산값을 확인하고 바로 적용하는 중…');try{const response=await fetch('/api/costs',{method:'PUT',headers:{'content-type':'application/json','idempotency-key':crypto.randomUUID()},body:JSON.stringify({type:'COUPANG_CALIBRATION_APPLY'})});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'보정 준비 실패');await executeConfirmedFinancialPreview(result);setMessage('쿠팡 실제값 적용 완료 · 실제 저장값도 확인했습니다.');}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setSaving('');}}
   const commission=costCalibration.commission||{},logistics=costCalibration.logistics||{},assumed=costCalibration.assumed_setting||{},effective=costCalibration.effective_setting||{};
   return <article className="panel costPanel"><PanelTitle tag="PROFIT SETTINGS" title="원가·수수료·택배비" right="서버 계산"/><p className="costGuide">수수료는 퍼센트, 상품 비용과 배송비는 원 단위입니다. 모르는 비용은 0원으로 확정하지 말고 비워두세요.</p><div className="channelCostRow"><b>Cafe24 공통비용</b><label>판매수수료 %<input type="number" min="0" max="100" step="0.01" value={channel.commission_rate} onChange={e=>setChannel({...channel,commission_rate:e.target.value})}/></label><label>결제수수료 %<input type="number" min="0" max="100" step="0.01" value={channel.payment_fee_rate} onChange={e=>setChannel({...channel,payment_fee_rate:e.target.value})}/></label><label>주문당 택배비<input type="number" min="0" step="100" value={channel.default_shipping_cost} onChange={e=>setChannel({...channel,default_shipping_cost:e.target.value})}/></label><button disabled={saving==='channel'} onClick={()=>save({type:'CHANNEL',platform:'CAFE24',...channel},'channel')}>공통비용 저장</button></div><section className={`calibrationCard ${String(costCalibration.confidence||'LOW').toLowerCase()}`}><header><div><span>COUPANG ACTUAL COST</span><b>실제 정산 자동 보정</b><small>{costCalibration.period_start||'-'} ~ {costCalibration.period_end||'-'} · 신뢰도 {costCalibration.confidence||'LOW'}</small></div><em>{costCalibration.auto_applied?'통합 손익에 자동 반영':'수동 설정 유지'}</em></header><div className="calibrationMetrics"><span><small>실제 수수료율</small><b>{commission.actualRate==null?'-':`${(num(commission.actualRate)*100).toFixed(2)}%`}</b><em>수동 {((num(assumed.commission_rate)+num(assumed.payment_fee_rate))*100).toFixed(2)}% · {count(commission.orders)}주문</em></span><span><small>실제 주문당 물류비</small><b>{logistics.actualPerOrder==null?'-':won(logistics.actualPerOrder)}</b><em>수동 {won(assumed.default_shipping_cost)} · {count(logistics.orders)}주문</em></span><span><small>현재 계산 적용값</small><b>{((num(effective.commission_rate)+num(effective.payment_fee_rate))*100).toFixed(2)}%</b><em>주문당 {won(effective.default_shipping_cost)}</em></span></div><footer><p>{costCalibration.auto_applied?'확정 정산 API 수수료와 WING 배송·입출고 실비를 사용합니다. 표본이 부족해지면 자동으로 수동 설정으로 돌아갑니다.':(costCalibration.warnings||[]).join(' ')||'정산 데이터 수집 후 자동 계산됩니다.'}</p><button disabled={!costCalibration.auto_applied||saving==='calibration'} onClick={applyCalibration}>{saving==='calibration'?'반영 중…':'실제값을 기본 설정으로 저장'}</button></footer></section><ShippingRuleManager rules={channelShippingRules} evidence={shippingRuleEvidence}/><ProductCostQuickGrid masterProducts={masterProducts} rows={rows} setRows={setRows} saving={saving} onSaveRows={saveCostRows}/>{message&&<small className="costMessage" role="status">{message}</small>}</article>;
-}
-
-function ReportsView({ reports, learningHistory }) { return <><section className="pageIntro reportIntro phase12ReportIntro"><div><span className="eyebrow">12-8 · REPORT & LEARN</span><h1>진단목록·자동보고서</h1><p>수집 기록과 실행 버튼은 빼고, 무엇이 문제인지와 판단 근거만 확인하는 화면으로 정리했습니다.</p></div><button onClick={()=>document.querySelector('.generatorPanel')?.scrollIntoView({behavior:'smooth'})}>새 보고서 만들기</button></section><AutomationPanel learningHistory={learningHistory}/><ReportLearningCenter history={learningHistory}/><ManualAutomationButtons/><ReportGenerator/><VersionedReportList reports={reports}/></>;
-}
-
-function ManualAutomationButtons(){const [running,setRunning]=useState('');const [message,setMessage]=useState('');async function run(path,label){setRunning(path);setMessage(`${label} 처리 중…`);try{const response=await fetch(path,{method:'POST'});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'실행 실패');setMessage(`${label} 완료`);setTimeout(()=>window.location.reload(),800);}catch(error){setMessage(`확인 필요 · ${error.message}`);setRunning('');}}return <section className="manualAutomation"><button onClick={()=>run('/api/reports/daily','일일 보고서·이상징후 재생성')} disabled={Boolean(running)}>{running==='/api/reports/daily'?'생성 중…':'일일 보고서 + 이상징후 재계산'}</button><Link href="/approvals">변경·복구 기록 보기</Link>{message&&<span>{message}</span>}</section>}
-
-function AutomationPanel({learningHistory={}}){
-  const schedule=learningHistory.schedule||{};
-  const cards=[
-    ['D','autoGreen','일간 보고서',schedule.daily?.when||'매일 오전 7:10','지난 7일을 매일 새로 비교'],
-    ['W','autoPurple','주간 보고서',schedule.weekly?.when||'매주 월요일 오전 7:30','한 주의 매출·광고·이익 정리'],
-    ['1','autoOrange','월간 잠정본',schedule.monthly_provisional?.when||'매월 1일 오전 8:00','빠른 월 마감 우선 확인'],
-    ['5','autoForest','월간 확정본',schedule.monthly_final?.when||'매월 5일 오전 8:00','정산자료를 반영한 최종본']
-  ];
-  return <><section className="automationGrid reportScheduleGrid">{cards.map(([icon,tone,label,when,description])=><article className="automationCard" key={label}><i className={tone}>{icon}</i><div><span>{label}</span><b>{when}</b><small>{description}</small></div><em>예약</em></article>)}</section><div className="reportScheduleFoot"><span>수집이력은 데이터수집에서 확인</span><span>이 화면은 진단과 보고서 근거만 표시</span><b>OpenAI 사용 전 · 자동 호출 0회 · 비용 0원</b></div></>;
-}
-
-const learningOutcomeLabel={IMPROVED:'개선 확인',DECLINED:'악화 확인',STABLE:'큰 변화 없음',BASELINE:'첫 기준',BLOCKED:'판단 보류'};
-function ReportLearningCenter({history={}}){
-  const items=history.items||[],summary=history.summary||{};
-  return <section className="reportLearningCenter"><header><div><span>SERVER LEARNING HISTORY</span><h2>보고서가 쌓일수록 비교 기준도 쌓여요</h2><p>AI 비용을 쓰지 않고 서버가 보고서 점수·핵심 진단·다음 행동·입찰 검증 결과를 같은 형식으로 보관합니다.</p></div><em>개인정보 없음 · 플랫폼 자동변경 없음</em></header><div className="reportLearningKpis"><span><small>학습된 보고서</small><b>{count(summary.learned)}건</b></span><span className="good"><small>개선 확인</small><b>{count(summary.improved)}건</b></span><span className="warn"><small>다시 확인</small><b>{count(summary.declined)}건</b></span><span><small>OpenAI 호출</small><b>{count(summary.openai_calls)}회</b></span></div><details className="reportLearningTimeline"><summary><span><b>학습 이력 펼쳐보기</b><small>최근 보고서 {items.length}건 · 기본은 접혀 있습니다.</small></span><em>열기</em></summary><div>{items.map(item=><article className={String(item.outcome||'baseline').toLowerCase()} key={item.id}><header><div><span>{item.platform} · {item.report_type} · v{item.version}</span><b>{item.title}</b><small>{item.period_start} ~ {item.period_end} · {dateTime(item.created_at)}</small></div><em>{learningOutcomeLabel[item.outcome]||item.outcome}</em></header><section><span><small>운영점수</small><b>{item.score==null?'확인 필요':`${item.score}점`}</b><i>{item.score_delta==null?'첫 기준':`${item.score_delta>=0?'+':''}${item.score_delta.toFixed(1)}점`}</i></span><span><small>자료 상태</small><b>{item.data_status==='READY'?'계산 가능':item.data_status==='BLOCKED'?'판단 보류':'일부 확인 필요'}</b><i>서버 계산</i></span><span><small>7·14일 검증</small><b>{count(item.bid_validation?.total)}건</b><i>개선 {count(item.bid_validation?.improved)} · 롤백검토 {count(item.bid_validation?.rollback_review)}</i></span></section>{item.observations?.length>0&&<ul>{item.observations.slice(0,2).map((observation,index)=><li key={`${item.id}-o-${index}`}><b>{observation.title}</b><span>{observation.body}</span></li>)}</ul>}{item.next_actions?.length>0&&<footer><b>다음 행동</b><span>{item.next_actions[0].title}</span></footer>}</article>)}{!items.length&&<div className="reportLearningEmpty">첫 예약 보고서가 생성되면 이곳에 학습 이력이 쌓입니다.</div>}</div></details></section>;
-}
-
-function isoDate(date) { return new Date(date.getTime() - date.getTimezoneOffset()*60000).toISOString().slice(0,10); }
-function ReportGenerator() {
-  const today = new Date();
-  const weekAgo = new Date(today); weekAgo.setDate(today.getDate()-6);
-  const [form, setForm] = useState({ platform:'ALL', report_type:'WEEKLY', period_start:isoDate(weekAgo), period_end:isoDate(today) });
-  const [generating,setGenerating] = useState(false);
-  const [message,setMessage] = useState('');
-  function change(event) { setForm(current=>({...current,[event.target.name]:event.target.value})); }
-  function typeChange(event) {
-    const type=event.target.value, end=new Date(); const start=new Date(end);
-    start.setDate(end.getDate()-(type==='MONTHLY'?29:6));
-    setForm(current=>({...current,report_type:type,period_start:isoDate(start),period_end:isoDate(end)}));
-  }
-  async function generate(event) {
-    event.preventDefault(); setGenerating(true); setMessage('주문·방문·광고 데이터를 분석하는 중이에요…');
-    try {
-      const response=await fetch('/api/reports/generate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(form)});
-      const result=await response.json(); if(!response.ok||!result.ok) throw new Error(result.error||'생성 실패');
-      setMessage(`생성 완료 · 실행결정 ${result.actions_created}건 추가`); setTimeout(()=>window.location.reload(),900);
-    } catch(error) { setMessage(`확인 필요 · ${error.message}`); setGenerating(false); }
-  }
-  return <article className="panel generatorPanel"><PanelTitle tag="AUTO REPORT" title="새 보고서 자동 생성" right="Supabase 실데이터"/><form onSubmit={generate}><label><span>플랫폼</span><select name="platform" value={form.platform} onChange={change}><option value="ALL">전체 통합</option><option value="CAFE24">Cafe24</option><option value="NAVER">네이버</option><option value="COUPANG">쿠팡</option></select></label><label><span>종류</span><select name="report_type" value={form.report_type} onChange={typeChange}><option value="WEEKLY">주간 보고서</option><option value="MONTHLY">월간 보고서</option><option value="ADHOC">수시 보고서</option></select></label><label><span>시작일</span><input name="period_start" type="date" value={form.period_start} onChange={change}/></label><label><span>종료일</span><input name="period_end" type="date" value={form.period_end} onChange={change}/></label><button type="submit" disabled={generating}>{generating?'분석 중…':'보고서 생성'}</button></form>{message&&<div className="importMessage">{message}</div>}<div className="generatorNote"><b>자동 포함 항목</b><span>종합점수 · 전기 비교 · 매출·주문·전환 · 캠페인·키워드 · 상품·유입경로 · 자동진단 · 우선순위 권고 · 실행계획</span></div></article>;
-}
-
-function ReportList({ reports }) {
-  const [open,setOpen]=useState('');
-  const rate=value=>value==null?'비교 없음':`${value>=0?'+':''}${num(value).toFixed(1)}%`;
-  return <article className="panel"><PanelTitle tag="REPORT" title="저장된 진단" right={`${reports.length}건`}/>{reports.length?<div className="reportList">{reports.map(r=>{const summary=r.summary_json||{};const cafe=summary.cafe24;const naver=summary.naver;const compare=summary.comparison;return <div className={`reportRowWrap ${open===r.id?'open':''}`} key={r.id}><button className="reportRow" onClick={()=>setOpen(open===r.id?'':r.id)}><div><span className={`platformBadge ${r.platform.toLowerCase()}`}>{r.platform}</span><b>{r.title}</b><small>{r.period_start} ~ {r.period_end} · {r.report_type}</small></div><em>{open===r.id?'닫기':'보기'}</em></button>{open===r.id&&<div className="reportDetail"><div className="reportMetrics">{summary.score!=null&&<span className="scoreMetric"><small>종합점수</small><b>{summary.score}점</b></span>}{cafe&&<><span><small>결제 매출</small><b>{won(cafe.revenue)}</b>{compare&&<em>{rate(compare.cafe24_revenue?.change_rate)}</em>}</span><span><small>주문</small><b>{cafe.orders}건</b>{compare&&<em>{rate(compare.cafe24_orders?.change_rate)}</em>}</span><span><small>전환율</small><b>{num(cafe.conversion_rate).toFixed(1)}%</b></span></>}{naver&&<><span><small>네이버 ROAS</small><b>{naver.roas?`${naver.roas.toFixed(1)}%`:'연결 필요'}</b>{compare&&<em>{rate(compare.naver_roas?.change_rate)}</em>}</span><span><small>광고비</small><b>{won(naver.ad_spend)}</b>{compare&&<em>{rate(compare.naver_spend?.change_rate)}</em>}</span></>}</div>{compare&&<p className="comparisonNote">위 증감률은 직전 동일 기간과 비교한 값입니다.</p>}{summary.insights?.length?<div className="reportInsights">{summary.insights.map((item,i)=><div className={`reportInsight ${item.level}`} key={i}><b>{item.title}</b><span>{item.body}</span></div>)}</div>:<p>이 보고서는 기존에 업로드된 자료입니다.</p>}{summary.recommendations?.length>0&&<div className="reportRecommendations"><b>우선 실행 권고</b>{summary.recommendations.map((item,index)=><span key={index}>{index+1}. {item.title} — {item.expected}</span>)}</div>}<a className="reportDownload" href={`/api/reports/${r.id}/download`}>HTML 상세보고서 저장</a></div>}</div>})}</div>:<Empty>저장된 보고서가 없습니다.</Empty>}</article>;
 }
 
 function SyncTable({ syncs }) { return <div className="syncTable"><div className="syncHeader"><span>실행일시</span><span>상태</span><span>저장 결과</span></div>{syncs.map(log=>{const counts=log.metadata?.counts||{};const detail=log.platform==='NAVER'&&log.job_type==='COMMERCE_SYNC'?`네이버 커머스 · 상품 ${count(counts.products)} · 주문 ${count(counts.orders)} · 문의/클레임 ${count(Number(counts.inquiries||0)+Number(counts.claims||0))} · 정산 ${count(counts.settlements)}`:log.platform==='NAVER'?`네이버 광고 · 캠페인 ${count(counts.campaigns)} · 키워드 ${count(counts.keywords)}`:log.platform==='COUPANG'?`쿠팡 · 재고 ${count(counts.rgInventory)} · 품절 ${count(counts.rgOutOfStock??counts.outOfStock)} · 주문 ${count(counts.orders)} · 정산 ${count(counts.settlements)}`:`Cafe24 · 상품 ${count(counts.products)} · 주문 ${count(counts.orders)} · 트래픽 ${count(counts.traffic)}`;return <div className="syncRow" key={log.id}><span>{dateTime(log.started_at)}</span><span className={`status ${String(log.status).toLowerCase()}`}>{log.status}</span><span>{log.metadata?.counts?detail:`${log.platform||'플랫폼'} · ${count(log.rows_received)}건`}</span></div>})}</div>; }
