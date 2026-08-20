@@ -21,13 +21,13 @@ test('14-7 keeps diagnosis approval validation and experiments on separate real 
 
 test('14-7 and 22-1 keep owner safety preview audit and explicit write lock',()=>{
   const workbench=read('app/_execution/harin-execution-workbench.js');
-  const dashboard=read('app/dashboard-client.js');
+  const changes=read('app/_execution/harin-financial-change-center.js');
   assert.match(workbench,/OWNER SAFETY PREVIEW/);
   assert.match(workbench,/안전 미리보기/);
   assert.match(workbench,/변경 기록/);
   assert.match(workbench,/실제 플랫폼 변경은 사장님 확인 팝업 뒤/);
-  assert.match(dashboard,/별도 승인 단계 없이 사장님 확인 한 번으로 적용/);
-  assert.match(dashboard,/서버 쓰기 잠금/);
+  assert.match(changes,/별도 승인 단계 없이 사장님 확인 한 번으로 적용/);
+  assert.match(changes,/서버 쓰기 잠금/);
 });
 
 test('14-7 only offers rollback when the server change can actually be reversed',()=>{
@@ -41,9 +41,9 @@ test('14-7 only offers rollback when the server change can actually be reversed'
   assert.equal(execution.changes.find(item=>item.id==='cost').reversible,true);
   assert.equal(execution.changes.find(item=>item.id==='shipping-new').reversible,false);
   assert.equal(execution.changes.find(item=>item.id==='shipping-existing').reversible,true);
-  const dashboard=read('app/dashboard-client.js');
-  assert.match(dashboard,/rollbackSupported\?/);
-  assert.match(dashboard,/되돌리기 지원 안 함/);
+  const changes=read('app/_execution/harin-financial-change-center.js');
+  assert.match(changes,/rollbackSupported\?/);
+  assert.match(changes,/되돌리기 지원 안 함/);
 });
 
 test('14-7 connects diagnosis through 7 and 14 day validation to A B learning',()=>{

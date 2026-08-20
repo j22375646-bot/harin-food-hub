@@ -22,9 +22,10 @@ test('13-7 connects four separate workflow pages with real routes and mobile UI'
 test('13-7 leaves collection history in collection and moves execution decisions to approvals',()=>{
   const client=read('app/dashboard-client.js');
   const reports=read('app/_execution/harin-reports-center.js');
-  const approvals=client.slice(client.indexOf('function FinancialChangeCenter'),client.indexOf('const experimentMetricLabel'));
+  const approvals=read('app/_execution/harin-financial-change-center.js');
   assert.doesNotMatch(reports,/SyncTable|ActionPanel|COLLECTION HISTORY/);
-  assert.match(approvals,/ActionPanel actions=\{actions\}/);
+  assert.match(client,/actionPanel=\{<ActionPanel actions=\{actions\}/);
+  assert.match(approvals,/\{actionPanel\}/);
   assert.match(reports,/수집이력은 데이터수집에서 확인/);
 });
 

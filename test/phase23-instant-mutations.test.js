@@ -19,11 +19,11 @@ test('23-3 updates verified Naver bid rows without refreshing the route',()=>{
 });
 
 test('23-3 reflects saved keyword product links in the affected card only',()=>{
-  const dashboard=read('app/dashboard-client.js');
-  const saveStart=dashboard.indexOf('async function saveKeywordLink');
-  const saveEnd=dashboard.indexOf('async function createAutomationDrafts',saveStart);
-  const saveKeywordLink=dashboard.slice(saveStart,saveEnd);
-  assert.match(dashboard,/const \[savedLinks,setSavedLinks\]=useState/);
+  const changes=read('app/_execution/harin-financial-change-center.js');
+  const saveStart=changes.indexOf('async function saveKeywordLink');
+  const saveEnd=changes.indexOf('async function createAutomationDrafts',saveStart);
+  const saveKeywordLink=changes.slice(saveStart,saveEnd);
+  assert.match(changes,/const \[savedLinks,setSavedLinks\]=useState/);
   assert.match(saveKeywordLink,/setSavedLinks\(current=>\(\{\.\.\.current,\[item\.ncc_keyword_id\]:masterProductId\|\|''\}\)\)/);
   assert.doesNotMatch(saveKeywordLink,/window\.location\.reload|router\.refresh/);
   assert.match(saveKeywordLink,/finally\{setWorking\(''\);\}/);
