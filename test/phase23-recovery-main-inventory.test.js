@@ -31,8 +31,8 @@ test('23-R1 gives Main a bounded dedicated loader instead of the generic dashboa
   const profile=loaders.profileForState({view:'main',workspace:'default',platform:'all'});
   assert.equal(profile.target_ms,2500);
   assert.deepEqual(profile.tables,[
-    'cafe24_orders','cafe24_order_items','naver_commerce_orders','naver_commerce_order_items',
-    'coupang_orders','coupang_order_items','coupang_rg_orders','coupang_returns',
+    'cafe24_orders','cafe24_order_items','cafe24_oauth_tokens','naver_commerce_orders','naver_commerce_order_items',
+    'coupang_orders','coupang_rg_orders','coupang_returns',
     'coupang_rg_inventory','business_targets','customer_service_items'
   ]);
   const page=read('app/page.js');
@@ -40,8 +40,14 @@ test('23-R1 gives Main a bounded dedicated loader instead of the generic dashboa
   assert.match(page,/if\(view==='main'\)\{[\s\S]*?return buildMainDashboardData/);
   assert.match(page,/view==='collection'\?SHELL_TABLES:LIGHT_SHELL_TABLES/);
   const mainScope=page.match(/const MAIN_OVERVIEW_TABLES = \[([\s\S]*?)\n\];/)?.[1]||'';
-  assert.match(mainScope,/cafe24_order_items|naver_commerce_order_items|coupang_order_items|coupang_returns/);
+  assert.match(mainScope,/cafe24_order_items|cafe24_oauth_tokens|naver_commerce_order_items|coupang_returns/);
+  assert.doesNotMatch(mainScope,/coupang_order_items/);
   assert.doesNotMatch(mainScope,/reports|actions|naver_stats_daily|coupang_ad_daily_summary|product_costs/);
+  assert.match(page,/view==='main'\?'order_id,raw_data'/);
+  assert.match(page,/view==='main'\?'product_order_id,order_id,status,updated_at'/);
+  assert.match(page,/view==='main'[\s\S]*?select\('id,source_key,platform,kind,completed'\)\.or\('completed\.eq\.false,completed\.is\.null'\)/);
+  assert.match(page,/supplementalQueries\.channelCs,supplementalQueries\.cafe24Token/);
+  assert.match(page,/customerServiceRows:channelCsSettled\.results\[0\]\.data\|\|\[\],cafe24Token:cafe24TokenSettled\.results\[0\]\.data\?\.token_data\|\|null/);
 });
 
 test('23-R1 applies one Rocket Growth policy to focused inventory and the legacy fallback path',()=>{

@@ -111,8 +111,8 @@ const LIGHT_SHELL_TABLES = ['sync_logs','alerts'];
 // current orders, task signals, inventory, pacing and trust inputs here; the
 // heavier settlement/keyword evidence remains on its dedicated real route.
 const MAIN_OVERVIEW_TABLES = [
-  'cafe24_orders','cafe24_order_items','naver_commerce_orders','naver_commerce_order_items',
-  'coupang_orders','coupang_order_items','coupang_rg_orders','coupang_returns',
+  'cafe24_orders','cafe24_order_items','cafe24_oauth_tokens','naver_commerce_orders','naver_commerce_order_items',
+  'coupang_orders','coupang_rg_orders','coupang_returns',
   'coupang_rg_inventory','business_targets','customer_service_items'
 ];
 const VIEW_TABLES = {
@@ -295,13 +295,13 @@ async function buildMainDashboardData({
   loaderSession,generatedAt,queryIssues,syncResult,alertsResult,
   ordersResult,itemsResult,coupangOrdersResult,coupangItemsResult,coupangReturnsResult,
   coupangInventoryResult,coupangRgOrdersResult,
-  naverCommerceOrdersResult,naverCommerceItemsResult,businessTargetsResult,customerServiceRows
+  naverCommerceOrdersResult,naverCommerceItemsResult,businessTargetsResult,customerServiceRows,cafe24Token
 }) {
   const rawInventory=coupangInventoryResult.data||[];
   const {active:operationalInventory,excluded:excludedInventory}=coupangOperationalInventoryModule.splitOperationalInventory(rawInventory);
   const {items:rgInventory,summary:inventoryMarketing}=coupangMarketingModule.buildInventoryMarketing(operationalInventory);
   const shell=await buildFocusedShellData({
-    queryIssues,syncResult,alertsResult,generatedAt,
+    queryIssues,syncResult,alertsResult,generatedAt,cafe24Token,
     cafe24Counts:{orders:ordersResult.data?.length||0},
     coupangCounts:{orders:coupangOrdersResult.data?.length||0,products:rgInventory.length},
     summaries:{
@@ -1075,8 +1075,8 @@ async function getDashboardData(state) {
       db.from('product_ad_targets').select('master_product_id,target_profit_margin_rate,notes,formula_version,updated_at').limit(500)
     ]),
     naverCommerce:Promise.allSettled([
-      db.from('naver_commerce_orders').select(view==='orders'?'order_id,order_date,payment_date,status,paid_amount,receiver_name,receiver_phone,receiver_address,shipping_memo,shipment_id,invoice_no,delivery_company,updated_at':'order_id,order_date,payment_date,status,paid_amount,receiver_name,receiver_phone,receiver_address,shipping_memo,shipment_id,invoice_no,delivery_company,raw_data,updated_at').order('order_date',{ascending:false}).limit(rowLimit('orders',5000)),
-      db.from('naver_commerce_order_items').select(view==='orders'?'product_order_id,order_id,product_id,original_product_id,product_name,option_name,quantity,unit_price,paid_amount,status,shipping_due_date,updated_at':'product_order_id,order_id,product_id,original_product_id,product_name,option_name,quantity,unit_price,paid_amount,status,shipping_due_date,raw_data,updated_at').limit(rowLimit('items',10000)),
+      db.from('naver_commerce_orders').select(view==='main'?'order_id,order_date,payment_date,status,paid_amount,shipment_id,invoice_no,delivery_company,updated_at':view==='orders'?'order_id,order_date,payment_date,status,paid_amount,receiver_name,receiver_phone,receiver_address,shipping_memo,shipment_id,invoice_no,delivery_company,updated_at':'order_id,order_date,payment_date,status,paid_amount,receiver_name,receiver_phone,receiver_address,shipping_memo,shipment_id,invoice_no,delivery_company,raw_data,updated_at').order('order_date',{ascending:false}).limit(rowLimit('orders',5000)),
+      db.from('naver_commerce_order_items').select(view==='main'?'product_order_id,order_id,status,updated_at':view==='orders'?'product_order_id,order_id,product_id,original_product_id,product_name,option_name,quantity,unit_price,paid_amount,status,shipping_due_date,updated_at':'product_order_id,order_id,product_id,original_product_id,product_name,option_name,quantity,unit_price,paid_amount,status,shipping_due_date,raw_data,updated_at').limit(rowLimit('items',10000)),
       db.from('naver_commerce_settlements').select('settlement_key,settle_basis_start_date,settle_basis_end_date,settle_expect_date,settle_complete_date,settle_amount,pay_settle_amount,commission_settle_amount,benefit_settle_amount,deduction_restore_settle_amount,pay_holdback_amount,difference_settle_amount,updated_at').order('settle_basis_end_date',{ascending:false}).limit(1000)
     ]),
     phase7:Promise.allSettled([
@@ -1088,7 +1088,10 @@ async function getDashboardData(state) {
       db.from('coupang_operation_requests').select('id,operation_type,target_type,target_id,status,created_at,executed_at,error_message').in('target_type',['INQUIRY','RETURN','EXCHANGE']).order('created_at',{ascending:false}).limit(300)
     ]),
     channelCs:Promise.allSettled([
-      db.from('customer_service_items').select('id,source_key,platform,kind,source_id,source_subtype,status,completed,answered,order_id,product_id,occurred_at,title_envelope,content_envelope,raw_summary,source_updated_at,collected_at').order('occurred_at',{ascending:false}).limit(1000)
+      (view==='main'
+        ? db.from('customer_service_items').select('id,source_key,platform,kind,completed').or('completed.eq.false,completed.is.null')
+        : db.from('customer_service_items').select('id,source_key,platform,kind,source_id,source_subtype,status,completed,answered,order_id,product_id,occurred_at,title_envelope,content_envelope,raw_summary,source_updated_at,collected_at'))
+        .order('occurred_at',{ascending:false}).limit(1000)
     ]),
     keywordPeriod:Promise.allSettled([
       db.from('naver_keyword_stats').select('period_start,period_end').order('period_end',{ascending:false}).limit(1).maybeSingle()
@@ -1163,7 +1166,7 @@ async function getDashboardData(state) {
     .order('days_of_stock',{ascending:true,nullsFirst:false}).limit(500);
   const settledQueries = await Promise.allSettled([
     db.from('cafe24_orders').select('order_id,order_date,customer_id,payment_status,paid_amount,order_price,cancel_amount,refund_amount,raw_data').order('order_date', { ascending: false }).limit(rowLimit('orders',10000)),
-    db.from('cafe24_order_items').select('order_id,external_item_id,external_product_no,product_name,option_name,quantity,unit_price,paid_amount,raw_data').limit(rowLimit('items',10000)),
+    db.from('cafe24_order_items').select(view==='main'?'order_id,raw_data':'order_id,external_item_id,external_product_no,product_name,option_name,quantity,unit_price,paid_amount,raw_data').limit(rowLimit('items',10000)),
     db.from('cafe24_traffic_daily').select('date,visitors,pageviews,source_status,raw_data').order('date', { ascending: true }).limit(31),
     db.from('cafe24_referrers_daily').select('date,source,visitors,orders,revenue').order('visitors', { ascending: false }).limit(500),
     db.from('cafe24_products').select('external_product_no,product_name,price,display,selling,raw_data,updated_at').order('updated_at', { ascending: false }).limit(view==='orders'?100:500),
@@ -1217,8 +1220,8 @@ async function getDashboardData(state) {
   const queryIssues = [...settled.issues];
   const [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, shippingRulesResult, coupangProductsResult, coupangOrdersResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult] = settled.results;
   if(view==='main'){
-    const [naverCommerceRaw,targetsRaw,channelCsRaw]=await Promise.all([
-      supplementalQueries.naverCommerce,supplementalQueries.mainTargets,supplementalQueries.channelCs
+    const [naverCommerceRaw,targetsRaw,channelCsRaw,cafe24TokenRaw]=await Promise.all([
+      supplementalQueries.naverCommerce,supplementalQueries.mainTargets,supplementalQueries.channelCs,supplementalQueries.cafe24Token
     ]);
     const naverCommerceSettled=dataHealthModule.settleQueries(naverCommerceRaw,[
       {platform:'NAVER',dataset:'naver_commerce_orders'},
@@ -1231,11 +1234,14 @@ async function getDashboardData(state) {
     const channelCsSettled=dataHealthModule.settleQueries(channelCsRaw,[
       {platform:'SHARED',dataset:'customer_service_items'}
     ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
-    queryIssues.push(...naverCommerceSettled.issues,...targetSettled.issues,...channelCsSettled.issues);
+    const cafe24TokenSettled=dataHealthModule.settleQueries(cafe24TokenRaw,[
+      {platform:'CAFE24',dataset:'cafe24_oauth_tokens'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    queryIssues.push(...naverCommerceSettled.issues,...targetSettled.issues,...channelCsSettled.issues,...cafe24TokenSettled.issues);
     return buildMainDashboardData({
       loaderSession,generatedAt,queryIssues,syncResult,alertsResult,ordersResult,itemsResult,coupangOrdersResult,coupangItemsResult,coupangReturnsResult,coupangInventoryResult,coupangRgOrdersResult,
       naverCommerceOrdersResult:naverCommerceSettled.results[0],naverCommerceItemsResult:naverCommerceSettled.results[1],businessTargetsResult:targetSettled.results[0],
-      customerServiceRows:channelCsSettled.results[0].data||[]
+      customerServiceRows:channelCsSettled.results[0].data||[],cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null
     });
   }
   if(focusedSearchTerms){
