@@ -51,7 +51,7 @@ test('22-5 links experiments to the selected master product and project',()=>{
 
 test('22-5 presents the reusable center without a fixed pilot product',()=>{
   const home=read('app/market-intelligence/project-home.js');
-  const lab=read('app/dashboard-client.js');
+  const lab=read('app/_execution/harin-experiment-lab.js');
   const marketNav=routes.HUB_NAV.find(item=>item.id==='market');
   assert.equal(marketNav.label,'상품개발');
   assert.match(home,/상품별 개발 현황/);

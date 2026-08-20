@@ -117,7 +117,7 @@ test('phase 15-1 keeps prior operations while removing repeated development chro
   assert.match(client,/center=\{liveCollectionCenter\}/);
   assert.match(collectionCenter,/전체 수집 \+ 검증/);
   assert.match(client,/view==='validation' && <HarinExecutionWorkbench view="validation".*<CustomerRetentionValidationCenter/);
-  assert.match(client,/view==='experiments' && <HarinExecutionWorkbench view="experiments".*<ExperimentLab/);
+  assert.match(client,/view==='experiments' && <HarinExecutionWorkbench view="experiments".*<HarinExperimentLab/);
   assert.doesNotMatch(client,/phase7LegacyLab/);
   assert.match(validation,/실행검증 운영센터/);
   assert.match(validation,/useState\('execution'\)/);
