@@ -31,17 +31,26 @@ test('23-4 product cost pages render at most eight list rows at once',()=>{
   assert.deepEqual([last.start,last.end],[17,21]);
 });
 
-test('23-4 uses a searchable list and one selected-product detail editor',()=>{
+test('23-4 calculates visible progress without treating unknown costs as zero',()=>{
+  const products=[{id:'ready'},{id:'pending'}];
+  const summary=costWorkbench.summarizeCostProgress(products,{
+    ready:{unit_cost:1000,packaging_cost:0,other_unit_cost:0},
+    pending:{unit_cost:1000,packaging_cost:'',other_unit_cost:''}
+  });
+  assert.deepEqual(summary,{total:2,ready:1,pending:1,rate:50});
+});
+
+test('23-4 uses a paged spreadsheet grid and one-confirmation bulk save',()=>{
   const dashboard=read('app/dashboard-client.js');
   const start=dashboard.indexOf('function CostManager');
   const end=dashboard.indexOf('function ReportsView',start);
   const manager=dashboard.slice(start,end);
-  assert.match(manager,/filterCostProducts\(masterProducts,rows,search\)/);
-  assert.match(manager,/paginateCostProducts\(filteredProducts,page,COST_PAGE_SIZE\)/);
-  assert.match(manager,/className="productCostWorkbenchLayout"/);
-  assert.match(manager,/className="productCostEditor"/);
-  assert.match(manager,/disabled=\{saving===selectedProduct\.id\|\|!costStatus\(selectedRow\)\.ready\}/);
+  assert.match(dashboard,/function ProductCostQuickGrid/);
+  assert.match(dashboard,/className="productCostQuickGrid"/);
+  assert.match(dashboard,/작성한 \$\{dirtyReadyIds\.length\}개 저장/);
+  assert.match(manager,/saveCostRows/);
+  assert.match(manager,/window\.confirm\(`작성한 상품 원가 \$\{products\.length\}개를 한 번에 저장할까요/);
   assert.doesNotMatch(manager,/masterProducts\.slice\(0,20\)/);
   assert.doesNotMatch(manager,/value=\{row\[field\]\?\?0\}/);
-  assert.match(read('app/globals.css'),/Phase 23-4A: dense product costs/);
+  assert.match(read('app/globals.css'),/Phase 23-4B: spreadsheet product costs/);
 });
