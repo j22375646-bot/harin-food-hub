@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const client = fs.readFileSync(path.join(__dirname, '..', 'app', 'dashboard-client.js'), 'utf8');
+const coupangOperations = fs.readFileSync(path.join(__dirname, '..', 'app', '_operations', 'coupang-operation-details.js'), 'utf8');
 const styles = fs.readFileSync(path.join(__dirname, '..', 'app', 'globals.css'), 'utf8');
 
 test('phase 10-8 keeps the route loading layer outside the desktop sidebar', () => {
@@ -15,13 +16,13 @@ test('phase 10-8 keeps the route loading layer outside the desktop sidebar', () 
 });
 
 test('seller orders expose the five real delivery stages as clickable boxes', () => {
-  assert.match(client, /\['ACCEPT','결제완료'/);
-  assert.match(client, /\['INSTRUCT','상품준비중'/);
-  assert.match(client, /\['DEPARTURE','배송지시'/);
-  assert.match(client, /\['DELIVERING','배송중'/);
-  assert.match(client, /\['FINAL_DELIVERY','배송완료'/);
-  assert.match(client, /className="orderProcessFlow"/);
-  assert.match(client, /onClick=\{\(\)=>setStatus\(step\.id\)\}/);
+  assert.match(coupangOperations, /\['ACCEPT','결제완료'/);
+  assert.match(coupangOperations, /\['INSTRUCT','상품준비중'/);
+  assert.match(coupangOperations, /\['DEPARTURE','배송지시'/);
+  assert.match(coupangOperations, /\['DELIVERING','배송중'/);
+  assert.match(coupangOperations, /\['FINAL_DELIVERY','배송완료'/);
+  assert.match(coupangOperations, /className="orderProcessFlow"/);
+  assert.match(coupangOperations, /onClick=\{\(\)=>setStatus\(step\.id\)\}/);
 });
 
 test('inventory comparison and order details use readable text sizes', () => {

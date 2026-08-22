@@ -17,6 +17,7 @@ const validation=fs.readFileSync(path.join(__dirname,'..','app','customer-retent
 const page=fs.readFileSync(path.join(__dirname,'..','app','page.js'),'utf8');
 const preferences=fs.readFileSync(path.join(__dirname,'..','app','use-hub-preference.js'),'utf8');
 const collectionCenter=fs.readFileSync(path.join(__dirname,'..','app','unified-collection-operations-center.js'),'utf8');
+const coupangOperationDetails=fs.readFileSync(path.join(__dirname,'..','app','_operations','coupang-operation-details.js'),'utf8');
 
 test('desktop navigation includes grouped expansion, menu search, badges, and breadcrumbs', () => {
   assert.match(shell,/function HarinSidebar/);
@@ -80,10 +81,10 @@ test('main renders only the all-channel command center and links channel details
 
 test('phase 10-4 separates Coupang work into four sidebar pages', () => {
   const coupangSales=fs.readFileSync(path.join(__dirname,'..','app','_analysis','coupang-sales-center.js'),'utf8');
-  assert.match(client,/function CoupangOrdersView/);
-  assert.match(client,/function CoupangCsView/);
-  assert.match(client,/function CoupangInventoryView/);
-  assert.match(client,/function CoupangSettlementView/);
+  assert.match(client,/const CoupangOrdersView=dynamic/);
+  assert.match(client,/const CoupangSettlementView=dynamic/);
+  assert.match(coupangOperationDetails,/export function CoupangOrdersView/);
+  assert.match(coupangOperationDetails,/export function CoupangSettlementView/);
   assert.match(client,/const CoupangSalesCenter=dynamic\(\(\)=>import\('\.\/_analysis\/coupang-sales-center\.js'\)/);
   assert.match(coupangSales,/export default function CoupangSalesCenter/);
   assert.doesNotMatch(client,/function CoupangCommandCenter/);
@@ -130,8 +131,7 @@ test('phase 10-7 remembers reading scale, help state, and primary list filters',
   assert.match(preferences,/window\.localStorage/);
   assert.match(shell,/aria-label="허브 글자 크기"/);
   assert.match(client,/useStoredState\(`help:/);
-  assert.match(client,/filter:orders-status/);
-  assert.match(client,/filter:inventory/);
+  assert.match(coupangOperationDetails,/filter:orders-status/);
   assert.match(notifications,/filter:notifications/);
   assert.match(styles,/data-font-scale="xlarge"/);
   assert.match(client,/fontScale=\{fontScale\} onFontScale=\{setFontScale\}/);
