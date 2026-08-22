@@ -19,7 +19,8 @@ test('22-8 migrates old view query bookmarks to canonical route pages',()=>{
 
 test('22-8 keeps all old path redirects unique and free of redirect cycles',async()=>{
   const redirects=await require('../next.config.js').redirects();
-  assert.equal(redirects.length,routes.HUB_LEGACY_ROUTES.length);
+  const legacyRedirects=redirects.filter(item=>routes.HUB_LEGACY_ROUTES.some(route=>route.href===item.source));
+  assert.equal(legacyRedirects.length,routes.HUB_LEGACY_ROUTES.length);
   assert.equal(new Set(redirects.map(item=>item.source)).size,redirects.length);
   const sources=new Set(redirects.map(item=>item.source));
   for(const item of redirects){

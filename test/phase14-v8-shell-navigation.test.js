@@ -49,8 +49,10 @@ test('14-2 mobile More is a controlled accessible bottom sheet',()=>{
 
 test('14-2 derives the connection label from actual channel readiness',()=>{
   const client=read('app/dashboard-client.js');
-  assert.match(client,/initialData\.channelConnections\?\.channels\|\|\[\]/);
-  assert.match(client,/\['READ_READY','WRITE_READY'\]\.includes\(item\.status\)/);
+  const snapshot=read('lib/navigation/operation-snapshot.js');
+  assert.match(client,/navigationSnapshot\?\.connection\?\.label/);
+  assert.match(snapshot,/READY_CONNECTION_STATUSES=new Set\(\['READ_READY','WRITE_READY'\]\)/);
+  assert.match(snapshot,/if\(data\.loadedView!==\'main\'\)return null/);
   assert.match(client,/connectionLabel=\{connectionLabel\}/);
   assert.doesNotMatch(client,/Cafe24 연결됨/);
 });

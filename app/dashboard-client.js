@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import freshnessModule from '../lib/ui/freshness.js';
 import { getHubHelp } from '../lib/ui/help-content.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
+import navigationOperationSnapshotModule from '../lib/navigation/operation-snapshot.js';
 import { useStoredState } from './use-hub-preference.js';
 import { HarinBreadcrumbBar, HarinFocusedWorkspaceNav, HarinMobileNavigation, HarinSidebar, HarinTopbar } from './_shell/harin-app-shell.js';
 import { HarinRouteProgress } from './_design-system/harin-ui.js';
@@ -79,6 +80,7 @@ const platformLabel = { all: '전체', naver: '네이버', coupang: '쿠팡', ca
 const channelScopedViews = new Set(['insight','keyword','product']);
 const financialContextViews = new Set(['insight','keyword','product']);
 const embeddedHelpViews = new Set(['orders','cs','inventory','settlement','collection']);
+const NAVIGATION_SNAPSHOT_KEY='harin-hub:navigation-operation-snapshot';
 async function coupangFixedIpResult(response) {
   const initial = await response.json();
   if (response.status !== 202 || !initial.request?.id) return initial;
@@ -221,7 +223,21 @@ export default function Dashboard({ initialData, initialState }) {
   const [pendingWorkspace,setPendingWorkspace]=useState(null);
   const prefetchedViews=useRef(new Set([normalizedInitial.view]));
   const [fontScale,setFontScale]=useStoredState('font-scale','large',['large','xlarge']);
+  const incomingNavigationSnapshot=useMemo(
+    ()=>navigationOperationSnapshotModule.buildNavigationOperationSnapshot(initialData),
+    [initialData.loadedView,initialData.generatedAt,initialData.unifiedOrders,initialData.customerService,initialData.unifiedInventory,initialData.alerts,initialData.channelConnections]
+  );
+  const [navigationSnapshot,setNavigationSnapshot]=useState(incomingNavigationSnapshot);
   useEffect(()=>{document.documentElement.dataset.fontScale=fontScale;},[fontScale]);
+  useEffect(()=>{
+    let stored=null;
+    try{stored=navigationOperationSnapshotModule.parseNavigationOperationSnapshot(window.localStorage.getItem(NAVIGATION_SNAPSHOT_KEY));}catch{}
+    const selected=navigationOperationSnapshotModule.selectNavigationOperationSnapshot(incomingNavigationSnapshot,stored);
+    setNavigationSnapshot(current=>navigationOperationSnapshotModule.selectNavigationOperationSnapshot(selected,current));
+    if(incomingNavigationSnapshot){
+      try{window.localStorage.setItem(NAVIGATION_SNAPSHOT_KEY,JSON.stringify(incomingNavigationSnapshot));}catch{}
+    }
+  },[incomingNavigationSnapshot]);
   useEffect(()=>{
     const next=hubRoutesModule.normalizeHubState(initialState);
     window.__HARIN_CLIENT_HEALTH__?.finishRoute?.(hubRoutesModule.buildHubHref(next));
@@ -253,17 +269,13 @@ export default function Dashboard({ initialData, initialState }) {
     finally { setSyncing(false); }
   }
 
-  const operatingInventory=Array.isArray(initialData.coupang?.rgInventory)?initialData.coupang.rgInventory.filter(item=>num(item.sales_last_30_days)>0&&num(item.total_orderable_quantity)>0):[];
-  const inventoryActionCount=initialData.unifiedInventory?.summary?.action_required??operatingInventory.filter(item=>['CRITICAL','LOW'].includes(String(item.stock_status||'').toUpperCase())).length;
-  const operationBadges={orders:num(initialData.unifiedOrders?.summary?.actionRequired),cs:num(initialData.coupang?.unansweredInquiries),inventory:num(inventoryActionCount),notifications:initialData.alerts.length||0};
+  const operationBadges=navigationSnapshot?.badges||{};
   const nav = hubRoutesModule.HUB_NAV.map(item=>({...item,badge:operationBadges[item.id]||0}));
   const navGroups=hubRoutesModule.HUB_NAV_GROUPS.map(group=>{const items=group.items.map(id=>nav.find(item=>item.id===id)).filter(Boolean);return {...group,items,actionCount:items.reduce((sum,item)=>sum+num(item.badge),0)};});
   const navContext=hubRoutesModule.navigationContext(view,platform);
   const latestRefreshAt=syncs.find(item=>item.finished_at||item.started_at)?.finished_at||syncs.find(item=>item.finished_at||item.started_at)?.started_at||null;
-  const connectionChannels=initialData.channelConnections?.channels||[];
-  const readyChannelCount=connectionChannels.filter(item=>['READ_READY','WRITE_READY'].includes(item.status)).length;
-  const connectionLabel=readyChannelCount===3?'3개 채널 연결':readyChannelCount>0?`${readyChannelCount}/3 채널 연결`:'연결 상태 확인';
-  const connectionTone=readyChannelCount===3?'ready':'check';
+  const connectionLabel=navigationSnapshot?.connection?.label||'연결 상태 확인';
+  const connectionTone=navigationSnapshot?.connection?.tone||'check';
   const selectedHealth=platform==='all'?null:initialData.dataHealth?.channels?.find(item=>item.platform===platform.toUpperCase());
   const channelUnavailable=Boolean(selectedHealth?.failedDatasets?.length);
   const viewIsLoading=Boolean(pendingView||pendingWorkspace||routePending||(initialData.loadedView&&view!==initialData.loadedView)||(initialData.loadedWorkspace!==undefined&&workspace!==initialData.loadedWorkspace));

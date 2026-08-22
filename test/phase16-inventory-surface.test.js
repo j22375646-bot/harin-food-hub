@@ -16,8 +16,9 @@ test('16-4 renders inventory from Coupang Rocket Growth only',()=>{
   assert.doesNotMatch(component,/center\.items/);
   assert.doesNotMatch(component,/inventoryOpsChannels/);
   assert.match(dashboard,/UnifiedInventoryOperationsCenter coupang=\{initialData\.coupang\}/);
-  assert.match(dashboard,/const inventoryActionCount=/);
-  assert.match(dashboard,/inventory:num\(inventoryActionCount\)/);
+  assert.match(dashboard,/buildNavigationOperationSnapshot\(initialData\)/);
+  const snapshot=read('lib/navigation/operation-snapshot.js');
+  assert.match(snapshot,/inventory:countOrNull\(data\.unifiedInventory\?\.summary\?\.action_required\)/);
 });
 
 test('16-4 provides active inventory, risk, replenishment, and collection workflows',()=>{
