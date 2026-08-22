@@ -77,6 +77,27 @@ test('처리 기한이 지난 변경 작업은 실행하지 않고 실패 처리
   assert.equal(calls.find(([method])=>method==='lt')[1],'expires_at');
 });
 
+test('우체국 일시 통신 오류는 자동 재시도하고 취소된 주문 상세는 정상 종료한다', () => {
+  const now=Date.parse('2026-08-23T00:00:00Z');
+  const networkError=Object.assign(new Error('우체국 OpenAPI 통신 실패(ECONNRESET)'),{
+    code:'EPOST_NETWORK_ERROR',retryable:true
+  });
+  const retry=worker.operationFailureDisposition({
+    operation_type:'EPOST_LIVE_ISSUE',attempt_count:2
+  },networkError,now);
+  assert.equal(retry.status,'PENDING');
+  assert.equal(retry.retry,true);
+  assert.equal(retry.next_attempt_at,'2026-08-23T00:01:00.000Z');
+  assert.equal(retry.dead_lettered_at,null);
+
+  const cancelled=worker.operationFailureDisposition({
+    operation_type:'ORDER_DETAIL',attempt_count:2
+  },new Error('Coupang API 400: The order has been cancelled or returned.'),now);
+  assert.equal(cancelled.status,'CANCELLED');
+  assert.equal(cancelled.terminalExpected,true);
+  assert.equal(cancelled.dead_lettered_at,null);
+});
+
 test('동시 등록 충돌 시 이미 생성된 진행 중 작업을 반환한다', async () => {
   const previous=process.env.SUPABASE_SERVICE_ROLE_KEY;
   process.env.SUPABASE_SERVICE_ROLE_KEY=secret;

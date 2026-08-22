@@ -62,6 +62,37 @@ function safeMessage(error) {
   );
 }
 
+function operationFailureDisposition(request, error, now = Date.now()) {
+  const message = safeMessage(error);
+  const executedAt = new Date(now).toISOString();
+  const attemptCount = Number(request?.attempt_count || 0);
+  const cancelledOrderDetail = request?.operation_type === "ORDER_DETAIL"
+    && /order has been cance(?:lled|led) or returned/i.test(message);
+  if (cancelledOrderDetail) {
+    return {
+      status:"CANCELLED", error_message:message, executed_at:executedAt,
+      dead_lettered_at:null, next_attempt_at:null,
+      terminalExpected:true, retry:false
+    };
+  }
+  const retryableEpost = request?.operation_type === "EPOST_LIVE_ISSUE"
+    && error?.retryable === true
+    && attemptCount < 5;
+  if (retryableEpost) {
+    return {
+      status:"PENDING", error_message:message, started_at:null,
+      executed_at:null, dead_lettered_at:null, collector:null,
+      next_attempt_at:new Date(now + 60 * 1000).toISOString(),
+      terminalExpected:false, retry:true
+    };
+  }
+  return {
+    status:"FAILED", error_message:message, executed_at:executedAt,
+    dead_lettered_at:executedAt, next_attempt_at:null,
+    terminalExpected:false, retry:false
+  };
+}
+
 function log(message) {
   const line = `${new Date().toISOString()} ${message}`;
   fs.appendFileSync(logPath, `${line}\n`, "utf8");
@@ -416,18 +447,23 @@ async function processOperationRequest(db, request) {
     log(`OPERATION_SUCCESS ${request.operation_type} ${request.id}`);
   } catch (error) {
     const message = safeMessage(error);
+    const disposition = operationFailureDisposition(request, error);
+    const { retry, terminalExpected, ...update } = disposition;
     await db
       .from("coupang_operation_requests")
-      .update({
-        status: "FAILED",
-        error_message: message,
-        executed_at: new Date().toISOString(),
-        dead_lettered_at: new Date().toISOString(),
-      })
+      .update(update)
       .eq("id", request.id)
       .eq("status", "RUNNING");
-    log(`OPERATION_FAILED ${request.operation_type} ${request.id} ${message}`);
-    await writeHeartbeat(db, { status: "ERROR", error: message });
+    if (retry) {
+      log(`OPERATION_RETRY ${request.operation_type} ${request.id} ${message}`);
+      await writeHeartbeat(db, { status: "ONLINE", error: message });
+    } else if (terminalExpected) {
+      log(`OPERATION_CANCELLED ${request.operation_type} ${request.id} ${message}`);
+      await writeHeartbeat(db, { status: "ONLINE" });
+    } else {
+      log(`OPERATION_FAILED ${request.operation_type} ${request.id} ${message}`);
+      await writeHeartbeat(db, { status: "ERROR", error: message });
+    }
   }
 }
 
@@ -537,6 +573,7 @@ module.exports = {
   claimNextOperation,
   dispatchOperation,
   expirePendingOperations,
+  operationFailureDisposition,
   processRequest,
   processOperationRequest,
   processPending,

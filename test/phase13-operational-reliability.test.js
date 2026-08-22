@@ -40,6 +40,15 @@ test('우체국 접수 전 조회결과 없음은 재처리할 실패 작업에�
   assert.equal(center.dead_letters[0].id,'real-failure');
 });
 
+test('취소·반품 완료된 쿠팡 주문 상세 재조회는 장애함에서 제외한다',()=>{
+  const center=reliability.buildReliabilityCenter({operationRequests:[
+    {id:'cancelled-order',status:'FAILED',operation_type:'ORDER_DETAIL',error_message:'Coupang API 400: The order has been cancelled or returned.'},
+    {id:'real-failure',status:'FAILED',operation_type:'ORDER_DETAIL',error_message:'Coupang API 500: upstream timeout'}
+  ]});
+  assert.equal(center.dead_letter_count,1);
+  assert.equal(center.dead_letters[0].id,'real-failure');
+});
+
 test('13-8 keeps cost calls guarded and production test sends disabled',()=>{
   const migration=read('supabase/migrations/20260815003504_phase13_operational_reliability.sql');
   const watchdogMigration=read('supabase/migrations/20260815003600_schedule_worker_watchdog.sql');

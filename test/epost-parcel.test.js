@@ -34,6 +34,22 @@ test('builds a test-only parcel request and validates required delivery fields',
   assert.equal(parcel.validateTestShipment({ ...input, receiver:{ ...input.receiver, postCode:'' } }).ok, false);
 });
 
+test('uses the official contract-parcel HTTP endpoint and classifies transport failures for retry', async () => {
+  assert.equal(client.BASE_URL, 'http://ship.epost.go.kr');
+  const transportError = Object.assign(new Error('fetch failed'), {
+    cause:Object.assign(new Error('socket reset'), { code:'ECONNRESET' })
+  });
+  await assert.rejects(
+    () => client.requestXml('api.GetResInfo.jparcel', 'custNo=1234567890', {
+      env,
+      fetchImpl:async () => { throw transportError; }
+    }),
+    error => error.code === 'EPOST_NETWORK_ERROR'
+      && error.retryable === true
+      && /ECONNRESET/.test(error.message)
+  );
+});
+
 test('checks idempotency then issues only testYn=Y through encrypted POST data', async () => {
   const calls=[];
   const fetchImpl=async (url, options) => {
