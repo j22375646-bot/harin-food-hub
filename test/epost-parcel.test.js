@@ -50,10 +50,10 @@ test('uses the official contract-parcel HTTP endpoint and classifies transport f
   );
 });
 
-test('checks idempotency then issues only testYn=Y through encrypted POST data', async () => {
+test('checks idempotency then issues only testYn=Y through the documented encrypted GET query', async () => {
   const calls=[];
   const fetchImpl=async (url, options) => {
-    calls.push({url,options,body:String(options.body)});
+    calls.push({url:String(url),options});
     if(calls.length===1)return response('<error><error_code>ERR-225</error_code><message>없음</message></error>');
     return response('<xsync><reqNo>REQ-1</reqNo><resNo>RES-1</resNo><regiNo>TESTREGINOAPI</regiNo><orderNo>TEST-HR-C24-ABCDEF12</orderNo></xsync>');
   };
@@ -61,12 +61,25 @@ test('checks idempotency then issues only testYn=Y through encrypted POST data',
   assert.equal(result.trackingNo,'TESTREGINOAPI');
   assert.equal(result.testOnly,true);
   assert.equal(calls.length,2);
-  assert.match(calls[0].url,/api\.GetResInfo\.jparcel$/);
-  assert.match(calls[1].url,/api\.InsertOrder\.jparcel$/);
-  assert.equal(calls.every(call=>call.options.method==='POST'),true);
-  assert.equal(calls.every(call=>!call.url.includes(env.EPOST_API_KEY)),true);
-  assert.equal(calls[1].body.includes('홍길동'),false);
-  assert.match(calls[1].body,/regData=/);
+  assert.match(calls[0].url,/api\.GetResInfo\.jparcel\?/);
+  assert.match(calls[1].url,/api\.InsertOrder\.jparcel\?/);
+  assert.equal(calls.every(call=>call.options.method==='GET'),true);
+  assert.equal(calls.every(call=>call.options.body===undefined),true);
+  assert.equal(new URL(calls[1].url).searchParams.get('key'),env.EPOST_API_KEY);
+  assert.equal(calls[1].url.includes('홍길동'),false);
+  assert.ok(new URL(calls[1].url).searchParams.get('regData'));
+});
+
+test('keeps Korea Post maintenance responses pending for an automatic retry', async () => {
+  await assert.rejects(
+    () => client.requestXml('api.GetResInfo.jparcel', 'custNo=1234567890', {
+      env,
+      fetchImpl:async () => response('<html><title>작업 안내</title><p>전산시스템 작업 안내</p><p>서비스가 일시 중단되오니 양해 부탁드립니다.</p></html>',404)
+    }),
+    error => error.code === 'EPOST_MAINTENANCE'
+      && error.retryable === true
+      && /점검 중/.test(error.message)
+  );
 });
 
 test('reuses an existing test result without a duplicate InsertOrder call', async () => {
@@ -75,7 +88,7 @@ test('reuses an existing test result without a duplicate InsertOrder call', asyn
   const result=await client.issueTestShipment(input,{env,fetchImpl});
   assert.equal(result.reused,true);
   assert.equal(calls.length,1);
-  assert.match(calls[0].url,/api\.GetResInfo\.jparcel$/);
+  assert.match(calls[0].url,/api\.GetResInfo\.jparcel\?/);
 });
 
 test('discovers only safe office identifiers without returning address or contact data', async () => {

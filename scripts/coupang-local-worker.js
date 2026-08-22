@@ -75,14 +75,15 @@ function operationFailureDisposition(request, error, now = Date.now()) {
       terminalExpected:true, retry:false
     };
   }
+  const epostMaintenance = error?.code === "EPOST_MAINTENANCE";
   const retryableEpost = request?.operation_type === "EPOST_LIVE_ISSUE"
     && error?.retryable === true
-    && attemptCount < 5;
+    && attemptCount < (epostMaintenance ? 72 : 5);
   if (retryableEpost) {
     return {
       status:"PENDING", error_message:message, started_at:null,
       executed_at:null, dead_lettered_at:null, collector:null,
-      next_attempt_at:new Date(now + 60 * 1000).toISOString(),
+      next_attempt_at:new Date(now + (epostMaintenance ? 10 : 1) * 60 * 1000).toISOString(),
       terminalExpected:false, retry:true
     };
   }

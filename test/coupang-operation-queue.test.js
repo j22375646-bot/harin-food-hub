@@ -90,6 +90,16 @@ test('우체국 일시 통신 오류는 자동 재시도하고 취소된 주문 
   assert.equal(retry.next_attempt_at,'2026-08-23T00:01:00.000Z');
   assert.equal(retry.dead_lettered_at,null);
 
+  const maintenance=worker.operationFailureDisposition({
+    operation_type:'EPOST_LIVE_ISSUE',attempt_count:20
+  },Object.assign(new Error('우체국 전산시스템 점검 중'),{
+    code:'EPOST_MAINTENANCE',retryable:true
+  }),now);
+  assert.equal(maintenance.status,'PENDING');
+  assert.equal(maintenance.retry,true);
+  assert.equal(maintenance.next_attempt_at,'2026-08-23T00:10:00.000Z');
+  assert.equal(maintenance.dead_lettered_at,null);
+
   const cancelled=worker.operationFailureDisposition({
     operation_type:'ORDER_DETAIL',attempt_count:2
   },new Error('Coupang API 400: The order has been cancelled or returned.'),now);
