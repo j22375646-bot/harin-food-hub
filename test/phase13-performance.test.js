@@ -32,8 +32,8 @@ test('13-1 limits heavy route payloads and long client lists',()=>{
   assert.match(server,/needsPacing/);
   assert.match(read('app/unified-product-operations-center.js'),/filtered\.slice\(0,visibleCount\)/);
   assert.match(read('app/unified-inventory-operations-center.js'),/filtered\.slice\(0,visibleCount\)/);
-  assert.match(read('app/dashboard-client.js'),/open\?<CatalogCards items=\{items\}\/\>:null/);
-  assert.match(read('app/dashboard-client.js'),/items\.slice\(0,visibleCount\)/);
+  assert.match(read('app/_products/harin-product-workbench.js'),/open\?<CatalogCards items=\{items\}\/\>:null/);
+  assert.match(read('app/_products/harin-product-workbench.js'),/items\.slice\(0,visibleCount\)/);
 });
 
 test('13-1 isolates route errors and disables live test APIs in production',()=>{

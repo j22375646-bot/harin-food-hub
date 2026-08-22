@@ -41,13 +41,12 @@ test('23-4 calculates visible progress without treating unknown costs as zero',(
 });
 
 test('23-4 uses a paged spreadsheet grid and one-confirmation bulk save',()=>{
-  const dashboard=read('app/dashboard-client.js');
-  const start=dashboard.indexOf('function CostManager');
-  const end=dashboard.indexOf('function SyncTable',start);
-  const manager=dashboard.slice(start,end);
-  assert.match(dashboard,/function ProductCostQuickGrid/);
-  assert.match(dashboard,/className="productCostQuickGrid"/);
-  assert.match(dashboard,/작성한 \$\{dirtyReadyIds\.length\}개 저장/);
+  const productWorkbench=read('app/_products/harin-product-workbench.js');
+  const start=productWorkbench.indexOf('function CostManager');
+  const manager=productWorkbench.slice(start);
+  assert.match(productWorkbench,/function ProductCostQuickGrid/);
+  assert.match(productWorkbench,/className="productCostQuickGrid"/);
+  assert.match(productWorkbench,/작성한 \$\{dirtyReadyIds\.length\}개 저장/);
   assert.match(manager,/saveCostRows/);
   assert.match(manager,/window\.confirm\(`작성한 상품 원가 \$\{products\.length\}개를 한 번에 저장할까요/);
   assert.doesNotMatch(manager,/masterProducts\.slice\(0,20\)/);

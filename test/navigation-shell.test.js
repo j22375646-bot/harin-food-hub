@@ -18,6 +18,7 @@ const page=fs.readFileSync(path.join(__dirname,'..','app','page.js'),'utf8');
 const preferences=fs.readFileSync(path.join(__dirname,'..','app','use-hub-preference.js'),'utf8');
 const collectionCenter=fs.readFileSync(path.join(__dirname,'..','app','unified-collection-operations-center.js'),'utf8');
 const coupangOperationDetails=fs.readFileSync(path.join(__dirname,'..','app','_operations','coupang-operation-details.js'),'utf8');
+const productWorkbench=fs.readFileSync(path.join(__dirname,'..','app','_products','harin-product-workbench.js'),'utf8');
 
 test('desktop navigation includes grouped expansion, menu search, badges, and breadcrumbs', () => {
   assert.match(shell,/function HarinSidebar/);
@@ -59,7 +60,7 @@ test('phase 10-6 scopes database tables per page and shows useful loading feedba
   assert.match(page,/loadedView:view/);
   assert.match(client,/viewIsLoading/);
   assert.match(client,/financialContextViews\.has\(view\)&&<FinancialTrustBanner/);
-  assert.match(client,/dynamic\(\(\)=>import\('\.\/product-growth-center\.js'\),\{loading:LazyWorkbenchFallback\}\)/);
+  assert.match(productWorkbench,/dynamic\(\(\)=>import\('\.\.\/product-growth-center\.js'\),\{loading:ProductWorkbenchFallback\}\)/);
   assert.equal(fs.existsSync(path.join(__dirname,'..','app','loading.js')),false);
   assert.match(client,/<HarinRouteProgress label=/);
 });
@@ -102,7 +103,7 @@ test('phase 15-1 keeps prior operations while removing repeated development chro
   assert.match(client,/function DataStatusPanel/);
   assert.match(client,/pageDataStatus/);
   assert.match(client,/embeddedHelpViews/);
-  assert.match(client,/UnifiedProductOperationsCenter/);
+  assert.match(productWorkbench,/UnifiedProductOperationsCenter/);
   assert.match(client,/UnifiedInventoryOperationsCenter/);
   assert.match(client,/UnifiedSettlementOperationsCenter/);
   assert.match(client,/UnifiedCollectionOperationsCenter/);

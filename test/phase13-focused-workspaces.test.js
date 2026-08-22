@@ -19,18 +19,19 @@ test('13-6 insight, keyword, and product workspaces are real route pages',()=>{
 
 test('13-6 dashboard renders only the selected focused workspace',()=>{
   const client=read('app/dashboard-client.js');
+  const productWorkbench=read('app/_products/harin-product-workbench.js');
   const shell=read('app/_shell/harin-app-shell.js');
   assert.match(shell,/function HarinFocusedWorkspaceNav/);
   assert.match(client,/workspace==='overview'/);
   assert.match(client,/workspace==='search-terms'/);
   assert.match(client,/function KeywordView\(\{naver,workspace='search-terms'\}\)/);
   assert.match(client,/workspace==='diagnosis'/);
-  for(const workspace of ['catalog','mappings','costs','profit','offers','ad-targets'])assert.match(client,new RegExp(`workspace==='${workspace}'`));
+  for(const workspace of ['catalog','mappings','costs','profit','offers','ad-targets'])assert.match(productWorkbench,new RegExp(`workspace==='${workspace}'`));
   assert.match(shell,/메뉴·업무 찾기/);
 });
 
 test('13-6 product editing remains sellable-only and cross-workspace actions use routes',()=>{
-  const client=read('app/dashboard-client.js');
+  const client=read('app/_products/harin-product-workbench.js');
   const operations=read('app/unified-product-operations-center.js');
   assert.match(client,/source\?\.is_sellable===true/);
   assert.match(client,/masterProducts=\{sellableMasterProducts\}/);

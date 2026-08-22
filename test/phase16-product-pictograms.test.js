@@ -10,15 +10,15 @@ const read = file => fs.readFileSync(path.join(root, file), 'utf8');
 
 test('16-5 상품 연결은 커머스 실상품만 노출하고 네이버 광고그룹을 제외한다', () => {
   const service = read('lib/products/mapping-service.js');
-  const dashboard = read('app/dashboard-client.js');
+  const productWorkbench = read('app/_products/harin-product-workbench.js');
   assert.match(service, /const PLATFORMS = new Set\(\['NAVER','COUPANG'\]\)/);
   assert.match(service, /NAVER_COMMERCE_PRODUCT/);
   assert.doesNotMatch(service, /source_type:'NAVER_ADGROUP'/);
   assert.match(service, /네이버 광고그룹은 제외되며 스마트스토어 실상품만 연결/);
-  assert.match(dashboard, /mappingPlatformTabs/);
-  assert.match(dashboard, /네이버 스마트스토어/);
-  assert.match(dashboard, /네이버 광고그룹 제외/);
-  assert.match(dashboard, /채널별 탭에서 따로 연결/);
+  assert.match(productWorkbench, /mappingPlatformTabs/);
+  assert.match(productWorkbench, /네이버 스마트스토어/);
+  assert.match(productWorkbench, /네이버 광고그룹 제외/);
+  assert.match(productWorkbench, /채널별 탭에서 따로 연결/);
 });
 
 test('16-5 상품 목록과 성장센터는 의미 기반 팩토그램을 사용한다', () => {

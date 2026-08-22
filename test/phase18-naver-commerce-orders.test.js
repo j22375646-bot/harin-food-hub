@@ -60,9 +60,9 @@ test('18-4 route is owner protected and the market page keeps page AI separate',
   const mapping=read('lib/products/mapping-service.js');
   assert.match(mapping,/NAVER_COMMERCE_PRODUCT/);
   assert.match(mapping,/requestedPlatform/);
-  const dashboard=read('app/dashboard-client.js');
-  assert.match(dashboard,/mappingPlatformTabs/);
-  assert.match(dashboard,/네이버 광고그룹은 계속 제외/);
+  const productWorkbench=read('app/_products/harin-product-workbench.js');
+  assert.match(productWorkbench,/mappingPlatformTabs/);
+  assert.match(productWorkbench,/네이버 광고그룹은 계속 제외/);
 });
 
 test('18-4 has V8 pastel flow, table and mobile touch sizing',()=>{

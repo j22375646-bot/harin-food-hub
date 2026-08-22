@@ -40,10 +40,10 @@ test('23-3 keeps the order center mounted after shipment registration refresh',(
 });
 
 test('23-3 reloads product mapping data inside the workbench instead of the page',()=>{
-  const dashboard=read('app/dashboard-client.js');
-  const start=dashboard.indexOf('function ProductMappingWorkbench');
-  const end=dashboard.indexOf('const shippingPlatforms',start);
-  const workbench=dashboard.slice(start,end);
+  const productModule=read('app/_products/harin-product-workbench.js');
+  const start=productModule.indexOf('function ProductMappingWorkbench');
+  const end=productModule.indexOf('const shippingPlatforms',start);
+  const workbench=productModule.slice(start,end);
   assert.match(workbench,/const \[currentMapping,setCurrentMapping\]=useState\(mapping\)/);
   assert.match(workbench,/fetch\('\/api\/products\/mappings',\{cache:'no-store'\}\)/);
   assert.match(workbench,/setCurrentMapping\(\{summary:refreshed\.summary,candidates:refreshed\.candidates,links:refreshed\.links\}\)/);

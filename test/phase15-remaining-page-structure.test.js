@@ -37,7 +37,7 @@ test('15-7 separates current notifications from delivery settings and completed 
 
 test('15-7 keeps detailed channel and source views collapsed while 16-4 removes the duplicate inventory drawer',()=>{
   const dashboard=read('app/dashboard-client.js');
-  assert.match(dashboard,/className="productSourceCatalogDisclosure"/);
+  assert.match(read('app/_products/harin-product-workbench.js'),/className="productSourceCatalogDisclosure"/);
   assert.match(read('app/unified-orders-center.js'),/<details className="legacyCoupangOrders">/);
   assert.doesNotMatch(read('app/unified-inventory-operations-center.js'),/inventoryOpsCoupangDetail/);
   assert.match(dashboard,/UnifiedInventoryOperationsCenter coupang=\{initialData\.coupang\}/);

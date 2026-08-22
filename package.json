@@ -1,9 +1,9 @@
 {
   "name": "harin-cafe24-sync",
-  "version": "1.38.19",
+  "version": "1.38.20",
   "private": true,
   "engines": {
-    "node": "22.x"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "next dev",
