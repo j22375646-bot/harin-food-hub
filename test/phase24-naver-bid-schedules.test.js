@@ -12,7 +12,7 @@ const runner=require('../lib/naver/bid-schedule-runner.js');
 function schedule(overrides={}){
   return {
     platform:'NAVER',ncc_adgroup_id:'grp-1',mode:'OBSERVE',weekdays:[1,2,3,4,5],
-    start_minute:540,end_minute:1080,interval_minutes:30,max_changes_per_run:3,
+    start_minute:540,end_minute:1080,interval_minutes:60,max_changes_per_run:3,
     daily_change_limit:6,allow_increase:false,...overrides
   };
 }
@@ -200,18 +200,14 @@ test('24-4 schedule API is owner-only and the cron endpoint rejects unauthentica
   assert.equal(cronResponse.status,401);
 });
 
-test('24-4 uses the existing AWS systemd worker for 30 minute checks on a Vercel Hobby project',()=>{
+test('24-4 reuses the already running AWS hourly order trigger on a Vercel Hobby project',()=>{
   const root=path.join(__dirname,'..');
   const vercel=JSON.parse(fs.readFileSync(path.join(root,'vercel.json'),'utf8'));
-  const timer=fs.readFileSync(path.join(root,'ops','systemd','harin-naver-bid-automation.timer'),'utf8');
-  const service=fs.readFileSync(path.join(root,'ops','systemd','harin-naver-bid-automation.service'),'utf8');
-  const trigger=fs.readFileSync(path.join(root,'scripts','naver-bid-automation-trigger.js'),'utf8');
-  const cron=fs.readFileSync(path.join(root,'app','api','cron','naver-bid-automation','route.js'),'utf8');
+  const hourly=fs.readFileSync(path.join(root,'app','api','cron','hourly-orders','route.js'),'utf8');
   assert.equal(vercel.crons.some(item=>item.path==='/api/cron/naver-bid-automation'),false);
-  assert.match(timer,/OnCalendar=\*:0\/30/);
-  assert.match(service,/EnvironmentFile=\/etc\/harin-coupang-worker\.env/);
-  assert.match(trigger,/x-harin-naver-bid-token/);
-  assert.match(cron,/timingSafeEqual/);
+  assert.match(hourly,/runDueNaverBidSchedules\(\{db\}\)/);
+  assert.match(hourly,/NAVER_BID_SCHEDULES/);
+  assert.match(hourly,/maxDuration = 300/);
 });
 
 test('24-4 renders the schedule control only in the Naver campaign and adgroup workspace',()=>{

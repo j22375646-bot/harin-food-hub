@@ -7,11 +7,12 @@ import unifiedOrdersModule from "../../../../lib/orders/unified-orders.js";
 import trackingQueue from "../../../../lib/shipping/tracking-queue.js";
 import executionGuard from "../../../../lib/infrastructure/execution-route-guard.js";
 import scheduleKeys from "../../../../lib/automation/kst-schedule.js";
+import bidScheduleRunner from "../../../../lib/naver/bid-schedule-runner.js";
 import crypto from "node:crypto";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 function authorized(request) {
   const secret = String(process.env.CRON_SECRET || "").trim();
@@ -58,7 +59,7 @@ export async function GET(request) {
       (latestNaver.data?.job_type === "COMMERCE_SYNC" &&
         ["SUCCESS", "PARTIAL"].includes(latestNaver.data?.status) &&
         latestNaver.data?.metadata?.fixedIp === true));
-  const [cafe24, coupang, coupangCs, naverCommerce] = await Promise.allSettled([
+  const [cafe24, coupang, coupangCs, naverCommerce, naverBidSchedules] = await Promise.allSettled([
     cafe24Sync.syncOrdersRealtime(cafe24Config.getConfig(), { days: 31 }),
     queueModule.queueRequest(db, "ORDER_REALTIME", {
       idempotencyKey: `orders-hourly:${hourKey}`,
@@ -75,6 +76,7 @@ export async function GET(request) {
           idempotencyKey: `commerce-hourly:naver:${hourKey}`,
         })
       : Promise.resolve({ skipped: true, status: "SETUP_REQUIRED" }),
+    bidScheduleRunner.runDueNaverBidSchedules({db}),
   ]);
   const tracking = await Promise.resolve()
     .then(async () => {
@@ -124,6 +126,21 @@ export async function GET(request) {
           platform: "NAVER_COMMERCE",
           ok: false,
           error: naverCommerce.reason?.message || "네이버 커머스 수집 요청 실패",
+        },
+    naverBidSchedules.status === "fulfilled"
+      ? {
+          platform: "NAVER_BID_SCHEDULES",
+          ok: naverBidSchedules.value.runs.every((item) =>
+            !["FAILED", "PARTIAL"].includes(item.status),
+          ),
+          data: naverBidSchedules.value,
+        }
+      : {
+          platform: "NAVER_BID_SCHEDULES",
+          ok: false,
+          error:
+            naverBidSchedules.reason?.message ||
+            "네이버 입찰 스케줄 확인 실패",
         },
     tracking.status === "fulfilled"
       ? {

@@ -61,7 +61,7 @@ export default function KeywordBidSchedulePanel({adgroupId,adgroupName='',rules=
       <div className="bidScheduleFields">
         <label><span>시작</span><input type="time" step="1800" value={time(draft.start_minute)} onChange={event=>update('start_minute',minute(event.target.value))}/></label>
         <label><span>종료</span><input type="time" step="1800" value={time(draft.end_minute)} onChange={event=>update('end_minute',minute(event.target.value))}/></label>
-        <label><span>확인 주기</span><select value={draft.interval_minutes} onChange={event=>update('interval_minutes',Number(event.target.value))}>{[30,60,120,180].map(value=><option value={value} key={value}>{value<60?`${value}분`:`${value/60}시간`}</option>)}</select></label>
+        <label><span>확인 주기</span><select value={draft.interval_minutes} onChange={event=>update('interval_minutes',Number(event.target.value))}>{[60,120,180].map(value=><option value={value} key={value}>{value/60}시간</option>)}</select></label>
         <label><span>회당 한도</span><select value={draft.max_changes_per_run} onChange={event=>update('max_changes_per_run',Number(event.target.value))}>{[1,2,3,5,10].map(value=><option value={value} key={value}>{value}개</option>)}</select></label>
         <label><span>하루 한도</span><select value={draft.daily_change_limit} onChange={event=>update('daily_change_limit',Number(event.target.value))}>{[1,3,6,10,20,30].map(value=><option value={value} key={value}>{value}개</option>)}</select></label>
       </div>
