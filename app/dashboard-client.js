@@ -33,6 +33,7 @@ const UnifiedSettlementOperationsCenter=dynamic(()=>import('./unified-settlement
 const UnifiedCollectionOperationsCenter=dynamic(()=>import('./unified-collection-operations-center.js'),{loading:LazyWorkbenchFallback});
 const Phase14MainCommandCenter=dynamic(()=>import('./_main/harin-main-command-center.js'),{loading:LazyWorkbenchFallback});
 const HarinAnalysisWorkbench=dynamic(()=>import('./_analysis/harin-analysis-workbench.js'),{loading:LazyWorkbenchFallback});
+const KeywordOwnerShell=dynamic(()=>import('./_analysis/keyword-owner-shell.js'),{loading:LazyWorkbenchFallback});
 const HarinKeywordDetailWorkbench=dynamic(()=>import('./_analysis/harin-keyword-detail-workbench.js'),{loading:LazyWorkbenchFallback});
 const CoupangSalesCenter=dynamic(()=>import('./_analysis/coupang-sales-center.js'),{loading:LazyWorkbenchFallback});
 const HarinExecutionWorkbench=dynamic(()=>import('./_execution/harin-execution-workbench.js'),{loading:LazyWorkbenchFallback});
@@ -303,11 +304,12 @@ export default function Dashboard({ initialData, initialState }) {
     <main className={`hubMain${viewIsLoading?' routePending':''}`} aria-busy={viewIsLoading?'true':'false'} data-loader-profile={initialData.loaderPerformance?.profile||undefined} data-loader-ms={initialData.loaderPerformance?.duration_ms??undefined} data-loader-target={initialData.loaderPerformance?.target_ms??undefined} data-loader-within-target={initialData.loaderPerformance?.within_target===undefined?undefined:String(initialData.loaderPerformance.within_target)} data-loader-remote-queries={initialData.loaderPerformance?.remote_query_count??undefined} data-loader-slowest={(initialData.loaderPerformance?.slow_queries||[]).map(item=>`${item.table}:${item.duration_ms}`).join(',')||undefined}>
       {viewIsLoading?<HarinRouteProgress label={nav.find(item=>item.id===(pendingView||view))?.label}/>:null}
       <HarinBreadcrumbBar context={navContext}/>
-      {channelScopedViews.has(view)&&(view!=='product'||workspace==='catalog')&&<section className="platformSwitch" aria-label="플랫폼 선택">
-        {(view==='keyword'?[['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡']]:[['all','allDot','전체'],['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡'],['cafe24','cafeDot','Cafe24']]).map(([id,dot,label])=><button key={id} className={platform===id?'selected':''} onClick={()=>selectPlatform(id)}><i className={dot}/>{label}</button>)}
-        <span className="periodFilter">{view==='keyword'?'플랫폼별 분리 운영 · 최근 7일':'최근 7일 기준'}</span>
+      {view==='keyword'?<KeywordOwnerShell platform={platform} workspace={workspace} data={initialData}/>:null}
+      {channelScopedViews.has(view)&&view!=='keyword'&&(view!=='product'||workspace==='catalog')&&<section className="platformSwitch" aria-label="플랫폼 선택">
+        {[['all','allDot','전체'],['naver','naverDot','네이버'],['coupang','coupangDot','쿠팡'],['cafe24','cafeDot','Cafe24']].map(([id,dot,label])=><button key={id} className={platform===id?'selected':''} onClick={()=>selectPlatform(id)}><i className={dot}/>{label}</button>)}
+        <span className="periodFilter">최근 7일 기준</span>
       </section>}
-      <HarinFocusedWorkspaceNav view={view} workspace={workspace} pendingWorkspace={pendingWorkspace} platform={platform} period={period} product={selectedProduct} onNavigate={nextWorkspace=>{setPendingWorkspace(nextWorkspace);window.__HARIN_CLIENT_HEALTH__?.startRoute?.(hubRoutesModule.buildHubHref({view,workspace:nextWorkspace,platform,period,product:selectedProduct}));}}/>
+      {view!=='keyword'?<HarinFocusedWorkspaceNav view={view} workspace={workspace} pendingWorkspace={pendingWorkspace} platform={platform} period={period} product={selectedProduct} onNavigate={nextWorkspace=>{setPendingWorkspace(nextWorkspace);window.__HARIN_CLIENT_HEALTH__?.startRoute?.(hubRoutesModule.buildHubHref({view,workspace:nextWorkspace,platform,period,product:selectedProduct}));}}/>:null}
       <DataStatusPanel data={initialData} platform={platform} refreshedAt={latestRefreshAt} generatedAt={initialData.generatedAt} onOpenCollection={()=>openView('collection')}/>
       {!embeddedHelpViews.has(view)&&!(view==='product'&&workspace==='catalog'&&platform==='all')&&!(view==='insight'&&workspace==='channels'&&platform==='coupang')&&<HelpBox key={`${view}:${workspace}:${platform}`} help={getHubHelp(view)} persistKey={`${view}:${workspace}:${platform}`}/>}
       {financialContextViews.has(view)&&<FinancialTrustBanner trust={initialData.financialTrust} onOpenProduct={()=>navigate({platform:'all',view:'product',workspace:'costs',product:'ALL'})}/>}

@@ -28,6 +28,47 @@ test('15-4 filters, sorts and paginates keyword operations without platform writ
   assert.equal(operations.keywordOperationSummary(rows).ready,2);
 });
 
+test('24-1 builds a single-owner Naver workspace that preserves platform scope across every task',()=>{
+  const model=operations.keywordOwnerWorkspace({
+    platform:'naver',workspace:'diagnosis',
+    naverBidWorkbench:{candidates:[naverCandidate]},
+    coupang:{adKeywordTop:[],adKeywordWaste:[coupangKeyword]}
+  });
+
+  assert.equal(model.ownerLabel,'사장님 전용 작업대');
+  assert.equal(model.headline,'네이버 키워드 1개를 관리해요');
+  assert.equal(model.mode.label,'API 직접 운영');
+  assert.equal(model.mode.action,'한 번 확인 후 반영·재조회');
+  assert.deepEqual(model.platforms.map(item=>[item.id,item.active,item.href]),[
+    ['naver',true,'/keywords/diagnosis?platform=naver'],
+    ['coupang',false,'/keywords/diagnosis?platform=coupang']
+  ]);
+  assert.deepEqual(model.workspaces.map(item=>item.href),[
+    '/keywords/registered?platform=naver',
+    '/keywords/search-terms?platform=naver',
+    '/keywords/diagnosis?platform=naver',
+    '/keywords/history?platform=naver'
+  ]);
+  assert.equal(JSON.stringify(model).includes('사용자 관리'),false);
+  assert.equal(JSON.stringify(model).includes('승인 대기'),false);
+});
+
+test('24-1 keeps Coupang in a separate WING workspace and never links it to Naver-only search terms',()=>{
+  const model=operations.keywordOwnerWorkspace({
+    platform:'coupang',workspace:'registered',
+    naverBidWorkbench:{candidates:[naverCandidate]},
+    coupang:{adKeywordTop:[],adKeywordWaste:[coupangKeyword]}
+  });
+
+  assert.equal(model.headline,'쿠팡 키워드 1개를 관리해요');
+  assert.equal(model.mode.label,'WING 수동 운영');
+  assert.equal(model.mode.action,'작업표 확인 후 WING 반영');
+  assert.deepEqual(model.workspaces.map(item=>item.id),['registered','diagnosis','history']);
+  assert.ok(model.workspaces.every(item=>item.href.endsWith('platform=coupang')));
+  assert.equal(model.workspaces.some(item=>item.id==='search-terms'),false);
+  assert.deepEqual(model.summary,{total:1,ready:0,noOrderCost:12000,manual:1});
+});
+
 test('15-4 keyword routes default to Naver, keep actual search terms Naver-only, and include history',()=>{
   assert.equal(routes.parseHubHref('/keywords/registered').platform,'naver');
   assert.equal(routes.parseHubHref('/keywords/search-terms?platform=coupang').platform,'naver');
@@ -37,14 +78,15 @@ test('15-4 keyword routes default to Naver, keep actual search terms Naver-only,
 
 test('15-4 renders a responsive table, mobile cards, drafts and a detail panel',()=>{
   const component=fs.readFileSync('app/_analysis/keyword-operations-table.js','utf8');
-  const dashboard=fs.readFileSync('app/dashboard-client.js','utf8');
+  const ownerShell=fs.readFileSync('app/_analysis/keyword-owner-shell.js','utf8');
   const css=fs.readFileSync('app/_analysis/harin-analysis-v8.css','utf8');
   const bulkCss=fs.readFileSync('app/_design-system/harin-bulk-selection.css','utf8');
   assert.match(component,/네이버와 쿠팡은 서로 섞지 않고/);
   assert.match(component,/추천가 채우기/);
   assert.match(component,/변경 전 확인/);
   assert.match(component,/마지막 확인 뒤 네이버 반영과 재조회까지/);
-  assert.match(dashboard,/플랫폼별 분리 운영/);
+  assert.match(ownerShell,/keywordOwnerWorkspace/);
+  assert.match(component,/별도 작업대로 운영/);
   assert.match(css,/\.keywordOpsTable/);
   assert.match(bulkCss,/\.v8BulkSelectionBar\.active/);
   assert.match(css,/content-visibility:auto/);

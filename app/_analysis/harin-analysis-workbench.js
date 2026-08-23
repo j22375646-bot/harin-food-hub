@@ -172,22 +172,21 @@ export default function HarinAnalysisWorkbench({view,workspace,platform='all',da
   const heroMetrics=view==='insight'?insightMetrics:view==='keyword'?keywordMetrics:[['판매중 상품',`${count(sellable)}개`],['채널 연결',`${count(data.productOperations?.summary?.all_channels_connected)}개`],['선택 범위',PLATFORM_LABELS[platform]]];
   const pageLabel=view==='insight'?'성과 분석':view==='keyword'?'광고 키워드 운영':'상품 성장 운영';
   return <HarinPageFrame kind="analysis" className={`analysisV8 analysisV8-${view}`}>
-    <HarinPageHeader className="analysisHero" eyebrow={pageLabel} title={meta[0]} description={meta[1]} icon={view} tone={view==='keyword'?'mint':view==='product'?'amber':'lavender'} note="숫자는 서버 계산 · 자료 부족은 판단 보류 · 플랫폼 변경은 승인 전 실행 안 함" metrics={heroMetrics}/>
-    <HarinPageToolbar className="analysisFocusToolbar" label="빠른 작업" description="지금 필요한 분석 위치로 바로 이동해요.">
+    {view!=='keyword'?<HarinPageHeader className="analysisHero" eyebrow={pageLabel} title={meta[0]} description={meta[1]} icon={view} tone={view==='product'?'amber':'lavender'} note="숫자는 서버 계산 · 자료 부족은 판단 보류" metrics={heroMetrics}/>:null}
+    {view!=='keyword'?<HarinPageToolbar className="analysisFocusToolbar" label="빠른 작업" description="지금 필요한 분석 위치로 바로 이동해요.">
       <nav className="analysisFocusRail" aria-label="이 화면의 빠른 작업">
         {view==='insight'?<>{INSIGHT_ROUTES.map(([id,label,description,icon,tone])=>{const query=platform==='all'?'':`?platform=${platform}`;return <HarinQuickAction as={Link} active={workspace===id} href={`/insights/${id}${query}`} icon={icon} tone={tone} eyebrow={label} title={description} key={id}/>;})}</>:null}
-        {view==='keyword'?<>{KEYWORD_QUICK_ACTIONS.map(([id,href,label,description,icon,tone])=><HarinQuickAction as={Link} active={workspace===id} href={href} icon={icon} tone={tone} eyebrow={label} title={description} key={id}/>)}</>:null}
         {view==='product'?<><HarinQuickAction as={Link} active={workspace==='catalog'} href="/products/catalog" icon="product" tone="amber" eyebrow="상품" title="판매 가능 목록"/><HarinQuickAction href="#product-channel-differences" icon="link" tone="blue" eyebrow="비교" title="채널 차이 확인"/><HarinQuickAction href="#page-ai-analysis" icon="ai" tone="lavender" eyebrow="설명" title="상품 AI 분석"/></>:null}
       </nav>
-    </HarinPageToolbar>
+    </HarinPageToolbar>:null}
     <HarinPageContent className="analysisPageContent">
       {view==='insight'&&workspace==='overview'?<><InsightDecisionBrief decision={data.insightDecision}/><InsightOverviewDesk data={data} platform={platform}/><InsightComparison reports={data.reports||[]} alerts={data.alerts||[]} platform={platform}/></>:null}
       {view==='insight'&&workspace==='causes'?<InsightCauseDesk data={data} platform={platform}/>:null}
       {view==='insight'&&workspace==='channels'?<InsightChannelDesk data={data}/>:null}
       {view==='insight'&&workspace==='profitability'?<InsightProfitabilityDesk data={data}/>:null}
-      {view==='keyword'&&workspace==='registered'&&platform==='naver'?<KeywordBidCapabilityPanel/>:null}
       {view==='keyword'?<KeywordOperationsTable workspace={workspace} platform={platform} data={data}/>:null}
       {view==='keyword'&&workspace==='diagnosis'&&platform==='naver'?<KeywordStopLoss data={data}/>:null}
+      {view==='keyword'&&workspace==='registered'&&platform==='naver'?<details className="analysisDetailDisclosure keywordCapabilityDisclosure"><summary><span><b>네이버 API 제공 범위 확인</b><small>입찰 작업보다 먼저 볼 필요는 없어요. 연결 기능을 다시 점검할 때만 펼쳐보세요.</small></span><em>열기</em></summary><div><KeywordBidCapabilityPanel/></div></details>:null}
       {view==='product'?<ProductDifferenceDesk data={data}/>:null}
       {view==='insight'&&children?<details className="analysisDetailDisclosure"><summary><span><b>{workspace==='overview'?'목표·변경 이벤트 상세':workspace==='causes'?'상세 보고서·권고사항':'채널별 상세 보고서'}</b><small>기존 분석 기능은 필요할 때만 펼쳐보세요.</small></span><em>열기</em></summary><div>{children}</div></details>:null}
       {view==='keyword'&&children?<details className="analysisDetailDisclosure keywordLegacyDisclosure"><summary><span><b>{workspace==='search-terms'?'검색어 분류·수집 상세':workspace==='registered'?'기존 키워드 갱신·조치 도구':workspace==='diagnosis'?'진단 근거·실행계획 도구':'기존 변경 기록 상세'}</b><small>기존 운영 기능은 삭제하지 않고 필요할 때만 펼치도록 정리했어요.</small></span><em>열기</em></summary><div>{children}</div></details>:null}

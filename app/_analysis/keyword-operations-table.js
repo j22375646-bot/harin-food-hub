@@ -6,7 +6,7 @@ import coupangWingWorklistModule from '../../lib/marketing/coupang-wing-worklist
 import { useStoredState } from '../use-hub-preference.js';
 import { HarinBulkCheckbox, HarinBulkSelectionBar, useHarinBulkSelection } from '../_design-system/harin-bulk-selection.js';
 
-const {KEYWORD_PAGE_SIZES,normalizeKeywordRows,filterKeywordRows,paginateKeywordRows,keywordOperationSummary}=keywordOperationsModule;
+const {KEYWORD_PAGE_SIZES,normalizeKeywordRows,filterKeywordRows,paginateKeywordRows}=keywordOperationsModule;
 const {COUPANG_AD_CAPABILITY,ACTION_LABELS,buildCoupangWingWorklist,coupangWingCsv,coupangWingClipboard}=coupangWingWorklistModule;
 const PLATFORM_LABEL={NAVER:'네이버',COUPANG:'쿠팡'};
 const DECISION_LABEL={LOWER:'감액 검토',RAISE:'확대 검토',KEEP:'유지',BLOCKED:'판단 보류',WATCH:'관찰',NEGATIVE_REVIEW:'제외 검토',SEPARATE:'분리 운영',LANDING_REVIEW:'랜딩 점검',NEW_KEYWORD:'신규 등록',CONTENT_FAQ:'콘텐츠 보강',OBSERVE:'관찰'};
@@ -59,7 +59,6 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const sourceRows=useMemo(()=>rawSourceRows.map(row=>instantRows[row.id]?{...row,...instantRows[row.id]}:row),[rawSourceRows,instantRows]);
   const rows=useMemo(()=>filterKeywordRows(sourceRows,{query,quickFilter,sort}),[sourceRows,query,quickFilter,sort]);
   const pagination=useMemo(()=>paginateKeywordRows(rows,page,pageSize),[rows,page,pageSize]);
-  const summary=useMemo(()=>keywordOperationSummary(sourceRows),[sourceRows]);
   const allIds=useMemo(()=>sourceRows.map(item=>item.id),[sourceRows]);
   const filteredIds=useMemo(()=>rows.map(item=>item.id),[rows]);
   const visibleIds=useMemo(()=>pagination.items.map(item=>item.id),[pagination.items]);
@@ -141,9 +140,12 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   }
 
   return <section className={`keywordOps workspace-${workspace} platform-${platform}`} id="keyword-operations-table">
-    <header className="keywordOpsHeader"><div><span>{copy[0]}</span><div><i><KeywordPictogram/></i><section><h2>{copy[1]}</h2><p>{copy[2]}</p><small className="keywordOpsSeparation">네이버와 쿠팡은 서로 섞지 않습니다. 네이버 추천 근거가 부족해도 사장님 직접 감액은 열어둡니다.</small></section></div></div><aside><small>표시 데이터</small><strong>{count(sourceRows.length)}개</strong><em>{PLATFORM_LABEL[String(platform).toUpperCase()]}</em></aside></header>
+    <div className="keywordOpsContextStrip">
+      <span><b>{copy[1]}</b><small>{copy[2]}</small></span>
+      <em>{PLATFORM_LABEL[String(platform).toUpperCase()]} · 표시 데이터 {count(sourceRows.length)}개</em>
+      <small className="keywordOpsSeparation">네이버와 쿠팡은 서로 섞지 않고 별도 작업대로 운영합니다.</small>
+    </div>
     {isCoupang?<div className="keywordOpsCapability"><i>C</i><span><b>쿠팡 광고 입찰은 WING 수동 적용이에요</b><small>공개 Seller Open API 문서에서 광고 키워드 입찰 쓰기를 확인하지 못했습니다. 자동반영을 잠갔으며 광고 성과는 WING 파일 기준입니다.</small></span><a href={COUPANG_AD_CAPABILITY.docsUrl} target="_blank" rel="noreferrer">공식 문서 <em>↗</em></a><strong>2026. 8. 16. 확인</strong></div>:null}
-    <div className="keywordOpsSummary">{isCoupang?<><span><small>쿠팡 운영 대상</small><b>{count(summary.total)}개</b><em>현재 쿠팡 범위만 표시</em></span><span><small>WING 작업 필요</small><b>{count(summary.manual)}개</b><em>네이버 변경과 분리</em></span><span className={summary.noOrderCost>0?'danger':''}><small>무주문 광고비</small><b>{won(summary.noOrderCost)}</b><em>절감 우선 확인</em></span><span><small>자동 입찰 반영</small><b>잠금</b><em>성공으로 꾸며 표시 안 함</em></span></>:<><span><small>네이버 운영 대상</small><b>{count(summary.total)}개</b><em>현재 네이버 범위만 표시</em></span><span><small>변경 가능</small><b>{count(summary.ready)}개</b><em>확인 후 즉시 실행</em></span><span className={summary.noOrderCost>0?'danger':''}><small>무주문 광고비</small><b>{won(summary.noOrderCost)}</b><em>절감 우선 확인</em></span><span><small>쿠팡 항목</small><b>0개</b><em>쿠팡 탭에서 별도 운영</em></span></>}</div>
     <div className="keywordOpsToolbar">
       <label className="keywordOpsSearch"><span>키워드·캠페인·상품 찾기</span><div><i aria-hidden="true">⌕</i><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="예: 작두콩차, 티백, 캠페인명"/></div></label>
       <label><span>빠른 보기</span><select value={quickFilter} onChange={event=>saveSettings({quickFilter:event.target.value})}><option value="ALL">전체 보기</option><option value="NO_ORDER_COST">광고비 사용·주문 0</option><option value="LOW_ROAS">ROAS 700% 미만</option>{isCoupang?<option value="MANUAL">WING 수동 적용</option>:<option value="READY">네이버 변경안 가능</option>}</select></label>

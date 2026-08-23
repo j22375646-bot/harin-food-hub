@@ -71,7 +71,9 @@ test('12-3 uses stable date keys across the executive board and legacy Naver sna
 });
 
 test('main renders only the all-channel command center and links channel details to work pages', () => {
-  assert.match(client,/\{channelScopedViews\.has\(view\)&&\(view!==\'product\'\|\|workspace===\'catalog\'\)&&<section className="platformSwitch"/);
+  assert.match(client,/const KeywordOwnerShell=dynamic/);
+  assert.match(client,/view===\'keyword\'\?<KeywordOwnerShell platform=\{platform\} workspace=\{workspace\} data=\{initialData\}/);
+  assert.match(client,/channelScopedViews\.has\(view\)&&view!==\'keyword\'&&\(view!==\'product\'\|\|workspace===\'catalog\'\)/);
   assert.doesNotMatch(client,/view==='main' && platform!=='all'/);
   assert.doesNotMatch(client,/view==='main' && !channelUnavailable && <MainView/);
   assert.match(client,/view:item\.view\|\|'main'/);
