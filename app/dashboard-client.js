@@ -270,12 +270,14 @@ export default function Dashboard({ initialData, initialState }) {
     finally { setSyncing(false); }
   }
 
+  const navigationSnapshotKnown=Boolean(navigationSnapshot);
+  const navigationSnapshotStale=navigationSnapshotKnown&&navigationOperationSnapshotModule.navigationOperationSnapshotFreshness(navigationSnapshot).stale;
   const operationBadges=navigationSnapshot?.badges||{};
-  const nav = hubRoutesModule.HUB_NAV.map(item=>({...item,badge:operationBadges[item.id]||0}));
+  const nav = hubRoutesModule.HUB_NAV.map(item=>({...item,badge:navigationSnapshotKnown?num(operationBadges[item.id]):null}));
   const navGroups=hubRoutesModule.HUB_NAV_GROUPS.map(group=>{const items=group.items.map(id=>nav.find(item=>item.id===id)).filter(Boolean);return {...group,items,actionCount:items.reduce((sum,item)=>sum+num(item.badge),0)};});
   const navContext=hubRoutesModule.navigationContext(view,platform);
   const latestRefreshAt=syncs.find(item=>item.finished_at||item.started_at)?.finished_at||syncs.find(item=>item.finished_at||item.started_at)?.started_at||null;
-  const connectionLabel=navigationSnapshot?.connection?.label||'연결 상태 확인';
+  const connectionLabel=navigationSnapshot?.connection?.label?`${navigationSnapshot.connection.label}${navigationSnapshotStale?' · 최근 확인':''}`:'연결 상태 확인';
   const connectionTone=navigationSnapshot?.connection?.tone||'check';
   const selectedHealth=platform==='all'?null:initialData.dataHealth?.channels?.find(item=>item.platform===platform.toUpperCase());
   const channelUnavailable=Boolean(selectedHealth?.failedDatasets?.length);
@@ -300,7 +302,7 @@ export default function Dashboard({ initialData, initialState }) {
 
   return <div className="shell">
     <HarinTopbar context={navContext} connectionLabel={connectionLabel} connectionTone={connectionTone} fontScale={fontScale} onFontScale={setFontScale} syncing={syncing} onSync={runSync}/>
-    <HarinSidebar groups={navGroups} view={pendingView||view} openGroup={openNavGroup} query={navQuery} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onOpenView={openView} onPrefetch={prefetchView}/>
+    <HarinSidebar groups={navGroups} countsKnown={navigationSnapshotKnown} countsStale={navigationSnapshotStale} view={pendingView||view} openGroup={openNavGroup} query={navQuery} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onOpenView={openView} onPrefetch={prefetchView}/>
     <main className={`hubMain${viewIsLoading?' routePending':''}`} aria-busy={viewIsLoading?'true':'false'} data-loader-profile={initialData.loaderPerformance?.profile||undefined} data-loader-ms={initialData.loaderPerformance?.duration_ms??undefined} data-loader-target={initialData.loaderPerformance?.target_ms??undefined} data-loader-within-target={initialData.loaderPerformance?.within_target===undefined?undefined:String(initialData.loaderPerformance.within_target)} data-loader-remote-queries={initialData.loaderPerformance?.remote_query_count??undefined} data-loader-slowest={(initialData.loaderPerformance?.slow_queries||[]).map(item=>`${item.table}:${item.duration_ms}`).join(',')||undefined}>
       {viewIsLoading?<HarinRouteProgress label={nav.find(item=>item.id===(pendingView||view))?.label}/>:null}
       <HarinBreadcrumbBar context={navContext}/>
@@ -354,7 +356,7 @@ export default function Dashboard({ initialData, initialState }) {
     </main>
     <HarinOwnerWorkspace pageKey={view} pageLabel={navContext.item.label}/>
     <HarinLiveStatusDock center={initialData.collectionCenter} alerts={initialData.alerts} generatedAt={initialData.generatedAt}/>
-    <HarinMobileNavigation nav={nav} groups={navGroups} view={view} onOpenView={openView} onPrefetch={prefetchView} fontScale={fontScale} onFontScale={setFontScale}/>
+    <HarinMobileNavigation nav={nav} groups={navGroups} countsKnown={navigationSnapshotKnown} countsStale={navigationSnapshotStale} view={view} onOpenView={openView} onPrefetch={prefetchView} fontScale={fontScale} onFontScale={setFontScale}/>
     <footer className="hubFooter">하린식품 광고·매출 통합 관리 허브 <span>·</span> 네이버 + 쿠팡 + Cafe24 + Supabase</footer>
   </div>;
 }

@@ -1,7 +1,8 @@
 'use client';
 
 import './keyword-bid-rule-panel.css';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import bidRulesModule from '../../lib/naver/bid-rules.js';
 import { HarinIcon } from '../_design-system/harin-icon.js';
 
@@ -27,6 +28,10 @@ export default function KeywordBidRulePanel({selectedRows=[],savedRules=[],onRul
   const [draft,setDraft]=useState(()=>initialDraft(selectedRows,savedRules));
   const [saving,setSaving]=useState(false);
   const [notice,setNotice]=useState('');
+  const triggerRef=useRef(null);
+  const closeButtonRef=useRef(null);
+  const panelRef=useRef(null);
+  const savingRef=useRef(false);
   const configured=useMemo(()=>new Set(savedRules.map(item=>item.ncc_keyword_id)),[savedRules]);
   const configuredSelected=selectedRows.filter(row=>configured.has(rawKeywordId(row))).length;
   const previews=useMemo(()=>selectedRows.map(row=>{
@@ -35,6 +40,36 @@ export default function KeywordBidRulePanel({selectedRows=[],savedRules=[],onRul
       return {row,lower:simulateNaverBidRule({row,rule,action:'DECREASE'}),upper:simulateNaverBidRule({row,rule,action:'INCREASE'})};
     }catch(error){return {row,error:error.message};}
   }),[selectedRows,draft]);
+
+  useEffect(()=>{savingRef.current=saving;},[saving]);
+  useEffect(()=>{
+    if(!open)return undefined;
+    const previousOverflow=document.body.style.overflow;
+    const close=()=>{if(!savingRef.current)setOpen(false);};
+    const onKeyDown=event=>{
+      if(event.key==='Escape'){
+        event.preventDefault();
+        close();
+        return;
+      }
+      if(event.key!=='Tab')return;
+      const focusable=[...(panelRef.current?.querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),[href],[tabindex]:not([tabindex="-1"])')||[])];
+      if(!focusable.length)return;
+      const first=focusable[0];
+      const last=focusable.at(-1);
+      if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+      else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+    };
+    document.body.style.overflow='hidden';
+    document.addEventListener('keydown',onKeyDown);
+    const focusFrame=requestAnimationFrame(()=>closeButtonRef.current?.focus());
+    return ()=>{
+      cancelAnimationFrame(focusFrame);
+      document.removeEventListener('keydown',onKeyDown);
+      document.body.style.overflow=previousOverflow;
+      triggerRef.current?.focus();
+    };
+  },[open]);
 
   function update(field,value){
     setNotice('');
@@ -48,8 +83,13 @@ export default function KeywordBidRulePanel({selectedRows=[],savedRules=[],onRul
     setOpen(true);
   }
 
+  function closePanel(){
+    if(!savingRef.current)setOpen(false);
+  }
+
   async function save(){
     if(saving||!selectedRows.length)return;
+    savingRef.current=true;
     setSaving(true);setNotice('선택한 네이버 키워드에 안전설정을 저장하고 있어요.');
     try{
       const payload={platform:'NAVER',rules:selectedRows.map(row=>({
@@ -64,7 +104,7 @@ export default function KeywordBidRulePanel({selectedRows=[],savedRules=[],onRul
       onRulesChange?.([...savedRules.filter(item=>!savedById.has(item.ncc_keyword_id)),...(result.rules||[])]);
       setNotice(`${result.saved_count||0}개 키워드의 안전설정을 저장했어요. 광고 입찰가는 아직 바뀌지 않았습니다.`);
     }catch(error){setNotice(error.message||'안전설정을 저장하지 못했습니다.');}
-    finally{setSaving(false);}
+    finally{savingRef.current=false;setSaving(false);}
   }
 
   function apply(action){
@@ -74,15 +114,13 @@ export default function KeywordBidRulePanel({selectedRows=[],savedRules=[],onRul
     setNotice(`${applicable.length}개 변경칸에 ${action==='INCREASE'?'인상':'인하'} 폭을 미리 채웠어요. 저장이나 네이버 반영은 아직 하지 않았습니다.`);
   }
 
-  return <>
-    <button type="button" onClick={openPanel} disabled={!selectedRows.length} className="bidRuleTrigger">
-      <HarinIcon name="shield" size={16}/>안전설정 {configuredSelected}/{selectedRows.length}
-    </button>
-    {open?<div className="bidRuleBackdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&!saving)setOpen(false);}}>
-      <section className="bidRulePanel" role="dialog" aria-modal="true" aria-labelledby="bid-rule-title">
+  const dialog=open&&typeof document!=='undefined'?createPortal(
+    <div className="bidRulePortalLayer">
+    <div className="bidRuleBackdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)closePanel();}}>
+      <section ref={panelRef} className="bidRulePanel" role="dialog" aria-modal="true" aria-labelledby="bid-rule-title">
         <header>
-          <span><small>24-3 · NAVER BID SAFETY</small><h2 id="bid-rule-title">선택 키워드의 입찰 안전선을 정해요</h2><p>선택 {selectedRows.length}개에 같은 기준을 저장합니다. 쿠팡 키워드는 이 설정과 API에 들어오지 않습니다.</p></span>
-          <button type="button" onClick={()=>setOpen(false)} disabled={saving} aria-label="입찰 안전설정 닫기">×</button>
+          <span><small>24-4 · NAVER BID SAFETY</small><h2 id="bid-rule-title">선택 키워드의 입찰 안전선을 정해요</h2><p>선택 {selectedRows.length}개에 같은 기준을 저장합니다. 쿠팡 키워드는 이 설정과 API에 들어오지 않습니다.</p></span>
+          <button ref={closeButtonRef} type="button" onClick={closePanel} disabled={saving} aria-label="입찰 안전설정 닫기">×</button>
         </header>
         <div className="bidRuleScope">
           <i><HarinIcon name="shield" size={21}/></i><span><b>설정 저장과 실제 입찰 변경은 별개예요</b><small>여기서는 기준만 저장합니다. 실제 변경은 기존 `변경 전 확인`에서 현재값 재조회 후 진행됩니다.</small></span><em>네이버 전용</em>
@@ -108,6 +146,14 @@ export default function KeywordBidRulePanel({selectedRows=[],savedRules=[],onRul
           <button type="button" className="primary" onClick={save} disabled={saving||!selectedRows.length}>{saving?'저장 중…':`${selectedRows.length}개 안전설정 저장`}</button>
         </footer>
       </section>
-    </div>:null}
+    </div>
+    </div>,document.body
+  ):null;
+
+  return <>
+    <button ref={triggerRef} type="button" onClick={openPanel} disabled={!selectedRows.length} className="bidRuleTrigger">
+      <HarinIcon name="shield" size={16}/>안전설정 {configuredSelected}/{selectedRows.length}
+    </button>
+    {dialog}
   </>;
 }

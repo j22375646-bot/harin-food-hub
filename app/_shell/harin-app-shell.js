@@ -61,14 +61,14 @@ export function HarinTopbar({
   </header>;
 }
 
-export function HarinSidebar({ groups, view, openGroup, query, onQuery, onOpenGroup, onOpenView, onPrefetch }) {
+export function HarinSidebar({ groups, countsKnown=true, countsStale=false, view, openGroup, query, onQuery, onOpenGroup, onOpenView, onPrefetch }) {
   const normalizedQuery=query.trim().toLowerCase();
   const hasQuery=Boolean(normalizedQuery);
   const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(normalizedQuery))})).filter(group=>group.items.length);
   const actionCount=groups.reduce((sum,group)=>sum+Number(group.actionCount||0),0);
   return <aside className="desktopSidebar v8Sidebar" aria-label="허브 사이드바">
     <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true"><HarinIcon name="search"/></i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴·업무 찾기" /></label>
-    <div className="sidebarMenuHeading"><span>운영 메뉴</span>{actionCount>0?<b>확인할 일 {actionCount}건</b>:<b>새 알림 없음</b>}</div>
+    <div className="sidebarMenuHeading"><span>운영 메뉴</span>{!countsKnown?<b>작업 수 확인 중</b>:actionCount>0?<b>{countsStale?'최근 ':''}확인할 일 {actionCount}건</b>:<b>{countsStale?'최근 확인 · ':''}새 알림 없음</b>}</div>
     <nav aria-label="허브 메뉴">
       {visible.map(group=>{const expanded=hasQuery||openGroup===group.id;return <section className={`sidebarGroup${expanded?' expanded':''}`} data-tone={toneForGroup(group.id)} key={group.id}>
         <button type="button" className="sidebarGroupButton" aria-expanded={expanded} aria-controls={`sidebar-group-${group.id}`} onClick={()=>onOpenGroup(expanded&&!hasQuery?null:group.id)}><i><HarinIcon name={group.id}/></i><span><b>{group.label}</b><small>{group.description}</small></span>{group.actionCount>0?<em aria-label={`확인할 항목 ${group.actionCount}개`}>{group.actionCount}</em>:null}<strong aria-hidden="true">{expanded?'−':'+'}</strong></button>
@@ -79,11 +79,11 @@ export function HarinSidebar({ groups, view, openGroup, query, onQuery, onOpenGr
   </aside>;
 }
 
-function MobileMorePanel({ groups, view, actionCount, fontScale, onFontScale, onClose, onOpenView, onPrefetch, closeButtonRef, panelRef }) {
+function MobileMorePanel({ groups, countsKnown, countsStale, view, actionCount, fontScale, onFontScale, onClose, onOpenView, onPrefetch, closeButtonRef, panelRef }) {
   return <>
     <button type="button" className="mobileMenuBackdrop" aria-label="전체 메뉴 닫기" onClick={()=>onClose(true)} />
     <section ref={panelRef} className="mobileGroupedMenu" role="dialog" aria-modal="true" aria-labelledby="mobile-menu-title" aria-describedby="mobile-menu-description" tabIndex={-1}>
-      <header className="mobileMenuPanelHead"><span><small>하린식품 운영 허브</small><b id="mobile-menu-title">전체 메뉴</b><em>{actionCount>0?`확인할 일 ${actionCount}건`:'새 알림 없음'}</em></span><button ref={closeButtonRef} type="button" aria-label="전체 메뉴 닫기" onClick={()=>onClose(true)}>×</button></header>
+      <header className="mobileMenuPanelHead"><span><small>하린식품 운영 허브</small><b id="mobile-menu-title">전체 메뉴</b><em>{!countsKnown?'작업 수 확인 중':actionCount>0?`${countsStale?'최근 ':''}확인할 일 ${actionCount}건`:`${countsStale?'최근 확인 · ':''}새 알림 없음`}</em></span><button ref={closeButtonRef} type="button" aria-label="전체 메뉴 닫기" onClick={()=>onClose(true)}>×</button></header>
       <p id="mobile-menu-description" className="srOnly">화면 설정과 모든 운영 메뉴를 선택할 수 있습니다.</p>
       <section className="mobileViewSettings"><b>화면 설정</b><label><span><strong>글자 크기</strong><small>모든 화면에 바로 적용됩니다.</small></span><select aria-label="모바일 허브 글자 크기" value={fontScale} onChange={event=>onFontScale(event.target.value)}><option value="large">큰 글씨</option><option value="xlarge">더 큰 글씨</option></select></label></section>
       <div className="mobileMenuGroups">
@@ -93,7 +93,7 @@ function MobileMorePanel({ groups, view, actionCount, fontScale, onFontScale, on
   </>;
 }
 
-export function HarinMobileNavigation({ nav, groups, view, onOpenView, onPrefetch, fontScale, onFontScale }) {
+export function HarinMobileNavigation({ nav, groups, countsKnown=true, countsStale=false, view, onOpenView, onPrefetch, fontScale, onFontScale }) {
   const [menuOpen,setMenuOpen]=useState(false);
   const triggerRef=useRef(null);
   const closeButtonRef=useRef(null);
@@ -135,7 +135,7 @@ export function HarinMobileNavigation({ nav, groups, view, onOpenView, onPrefetc
   return <nav className="mobileBottomNav" aria-label="모바일 주요 메뉴">
     {PRIMARY_MOBILE_VIEWS.map(id=>nav.find(item=>item.id===id)).filter(Boolean).map(item=><button type="button" data-tone={toneForView(item.id)} className={view===item.id?'active':''} aria-current={view===item.id?'page':undefined} onPointerEnter={()=>onPrefetch(item.id)} onFocus={()=>onPrefetch(item.id)} onClick={()=>onOpenView(item.id)} key={item.id}><i><HarinIcon name={item.id}/></i><span>{item.id==='notifications'?'알림':item.label}</span>{item.badge>0?<em>{item.badge}</em>:null}</button>)}
     <button ref={triggerRef} type="button" data-tone="lavender" className={`mobileMoreTrigger${!PRIMARY_MOBILE_VIEW_SET.has(view)||menuOpen?' active':''}`} aria-expanded={menuOpen} aria-controls="mobile-more-panel" onClick={()=>setMenuOpen(open=>!open)}><i><HarinIcon name="menu"/></i><span>더보기</span>{actionCount>0?<em>{actionCount}</em>:null}</button>
-    {menuOpen?<div id="mobile-more-panel" className="mobileMoreLayer"><MobileMorePanel groups={groups} view={view} actionCount={actionCount} fontScale={fontScale} onFontScale={onFontScale} onClose={closeMenu} onOpenView={onOpenView} onPrefetch={onPrefetch} closeButtonRef={closeButtonRef} panelRef={panelRef}/></div>:null}
+    {menuOpen?<div id="mobile-more-panel" className="mobileMoreLayer"><MobileMorePanel groups={groups} countsKnown={countsKnown} countsStale={countsStale} view={view} actionCount={actionCount} fontScale={fontScale} onFontScale={onFontScale} onClose={closeMenu} onOpenView={onOpenView} onPrefetch={onPrefetch} closeButtonRef={closeButtonRef} panelRef={panelRef}/></div>:null}
   </nav>;
 }
 

@@ -137,3 +137,16 @@ test('24-3 renders the safety-rule workspace only inside the Naver keyword table
   assert.match(panelSource,/광고 입찰가는 아직 바뀌지 않았습니다/);
   assert.match(panelSource,/목표 순위는 참고값이에요/);
 });
+
+test('24-4 renders the safety dialog at the document root and supports keyboard dismissal',()=>{
+  const panelSource=fs.readFileSync(path.join(__dirname,'..','app','_analysis','keyword-bid-rule-panel.js'),'utf8');
+  const panelCss=fs.readFileSync(path.join(__dirname,'..','app','_analysis','keyword-bid-rule-panel.css'),'utf8');
+
+  assert.match(panelSource,/createPortal/);
+  assert.match(panelSource,/document\.body/);
+  assert.match(panelSource,/event\.key===['"]Escape['"]/);
+  assert.match(panelSource,/triggerRef\.current\?\.focus/);
+  assert.match(panelSource,/closeButtonRef/);
+  assert.match(panelCss,/\.bidRulePortalLayer\{position:fixed;inset:0;z-index:/);
+  assert.match(panelCss,/100dvh/);
+});
