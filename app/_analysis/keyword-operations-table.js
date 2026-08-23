@@ -6,6 +6,7 @@ import coupangWingWorklistModule from '../../lib/marketing/coupang-wing-worklist
 import { useStoredState } from '../use-hub-preference.js';
 import { HarinBulkCheckbox, HarinBulkSelectionBar, useHarinBulkSelection } from '../_design-system/harin-bulk-selection.js';
 import KeywordBidRulePanel from './keyword-bid-rule-panel.js';
+import KeywordBidSchedulePanel from './keyword-bid-schedule-panel.js';
 
 const {KEYWORD_PAGE_SIZES,normalizeKeywordRows,filterKeywordRows,paginateKeywordRows,buildNaverAdgroupWorkspace}=keywordOperationsModule;
 const {COUPANG_AD_CAPABILITY,ACTION_LABELS,buildCoupangWingWorklist,coupangWingCsv,coupangWingClipboard}=coupangWingWorklistModule;
@@ -178,6 +179,7 @@ export default function KeywordOperationsTable({workspace='registered',platform=
       <header><span><i aria-hidden="true"><KeywordPictogram/></i><span><b>광고그룹별 입찰 작업대</b><small>이미 수집된 네이버 캠페인·광고그룹을 기준으로 키워드를 좁혀요.</small></span></span><dl><div><dt>캠페인</dt><dd>{count(naverGroupWorkspace.summary.campaigns)}개</dd></div><div><dt>광고그룹</dt><dd>{count(naverGroupWorkspace.summary.adgroups)}개</dd></div><div><dt>키워드</dt><dd>{count(naverGroupWorkspace.summary.keywords)}개</dd></div><div><dt>광고비</dt><dd>{won(naverGroupWorkspace.summary.cost)}</dd></div></dl></header>
       <div className="keywordOpsCampaignFilter"><label><span>캠페인</span><select value={campaignId} onChange={event=>selectCampaign(event.target.value)}><option value="ALL">전체 캠페인</option>{naverGroupCatalog.campaigns.map(item=><option key={item.id} value={item.id}>{item.name} · {count(item.keywordCount)}개</option>)}</select></label><span><small>선택 범위 ROAS</small><b>{percent(naverGroupWorkspace.summary.roas)}</b></span></div>
       <div className="keywordOpsAdgroupRail" role="list" aria-label="광고그룹 빠른 필터"><button type="button" className={adgroupId==='ALL'?'active':''} onClick={()=>selectAdgroup('ALL')}><i>ALL</i><span><b>전체 광고그룹</b><small>{count(campaignWorkspace.summary.keywords)}개 키워드 · {won(campaignWorkspace.summary.cost)}</small></span></button>{campaignWorkspace.adgroups.map(item=><button type="button" role="listitem" className={adgroupId===item.id?'active':''} key={item.id} onClick={()=>selectAdgroup(item.id)}><i>G</i><span><b>{item.name}</b><small>{count(item.keywordCount)}개 키워드 · {won(item.cost)}</small></span><em>{percent(item.roas)}</em></button>)}</div>
+      {!isCoupang&&groupEnabled&&adgroupId!=='ALL'?<KeywordBidSchedulePanel adgroupId={adgroupId} adgroupName={naverGroupWorkspace.adgroups.find(item=>item.id===adgroupId)?.name||''} rules={bidRules}/>:null}
     </section>:null}
     <div className="keywordOpsToolbar">
       <label className="keywordOpsSearch"><span>키워드·캠페인·상품 찾기</span><div><i aria-hidden="true">⌕</i><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="예: 작두콩차, 티백, 캠페인명"/></div></label>
