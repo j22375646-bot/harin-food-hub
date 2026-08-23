@@ -9,7 +9,7 @@ const {pathToFileURL}=require('node:url');
 const probe=require('../lib/naver/bid-capability-probe.js');
 const root=path.resolve(__dirname,'..');
 
-function fixtureApi({failBreakdown='',campaigns=true}={}){
+function fixtureApi({failBreakdown='',campaigns=true,failPosition15=false}={}){
   const calls=[];
   return {
     calls,
@@ -20,7 +20,10 @@ function fixtureApi({failBreakdown='',campaigns=true}={}){
       if(uri==='/ncc/adgroups')return {status:200,data:[{nccAdgroupId:'grp-1',nccCampaignId:'cmp-1'}]};
       if(uri==='/ncc/keywords')return {status:200,data:[{nccKeywordId:'kw-1',nccAdgroupId:'grp-1',keyword:'작두콩차',bidAmt:320,useGroupBidAmt:false}]};
       if(uri==='/stats')return {status:200,data:[{id:'kw-1',data:[{impCnt:120,clkCnt:8,salesAmt:2400,ccnt:1,convAmt:21000,avgRnk:3.2}]}]};
-      if(uri==='/estimate/average-position-bid/keyword')return {status:200,data:{estimate:(body?.items||[]).map(item=>({keyword:item.key,position:item.position,bid:item.position*100}))}};
+      if(uri==='/estimate/average-position-bid/keyword'){
+        if(failPosition15&&body?.items?.some(item=>item.position===15)){const error=new Error('unsupported target position');error.status=400;throw error;}
+        return {status:200,data:{estimate:(body?.items||[]).map(item=>({keyword:item.key,position:item.position,bid:item.position*100}))}};
+      }
       if(uri==='/estimate/exposure-minimum-bid/keyword')return {status:200,data:{estimate:(body?.items||[]).map(keyword=>({keyword,bid:70}))}};
       throw new Error(`unexpected request ${method} ${uri}`);
     }
@@ -54,6 +57,14 @@ test('24-0 선택 기능 하나가 실패해도 핵심 입찰 검증과 다른 �
   assert.equal(result.checks.find(item=>item.key==='region_breakdown')?.status,'VERIFY_REQUIRED');
   assert.equal(result.checks.find(item=>item.key==='device_breakdown')?.status,'READY');
   assert.doesNotMatch(JSON.stringify(result),/secret-token/);
+});
+
+test('24-0 실계정이 15위 예상을 거부하면 장애가 아닌 공식 지원 경계로 표시한다',async()=>{
+  const api=fixtureApi({failPosition15:true});
+  const result=await probe.probeBidCapabilities({api,env:{},now:new Date('2026-08-23T03:00:00.000Z')});
+  assert.equal(result.status,'READY');
+  assert.equal(result.coreReady,true);
+  assert.equal(result.checks.find(item=>item.key==='position_15')?.status,'NOT_SUPPORTED');
 });
 
 test('24-0 광고 캠페인이 없으면 하위 자료를 0으로 꾸미지 않고 조회를 건너뛴다',async()=>{
