@@ -19,12 +19,14 @@ test('13-6 insight, keyword, and product workspaces are real route pages',()=>{
 
 test('13-6 dashboard renders only the selected focused workspace',()=>{
   const client=read('app/dashboard-client.js');
+  const keywordWorkbench=read('app/_analysis/harin-keyword-detail-workbench.js');
   const productWorkbench=read('app/_products/harin-product-workbench.js');
   const shell=read('app/_shell/harin-app-shell.js');
   assert.match(shell,/function HarinFocusedWorkspaceNav/);
   assert.match(client,/workspace==='overview'/);
-  assert.match(client,/workspace==='search-terms'/);
-  assert.match(client,/function KeywordView\(\{naver,workspace='search-terms'\}\)/);
+  assert.match(client,/HarinKeywordDetailWorkbench/);
+  assert.match(keywordWorkbench,/workspace==='search-terms'/);
+  assert.match(keywordWorkbench,/function KeywordView\(\{naver,workspace='search-terms'\}\)/);
   assert.match(client,/workspace==='diagnosis'/);
   for(const workspace of ['catalog','mappings','costs','profit','offers','ad-targets'])assert.match(productWorkbench,new RegExp(`workspace==='${workspace}'`));
   assert.match(shell,/메뉴·업무 찾기/);
