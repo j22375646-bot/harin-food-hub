@@ -47,6 +47,7 @@ test('24-1 builds a single-owner Naver workspace that preserves platform scope a
     '/keywords/registered?platform=naver',
     '/keywords/search-terms?platform=naver',
     '/keywords/diagnosis?platform=naver',
+    '/keywords/performance?platform=naver',
     '/keywords/history?platform=naver'
   ]);
   assert.equal(JSON.stringify(model).includes('사용자 관리'),false);

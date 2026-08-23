@@ -1047,12 +1047,13 @@ async function getDashboardData(state) {
   };
   const focusedSearchTerms=view==='keyword'&&state?.workspace==='search-terms'&&String(state?.platform||'naver').toLowerCase()==='naver';
   const focusedKeywordWorkspace=view==='keyword'&&['registered','diagnosis'].includes(state?.workspace)&&['naver','coupang'].includes(String(state?.platform||'').toLowerCase());
+  const focusedKeywordPerformance=view==='keyword'&&state?.workspace==='performance'&&String(state?.platform||'naver').toLowerCase()==='naver';
   const focusedInsightReport=view==='insight'&&['overview','causes','channels'].includes(state?.workspace);
   const focusedKeywordHistory=view==='keyword'&&state?.workspace==='history'&&['naver','coupang'].includes(String(state?.platform||'').toLowerCase());
   const focusedProductWorkspace=view==='product'&&(['mappings','offers'].includes(state?.workspace)||(state?.workspace==='catalog'&&state?.platform!=='coupang'));
   const focusedProductPerformance=view==='product'&&['profit','ad-targets'].includes(state?.workspace);
   const focusedInsightProfitability=view==='insight'&&state?.workspace==='profitability';
-  const focusedEarlyReturn=view==='main'||view==='orders'||view==='inventory'||focusedInsightReport||focusedInsightProfitability||focusedKeywordHistory||(view==='product'&&state?.workspace==='costs')||focusedProductWorkspace||focusedProductPerformance||focusedSearchTerms||focusedKeywordWorkspace;
+  const focusedEarlyReturn=view==='main'||view==='orders'||view==='inventory'||focusedInsightReport||focusedInsightProfitability||focusedKeywordHistory||(view==='product'&&state?.workspace==='costs')||focusedProductWorkspace||focusedProductPerformance||focusedSearchTerms||focusedKeywordWorkspace||focusedKeywordPerformance;
   const needsPacing=new Set(['main','insight','keyword','product','reports','changes']).has(view)&&!focusedEarlyReturn;
   const pacingPromise = (needsPacing?pacingService.buildPacingDashboard({ db }):Promise.resolve({status:'NO_DATA',channels:[],reasons:[]})).catch(error => {
     console.error('[dashboard] pacing unavailable', error);
@@ -1283,7 +1284,7 @@ async function getDashboardData(state) {
       latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[])
     });
   }
-  if(focusedKeywordWorkspace){
+  if(focusedKeywordWorkspace||focusedKeywordPerformance){
     const selectedPlatform=String(state.platform).toLowerCase();
     const [keywordPeriodRaw,productTargetsRaw,bidLinksRaw,aiResultsRaw,cafe24TokenRaw,detailChecklistsRaw]=await Promise.all([
       supplementalQueries.keywordPeriod,supplementalQueries.productTargets,supplementalQueries.bidLinks,supplementalQueries.aiResults,supplementalQueries.cafe24Token,
