@@ -41,7 +41,7 @@ test('16-11 moves registered invoices through ePost waiting and shipping workspa
   const css=read('app/_operations/harin-operations-v8.css');
   assert.match(center,/WAITING_FOR_CARRIER:'배송대기중'/);
   assert.match(center,/label:'배송대기중'.*송장등록완료/);
-  assert.match(center,/workspace==='IN_TRANSIT'\)return tracking\?\.statusCode==='IN_TRANSIT'/);
+  assert.match(center,/workspace==='IN_TRANSIT'\)return !order\.cancelled&&tracking\?\.statusCode==='IN_TRANSIT'/);
   assert.match(center,/onTransfersCompleted=\{handleTransfersCompleted\}/);
   assert.match(center,/await refreshLiveOrders\(\{afterShipping:true\}\)/);
   assert.doesNotMatch(center,/router\.refresh\(\)/);

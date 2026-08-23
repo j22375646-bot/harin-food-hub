@@ -1,5 +1,6 @@
 /.env
 /node_modules
+/.next-*
 /1260716041210-.next
 /output
 /test

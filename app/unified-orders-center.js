@@ -7,7 +7,7 @@ import { HarinIcon } from './_design-system/harin-icon.js';
 import { HarinPageAiRegion, HarinPageFrame, HarinPageHeader } from './_design-system/harin-ui.js';
 import { HarinBulkSelectionBar, useHarinBulkSelection } from './_design-system/harin-bulk-selection.js';
 
-const STAGE_LABELS={PAID:'결제완료',PREPARING:'준비중',READY_TO_SHIP:'출고대기',WAITING_FOR_CARRIER:'배송대기중',SHIPPING:'배송중',DELIVERED:'배송완료'};
+const STAGE_LABELS={PAID:'결제완료',PREPARING:'준비중',READY_TO_SHIP:'출고대기',WAITING_FOR_CARRIER:'배송대기중',SHIPPING:'배송중',DELIVERED:'배송완료',CANCELLED:'취소'};
 const CHANNEL_LABELS={ALL:'전체 채널',NAVER:'네이버',COUPANG:'쿠팡',CAFE24:'Cafe24'};
 const TIMING_LABELS={SAME_DAY:'당일출고',DELAYED:'배송지연'};
 const POSTAL_COURIER_BY_PLATFORM=Object.freeze({COUPANG:'EPOST',NAVER:'EPOST',CAFE24:'0012'});
@@ -17,7 +17,7 @@ const ORDER_WORKSPACES=[
   {id:'EPOST',label:'우체국 발급',description:'송장 없는 주문을 자동발급',short:'송장 발급'},
   {id:'REGISTER',label:'배송대기중',description:'송장등록완료 · 우체국 접수·이동 대기',short:'송장등록완료'},
   {id:'IN_TRANSIT',label:'배송중',description:'우체국 이동상태를 한 번에 확인',short:'배송 확인'},
-  {id:'COMPLETED',label:'최근 완료',description:'최근 30일 완료 건만 확인',short:'30일 완료'},
+  {id:'COMPLETED',label:'최근 완료',description:'최근 30일 배송완료·취소 이력',short:'30일 완료'},
   {id:'RETRY',label:'재시도',description:'송장은 보존하고 채널 전송만 재실행',short:'실패 복구'}
 ];
 const ORDER_WORKSPACE_PRESENTATION={
@@ -51,10 +51,10 @@ function matchesOrderWorkspace(order,workspace,invoices,actions,trackingStates){
   const active=ACTIVE_STAGES.has(order.stage)&&order.fulfillment!=='ROCKET_GROWTH';
   if(workspace==='ACTIVE')return active&&!hasInvoice;
   if(workspace==='EPOST')return active&&order.shippingEligible&&!hasInvoice&&action?.status!=='SUCCESS';
-  if(workspace==='REGISTER')return order.fulfillment!=='ROCKET_GROWTH'&&order.stage!=='DELIVERED'&&tracking?.statusCode!=='IN_TRANSIT'&&tracking?.statusCode!=='DELIVERED'&&action?.status!=='FAILED'&&(transferComplete||(active&&draftInvoice.length===13));
-  if(workspace==='IN_TRANSIT')return tracking?.statusCode==='IN_TRANSIT';
-  if(workspace==='COMPLETED')return order.stage==='DELIVERED'||tracking?.statusCode==='DELIVERED';
-  if(workspace==='RETRY')return action?.status==='FAILED';
+  if(workspace==='REGISTER')return !order.cancelled&&order.fulfillment!=='ROCKET_GROWTH'&&order.stage!=='DELIVERED'&&tracking?.statusCode!=='IN_TRANSIT'&&tracking?.statusCode!=='DELIVERED'&&action?.status!=='FAILED'&&(transferComplete||(active&&draftInvoice.length===13));
+  if(workspace==='IN_TRANSIT')return !order.cancelled&&tracking?.statusCode==='IN_TRANSIT';
+  if(workspace==='COMPLETED')return order.stage==='CANCELLED'||order.stage==='DELIVERED'||tracking?.statusCode==='DELIVERED';
+  if(workspace==='RETRY')return !order.cancelled&&action?.status==='FAILED';
   return false;
 }
 
@@ -120,9 +120,9 @@ function OrderProductImage({ item }) {
 }
 
 function OrderCard({ order, selected, onSelect, invoiceDraft='', onInvoiceChange, actionState, trackingState }) {
-  return <article className={`unifiedOrderCard${order.cancellationRequested?' cancelWarning':''}${order.demo?' demoOrderCard':''}`}>
+  return <article className={`unifiedOrderCard${order.cancellationRequested?' cancelWarning':''}${order.cancelled?' cancelledOrderCard':''}${order.demo?' demoOrderCard':''}`}>
     {order.cancellationRequested?<div className="orderCancelWarning"><b>출고 멈춤 · 취소/반품 요청 확인</b><span>출고 전에 해당 쇼핑몰에서 요청 상태를 먼저 확인하세요.</span></div>:null}
-    <header className="unifiedOrderCardHeader"><div className="orderBadgeGroup"><label className={`shippingSelect${order.shippingEligible?'':' blocked'}`} title={order.shippingBlockedReason||'포장·배송 작업에 선택'}><input type="checkbox" checked={selected} disabled={!order.shippingEligible} onChange={event=>onSelect(order,event.target.checked)}/><span>{order.demo?'샘플':order.shippingEligible?'작업 선택':'선택 불가'}</span></label><span className={`channelBadge ${order.platform.toLowerCase()}`}>{order.channelLabel}</span>{order.platform==='COUPANG'&&order.fulfillment==='SELLER'?<span className="sellerDeliveryBadge">판매자배송</span>:null}{order.fulfillment==='ROCKET_GROWTH'?<span className="fulfillmentBadge">로켓그로스</span>:null}</div><div className="orderStatusGroup"><span className="orderStageBadge">{STAGE_LABELS[order.stage]||'상태 확인'}</span><TimingBadge badge={order.timingBadge}/><b className="orderAmount">{money(order.amount)}</b></div></header>
+    <header className="unifiedOrderCardHeader"><div className="orderBadgeGroup"><label className={`shippingSelect${order.shippingEligible?'':' blocked'}`} title={order.shippingBlockedReason||'포장·배송 작업에 선택'}><input type="checkbox" checked={selected} disabled={!order.shippingEligible} onChange={event=>onSelect(order,event.target.checked)}/><span>{order.demo?'샘플':order.shippingEligible?'작업 선택':'선택 불가'}</span></label><span className={`channelBadge ${order.platform.toLowerCase()}`}>{order.channelLabel}</span>{order.platform==='COUPANG'&&order.fulfillment==='SELLER'?<span className="sellerDeliveryBadge">판매자배송</span>:null}{order.fulfillment==='ROCKET_GROWTH'?<span className="fulfillmentBadge">로켓그로스</span>:null}</div><div className="orderStatusGroup"><span className={`orderStageBadge${order.stage==='CANCELLED'?' cancelled':''}`}>{STAGE_LABELS[order.stage]||'상태 확인'}</span><TimingBadge badge={order.timingBadge}/><b className="orderAmount">{money(order.amount)}</b></div></header>
     <TimingNotice badge={order.timingBadge}/>
     <section><div><span>허브 주문번호</span><b>{order.hubOrderId}</b></div><div><span>쇼핑몰 주문번호</span><b>{order.externalOrderId}</b></div><div><span>주문 시각</span><b>{dateTime(order.orderedAt)}</b></div></section>
     <div className="unifiedOrderProduct"><div className="orderItemRows">{order.items?.length?order.items.map((item,index)=><div className="orderItemRow" key={`${item.externalItemId||item.name}-${index}`}><OrderProductImage item={item}/><span><small>상품명</small><b>{item.name}</b></span><span><small>옵션</small><b>{item.option||'기본 옵션'}</b></span><strong>{count(item.quantity)}개</strong></div>):<p>상품 상세는 다음 수집 때 자동으로 채워집니다.</p>}<em>{(order.packagingInstructions||[]).join(' · ')}</em></div><strong className="orderTotalQuantity">총 {order.quantity?`${count(order.quantity)}개`:'-'}</strong></div>
@@ -498,7 +498,7 @@ export default function UnifiedOrdersCenter({ center, children, aiPanel }) {
       ?{status:refreshed.partial?'PARTIAL':'SUCCESS',message:refreshed.partial?'송장 등록은 완료됐어요. 일부 채널 최신 조회만 다시 확인해 주세요.':'송장 자동등록이 완료됐어요. 전체 플랫폼 최신 상태를 반영했고 배송대기중으로 옮겼습니다.'}
       :{status:'PARTIAL',message:`송장 등록은 완료됐어요. 최신 주문 재수집은 다시 확인이 필요합니다 · ${refreshed.error}`});
   }
-  function locateScannedOrder(event){event.preventDefault();const needle=scanQuery.replace(/\s/g,'').toLowerCase();if(!needle)return;const match=currentCenter.orders.find(order=>[order.hubOrderId,order.externalOrderId,order.invoiceNumber,invoiceDrafts[order.hubOrderId]].some(value=>String(value||'').replace(/\s/g,'').toLowerCase()===needle));if(!match){setScanMessage('일치하는 주문이나 송장번호를 찾지 못했습니다.');return;}const tracked=trackingStates[match.hubOrderId]||match.tracking;openWorkspace(tracked?.statusCode==='DELIVERED'||match.stage==='DELIVERED'?'COMPLETED':tracked?.statusCode==='IN_TRANSIT'?'IN_TRANSIT':postalTracking(match.invoiceNumber||invoiceDrafts[match.hubOrderId]).length===13?'REGISTER':'ACTIVE');setQuery(match.hubOrderId);if(match.shippingEligible)selectOrder(match,true);setScanMessage(`${match.channelLabel} 주문을 찾았습니다. 해당 카드만 표시합니다.`);setScanQuery('');}
+  function locateScannedOrder(event){event.preventDefault();const needle=scanQuery.replace(/\s/g,'').toLowerCase();if(!needle)return;const match=currentCenter.orders.find(order=>[order.hubOrderId,order.externalOrderId,order.invoiceNumber,invoiceDrafts[order.hubOrderId]].some(value=>String(value||'').replace(/\s/g,'').toLowerCase()===needle));if(!match){setScanMessage('일치하는 주문이나 송장번호를 찾지 못했습니다.');return;}const tracked=trackingStates[match.hubOrderId]||match.tracking;openWorkspace(match.stage==='CANCELLED'||tracked?.statusCode==='DELIVERED'||match.stage==='DELIVERED'?'COMPLETED':tracked?.statusCode==='IN_TRANSIT'?'IN_TRANSIT':postalTracking(match.invoiceNumber||invoiceDrafts[match.hubOrderId]).length===13?'REGISTER':'ACTIVE');setQuery(match.hubOrderId);if(match.shippingEligible)selectOrder(match,true);setScanMessage(`${match.channelLabel} 주문을 찾았습니다. 해당 카드만 표시합니다.`);setScanQuery('');}
   return <HarinPageFrame kind="operations" className="unifiedOrdersCenter">
     <HarinPageHeader className="unifiedOrdersHero" eyebrow="주문·배송 업무" title="주문·배송 작업센터" description="판매자배송 주문만 실제 출고 순서로 처리하고, 로켓그로스와 완료 이력은 작업목록에서 분리합니다." icon="truck" tone="mint" note="15시 이전 주문은 당일출고 · 우체국 송장 발급과 채널 등록은 선택 주문만 실행" metrics={[["송장 발급 전",`${count(workspaceCounts.ACTIVE)}건`],["배송대기중",`${count(workspaceCounts.REGISTER)}건`],["배송중",`${count(workspaceCounts.IN_TRANSIT)}건`],["재시도",`${count(workspaceCounts.RETRY)}건`,null,workspaceCounts.RETRY?'danger':'']]}/>
     {completionNotice?<aside className={`shippingCompletionNotice ${completionNotice.status.toLowerCase()}`} role="status" aria-live="assertive"><span className="shippingCompletionNoticeIcon"><HarinIcon name={completionNotice.status==='LOADING'?'sync':'shield'} size={24}/></span><span><b>{completionNotice.status==='LOADING'?'최신 배송상태 반영 중':'송장 등록 완료'}</b><small>{completionNotice.message}</small></span><button type="button" onClick={()=>setCompletionNotice(null)} aria-label="완료 알림 닫기">×</button></aside>:null}

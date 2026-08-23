@@ -87,6 +87,62 @@ test('shows only unresolved claim requests and ignores completed cancellations',
   assert.equal(orders.isActiveClaimStatus('RETURNS_COMPLETED'),false);
 });
 
+test('플랫폼에서 취소 완료된 주문은 취소 이력으로 남지만 현재 주문과 출고 작업에서는 빠진다',()=>{
+  const center=orders.buildUnifiedOrders({
+    asOf:'2026-08-23T00:00:00Z',
+    cafe24Orders:[
+      {order_id:'C-CANCELLED',order_date:'2026-08-22T01:00:00Z',paid_amount:18000,raw_data:{canceled:'T',cancel_date:'2026-08-22T02:00:00Z'}}
+    ],
+    cafe24OrderItems:[
+      {order_id:'C-CANCELLED',external_item_id:'C-I-1',product_name:'작두콩차',quantity:1,raw_data:{order_status:'C40'}}
+    ],
+    coupangOrders:[
+      {order_id:'CP-CANCELLED',shipment_box_id:'CP-S-1',ordered_at:'2026-08-22T03:00:00Z',status:'CANCELLED',gross_amount:22000}
+    ],
+    naverOrders:[
+      {order_id:'NV-CANCELLED',order_date:'2026-08-22T04:00:00Z',status:'CANCELED_BY_NOPAYMENT',paid_amount:25000}
+    ]
+  });
+  assert.equal(center.orders.length,3);
+  for(const order of center.orders){
+    assert.equal(order.stage,'CANCELLED',order.platform);
+    assert.equal(order.cancelled,true,order.platform);
+    assert.equal(order.cancellationRequested,false,order.platform);
+    assert.equal(order.actionRequired,false,order.platform);
+    assert.equal(order.shippingEligible,false,order.platform);
+  }
+  assert.equal(center.stageCounts.CANCELLED,3);
+  assert.equal(center.summary.cancelledTotal,3);
+  assert.equal(center.summary.visibleDefaultTotal,0);
+  assert.equal(center.summary.actionRequired,0);
+  assert.equal(center.summary.amount,0);
+});
+
+test('취소 주문은 최근 30일 이력만 표시하고 오래된 취소는 작업 화면으로 돌아오지 않는다',()=>{
+  const center=orders.buildUnifiedOrders({
+    asOf:'2026-08-23T00:00:00Z',
+    coupangOrders:[
+      {order_id:'RECENT-CANCEL',shipment_box_id:'S-1',ordered_at:'2026-08-22T03:00:00Z',status:'CANCELLED',gross_amount:12000},
+      {order_id:'OLD-CANCEL',shipment_box_id:'S-2',ordered_at:'2026-07-01T03:00:00Z',status:'CANCELLED',gross_amount:14000}
+    ]
+  });
+  assert.equal(center.summary.historyTotal,2);
+  assert.deepEqual(center.orders.map(order=>order.externalOrderId),['RECENT-CANCEL']);
+  assert.equal(center.summary.cancelledTotal,1);
+  assert.equal(center.summary.visibleDefaultTotal,0);
+});
+
+test('주문 화면은 취소 뱃지를 최근 완료 이력에만 배치한다',()=>{
+  const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
+  const css=fs.readFileSync(path.join(__dirname,'..','app','_operations','harin-operations-v8.css'),'utf8');
+  assert.match(center,/CANCELLED:'취소'/);
+  assert.match(center,/workspace==='COMPLETED'[^\n]+CANCELLED/);
+  assert.match(center,/orderStageBadge\$\{order\.stage==='CANCELLED'\?' cancelled':''\}/);
+  assert.match(center,/openWorkspace\(match\.stage==='CANCELLED'/);
+  assert.match(center,/최근 30일 배송완료·취소 이력/);
+  assert.match(css,/\.orderStageBadge\.cancelled/);
+});
+
 test('order export stays authenticated and guards spreadsheet formulas',()=>{
   const route=fs.readFileSync(path.join(__dirname,'..','app','api','orders','export','route.js'),'utf8');
   assert.match(route,/apiSafety\.isAuthorized\(request,authModule\)/);
@@ -234,7 +290,7 @@ test('orders center labels seller delivery and refreshes current channel status'
   assert.match(center,/상품명/);
   assert.match(center,/기본 옵션/);
   assert.match(center,/전체 플랫폼 수동수집/);
-  assert.match(center,/최근 30일 완료 건만 확인/);
+  assert.match(center,/최근 30일 배송완료·취소 이력/);
   assert.match(center,/당일출고/);
   assert.match(center,/배송지연/);
   assert.match(center,/orderBadgeGroup/);

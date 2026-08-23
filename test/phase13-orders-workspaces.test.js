@@ -11,7 +11,7 @@ test('phase 13-4 splits current work, shipping operations and recent history int
     assert.match(center,new RegExp(`id:'${id}'`));
   }
   assert.match(center,/지금 포장·출고할 판매자배송/);
-  assert.match(center,/최근 30일 완료 건만 확인/);
+  assert.match(center,/최근 30일 배송완료·취소 이력/);
   assert.match(center,/송장은 보존하고 채널 전송만 재실행/);
   assert.match(center,/통계·이력용, 작업목록과 분리/);
   assert.match(center,/자동처리 · 조회 전용/);
