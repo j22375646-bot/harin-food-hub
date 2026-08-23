@@ -118,6 +118,34 @@ test('플랫폼에서 취소 완료된 주문은 취소 이력으로 남지만 �
   assert.equal(center.summary.amount,0);
 });
 
+test('쿠팡 목록이 결제완료로 남아도 상세조회 취소 근거가 있으면 현재 주문에서 빠진다',()=>{
+  const center=orders.buildUnifiedOrders({
+    asOf:'2026-08-23T01:30:00Z',
+    coupangOrders:[{
+      order_id:'21102413666555',shipment_box_id:'722689601683517',
+      ordered_at:'2026-08-20T08:55:42Z',status:'ACCEPT',gross_amount:12000
+    }],
+    coupangOrderItems:[{
+      order_id:'21102413666555',shipment_box_id:'722689601683517',
+      product_name:'작두콩차',quantity:1,status:'ACCEPT'
+    }],
+    coupangOrderDetailTerminals:[{
+      operation_type:'ORDER_DETAIL',target_id:'722689601683517',status:'CANCELLED',
+      error_message:'Coupang API 400: The order has been canceled or returned.'
+    }]
+  });
+  const order=center.orders[0];
+  assert.equal(order.stage,'CANCELLED');
+  assert.equal(order.cancelled,true);
+  assert.equal(order.actionRequired,false);
+  assert.equal(order.shippingEligible,false);
+  assert.equal(center.stageCounts.PAID,0);
+  assert.equal(center.stageCounts.CANCELLED,1);
+  assert.equal(center.summary.visibleDefaultTotal,0);
+  assert.equal(center.summary.actionRequired,0);
+  assert.equal(center.summary.amount,0);
+});
+
 test('취소 주문은 최근 30일 이력만 표시하고 오래된 취소는 작업 화면으로 돌아오지 않는다',()=>{
   const center=orders.buildUnifiedOrders({
     asOf:'2026-08-23T00:00:00Z',
