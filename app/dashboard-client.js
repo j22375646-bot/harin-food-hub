@@ -292,12 +292,12 @@ export default function Dashboard({ initialData, initialState }) {
     window.__HARIN_CLIENT_HEALTH__?.startRoute?.(href);
     startRouteTransition(()=>router[replace||current===href?'replace':'push'](href,{scroll:false}));
   }
-  const openView=id=>navigate({view:id,product:'ALL',period:'DAY'});
+  const openView=id=>navigate(hubRoutesModule.primaryNavigationState(id));
   const selectPlatform=id=>navigate({platform:id,product:id==='coupang'?selectedProduct:'ALL'},true);
   const prefetchView=id=>{
     if(prefetchedViews.current.has(id))return;
     prefetchedViews.current.add(id);
-    router.prefetch(hubRoutesModule.buildHubHref({view:id,platform:'all',product:'ALL',period:'DAY'}));
+    router.prefetch(hubRoutesModule.buildHubHref(hubRoutesModule.primaryNavigationState(id)));
   };
 
   return <div className="shell">

@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { HUB_NAV, HUB_NAV_GROUPS, HUB_WORKSPACES, HUB_LEGACY_ROUTES, normalizeHubState, buildHubHref, parseHubHref, groupForView, navigationContext } = require('../lib/navigation/hub-routes.js');
+const { HUB_NAV, HUB_NAV_GROUPS, HUB_WORKSPACES, HUB_LEGACY_ROUTES, normalizeHubState, buildHubHref, parseHubHref, primaryNavigationState, groupForView, navigationContext } = require('../lib/navigation/hub-routes.js');
 
 test('all sixteen hub functions have stable unique addresses', () => {
   assert.equal(HUB_NAV.length,16);
@@ -31,6 +31,14 @@ test('platform, product, and period survive a refresh through the URL', () => {
 test('main is canonicalized to the all-channel command center', () => {
   assert.equal(buildHubHref({view:'main',platform:'coupang'}),'/');
   assert.deepEqual(parseHubHref('/?platform=naver&period=WEEK&product=old-product'),{view:'main',workspace:null,platform:'all',product:'ALL',period:'DAY'});
+});
+
+test('the primary keyword menu always opens Naver registered keywords', () => {
+  assert.deepEqual(primaryNavigationState('keyword'), {
+    view:'keyword', workspace:'registered', platform:'naver', product:'ALL', period:'DAY'
+  });
+  assert.equal(buildHubHref(primaryNavigationState('keyword')),'/keywords/registered?platform=naver');
+  assert.equal(primaryNavigationState('orders').view,'orders');
 });
 
 test('unified orders stay all-channel while Coupang-only operation pages remain locked', () => {
