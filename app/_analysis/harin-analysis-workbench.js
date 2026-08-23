@@ -7,6 +7,7 @@ import { useStoredState } from '../use-hub-preference.js';
 import { HarinIcon } from '../_design-system/harin-icon.js';
 import { HarinPageAiRegion, HarinPageContent, HarinPageFrame, HarinPageHeader, HarinPageToolbar, HarinQuickAction } from '../_design-system/harin-ui.js';
 import KeywordOperationsTable from './keyword-operations-table.js';
+import KeywordBidCapabilityPanel from './keyword-bid-capability-panel.js';
 
 const PLATFORM_LABELS={all:'전체',naver:'네이버',coupang:'쿠팡',cafe24:'Cafe24'};
 const WORKSPACE_META={
@@ -184,6 +185,7 @@ export default function HarinAnalysisWorkbench({view,workspace,platform='all',da
       {view==='insight'&&workspace==='causes'?<InsightCauseDesk data={data} platform={platform}/>:null}
       {view==='insight'&&workspace==='channels'?<InsightChannelDesk data={data}/>:null}
       {view==='insight'&&workspace==='profitability'?<InsightProfitabilityDesk data={data}/>:null}
+      {view==='keyword'&&workspace==='registered'&&platform==='naver'?<KeywordBidCapabilityPanel/>:null}
       {view==='keyword'?<KeywordOperationsTable workspace={workspace} platform={platform} data={data}/>:null}
       {view==='keyword'&&workspace==='diagnosis'&&platform==='naver'?<KeywordStopLoss data={data}/>:null}
       {view==='product'?<ProductDifferenceDesk data={data}/>:null}
