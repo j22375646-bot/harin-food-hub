@@ -146,3 +146,14 @@
 @media(max-width:700px){.keywordOpsViewState{grid-template-columns:42px minmax(0,1fr) auto}.keywordOpsViewState>i{width:42px;height:42px}.keywordOpsViewState>em{grid-column:2;justify-self:start}.keywordOpsViewState>button{grid-column:3;grid-row:1/3}.keywordOpsViewState>span small{white-space:normal}.keywordOpsRow[tabindex="0"]:focus-visible{outline-offset:0}}
 @media(max-width:430px){.keywordOpsViewState{grid-template-columns:40px minmax(0,1fr);padding:11px}.keywordOpsViewState>i{width:40px;height:40px}.keywordOpsViewState>em{grid-column:2}.keywordOpsViewState>button{grid-column:1/-1;grid-row:auto;width:100%}.keywordOpsViewState>span b{font-size:15px}.keywordOpsViewState>span small{font-size:14px}}
 @media(prefers-reduced-motion:reduce){.keywordOpsRow,.keywordOpsSortButton,.keywordOpsAdgroupRail button,.keywordOpsViewState,.keywordOpsViewState *{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
+
+/* Phase 24-9: keep stopped Naver ad categories visible, but clearly outside bid operations. */
+.adCategoryBadge{display:inline-flex;width:max-content;min-height:24px;align-items:center;border:1px solid #ddd6e8;border-radius:999px;background:#f3f0f7;padding:3px 8px;color:#756b82;font-size:12px!important;font-weight:900!important;line-height:1;letter-spacing:-.01em;white-space:nowrap}
+.adCategoryBadge.inactive{border-color:#ded5e4;background:linear-gradient(135deg,#f5eff5,#f0eef7);color:#74677e;box-shadow:inset 0 0 0 1px rgba(255,255,255,.52)}
+.keywordOpsAdgroupRail button.inactive{border-color:#ded8e6;background:linear-gradient(145deg,#fcfbfd,#f6f3f8)}
+.keywordOpsAdgroupRail button.inactive>i{background:#f0edf4;color:#81758b}
+.keywordOpsAdgroupRail button.inactive>span{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:3px 7px}.keywordOpsAdgroupRail button.inactive>span>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.keywordOpsAdgroupRail button.inactive>span>small{grid-column:1/-1;color:#82798b}
+.keywordOpsInactiveNotice{display:flex;min-height:52px;align-items:center;gap:10px;margin:12px 0 0;border:1px solid #ded7e7;border-radius:14px;background:linear-gradient(120deg,#fbf9fc,#f4f1f8);padding:11px 13px;color:#71687b;font-size:14px;font-weight:800;line-height:1.55}
+.keywordOpsScope>.adCategoryBadge{margin:3px 0}
+.keywordOpsCampaignLabel{display:flex;align-items:center;gap:7px}.keywordOpsCampaignLabel>.adCategoryBadge{font-size:12px!important}
+@media(max-width:700px){.keywordOpsInactiveNotice{align-items:flex-start;flex-direction:column}.keywordOpsAdgroupRail button.inactive>span{grid-template-columns:1fr}.keywordOpsAdgroupRail button.inactive>span>.adCategoryBadge,.keywordOpsAdgroupRail button.inactive>span>small{grid-column:1}}
