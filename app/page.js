@@ -807,6 +807,8 @@ async function buildRegisteredKeywordDashboardData({
   const naverBidWorkbenchRaw=naverBidWorkbenchModule.buildNaverBidWorkbench({
     keywords:isNaver?marketingKeywordCatalog:[],
     stats:isNaver?marketingKeywordStats:[],
+    adgroups:isNaver?(naverGroupResult.data||[]):[],
+    campaigns:isNaver?(naverCampaignResult.data||[]):[],
     productTargets:productAdTargets.items||[],
     keywordProductLinks:isNaver?naverKeywordProductLinks:[],
     masterProducts:activeMasterProducts,
