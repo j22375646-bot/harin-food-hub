@@ -57,6 +57,14 @@ test('24-6 1일·3일·7일 집계와 순위 변동성을 계산하되 없는 �
   assert.equal(missing.windows['1'].cost,null);
   assert.equal(missing.rank.average,null);
   assert.equal(missing.rank.volatility,null);
+
+  const noExposure=analysis.buildBidPerformanceAnalysis({
+    keyword:{ncc_keyword_id:'kw-3',keyword:'레드비트차',bid_amount:180},
+    dailyPayload:[{data:[{period:'2026-08-23',impCnt:0,clkCnt:0,salesAmt:0,ccnt:0,convAmt:0,avgRnk:0}]}],
+    now:new Date('2026-08-23T03:00:00.000Z')
+  });
+  assert.equal(noExposure.rank.average,null,'0위는 실제 순위가 아니라 무노출·미집계 상태다');
+  assert.equal(noExposure.rank.volatility,null);
 });
 
 test('24-6 PC·모바일과 요일·시간 자료를 분리하며 비어 있는 칸은 null로 둔다',()=>{
