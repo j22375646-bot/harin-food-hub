@@ -51,9 +51,16 @@ test('15-8 mobile shell and route feedback stay usable without horizontal clippi
 
 test('15-8 retains channel-separated keyword UI and page-specific AI slots',()=>{
   const dashboard=read('app/dashboard-client.js');
-  assert.match(dashboard,/view==='keyword'\?\[\['naver'/);
-  assert.match(dashboard,/\['coupang','coupangDot','쿠팡'\]/);
-  assert.doesNotMatch(dashboard,/view==='keyword'\?\[\['all'/);
+  const ownerShell=read('app/_analysis/keyword-owner-shell.js');
+  const keywordOperations=read('lib/marketing/keyword-operations.js');
+  assert.match(dashboard,/const KeywordOwnerShell=dynamic/);
+  assert.match(dashboard,/view==='keyword'\?<KeywordOwnerShell/);
+  assert.match(dashboard,/view!==\'keyword\'/);
+  assert.match(keywordOperations,/naver:\[/);
+  assert.match(keywordOperations,/coupang:\[/);
+  assert.match(keywordOperations,/API 직접 운영/);
+  assert.match(keywordOperations,/WING 수동 운영/);
+  assert.doesNotMatch(keywordOperations,/\{id:'all'/);
   for(const page of ['orders','cs','inventory','settlement','keyword','product'])assert.match(dashboard,new RegExp(`aiPagePanels\\?\\.${page}`));
 });
 
