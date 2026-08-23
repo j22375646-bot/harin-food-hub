@@ -17,6 +17,10 @@ function schedule(overrides={}){
   };
 }
 
+function timeSlot(overrides={}){
+  return {weekday:1,hour:9,enabled:true,target_rank:2,maximum_bid:320,change_step:10,...overrides};
+}
+
 function candidate(id,overrides={}){
   return {
     platform:'NAVER',ncc_keyword_id:id,ncc_adgroup_id:'grp-1',keyword:`키워드 ${id}`,
@@ -54,6 +58,51 @@ test('24-4 only considers a schedule due inside its KST weekday, time, and inter
   assert.equal(schedules.scheduleDue(schedule({weekdays:[2]}),monday),false);
   assert.equal(schedules.scheduleDue(schedule({start_minute:600}),monday),false);
   assert.equal(schedules.scheduleDue(schedule({mode:'PAUSED'}),monday),false);
+});
+
+test('24-5 validates a weekday x 24-hour grid and only runs an enabled KST cell',()=>{
+  const validated=schedules.validateNaverBidSchedule(schedule({time_slots:[timeSlot(),timeSlot({hour:15,enabled:false})]}));
+  assert.deepEqual(validated.time_slots,[timeSlot(),timeSlot({hour:15,enabled:false})]);
+
+  const mondayNine=new Date('2026-08-24T00:10:00.000Z');
+  const mondayTen=new Date('2026-08-24T01:10:00.000Z');
+  assert.deepEqual(schedules.activeTimeSlot(validated,mondayNine),timeSlot());
+  assert.equal(schedules.scheduleDue(validated,mondayNine),true);
+  assert.equal(schedules.scheduleDue(validated,mondayTen),false);
+  assert.equal(schedules.activeTimeSlot(schedule(),mondayNine),null);
+
+  assert.throws(
+    ()=>schedules.validateNaverBidSchedule(schedule({time_slots:[timeSlot(),timeSlot()]})),
+    error=>error.code==='TIME_SLOT_DUPLICATE'
+  );
+  assert.throws(
+    ()=>schedules.validateNaverBidSchedule(schedule({time_slots:[timeSlot({target_rank:9})]})),
+    error=>error.code==='SCHEDULE_VALUE_INVALID'
+  );
+});
+
+test('24-5 applies the selected hour target, change step, and maximum without widening keyword safety',async()=>{
+  const slot=timeSlot({target_rank:1,maximum_bid:310,change_step:10});
+  const api={async request(method,uri,query,body){
+    assert.equal(body.items[0].position,1);
+    return {status:200,data:{estimate:body.items.map(item=>({keyword:item.key,position:item.position,bid:500}))}};
+  }};
+  const candidates=await schedules.buildEstimateCandidates({
+    api,timeSlot:slot,now:new Date('2026-08-24T00:10:00.000Z'),
+    keywords:[{ncc_keyword_id:'nkw-grid',ncc_adgroup_id:'grp-1',keyword:'작두콩차',bid_amount:300,status:'ELIGIBLE',user_lock:false}],
+    rules:[rule('nkw-grid',{target_rank:4,increase_step:90,maximum_bid:500})]
+  });
+  assert.equal(candidates[0].estimate.target_rank,1);
+  assert.equal(candidates[0].automation.proposed_bid,310);
+
+  const plan=schedules.buildNaverBidSchedulePlan({
+    schedule:schedule({mode:'ACTIVE',confirm_active:true,time_slots:[slot],allow_increase:true}),
+    timeSlot:slot,now:new Date('2026-08-24T00:10:00.000Z'),automationEnabled:true,
+    candidates,rules:[rule('nkw-grid',{target_rank:4,increase_step:90,maximum_bid:500})]
+  });
+  assert.equal(plan.actions[0].target_rank,1);
+  assert.equal(plan.actions[0].proposed_bid,310);
+  assert.equal(plan.actions[0].effective_maximum_bid,310);
 });
 
 test('24-4 builds an observe plan from enabled Naver rules and never admits Coupang or unsafe increases',()=>{
@@ -189,14 +238,31 @@ test('24-4 active runs use idempotent financial changes and retain the live veri
   assert.equal(finished[0].executed,1);
 });
 
+test('24-5 global emergency pause prevents every due schedule without mutating individual modes',async()=>{
+  let listCalls=0;
+  const result=await runner.runDueNaverBidSchedules({
+    now:new Date('2026-08-24T00:10:00.000Z'),automationEnabled:true,db:{},
+    store:{
+      getNaverBidAutomationControl:async()=>({emergency_paused:true,paused_reason:'사장님 긴급 정지'}),
+      listNaverBidSchedules:async()=>{listCalls++;return [schedule({mode:'ACTIVE',confirm_active:true})];}
+    }
+  });
+  assert.equal(result.emergency_paused,true);
+  assert.equal(result.pause_reason,'사장님 긴급 정지');
+  assert.equal(result.due_count,0);
+  assert.equal(listCalls,0);
+});
+
 test('24-4 schedule API is owner-only and the cron endpoint rejects unauthenticated callers',async()=>{
   const scheduleRoute=await import(`${pathToFileURL(path.join(__dirname,'..','app','api','naver','bid-schedules','route.js')).href}?test=${Date.now()}`);
   const cronRoute=await import(`${pathToFileURL(path.join(__dirname,'..','app','api','cron','naver-bid-automation','route.js')).href}?test=${Date.now()}`);
   const getResponse=await scheduleRoute.GET(new Request('https://hub.example/api/naver/bid-schedules'));
   const postResponse=await scheduleRoute.POST(new Request('https://hub.example/api/naver/bid-schedules',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(schedule())}));
+  const patchResponse=await scheduleRoute.PATCH(new Request('https://hub.example/api/naver/bid-schedules',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({action:'EMERGENCY_PAUSE'})}));
   const cronResponse=await cronRoute.GET(new Request('https://hub.example/api/cron/naver-bid-automation'));
   assert.equal(getResponse.status,401);
   assert.equal(postResponse.status,401);
+  assert.equal(patchResponse.status,401);
   assert.equal(cronResponse.status,401);
 });
 
@@ -219,4 +285,24 @@ test('24-4 renders the schedule control only in the Naver campaign and adgroup w
   assert.match(panelSource,/관찰만/);
   assert.match(panelSource,/자동 적용/);
   assert.doesNotMatch(panelSource,/\/api\/coupang\//);
+});
+
+test('24-5 ships the editable 7 by 24 grid, emergency stop, and service-role-only migration',()=>{
+  const root=path.join(__dirname,'..');
+  const panelSource=fs.readFileSync(path.join(root,'app','_analysis','keyword-bid-schedule-panel.js'),'utf8');
+  const cssSource=fs.readFileSync(path.join(root,'app','_analysis','keyword-bid-schedule-panel.css'),'utf8');
+  const migrations=fs.readdirSync(path.join(root,'supabase','migrations')).filter(name=>name.includes('naver_bid_hourly_time_grid'));
+  assert.equal(migrations.length,1);
+  const migration=fs.readFileSync(path.join(root,'supabase','migrations',migrations[0]),'utf8');
+  assert.match(panelSource,/Array\.from\(\{length:24\}/);
+  assert.match(panelSource,/전체 긴급 정지/);
+  assert.match(panelSource,/EMERGENCY_PAUSE/);
+  assert.match(panelSource,/target_rank/);
+  assert.match(panelSource,/maximum_bid/);
+  assert.match(panelSource,/change_step/);
+  assert.match(cssSource,/grid-template-columns:[^;]*repeat\(24/);
+  assert.match(migration,/time_slots jsonb/i);
+  assert.match(migration,/naver_bid_automation_controls/i);
+  assert.match(migration,/enable row level security/i);
+  assert.match(migration,/service_role/i);
 });

@@ -25,9 +25,27 @@ export async function GET(request){
   const access=ownerSession(request);if(access.error)return access.error;
   try{
     const adgroupId=new URL(request.url).searchParams.get('ncc_adgroup_id')||'';
-    const schedules=await bidScheduleStore.listNaverBidSchedules({adgroupId});
-    return apiSafety.json({ok:true,platform:'NAVER',automation_enabled:String(process.env.NAVER_BID_AUTOMATION_ENABLED||'').toLowerCase()==='true',schedules});
+    const [schedules,control]=await Promise.all([
+      bidScheduleStore.listNaverBidSchedules({adgroupId}),
+      bidScheduleStore.getNaverBidAutomationControl()
+    ]);
+    return apiSafety.json({ok:true,platform:'NAVER',automation_enabled:String(process.env.NAVER_BID_AUTOMATION_ENABLED||'').toLowerCase()==='true',control,schedules});
   }catch(error){return errorResponse(error,'네이버 자동입찰 스케줄을 불러오지 못했습니다.');}
+}
+
+export async function PATCH(request){
+  const access=ownerSession(request);if(access.error)return access.error;
+  try{
+    const body=await apiSafety.readJson(request,{maxBytes:8*1024});
+    const action=String(body?.action||'').toUpperCase();
+    if(!['EMERGENCY_PAUSE','EMERGENCY_RESUME'].includes(action)){
+      return apiSafety.json({ok:false,error:'긴급정지 작업을 다시 선택해주세요.',code:'CONTROL_ACTION_INVALID'},{status:400});
+    }
+    const control=await bidScheduleStore.setNaverBidAutomationPaused({
+      paused:action==='EMERGENCY_PAUSE',reason:body?.reason||'',actor:authModule.actor(access.session)
+    });
+    return apiSafety.json({ok:true,platform:'NAVER',control});
+  }catch(error){return errorResponse(error,'네이버 자동입찰 긴급정지 상태를 저장하지 못했습니다.');}
 }
 
 export async function POST(request){
