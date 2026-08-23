@@ -8,7 +8,7 @@ import { HarinBulkCheckbox, HarinBulkSelectionBar, useHarinBulkSelection } from 
 import KeywordBidRulePanel from './keyword-bid-rule-panel.js';
 import KeywordBidSchedulePanel from './keyword-bid-schedule-panel.js';
 
-const {KEYWORD_PAGE_SIZES,KEYWORD_SORT_OPTIONS,nextKeywordSort,normalizeKeywordRows,filterKeywordRows,paginateKeywordRows,buildNaverAdgroupWorkspace}=keywordOperationsModule;
+const {DEFAULT_KEYWORD_VIEW,KEYWORD_PAGE_SIZES,KEYWORD_SORT_OPTIONS,normalizeKeywordView,describeKeywordView,nextKeywordSort,normalizeKeywordRows,filterKeywordRows,paginateKeywordRows,buildNaverAdgroupWorkspace}=keywordOperationsModule;
 const {COUPANG_AD_CAPABILITY,ACTION_LABELS,buildCoupangWingWorklist,coupangWingCsv,coupangWingClipboard}=coupangWingWorklistModule;
 const PLATFORM_LABEL={NAVER:'네이버',COUPANG:'쿠팡'};
 const DECISION_LABEL={LOWER:'감액 검토',RAISE:'확대 검토',KEEP:'유지',BLOCKED:'판단 보류',WATCH:'관찰',NEGATIVE_REVIEW:'제외 검토',SEPARATE:'분리 운영',LANDING_REVIEW:'랜딩 점검',NEW_KEYWORD:'신규 등록',CONTENT_FAQ:'콘텐츠 보강',OBSERVE:'관찰'};
@@ -19,7 +19,7 @@ const WORKSPACE_COPY={
   diagnosis:['SAVING & GROWTH','절감·확대 후보만 모아 우선순위를 정해요','광고비 손실, 목표 ROAS 미달, 확대 후보를 실제 근거와 함께 봅니다.'],
   history:['CHANGE HISTORY','변경 기록과 검증 결과를 한곳에서 확인해요','실행 전후 값과 상태를 보존하며, 기록이 없으면 빈 결과를 그대로 표시합니다.']
 };
-const number=value=>{const parsed=Number(value);return Number.isFinite(parsed)?parsed:null;};
+const number=value=>{if(value===null||value===undefined||value==='')return null;const parsed=Number(value);return Number.isFinite(parsed)?parsed:null;};
 const won=value=>value==null?'판단 보류':`${Math.round(value).toLocaleString('ko-KR')}원`;
 const count=value=>Number(value||0).toLocaleString('ko-KR');
 const percent=value=>value==null?'판단 보류':`${Number(value).toFixed(0)}%`;
@@ -47,13 +47,11 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const [query,setQuery]=useState('');
   const isCoupang=platform==='coupang';
   const sortOptions=KEYWORD_SORT_OPTIONS.filter(option=>!option.naverOnly||!isCoupang);
-  const [settings,setSettings]=useStoredState(`keyword-operations-view-${platform}`,{quickFilter:'ALL',sort:'COST_DESC',pageSize:KEYWORD_PAGE_SIZES[0]});
+  const [settings,setSettings]=useStoredState(`keyword-operations-view-${platform}`,DEFAULT_KEYWORD_VIEW);
   const [groupSettings,setGroupSettings]=useStoredState('naver-keyword-group-workspace',{campaignId:'ALL',adgroupId:'ALL'});
   const [wingDrafts,setWingDrafts]=useStoredState('coupang-wing-keyword-worklist',{});
-  const storedQuickFilter=['ALL','NO_ORDER_COST','LOW_ROAS','READY','MANUAL'].includes(settings?.quickFilter)?settings.quickFilter:'ALL';
-  const quickFilter=isCoupang&&storedQuickFilter==='READY'?'ALL':!isCoupang&&storedQuickFilter==='MANUAL'?'ALL':storedQuickFilter;
-  const sort=sortOptions.some(option=>option.value===settings?.sort)?settings.sort:'COST_DESC';
-  const pageSize=KEYWORD_PAGE_SIZES.includes(Number(settings?.pageSize))?Number(settings.pageSize):KEYWORD_PAGE_SIZES[0];
+  const viewSettings=normalizeKeywordView(platform,settings);
+  const {quickFilter,sort,pageSize}=viewSettings;
   const [page,setPage]=useState(1);
   const [drafts,setDrafts]=useState({});
   const [instantRows,setInstantRows]=useState({});
@@ -78,6 +76,9 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const naverGroupWorkspace=useMemo(()=>buildNaverAdgroupWorkspace(sourceRows,{campaignId,adgroupId}),[sourceRows,campaignId,adgroupId]);
   const tableSourceRows=groupEnabled?naverGroupWorkspace.filteredRows:sourceRows;
   const rows=useMemo(()=>filterKeywordRows(tableSourceRows,{query,quickFilter,sort}),[tableSourceRows,query,quickFilter,sort]);
+  const selectedCampaignName=campaignId==='ALL'?'':naverGroupCatalog.campaigns.find(item=>item.id===campaignId)?.name||'';
+  const selectedAdgroupName=adgroupId==='ALL'?'':campaignWorkspace.adgroups.find(item=>item.id===adgroupId)?.name||'';
+  const viewState=describeKeywordView({platform,query,quickFilter,sort,pageSize,campaignName:selectedCampaignName,adgroupName:selectedAdgroupName,filteredCount:rows.length});
   const pagination=useMemo(()=>paginateKeywordRows(rows,page,pageSize),[rows,page,pageSize]);
   const allIds=useMemo(()=>tableSourceRows.map(item=>item.id),[tableSourceRows]);
   const filteredIds=useMemo(()=>rows.map(item=>item.id),[rows]);
@@ -110,7 +111,11 @@ export default function KeywordOperationsTable({workspace='registered',platform=
     return ()=>controller.abort();
   },[platform,workspace,isCoupang,groupEnabled]);
 
-  function saveSettings(next){setSettings({...settings,...next});}
+  function saveSettings(next){setSettings({...viewSettings,...next});}
+  function resetView(){
+    setQuery('');setSettings({...DEFAULT_KEYWORD_VIEW});setPage(1);setDetailId('');selection.clear();
+    if(groupEnabled)setGroupSettings({campaignId:'ALL',adgroupId:'ALL'});
+  }
   function selectCampaign(next){setGroupSettings({campaignId:next,adgroupId:'ALL'});setPage(1);selection.clear();}
   function selectAdgroup(next){setGroupSettings({campaignId,adgroupId:next});setPage(1);selection.clear();}
   function setDraft(row,value){
@@ -195,6 +200,12 @@ export default function KeywordOperationsTable({workspace='registered',platform=
       <label><span>정렬</span><select value={sort} onChange={event=>saveSettings({sort:event.target.value})}>{sortOptions.map(option=><option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
       <label><span>한 페이지</span><select value={pageSize} onChange={event=>saveSettings({pageSize:Number(event.target.value)})}>{KEYWORD_PAGE_SIZES.map(size=><option value={size} key={size}>{size}개</option>)}</select></label>
     </div>
+    <div className={`keywordOpsViewState ${viewState.activeCount?'active':''}`} role="status" aria-live="polite">
+      <i aria-hidden="true"><KeywordPictogram/></i>
+      <span><b>{viewState.headline}</b><small>{viewState.description}</small></span>
+      <em>{viewState.activeCount?`${viewState.activeCount}개 보기 조건 적용`:'정리된 기본 화면'}</em>
+      <button type="button" onClick={resetView} disabled={!viewState.activeCount} aria-label="현재 보기 초기화">기본 보기로</button>
+    </div>
     <HarinBulkSelectionBar className="keywordOpsBulkBar" selectedCount={selection.selectedCount} visibleCount={visibleIds.length} filteredCount={filteredIds.length} visibleState={selection.visibleState} filteredState={selection.filteredState} onToggleVisible={checked=>selection.toggleScope(visibleIds,checked)} onToggleFiltered={checked=>selection.toggleScope(filteredIds,checked)} onClear={selection.clear} summary={isCoupang?`쿠팡 WING 작업 대상 ${coupangSelected.length}개`:`네이버 직접 변경 가능 ${draftableSelected.length}개 · 변경값 입력 ${changedRows.length}개`} preview={isCoupang&&coupangSelected.length?'선택 항목만 쿠팡 전용 작업표에 들어갑니다. 작업표를 내려받아도 쿠팡에는 자동 반영되지 않습니다.':changedRows.length?`현재 합계 ${won(currentTotal)} → 변경 합계 ${won(draftTotal)} · 마지막 확인 뒤 네이버 반영과 재조회까지 한 번에 끝냅니다.`:''}>
       {isCoupang?<button type="button" className="review" onClick={openWingWorklist} disabled={!coupangSelected.length}>WING 작업표 열기</button>:<>{!isCoupang&&groupEnabled?<KeywordBidRulePanel selectedRows={naverRuleSelected} savedRules={bidRules} onRulesChange={setBidRules} onApplyDrafts={applyRuleDrafts}/>:null}<button type="button" onClick={applyRecommended} disabled={!recommendedSelected.length}>추천가 채우기</button><button type="button" onClick={()=>applyPercent(-.1)} disabled={!draftableSelected.length}>10% 인하</button><button type="button" onClick={()=>applyPercent(.1)} disabled={!increasableSelected.length}>10% 인상</button><button type="button" className="review" onClick={()=>setReviewOpen(true)} disabled={!changedRows.length}>변경 전 확인</button></>}
     </HarinBulkSelectionBar>
@@ -203,7 +214,7 @@ export default function KeywordOperationsTable({workspace='registered',platform=
       <div className="keywordOpsTableWrap">
         <div className="keywordOpsTable" role="table" aria-label={`${PLATFORM_LABEL[String(platform).toUpperCase()]} 키워드 운영표`}>
           <div className="keywordOpsRow head" role="row"><span><HarinBulkCheckbox label="현재 페이지 전체 선택" checked={selection.visibleState.checked} mixed={selection.visibleState.mixed} onChange={event=>selection.toggleScope(visibleIds,event.target.checked)}/></span><KeywordSortHeader field="KEYWORD" label="키워드·플랫폼" sort={sort} onChange={value=>saveSettings({sort:value})}/><span>{isCoupang?'캠페인·상품':'캠페인·광고그룹·상품'}</span><KeywordSortHeader field="CURRENT_BID" label={workspace==='history'?'변경 전':isCoupang?'WING 현재가':'현재 입찰가'} sort={sort} onChange={value=>saveSettings({sort:value})} disabled={isCoupang}/><KeywordSortHeader field="RECOMMENDED_BID" label={workspace==='history'?'변경 값':isCoupang?'권장 조치':'추천 입찰가'} sort={sort} onChange={value=>saveSettings({sort:value})} disabled={isCoupang}/><span>{workspace==='history'?'현재 확인':isCoupang?'작업표':'변경 입찰가'}</span><KeywordSortHeader field="CLICKS" label="클릭" sort={sort} onChange={value=>saveSettings({sort:value})}/><KeywordSortHeader field="COST" label="광고비" sort={sort} onChange={value=>saveSettings({sort:value})}/><KeywordSortHeader field="ORDERS" label="주문" sort={sort} onChange={value=>saveSettings({sort:value})}/><KeywordSortHeader field="ROAS" label="ROAS" sort={sort} onChange={value=>saveSettings({sort:value})}/><span>실제 이익</span><span>상태</span></div>
-          {pagination.items.map(row=>{const changed=number(drafts[row.id])!=null&&number(drafts[row.id])!==row.currentBid;const bidRule=bidRuleMap.get(String(row.id).replace(/^NAVER:/,''));return <div className={`keywordOpsRow ${selection.selectedSet.has(String(row.id))?'selected':''} ${changed?'changed':''}`} role="row" key={row.id} onClick={()=>setDetailId(row.id)}>
+          {pagination.items.map(row=>{const changed=number(drafts[row.id])!=null&&number(drafts[row.id])!==row.currentBid;const bidRule=bidRuleMap.get(String(row.id).replace(/^NAVER:/,''));return <div className={`keywordOpsRow ${selection.selectedSet.has(String(row.id))?'selected':''} ${changed?'changed':''}`} role="row" tabIndex="0" aria-label={`${row.keyword} 상세 보기`} key={row.id} onClick={()=>setDetailId(row.id)} onKeyDown={event=>{if(event.target!==event.currentTarget)return;if(event.key==='Enter'||event.key===' '){event.preventDefault();setDetailId(row.id);}}}>
             <span onClick={event=>event.stopPropagation()}><HarinBulkCheckbox label={`${row.keyword} 선택`} checked={selection.selectedSet.has(String(row.id))} onChange={event=>selection.toggle(row.id,event.target.checked)}/></span>
             <span className="keywordOpsName"><i className={row.platform.toLowerCase()}>{row.platform==='NAVER'?'N':'C'}</i><b>{row.keyword}</b><small>{PLATFORM_LABEL[row.platform]} · {row.source==='SEARCH_TERM'?'실제 검색어':row.source==='HISTORY'?'변경 기록':'광고 키워드'}</small></span>
             <span className="keywordOpsScope"><b>{row.campaignName||row.campaign}</b>{row.adgroupName?<em>{row.adgroupName}</em>:null}<small>{row.product}</small>{bidRule?<strong className="bidRuleBadge">안전설정 · {bidRule.target_rank?`${bidRule.target_rank}위 참고`:'순위 미지정'}</strong>:null}</span>
