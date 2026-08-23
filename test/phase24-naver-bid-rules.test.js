@@ -145,6 +145,7 @@ test('24-4 renders the safety dialog at the document root and supports keyboard 
   assert.match(panelSource,/createPortal/);
   assert.match(panelSource,/document\.body/);
   assert.match(panelSource,/event\.key===['"]Escape['"]/);
+  assert.match(panelSource,/onKeyDownCapture=\{handlePanelKeyDown\}/);
   assert.match(panelSource,/triggerRef\.current\?\.focus/);
   assert.match(panelSource,/closeButtonRef/);
   assert.match(panelCss,/\.bidRulePortalLayer\{position:fixed;inset:0;z-index:/);

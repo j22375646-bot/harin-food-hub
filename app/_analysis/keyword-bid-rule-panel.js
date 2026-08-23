@@ -87,6 +87,13 @@ export default function KeywordBidRulePanel({selectedRows=[],savedRules=[],onRul
     if(!savingRef.current)setOpen(false);
   }
 
+  function handlePanelKeyDown(event){
+    if(event.key!=='Escape')return;
+    event.preventDefault();
+    event.stopPropagation();
+    closePanel();
+  }
+
   async function save(){
     if(saving||!selectedRows.length)return;
     savingRef.current=true;
@@ -115,7 +122,7 @@ export default function KeywordBidRulePanel({selectedRows=[],savedRules=[],onRul
   }
 
   const dialog=open&&typeof document!=='undefined'?createPortal(
-    <div className="bidRulePortalLayer">
+    <div className="bidRulePortalLayer" onKeyDownCapture={handlePanelKeyDown}>
     <div className="bidRuleBackdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)closePanel();}}>
       <section ref={panelRef} className="bidRulePanel" role="dialog" aria-modal="true" aria-labelledby="bid-rule-title">
         <header>
