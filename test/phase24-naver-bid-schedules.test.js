@@ -200,6 +200,20 @@ test('24-4 schedule API is owner-only and the cron endpoint rejects unauthentica
   assert.equal(cronResponse.status,401);
 });
 
+test('24-4 uses the existing AWS systemd worker for 30 minute checks on a Vercel Hobby project',()=>{
+  const root=path.join(__dirname,'..');
+  const vercel=JSON.parse(fs.readFileSync(path.join(root,'vercel.json'),'utf8'));
+  const timer=fs.readFileSync(path.join(root,'ops','systemd','harin-naver-bid-automation.timer'),'utf8');
+  const service=fs.readFileSync(path.join(root,'ops','systemd','harin-naver-bid-automation.service'),'utf8');
+  const trigger=fs.readFileSync(path.join(root,'scripts','naver-bid-automation-trigger.js'),'utf8');
+  const cron=fs.readFileSync(path.join(root,'app','api','cron','naver-bid-automation','route.js'),'utf8');
+  assert.equal(vercel.crons.some(item=>item.path==='/api/cron/naver-bid-automation'),false);
+  assert.match(timer,/OnCalendar=\*:0\/30/);
+  assert.match(service,/EnvironmentFile=\/etc\/harin-coupang-worker\.env/);
+  assert.match(trigger,/x-harin-naver-bid-token/);
+  assert.match(cron,/timingSafeEqual/);
+});
+
 test('24-4 renders the schedule control only in the Naver campaign and adgroup workspace',()=>{
   const tableSource=fs.readFileSync(path.join(__dirname,'..','app','_analysis','keyword-operations-table.js'),'utf8');
   const panelSource=fs.readFileSync(path.join(__dirname,'..','app','_analysis','keyword-bid-schedule-panel.js'),'utf8');
