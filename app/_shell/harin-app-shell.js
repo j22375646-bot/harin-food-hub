@@ -3,7 +3,10 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import hubRoutesModule from '../../lib/navigation/hub-routes.js';
+import sidebarCollapseModule from '../../lib/ui/sidebar-collapse.js';
 import { HarinIcon } from '../_design-system/harin-icon.js';
+
+const { resolveSidebarGroupAction }=sidebarCollapseModule;
 
 const PRIMARY_MOBILE_VIEWS = ['main','orders','inventory','notifications'];
 const PRIMARY_MOBILE_VIEW_SET = new Set(PRIMARY_MOBILE_VIEWS);
@@ -61,17 +64,23 @@ export function HarinTopbar({
   </header>;
 }
 
-export function HarinSidebar({ groups, countsKnown=true, countsStale=false, view, openGroup, query, onQuery, onOpenGroup, onOpenView, onPrefetch }) {
+export function HarinSidebar({ groups, countsKnown=true, countsStale=false, view, openGroup, query, collapsed=false, onQuery, onOpenGroup, onCollapsed, onOpenView, onPrefetch }) {
   const normalizedQuery=query.trim().toLowerCase();
   const hasQuery=Boolean(normalizedQuery);
   const visible=groups.map(group=>({...group,items:group.items.filter(item=>`${item.label} ${item.description} ${group.label}`.toLowerCase().includes(normalizedQuery))})).filter(group=>group.items.length);
   const actionCount=groups.reduce((sum,group)=>sum+Number(group.actionCount||0),0);
-  return <aside className="desktopSidebar v8Sidebar" aria-label="허브 사이드바">
-    <label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true"><HarinIcon name="search"/></i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴·업무 찾기" /></label>
-    <div className="sidebarMenuHeading"><span>운영 메뉴</span>{!countsKnown?<b>작업 수 확인 중</b>:actionCount>0?<b>{countsStale?'최근 ':''}확인할 일 {actionCount}건</b>:<b>{countsStale?'최근 확인 · ':''}새 알림 없음</b>}</div>
-    <nav aria-label="허브 메뉴">
-      {visible.map(group=>{const expanded=hasQuery||openGroup===group.id;return <section className={`sidebarGroup${expanded?' expanded':''}`} data-tone={toneForGroup(group.id)} key={group.id}>
-        <button type="button" className="sidebarGroupButton" aria-expanded={expanded} aria-controls={`sidebar-group-${group.id}`} onClick={()=>onOpenGroup(expanded&&!hasQuery?null:group.id)}><i><HarinIcon name={group.id}/></i><span><b>{group.label}</b><small>{group.description}</small></span>{group.actionCount>0?<em aria-label={`확인할 항목 ${group.actionCount}개`}>{group.actionCount}</em>:null}<strong aria-hidden="true">{expanded?'−':'+'}</strong></button>
+  const toggleCollapsed=()=>{
+    const next=!collapsed;
+    if(next&&query)onQuery('');
+    onCollapsed(next);
+  };
+  return <aside className={`desktopSidebar v8Sidebar${collapsed?' collapsed':''}`} data-collapsed={collapsed?'true':'false'} aria-label={collapsed?'접힌 허브 사이드바':'허브 사이드바'}>
+    <div className="sidebarCollapseControl"><button type="button" aria-label={collapsed?'사이드바 메뉴 펼치기':'사이드바 메뉴 접기'} aria-expanded={!collapsed} aria-controls="harin-desktop-navigation" title={collapsed?'메뉴 펼치기':'메뉴 접기'} onClick={toggleCollapsed}><HarinIcon name={collapsed?'sidebarExpand':'sidebarCollapse'}/><span>{collapsed?'메뉴 펼치기':'메뉴 접기'}</span></button></div>
+    {!collapsed?<><label className="sidebarSearch"><span className="srOnly">메뉴 검색</span><i aria-hidden="true"><HarinIcon name="search"/></i><input type="search" value={query} onChange={event=>onQuery(event.target.value)} placeholder="메뉴·업무 찾기" /></label>
+    <div className="sidebarMenuHeading"><span>운영 메뉴</span>{!countsKnown?<b>작업 수 확인 중</b>:actionCount>0?<b>{countsStale?'최근 ':''}확인할 일 {actionCount}건</b>:<b>{countsStale?'최근 확인 · ':''}새 알림 없음</b>}</div></>:null}
+    <nav id="harin-desktop-navigation" aria-label="허브 메뉴">
+      {visible.map(group=>{const active=group.items.some(item=>item.id===view);const expanded=!collapsed&&(hasQuery||openGroup===group.id);return <section className={`sidebarGroup${expanded?' expanded':''}${active?' active':''}`} data-tone={toneForGroup(group.id)} key={group.id}>
+        <button type="button" className="sidebarGroupButton" aria-label={collapsed?`${group.label} 메뉴 펼치기`:undefined} aria-expanded={expanded} aria-controls={`sidebar-group-${group.id}`} title={collapsed?`${group.label} · ${group.description}`:undefined} onClick={()=>{const action=resolveSidebarGroupAction({collapsed,groupId:group.id,expanded,hasQuery});if(action.collapsed!==collapsed)onCollapsed(action.collapsed);onOpenGroup(action.openGroup);}}><i><HarinIcon name={group.id}/></i><span><b>{group.label}</b><small>{group.description}</small></span>{group.actionCount>0?<em aria-label={`확인할 항목 ${group.actionCount}개`}>{group.actionCount}</em>:null}<strong aria-hidden="true">{expanded?'−':'+'}</strong></button>
         {expanded?<div className="sidebarItems" id={`sidebar-group-${group.id}`}>{group.items.map(item=><button type="button" key={item.id} className={`sidebarItem${view===item.id?' active':''}`} aria-current={view===item.id?'page':undefined} onPointerEnter={()=>onPrefetch(item.id)} onFocus={()=>onPrefetch(item.id)} onClick={()=>onOpenView(item.id)}><i><HarinIcon name={item.id}/></i><span><b>{item.label}</b><small>{item.description}</small></span>{item.badge>0?<em aria-label={`확인할 항목 ${item.badge}개`}>{item.badge}</em>:null}</button>)}</div>:null}
       </section>})}
       {!visible.length?<p className="sidebarNoResult">찾는 메뉴가 없습니다.</p>:null}

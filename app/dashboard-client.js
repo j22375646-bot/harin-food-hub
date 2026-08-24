@@ -8,6 +8,7 @@ import freshnessModule from '../lib/ui/freshness.js';
 import { getHubHelp } from '../lib/ui/help-content.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
 import navigationOperationSnapshotModule from '../lib/navigation/operation-snapshot.js';
+import sidebarCollapseModule from '../lib/ui/sidebar-collapse.js';
 import { useStoredState } from './use-hub-preference.js';
 import { HarinBreadcrumbBar, HarinFocusedWorkspaceNav, HarinMobileNavigation, HarinSidebar, HarinTopbar } from './_shell/harin-app-shell.js';
 import { HarinRouteProgress } from './_design-system/harin-ui.js';
@@ -224,12 +225,16 @@ export default function Dashboard({ initialData, initialState }) {
   const [pendingWorkspace,setPendingWorkspace]=useState(null);
   const prefetchedViews=useRef(new Set([normalizedInitial.view]));
   const [fontScale,setFontScale]=useStoredState('font-scale','large',['large','xlarge']);
+  const [sidebarCollapsed,setSidebarCollapsed]=useStoredState('desktop-sidebar-collapsed',false,[true,false]);
   const incomingNavigationSnapshot=useMemo(
     ()=>navigationOperationSnapshotModule.buildNavigationOperationSnapshot(initialData),
     [initialData.loadedView,initialData.generatedAt,initialData.unifiedOrders,initialData.customerService,initialData.unifiedInventory,initialData.alerts,initialData.channelConnections]
   );
   const [navigationSnapshot,setNavigationSnapshot]=useState(incomingNavigationSnapshot);
   useEffect(()=>{document.documentElement.dataset.fontScale=fontScale;},[fontScale]);
+  useEffect(()=>{
+    document.documentElement.dataset.harinSidebar=sidebarCollapseModule.sidebarRootState(sidebarCollapsed);
+  },[sidebarCollapsed]);
   useEffect(()=>{
     let stored=null;
     try{stored=navigationOperationSnapshotModule.parseNavigationOperationSnapshot(window.localStorage.getItem(NAVIGATION_SNAPSHOT_KEY));}catch{}
@@ -302,7 +307,7 @@ export default function Dashboard({ initialData, initialState }) {
 
   return <div className="shell">
     <HarinTopbar context={navContext} connectionLabel={connectionLabel} connectionTone={connectionTone} fontScale={fontScale} onFontScale={setFontScale} syncing={syncing} onSync={runSync}/>
-    <HarinSidebar groups={navGroups} countsKnown={navigationSnapshotKnown} countsStale={navigationSnapshotStale} view={pendingView||view} openGroup={openNavGroup} query={navQuery} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onOpenView={openView} onPrefetch={prefetchView}/>
+    <HarinSidebar groups={navGroups} countsKnown={navigationSnapshotKnown} countsStale={navigationSnapshotStale} view={pendingView||view} openGroup={openNavGroup} query={navQuery} collapsed={sidebarCollapsed} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onCollapsed={setSidebarCollapsed} onOpenView={openView} onPrefetch={prefetchView}/>
     <main className={`hubMain${viewIsLoading?' routePending':''}`} aria-busy={viewIsLoading?'true':'false'} data-loader-profile={initialData.loaderPerformance?.profile||undefined} data-loader-ms={initialData.loaderPerformance?.duration_ms??undefined} data-loader-target={initialData.loaderPerformance?.target_ms??undefined} data-loader-within-target={initialData.loaderPerformance?.within_target===undefined?undefined:String(initialData.loaderPerformance.within_target)} data-loader-remote-queries={initialData.loaderPerformance?.remote_query_count??undefined} data-loader-slowest={(initialData.loaderPerformance?.slow_queries||[]).map(item=>`${item.table}:${item.duration_ms}`).join(',')||undefined}>
       {viewIsLoading?<HarinRouteProgress label={nav.find(item=>item.id===(pendingView||view))?.label}/>:null}
       <HarinBreadcrumbBar context={navContext}/>

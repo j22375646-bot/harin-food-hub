@@ -36,6 +36,11 @@ html[data-harin-ui="v8"]{
   scrollbar-color:#d8d3e5 transparent;
   scrollbar-width:thin;
 }
+.sidebarCollapseControl{display:flex;justify-content:flex-end;margin:0 2px 12px}
+.sidebarCollapseControl>button{display:flex;min-width:116px;min-height:44px;align-items:center;justify-content:center;gap:8px;border:1px solid var(--v8-line);border-radius:12px;background:#fff;color:var(--v8-ink-soft);padding:0 12px;font-size:14px;font-weight:820;cursor:pointer}
+.sidebarCollapseControl>button:hover{border-color:#bbb8c8;background:#f5f5f7;color:var(--v8-ink)}
+.sidebarCollapseControl>button:focus-visible{outline:3px solid rgba(58,88,118,.28);outline-offset:2px}
+.sidebarCollapseControl .harinIcon{width:20px;height:20px}
 .harinV8 .sidebarPhase{display:flex;gap:5px;margin:0 2px 14px;border:1px solid #dfdbea;border-radius:18px;padding:15px;background:linear-gradient(145deg,#f3f0fa,#edf5f1)}
 .harinV8 .sidebarPhase>span{display:flex;align-items:center;gap:7px;color:var(--v8-lavender-strong)}
 .harinV8 .sidebarPhase>span .harinIcon{width:17px;height:17px}
@@ -72,6 +77,23 @@ html[data-harin-ui="v8"]{
 .harinV8 .desktopSidebar nav .sidebarItem.active{border-color:var(--nav-line);background:linear-gradient(105deg,var(--nav-soft-strong),rgba(255,255,255,.9));color:var(--nav-ink);box-shadow:inset 4px 0 var(--nav-ink),0 6px 18px var(--nav-shadow)}
 .harinV8 .desktopSidebar nav .sidebarItem.active>i{border:1px solid var(--nav-line);background:var(--nav-soft-strong);color:var(--nav-ink)}
 .harinV8 .desktopSidebar nav .sidebarItem.active small{color:var(--nav-ink)}
+
+@media(min-width:901px){
+  html[data-harin-ui="v8"][data-harin-sidebar="collapsed"]{--hub-sidebar-width:84px}
+  .harinV8 .v8Sidebar,.harinV8 .hubMain,.harinV8 .hubFooter,.harinV8 .viewLoadingOverlay{transition:width 180ms ease,margin-left 180ms ease,left 180ms ease,padding 180ms ease}
+  .harinV8 .v8Sidebar.collapsed{padding:14px 10px 24px}
+  .harinV8 .v8Sidebar.collapsed .sidebarCollapseControl{justify-content:center;margin-inline:0}
+  .harinV8 .v8Sidebar.collapsed .sidebarCollapseControl>button{width:48px;min-width:48px;padding:0}
+  .harinV8 .v8Sidebar.collapsed .sidebarCollapseControl span{display:none}
+  .harinV8 .v8Sidebar.collapsed>nav{gap:8px}
+  .harinV8 .v8Sidebar.collapsed .sidebarGroup{overflow:visible;border-radius:14px}
+  .harinV8 .v8Sidebar.collapsed .sidebarGroup.active{border:1px solid var(--nav-line);background:var(--nav-soft)}
+  .harinV8 .v8Sidebar.collapsed nav .sidebarGroupButton{position:relative;min-height:54px;grid-template-columns:1fr;gap:0;border-radius:13px;padding:6px}
+  .harinV8 .v8Sidebar.collapsed nav .sidebarGroupButton>i{width:42px;height:42px;border-radius:12px}
+  .harinV8 .v8Sidebar.collapsed .sidebarGroupButton>span,.harinV8 .v8Sidebar.collapsed .sidebarGroupButton>strong{display:none}
+  .harinV8 .v8Sidebar.collapsed .sidebarGroupButton>em{position:absolute;top:2px;right:2px;min-width:20px;height:20px;border:2px solid #fff;padding:0 4px;font-size:11px}
+  .harinV8 .v8Sidebar.collapsed .sidebarGroupButton:focus-visible{outline:3px solid rgba(58,88,118,.28);outline-offset:2px}
+}
 
 .harinV8 .hubMain{
   width:min(1360px,calc(100% - var(--hub-sidebar-width)));
@@ -224,4 +246,5 @@ html[data-harin-ui="v8"]{
 
 @media(prefers-reduced-motion:reduce){
   .harinV8 .mobileMenuBackdrop,.harinV8 .mobileGroupedMenu{animation:none}
+  .harinV8 .v8Sidebar,.harinV8 .hubMain,.harinV8 .hubFooter,.harinV8 .viewLoadingOverlay{transition:none}
 }
