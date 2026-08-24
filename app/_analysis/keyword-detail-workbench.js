@@ -17,6 +17,7 @@ export default function KeywordDetailWorkbench({
   evidencePanel=null,
   historyPanel=null,
   onClose,
+  onEscape,
   onChangeBid,
   onNormalizeBid,
   onUseRecommendation
@@ -25,8 +26,8 @@ export default function KeywordDetailWorkbench({
   const naverRegistered=view.sections.includes('NAVER_EVIDENCE');
   const hasHistory=view.sections.includes('NAVER_HISTORY');
   const manual=view.sections.includes('COUPANG_MANUAL');
-  return <aside className="keywordOpsDetail keywordDetailWorkbench" aria-label="선택 키워드 상세">
-    <header><span>KEYWORD DECISION DESK</span><button type="button" onClick={onClose} aria-label="상세 닫기"><HarinIcon name="close" size={20}/></button></header>
+  return <aside className="keywordOpsDetail keywordDetailWorkbench" data-keyword-detail-workbench aria-label="선택 키워드 상세" onKeyDown={event=>{if(event.key==='Escape')onEscape?.(event);}}>
+    <header><span>KEYWORD DECISION DESK</span><button type="button" data-keyword-detail-close onClick={onClose} aria-label="상세 닫기"><HarinIcon name="close" size={20}/></button></header>
 
     <div className="keywordOpsDetailTitle">
       <i className={view.platform.toLowerCase()}>{view.platform==='NAVER'?'N':'C'}</i>

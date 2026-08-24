@@ -18,7 +18,7 @@ import KeywordDetailWorkbench from './keyword-detail-workbench.js';
 const {DEFAULT_KEYWORD_VIEW,KEYWORD_PAGE_SIZES,KEYWORD_SORT_OPTIONS,normalizeKeywordView,describeKeywordView,nextKeywordSort,normalizeKeywordRows,findGlobalKeywordRows,globalKeywordJump,selectKeywordRowsByCondition,planKeywordBulkDrafts,filterKeywordRows,paginateKeywordRows,buildNaverAdgroupWorkspace}=keywordOperationsModule;
 const {COUPANG_AD_CAPABILITY,ACTION_LABELS,buildCoupangWingWorklist,coupangWingCsv,coupangWingClipboard}=coupangWingWorklistModule;
 const {buildNaverKeywordCsv,naverKeywordSearchUrl}=naverKeywordExportModule;
-const {keywordWorkbenchPresentation,keywordWorkbenchLayout}=keywordWorkbenchContractModule;
+const {keywordWorkbenchPresentation,keywordWorkbenchLayout,keywordDetailOpenPlan,keywordDetailKeyPlan}=keywordWorkbenchContractModule;
 const PLATFORM_LABEL={NAVER:'네이버',COUPANG:'쿠팡'};
 const DECISION_LABEL={LOWER:'감액 검토',RAISE:'확대 검토',KEEP:'유지',BLOCKED:'판단 보류',WATCH:'관찰',NEGATIVE_REVIEW:'제외 검토',SEPARATE:'분리 운영',LANDING_REVIEW:'랜딩 점검',NEW_KEYWORD:'신규 등록',CONTENT_FAQ:'콘텐츠 보강',OBSERVE:'관찰'};
 const HISTORY_STATUS={PREVIEWED:'확인 대기',APPROVED:'실행 대기',EXECUTING:'반영 중',EXECUTED:'재조회 대기',VERIFIED:'반영 확인',VERIFICATION_FAILED:'재조회 불일치',FAILED:'실행 실패',STALE:'새 변경안 필요',EXPIRED:'변경안 만료',REJECTED:'취소',ROLLED_BACK:'원래 값 복구'};
@@ -159,6 +159,17 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const currentTotal=changedRows.reduce((sum,item)=>sum+Number(item.currentBid||0),0);
   const draftTotal=changedRows.reduce((sum,item)=>sum+Number(drafts[item.id]||0),0);
 
+  const focusKeywordRow=rowId=>{
+    if(!rowId||typeof document==='undefined')return;
+    const target=Array.from(document.querySelectorAll('[data-keyword-row-id]')).find(element=>element.dataset.keywordRowId===rowId);
+    target?.focus({preventScroll:true});
+  };
+  const closeKeywordDetail=()=>{
+    const closingId=detailId;
+    setDetailId('');
+    if(closingId&&typeof window!=='undefined')window.requestAnimationFrame(()=>focusKeywordRow(closingId));
+  };
+
   useEffect(()=>{setPage(1);selection.clear();setDrafts({});setInstantRows({});setMutationStates({});setDetailId('');setFinderOpen(false);setFinderIndex(0);setPendingScrollId('');setReviewOpen(false);setProposalResult(null);setWingOpen(false);setWingPage(1);setWingNotice('');setExportNotice('');setBulkCondition('CHANGEABLE');setBulkMode('PERCENT');setBulkValue('-10');setBulkNotice('');},[workspace,platform]);
   useEffect(()=>{if(!pendingScrollId)setPage(1);},[query,quickFilter,sort,pageSize]);
   useEffect(()=>{
@@ -172,6 +183,19 @@ export default function KeywordOperationsTable({workspace='registered',platform=
     },80);
     return ()=>window.clearTimeout(timer);
   },[pendingScrollId,pagination.page,campaignId,adgroupId,rows]);
+  useEffect(()=>{
+    if(!detailId)return undefined;
+    const plan=keywordDetailOpenPlan({detailId,viewportWidth:window.innerWidth});
+    if(!plan.followDetail)return undefined;
+    const timer=window.setTimeout(()=>{
+      const inspector=document.querySelector('[data-keyword-detail-workbench]');
+      if(!inspector)return;
+      const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      inspector.scrollIntoView({behavior:reduceMotion?'auto':'smooth',block:'start'});
+      inspector.querySelector('[data-keyword-detail-close]')?.focus({preventScroll:true});
+    },40);
+    return ()=>window.clearTimeout(timer);
+  },[detailId]);
   useEffect(()=>{
     if(isCoupang||!groupEnabled){setBidRules([]);setBidRuleLoadState('IDLE');return undefined;}
     const controller=new AbortController();
@@ -371,7 +395,7 @@ export default function KeywordOperationsTable({workspace='registered',platform=
       <div className="keywordOpsTableWrap">
         <div className="keywordOpsTable" role="table" aria-label={`${PLATFORM_LABEL[String(platform).toUpperCase()]} 키워드 운영표`}>
           <div className="keywordOpsRow head" role="row"><span><HarinBulkCheckbox label="현재 페이지 전체 선택" checked={selection.visibleState.checked} mixed={selection.visibleState.mixed} onChange={event=>selection.toggleScope(visibleIds,event.target.checked)}/></span><KeywordSortHeader field="KEYWORD" label="키워드·플랫폼" sort={sort} onChange={value=>saveSettings({sort:value})}/><span>{isCoupang?'캠페인·상품':'캠페인·광고그룹·상품'}</span><KeywordSortHeader field="CURRENT_BID" label={workspace==='history'?'변경 전':isCoupang?'WING 현재가':'현재 입찰가'} sort={sort} onChange={value=>saveSettings({sort:value})} disabled={isCoupang}/><KeywordSortHeader field="RECOMMENDED_BID" label={workspace==='history'?'변경 값':isCoupang?'권장 조치':'추천 입찰가'} sort={sort} onChange={value=>saveSettings({sort:value})} disabled={isCoupang}/><span>{workspace==='history'?'현재 확인':isCoupang?'작업표':'변경 입찰가'}</span><KeywordSortHeader field="CLICKS" label="클릭" sort={sort} onChange={value=>saveSettings({sort:value})}/><KeywordSortHeader field="COST" label="광고비" sort={sort} onChange={value=>saveSettings({sort:value})}/><KeywordSortHeader field="ORDERS" label="주문" sort={sort} onChange={value=>saveSettings({sort:value})}/><KeywordSortHeader field="ROAS" label="ROAS" sort={sort} onChange={value=>saveSettings({sort:value})}/>{listSignalEnabled?<span>순위 신호</span>:null}<span>실제 이익</span><span>상태</span></div>
-          {pagination.items.map(row=>{const changed=number(drafts[row.id])!=null&&number(drafts[row.id])!==row.currentBid;const bidRule=bidRuleMap.get(String(row.id).replace(/^NAVER:/,''));return <div className={`keywordOpsRow ${selection.selectedSet.has(String(row.id))?'selected':''} ${detailId===row.id?'inspected':''} ${changed?'changed':''}`} data-keyword-row-id={row.id} role="row" tabIndex="0" aria-label={`${row.keyword} 상세 보기`} key={row.id} onClick={()=>setDetailId(row.id)} onKeyDown={event=>{if(event.target!==event.currentTarget)return;if(event.key==='Enter'||event.key===' '){event.preventDefault();setDetailId(row.id);}}}>
+          {pagination.items.map(row=>{const changed=number(drafts[row.id])!=null&&number(drafts[row.id])!==row.currentBid;const bidRule=bidRuleMap.get(String(row.id).replace(/^NAVER:/,''));return <div className={`keywordOpsRow ${selection.selectedSet.has(String(row.id))?'selected':''} ${detailId===row.id?'inspected':''} ${changed?'changed':''}`} data-keyword-row-id={row.id} role="row" tabIndex="0" aria-label={`${row.keyword} 상세 보기`} aria-expanded={detailId===row.id} key={row.id} onClick={()=>setDetailId(row.id)} onKeyDown={event=>{if(event.target!==event.currentTarget)return;const keyPlan=keywordDetailKeyPlan({detailId:detailId===row.id?detailId:'',key:event.key,overlayOpen:finderOpen||reviewOpen||wingOpen});if(keyPlan.action==='CLOSE'){event.preventDefault();closeKeywordDetail();return;}if(event.key==='Enter'||event.key===' '){event.preventDefault();setDetailId(row.id);}}}>
             <span onClick={event=>event.stopPropagation()}><HarinBulkCheckbox label={row.adCategoryState==='INACTIVE'?`${row.keyword} 사용중지`:`${row.keyword} 선택`} checked={selection.selectedSet.has(String(row.id))} disabled={row.adCategoryState==='INACTIVE'} onChange={event=>selection.toggle(row.id,event.target.checked)}/></span>
             <span className="keywordOpsName"><i className={row.platform.toLowerCase()}>{row.platform==='NAVER'?'N':'C'}</i><b>{row.keyword}</b><small>{PLATFORM_LABEL[row.platform]} · {row.source==='SEARCH_TERM'?'실제 검색어':row.source==='HISTORY'?'변경 기록':'광고 키워드'}</small></span>
             <span className="keywordOpsScope"><b>{row.campaignName||row.campaign}</b>{row.adgroupName?<em>{row.adgroupName}</em>:null}{row.adCategoryState==='INACTIVE'?<strong className="adCategoryBadge inactive">사용중지</strong>:null}<small>{row.product}</small>{bidRule?<strong className="bidRuleBadge">안전설정 · {bidRule.target_rank?`${bidRule.target_rank}위 참고`:'순위 미지정'}</strong>:null}</span>
@@ -388,7 +412,8 @@ export default function KeywordOperationsTable({workspace='registered',platform=
         detail={detail}
         draftValue={drafts[detail.id]??''}
         searchUrl={detailSearchUrl}
-        onClose={()=>setDetailId('')}
+        onClose={closeKeywordDetail}
+        onEscape={event=>{const keyPlan=keywordDetailKeyPlan({detailId,key:event.key,overlayOpen:finderOpen||reviewOpen||wingOpen});if(keyPlan.action==='CLOSE'){event.preventDefault();event.stopPropagation();closeKeywordDetail();}}}
         onChangeBid={value=>setDetailDraft(detail,value)}
         onNormalizeBid={()=>{const value=number(drafts[detail.id]);if(value!=null)setDetailDraft(detail,clamp(value,detail.minimumBid,detail.maximumBid));}}
         onUseRecommendation={()=>setDetailDraft(detail,detail.recommendedBid)}

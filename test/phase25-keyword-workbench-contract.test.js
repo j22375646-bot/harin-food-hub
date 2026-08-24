@@ -58,7 +58,7 @@ test('25-1 gives only the scoped Naver workbench three distinct responsive panes
   assert.deepEqual(naver.panes.map(item=>item.id),['scope','operations','inspector']);
   assert.equal(naver.scope.kind,'NAVER_CAMPAIGN_ADGROUP');
   assert.equal(naver.detailState,'SELECTED');
-  assert.deepEqual(naver.mobile,{order:['scope','operations','inspector'],scopeDefaultOpen:false,inspector:'INLINE_AFTER_TABLE'});
+  assert.deepEqual(naver.mobile,{order:['scope','operations','inspector'],scopeDefaultOpen:false,inspector:'FOLLOW_ON_SELECT'});
   assert.equal(diagnosis.mode,'THREE_PANE');
 
   assert.equal(history.mode,'TABLE_INSPECTOR');
