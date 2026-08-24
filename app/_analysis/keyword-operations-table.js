@@ -13,13 +13,15 @@ import KeywordBidOperationsOverview from './keyword-bid-operations-overview.js';
 import KeywordBidHistoryPanel from './keyword-bid-history-panel.js';
 import KeywordBidInlineTrend from './keyword-bid-inline-trend.js';
 
-const {DEFAULT_KEYWORD_VIEW,KEYWORD_PAGE_SIZES,KEYWORD_SORT_OPTIONS,normalizeKeywordView,describeKeywordView,nextKeywordSort,normalizeKeywordRows,findGlobalKeywordRows,globalKeywordJump,filterKeywordRows,paginateKeywordRows,buildNaverAdgroupWorkspace}=keywordOperationsModule;
+const {DEFAULT_KEYWORD_VIEW,KEYWORD_PAGE_SIZES,KEYWORD_SORT_OPTIONS,normalizeKeywordView,describeKeywordView,nextKeywordSort,normalizeKeywordRows,findGlobalKeywordRows,globalKeywordJump,selectKeywordRowsByCondition,planKeywordBulkDrafts,filterKeywordRows,paginateKeywordRows,buildNaverAdgroupWorkspace}=keywordOperationsModule;
 const {COUPANG_AD_CAPABILITY,ACTION_LABELS,buildCoupangWingWorklist,coupangWingCsv,coupangWingClipboard}=coupangWingWorklistModule;
 const {buildNaverKeywordCsv,naverKeywordSearchUrl}=naverKeywordExportModule;
 const {keywordWorkbenchPresentation,keywordWorkbenchLayout}=keywordWorkbenchContractModule;
 const PLATFORM_LABEL={NAVER:'네이버',COUPANG:'쿠팡'};
 const DECISION_LABEL={LOWER:'감액 검토',RAISE:'확대 검토',KEEP:'유지',BLOCKED:'판단 보류',WATCH:'관찰',NEGATIVE_REVIEW:'제외 검토',SEPARATE:'분리 운영',LANDING_REVIEW:'랜딩 점검',NEW_KEYWORD:'신규 등록',CONTENT_FAQ:'콘텐츠 보강',OBSERVE:'관찰'};
 const HISTORY_STATUS={PREVIEWED:'확인 대기',APPROVED:'실행 대기',EXECUTING:'반영 중',EXECUTED:'재조회 대기',VERIFIED:'반영 확인',VERIFICATION_FAILED:'재조회 불일치',FAILED:'실행 실패',STALE:'새 변경안 필요',EXPIRED:'변경안 만료',REJECTED:'취소',ROLLED_BACK:'원래 값 복구'};
+const BULK_CONDITIONS=[['CHANGEABLE','변경 가능한 전체'],['RECOMMENDED','추천가 준비됨'],['NO_ORDER_COST','광고비 사용·주문 0'],['LOW_ROAS','ROAS 700% 미만']];
+const BULK_MODES=[['PERCENT','비율로 조정'],['AMOUNT','금액 더하기·빼기'],['TARGET','최종 입찰가로 맞추기']];
 const WORKSPACE_COPY={
   registered:['KEYWORD OPERATIONS','플랫폼별 광고 키워드를 각각 운영해요','네이버와 쿠팡은 서로 섞지 않고 별도 표로 열리며, 네이버는 입찰 직접 변경·쿠팡은 WING 수동 적용 목록으로 관리합니다.'],
   'search-terms':['ACTUAL SEARCH TERMS','고객이 실제 입력한 검색어를 표로 비교해요','등록 키워드와 섞지 않고 제외·신규 등록·콘텐츠 후보를 빠르게 찾습니다.'],
@@ -97,6 +99,10 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const [bidRules,setBidRules]=useState([]);
   const [bidRuleLoadState,setBidRuleLoadState]=useState('IDLE');
   const [listSignals,setListSignals]=useState({status:'IDLE',byId:{}});
+  const [bulkCondition,setBulkCondition]=useState('CHANGEABLE');
+  const [bulkMode,setBulkMode]=useState('PERCENT');
+  const [bulkValue,setBulkValue]=useState('-10');
+  const [bulkNotice,setBulkNotice]=useState('');
   const copy=WORKSPACE_COPY[workspace]||WORKSPACE_COPY.registered;
   const rawSourceRows=useMemo(()=>normalizeKeywordRows({naverBidWorkbench:data.naverBidWorkbench,searchTermCenter:data.naver?.searchTermCenter,coupang:data.coupang,financialChanges:data.financialChanges,workspace,platform}),[data.naverBidWorkbench,data.naver?.searchTermCenter,data.coupang,data.financialChanges,workspace,platform]);
   const sourceRows=useMemo(()=>rawSourceRows.map(row=>instantRows[row.id]?{...row,...instantRows[row.id]}:row),[rawSourceRows,instantRows]);
@@ -134,6 +140,8 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const visibleSignalKey=useMemo(()=>visibleSignalGroups.map(group=>`${group.campaignType}:${group.ids.join(',')}`).join('|'),[visibleSignalGroups]);
   const selection=useHarinBulkSelection({allIds,filteredIds,visibleIds});
   const selectedRows=sourceRows.filter(item=>selection.selectedSet.has(String(item.id)));
+  const conditionCandidates=useMemo(()=>selectKeywordRowsByCondition(rows,{condition:bulkCondition}),[rows,bulkCondition]);
+  const bulkPlan=useMemo(()=>planKeywordBulkDrafts(selectedRows,drafts,{mode:bulkMode,value:bulkValue}),[selectedRows,drafts,bulkMode,bulkValue]);
   const naverRuleSelected=selectedRows.filter(item=>item.platform==='NAVER'&&item.source==='REGISTERED');
   const draftableSelected=selectedRows.filter(item=>item.canDraft);
   const recommendedSelected=draftableSelected.filter(item=>item.recommendedBid!=null);
@@ -149,7 +157,7 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const currentTotal=changedRows.reduce((sum,item)=>sum+Number(item.currentBid||0),0);
   const draftTotal=changedRows.reduce((sum,item)=>sum+Number(drafts[item.id]||0),0);
 
-  useEffect(()=>{setPage(1);selection.clear();setDrafts({});setInstantRows({});setMutationStates({});setDetailId('');setFinderOpen(false);setFinderIndex(0);setPendingScrollId('');setReviewOpen(false);setProposalResult(null);setWingOpen(false);setWingPage(1);setWingNotice('');setExportNotice('');},[workspace,platform]);
+  useEffect(()=>{setPage(1);selection.clear();setDrafts({});setInstantRows({});setMutationStates({});setDetailId('');setFinderOpen(false);setFinderIndex(0);setPendingScrollId('');setReviewOpen(false);setProposalResult(null);setWingOpen(false);setWingPage(1);setWingNotice('');setExportNotice('');setBulkCondition('CHANGEABLE');setBulkMode('PERCENT');setBulkValue('-10');setBulkNotice('');},[workspace,platform]);
   useEffect(()=>{if(!pendingScrollId)setPage(1);},[query,quickFilter,sort,pageSize]);
   useEffect(()=>{
     if(!pendingScrollId)return undefined;
@@ -226,6 +234,20 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   }
   function applyRecommended(){setDrafts(current=>{const next={...current};for(const row of recommendedSelected)next[row.id]=row.recommendedBid;return next;});}
   function applyPercent(rate){setDrafts(current=>{const next={...current};for(const row of draftableSelected){if(rate>0&&!(row.maximumBid>row.currentBid))continue;const base=number(current[row.id])??row.currentBid;if(base!=null)next[row.id]=Math.round(clamp(base*(1+rate),row.minimumBid,row.maximumBid)/10)*10;}return next;});}
+  function selectBulkCondition(){
+    const ids=conditionCandidates.map(item=>item.id);
+    selection.replace(ids);
+    setBulkNotice(ids.length?`현재 보기에서 조건에 맞는 ${count(ids.length)}개를 선택했어요.`:'현재 보기에 이 조건으로 선택할 키워드가 없어요.');
+  }
+  function applyBulkInput(){
+    if(!selection.selectedCount){setBulkNotice('먼저 키워드를 선택해주세요.');return;}
+    if(!bulkPlan.appliedIds.length){setBulkNotice('안전 범위 안에서 입력할 수 있는 키워드가 없어요. 값과 안전설정을 확인해주세요.');return;}
+    setDrafts(current=>({...current,...bulkPlan.drafts}));
+    const extras=[];
+    if(bulkPlan.clampedIds.length)extras.push(`안전 범위 조정 ${count(bulkPlan.clampedIds.length)}개`);
+    if(bulkPlan.skippedIds.length)extras.push(`보호로 제외 ${count(bulkPlan.skippedIds.length)}개`);
+    setBulkNotice(`선택 항목 중 ${count(bulkPlan.appliedIds.length)}개에 변경값을 입력했어요.${extras.length?` ${extras.join(' · ')}`:''}`);
+  }
   function applyRuleDrafts(items){
     setDrafts(current=>{const next={...current};for(const item of items){if(item?.row?.canDraft&&item?.preview?.proposed_bid!=null)next[item.row.id]=item.preview.proposed_bid;}return next;});
   }
@@ -320,6 +342,24 @@ export default function KeywordOperationsTable({workspace='registered',platform=
       <div className="keywordOpsViewActions">{!isCoupang&&groupEnabled?<button type="button" className="export" onClick={downloadNaverView} disabled={!rows.length}>현재 보기 CSV</button>:null}<button type="button" onClick={resetView} disabled={!viewState.activeCount} aria-label="현재 보기 초기화">기본 보기로</button></div>
     </div>
     {exportNotice?<p className="keywordOpsExportNotice" role="status" aria-live="polite">{exportNotice}</p>:null}
+    {!isCoupang&&groupEnabled?<section className="keywordOpsBulkStudio" aria-label="조건 선택과 일괄 입찰 입력">
+      <header><span><i aria-hidden="true"><KeywordPictogram/></i><span><b>조건 선택과 일괄 입력</b><small>현재 보기 안에서 키워드를 고르고 변경값만 먼저 채워요.</small></span></span><em>아직 네이버에 반영되지 않아요</em></header>
+      <div className="keywordOpsBulkStudioFlow">
+        <article>
+          <i aria-hidden="true">1</i><span><b>조건으로 선택</b><small>현재 보기 {count(conditionCandidates.length)}개</small></span>
+          <label><span>선택 조건</span><select value={bulkCondition} onChange={event=>{setBulkCondition(event.target.value);setBulkNotice('');}}>{BULK_CONDITIONS.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+          <button type="button" onClick={selectBulkCondition} disabled={!conditionCandidates.length}>{conditionCandidates.length?`${count(conditionCandidates.length)}개 선택`:'선택 대상 없음'}</button>
+        </article>
+        <strong aria-hidden="true">→</strong>
+        <article>
+          <i aria-hidden="true">2</i><span><b>변경값 일괄 입력</b><small>선택 {count(selection.selectedCount)}개 중 적용 가능 {count(bulkPlan.appliedIds.length)}개</small></span>
+          <label><span>입력 방법</span><select value={bulkMode} onChange={event=>{setBulkMode(event.target.value);setBulkNotice('');}}>{BULK_MODES.map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+          <label className="keywordOpsBulkValue"><span>변경값</span><span><input type="number" inputMode="numeric" step={bulkMode==='PERCENT'?'1':'10'} min={bulkMode==='PERCENT'?'-90':bulkMode==='TARGET'?'70':'-100000'} max={bulkMode==='PERCENT'?'100':'100000'} value={bulkValue} onChange={event=>{setBulkValue(event.target.value);setBulkNotice('');}} aria-label="선택 키워드 일괄 변경값"/><em>{bulkMode==='PERCENT'?'%':'원'}</em></span></label>
+          <button type="button" className="apply" onClick={applyBulkInput} disabled={!bulkPlan.appliedIds.length}>선택 항목에 입력</button>
+        </article>
+      </div>
+      {bulkNotice?<p className="keywordOpsBulkNotice" role="status" aria-live="polite">{bulkNotice}</p>:<p className="keywordOpsBulkGuide">여기서는 초안만 입력합니다. 실제 반영은 아래의 <b>변경 전 확인</b>에서 한 번 더 확인한 뒤 실행돼요.</p>}
+    </section>:null}
     <HarinBulkSelectionBar className="keywordOpsBulkBar" selectedCount={selection.selectedCount} visibleCount={visibleIds.length} filteredCount={filteredIds.length} visibleState={selection.visibleState} filteredState={selection.filteredState} onToggleVisible={checked=>selection.toggleScope(visibleIds,checked)} onToggleFiltered={checked=>selection.toggleScope(filteredIds,checked)} onClear={selection.clear} summary={isCoupang?`쿠팡 WING 작업 대상 ${coupangSelected.length}개`:`네이버 직접 변경 가능 ${draftableSelected.length}개 · 변경값 입력 ${changedRows.length}개`} preview={isCoupang&&coupangSelected.length?'선택 항목만 쿠팡 전용 작업표에 들어갑니다. 작업표를 내려받아도 쿠팡에는 자동 반영되지 않습니다.':changedRows.length?`현재 합계 ${won(currentTotal)} → 변경 합계 ${won(draftTotal)} · 마지막 확인 뒤 네이버 반영과 재조회까지 한 번에 끝냅니다.`:''}>
       {isCoupang?<button type="button" className="review" onClick={openWingWorklist} disabled={!coupangSelected.length}>WING 작업표 열기</button>:<>{!isCoupang&&groupEnabled?<KeywordBidRulePanel selectedRows={naverRuleSelected} savedRules={bidRules} onRulesChange={setBidRules} onApplyDrafts={applyRuleDrafts}/>:null}<button type="button" onClick={applyRecommended} disabled={!recommendedSelected.length}>추천가 채우기</button><button type="button" onClick={()=>applyPercent(-.1)} disabled={!draftableSelected.length}>10% 인하</button><button type="button" onClick={()=>applyPercent(.1)} disabled={!increasableSelected.length}>10% 인상</button><button type="button" className="review" onClick={()=>setReviewOpen(true)} disabled={!changedRows.length}>변경 전 확인</button></>}
     </HarinBulkSelectionBar>
