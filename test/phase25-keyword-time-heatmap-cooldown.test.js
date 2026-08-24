@@ -112,6 +112,7 @@ test('25-5 renders a V8 hour heatmap and owner-selectable cooldown without addin
   const root=path.join(__dirname,'..');
   const scope=fs.readFileSync(path.join(root,'app','_analysis','keyword-operating-scope-panel.js'),'utf8');
   const schedulePanel=fs.readFileSync(path.join(root,'app','_analysis','keyword-bid-schedule-panel.js'),'utf8');
+  const operationsTable=fs.readFileSync(path.join(root,'app','_analysis','keyword-operations-table.js'),'utf8');
   const scopeCss=fs.readFileSync(path.join(root,'app','_analysis','harin-analysis-v8.css'),'utf8');
 
   assert.match(scope,/focus==='HOUR'/);
@@ -120,5 +121,6 @@ test('25-5 renders a V8 hour heatmap and owner-selectable cooldown without addin
   assert.match(scopeCss,/@media\(max-width:700px\)[\s\S]*?\.keywordHourGrid\{grid-template-columns:repeat\(6/);
   assert.match(schedulePanel,/같은 키워드 변경 휴지기/);
   assert.match(schedulePanel,/\[1440,'24시간'\]/);
+  assert.match(operationsTable,/<details open className="keywordOpsAdgroupWorkspace keywordOpsScopePane"/);
   assert.doesNotMatch(schedulePanel,/COUPANG/);
 });
