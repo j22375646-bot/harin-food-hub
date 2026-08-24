@@ -45,3 +45,25 @@ test('25-0 removes the repeated operations intro only when the owner shell alrea
     {showOperationsContext:true,showOwnerShell:false,showLegacyToolsAsDisclosure:true}
   );
 });
+
+test('25-1 gives only the scoped Naver workbench three distinct responsive panes',()=>{
+  const naver=contract.keywordWorkbenchLayout({platform:'naver',workspace:'registered',hasDetail:true});
+  const diagnosis=contract.keywordWorkbenchLayout({platform:'naver',workspace:'diagnosis'});
+  const history=contract.keywordWorkbenchLayout({platform:'naver',workspace:'history'});
+  const coupang=contract.keywordWorkbenchLayout({platform:'coupang',workspace:'registered',hasDetail:true});
+
+  assert.equal(naver.mode,'THREE_PANE');
+  assert.deepEqual(naver.panes.map(item=>item.id),['scope','operations','inspector']);
+  assert.equal(naver.scope.kind,'NAVER_CAMPAIGN_ADGROUP');
+  assert.equal(naver.detailState,'SELECTED');
+  assert.deepEqual(naver.mobile,{order:['scope','operations','inspector'],scopeDefaultOpen:false,inspector:'INLINE_AFTER_TABLE'});
+  assert.equal(diagnosis.mode,'THREE_PANE');
+
+  assert.equal(history.mode,'TABLE_INSPECTOR');
+  assert.equal(history.scope,null);
+  assert.deepEqual(history.panes.map(item=>item.id),['operations','inspector']);
+
+  assert.equal(coupang.mode,'TABLE_INSPECTOR');
+  assert.equal(coupang.scope,null);
+  assert.deepEqual(coupang.panes.map(item=>item.id),['operations','inspector']);
+});
