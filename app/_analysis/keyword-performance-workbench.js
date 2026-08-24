@@ -100,6 +100,8 @@ export default function KeywordPerformanceWorkbench({data={}}){
   };
   const series=(analysis?.daily||[]).slice(-range);
   const rangeMetrics=analysis?.windows?.[String(range)]||{};
+  const rankWindow=analysis?.rank?.windows?.[String(range)]||{};
+  const competition=rankWindow.competition||{};
   const weekdayMax=Math.max(0,...(analysis?.weekdays||[]).map(item=>Number(item.cost||0)));
   const hourMax=Math.max(0,...(analysis?.hours||[]).map(item=>Number(item.cost||0)));
 
@@ -129,11 +131,12 @@ export default function KeywordPerformanceWorkbench({data={}}){
         <header className={styles.panelHeader}><div><small>{selectedCandidate?.campaign_name||'네이버 캠페인'} · {selectedCandidate?.adgroup_name||'광고그룹'}</small><h3>{analysis.scope.keyword}</h3><p>{analysis.period.since} ~ {analysis.period.until} · 현재 입찰가 {won(analysis.scope.current_bid)}</p></div><nav aria-label="성과 기간 선택">{RANGE_OPTIONS.map(({days,label})=><button type="button" className={range===days?styles.activeRange:''} aria-pressed={range===days} onClick={()=>setRange(days)} key={days}>{label}</button>)}</nav></header>
         <div className={styles.metricGrid}>
           <MetricCard icon="growth" label="실제 평균순위" value={rank(rangeMetrics.average_rank)} note={`${rangeMetrics.available_days||0}일 실제 자료`} tone="lavender"/>
-          <MetricCard icon="target" label="목표 도달률" value={percent(analysis.rank.attainment_percent)} note={analysis.rank.target?`목표 ${analysis.rank.target}위`:'안전설정에서 목표 필요'} tone="mint"/>
-          <MetricCard icon="speed" label="순위 변동성" value={analysis.rank.volatility==null?'확인 필요':Number(analysis.rank.volatility).toFixed(2)} note="낮을수록 안정적" tone="blue"/>
+          <MetricCard icon="target" label="목표 적중률" value={percent(rankWindow.percent)} note={!analysis.rank.target?'안전설정에서 목표 필요':rankWindow.percent==null?'실제 순위 자료 확인 필요':`${rankWindow.hit_days}/${rankWindow.ranked_days}일 · 목표 ${analysis.rank.target}위 이내`} tone="mint"/>
+          <MetricCard icon="speed" label="경쟁 강도" value={competition.label||'확인 필요'} note={competition.volatility==null?'순위 자료 2일 이상 필요':`순위 변동성 ${Number(competition.volatility).toFixed(2)}`} tone="blue"/>
           <MetricCard icon="price" label="현재 입찰가" value={won(analysis.scope.current_bid)} note="그래프 막대 기준" tone="amber"/>
         </div>
         <RankBidChart daily={series} target={analysis.rank.target}/>
+        <p className={styles.competitionNotice}>{competition.notice||'경쟁 강도는 실제 평균순위 자료가 쌓인 뒤 표시합니다.'} <b>{competition.action||''}</b></p>
       </section>
 
       <section className={styles.splitPanel}>

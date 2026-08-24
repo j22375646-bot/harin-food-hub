@@ -11,6 +11,7 @@ const rank=value=>value==null?'확인 필요':`${Number(value).toFixed(1)}위`;
 const won=value=>value==null?'확인 필요':`${Math.round(Number(value)).toLocaleString('ko-KR')}원`;
 const rankChange=value=>value==null?'비교 근거 없음':value>0?`+${Number(value).toFixed(1)}위 개선`:value<0?`${Math.abs(Number(value)).toFixed(1)}위 하락`:'변화 없음';
 const bidChange=value=>value==null?'변경 근거 없음':value>0?`+${Math.round(Number(value)).toLocaleString('ko-KR')}원`:value<0?`${Math.round(Number(value)).toLocaleString('ko-KR')}원`:'변화 없음';
+const percent=value=>value==null?'확인 필요':`${Number(value).toFixed(1)}%`;
 
 export default function KeywordBidInlineTrend({keywordId}){
   const [open,setOpen]=useState(false);
@@ -49,9 +50,12 @@ export default function KeywordBidInlineTrend({keywordId}){
           <span><small>최근 평균순위</small><b>{rank(view.summary.latest_rank)}</b></span>
           <span className={view.summary.rank_improvement>0?'good':view.summary.rank_improvement<0?'warning':''}><small>순위 변화</small><b>{rankChange(view.summary.rank_improvement)}</b></span>
           <span><small>최근 입찰가</small><b>{won(view.summary.latest_bid)}</b><em>{bidChange(view.summary.bid_change)}</em></span>
+          <span className={view.summary.hit_rate_percent>=70?'good':view.summary.hit_rate_percent==null?'':view.summary.hit_rate_percent<40?'warning':''}><small>목표 적중률</small><b>{percent(view.summary.hit_rate_percent)}</b><em>{!view.summary.target_rank?'목표순위 설정 필요':view.summary.hit_rate_percent==null?'실제 순위 자료 확인 필요':`${view.summary.hit_days}/${view.summary.ranked_days}일 · 목표 ${view.summary.target_rank}위 이내`}</em></span>
+          <span className={view.summary.competition?.level==='LOW'?'good':view.summary.competition?.level==='HIGH'?'warning':''}><small>경쟁 강도</small><b>{view.summary.competition?.label||'확인 필요'}</b><em>{view.summary.competition?.volatility==null?'순위 자료 2일 이상 필요':`순위 변동성 ${Number(view.summary.competition.volatility).toFixed(2)}`}</em></span>
         </div>
         <RankBidChart daily={view.daily} target={view.summary.target_rank} compact/>
-        <footer><span>순간 검색순위가 아닌 네이버 실제 집계 평균순위입니다.</span><button type="button" onClick={()=>setRefreshKey(value=>value+1)} disabled={state==='LOADING'}><HarinIcon name="sync" size={16}/> 다시 조회</button></footer>
+        <p className="keywordBidInlineTrendNotice">{view.summary.competition?.notice||'경쟁 강도는 네이버 실제 평균순위 변동 자료가 쌓인 뒤 표시합니다.'}</p>
+        <footer><span>{view.summary.competition?.action||'순간 검색순위가 아닌 네이버 실제 집계 평균순위입니다.'}</span><button type="button" onClick={()=>setRefreshKey(value=>value+1)} disabled={state==='LOADING'}><HarinIcon name="sync" size={16}/> 다시 조회</button></footer>
       </>:null}
     </div>:null}
   </section>;
