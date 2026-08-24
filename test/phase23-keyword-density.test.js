@@ -17,11 +17,13 @@ test('23-4B keeps keyword pages below the high-density input threshold',()=>{
 
 test('23-R5 renders only the paginated Naver row inputs and keeps the detail editor',()=>{
   const component=read('app/_analysis/keyword-operations-table.js');
+  const detailWorkbench=read('app/_analysis/keyword-detail-workbench.js');
   assert.match(component,/keyword-operations-view-\$\{platform\}/);
-  assert.match(component,/className="keywordOpsDetailBid"/);
-  assert.match(component,/setDetailDraft\(detail,event\.target\.value\)/);
+  assert.match(component,/KeywordDetailWorkbench/);
+  assert.match(detailWorkbench,/className="keywordOpsDetailBid"/);
+  assert.match(component,/onChangeBid=\{value=>setDetailDraft\(detail,value\)\}/);
   assert.match(component,/className="keywordOpsDraft"[^\n]*<input/);
-  assert.match(component,/placeholder="직접 입력"/);
+  assert.match(detailWorkbench,/placeholder="직접 입력"/);
   assert.match(component,/pagination\.items\.map/);
 });
 
