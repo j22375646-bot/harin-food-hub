@@ -59,7 +59,7 @@ test('24-15 loads one batched seven-day Naver stats request for the current page
   assert.equal(requests[0].uri,'/stats');
   assert.deepEqual(requests[0].query.ids,['kw-1','kw-2']);
   assert.deepEqual(requests[0].query.fields,['avgRnk','recentAvgRnk']);
-  assert.deepEqual(requests[0].query.timeRange,{since:'2026-08-18',until:'2026-08-24'});
+  assert.deepEqual(requests[0].query.timeRange,{since:'2026-08-17',until:'2026-08-23'});
   assert.equal(requests[0].query.timeIncrement,1);
   assert.equal(result.platform,'NAVER');
   assert.equal(result.signals[0].hit_rate.percent,100);
