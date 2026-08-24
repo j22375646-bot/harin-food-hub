@@ -15,17 +15,18 @@ test('14-1 activates the isolated V8 design layer from the root layout',()=>{
   assert.match(layout,/className=\{ui\.bodyClass\}/);
 });
 
-test('14-1 defines readable pastel tokens and preserves the approved production scale',()=>{
+test('14-1 keeps V8 compatibility aliases on the current brand token scale',()=>{
   const css=read('app/_design-system/harin-v8.css');
-  assert.match(css,/--v8-canvas:#f6f5fb/);
-  assert.match(css,/--v8-lavender:#746bb2/);
-  assert.match(css,/--v8-mint-soft:#e6f2ec/);
-  assert.match(css,/--v8-pink-soft:#f5e5e9/);
-  assert.match(css,/--v8-amber-soft:#f7efd9/);
-  assert.match(css,/--v8-ink:#2c2d3e/);
-  assert.match(css,/--v8-font-body:16px/);
-  assert.match(css,/--v8-font-list:15px/);
-  assert.match(css,/--v8-font-support:13px/);
+  const tokens=read('app/_design-system/harin-brand-tokens.css');
+  assert.match(css,/--v8-canvas:var\(--harin-color-canvas\)/);
+  assert.match(css,/--v8-lavender:var\(--harin-color-action\)/);
+  assert.match(css,/--v8-mint-soft:var\(--harin-color-success-soft\)/);
+  assert.match(css,/--v8-pink-soft:var\(--harin-color-danger-soft\)/);
+  assert.match(css,/--v8-amber-soft:var\(--harin-color-warning-soft\)/);
+  assert.match(css,/--v8-ink:var\(--harin-color-ink\)/);
+  assert.match(tokens,/--harin-type-body:16px/);
+  assert.match(tokens,/--harin-type-support:14px/);
+  assert.match(tokens,/--harin-type-section:20px/);
   assert.match(css,/--v8-control-height:46px/);
   assert.match(css,/overflow-x:clip/);
   assert.doesNotMatch(css,/font-size:(?:[1-9]|1[0-1])px/);

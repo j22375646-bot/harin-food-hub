@@ -1,0 +1,77 @@
+/* Phase 26-3: brand primitives -> semantic roles -> component contracts. */
+html[data-harin-ui="v8"]{
+  /* Primitive palette */
+  --harin-slate-950:#26313d;
+  --harin-slate-800:#3d4a57;
+  --harin-slate-700:#525f6c;
+  --harin-slate-500:#6b7785;
+  --harin-slate-300:#cfd6df;
+  --harin-slate-200:#dde3ea;
+  --harin-slate-100:#eef1f4;
+  --harin-slate-050:#f4f6f8;
+  --harin-blue-700:#365a78;
+  --harin-blue-600:#4f6f8d;
+  --harin-blue-100:#e7eff7;
+  --harin-green-700:#2d6651;
+  --harin-green-100:#e7f2ec;
+  --harin-amber-700:#73531d;
+  --harin-amber-100:#faf1da;
+  --harin-coral-700:#8a3f49;
+  --harin-coral-100:#fbeaec;
+  --harin-white:#fff;
+
+  /* Semantic color and typography roles */
+  --harin-color-canvas:var(--harin-slate-050);
+  --harin-color-surface:var(--harin-white);
+  --harin-color-surface-soft:var(--harin-slate-100);
+  --harin-color-line:var(--harin-slate-200);
+  --harin-color-line-strong:var(--harin-slate-300);
+  --harin-color-ink:var(--harin-slate-950);
+  --harin-color-body:var(--harin-slate-800);
+  --harin-color-muted:var(--harin-slate-700);
+  --harin-color-action:var(--harin-blue-600);
+  --harin-color-action-strong:var(--harin-blue-700);
+  --harin-color-action-soft:var(--harin-blue-100);
+  --harin-color-success:var(--harin-green-700);
+  --harin-color-success-soft:var(--harin-green-100);
+  --harin-color-warning:var(--harin-amber-700);
+  --harin-color-warning-soft:var(--harin-amber-100);
+  --harin-color-danger:var(--harin-coral-700);
+  --harin-color-danger-soft:var(--harin-coral-100);
+  --harin-color-info:var(--harin-blue-700);
+  --harin-color-info-soft:var(--harin-blue-100);
+  --harin-color-neutral:var(--harin-slate-700);
+  --harin-color-neutral-soft:var(--harin-slate-100);
+  --harin-font-heading:"NanumSquare Neo","Noto Sans KR","Malgun Gothic",sans-serif;
+  --harin-font-body:Pretendard,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;
+  --harin-type-support:14px;
+  --harin-type-body:16px;
+  --harin-type-section:20px;
+  --harin-type-page:25px;
+  --harin-type-display:32px;
+  --harin-leading-tight:1.28;
+  --harin-leading-body:1.6;
+
+  /* Component contracts */
+  --harin-button-primary-bg:var(--harin-color-action-strong);
+  --harin-button-primary-text:var(--harin-white);
+  --harin-button-secondary-bg:var(--harin-color-surface);
+  --harin-button-secondary-text:var(--harin-color-body);
+  --harin-button-height:48px;
+  --harin-control-radius:12px;
+  --harin-card-radius:14px;
+  --harin-card-bg:var(--harin-color-surface);
+  --harin-card-line:var(--harin-color-line);
+  --harin-focus-ring:0 0 0 3px rgba(54,90,120,.24);
+  --harin-motion-fast:150ms ease;
+  --harin-motion-standard:220ms cubic-bezier(.2,.8,.2,1);
+}
+
+html[data-harin-ui="v8"][data-font-scale="xlarge"]{
+  --harin-type-support:15px;
+  --harin-type-body:18px;
+  --harin-type-section:23px;
+  --harin-type-page:29px;
+  --harin-type-display:37px;
+  --harin-button-height:50px;
+}

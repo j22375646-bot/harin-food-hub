@@ -29,16 +29,15 @@ html[data-harin-ui="v8"]{
   overflow:hidden;
   box-sizing:border-box;
   margin:0;
-  border:1px solid #d9d4e8;
+  border:0;
   border-radius:18px;
-  background:rgba(255,254,255,.96);
+  background:var(--v8-surface);
   padding:11px 15px 13px;
   color:var(--v8-ink-soft);
-  box-shadow:0 18px 52px rgba(54,52,82,.16);
+  box-shadow:var(--v8-shadow-float);
   opacity:0;
   pointer-events:none;
   transform:translateX(-50%) translateY(-6px);
-  backdrop-filter:blur(18px);
   animation:v8RouteFeedbackIn 180ms 90ms var(--v8-motion-enter) forwards;
 }
 .harinV8 .viewLoadingSpinner{display:block;width:22px;height:22px;box-sizing:border-box;border:3px solid var(--v8-lavender-soft);border-top-color:var(--v8-lavender);border-radius:50%;animation:v8ControlSpin .72s linear infinite}
@@ -46,7 +45,7 @@ html[data-harin-ui="v8"]{
 .harinV8 .viewLoadingCopy b{overflow:hidden;color:var(--v8-ink);font-size:14px;line-height:1.35;text-overflow:ellipsis;white-space:nowrap}
 .harinV8 .viewLoadingCopy small{overflow:hidden;color:var(--v8-muted);font-size:13px!important;line-height:1.4;text-overflow:ellipsis;white-space:nowrap}
 .harinV8 .viewLoadingProgress{position:absolute;right:0;bottom:0;left:0;display:block;width:auto;height:3px;border:0;border-radius:0;background:#ece9f5;animation:none}
-.harinV8 .viewLoadingProgress i{display:block;width:42%;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--v8-lavender),#a89cd7,var(--v8-blue));animation:v8RouteProgress 1.05s ease-in-out infinite}
+.harinV8 .viewLoadingProgress i{display:block;width:42%;height:100%;border-radius:3px;background:var(--v8-lavender);animation:v8RouteProgress 1.05s ease-in-out infinite}
 .harinV8 .viewLoadingRibbon:after{content:none}
 
 .harinV8 .v8QuickAction{
@@ -61,15 +60,14 @@ html[data-harin-ui="v8"]{
   gap:13px;
   overflow:hidden;
   border:1px solid var(--v8-line);
-  border-radius:18px;
-  background:rgba(255,255,255,.9);
+  border-radius:var(--harin-card-radius);
+  background:var(--v8-surface);
   padding:14px 15px;
   color:var(--quick-accent);
   text-decoration:none;
-  box-shadow:0 8px 24px rgba(54,52,82,.045);
-  transition:transform var(--v8-motion-fast),border-color var(--v8-motion-fast),box-shadow var(--v8-motion-fast),background var(--v8-motion-fast);
+  transition:transform var(--v8-motion-fast),border-color var(--v8-motion-fast),background var(--v8-motion-fast);
 }
-.harinV8 .v8QuickAction:after{position:absolute;inset:auto 0 0;height:3px;background:var(--quick-accent);content:"";opacity:0;transform:scaleX(.45);transform-origin:left;transition:opacity var(--v8-motion-fast),transform var(--v8-motion-enter)}
+.harinV8 .v8QuickAction:after{content:none}
 .harinV8 .v8QuickAction-lavender{--quick-accent:var(--v8-lavender-strong);--quick-soft:var(--v8-lavender-soft)}
 .harinV8 .v8QuickAction-blue{--quick-accent:var(--v8-blue);--quick-soft:var(--v8-blue-soft)}
 .harinV8 .v8QuickAction-mint{--quick-accent:var(--v8-mint-strong);--quick-soft:var(--v8-mint-soft)}
@@ -79,8 +77,7 @@ html[data-harin-ui="v8"]{
 .harinV8 .v8QuickAction small{color:var(--v8-muted);font-size:var(--v8-readable-support,14px)!important;font-weight:760;line-height:1.4}
 .harinV8 .v8QuickAction b{overflow:hidden;color:var(--v8-ink);font-size:var(--v8-readable-control,15px);line-height:1.4;text-overflow:ellipsis;white-space:nowrap}
 .harinV8 .v8QuickActionArrow{color:var(--quick-accent);opacity:.58;transform:rotate(-90deg);transition:opacity var(--v8-motion-fast),transform var(--v8-motion-spring)}
-.harinV8 .v8QuickAction.active{border-color:color-mix(in srgb,var(--quick-accent) 26%,var(--v8-line));background:linear-gradient(135deg,var(--quick-soft),rgba(255,255,255,.96));box-shadow:0 12px 28px rgba(75,68,125,.075)}
-.harinV8 .v8QuickAction.active:after{opacity:.72;transform:scaleX(1)}
+.harinV8 .v8QuickAction.active{border-color:color-mix(in srgb,var(--quick-accent) 26%,var(--v8-line));background:var(--quick-soft)}
 
 .harinV8 .v8Button{position:relative;overflow:hidden}
 .harinV8 .v8ButtonSpinner{width:18px;height:18px;flex:0 0 18px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:v8ControlSpin .75s linear infinite}
@@ -93,30 +90,29 @@ html[data-harin-ui="v8"]{
   align-items:center;
   gap:13px;
   border:1px solid var(--v8-line);
-  border-radius:17px;
-  background:rgba(255,255,255,.9);
+  border-radius:var(--harin-card-radius);
+  background:var(--v8-surface);
   padding:13px 15px;
-  box-shadow:0 8px 24px rgba(54,52,82,.04);
   animation:v8FeedbackEnter var(--v8-motion-enter) both;
 }
 .harinV8 .v8InlineStatus>span{display:flex;min-width:0;flex-direction:column;gap:3px}
 .harinV8 .v8InlineStatus b{color:var(--v8-ink);font-size:var(--v8-readable-control,15px);line-height:1.4}
 .harinV8 .v8InlineStatus small{color:var(--v8-muted);font-size:var(--v8-readable-support,14px)!important;line-height:1.5}
 .harinV8 .v8InlineStatus>div{display:flex;align-items:center;gap:8px}
-.harinV8 .v8InlineStatus-success{border-color:#d5e6dd;background:linear-gradient(135deg,#fff,var(--v8-mint-soft))}
-.harinV8 .v8InlineStatus-warning{border-color:#eadfbe;background:linear-gradient(135deg,#fff,var(--v8-amber-soft))}
-.harinV8 .v8InlineStatus-danger{border-color:#ead5db;background:linear-gradient(135deg,#fff,var(--v8-pink-soft))}
-.harinV8 .v8InlineStatus-info{border-color:#d6e0eb;background:linear-gradient(135deg,#fff,var(--v8-blue-soft))}
+.harinV8 .v8InlineStatus-success{border-color:#cfe1d8;background:var(--v8-mint-soft)}
+.harinV8 .v8InlineStatus-warning{border-color:#eadfbe;background:var(--v8-amber-soft)}
+.harinV8 .v8InlineStatus-danger{border-color:#ead5db;background:var(--v8-pink-soft)}
+.harinV8 .v8InlineStatus-info{border-color:#d1deea;background:var(--v8-blue-soft)}
 .harinV8 .v8InlineStatus-busy .v8Pictogram{animation:v8SoftPulse 1.15s ease-in-out infinite}
 
 @keyframes v8ControlSpin{to{transform:rotate(360deg)}}
 @keyframes v8FeedbackEnter{from{opacity:0;transform:translateY(6px) scale(.992)}to{opacity:1;transform:none}}
-@keyframes v8SoftPulse{50%{box-shadow:0 0 0 7px rgba(116,107,178,.09);transform:scale(1.025)}}
+@keyframes v8SoftPulse{50%{opacity:.72;transform:scale(1.025)}}
 @keyframes v8RouteFeedbackIn{to{opacity:1;transform:translateX(-50%) translateY(0)}}
 @keyframes v8RouteProgress{0%{transform:translateX(-105%)}55%{transform:translateX(88%)}100%{transform:translateX(250%)}}
 
 @media(hover:hover) and (pointer:fine){
-  .harinV8 .v8QuickAction:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--quick-accent) 25%,var(--v8-line));box-shadow:0 14px 32px rgba(54,52,82,.085)}
+  .harinV8 .v8QuickAction:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--quick-accent) 25%,var(--v8-line));background:var(--quick-soft)}
   .harinV8 .v8QuickAction:hover .v8QuickActionArrow{opacity:1;transform:translateX(2px) rotate(-90deg)}
   .harinV8 .v8QuickAction:hover .v8Pictogram{transform:translateY(-1px) rotate(-2deg)}
 }

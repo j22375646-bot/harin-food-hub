@@ -4,9 +4,11 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import hubRoutesModule from '../../lib/navigation/hub-routes.js';
 import sidebarCollapseModule from '../../lib/ui/sidebar-collapse.js';
+import brandSystem from '../../lib/ui/brand-system.js';
 import { HarinIcon } from '../_design-system/harin-icon.js';
 
 const { resolveSidebarGroupAction }=sidebarCollapseModule;
+const { resolveStatusTone }=brandSystem;
 
 const PRIMARY_MOBILE_VIEWS = ['main','orders','inventory','notifications'];
 const PRIMARY_MOBILE_VIEW_SET = new Set(PRIMARY_MOBILE_VIEWS);
@@ -50,13 +52,14 @@ export function HarinTopbar({
   syncing,
   onSync
 }) {
+  const resolvedConnectionTone=resolveStatusTone(connectionTone,connectionTone==='check'?'warning':'neutral');
   return <header className="topbar v8Topbar">
     <div className="topbarIdentity">
       <div className="brand"><span className="brandMark">H</span><div><b>하린식품</b><small>광고·매출 통합 관리 허브</small></div></div>
       <div className="topbarLocation" aria-label="현재 화면"><span>현재 화면</span><b>{context.group.label} · {context.item.label}</b></div>
     </div>
     <div className="headerActions">
-      <span className={`live ${connectionTone}`}><i aria-hidden="true"/>{connectionLabel}</span>
+      <span className={`live ${resolvedConnectionTone}`} data-status-tone={resolvedConnectionTone}><i aria-hidden="true"/>{connectionLabel}</span>
       <label className="fontScaleControl"><span>글자</span><select aria-label="허브 글자 크기" value={fontScale} onChange={event=>onFontScale(event.target.value)}><option value="large">큰 글씨</option><option value="xlarge">더 큰 글씨</option></select></label>
       <button className="syncButton" type="button" onClick={onSync} disabled={syncing} aria-label={syncing?'데이터 동기화 중':'지금 데이터 동기화'}><HarinIcon name="sync"/><span>{syncing?'동기화 중…':'지금 동기화'}</span></button>
       <form action="/api/dashboard/logout" method="post"><button className="logoutButton" type="submit">나가기</button></form>

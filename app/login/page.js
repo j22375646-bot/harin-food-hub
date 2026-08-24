@@ -31,7 +31,7 @@ export default async function LoginPage({ searchParams }) {
         </div>
       </div>
       <div className="loginAccess">
-        <header><span><HarinIcon name="shield"/>OWNER ONLY</span><h2>허브에 들어갈까요?</h2><p>계정 이름 없이 6자리 비밀번호만 입력해주세요.</p></header>
+        <header><span><HarinIcon name="shield"/>사장님 전용</span><h2>허브에 들어갈까요?</h2><p>계정 이름 없이 6자리 비밀번호만 입력해주세요.</p></header>
         {error && <div className="loginError" role="alert"><HarinIcon name="alerts"/><span>{error}</span></div>}
         <form action="/api/dashboard/login" method="post">
           <input type="hidden" name="next" value={nextPath.startsWith('/')&&!nextPath.startsWith('//')?nextPath:'/'} />

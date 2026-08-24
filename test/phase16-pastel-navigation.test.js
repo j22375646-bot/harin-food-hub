@@ -27,14 +27,15 @@ test('16-1 assigns stable work-category tones to desktop and mobile navigation',
   assert.match(shell,/data-tone=\{toneForView\(view\)\}/);
 });
 
-test('16-1 uses soft pastel selections instead of saturated navigation fills',()=>{
+test('26-3 keeps the established navigation map with flat brand selection fills',()=>{
   const css=read('app/_shell/harin-shell-v8.css');
   for(const tone of ['lavender','sky','blush','apricot','butter','lilac','rose']){
     assert.match(css,new RegExp(`\\[data-tone="${tone}"\\]`));
   }
-  assert.match(css,/\.sidebarItem\.active\{[^}]*background:linear-gradient\([^}]*var\(--nav-soft-strong\)/);
+  assert.match(css,/\.sidebarItem\.active\{[^}]*background:var\(--nav-soft-strong\)/);
   assert.match(css,/\.mobileBottomNav>button\.active\{[^}]*var\(--nav-soft-strong\)/);
   assert.match(css,/\.focusedWorkspaceNav\[data-tone\]>a\.active\{[^}]*var\(--nav-soft-strong\)/);
+  assert.doesNotMatch(css,/\.sidebarItem\.active\{[^}]*linear-gradient/);
   assert.doesNotMatch(css,/\.sidebarItem\.active[^}]*background:\s*#(?:1e4e3d|2c6952)/i);
 });
 

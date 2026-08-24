@@ -1,4 +1,5 @@
 import './globals.css';
+import './_design-system/harin-brand-tokens.css';
 import './_design-system/harin-v8.css';
 import './_design-system/harin-page-frame.css';
 import './_design-system/harin-bulk-selection.css';

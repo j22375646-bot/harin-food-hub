@@ -39,10 +39,11 @@ test('23-1 supersedes full route and hydration loading with the persistent shell
   assert.match(shared,/className="routePartialSkeleton"/);
 });
 
-test('16-2 entry motion is pastel, responsive and reduced-motion safe',()=>{
+test('26-3 entry motion uses the flat brand system and stays responsive and reduced-motion safe',()=>{
   const css=read('app/_shell/harin-entry-v8.css');
-  assert.match(css,/radial-gradient\(circle at 12% 18%,rgba\(213,232,249/);
-  assert.match(css,/linear-gradient\(135deg,#655c9c,#7d73b9\)/);
+  assert.match(css,/background:var\(--harin-color-canvas\)/);
+  assert.match(css,/background:var\(--harin-button-primary-bg\)/);
+  assert.doesNotMatch(css,/(?:radial|linear)-gradient\(/);
   assert.match(css,/@media\(max-width:760px\)/);
   assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
   assert.match(css,/\.routeLoadingOrbit[^}]*animation:v8EntryOrbit/);

@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import HarinIcon from './harin-icon.js';
+import brandSystem from '../../lib/ui/brand-system.js';
 
 const join=(...values)=>values.filter(Boolean).join(' ');
+const { resolveStatusTone }=brandSystem;
 
 export function HarinPictogram({ icon='sparkles', tone='lavender', label, size=20, className='' }) {
   return <span className={join('v8Pictogram',`v8Pictogram-${tone}`,className)} aria-label={label}><HarinIcon name={icon} size={size}/></span>;
@@ -19,8 +21,9 @@ export function HarinButton({ as:Element='button', variant='secondary', size='me
   return <Element className={join('v8Button',`v8Button-${variant}`,`v8Button-${size}`,busy&&'v8Button-busy',className)} disabled={Element==='button'?(disabled||busy):undefined} {...elementProps} {...busyProps} {...props}>{busy?<span className="v8ButtonSpinner" aria-hidden="true"/>:icon?<HarinIcon name={icon} size={18}/>:null}<span>{busy?busyLabel:children}</span></Element>;
 }
 
-export function HarinBadge({ tone='neutral', icon, children, className='', ...props }) {
-  return <span className={join('v8Badge',`v8Badge-${tone}`,className)} {...props}>{icon?<HarinIcon name={icon} size={14}/>:null}{children}</span>;
+export function HarinBadge({ tone='neutral', status, icon, children, className='', ...props }) {
+  const resolvedTone=status?resolveStatusTone(status,tone):tone;
+  return <span className={join('v8Badge',`v8Badge-${resolvedTone}`,className)} data-status-tone={resolvedTone} {...props}>{icon?<HarinIcon name={icon} size={14}/>:null}{children}</span>;
 }
 
 export function HarinSectionHeading({ eyebrow, title, description, aside, icon, className='' }) {
@@ -62,10 +65,11 @@ export function HarinQuickAction({ as:Element='a', href, icon='sparkles', tone='
   </Element>;
 }
 
-export function HarinInlineStatus({ tone='neutral', icon, title, description, action, busy=false, className='', ...props }) {
-  const statusIcon=icon||(busy?'sync':tone==='success'?'check':tone==='danger'?'warning':tone==='warning'?'clock':'sparkles');
-  return <section className={join('v8InlineStatus',`v8InlineStatus-${tone}`,busy&&'v8InlineStatus-busy',className)} role="status" aria-live="polite" aria-busy={busy?'true':undefined} {...props}>
-    <HarinPictogram icon={statusIcon} tone={tone==='success'?'mint':tone==='danger'?'pink':tone==='warning'?'amber':tone==='info'?'blue':'lavender'} size={18}/>
+export function HarinInlineStatus({ tone='neutral', status, icon, title, description, action, busy=false, className='', ...props }) {
+  const resolvedTone=status?resolveStatusTone(status,tone):tone;
+  const statusIcon=icon||(busy?'sync':resolvedTone==='success'?'check':resolvedTone==='danger'?'warning':resolvedTone==='warning'?'clock':'sparkles');
+  return <section className={join('v8InlineStatus',`v8InlineStatus-${resolvedTone}`,busy&&'v8InlineStatus-busy',className)} data-status-tone={resolvedTone} role="status" aria-live="polite" aria-busy={busy?'true':undefined} {...props}>
+    <HarinPictogram icon={statusIcon} tone={resolvedTone==='success'?'mint':resolvedTone==='danger'?'pink':resolvedTone==='warning'?'amber':resolvedTone==='info'?'blue':'lavender'} size={18}/>
     <span><b>{title}</b>{description?<small>{description}</small>:null}</span>
     {action?<div>{action}</div>:null}
   </section>;
@@ -116,8 +120,9 @@ export function HarinEmptyState({ icon='sparkles', title='표시할 자료가 �
   return <section className={join('v8EmptyState',className)}><HarinPictogram icon={icon} tone="lavender" size={22}/><div><b>{title}</b>{description?<p>{description}</p>:null}</div>{action||null}</section>;
 }
 
-export function HarinStateCard({ tone='neutral', icon='shield', label, value, description, className='' }) {
-  return <HarinCard className={join('v8StateCard',`v8StateCard-${tone}`,className)}><HarinPictogram icon={icon} tone={tone==='success'?'mint':tone==='danger'?'pink':tone==='warning'?'amber':'lavender'} size={19}/><div><small>{label}</small><b>{value}</b>{description?<p>{description}</p>:null}</div></HarinCard>;
+export function HarinStateCard({ tone='neutral', status, icon='shield', label, value, description, className='' }) {
+  const resolvedTone=status?resolveStatusTone(status,tone):tone;
+  return <HarinCard className={join('v8StateCard',`v8StateCard-${resolvedTone}`,className)} data-status-tone={resolvedTone}><HarinPictogram icon={icon} tone={resolvedTone==='success'?'mint':resolvedTone==='danger'?'pink':resolvedTone==='warning'?'amber':'lavender'} size={19}/><div><small>{label}</small><b>{value}</b>{description?<p>{description}</p>:null}</div></HarinCard>;
 }
 
 export { HarinIcon };
