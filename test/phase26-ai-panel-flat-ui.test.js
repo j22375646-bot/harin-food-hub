@@ -22,6 +22,7 @@ test('26-5 keeps every page AI analysis independent while sharing only its visua
 
 test('26-5 page AI shell uses the flat brand system without decorative effects',()=>{
   const css=read('app/_ai/harin-ai-page-v8.css');
+  const panel=read('app/harin-ai-page-panel.js');
 
   assert.match(css,/--ai-accent:var\(--harin-color-action\)/);
   assert.match(css,/background:var\(--harin-color-surface\)/);
@@ -30,6 +31,7 @@ test('26-5 page AI shell uses the flat brand system without decorative effects',
   assert.doesNotMatch(css,/(?:linear|radial)-gradient\(/);
   assert.doesNotMatch(css,/backdrop-filter\s*:/);
   assert.doesNotMatch(css,/border-radius:(?:1[7-9]|[2-9]\d)px/);
+  assert.doesNotMatch(panel,/페이지별 AI 분석/);
 
   for(const block of css.matchAll(/[^{}]+\{([^{}]*)\}/g)){
     assert.equal(/border(?:-[^:]+)?\s*:/.test(block[1])&&/box-shadow\s*:/.test(block[1]),false,`테두리와 그림자를 함께 쓰는 블록: ${block[0].slice(0,120)}`);

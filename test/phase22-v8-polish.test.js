@@ -41,7 +41,8 @@ test('22-7 retains pastel selection and separate page-specific AI rules',()=>{
   const bulk=read('app/_design-system/harin-bulk-selection.css');
   const ai=read('app/harin-ai-page-panel.js');
   assert.match(bulk,/button\.selected\{border-color:#b8a8e6;background:#eee9fc;color:#5f4f91\}/);
-  assert.match(ai,/페이지별 AI 분석/);
+  assert.match(ai,/<h2>\{panel\.title\}<\/h2><p>\{panel\.summary\}<\/p>/);
+  assert.doesNotMatch(ai,/페이지별 AI 분석/);
   assert.match(ai,/다른 화면 자료와 섞지 않고 아래 범위만 사용해요/);
   assert.match(ai,/panel\.snapshot_token/);
 });
