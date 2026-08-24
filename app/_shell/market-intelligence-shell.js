@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import hubRoutesModule from '../../lib/navigation/hub-routes.js';
+import adaptiveCanvasModule from '../../lib/ui/adaptive-canvas.js';
 import { useStoredState } from '../use-hub-preference.js';
 import { HarinMobileNavigation, HarinSidebar, HarinTopbar } from './harin-app-shell.js';
 
@@ -35,15 +36,16 @@ export default function MarketIntelligenceShell({children}){
     finally{setSyncing(false);}
   }
   const context={group:{label:'개발'},item:{label:'상품개발'},platform:'선택 상품'};
+  const canvasProfile=adaptiveCanvasModule.resolveCanvasProfile({view:'market'});
   return <div className="shell marketHubShell">
     <HarinTopbar context={context} connectionLabel="상품별 분석 공간" connectionTone="check" fontScale={fontScale} onFontScale={setFontScale} syncing={syncing} onSync={runSync}/>
     <HarinSidebar groups={groups} view="market" openGroup={openGroup} query={query} onQuery={setQuery} onOpenGroup={setOpenGroup} onOpenView={openView} onPrefetch={prefetchView}/>
-    <main className="hubMain marketHubMain" data-path={pathname}>
+    <main className="hubMain marketHubMain" data-canvas-profile={canvasProfile} data-path={pathname}>
       <nav className="marketBreadcrumb" aria-label="현재 위치"><span>개발</span><i>›</i><b>상품개발</b></nav>
       {syncMessage?<div className="syncToast">{syncMessage}</div>:null}
       {children}
     </main>
     <HarinMobileNavigation nav={nav} groups={groups} view="market" onOpenView={openView} onPrefetch={prefetchView} fontScale={fontScale} onFontScale={setFontScale}/>
-    <footer className="hubFooter">하린식품 상품개발센터 <span>·</span> 상품별 근거·실험·결과를 따로 관리합니다</footer>
+    <footer className="hubFooter" data-canvas-profile={canvasProfile}>하린식품 상품개발센터 <span>·</span> 상품별 근거·실험·결과를 따로 관리합니다</footer>
   </div>;
 }

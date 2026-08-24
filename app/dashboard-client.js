@@ -8,6 +8,7 @@ import freshnessModule from '../lib/ui/freshness.js';
 import { getHubHelp } from '../lib/ui/help-content.js';
 import hubRoutesModule from '../lib/navigation/hub-routes.js';
 import navigationOperationSnapshotModule from '../lib/navigation/operation-snapshot.js';
+import adaptiveCanvasModule from '../lib/ui/adaptive-canvas.js';
 import sidebarCollapseModule from '../lib/ui/sidebar-collapse.js';
 import { useStoredState } from './use-hub-preference.js';
 import { HarinBreadcrumbBar, HarinFocusedWorkspaceNav, HarinMobileNavigation, HarinSidebar, HarinTopbar } from './_shell/harin-app-shell.js';
@@ -287,6 +288,7 @@ export default function Dashboard({ initialData, initialState }) {
   const selectedHealth=platform==='all'?null:initialData.dataHealth?.channels?.find(item=>item.platform===platform.toUpperCase());
   const channelUnavailable=Boolean(selectedHealth?.failedDatasets?.length);
   const viewIsLoading=Boolean(pendingView||pendingWorkspace||routePending||(initialData.loadedView&&view!==initialData.loadedView)||(initialData.loadedWorkspace!==undefined&&workspace!==initialData.loadedWorkspace));
+  const canvasProfile=adaptiveCanvasModule.resolveCanvasProfile({view:pendingView||view,workspace:pendingWorkspace||workspace});
   function navigate(next={},replace=false){
     const state=hubRoutesModule.normalizeHubState({view,workspace,platform,product:selectedProduct,period,...next});
     if(state.view!==view)setPendingView(state.view);
@@ -308,7 +310,7 @@ export default function Dashboard({ initialData, initialState }) {
   return <div className="shell">
     <HarinTopbar context={navContext} connectionLabel={connectionLabel} connectionTone={connectionTone} fontScale={fontScale} onFontScale={setFontScale} syncing={syncing} onSync={runSync}/>
     <HarinSidebar groups={navGroups} countsKnown={navigationSnapshotKnown} countsStale={navigationSnapshotStale} view={pendingView||view} openGroup={openNavGroup} query={navQuery} collapsed={sidebarCollapsed} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onCollapsed={setSidebarCollapsed} onOpenView={openView} onPrefetch={prefetchView}/>
-    <main className={`hubMain${viewIsLoading?' routePending':''}`} aria-busy={viewIsLoading?'true':'false'} data-loader-profile={initialData.loaderPerformance?.profile||undefined} data-loader-ms={initialData.loaderPerformance?.duration_ms??undefined} data-loader-target={initialData.loaderPerformance?.target_ms??undefined} data-loader-within-target={initialData.loaderPerformance?.within_target===undefined?undefined:String(initialData.loaderPerformance.within_target)} data-loader-remote-queries={initialData.loaderPerformance?.remote_query_count??undefined} data-loader-slowest={(initialData.loaderPerformance?.slow_queries||[]).map(item=>`${item.table}:${item.duration_ms}`).join(',')||undefined}>
+    <main className={`hubMain${viewIsLoading?' routePending':''}`} aria-busy={viewIsLoading?'true':'false'} data-canvas-profile={canvasProfile} data-loader-profile={initialData.loaderPerformance?.profile||undefined} data-loader-ms={initialData.loaderPerformance?.duration_ms??undefined} data-loader-target={initialData.loaderPerformance?.target_ms??undefined} data-loader-within-target={initialData.loaderPerformance?.within_target===undefined?undefined:String(initialData.loaderPerformance.within_target)} data-loader-remote-queries={initialData.loaderPerformance?.remote_query_count??undefined} data-loader-slowest={(initialData.loaderPerformance?.slow_queries||[]).map(item=>`${item.table}:${item.duration_ms}`).join(',')||undefined}>
       {viewIsLoading?<HarinRouteProgress label={nav.find(item=>item.id===(pendingView||view))?.label}/>:null}
       <HarinBreadcrumbBar context={navContext}/>
       {view==='keyword'?<KeywordOwnerShell platform={platform} workspace={workspace} data={initialData}/>:null}
@@ -362,7 +364,7 @@ export default function Dashboard({ initialData, initialState }) {
     <HarinOwnerWorkspace pageKey={view} pageLabel={navContext.item.label}/>
     <HarinLiveStatusDock center={initialData.collectionCenter} alerts={initialData.alerts} generatedAt={initialData.generatedAt}/>
     <HarinMobileNavigation nav={nav} groups={navGroups} countsKnown={navigationSnapshotKnown} countsStale={navigationSnapshotStale} view={view} onOpenView={openView} onPrefetch={prefetchView} fontScale={fontScale} onFontScale={setFontScale}/>
-    <footer className="hubFooter">하린식품 광고·매출 통합 관리 허브 <span>·</span> 네이버 + 쿠팡 + Cafe24 + Supabase</footer>
+    <footer className="hubFooter" data-canvas-profile={canvasProfile}>하린식품 광고·매출 통합 관리 허브 <span>·</span> 네이버 + 쿠팡 + Cafe24 + Supabase</footer>
   </div>;
 }
 
