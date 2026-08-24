@@ -39,14 +39,13 @@ test('24-15 builds truthful target hit rate and competition signals per keyword'
   assert.equal(result[2].competition.level,'UNKNOWN');
 });
 
-test('24-15 loads one batched seven-day Naver stats request for the current page',async()=>{
+test('24-15 loads seven-day Naver stats per visible keyword',async()=>{
   const requests=[];
   const api={request:async(method,uri,query)=>{
     requests.push({method,uri,query});
-    return {data:[
-      {id:'kw-1',data:[{period:'2026-08-23',avgRnk:2},{period:'2026-08-24',avgRnk:3}]},
-      {id:'kw-2',data:[]}
-    ]};
+    return {data:[query.id==='kw-1'
+      ?{id:query.id,data:[{period:'2026-08-22',avgRnk:2},{period:'2026-08-23',avgRnk:3}]}
+      :{id:query.id,data:[]}]};
   }};
   const db={from(table){
     assert.equal(table,'naver_bid_keyword_rules');
@@ -54,16 +53,37 @@ test('24-15 loads one batched seven-day Naver stats request for the current page
   }};
 
   const result=await signals.loadBidListSignals({db,api,keywordIds:['kw-1','kw-2'],now:new Date('2026-08-24T03:00:00.000Z')});
-  assert.equal(requests.length,1);
-  assert.equal(requests[0].method,'GET');
-  assert.equal(requests[0].uri,'/stats');
-  assert.equal(requests[0].query.ids,'["kw-1","kw-2"]');
-  assert.deepEqual(requests[0].query.fields,['avgRnk']);
-  assert.deepEqual(requests[0].query.timeRange,{since:'2026-08-17',until:'2026-08-23'});
-  assert.equal(requests[0].query.timeIncrement,1);
+  assert.equal(requests.length,2);
+  requests.forEach((request,index)=>{
+    assert.equal(request.method,'GET');
+    assert.equal(request.uri,'/stats');
+    assert.equal(request.query.id,`kw-${index+1}`);
+    assert.equal(request.query.ids,undefined);
+    assert.deepEqual(request.query.fields,['avgRnk']);
+    assert.deepEqual(request.query.timeRange,{since:'2026-08-17',until:'2026-08-23'});
+    assert.equal(request.query.timeIncrement,1);
+  });
   assert.equal(result.platform,'NAVER');
   assert.equal(result.signals[0].hit_rate.percent,100);
   assert.equal(result.signals[1].hit_rate.percent,null);
+});
+
+test('24-15 limits individual Naver rank probes to three concurrent requests',async()=>{
+  let active=0,maxActive=0,calls=0;
+  const api={request:async(_method,_uri,query)=>{
+    calls+=1;
+    active+=1;
+    maxActive=Math.max(maxActive,active);
+    await new Promise(resolve=>setTimeout(resolve,5));
+    active-=1;
+    return {data:[{id:query.id,data:[]}]};
+  }};
+  const db={from(){return {select(){return {in:async()=>({data:[],error:null})};}};}};
+  const ids=Array.from({length:7},(_,index)=>`kw-${index+1}`);
+
+  await signals.loadBidListSignals({db,api,keywordIds:ids,now:new Date('2026-08-24T03:00:00.000Z')});
+  assert.equal(calls,7);
+  assert.ok(maxActive<=3,`maximum active requests was ${maxActive}`);
 });
 
 test('24-15 owner API rejects anonymous requests before a provider call',async()=>{
