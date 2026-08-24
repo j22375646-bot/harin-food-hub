@@ -7,15 +7,15 @@ const contract=require('../lib/marketing/keyword-workbench-contract.js');
 test('25-8 follows an opened keyword detail on compact screens without moving desktop users',()=>{
   assert.deepEqual(
     contract.keywordDetailOpenPlan({detailId:'NAVER:keyword-1',viewportWidth:390}),
-    {active:true,followDetail:true,focusTarget:'DETAIL_CLOSE'}
+    {active:true,followDetail:true,focusTarget:'DETAIL_CLOSE',scrollBehavior:'INSTANT'}
   );
   assert.deepEqual(
     contract.keywordDetailOpenPlan({detailId:'NAVER:keyword-1',viewportWidth:430}),
-    {active:true,followDetail:true,focusTarget:'DETAIL_CLOSE'}
+    {active:true,followDetail:true,focusTarget:'DETAIL_CLOSE',scrollBehavior:'INSTANT'}
   );
   assert.deepEqual(
     contract.keywordDetailOpenPlan({detailId:'NAVER:keyword-1',viewportWidth:1280}),
-    {active:true,followDetail:false,focusTarget:'ROW'}
+    {active:true,followDetail:false,focusTarget:'ROW',scrollBehavior:'NONE'}
   );
 });
 

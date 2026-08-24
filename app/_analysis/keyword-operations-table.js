@@ -167,7 +167,7 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const closeKeywordDetail=()=>{
     const closingId=detailId;
     setDetailId('');
-    if(closingId&&typeof window!=='undefined')window.requestAnimationFrame(()=>focusKeywordRow(closingId));
+    if(closingId&&typeof window!=='undefined')window.setTimeout(()=>focusKeywordRow(closingId),40);
   };
 
   useEffect(()=>{setPage(1);selection.clear();setDrafts({});setInstantRows({});setMutationStates({});setDetailId('');setFinderOpen(false);setFinderIndex(0);setPendingScrollId('');setReviewOpen(false);setProposalResult(null);setWingOpen(false);setWingPage(1);setWingNotice('');setExportNotice('');setBulkCondition('CHANGEABLE');setBulkMode('PERCENT');setBulkValue('-10');setBulkNotice('');},[workspace,platform]);
@@ -187,14 +187,26 @@ export default function KeywordOperationsTable({workspace='registered',platform=
     if(!detailId)return undefined;
     const plan=keywordDetailOpenPlan({detailId,viewportWidth:window.innerWidth});
     if(!plan.followDetail)return undefined;
+    let restoreFrame=0;
+    let restoreScrollBehavior=null;
     const timer=window.setTimeout(()=>{
       const inspector=document.querySelector('[data-keyword-detail-workbench]');
       if(!inspector)return;
-      const reduceMotion=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      inspector.scrollIntoView({behavior:reduceMotion?'auto':'smooth',block:'start'});
+      const root=document.documentElement;
+      restoreScrollBehavior=root.style.scrollBehavior;
+      root.style.scrollBehavior='auto';
+      inspector.scrollIntoView({behavior:'auto',block:'start'});
       inspector.querySelector('[data-keyword-detail-close]')?.focus({preventScroll:true});
+      restoreFrame=window.requestAnimationFrame(()=>{
+        root.style.scrollBehavior=restoreScrollBehavior;
+        restoreScrollBehavior=null;
+      });
     },40);
-    return ()=>window.clearTimeout(timer);
+    return ()=>{
+      window.clearTimeout(timer);
+      if(restoreFrame)window.cancelAnimationFrame(restoreFrame);
+      if(restoreScrollBehavior!=null)document.documentElement.style.scrollBehavior=restoreScrollBehavior;
+    };
   },[detailId]);
   useEffect(()=>{
     if(isCoupang||!groupEnabled){setBidRules([]);setBidRuleLoadState('IDLE');return undefined;}
