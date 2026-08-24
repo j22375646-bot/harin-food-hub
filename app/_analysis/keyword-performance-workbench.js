@@ -19,7 +19,7 @@ const RANGE_OPTIONS=[{days:1,label:'1일'},{days:3,label:'3일'},{days:7,label:'
 
 function sourceTone(status){return status==='READY'?styles.ready:status==='PARTIAL'?styles.partial:styles.waiting;}
 
-function RankBidChart({daily=[],target}){
+export function RankBidChart({daily=[],target,compact=false}){
   const width=760,height=260,left=52,right=28,top=28,bottom=42;
   const rankValues=daily.map(item=>number(item.average_rank)).filter(value=>value!=null);
   const bidValues=daily.map(item=>number(item.bid)).filter(value=>value!=null);
@@ -32,8 +32,8 @@ function RankBidChart({daily=[],target}){
   const points=daily.map((item,index)=>number(item.average_rank)==null?null:[x(index),rankY(Number(item.average_rank))]).filter(Boolean);
   const path=points.map((point,index)=>`${index?'L':'M'} ${point[0]} ${point[1]}`).join(' ');
   const targetY=number(target)==null?null:rankY(Number(target));
-  return <div className={styles.chartWrap}>
-    <svg className={styles.chart} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="실제 평균순위와 입찰가 추이">
+  return <div className={`${styles.chartWrap} ${compact?styles.compactChartWrap:''}`}>
+    <svg className={`${styles.chart} ${compact?styles.compactChart:''}`} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="실제 평균순위와 입찰가 추이">
       <defs><linearGradient id="rankArea" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#8374c8" stopOpacity=".22"/><stop offset="1" stopColor="#8374c8" stopOpacity="0"/></linearGradient></defs>
       {[1,2,3,4,5].map(step=>{const y=top+(step-1)/4*plotHeight;return <g key={step}><line x1={left} x2={width-right} y1={y} y2={y} className={styles.gridLine}/><text x="8" y={y+4} className={styles.axisLabel}>{Math.round(1+(rankMax-1)*(step-1)/4)}위</text></g>;})}
       {targetY!=null?<g><line x1={left} x2={width-right} y1={targetY} y2={targetY} className={styles.targetLine}/><text x={width-right-4} y={targetY-7} textAnchor="end" className={styles.targetLabel}>목표 {target}위</text></g>:null}
