@@ -199,7 +199,7 @@ export default function KeywordOperationsTable({workspace='registered',platform=
     </section>:null}
     <div className="keywordOpsToolbar">
       <label className="keywordOpsSearch"><span>키워드·캠페인·상품 찾기</span><div><i aria-hidden="true">⌕</i><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="예: 작두콩차, 티백, 캠페인명"/></div></label>
-      <label><span>빠른 보기</span><select value={quickFilter} onChange={event=>saveSettings({quickFilter:event.target.value})}><option value="ALL">전체 보기</option><option value="NO_ORDER_COST">광고비 사용·주문 0</option><option value="LOW_ROAS">ROAS 700% 미만</option>{isCoupang?<option value="MANUAL">WING 수동 적용</option>:<option value="READY">네이버 변경안 가능</option>}</select></label>
+      <label><span>빠른 보기</span><select value={quickFilter} onChange={event=>saveSettings({quickFilter:event.target.value})}><option value="ALL">{isCoupang?'전체 보기':'전체 · 운영 중 우선'}</option>{!isCoupang?<><option value="ACTIVE_ADS">운영 중 광고</option><option value="INACTIVE_ADS">사용중지 광고</option></>:null}<option value="NO_ORDER_COST">광고비 사용·주문 0</option><option value="LOW_ROAS">ROAS 700% 미만</option>{isCoupang?<option value="MANUAL">WING 수동 적용</option>:<option value="READY">네이버 변경안 가능</option>}</select></label>
       <label><span>정렬</span><select value={sort} onChange={event=>saveSettings({sort:event.target.value})}>{sortOptions.map(option=><option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
       <label><span>한 페이지</span><select value={pageSize} onChange={event=>saveSettings({pageSize:Number(event.target.value)})}>{KEYWORD_PAGE_SIZES.map(size=><option value={size} key={size}>{size}개</option>)}</select></label>
     </div>

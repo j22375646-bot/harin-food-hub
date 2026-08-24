@@ -1300,16 +1300,25 @@ async function getDashboardData(state) {
     const keywordPeriod=selectedPlatform==='naver'?keywordPeriodSettled.results[0].data:null;
     let marketingKeywordStats=[],marketingKeywordCatalog=[];
     if(selectedPlatform==='naver'){
+      const activeNaverAdgroupIds=naverBidWorkbenchModule.activeAdgroupIds({
+        campaigns:naverCampaignResult.data||[],
+        adgroups:naverGroupResult.data||[]
+      });
       const naverRegisteredSettled=dataHealthModule.settleQueries(await Promise.allSettled([
         keywordPeriod?db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,period_start,period_end,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).order('cost',{ascending:false}).limit(5000):Promise.resolve({data:[],error:null}),
+        activeNaverAdgroupIds.length?db.from('naver_keywords').select('ncc_keyword_id,ncc_adgroup_id,keyword,bid_amount,status,user_lock,updated_at').in('ncc_adgroup_id',activeNaverAdgroupIds).limit(1000):Promise.resolve({data:[],error:null}),
         db.from('naver_keywords').select('ncc_keyword_id,ncc_adgroup_id,keyword,bid_amount,status,user_lock,updated_at').limit(5000)
       ]),[
         {platform:'NAVER',dataset:'registered_keyword_performance'},
+        {platform:'NAVER',dataset:'active_registered_keyword_catalog'},
         {platform:'NAVER',dataset:'registered_keyword_catalog'}
       ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
       queryIssues.push(...naverRegisteredSettled.issues);
       marketingKeywordStats=naverRegisteredSettled.results[0].data||[];
-      marketingKeywordCatalog=naverRegisteredSettled.results[1].data||[];
+      marketingKeywordCatalog=naverBidWorkbenchModule.mergeKeywordCatalog({
+        activeKeywords:naverRegisteredSettled.results[1].data||[],
+        fallbackKeywords:naverRegisteredSettled.results[2].data||[]
+      });
     }
     return buildRegisteredKeywordDashboardData({
       loaderSession,generatedAt,queryIssues,platform:selectedPlatform,workspace:state.workspace,
