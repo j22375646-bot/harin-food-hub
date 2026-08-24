@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { HarinIcon } from '../_design-system/harin-icon.js';
 import capabilityModel from '../../lib/naver/bid-capability-view.js';
 
-const {capabilityView}=capabilityModel;
+const {capabilityView,capabilityAcceptanceView}=capabilityModel;
 
 function checkedAtLabel(value){
   if(!value)return '아직 실계정 검사를 실행하지 않았어요';
@@ -21,6 +21,7 @@ export default function KeywordBidCapabilityPanel(){
   const [running,setRunning]=useState(false);
   const [message,setMessage]=useState('');
   const view=useMemo(()=>capabilityView(result),[result]);
+  const acceptance=useMemo(()=>capabilityAcceptanceView(result),[result]);
 
   useEffect(()=>{
     const controller=new AbortController();
@@ -72,6 +73,12 @@ export default function KeywordBidCapabilityPanel(){
         <div>{group.items.length?group.items.map(item=><span key={item.key}><i className={item.tone}/><em><b>{item.label}</b><small>{item.note||item.description}</small></em><strong className={item.tone}>{item.displayStatus}</strong></span>):<span className="empty"><em><b>{loading?'저장된 결과를 불러오고 있어요':'아직 검사 결과가 없어요'}</b><small>실계정 다시 확인을 누르면 항목별 상태가 표시됩니다.</small></em></span>}</div>
       </article>)}
     </div>
+
+    <section className={`keywordCapabilityAcceptance ${acceptance.tone}`} aria-labelledby="keyword-acceptance-title">
+      <header><span><small>25-9 · LIVE HANDOFF</small><h3 id="keyword-acceptance-title">실연결 · 운영 인수</h3><p>읽기 상태와 안전 경계를 한 줄로 확인하고 바로 운영해요.</p></span><em>{acceptance.label}</em></header>
+      <div>{acceptance.steps.map((item,index)=><article className={item.status.toLowerCase()} key={item.key}><i><HarinIcon name={item.key==='LIVE_READ'?'database':item.key==='PLATFORM_ISOLATION'?'link':item.key==='WRITE_GUARD'?'shield':'sync'} size={18}/></i><span><small>{index+1}</small><b>{item.label}</b><em>{item.note}</em></span></article>)}</div>
+      <footer><HarinIcon name="check" size={18}/><span><b>실제 입찰가는 바꾸지 않았어요.</b><small>입찰 변경은 기존 변경 전 확인창에서만 실행되고, 실행 직전 현재값과 실행 뒤 반영값을 다시 확인합니다.</small></span></footer>
+    </section>
 
     <footer><HarinIcon name="shield" size={18}/><span><b>이번 검사는 입찰가를 변경하지 않아요.</b><small>GET과 네이버 공식 예상용 POST만 사용합니다. 실제 순위와 경쟁사 실제 입찰가는 제공값처럼 꾸미지 않습니다.</small></span></footer>
   </section>;
