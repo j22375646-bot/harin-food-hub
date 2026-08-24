@@ -1,21 +1,21 @@
 # 26-0 디자인 금지 규칙 자동 점검
 
-- 생성 시각: 2026-08-24T18:05:55.916Z
-- 검사한 CSS: 27개
-- 위반이 남은 CSS: 26개
-- 총 자동 탐지 부채 | 642건
+- 생성 시각: 2026-08-24T22:22:29.325Z
+- 검사한 CSS: 29개
+- 위반이 남은 CSS: 22개
+- 총 자동 탐지 부채 | 547건
 
 ## 규칙별 현황
 
 | 규칙 | 설명 | 현재 건수 |
 |---|---|---:|
-| `decorative-gradient` | 장식용 그라데이션 | 304 |
-| `border-and-shadow` | 테두리와 큰 그림자 중복 | 172 |
-| `radial-glow` | 방사형 글로우·헤이즈 | 55 |
-| `thick-side-accent` | 굵은 한쪽 컬러 보더 | 42 |
-| `oversized-card-radius` | 작은 카드의 과한 라운드 | 34 |
-| `glass-blur` | 글래스·블러 효과 | 30 |
-| `decorative-eyebrow` | 장식용 영문 아이브로우 | 5 |
+| `decorative-gradient` | 장식용 그라데이션 | 258 |
+| `border-and-shadow` | 테두리와 큰 그림자 중복 | 154 |
+| `radial-glow` | 방사형 글로우·헤이즈 | 48 |
+| `thick-side-accent` | 굵은 한쪽 컬러 보더 | 38 |
+| `oversized-card-radius` | 작은 카드의 과한 라운드 | 26 |
+| `glass-blur` | 글래스·블러 효과 | 20 |
+| `decorative-eyebrow` | 장식용 영문 아이브로우 | 3 |
 | `banned-font` | 금지 폰트 | 0 |
 | `cream-base` | 크림·베이지 기본 배경 | 0 |
 | `dark-cyan-neon` | 어두운 배경과 시안 네온 | 0 |
@@ -25,17 +25,6 @@
 
 | 위치 | 규칙 | 선택자 |
 |---|---|---|
-| `app/_ai/harin-ai-page-v8.css:9` | `border-and-shadow` | `/* Phase 14-10 · page-scoped AI analysis studio. Each route owns one collapsed analysis panel. OpenAI remains server-gated. */ .harinV8 .aiPagePanel` |
-| `app/_ai/harin-ai-page-v8.css:11` | `oversized-card-radius` | `/* Phase 14-10 · page-scoped AI analysis studio. Each route owns one collapsed analysis panel. OpenAI remains server-gated. */ .harinV8 .aiPagePanel` |
-| `app/_ai/harin-ai-page-v8.css:18` | `decorative-gradient` | `.harinV8 .aiPagePanel::before` |
-| `app/_ai/harin-ai-page-v8.css:26` | `decorative-gradient` | `.harinV8 .aiPagePanel>summary` |
-| `app/_ai/harin-ai-page-v8.css:26` | `radial-glow` | `.harinV8 .aiPagePanel>summary` |
-| `app/_ai/harin-ai-page-v8.css:34` | `decorative-gradient` | `.harinV8 .aiPagePulse b` |
-| `app/_ai/harin-ai-page-v8.css:45` | `decorative-gradient` | `.harinV8 .aiPageBody` |
-| `app/_ai/harin-ai-page-v8.css:53` | `decorative-gradient` | `.harinV8 .aiAnalysisManifest>header` |
-| `app/_ai/harin-ai-page-v8.css:69` | `border-and-shadow` | `.harinV8 .aiResultPreview` |
-| `app/_ai/harin-ai-page-v8.css:73` | `decorative-gradient` | `.harinV8 .aiResultActions button.primary` |
-| `app/_ai/harin-ai-page-v8.css:76` | `thick-side-accent` | `.harinV8 .aiPageGuard` |
 | `app/_analysis/harin-analysis-v8.css:3` | `decorative-gradient` | `.productAdTargetsHero` |
 | `app/_analysis/harin-analysis-v8.css:3` | `radial-glow` | `.productAdTargetsHero` |
 | `app/_analysis/harin-analysis-v8.css:3` | `thick-side-accent` | `.productAdTargetRow` |
@@ -199,19 +188,6 @@
 | `app/_analysis/keyword-detail-workbench.css:1` | `decorative-gradient` | `.keywordDetailDecision` |
 | `app/_analysis/keyword-detail-workbench.css:4` | `decorative-gradient` | `.keywordDetailReasons` |
 | `app/_analysis/keyword-detail-workbench.css:5` | `decorative-gradient` | `.keywordDetailAi` |
-| `app/_analysis/keyword-owner-shell.module.css:1` | `border-and-shadow` | `.shell` |
-| `app/_analysis/keyword-owner-shell.module.css:1` | `decorative-gradient` | `.shell` |
-| `app/_analysis/keyword-owner-shell.module.css:1` | `oversized-card-radius` | `.shell` |
-| `app/_analysis/keyword-owner-shell.module.css:2` | `decorative-gradient` | `.shell::before` |
-| `app/_analysis/keyword-owner-shell.module.css:2` | `radial-glow` | `.shell::before` |
-| `app/_analysis/keyword-owner-shell.module.css:3` | `decorative-gradient` | `.shell.coupang` |
-| `app/_analysis/keyword-owner-shell.module.css:4` | `decorative-gradient` | `.shell.coupang::before` |
-| `app/_analysis/keyword-owner-shell.module.css:4` | `radial-glow` | `.shell.coupang::before` |
-| `app/_analysis/keyword-owner-shell.module.css:8` | `border-and-shadow` | `.mode` |
-| `app/_analysis/keyword-owner-shell.module.css:8` | `glass-blur` | `.mode` |
-| `app/_analysis/keyword-owner-shell.module.css:11` | `thick-side-accent` | `.platform.active.naverCard` |
-| `app/_analysis/keyword-owner-shell.module.css:11` | `thick-side-accent` | `.platform.active.coupangCard` |
-| `app/_analysis/keyword-owner-shell.module.css:18` | `oversized-card-radius` | `.shell` |
 | `app/_analysis/keyword-performance-workbench.module.css:2` | `border-and-shadow` | `.hero` |
 | `app/_analysis/keyword-performance-workbench.module.css:2` | `decorative-gradient` | `.hero` |
 | `app/_analysis/keyword-performance-workbench.module.css:3` | `decorative-gradient` | `.hero::after` |
@@ -226,43 +202,7 @@
 | `app/_design-system/harin-bulk-selection.css:1` | `border-and-shadow` | `.v8BulkSelectionBar` |
 | `app/_design-system/harin-bulk-selection.css:1` | `decorative-gradient` | `.v8BulkSelectionBar` |
 | `app/_design-system/harin-bulk-selection.css:4` | `glass-blur` | `.v8BulkSelectionBar.active` |
-| `app/_design-system/harin-interactions-v8.css:31` | `border-and-shadow` | `.harinV8 .viewLoadingRibbon` |
-| `app/_design-system/harin-interactions-v8.css:41` | `glass-blur` | `.harinV8 .viewLoadingRibbon` |
-| `app/_design-system/harin-interactions-v8.css:49` | `decorative-gradient` | `.harinV8 .viewLoadingProgress i` |
-| `app/_design-system/harin-interactions-v8.css:62` | `border-and-shadow` | `.harinV8 .v8QuickAction` |
-| `app/_design-system/harin-interactions-v8.css:82` | `decorative-gradient` | `.harinV8 .v8QuickAction.active` |
-| `app/_design-system/harin-interactions-v8.css:94` | `border-and-shadow` | `.harinV8 .v8InlineStatus` |
-| `app/_design-system/harin-interactions-v8.css:106` | `decorative-gradient` | `.harinV8 .v8InlineStatus-success` |
-| `app/_design-system/harin-interactions-v8.css:107` | `decorative-gradient` | `.harinV8 .v8InlineStatus-warning` |
-| `app/_design-system/harin-interactions-v8.css:108` | `decorative-gradient` | `.harinV8 .v8InlineStatus-danger` |
-| `app/_design-system/harin-interactions-v8.css:109` | `decorative-gradient` | `.harinV8 .v8InlineStatus-info` |
-| `app/_design-system/harin-page-frame.css:6` | `border-and-shadow` | `.harinV8 .v8PageHeader` |
-| `app/_design-system/harin-page-frame.css:6` | `decorative-gradient` | `.harinV8 .v8PageHeader` |
-| `app/_design-system/harin-page-frame.css:8` | `decorative-gradient` | `.harinV8 .v8PageHeader-mint` |
-| `app/_design-system/harin-page-frame.css:9` | `decorative-gradient` | `.harinV8 .v8PageHeader-pink` |
-| `app/_design-system/harin-page-frame.css:10` | `decorative-gradient` | `.harinV8 .v8PageHeader-blue` |
-| `app/_design-system/harin-page-frame.css:11` | `decorative-gradient` | `.harinV8 .v8PageHeader-amber` |
-| `app/_design-system/harin-page-frame.css:12` | `decorative-eyebrow` | `.harinV8 .v8PageHeaderEyebrow` |
-| `app/_design-system/harin-page-frame.css:13` | `glass-blur` | `.harinV8 .v8PageHeaderMetrics>span` |
-| `app/_design-system/harin-page-frame.css:16` | `border-and-shadow` | `.harinV8 .v8PageToolbar` |
-| `app/_design-system/harin-page-frame.css:19` | `border-and-shadow` | `.harinV8 .v8ProgressiveDetails` |
-| `app/_design-system/harin-page-frame.css:24` | `border-and-shadow` | `.harinV8 .v8PageAiRegion` |
-| `app/_design-system/harin-page-frame.css:24` | `decorative-gradient` | `.harinV8 .v8PageAiRegion` |
-| `app/_design-system/harin-v8.css:107` | `decorative-gradient` | `body.harinV8` |
-| `app/_design-system/harin-v8.css:107` | `radial-glow` | `body.harinV8` |
-| `app/_design-system/harin-v8.css:134` | `border-and-shadow` | `.v8Card` |
-| `app/_design-system/harin-v8.css:141` | `decorative-gradient` | `.v8Card-soft` |
-| `app/_design-system/harin-v8.css:142` | `decorative-gradient` | `.v8Card-lavender` |
-| `app/_design-system/harin-v8.css:143` | `decorative-gradient` | `.v8Card-mint` |
-| `app/_design-system/harin-v8.css:144` | `decorative-gradient` | `.v8Card-pink` |
-| `app/_design-system/harin-v8.css:145` | `decorative-gradient` | `.v8Card-amber` |
-| `app/_design-system/harin-v8.css:223` | `glass-blur` | `/* Existing shared surfaces receive the same foundation before route migration. */ .harinV8 .topbar` |
-| `app/_design-system/harin-v8.css:224` | `decorative-gradient` | `.harinV8 .brandMark` |
-| `app/_design-system/harin-v8.css:267` | `decorative-gradient` | `.harinV8 .helpBox>summary` |
-| `app/_design-system/harin-v8.css:271` | `decorative-gradient` | `.harinV8 .harinAiHero` |
-| `app/_design-system/harin-v8.css:275` | `glass-blur` | `.harinV8 .desktopSidebar` |
-| `app/_design-system/harin-v8.css:276` | `decorative-gradient` | `.harinV8 .sidebarPhase` |
-| `app/_design-system/harin-v8.css:281` | `decorative-gradient` | `.harinV8 .sidebarItem.active` |
+| `app/_design-system/harin-v8.css:133` | `border-and-shadow` | `.v8Card` |
 | `app/_execution/harin-execution-v8.css:3` | `border-and-shadow` | `/* Route-scoped legacy styles moved from globals.css in Phase 23 hardening. */ /* Phase 13-7: diagnosis, approval, validation, and experiment workflow. */ .executionWorkflow` |
 | `app/_execution/harin-execution-v8.css:3` | `decorative-gradient` | `/* Route-scoped legacy styles moved from globals.css in Phase 23 hardening. */ /* Phase 13-7: diagnosis, approval, validation, and experiment workflow. */ .executionWorkflow` |
 | `app/_execution/harin-execution-v8.css:3` | `radial-glow` | `/* Route-scoped legacy styles moved from globals.css in Phase 23 hardening. */ /* Phase 13-7: diagnosis, approval, validation, and experiment workflow. */ .executionWorkflow` |
@@ -451,53 +391,18 @@
 | `app/_reliability/harin-reliability-v8.css:6` | `border-and-shadow` | `.reliabilityChannelRail article` |
 | `app/_reliability/harin-reliability-v8.css:9` | `border-and-shadow` | `.reliabilityWorkerSignals,.reliabilityExceptionPreview` |
 | `app/_reliability/harin-reliability-v8.css:18` | `border-and-shadow` | `.notificationAlertDetail` |
-| `app/_shell/harin-entry-v8.css:9` | `decorative-gradient` | `/* Phase 16-2 · pastel login and loading entry surfaces. */ .harinV8 .loginPage, .harinV8 .routeLoading` |
-| `app/_shell/harin-entry-v8.css:9` | `radial-glow` | `/* Phase 16-2 · pastel login and loading entry surfaces. */ .harinV8 .loginPage, .harinV8 .routeLoading` |
-| `app/_shell/harin-entry-v8.css:34` | `border-and-shadow` | `.harinV8 .loginCard` |
-| `app/_shell/harin-entry-v8.css:36` | `oversized-card-radius` | `.harinV8 .loginCard` |
-| `app/_shell/harin-entry-v8.css:41` | `glass-blur` | `.harinV8 .loginCard` |
-| `app/_shell/harin-entry-v8.css:43` | `decorative-gradient` | `.harinV8 .loginWelcome` |
-| `app/_shell/harin-entry-v8.css:43` | `radial-glow` | `.harinV8 .loginWelcome` |
-| `app/_shell/harin-entry-v8.css:48` | `decorative-gradient` | `.harinV8 .loginLogo` |
-| `app/_shell/harin-entry-v8.css:53` | `border-and-shadow` | `.harinV8 .loginHighlights>span` |
-| `app/_shell/harin-entry-v8.css:64` | `decorative-gradient` | `.harinV8 .loginAccess form>button` |
-| `app/_shell/harin-entry-v8.css:68` | `border-and-shadow` | `.harinV8 .routeLoadingCard` |
-| `app/_shell/harin-entry-v8.css:68` | `glass-blur` | `.harinV8 .routeLoadingCard` |
-| `app/_shell/harin-entry-v8.css:68` | `oversized-card-radius` | `.harinV8 .routeLoadingCard` |
-| `app/_shell/harin-entry-v8.css:69` | `border-and-shadow` | `.harinV8 .routeLoadingOrbit i` |
-| `app/_shell/harin-entry-v8.css:70` | `decorative-gradient` | `.harinV8 .routeLoadingMark` |
-| `app/_shell/harin-entry-v8.css:71` | `decorative-eyebrow` | `.harinV8 .routeLoadingEyebrow` |
-| `app/_shell/harin-entry-v8.css:72` | `decorative-gradient` | `.harinV8 .routeLoadingBar i` |
-| `app/_shell/harin-entry-v8.css:79` | `oversized-card-radius` | `.harinV8 .loginCard` |
-| `app/_shell/harin-entry-v8.css:87` | `oversized-card-radius` | `.harinV8 .routeLoadingCard` |
-| `app/_shell/harin-entry-v8.css:93` | `border-and-shadow` | `/* Phase 23-1: content-only fallback for routes with their own persistent shell. */ .harinV8 .routePartialSkeleton` |
-| `app/_shell/harin-entry-v8.css:93` | `oversized-card-radius` | `/* Phase 23-1: content-only fallback for routes with their own persistent shell. */ .harinV8 .routePartialSkeleton` |
-| `app/_shell/harin-entry-v8.css:95` | `decorative-gradient` | `.harinV8 .routePartialSkeletonMetrics i,.harinV8 .routePartialSkeletonBody i` |
-| `app/_shell/harin-shell-v8.css:39` | `decorative-gradient` | `.harinV8 .sidebarPhase` |
-| `app/_shell/harin-shell-v8.css:62` | `decorative-gradient` | `.harinV8 .sidebarGroup.expanded` |
-| `app/_shell/harin-shell-v8.css:72` | `decorative-gradient` | `.harinV8 .desktopSidebar nav .sidebarItem.active` |
-| `app/_shell/harin-shell-v8.css:72` | `thick-side-accent` | `.harinV8 .desktopSidebar nav .sidebarItem.active` |
-| `app/_shell/harin-shell-v8.css:87` | `decorative-gradient` | `.harinV8 .focusedWorkspaceNav[data-tone]>a.active` |
-| `app/_shell/harin-shell-v8.css:87` | `radial-glow` | `.harinV8 .focusedWorkspaceNav[data-tone]>a.active` |
-| `app/_shell/harin-shell-v8.css:127` | `border-and-shadow` | `.harinV8 .mobileBottomNav` |
-| `app/_shell/harin-shell-v8.css:132` | `glass-blur` | `.harinV8 .mobileBottomNav` |
-| `app/_shell/harin-shell-v8.css:155` | `border-and-shadow` | `.harinV8 .mobileBottomNav>button.active` |
-| `app/_shell/harin-shell-v8.css:155` | `decorative-gradient` | `.harinV8 .mobileBottomNav>button.active` |
-| `app/_shell/harin-shell-v8.css:159` | `glass-blur` | `.harinV8 .mobileMenuBackdrop` |
-| `app/_shell/harin-shell-v8.css:171` | `border-and-shadow` | `.harinV8 .mobileGroupedMenu` |
-| `app/_shell/harin-shell-v8.css:181` | `glass-blur` | `.harinV8 .mobileMenuPanelHead` |
-| `app/_shell/harin-shell-v8.css:188` | `decorative-gradient` | `.harinV8 .mobileViewSettings` |
-| `app/_shell/harin-shell-v8.css:203` | `decorative-gradient` | `.harinV8 .mobileNavGroup[open]` |
-| `app/_workspace/harin-owner-workspace.css:1` | `border-and-shadow` | `.ownerWorkspaceTrigger` |
-| `app/_workspace/harin-owner-workspace.css:1` | `border-and-shadow` | `.ownerWorkspacePanel` |
-| `app/_workspace/harin-owner-workspace.css:1` | `border-and-shadow` | `.ownerWorkspaceSearch` |
-| `app/_workspace/harin-owner-workspace.css:1` | `decorative-gradient` | `.ownerWorkspaceTrigger` |
-| `app/_workspace/harin-owner-workspace.css:1` | `decorative-gradient` | `.ownerWorkspacePanel>header` |
-| `app/_workspace/harin-owner-workspace.css:1` | `decorative-gradient` | `.ownerCaptureForm,.ownerAutosaveEditor` |
-| `app/_workspace/harin-owner-workspace.css:1` | `glass-blur` | `.ownerWorkspaceBackdrop` |
-| `app/_workspace/harin-owner-workspace.css:1` | `oversized-card-radius` | `.ownerWorkspacePanel` |
-| `app/_workspace/harin-owner-workspace.css:1` | `thick-side-accent` | `.ownerWorkList>article.high` |
+| `app/_shell/harin-entry-v8.css:19` | `border-and-shadow` | `.harinV8 .loginCard` |
+| `app/_shell/harin-shell-v8.css:223` | `decorative-gradient` | `.harinV8 .mobileNavGroup[open]` |
+| `app/_workspace/harin-owner-workspace.css:3` | `border-and-shadow` | `.ownerWorkspaceTrigger` |
+| `app/_workspace/harin-owner-workspace.css:3` | `border-and-shadow` | `.ownerWorkspacePanel` |
+| `app/_workspace/harin-owner-workspace.css:3` | `border-and-shadow` | `.ownerWorkspaceSearch` |
+| `app/_workspace/harin-owner-workspace.css:3` | `decorative-gradient` | `.ownerWorkspaceTrigger` |
+| `app/_workspace/harin-owner-workspace.css:3` | `decorative-gradient` | `.ownerWorkspacePanel>header` |
+| `app/_workspace/harin-owner-workspace.css:3` | `decorative-gradient` | `.ownerCaptureForm,.ownerAutosaveEditor` |
+| `app/_workspace/harin-owner-workspace.css:3` | `glass-blur` | `.ownerWorkspaceBackdrop` |
 | `app/_workspace/harin-owner-workspace.css:3` | `oversized-card-radius` | `.ownerWorkspacePanel` |
+| `app/_workspace/harin-owner-workspace.css:3` | `thick-side-accent` | `.ownerWorkList>article.high` |
+| `app/_workspace/harin-owner-workspace.css:5` | `oversized-card-radius` | `.ownerWorkspacePanel` |
 | `app/globals.css:2` | `border-and-shadow` | `.kpi` |
 | `app/globals.css:2` | `border-and-shadow` | `.panel` |
 | `app/globals.css:2` | `decorative-eyebrow` | `.eyebrow,.sectionTag` |
