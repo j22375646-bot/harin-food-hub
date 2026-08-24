@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import keywordOperationsModule from '../../lib/marketing/keyword-operations.js';
 import coupangWingWorklistModule from '../../lib/marketing/coupang-wing-worklist.js';
 import naverKeywordExportModule from '../../lib/marketing/naver-keyword-export.js';
+import keywordWorkbenchContractModule from '../../lib/marketing/keyword-workbench-contract.js';
 import { useStoredState } from '../use-hub-preference.js';
 import { HarinBulkCheckbox, HarinBulkSelectionBar, useHarinBulkSelection } from '../_design-system/harin-bulk-selection.js';
 import KeywordBidRulePanel from './keyword-bid-rule-panel.js';
@@ -15,6 +16,7 @@ import KeywordBidInlineTrend from './keyword-bid-inline-trend.js';
 const {DEFAULT_KEYWORD_VIEW,KEYWORD_PAGE_SIZES,KEYWORD_SORT_OPTIONS,normalizeKeywordView,describeKeywordView,nextKeywordSort,normalizeKeywordRows,filterKeywordRows,paginateKeywordRows,buildNaverAdgroupWorkspace}=keywordOperationsModule;
 const {COUPANG_AD_CAPABILITY,ACTION_LABELS,buildCoupangWingWorklist,coupangWingCsv,coupangWingClipboard}=coupangWingWorklistModule;
 const {buildNaverKeywordCsv,naverKeywordSearchUrl}=naverKeywordExportModule;
+const {keywordWorkbenchPresentation}=keywordWorkbenchContractModule;
 const PLATFORM_LABEL={NAVER:'네이버',COUPANG:'쿠팡'};
 const DECISION_LABEL={LOWER:'감액 검토',RAISE:'확대 검토',KEEP:'유지',BLOCKED:'판단 보류',WATCH:'관찰',NEGATIVE_REVIEW:'제외 검토',SEPARATE:'분리 운영',LANDING_REVIEW:'랜딩 점검',NEW_KEYWORD:'신규 등록',CONTENT_FAQ:'콘텐츠 보강',OBSERVE:'관찰'};
 const HISTORY_STATUS={PREVIEWED:'확인 대기',APPROVED:'실행 대기',EXECUTING:'반영 중',EXECUTED:'재조회 대기',VERIFIED:'반영 확인',VERIFICATION_FAILED:'재조회 불일치',FAILED:'실행 실패',STALE:'새 변경안 필요',EXPIRED:'변경안 만료',REJECTED:'취소',ROLLED_BACK:'원래 값 복구'};
@@ -58,7 +60,7 @@ function KeywordRankSignal({signal,loadState}){
   return <span className={`keywordOpsRankSignal ${level}`} title={signal.notice||''}><b>적중 {Number(signal.hit_rate.percent).toFixed(0)}%</b><small>경쟁 {signal.competition?.label||'확인 필요'} · {signal.hit_rate.hit_days}/{signal.hit_rate.ranked_days}일</small></span>;
 }
 
-export default function KeywordOperationsTable({workspace='registered',platform='naver',data={}}){
+export default function KeywordOperationsTable({workspace='registered',platform='naver',data={},ownerShellVisible=true}){
   const [query,setQuery]=useState('');
   const isCoupang=platform==='coupang';
   const sortOptions=KEYWORD_SORT_OPTIONS.filter(option=>!option.naverOnly||!isCoupang);
@@ -77,6 +79,7 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const [proposalResult,setProposalResult]=useState(null);
   const [wingOpen,setWingOpen]=useState(false);
   const [wingPage,setWingPage]=useState(1);
+  const presentation=keywordWorkbenchPresentation({ownerShellVisible});
   const [wingNotice,setWingNotice]=useState('');
   const [exportNotice,setExportNotice]=useState('');
   const [bidRules,setBidRules]=useState([]);
@@ -242,11 +245,11 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   }
 
   return <section className={`keywordOps workspace-${workspace} platform-${platform} ${listSignalEnabled?'hasRankSignal':''}`} id="keyword-operations-table">
-    <div className="keywordOpsContextStrip">
+    {presentation.showOperationsContext?<div className="keywordOpsContextStrip">
       <span><b>{copy[1]}</b><small>{copy[2]}</small></span>
       <em>{PLATFORM_LABEL[String(platform).toUpperCase()]} · 표시 데이터 {count(sourceRows.length)}개</em>
       <small className="keywordOpsSeparation">네이버와 쿠팡은 서로 섞지 않고 별도 작업대로 운영합니다.</small>
-    </div>
+    </div>:null}
     {isCoupang?<div className="keywordOpsCapability"><i>C</i><span><b>쿠팡 광고 입찰은 WING 수동 적용이에요</b><small>공개 Seller Open API 문서에서 광고 키워드 입찰 쓰기를 확인하지 못했습니다. 자동반영을 잠갔으며 광고 성과는 WING 파일 기준입니다.</small></span><a href={COUPANG_AD_CAPABILITY.docsUrl} target="_blank" rel="noreferrer">공식 문서 <em>↗</em></a><strong>2026. 8. 16. 확인</strong></div>:null}
     {groupEnabled?<section className="keywordOpsAdgroupWorkspace" aria-label="네이버 캠페인과 광고그룹 선택">
       <header><span><i aria-hidden="true"><KeywordPictogram/></i><span><b>광고그룹별 입찰 작업대</b><small>이미 수집된 네이버 캠페인·광고그룹을 기준으로 키워드를 좁혀요.</small></span></span><dl><div><dt>캠페인</dt><dd>{count(naverGroupWorkspace.summary.campaigns)}개</dd></div><div><dt>광고그룹</dt><dd>{count(naverGroupWorkspace.summary.adgroups)}개</dd></div><div><dt>키워드</dt><dd>{count(naverGroupWorkspace.summary.keywords)}개</dd></div><div><dt>광고비</dt><dd>{won(naverGroupWorkspace.summary.cost)}</dd></div></dl></header>
