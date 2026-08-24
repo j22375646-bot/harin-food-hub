@@ -13,7 +13,7 @@ import KeywordBidOperationsOverview from './keyword-bid-operations-overview.js';
 import KeywordBidHistoryPanel from './keyword-bid-history-panel.js';
 import KeywordBidInlineTrend from './keyword-bid-inline-trend.js';
 
-const {DEFAULT_KEYWORD_VIEW,KEYWORD_PAGE_SIZES,KEYWORD_SORT_OPTIONS,normalizeKeywordView,describeKeywordView,nextKeywordSort,normalizeKeywordRows,filterKeywordRows,paginateKeywordRows,buildNaverAdgroupWorkspace}=keywordOperationsModule;
+const {DEFAULT_KEYWORD_VIEW,KEYWORD_PAGE_SIZES,KEYWORD_SORT_OPTIONS,normalizeKeywordView,describeKeywordView,nextKeywordSort,normalizeKeywordRows,findGlobalKeywordRows,globalKeywordJump,filterKeywordRows,paginateKeywordRows,buildNaverAdgroupWorkspace}=keywordOperationsModule;
 const {COUPANG_AD_CAPABILITY,ACTION_LABELS,buildCoupangWingWorklist,coupangWingCsv,coupangWingClipboard}=coupangWingWorklistModule;
 const {buildNaverKeywordCsv,naverKeywordSearchUrl}=naverKeywordExportModule;
 const {keywordWorkbenchPresentation,keywordWorkbenchLayout}=keywordWorkbenchContractModule;
@@ -83,6 +83,9 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const [instantRows,setInstantRows]=useState({});
   const [mutationStates,setMutationStates]=useState({});
   const [detailId,setDetailId]=useState('');
+  const [finderOpen,setFinderOpen]=useState(false);
+  const [finderIndex,setFinderIndex]=useState(0);
+  const [pendingScrollId,setPendingScrollId]=useState('');
   const [reviewOpen,setReviewOpen]=useState(false);
   const [working,setWorking]=useState(false);
   const [proposalResult,setProposalResult]=useState(null);
@@ -97,6 +100,7 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const copy=WORKSPACE_COPY[workspace]||WORKSPACE_COPY.registered;
   const rawSourceRows=useMemo(()=>normalizeKeywordRows({naverBidWorkbench:data.naverBidWorkbench,searchTermCenter:data.naver?.searchTermCenter,coupang:data.coupang,financialChanges:data.financialChanges,workspace,platform}),[data.naverBidWorkbench,data.naver?.searchTermCenter,data.coupang,data.financialChanges,workspace,platform]);
   const sourceRows=useMemo(()=>rawSourceRows.map(row=>instantRows[row.id]?{...row,...instantRows[row.id]}:row),[rawSourceRows,instantRows]);
+  const finderResults=useMemo(()=>findGlobalKeywordRows(sourceRows,{query,platform,limit:8}),[sourceRows,query,platform]);
   const groupEnabled=!isCoupang&&['registered','diagnosis'].includes(workspace);
   const naverGroupCatalog=useMemo(()=>buildNaverAdgroupWorkspace(sourceRows),[sourceRows]);
   const campaignId=groupEnabled&&naverGroupCatalog.campaigns.some(item=>item.id===groupSettings?.campaignId)?groupSettings.campaignId:'ALL';
@@ -145,8 +149,19 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const currentTotal=changedRows.reduce((sum,item)=>sum+Number(item.currentBid||0),0);
   const draftTotal=changedRows.reduce((sum,item)=>sum+Number(drafts[item.id]||0),0);
 
-  useEffect(()=>{setPage(1);selection.clear();setDrafts({});setInstantRows({});setMutationStates({});setDetailId('');setReviewOpen(false);setProposalResult(null);setWingOpen(false);setWingPage(1);setWingNotice('');setExportNotice('');},[workspace,platform]);
-  useEffect(()=>{setPage(1);},[query,quickFilter,sort,pageSize]);
+  useEffect(()=>{setPage(1);selection.clear();setDrafts({});setInstantRows({});setMutationStates({});setDetailId('');setFinderOpen(false);setFinderIndex(0);setPendingScrollId('');setReviewOpen(false);setProposalResult(null);setWingOpen(false);setWingPage(1);setWingNotice('');setExportNotice('');},[workspace,platform]);
+  useEffect(()=>{if(!pendingScrollId)setPage(1);},[query,quickFilter,sort,pageSize]);
+  useEffect(()=>{
+    if(!pendingScrollId)return undefined;
+    const timer=window.setTimeout(()=>{
+      const target=Array.from(document.querySelectorAll('[data-keyword-row-id]')).find(element=>element.dataset.keywordRowId===pendingScrollId);
+      if(!target){setPendingScrollId('');return;}
+      target.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});
+      target.focus({preventScroll:true});
+      setPendingScrollId('');
+    },80);
+    return ()=>window.clearTimeout(timer);
+  },[pendingScrollId,pagination.page,campaignId,adgroupId,rows]);
   useEffect(()=>{
     if(isCoupang||!groupEnabled){setBidRules([]);setBidRuleLoadState('IDLE');return undefined;}
     const controller=new AbortController();
@@ -183,6 +198,25 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   function selectAdgroupFromOverview(next){
     const row=sourceRows.find(item=>String(item.adgroupId)===String(next)&&item.platform==='NAVER');
     setGroupSettings({campaignId:row?.campaignId||'ALL',adgroupId:String(next)});setPage(1);selection.clear();
+  }
+  function openFinderResult(result){
+    const jump=globalKeywordJump(result,{platform});
+    if(!jump)return;
+    const nextScope=groupEnabled?buildNaverAdgroupWorkspace(sourceRows,{campaignId:jump.campaignId,adgroupId:jump.adgroupId}).filteredRows:sourceRows;
+    const nextRows=filterKeywordRows(nextScope,{query:jump.query,quickFilter:jump.quickFilter,sort});
+    const targetIndex=nextRows.findIndex(item=>String(item.id)===String(jump.id));
+    const targetPage=targetIndex<0?jump.page:Math.floor(targetIndex/pageSize)+1;
+    if(groupEnabled)setGroupSettings({campaignId:jump.campaignId,adgroupId:jump.adgroupId});
+    saveSettings({quickFilter:jump.quickFilter});
+    setQuery(jump.query);setPage(targetPage);setDetailId(jump.id);setPendingScrollId(jump.id);
+    setFinderOpen(false);setFinderIndex(0);selection.clear();
+  }
+  function handleFinderKeyDown(event){
+    if(event.key==='Escape'){setFinderOpen(false);setFinderIndex(0);return;}
+    if(!finderResults.length)return;
+    if(event.key==='ArrowDown'){event.preventDefault();setFinderOpen(true);setFinderIndex(value=>(value+1)%finderResults.length);return;}
+    if(event.key==='ArrowUp'){event.preventDefault();setFinderOpen(true);setFinderIndex(value=>(value-1+finderResults.length)%finderResults.length);return;}
+    if(event.key==='Enter'&&finderOpen){event.preventDefault();openFinderResult(finderResults[Math.min(finderIndex,finderResults.length-1)]);}
   }
   function setDraft(row,value){
     if(!row.canDraft)return;
@@ -270,7 +304,11 @@ export default function KeywordOperationsTable({workspace='registered',platform=
     {!isCoupang&&groupEnabled?<div className="keywordOpsOverviewPane"><KeywordBidOperationsOverview adgroups={naverGroupCatalog.adgroups} selectedAdgroupId={adgroupId} onSelectAdgroup={selectAdgroupFromOverview}/></div>:null}
     {!isCoupang&&groupEnabled&&adgroupId!=='ALL'?<div className="keywordOpsSchedulePane">{selectedAdgroup?.operationalState==='INACTIVE'?<p className="keywordOpsInactiveNotice"><strong className="adCategoryBadge inactive">사용중지</strong><span>중지된 광고 카테고리는 기록만 확인할 수 있고, 입찰가 변경과 자동입찰 예약에서는 제외됩니다.</span></p>:<KeywordBidSchedulePanel adgroupId={adgroupId} adgroupName={selectedAdgroup?.name||''} rules={bidRules}/>}</div>:null}
     <div className="keywordOpsToolbar">
-      <label className="keywordOpsSearch"><span>키워드·캠페인·상품 찾기</span><div><i aria-hidden="true">⌕</i><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="예: 작두콩차, 티백, 캠페인명"/></div></label>
+      <div className="keywordOpsSearch" onBlur={event=>{if(!event.currentTarget.contains(event.relatedTarget))setFinderOpen(false);}}>
+        <label htmlFor={`keyword-global-finder-${platform}-${workspace}`}><span>{PLATFORM_LABEL[String(platform).toUpperCase()]} 전체 키워드 찾기</span><small>{count(sourceRows.length)}개 안에서 캠페인·광고그룹·상품까지 찾아요</small></label>
+        <div className="keywordOpsSearchInput"><i aria-hidden="true">⌕</i><input id={`keyword-global-finder-${platform}-${workspace}`} role="combobox" aria-autocomplete="list" aria-expanded={finderOpen&&finderResults.length>0} aria-controls="keyword-global-finder-results" aria-activedescendant={finderOpen&&finderResults.length?`keyword-finder-option-${finderIndex}`:undefined} value={query} onFocus={()=>{if(query.trim())setFinderOpen(true);}} onKeyDown={handleFinderKeyDown} onChange={event=>{setQuery(event.target.value);setFinderOpen(Boolean(event.target.value.trim()));setFinderIndex(0);}} placeholder="예: 작두콩차, 티백, 캠페인명"/></div>
+        {finderOpen&&finderResults.length?<div className="keywordOpsFinderResults" id="keyword-global-finder-results" role="listbox" aria-label={`${PLATFORM_LABEL[String(platform).toUpperCase()]} 전체 키워드 검색 결과`}><header><span><b>전체 검색 결과</b><small>선택하면 원래 캠페인·광고그룹과 행으로 이동해요.</small></span><em>{finderResults.length}개</em></header>{finderResults.map((item,index)=><button type="button" role="option" aria-selected={index===finderIndex} id={`keyword-finder-option-${index}`} className={index===finderIndex?'active':''} key={item.id} onMouseEnter={()=>setFinderIndex(index)} onClick={()=>openFinderResult(item)}><i className={item.platform.toLowerCase()}>{item.platform==='NAVER'?'N':'C'}</i><span><b>{item.keyword}</b><small>{item.campaignName||item.campaign}{item.adgroupName?` · ${item.adgroupName}`:''}</small><em>{item.product}</em></span><strong>{item.adCategoryState==='INACTIVE'?'사용중지':won(item.currentBid)}</strong></button>)}</div>:null}
+      </div>
       <label><span>빠른 보기</span><select value={quickFilter} onChange={event=>saveSettings({quickFilter:event.target.value})}><option value="ALL">{isCoupang?'전체 보기':'전체 · 운영 중 우선'}</option>{!isCoupang?<><option value="ACTIVE_ADS">운영 중 광고</option><option value="INACTIVE_ADS">사용중지 광고</option></>:null}<option value="NO_ORDER_COST">광고비 사용·주문 0</option><option value="LOW_ROAS">ROAS 700% 미만</option>{isCoupang?<option value="MANUAL">WING 수동 적용</option>:<option value="READY">네이버 변경안 가능</option>}</select></label>
       <label><span>정렬</span><select value={sort} onChange={event=>saveSettings({sort:event.target.value})}>{sortOptions.map(option=><option value={option.value} key={option.value}>{option.label}</option>)}</select></label>
       <label><span>한 페이지</span><select value={pageSize} onChange={event=>saveSettings({pageSize:Number(event.target.value)})}>{KEYWORD_PAGE_SIZES.map(size=><option value={size} key={size}>{size}개</option>)}</select></label>
@@ -290,7 +328,7 @@ export default function KeywordOperationsTable({workspace='registered',platform=
       <div className="keywordOpsTableWrap">
         <div className="keywordOpsTable" role="table" aria-label={`${PLATFORM_LABEL[String(platform).toUpperCase()]} 키워드 운영표`}>
           <div className="keywordOpsRow head" role="row"><span><HarinBulkCheckbox label="현재 페이지 전체 선택" checked={selection.visibleState.checked} mixed={selection.visibleState.mixed} onChange={event=>selection.toggleScope(visibleIds,event.target.checked)}/></span><KeywordSortHeader field="KEYWORD" label="키워드·플랫폼" sort={sort} onChange={value=>saveSettings({sort:value})}/><span>{isCoupang?'캠페인·상품':'캠페인·광고그룹·상품'}</span><KeywordSortHeader field="CURRENT_BID" label={workspace==='history'?'변경 전':isCoupang?'WING 현재가':'현재 입찰가'} sort={sort} onChange={value=>saveSettings({sort:value})} disabled={isCoupang}/><KeywordSortHeader field="RECOMMENDED_BID" label={workspace==='history'?'변경 값':isCoupang?'권장 조치':'추천 입찰가'} sort={sort} onChange={value=>saveSettings({sort:value})} disabled={isCoupang}/><span>{workspace==='history'?'현재 확인':isCoupang?'작업표':'변경 입찰가'}</span><KeywordSortHeader field="CLICKS" label="클릭" sort={sort} onChange={value=>saveSettings({sort:value})}/><KeywordSortHeader field="COST" label="광고비" sort={sort} onChange={value=>saveSettings({sort:value})}/><KeywordSortHeader field="ORDERS" label="주문" sort={sort} onChange={value=>saveSettings({sort:value})}/><KeywordSortHeader field="ROAS" label="ROAS" sort={sort} onChange={value=>saveSettings({sort:value})}/>{listSignalEnabled?<span>순위 신호</span>:null}<span>실제 이익</span><span>상태</span></div>
-          {pagination.items.map(row=>{const changed=number(drafts[row.id])!=null&&number(drafts[row.id])!==row.currentBid;const bidRule=bidRuleMap.get(String(row.id).replace(/^NAVER:/,''));return <div className={`keywordOpsRow ${selection.selectedSet.has(String(row.id))?'selected':''} ${changed?'changed':''}`} role="row" tabIndex="0" aria-label={`${row.keyword} 상세 보기`} key={row.id} onClick={()=>setDetailId(row.id)} onKeyDown={event=>{if(event.target!==event.currentTarget)return;if(event.key==='Enter'||event.key===' '){event.preventDefault();setDetailId(row.id);}}}>
+          {pagination.items.map(row=>{const changed=number(drafts[row.id])!=null&&number(drafts[row.id])!==row.currentBid;const bidRule=bidRuleMap.get(String(row.id).replace(/^NAVER:/,''));return <div className={`keywordOpsRow ${selection.selectedSet.has(String(row.id))?'selected':''} ${detailId===row.id?'inspected':''} ${changed?'changed':''}`} data-keyword-row-id={row.id} role="row" tabIndex="0" aria-label={`${row.keyword} 상세 보기`} key={row.id} onClick={()=>setDetailId(row.id)} onKeyDown={event=>{if(event.target!==event.currentTarget)return;if(event.key==='Enter'||event.key===' '){event.preventDefault();setDetailId(row.id);}}}>
             <span onClick={event=>event.stopPropagation()}><HarinBulkCheckbox label={row.adCategoryState==='INACTIVE'?`${row.keyword} 사용중지`:`${row.keyword} 선택`} checked={selection.selectedSet.has(String(row.id))} disabled={row.adCategoryState==='INACTIVE'} onChange={event=>selection.toggle(row.id,event.target.checked)}/></span>
             <span className="keywordOpsName"><i className={row.platform.toLowerCase()}>{row.platform==='NAVER'?'N':'C'}</i><b>{row.keyword}</b><small>{PLATFORM_LABEL[row.platform]} · {row.source==='SEARCH_TERM'?'실제 검색어':row.source==='HISTORY'?'변경 기록':'광고 키워드'}</small></span>
             <span className="keywordOpsScope"><b>{row.campaignName||row.campaign}</b>{row.adgroupName?<em>{row.adgroupName}</em>:null}{row.adCategoryState==='INACTIVE'?<strong className="adCategoryBadge inactive">사용중지</strong>:null}<small>{row.product}</small>{bidRule?<strong className="bidRuleBadge">안전설정 · {bidRule.target_rank?`${bidRule.target_rank}위 참고`:'순위 미지정'}</strong>:null}</span>
