@@ -33,3 +33,10 @@ test('26-4 quick command trigger follows the same flat system',()=>{
   assert.doesNotMatch(trigger,/(?:linear|radial)-gradient\(/);
   assert.match(trigger,/background:var\(--harin-color-action-soft\)/);
 });
+
+test('26-4 removes decorative eyebrow copy above keyword headings',()=>{
+  const shell=read('app/_analysis/keyword-owner-shell.js');
+  const overview=read('app/_analysis/keyword-bid-operations-overview.js');
+  assert.doesNotMatch(shell,/styles\.owner/);
+  assert.doesNotMatch(overview,/NAVER BID CONTROL/);
+});

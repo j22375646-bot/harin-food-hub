@@ -23,7 +23,6 @@ export default function KeywordOwnerShell({platform='naver',workspace='registere
   return <section className={`${styles.shell} ${isCoupang?styles.coupang:styles.naver}`} aria-labelledby="keyword-owner-title">
     <header className={styles.header}>
       <div className={styles.intro}>
-        <span className={styles.owner}><HarinIcon name="keyword" size={18}/>{model.ownerLabel}</span>
         <h1 id="keyword-owner-title">{model.headline}</h1>
         <p>{model.separationNote}</p>
       </div>

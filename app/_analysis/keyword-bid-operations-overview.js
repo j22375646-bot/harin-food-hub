@@ -31,7 +31,7 @@ export default function KeywordBidOperationsOverview({adgroups=[],selectedAdgrou
   const status=STATUS_COPY[result?.status]||['확인 필요','setup'];
   return <section className={`bidOperationsOverview ${status[1]}`} aria-label="네이버 자동입찰 운영 현황">
     <header>
-      <span className="bidOperationsIdentity"><i><HarinIcon name="speed" size={22}/></i><span><small>24-11 · NAVER BID CONTROL</small><b>자동입찰 운영 현황</b><em>실행 상태와 최근 결과를 한곳에서 확인해요.</em></span></span>
+      <span className="bidOperationsIdentity"><i><HarinIcon name="speed" size={22}/></i><span><b>자동입찰 운영 현황</b><em>실행 상태와 최근 결과를 한곳에서 확인해요.</em></span></span>
       <span className="bidOperationsState"><i aria-hidden="true"/><span><small>현재 상태</small><b>{state==='LOADING'?'확인 중':state==='FAILED'?'불러오기 실패':status[0]}</b></span><button type="button" onClick={()=>setRefreshKey(value=>value+1)} disabled={state==='LOADING'} aria-label="자동입찰 운영 현황 새로고침"><HarinIcon name="sync" size={18}/></button></span>
     </header>
     {state==='FAILED'?<p className="bidOperationsError" role="status"><HarinIcon name="warning" size={19}/><span><b>운영 현황을 확인하지 못했어요</b><small>{result?.error||'잠시 뒤 다시 확인해주세요.'}</small></span></p>:<>

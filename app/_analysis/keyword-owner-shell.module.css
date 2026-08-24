@@ -11,9 +11,7 @@
 .shell.coupang{border-color:var(--harin-color-line)}
 .header{display:grid;grid-template-columns:minmax(0,1fr) minmax(270px,360px);align-items:end;gap:22px}
 .intro{min-width:0}
-.owner{display:inline-flex;align-items:center;gap:8px;color:var(--harin-color-action-strong);font-size:14px;font-weight:850}
-.coupang .owner{color:var(--harin-color-warning)}
-.intro h1{max-width:780px;margin:12px 0 0;color:var(--harin-color-ink);font-size:clamp(28px,3.1vw,42px);font-weight:900;letter-spacing:-.05em;line-height:1.08}
+.intro h1{max-width:780px;margin:0;color:var(--harin-color-ink);font-size:clamp(28px,3.1vw,42px);font-weight:900;letter-spacing:-.05em;line-height:1.08}
 .intro p{margin:12px 0 0;color:var(--harin-color-muted);font-size:16px;font-weight:650;line-height:1.55}
 .mode{display:grid;grid-template-columns:50px minmax(0,1fr);align-items:center;gap:13px;padding:14px;border:1px solid var(--harin-color-line);border-radius:16px;background:var(--harin-color-surface-soft)}
 .mode>i{display:grid;width:50px;height:50px;place-items:center;border-radius:12px;background:var(--harin-color-action-soft);color:var(--harin-color-action-strong)}
