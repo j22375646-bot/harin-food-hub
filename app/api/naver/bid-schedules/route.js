@@ -4,6 +4,7 @@ import bidSchedules from '../../../../lib/naver/bid-schedules.js';
 import bidScheduleStore from '../../../../lib/naver/bid-schedule-store.js';
 import bidRuleStore from '../../../../lib/naver/bid-rule-store.js';
 import bidOperationsOverview from '../../../../lib/naver/bid-operations-overview.js';
+import bidKeywordHistory from '../../../../lib/naver/bid-keyword-history.js';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -28,7 +29,15 @@ export async function GET(request){
   try{
     const searchParams=new URL(request.url).searchParams;
     const adgroupId=searchParams.get('ncc_adgroup_id')||'';
+    const keywordId=searchParams.get('ncc_keyword_id')||'';
+    const historyRequested=searchParams.get('history')==='1';
     const overviewRequested=searchParams.get('overview')==='1';
+    if(historyRequested){
+      if(!adgroupId||!keywordId)return apiSafety.json({ok:false,error:'네이버 광고그룹과 키워드를 다시 선택해주세요.',code:'KEYWORD_SCOPE_REQUIRED'},{status:400});
+      const runs=await bidScheduleStore.listNaverBidRuns({adgroupId,limit:100});
+      const history=bidKeywordHistory.buildNaverBidKeywordHistory({runs,adgroupId,keywordId});
+      return apiSafety.json({ok:true,platform:'NAVER',history});
+    }
     const [schedules,control,rules]=await Promise.all([
       bidScheduleStore.listNaverBidSchedules({adgroupId}),
       bidScheduleStore.getNaverBidAutomationControl(),
