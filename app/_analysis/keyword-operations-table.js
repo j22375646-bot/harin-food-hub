@@ -47,6 +47,15 @@ function StatusPill({row,mutationState}){
   return <span className={`keywordOpsStatus ${tone}`}>{label}</span>;
 }
 
+function KeywordRankSignal({signal,loadState}){
+  if(loadState==='LOADING'&&!signal)return <span className="keywordOpsRankSignal loading" aria-label="순위 신호 불러오는 중"><i/><small>불러오는 중</small></span>;
+  if(loadState==='FAILED'&&!signal)return <span className="keywordOpsRankSignal unknown"><b>다시 확인</b><small>순위 조회 실패</small></span>;
+  if(!signal||signal.hit_rate?.status==='NO_DATA')return <span className="keywordOpsRankSignal unknown"><b>순위 확인 필요</b><small>최근 7일 자료 없음</small></span>;
+  if(signal.hit_rate?.status==='TARGET_REQUIRED')return <span className="keywordOpsRankSignal setup"><b>목표 설정 필요</b><small>안전설정에서 순위 지정</small></span>;
+  const level=String(signal.competition?.level||'UNKNOWN').toLowerCase();
+  return <span className={`keywordOpsRankSignal ${level}`} title={signal.notice||''}><b>적중 {Number(signal.hit_rate.percent).toFixed(0)}%</b><small>경쟁 {signal.competition?.label||'확인 필요'} · {signal.hit_rate.hit_days}/{signal.hit_rate.ranked_days}일</small></span>;
+}
+
 export default function KeywordOperationsTable({workspace='registered',platform='naver',data={}}){
   const [query,setQuery]=useState('');
   const isCoupang=platform==='coupang';
@@ -69,6 +78,7 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const [wingNotice,setWingNotice]=useState('');
   const [bidRules,setBidRules]=useState([]);
   const [bidRuleLoadState,setBidRuleLoadState]=useState('IDLE');
+  const [listSignals,setListSignals]=useState({status:'IDLE',byId:{}});
   const copy=WORKSPACE_COPY[workspace]||WORKSPACE_COPY.registered;
   const rawSourceRows=useMemo(()=>normalizeKeywordRows({naverBidWorkbench:data.naverBidWorkbench,searchTermCenter:data.naver?.searchTermCenter,coupang:data.coupang,financialChanges:data.financialChanges,workspace,platform}),[data.naverBidWorkbench,data.naver?.searchTermCenter,data.coupang,data.financialChanges,workspace,platform]);
   const sourceRows=useMemo(()=>rawSourceRows.map(row=>instantRows[row.id]?{...row,...instantRows[row.id]}:row),[rawSourceRows,instantRows]);
@@ -89,6 +99,20 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   const allIds=useMemo(()=>tableSourceRows.filter(item=>item.adCategoryState!=='INACTIVE').map(item=>item.id),[tableSourceRows]);
   const filteredIds=useMemo(()=>rows.filter(item=>item.adCategoryState!=='INACTIVE').map(item=>item.id),[rows]);
   const visibleIds=useMemo(()=>pagination.items.filter(item=>item.adCategoryState!=='INACTIVE').map(item=>item.id),[pagination.items]);
+  const listSignalEnabled=!isCoupang&&groupEnabled;
+  const visibleSignalGroups=useMemo(()=>{
+    if(!listSignalEnabled)return [];
+    const grouped=new Map();
+    for(const item of pagination.items.filter(row=>row.platform==='NAVER'&&row.source==='REGISTERED')){
+      const id=String(item.id).replace(/^NAVER:/,''),type=String(item.campaignType||'UNKNOWN');
+      if(!id)continue;
+      const groupKey=type==='UNKNOWN'?`${type}:${id}`:type;
+      if(!grouped.has(groupKey))grouped.set(groupKey,[]);
+      grouped.get(groupKey).push(id);
+    }
+    return Array.from(grouped.entries()).map(([campaignType,ids])=>({campaignType,ids}));
+  },[listSignalEnabled,pagination.items]);
+  const visibleSignalKey=useMemo(()=>visibleSignalGroups.map(group=>`${group.campaignType}:${group.ids.join(',')}`).join('|'),[visibleSignalGroups]);
   const selection=useHarinBulkSelection({allIds,filteredIds,visibleIds});
   const selectedRows=sourceRows.filter(item=>selection.selectedSet.has(String(item.id)));
   const naverRuleSelected=selectedRows.filter(item=>item.platform==='NAVER'&&item.source==='REGISTERED');
@@ -116,6 +140,21 @@ export default function KeywordOperationsTable({workspace='registered',platform=
       .catch(error=>{if(error.name!=='AbortError'){setBidRules([]);setBidRuleLoadState('FAILED');}});
     return ()=>controller.abort();
   },[platform,workspace,isCoupang,groupEnabled]);
+  useEffect(()=>{
+    if(!listSignalEnabled||!visibleSignalGroups.length){setListSignals({status:'IDLE',byId:{}});return undefined;}
+    const controller=new AbortController();
+    setListSignals(current=>({status:'LOADING',byId:current.byId||{}}));
+    Promise.all(visibleSignalGroups.map(async group=>{
+      const response=await fetch(`/api/naver/bid-list-signals?keywordIds=${encodeURIComponent(group.ids.join(','))}`,{cache:'no-store',signal:controller.signal});
+      const result=await response.json();
+      if(!response.ok||!result.ok)throw new Error(result.error||'순위 신호를 불러오지 못했습니다.');
+      return result.signals||[];
+    }))
+      .then(groups=>groups.flat())
+      .then(items=>setListSignals({status:'READY',byId:Object.fromEntries(items.map(item=>[String(item.ncc_keyword_id),item]))}))
+      .catch(error=>{if(error.name!=='AbortError')setListSignals(current=>({status:'FAILED',byId:current.byId||{}}));});
+    return ()=>controller.abort();
+  },[listSignalEnabled,visibleSignalKey]);
 
   function saveSettings(next){setSettings({...viewSettings,...next});}
   function resetView(){
@@ -191,7 +230,7 @@ export default function KeywordOperationsTable({workspace='registered',platform=
     }
   }
 
-  return <section className={`keywordOps workspace-${workspace} platform-${platform}`} id="keyword-operations-table">
+  return <section className={`keywordOps workspace-${workspace} platform-${platform} ${listSignalEnabled?'hasRankSignal':''}`} id="keyword-operations-table">
     <div className="keywordOpsContextStrip">
       <span><b>{copy[1]}</b><small>{copy[2]}</small></span>
       <em>{PLATFORM_LABEL[String(platform).toUpperCase()]} · 표시 데이터 {count(sourceRows.length)}개</em>
@@ -224,14 +263,14 @@ export default function KeywordOperationsTable({workspace='registered',platform=
     <div className={`keywordOpsLayout ${detail?'hasDetail':''}`}>
       <div className="keywordOpsTableWrap">
         <div className="keywordOpsTable" role="table" aria-label={`${PLATFORM_LABEL[String(platform).toUpperCase()]} 키워드 운영표`}>
-          <div className="keywordOpsRow head" role="row"><span><HarinBulkCheckbox label="현재 페이지 전체 선택" checked={selection.visibleState.checked} mixed={selection.visibleState.mixed} onChange={event=>selection.toggleScope(visibleIds,event.target.checked)}/></span><KeywordSortHeader field="KEYWORD" label="키워드·플랫폼" sort={sort} onChange={value=>saveSettings({sort:value})}/><span>{isCoupang?'캠페인·상품':'캠페인·광고그룹·상품'}</span><KeywordSortHeader field="CURRENT_BID" label={workspace==='history'?'변경 전':isCoupang?'WING 현재가':'현재 입찰가'} sort={sort} onChange={value=>saveSettings({sort:value})} disabled={isCoupang}/><KeywordSortHeader field="RECOMMENDED_BID" label={workspace==='history'?'변경 값':isCoupang?'권장 조치':'추천 입찰가'} sort={sort} onChange={value=>saveSettings({sort:value})} disabled={isCoupang}/><span>{workspace==='history'?'현재 확인':isCoupang?'작업표':'변경 입찰가'}</span><KeywordSortHeader field="CLICKS" label="클릭" sort={sort} onChange={value=>saveSettings({sort:value})}/><KeywordSortHeader field="COST" label="광고비" sort={sort} onChange={value=>saveSettings({sort:value})}/><KeywordSortHeader field="ORDERS" label="주문" sort={sort} onChange={value=>saveSettings({sort:value})}/><KeywordSortHeader field="ROAS" label="ROAS" sort={sort} onChange={value=>saveSettings({sort:value})}/><span>실제 이익</span><span>상태</span></div>
+          <div className="keywordOpsRow head" role="row"><span><HarinBulkCheckbox label="현재 페이지 전체 선택" checked={selection.visibleState.checked} mixed={selection.visibleState.mixed} onChange={event=>selection.toggleScope(visibleIds,event.target.checked)}/></span><KeywordSortHeader field="KEYWORD" label="키워드·플랫폼" sort={sort} onChange={value=>saveSettings({sort:value})}/><span>{isCoupang?'캠페인·상품':'캠페인·광고그룹·상품'}</span><KeywordSortHeader field="CURRENT_BID" label={workspace==='history'?'변경 전':isCoupang?'WING 현재가':'현재 입찰가'} sort={sort} onChange={value=>saveSettings({sort:value})} disabled={isCoupang}/><KeywordSortHeader field="RECOMMENDED_BID" label={workspace==='history'?'변경 값':isCoupang?'권장 조치':'추천 입찰가'} sort={sort} onChange={value=>saveSettings({sort:value})} disabled={isCoupang}/><span>{workspace==='history'?'현재 확인':isCoupang?'작업표':'변경 입찰가'}</span><KeywordSortHeader field="CLICKS" label="클릭" sort={sort} onChange={value=>saveSettings({sort:value})}/><KeywordSortHeader field="COST" label="광고비" sort={sort} onChange={value=>saveSettings({sort:value})}/><KeywordSortHeader field="ORDERS" label="주문" sort={sort} onChange={value=>saveSettings({sort:value})}/><KeywordSortHeader field="ROAS" label="ROAS" sort={sort} onChange={value=>saveSettings({sort:value})}/>{listSignalEnabled?<span>순위 신호</span>:null}<span>실제 이익</span><span>상태</span></div>
           {pagination.items.map(row=>{const changed=number(drafts[row.id])!=null&&number(drafts[row.id])!==row.currentBid;const bidRule=bidRuleMap.get(String(row.id).replace(/^NAVER:/,''));return <div className={`keywordOpsRow ${selection.selectedSet.has(String(row.id))?'selected':''} ${changed?'changed':''}`} role="row" tabIndex="0" aria-label={`${row.keyword} 상세 보기`} key={row.id} onClick={()=>setDetailId(row.id)} onKeyDown={event=>{if(event.target!==event.currentTarget)return;if(event.key==='Enter'||event.key===' '){event.preventDefault();setDetailId(row.id);}}}>
             <span onClick={event=>event.stopPropagation()}><HarinBulkCheckbox label={row.adCategoryState==='INACTIVE'?`${row.keyword} 사용중지`:`${row.keyword} 선택`} checked={selection.selectedSet.has(String(row.id))} disabled={row.adCategoryState==='INACTIVE'} onChange={event=>selection.toggle(row.id,event.target.checked)}/></span>
             <span className="keywordOpsName"><i className={row.platform.toLowerCase()}>{row.platform==='NAVER'?'N':'C'}</i><b>{row.keyword}</b><small>{PLATFORM_LABEL[row.platform]} · {row.source==='SEARCH_TERM'?'실제 검색어':row.source==='HISTORY'?'변경 기록':'광고 키워드'}</small></span>
             <span className="keywordOpsScope"><b>{row.campaignName||row.campaign}</b>{row.adgroupName?<em>{row.adgroupName}</em>:null}{row.adCategoryState==='INACTIVE'?<strong className="adCategoryBadge inactive">사용중지</strong>:null}<small>{row.product}</small>{bidRule?<strong className="bidRuleBadge">안전설정 · {bidRule.target_rank?`${bidRule.target_rank}위 참고`:'순위 미지정'}</strong>:null}</span>
             <span><b>{row.applicationMode==='MANUAL_REQUIRED'?'WING 확인':won(row.currentBid)}</b></span><span className="recommended"><b>{row.applicationMode==='MANUAL_REQUIRED'?(DECISION_LABEL[row.decision]||'관찰'):won(row.recommendedBid)}</b></span>
             <span className="keywordOpsDraft" onClick={event=>event.stopPropagation()}>{row.canDraft?<input type="number" inputMode="numeric" step="10" min={row.minimumBid??70} max={row.maximumBid??100000} value={drafts[row.id]??''} placeholder="직접 입력" aria-label={`${row.keyword} 변경 입찰가`} onFocus={()=>selection.toggle(row.id,true)} onChange={event=>setDetailDraft(row,event.target.value)} onBlur={()=>{const value=number(drafts[row.id]);if(value!=null)setDetailDraft(row,clamp(value,row.minimumBid,row.maximumBid));}}/>:<em>{row.applicationMode==='MANUAL_REQUIRED'?'작업표 입력':row.applicationMode==='HISTORY'?(row.observedBid==null?'재조회 전':won(row.observedBid)):'-'}</em>}</span>
-            <span>{count(row.clicks)}</span><span><b>{won(row.cost)}</b></span><span>{count(row.orders)}</span><span>{percent(row.roas)}</span><span className="blockedValue">판단 보류</span><span><StatusPill row={row} mutationState={mutationStates[row.id]}/></span>
+            <span>{count(row.clicks)}</span><span><b>{won(row.cost)}</b></span><span>{count(row.orders)}</span><span>{percent(row.roas)}</span>{listSignalEnabled?<span><KeywordRankSignal signal={listSignals.byId[String(row.id).replace(/^NAVER:/,'')]} loadState={listSignals.status}/></span>:null}<span className="blockedValue">판단 보류</span><span><StatusPill row={row} mutationState={mutationStates[row.id]}/></span>
           </div>;})}
           {!pagination.items.length?<div className="keywordOpsEmpty"><i><KeywordPictogram/></i><b>{workspace==='history'?'아직 표시할 키워드 변경 기록이 없어요':'조건에 맞는 키워드가 없어요'}</b><p>{workspace==='history'?'확인 후 실행한 변경은 이 화면에서 성과검증까지 연결됩니다.':'검색어나 빠른 보기를 바꾸면 원본 데이터를 다시 확인할 수 있습니다.'}</p></div>:null}
         </div>
