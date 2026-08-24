@@ -7,6 +7,7 @@ import { useStoredState } from '../use-hub-preference.js';
 import { HarinBulkCheckbox, HarinBulkSelectionBar, useHarinBulkSelection } from '../_design-system/harin-bulk-selection.js';
 import KeywordBidRulePanel from './keyword-bid-rule-panel.js';
 import KeywordBidSchedulePanel from './keyword-bid-schedule-panel.js';
+import KeywordBidOperationsOverview from './keyword-bid-operations-overview.js';
 
 const {DEFAULT_KEYWORD_VIEW,KEYWORD_PAGE_SIZES,KEYWORD_SORT_OPTIONS,normalizeKeywordView,describeKeywordView,nextKeywordSort,normalizeKeywordRows,filterKeywordRows,paginateKeywordRows,buildNaverAdgroupWorkspace}=keywordOperationsModule;
 const {COUPANG_AD_CAPABILITY,ACTION_LABELS,buildCoupangWingWorklist,coupangWingCsv,coupangWingClipboard}=coupangWingWorklistModule;
@@ -121,6 +122,10 @@ export default function KeywordOperationsTable({workspace='registered',platform=
   }
   function selectCampaign(next){setGroupSettings({campaignId:next,adgroupId:'ALL'});setPage(1);selection.clear();}
   function selectAdgroup(next){setGroupSettings({campaignId,adgroupId:next});setPage(1);selection.clear();}
+  function selectAdgroupFromOverview(next){
+    const row=sourceRows.find(item=>String(item.adgroupId)===String(next)&&item.platform==='NAVER');
+    setGroupSettings({campaignId:row?.campaignId||'ALL',adgroupId:String(next)});setPage(1);selection.clear();
+  }
   function setDraft(row,value){
     if(!row.canDraft)return;
     if(value===''){setDrafts(current=>({...current,[row.id]:''}));return;}
@@ -193,6 +198,7 @@ export default function KeywordOperationsTable({workspace='registered',platform=
     {isCoupang?<div className="keywordOpsCapability"><i>C</i><span><b>쿠팡 광고 입찰은 WING 수동 적용이에요</b><small>공개 Seller Open API 문서에서 광고 키워드 입찰 쓰기를 확인하지 못했습니다. 자동반영을 잠갔으며 광고 성과는 WING 파일 기준입니다.</small></span><a href={COUPANG_AD_CAPABILITY.docsUrl} target="_blank" rel="noreferrer">공식 문서 <em>↗</em></a><strong>2026. 8. 16. 확인</strong></div>:null}
     {groupEnabled?<section className="keywordOpsAdgroupWorkspace" aria-label="네이버 캠페인과 광고그룹 선택">
       <header><span><i aria-hidden="true"><KeywordPictogram/></i><span><b>광고그룹별 입찰 작업대</b><small>이미 수집된 네이버 캠페인·광고그룹을 기준으로 키워드를 좁혀요.</small></span></span><dl><div><dt>캠페인</dt><dd>{count(naverGroupWorkspace.summary.campaigns)}개</dd></div><div><dt>광고그룹</dt><dd>{count(naverGroupWorkspace.summary.adgroups)}개</dd></div><div><dt>키워드</dt><dd>{count(naverGroupWorkspace.summary.keywords)}개</dd></div><div><dt>광고비</dt><dd>{won(naverGroupWorkspace.summary.cost)}</dd></div></dl></header>
+      {!isCoupang&&groupEnabled?<KeywordBidOperationsOverview adgroups={naverGroupCatalog.adgroups} selectedAdgroupId={adgroupId} onSelectAdgroup={selectAdgroupFromOverview}/>:null}
       <div className="keywordOpsCampaignFilter"><label><span className="keywordOpsCampaignLabel">캠페인{selectedCampaign?.operationalState==='INACTIVE'?<strong className="adCategoryBadge inactive">사용중지</strong>:null}</span><select value={campaignId} onChange={event=>selectCampaign(event.target.value)}><option value="ALL">전체 캠페인</option>{naverGroupCatalog.campaigns.map(item=><option key={item.id} value={item.id}>{item.name} · {count(item.keywordCount)}개{item.operationalState==='INACTIVE'?' · 사용중지':''}</option>)}</select></label><span><small>선택 범위 ROAS</small><b>{percent(naverGroupWorkspace.summary.roas)}</b></span></div>
       <div className="keywordOpsAdgroupRail" role="list" aria-label="광고그룹 빠른 필터"><button type="button" className={adgroupId==='ALL'?'active':''} onClick={()=>selectAdgroup('ALL')}><i>ALL</i><span><b>전체 광고그룹</b><small>{count(campaignWorkspace.summary.keywords)}개 키워드 · {won(campaignWorkspace.summary.cost)}</small></span></button>{campaignWorkspace.adgroups.map(item=><button type="button" role="listitem" className={`${adgroupId===item.id?'active':''} ${item.operationalState==='INACTIVE'?'inactive':''}`} key={item.id} onClick={()=>selectAdgroup(item.id)}><i>G</i><span><b>{item.name}</b>{item.operationalState==='INACTIVE'?<strong className="adCategoryBadge inactive">사용중지</strong>:null}<small>{count(item.keywordCount)}개 키워드 · {won(item.cost)}</small></span><em>{percent(item.roas)}</em></button>)}</div>
       {!isCoupang&&groupEnabled&&adgroupId!=='ALL'?(selectedAdgroup?.operationalState==='INACTIVE'?<p className="keywordOpsInactiveNotice"><strong className="adCategoryBadge inactive">사용중지</strong><span>중지된 광고 카테고리는 기록만 확인할 수 있고, 입찰가 변경과 자동입찰 예약에서는 제외됩니다.</span></p>:<KeywordBidSchedulePanel adgroupId={adgroupId} adgroupName={selectedAdgroup?.name||''} rules={bidRules}/>):null}

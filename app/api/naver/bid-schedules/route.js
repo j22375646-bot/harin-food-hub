@@ -2,6 +2,8 @@ import authModule from '../../../../lib/dashboard-auth.js';
 import apiSafety from '../../../../lib/api/safety.js';
 import bidSchedules from '../../../../lib/naver/bid-schedules.js';
 import bidScheduleStore from '../../../../lib/naver/bid-schedule-store.js';
+import bidRuleStore from '../../../../lib/naver/bid-rule-store.js';
+import bidOperationsOverview from '../../../../lib/naver/bid-operations-overview.js';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -15,7 +17,7 @@ function ownerSession(request){
 }
 
 function errorResponse(error,fallback){
-  if(error instanceof bidSchedules.NaverBidScheduleError||error instanceof bidScheduleStore.NaverBidScheduleStoreError){
+  if(error instanceof bidSchedules.NaverBidScheduleError||error instanceof bidScheduleStore.NaverBidScheduleStoreError||error instanceof bidRuleStore.NaverBidRuleStoreError){
     return apiSafety.json({ok:false,error:error.message,code:error.code},{status:error.status});
   }
   return apiSafety.inputErrorResponse(error)||apiSafety.json({ok:false,error:fallback},{status:500});
@@ -24,12 +26,17 @@ function errorResponse(error,fallback){
 export async function GET(request){
   const access=ownerSession(request);if(access.error)return access.error;
   try{
-    const adgroupId=new URL(request.url).searchParams.get('ncc_adgroup_id')||'';
-    const [schedules,control]=await Promise.all([
+    const searchParams=new URL(request.url).searchParams;
+    const adgroupId=searchParams.get('ncc_adgroup_id')||'';
+    const overviewRequested=searchParams.get('overview')==='1';
+    const [schedules,control,rules]=await Promise.all([
       bidScheduleStore.listNaverBidSchedules({adgroupId}),
-      bidScheduleStore.getNaverBidAutomationControl()
+      bidScheduleStore.getNaverBidAutomationControl(),
+      overviewRequested?bidRuleStore.listNaverBidRules():Promise.resolve([])
     ]);
-    return apiSafety.json({ok:true,platform:'NAVER',automation_enabled:String(process.env.NAVER_BID_AUTOMATION_ENABLED||'').toLowerCase()==='true',control,schedules});
+    const automationEnabled=String(process.env.NAVER_BID_AUTOMATION_ENABLED||'').toLowerCase()==='true';
+    const overview=overviewRequested?bidOperationsOverview.buildNaverBidOperationsOverview({schedules,rules,control,automationEnabled}):undefined;
+    return apiSafety.json({ok:true,platform:'NAVER',automation_enabled:automationEnabled,control,schedules,...(overviewRequested?{overview}:{})});
   }catch(error){return errorResponse(error,'네이버 자동입찰 스케줄을 불러오지 못했습니다.');}
 }
 
