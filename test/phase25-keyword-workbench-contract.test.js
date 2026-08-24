@@ -2,6 +2,8 @@
 
 const test=require('node:test');
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
 const contract=require('../lib/marketing/keyword-workbench-contract.js');
 
 test('25-0 preserves every live Naver bid operation while keeping Coupang writes separate',()=>{
@@ -66,4 +68,21 @@ test('25-1 gives only the scoped Naver workbench three distinct responsive panes
   assert.equal(coupang.mode,'TABLE_INSPECTOR');
   assert.equal(coupang.scope,null);
   assert.deepEqual(coupang.panes.map(item=>item.id),['operations','inspector']);
+});
+
+test('25-1 keeps the ranked keyword cards inside the mobile viewport',()=>{
+  const css=fs.readFileSync(path.join(__dirname,'..','app','_analysis','harin-analysis-v8.css'),'utf8');
+
+  assert.match(
+    css,
+    /@media\(max-width:700px\)[\s\S]*?\.keywordOps\.hasRankSignal \.keywordOpsRow:not\(\.head\)\{grid-template-columns:34px repeat\(3,minmax\(0,1fr\)\)\}/
+  );
+  assert.match(
+    css,
+    /@media\(max-width:480px\)[\s\S]*?\.keywordOps\.hasRankSignal \.keywordOpsRow:not\(\.head\)\{grid-template-columns:30px repeat\(2,minmax\(0,1fr\)\)\}/
+  );
+  assert.match(
+    css,
+    /\.keywordOps\.layout-three-pane \.keywordOpsTableWrap\{order:1;width:100%;max-width:100%;overflow-x:hidden\}/
+  );
 });
