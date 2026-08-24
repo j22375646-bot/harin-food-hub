@@ -25,7 +25,7 @@ function fixtureDb(){
   };
 }
 
-test('25-4 builds honest PC mobile and region performance from official breakdown rows',()=>{
+test('25-5 keeps the scope partial when device and region exist but hourly rows are still missing',()=>{
   const result=analysis.buildBidOperatingScope?.({
     scope:{type:'ADGROUP',id:'grp-1',label:'작두콩 모바일·PC'},
     period:{since:'2026-08-18',until:'2026-08-24'},
@@ -40,7 +40,7 @@ test('25-4 builds honest PC mobile and region performance from official breakdow
   });
 
   assert.equal(result?.platform,'NAVER');
-  assert.equal(result?.status,'READY');
+  assert.equal(result?.status,'PARTIAL');
   assert.deepEqual(result?.devices.map(item=>item.key),['PC','MOBILE']);
   assert.equal(result?.devices.find(item=>item.key==='MOBILE').cost,3600);
   assert.equal(result?.devices.find(item=>item.key==='MOBILE').actual_profit,null);
@@ -64,7 +64,7 @@ test('25-4 keeps unsupported region data as verify required instead of pretendin
   assert.equal(result?.devices.find(item=>item.key==='MOBILE').cost,null);
 });
 
-test('25-4 loads only the chosen Naver campaign or adgroup with read-only breakdown calls',async()=>{
+test('25-5 loads only the chosen Naver campaign or adgroup with three read-only breakdown calls',async()=>{
   const calls=[];
   const api={async request(method,uri,query){
     calls.push({method,uri,query});
@@ -77,7 +77,7 @@ test('25-4 loads only the chosen Naver campaign or adgroup with read-only breakd
   assert.equal(result?.scope.type,'ADGROUP');
   assert.equal(result?.scope.id,'grp-1');
   assert.deepEqual(calls.map(item=>[item.method,item.uri,item.query.breakdown]),[
-    ['GET','/stats','pcMblTp'],['GET','/stats','regnR3Nm']
+    ['GET','/stats','pcMblTp'],['GET','/stats','regnR3Nm'],['GET','/stats','hh24']
   ]);
   assert.ok(calls.every(item=>item.query.id==='grp-1'));
   assert.deepEqual(result?.period,{since:'2026-08-18',until:'2026-08-24'});
