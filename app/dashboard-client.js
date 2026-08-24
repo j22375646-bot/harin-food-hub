@@ -14,6 +14,7 @@ import { useStoredState } from './use-hub-preference.js';
 import { HarinBreadcrumbBar, HarinFocusedWorkspaceNav, HarinMobileNavigation, HarinSidebar, HarinTopbar } from './_shell/harin-app-shell.js';
 import { HarinRouteProgress } from './_design-system/harin-ui.js';
 import HarinIcon from './_design-system/harin-icon.js';
+import './_analysis/harin-keyword-flat-v8.css';
 
 const { relativeFreshnessLabel } = freshnessModule;
 
@@ -310,7 +311,7 @@ export default function Dashboard({ initialData, initialState }) {
   return <div className="shell">
     <HarinTopbar context={navContext} connectionLabel={connectionLabel} connectionTone={connectionTone} fontScale={fontScale} onFontScale={setFontScale} syncing={syncing} onSync={runSync}/>
     <HarinSidebar groups={navGroups} countsKnown={navigationSnapshotKnown} countsStale={navigationSnapshotStale} view={pendingView||view} openGroup={openNavGroup} query={navQuery} collapsed={sidebarCollapsed} onQuery={setNavQuery} onOpenGroup={setOpenNavGroup} onCollapsed={setSidebarCollapsed} onOpenView={openView} onPrefetch={prefetchView}/>
-    <main className={`hubMain${viewIsLoading?' routePending':''}`} aria-busy={viewIsLoading?'true':'false'} data-canvas-profile={canvasProfile} data-loader-profile={initialData.loaderPerformance?.profile||undefined} data-loader-ms={initialData.loaderPerformance?.duration_ms??undefined} data-loader-target={initialData.loaderPerformance?.target_ms??undefined} data-loader-within-target={initialData.loaderPerformance?.within_target===undefined?undefined:String(initialData.loaderPerformance.within_target)} data-loader-remote-queries={initialData.loaderPerformance?.remote_query_count??undefined} data-loader-slowest={(initialData.loaderPerformance?.slow_queries||[]).map(item=>`${item.table}:${item.duration_ms}`).join(',')||undefined}>
+    <main className={`hubMain${viewIsLoading?' routePending':''}`} data-view={view} aria-busy={viewIsLoading?'true':'false'} data-canvas-profile={canvasProfile} data-loader-profile={initialData.loaderPerformance?.profile||undefined} data-loader-ms={initialData.loaderPerformance?.duration_ms??undefined} data-loader-target={initialData.loaderPerformance?.target_ms??undefined} data-loader-within-target={initialData.loaderPerformance?.within_target===undefined?undefined:String(initialData.loaderPerformance.within_target)} data-loader-remote-queries={initialData.loaderPerformance?.remote_query_count??undefined} data-loader-slowest={(initialData.loaderPerformance?.slow_queries||[]).map(item=>`${item.table}:${item.duration_ms}`).join(',')||undefined}>
       {viewIsLoading?<HarinRouteProgress label={nav.find(item=>item.id===(pendingView||view))?.label}/>:null}
       <HarinBreadcrumbBar context={navContext}/>
       {view==='keyword'?<KeywordOwnerShell platform={platform} workspace={workspace} data={initialData}/>:null}

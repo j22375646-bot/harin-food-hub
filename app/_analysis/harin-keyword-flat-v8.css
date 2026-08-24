@@ -1,0 +1,105 @@
+/* Phase 26-4 · keyword workbenches share one flat, route-scoped brand surface. */
+.hubMain[data-view="keyword"],
+.hubMain[data-view="keyword"] *,
+.hubMain[data-view="keyword"] *::before,
+.hubMain[data-view="keyword"] *::after{
+  background-image:none!important;
+  backdrop-filter:none!important;
+}
+
+.hubMain[data-view="keyword"] :is(
+  .keywordOpsAdgroupWorkspace,
+  .keywordOperatingScope,
+  .bidOperationsOverview,
+  .bidScheduleCard,
+  .keywordOpsBulkStudio,
+  .keywordCapabilityPanel,
+  .keywordCapabilityAcceptance,
+  .aiPagePanel,
+  .keywordOpsDetail,
+  .keywordDetailAi
+){
+  border-color:var(--harin-color-line)!important;
+  border-radius:16px!important;
+  background-color:var(--harin-color-surface)!important;
+  box-shadow:none!important;
+}
+
+.hubMain[data-view="keyword"] :is(
+  .keywordOpsViewState.active,
+  .keywordOpsBulkStudioFlow article,
+  .bidScheduleModes button.active,
+  .bidScheduleDays button.active,
+  .bidTimeGrid button.active,
+  .keywordCapabilityAcceptance.ready,
+  .aiPagePanel>summary
+){
+  border-color:var(--harin-color-action)!important;
+  background-color:var(--harin-color-action-soft)!important;
+  color:var(--harin-color-ink)!important;
+}
+
+.hubMain[data-view="keyword"] :is(
+  button.active,
+  button.apply,
+  .keywordOpsBulkBar .review,
+  .bidScheduleBody>footer button
+){
+  background-color:var(--harin-color-action)!important;
+  color:var(--harin-button-primary-text)!important;
+  box-shadow:none!important;
+}
+
+.hubMain[data-view="keyword"] :is(
+  .keywordOpsBulkBar,
+  .keywordOpsViewState,
+  .aiPageBody,
+  .bidTimeGridScroll,
+  .bidLegacySchedule,
+  .bidScheduleCooldown
+){
+  border-color:var(--harin-color-line)!important;
+  background-color:var(--harin-color-surface-soft)!important;
+  box-shadow:none!important;
+}
+
+.hubMain[data-view="keyword"] :is(
+  .keywordOpsAdgroupWorkspace,
+  .keywordOperatingScope,
+  .bidOperationsOverview,
+  .keywordCapabilityPanel,
+  .keywordOpsBulkStudio,
+  .aiPagePanel
+) :is(article,section,header,footer,div){
+  box-shadow:none;
+}
+
+.hubMain[data-view="keyword"] :is(button,a,input,select,summary):focus-visible{
+  outline:3px solid color-mix(in srgb,var(--harin-color-action) 32%,transparent)!important;
+  outline-offset:2px;
+}
+
+@media(max-width:700px){
+  .hubMain[data-view="keyword"] :is(
+    .keywordOpsAdgroupWorkspace,
+    .keywordOperatingScope,
+    .bidOperationsOverview,
+    .bidScheduleCard,
+    .keywordOpsBulkStudio,
+    .keywordCapabilityPanel,
+    .aiPagePanel
+  ){
+    border-radius:14px!important;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .hubMain[data-view="keyword"] *,
+  .hubMain[data-view="keyword"] *::before,
+  .hubMain[data-view="keyword"] *::after{
+    scroll-behavior:auto!important;
+    transition-duration:.01ms!important;
+    animation-duration:.01ms!important;
+    animation-iteration-count:1!important;
+  }
+}
