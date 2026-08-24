@@ -25,6 +25,13 @@ export async function GET(request){
     return apiSafety.json({ok:true,...result},{headers});
   }catch(error){
     const status=Number(error.status)||500;
+    console.warn('[naver-bid-list-signals]',JSON.stringify({
+      status,
+      code:error.code||'NAVER_BID_LIST_SIGNALS_FAILED',
+      message:error.message||'',
+      providerCode:error.response?.code||null,
+      providerMessage:error.response?.message||error.response?.detail||error.response?.title||null
+    }));
     return apiSafety.json({
       ok:false,
       code:error.code||'NAVER_BID_LIST_SIGNALS_FAILED',
