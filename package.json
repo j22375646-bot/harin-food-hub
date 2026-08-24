@@ -1,6 +1,6 @@
 {
   "name": "harin-cafe24-sync",
-  "version": "1.38.68",
+  "version": "1.38.69",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -11,10 +11,14 @@
     "verify:phase14": "pnpm test && pnpm build",
     "verify:phase15": "pnpm test && pnpm build",
     "verify:phase23": "pnpm test && pnpm build",
+    "verify:phase26": "pnpm test && pnpm build",
     "test:phase14-final": "node --test test/phase14-final-quality.test.js",
     "start": "next start",
     "start:legacy": "node cafe24-oauth-server.js",
-    "test": "node --test",
+    "test": "node scripts/check-ui-design-rules.js && node --test",
+    "ui:guard": "node scripts/check-ui-design-rules.js",
+    "ui:guard:baseline": "node scripts/check-ui-design-rules.js --write-baseline",
+    "ui:guard:report": "node scripts/check-ui-design-rules.js --write-report",
     "sync:coupang:worker": "node scripts/coupang-local-sync.js",
     "costs:calibrate": "node scripts/refresh-cost-calibration.js",
     "worker:coupang": "node scripts/coupang-local-worker.js --watch --quiet",

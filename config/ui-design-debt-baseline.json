@@ -1,0 +1,159 @@
+{
+  "version": 1,
+  "files": {
+    "app/_ai/harin-ai-page-v8.css": {
+      "oversized-card-radius": 1,
+      "border-and-shadow": 2,
+      "decorative-gradient": 6,
+      "radial-glow": 1,
+      "thick-side-accent": 1
+    },
+    "app/_analysis/harin-analysis-v8.css": {
+      "decorative-gradient": 38,
+      "radial-glow": 8,
+      "thick-side-accent": 8,
+      "oversized-card-radius": 2,
+      "border-and-shadow": 21,
+      "glass-blur": 3
+    },
+    "app/_analysis/harin-market-intelligence.css": {
+      "decorative-gradient": 42,
+      "border-and-shadow": 12,
+      "radial-glow": 2,
+      "thick-side-accent": 1
+    },
+    "app/_analysis/keyword-bid-capability-panel.css": {
+      "decorative-gradient": 2,
+      "radial-glow": 1,
+      "border-and-shadow": 1
+    },
+    "app/_analysis/keyword-bid-history-panel.css": {
+      "decorative-gradient": 1
+    },
+    "app/_analysis/keyword-bid-inline-trend.css": {
+      "decorative-gradient": 2
+    },
+    "app/_analysis/keyword-bid-operations-overview.css": {
+      "decorative-gradient": 1,
+      "radial-glow": 1,
+      "border-and-shadow": 1
+    },
+    "app/_analysis/keyword-bid-rule-panel.css": {
+      "glass-blur": 2,
+      "decorative-gradient": 1,
+      "radial-glow": 1,
+      "oversized-card-radius": 2,
+      "border-and-shadow": 1
+    },
+    "app/_analysis/keyword-bid-schedule-panel.css": {
+      "decorative-gradient": 3,
+      "radial-glow": 2,
+      "border-and-shadow": 1
+    },
+    "app/_analysis/keyword-detail-workbench.css": {
+      "decorative-gradient": 3
+    },
+    "app/_analysis/keyword-owner-shell.module.css": {
+      "decorative-gradient": 4,
+      "oversized-card-radius": 2,
+      "border-and-shadow": 2,
+      "radial-glow": 2,
+      "glass-blur": 1,
+      "thick-side-accent": 2
+    },
+    "app/_analysis/keyword-performance-workbench.module.css": {
+      "decorative-gradient": 4,
+      "border-and-shadow": 4,
+      "radial-glow": 1,
+      "glass-blur": 1,
+      "oversized-card-radius": 1
+    },
+    "app/_design-system/harin-bulk-selection.css": {
+      "decorative-gradient": 1,
+      "border-and-shadow": 1,
+      "glass-blur": 1
+    },
+    "app/_design-system/harin-interactions-v8.css": {
+      "glass-blur": 1,
+      "border-and-shadow": 3,
+      "decorative-gradient": 6
+    },
+    "app/_design-system/harin-page-frame.css": {
+      "decorative-gradient": 6,
+      "border-and-shadow": 4,
+      "decorative-eyebrow": 1,
+      "glass-blur": 1
+    },
+    "app/_design-system/harin-readability-v8.css": {},
+    "app/_design-system/harin-v8.css": {
+      "decorative-gradient": 11,
+      "radial-glow": 1,
+      "border-and-shadow": 1,
+      "glass-blur": 2
+    },
+    "app/_execution/harin-execution-v8.css": {
+      "decorative-gradient": 6,
+      "radial-glow": 2,
+      "border-and-shadow": 4
+    },
+    "app/_main/harin-main-v8.css": {
+      "decorative-gradient": 4,
+      "radial-glow": 1,
+      "border-and-shadow": 7,
+      "glass-blur": 2
+    },
+    "app/_operations/harin-operations-v8.css": {
+      "border-and-shadow": 35,
+      "thick-side-accent": 9,
+      "decorative-gradient": 60,
+      "oversized-card-radius": 3,
+      "radial-glow": 14,
+      "decorative-eyebrow": 1
+    },
+    "app/_reliability/harin-live-status-dock.css": {
+      "glass-blur": 2
+    },
+    "app/_reliability/harin-naver-api-center.css": {
+      "decorative-gradient": 10,
+      "border-and-shadow": 16,
+      "oversized-card-radius": 5,
+      "thick-side-accent": 1
+    },
+    "app/_reliability/harin-reliability-v8.css": {
+      "decorative-gradient": 1,
+      "border-and-shadow": 4,
+      "glass-blur": 1
+    },
+    "app/_shell/harin-entry-v8.css": {
+      "decorative-gradient": 7,
+      "radial-glow": 2,
+      "glass-blur": 2,
+      "oversized-card-radius": 5,
+      "border-and-shadow": 5,
+      "decorative-eyebrow": 1
+    },
+    "app/_shell/harin-shell-v8.css": {
+      "decorative-gradient": 7,
+      "thick-side-accent": 1,
+      "radial-glow": 1,
+      "glass-blur": 3,
+      "border-and-shadow": 3
+    },
+    "app/_workspace/harin-owner-workspace.css": {
+      "decorative-gradient": 3,
+      "border-and-shadow": 3,
+      "glass-blur": 1,
+      "oversized-card-radius": 2,
+      "thick-side-accent": 1
+    },
+    "app/globals.css": {
+      "decorative-gradient": 75,
+      "decorative-eyebrow": 2,
+      "glass-blur": 7,
+      "border-and-shadow": 41,
+      "oversized-card-radius": 11,
+      "radial-glow": 15,
+      "thick-side-accent": 18
+    }
+  }
+}
