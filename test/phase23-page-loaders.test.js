@@ -202,3 +202,37 @@ test('26-8 gives customer service a focused loader instead of the full dashboard
   assert.match(page,/if\(view==='cs'\)\{[\s\S]*?return buildCsDashboardData\(/);
   assert.match(page,/buildCsDashboardData[\s\S]*?finalizeAiPagePanels\(\{cs:builtPanels\.cs\}/);
 });
+
+test('26-8 gives diagnoses and change history focused execution loaders',()=>{
+  const page=read('app/page.js');
+  const reports=loaders.profileForState({view:'reports',workspace:null,platform:'all'});
+  const changes=loaders.profileForState({view:'changes',workspace:null,platform:'all'});
+
+  assert.ok(reports.tables.includes('reports'));
+  assert.ok(reports.tables.includes('automation_runs'));
+  assert.ok(reports.tables.includes('financial_change_requests'));
+  assert.ok(reports.tables.includes('ai_analysis_results'));
+  assert.equal(reports.tables.includes('cafe24_orders'),false);
+  assert.equal(reports.tables.includes('coupang_orders'),false);
+  assert.equal(reports.tables.includes('product_costs'),false);
+
+  assert.ok(changes.tables.includes('financial_change_requests'));
+  assert.ok(changes.tables.includes('financial_change_audit_logs'));
+  assert.ok(changes.tables.includes('naver_campaigns'));
+  assert.ok(changes.tables.includes('naver_adgroups'));
+  assert.ok(changes.tables.includes('naver_keywords'));
+  assert.ok(changes.tables.includes('naver_keyword_stats'));
+  assert.ok(changes.tables.includes('naver_keyword_product_links'));
+  assert.ok(changes.tables.includes('product_ad_targets'));
+  assert.equal(changes.tables.includes('cafe24_orders'),false);
+  assert.equal(changes.tables.includes('coupang_orders'),false);
+  assert.equal(changes.tables.some(table=>table.startsWith('coupang_')),false);
+
+  assert.match(page,/focusedEarlyReturn=view==='main'\|\|view==='orders'\|\|view==='cs'\|\|view==='inventory'\|\|view==='reports'\|\|view==='changes'/);
+  assert.match(page,/if\(view==='reports'\)\{[\s\S]*?return buildReportsDashboardData\(/);
+  assert.match(page,/buildReportsDashboardData[\s\S]*?buildLearningHistory/);
+  assert.match(page,/buildReportsDashboardData[\s\S]*?finalizeAiPagePanels\(\{reports:builtPanels\.reports\}/);
+  assert.match(page,/if\(view==='changes'\)\{[\s\S]*?return buildChangesDashboardData\(/);
+  assert.match(page,/buildChangesDashboardData[\s\S]*?buildNaverBidWorkbench/);
+  assert.match(page,/buildChangesDashboardData[\s\S]*?finalizeAiPagePanels\(\{changes:builtPanels\.changes\}/);
+});
