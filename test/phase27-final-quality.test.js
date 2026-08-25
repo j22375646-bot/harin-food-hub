@@ -28,3 +28,15 @@ test('27-8 실행 화면은 판단과 실험 미리보기에 필요한 근거만
   assert.match(source,/loadedView:view/);
   assert.match(source,/retentionValidation,experiments,automationRuns,aiPagePanels/);
 });
+
+test('27-8 A/B 첫 화면은 실험과 해당 AI만 읽고 미수집 실행 단계는 확인 필요로 둔다',()=>{
+  const page=read('app/page.js');
+  const profiles=read('lib/dashboard/page-loader-profiles.js');
+  assert.match(profiles,/experiments:\['ab_tests','ai_analysis_results'\]/);
+  assert.match(profiles,/validation:\['actions','action_evaluations','financial_change_requests','financial_change_audit_logs','ai_analysis_results'\]/);
+  assert.match(page,/\['reports','changes','validation','experiments'\]\.includes\(view\)\?MINIMAL_SHELL_TABLES/);
+  assert.match(page,/const executionDataLoaded=view==='validation'/);
+  assert.match(page,/reportLearningHistory:null/);
+  assert.match(page,/experiments:view==='experiments'\?experiments:null/);
+  assert.match(page,/const retentionValidation=executionDataLoaded\?\{execution\}:\{execution:null\}/);
+});

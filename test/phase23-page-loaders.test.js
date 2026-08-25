@@ -241,7 +241,7 @@ test('26-8 prewarms Naver change inputs and keeps unrelated Coupang jobs out of 
   const page=read('app/page.js');
 
   assert.match(page,/const MINIMAL_SHELL_TABLES = \['sync_logs','alerts'\]/);
-  assert.match(page,/\['reports','changes'\]\.includes\(view\)\?MINIMAL_SHELL_TABLES/);
+  assert.match(page,/\['reports','changes','validation','experiments'\]\.includes\(view\)\?MINIMAL_SHELL_TABLES/);
   assert.match(page,/const changesBidInputsPromise=view==='changes'/);
   assert.match(page,/changesBidInputsPromise[\s\S]*?activeAdgroupIds/);
   assert.match(page,/changesBidInputsPromise[\s\S]*?change_keyword_performance/);

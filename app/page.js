@@ -129,8 +129,8 @@ const VIEW_TABLES = {
   knowledge:[],
   reports:['reports','actions','action_evaluations','automation_runs','product_costs','channel_cost_settings','channel_shipping_rules','ai_analysis_results'],
   changes:['cafe24_orders','cafe24_order_items','master_products','channel_products','naver_keywords','naver_keyword_stats','product_costs','product_ad_targets','channel_cost_settings','channel_shipping_rules','coupang_orders','coupang_order_items','coupang_product_items','coupang_rg_orders','coupang_rg_order_items','naver_keyword_product_links','financial_change_requests','financial_change_audit_logs','actions','action_evaluations','ai_analysis_results'],
-  validation:['cafe24_orders','cafe24_order_items','cafe24_referrers_daily','reports','actions','action_evaluations','automation_runs','financial_change_requests','financial_change_audit_logs','ab_tests','ai_analysis_results'],
-  experiments:['ab_tests','financial_change_requests','financial_change_audit_logs','actions','action_evaluations','reports','automation_runs','ai_analysis_results'],
+  validation:['actions','action_evaluations','financial_change_requests','financial_change_audit_logs','ai_analysis_results'],
+  experiments:['ab_tests','ai_analysis_results'],
   notifications:['reports']
 };
 
@@ -160,7 +160,7 @@ function tablesForView(view, workspace, platform='all') {
 function databaseForLoaderState(db, view, workspace, platform='all', loaderSession=null) {
   const shellTables=view==='collection'
     ? SHELL_TABLES
-    : ['reports','changes'].includes(view)?MINIMAL_SHELL_TABLES:LIGHT_SHELL_TABLES;
+    : ['reports','changes','validation','experiments'].includes(view)?MINIMAL_SHELL_TABLES:LIGHT_SHELL_TABLES;
   const allowed=new Set([...shellTables,...tablesForView(view,workspace,platform)]);
   const wrappedQueries=new WeakMap();
   const instrumentQuery=(query,table)=>{
@@ -1121,15 +1121,15 @@ async function buildExecutionDashboardData({
   const reports=reportsResult.data||[];
   const actions=actionsResult.data||[];
   const evaluations=evaluationsResult.data||[];
-  const automationRuns=automationResult.data||[];
-  const reportLearningHistory=reportLearningModule.buildLearningHistory({reports,automationRuns});
-  const execution=retentionValidationModule.buildExecutionValidation({
-    actions,evaluations,reports,experiments,financialChanges,financialAudits,asOf:generatedAt
-  });
-  const retentionValidation={execution};
+  const executionDataLoaded=view==='validation';
+  const execution=executionDataLoaded?retentionValidationModule.buildExecutionValidation({
+    actions,evaluations,reports:[],experiments:[],financialChanges,financialAudits,asOf:generatedAt
+  }):null;
+  const retentionValidation=executionDataLoaded?{execution}:{execution:null};
+  const visibleExperiments=view==='experiments'?experiments:null;
   const builtPanels=aiPagePanelsModule.buildAiPagePanels({
     dataHealth:shell.dataHealth,collectionCenter:shell.collectionCenter,alerts:shell.alerts,
-    reportLearningHistory,retentionValidation,experiments,
+    reportLearningHistory:null,retentionValidation,experiments:visibleExperiments,
     aiConfiguration:openaiClientModule.configuration(),generatedAt,
     period:kstScheduleModule.kstDateKey(generatedAt)
   });
@@ -1137,7 +1137,8 @@ async function buildExecutionDashboardData({
   return {
     loadedView:view,loadedWorkspace:null,loaderPerformance:loaderSession.snapshot(),generatedAt,
     dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
-    reports,reportLearningHistory,actions,retentionValidation,experiments,automationRuns,aiPagePanels,
+    reports:null,reportLearningHistory:null,actions:executionDataLoaded?actions:null,retentionValidation,
+    experiments:view==='experiments'?experiments:null,automationRuns:null,aiPagePanels,
     financialTrust:{},naverBidWorkbench:{summary:{},candidates:[],execution_enabled:false},
     kpis:{sales:0,orders:0,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:0},
     products:[],syncs:shell.syncs,alerts:shell.alerts,qualityChecks:[],metricSnapshots:[]
