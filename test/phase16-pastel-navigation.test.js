@@ -10,18 +10,8 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('16-1 assigns stable work-category tones to desktop and mobile navigation',()=>{
   const shell=read('app/_shell/harin-app-shell.js');
-  for(const pair of [
-    "orders:'sky'",
-    "customer:'blush'",
-    "inventory:'apricot'",
-    "settlement:'butter'",
-    "analysis:'lilac'",
-    "development:'blush'",
-    "system:'sky'"
-  ])assert.match(shell,new RegExp(pair));
-  for(const pair of ["product:'apricot'","settlement:'butter'","insight:'lilac'","keyword:'lilac'","collection:'sky'"]){
-    assert.match(shell,new RegExp(pair));
-  }
+  assert.match(shell,/const toneForGroup=groupId=>resolvePageTone\(groupId\)/);
+  assert.match(shell,/const toneForView=view=>resolvePageTone\(view\)/);
   assert.match(shell,/data-tone=\{toneForGroup\(group\.id\)\}/);
   assert.match(shell,/data-tone=\{toneForView\(item\.id\)\}/);
   assert.match(shell,/data-tone=\{toneForView\(view\)\}/);
@@ -29,7 +19,7 @@ test('16-1 assigns stable work-category tones to desktop and mobile navigation',
 
 test('26-3 keeps the established navigation map with flat brand selection fills',()=>{
   const css=read('app/_shell/harin-shell-v8.css');
-  for(const tone of ['lavender','sky','blush','apricot','butter','lilac','rose']){
+  for(const tone of ['today','orders','customer','inventory','settlement','analysis','development','system']){
     assert.match(css,new RegExp(`\\[data-tone="${tone}"\\]`));
   }
   assert.match(css,/\.sidebarItem\.active\{[^}]*background:var\(--nav-soft-strong\)/);

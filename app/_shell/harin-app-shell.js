@@ -8,40 +8,12 @@ import brandSystem from '../../lib/ui/brand-system.js';
 import { HarinIcon } from '../_design-system/harin-icon.js';
 
 const { resolveSidebarGroupAction }=sidebarCollapseModule;
-const { resolveStatusTone }=brandSystem;
+const { resolveStatusTone, resolvePageTone }=brandSystem;
 
 const PRIMARY_MOBILE_VIEWS = ['main','orders','inventory','notifications'];
 const PRIMARY_MOBILE_VIEW_SET = new Set(PRIMARY_MOBILE_VIEWS);
-const NAV_TONES = {
-  today:'lavender',
-  orders:'sky',
-  customer:'blush',
-  inventory:'apricot',
-  settlement:'butter',
-  analysis:'lilac',
-  development:'blush',
-  system:'sky'
-};
-const VIEW_TONES = {
-  main:'lavender',
-  orders:'sky',
-  cs:'blush',
-  inventory:'apricot',
-  product:'apricot',
-  settlement:'butter',
-  insight:'lilac',
-  keyword:'lilac',
-  reports:'lilac',
-  market:'blush',
-  changes:'sky',
-  validation:'blush',
-  experiments:'blush',
-  collection:'sky',
-  knowledge:'sky',
-  notifications:'sky'
-};
-const toneForGroup=groupId=>NAV_TONES[groupId]||'lavender';
-const toneForView=view=>VIEW_TONES[view]||'lavender';
+const toneForGroup=groupId=>resolvePageTone(groupId);
+const toneForView=view=>resolvePageTone(view);
 
 export function HarinTopbar({
   context,
@@ -146,7 +118,7 @@ export function HarinMobileNavigation({ nav, groups, countsKnown=true, countsSta
   },[menuOpen]);
   return <nav className="mobileBottomNav" aria-label="모바일 주요 메뉴">
     {PRIMARY_MOBILE_VIEWS.map(id=>nav.find(item=>item.id===id)).filter(Boolean).map(item=><button type="button" data-tone={toneForView(item.id)} className={view===item.id?'active':''} aria-current={view===item.id?'page':undefined} onPointerEnter={()=>onPrefetch(item.id)} onFocus={()=>onPrefetch(item.id)} onClick={()=>onOpenView(item.id)} key={item.id}><i><HarinIcon name={item.id}/></i><span>{item.id==='notifications'?'알림':item.label}</span>{item.badge>0?<em>{item.badge}</em>:null}</button>)}
-    <button ref={triggerRef} type="button" data-tone="lavender" className={`mobileMoreTrigger${!PRIMARY_MOBILE_VIEW_SET.has(view)||menuOpen?' active':''}`} aria-expanded={menuOpen} aria-controls="mobile-more-panel" onClick={()=>setMenuOpen(open=>!open)}><i><HarinIcon name="menu"/></i><span>더보기</span>{actionCount>0?<em>{actionCount}</em>:null}</button>
+    <button ref={triggerRef} type="button" data-tone="system" className={`mobileMoreTrigger${!PRIMARY_MOBILE_VIEW_SET.has(view)||menuOpen?' active':''}`} aria-expanded={menuOpen} aria-controls="mobile-more-panel" onClick={()=>setMenuOpen(open=>!open)}><i><HarinIcon name="menu"/></i><span>더보기</span>{actionCount>0?<em>{actionCount}</em>:null}</button>
     {menuOpen?<div id="mobile-more-panel" className="mobileMoreLayer"><MobileMorePanel groups={groups} countsKnown={countsKnown} countsStale={countsStale} view={view} actionCount={actionCount} fontScale={fontScale} onFontScale={onFontScale} onClose={closeMenu} onOpenView={onOpenView} onPrefetch={onPrefetch} closeButtonRef={closeButtonRef} panelRef={panelRef}/></div>:null}
   </nav>;
 }

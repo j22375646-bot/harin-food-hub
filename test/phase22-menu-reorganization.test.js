@@ -36,8 +36,9 @@ test('22-4 keeps history as a record and opens market work under development',()
   const shell=read('app/_shell/harin-app-shell.js');
   const marketShell=read('app/_shell/market-intelligence-shell.js');
   const icons=read('app/_design-system/harin-icon.js');
-  assert.match(shell,/development:'blush'/);
-  assert.match(shell,/system:'sky'/);
+  assert.match(shell,/const toneForGroup=groupId=>resolvePageTone\(groupId\)/);
+  assert.equal(require('../lib/ui/brand-system.js').resolvePageTone('development'),'development');
+  assert.equal(require('../lib/ui/brand-system.js').resolvePageTone('system'),'system');
   assert.match(marketShell,/useState\('development'\)/);
   assert.match(marketShell,/group:\{label:'개발'\}/);
   assert.match(icons,/development:'experiments', system:'settings'/);

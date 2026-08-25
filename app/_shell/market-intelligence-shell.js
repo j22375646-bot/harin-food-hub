@@ -40,7 +40,7 @@ export default function MarketIntelligenceShell({children}){
   return <div className="shell marketHubShell">
     <HarinTopbar context={context} connectionLabel="상품별 분석 공간" connectionTone="check" fontScale={fontScale} onFontScale={setFontScale} syncing={syncing} onSync={runSync}/>
     <HarinSidebar groups={groups} view="market" openGroup={openGroup} query={query} onQuery={setQuery} onOpenGroup={setOpenGroup} onOpenView={openView} onPrefetch={prefetchView}/>
-    <main className="hubMain marketHubMain" data-canvas-profile={canvasProfile} data-path={pathname}>
+    <main className="hubMain marketHubMain" data-tone="development" data-canvas-profile={canvasProfile} data-path={pathname}>
       <nav className="marketBreadcrumb" aria-label="현재 위치"><span>개발</span><i>›</i><b>상품개발</b></nav>
       {syncMessage?<div className="syncToast">{syncMessage}</div>:null}
       {children}
