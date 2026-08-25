@@ -183,3 +183,22 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(dashboard,/data-loader-ms=\{initialData\.loaderPerformance\?\.duration_ms/);
   assert.match(dashboard,/data-loader-slowest=\{/);
 });
+
+test('26-8 gives customer service a focused loader instead of the full dashboard waterfall',()=>{
+  const page=read('app/page.js');
+  const cs=loaders.profileForState({view:'cs',workspace:null,platform:'all'},[
+    'cafe24_orders','cafe24_order_items','cafe24_oauth_tokens','coupang_orders','coupang_order_items',
+    'coupang_returns','coupang_exchanges','coupang_inquiries','coupang_operation_requests',
+    'customer_service_items','ai_analysis_results'
+  ]);
+
+  assert.ok(cs.tables.includes('customer_service_items'));
+  assert.ok(cs.tables.includes('coupang_inquiries'));
+  assert.ok(cs.tables.includes('cafe24_oauth_tokens'));
+  assert.ok(cs.tables.includes('ai_analysis_results'));
+  assert.equal(cs.tables.includes('naver_keyword_stats'),false);
+  assert.equal(cs.tables.includes('coupang_settlements'),false);
+  assert.match(page,/focusedEarlyReturn=view==='main'\|\|view==='orders'\|\|view==='cs'/);
+  assert.match(page,/if\(view==='cs'\)\{[\s\S]*?return buildCsDashboardData\(/);
+  assert.match(page,/buildCsDashboardData[\s\S]*?finalizeAiPagePanels\(\{cs:builtPanels\.cs\}/);
+});

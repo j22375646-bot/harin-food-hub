@@ -151,6 +151,10 @@ function chartSegments(values,max,width,height,padding) {
   return {points,segments};
 }
 
+function chartPointLabel(label,seriesLabel,value,valueFormatter) {
+  return `${label} · ${seriesLabel} ${valueFormatter(value)}`;
+}
+
 export function HarinMetricChart({ kind='line', title, description, labels=[], series=[], compact=false, valueFormatter=(value)=>Number(value).toLocaleString('ko-KR'), className='' }) {
   const model=buildChartModel({labels,series});
   if(model.status==='UNCOLLECTED')return <HarinEmptyState state="uncollected" title={`${title||'차트'} 자료가 아직 없어요`} description="수집이 끝나면 확인된 값만 표시합니다. 비어 있는 값은 0으로 바꾸지 않아요." className={className}/>;
@@ -166,10 +170,10 @@ export function HarinMetricChart({ kind='line', title, description, labels=[], s
         const barWidth=Math.max(4,Math.min(26,(groupWidth-8)/Math.max(model.series.length,1)));
         const barHeight=Math.abs(value)/model.max*(height-padding*2);
         const x=padding+index*groupWidth+(groupWidth-barWidth*model.series.length)/2+seriesIndex*barWidth;
-        return <rect className={`v8ChartSeries-${item.tone}`} x={x} y={height-padding-barHeight} width={Math.max(2,barWidth-2)} height={barHeight} rx="3" key={`${item.id}-${index}`}><title>{model.labels[index]} · {item.label} {valueFormatter(value)}</title></rect>;
+        return <rect className={`v8ChartSeries-${item.tone}`} x={x} y={height-padding-barHeight} width={Math.max(2,barWidth-2)} height={barHeight} rx="3" data-chart-tooltip={chartPointLabel(model.labels[index],item.label,value,valueFormatter)} key={`${item.id}-${index}`}/>;
       })):model.series.flatMap(item=>{
         const chart=chartSegments(item.values,model.max,width,height,padding);
-        return <g className={`v8ChartSeries-${item.tone}`} key={item.id}>{chart.segments.map((segment,index)=><polyline points={segment.map(point=>`${point.x},${point.y}`).join(' ')} key={`${item.id}-line-${index}`}/>)}{chart.points.map((point,index)=>point?<circle cx={point.x} cy={point.y} r={compact?3:4} key={`${item.id}-point-${index}`}><title>{model.labels[index]} · {item.label} {valueFormatter(point.value)}</title></circle>:null)}</g>;
+        return <g className={`v8ChartSeries-${item.tone}`} key={item.id}>{chart.segments.map((segment,index)=><polyline points={segment.map(point=>`${point.x},${point.y}`).join(' ')} key={`${item.id}-line-${index}`}/>)}{chart.points.map((point,index)=>point?<circle cx={point.x} cy={point.y} r={compact?3:4} data-chart-tooltip={chartPointLabel(model.labels[index],item.label,point.value,valueFormatter)} key={`${item.id}-point-${index}`}/>:null)}</g>;
       })}
     </svg>
     {!compact?<><div className="v8ChartLabels">{model.labels.map((label,index)=><span key={`${label}-${index}`}>{label}</span>)}</div><div className="v8ChartLegend">{model.series.map(item=><span key={item.id}><i className={`v8ChartSeries-${item.tone}`}/>{item.label}</span>)}</div></>:null}
@@ -205,7 +209,7 @@ export function HarinDonutChart({ title, description, items=[], valueFormatter=(
     <figcaption><b>{title}</b>{description?<small>{description}</small>:null}</figcaption>
     <div><svg viewBox="0 0 140 140" role="img" aria-label={`${title||'채널 비중'} · ${normalized.map(item=>`${item.label} ${valueFormatter(item.value)}`).join(' · ')}`}>
       <circle className="v8DonutTrack" cx="70" cy="70" r={radius}/>
-      {normalized.map(item=>{const length=total>0?item.value/total*circumference:0;const offset=-cursor;cursor+=length;return <circle className={`v8DonutSegment v8ChartSeries-${item.tone}`} cx="70" cy="70" r={radius} strokeDasharray={`${length} ${circumference-length}`} strokeDashoffset={offset} key={item.id}><title>{item.label} · {valueFormatter(item.value)}</title></circle>;})}
+      {normalized.map(item=>{const length=total>0?item.value/total*circumference:0;const offset=-cursor;cursor+=length;return <circle className={`v8DonutSegment v8ChartSeries-${item.tone}`} cx="70" cy="70" r={radius} strokeDasharray={`${length} ${circumference-length}`} strokeDashoffset={offset} data-chart-tooltip={`${item.label} · ${valueFormatter(item.value)}`} key={item.id}/>;})}
       <text x="70" y="64" textAnchor="middle">합계</text><text className="value" x="70" y="84" textAnchor="middle">{total>0?valueFormatter(total):'0원'}</text>
     </svg><ul>{normalized.map(item=><li key={item.id}><i className={`v8ChartSeries-${item.tone}`}/><span><b>{item.label}</b><small>{total>0?`${(item.value/total*100).toFixed(1)}%`:'0.0%'}</small></span><strong>{valueFormatter(item.value)}</strong></li>)}</ul></div>
   </figure>;

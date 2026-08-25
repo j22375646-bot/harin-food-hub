@@ -1,6 +1,6 @@
 {
   "name": "harin-cafe24-sync",
-  "version": "1.38.78",
+  "version": "1.38.79",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -15,7 +15,7 @@
     "test:phase14-final": "node --test test/phase14-final-quality.test.js",
     "start": "next start",
     "start:legacy": "node cafe24-oauth-server.js",
-    "test": "node scripts/check-ui-design-rules.js && node --test",
+    "test": "node scripts/check-ui-design-rules.js && node scripts/run-harin-tests.js",
     "ui:guard": "node scripts/check-ui-design-rules.js",
     "ui:guard:baseline": "node scripts/check-ui-design-rules.js --write-baseline",
     "ui:guard:report": "node scripts/check-ui-design-rules.js --write-report",

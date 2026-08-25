@@ -118,7 +118,7 @@ const MAIN_OVERVIEW_TABLES = [
 const VIEW_TABLES = {
   main:MAIN_OVERVIEW_TABLES,
   orders:['cafe24_orders','cafe24_order_items','cafe24_products','channel_products','naver_commerce_orders','naver_commerce_order_items','coupang_products','coupang_product_items','coupang_orders','coupang_order_items','coupang_rg_orders','coupang_rg_order_items','coupang_returns','shipping_reference_snapshots'],
-  cs:['cafe24_orders','cafe24_order_items','coupang_orders','coupang_order_items','coupang_returns','coupang_exchanges','coupang_inquiries','coupang_operation_requests','customer_service_items'],
+  cs:['cafe24_orders','cafe24_order_items','cafe24_oauth_tokens','coupang_orders','coupang_order_items','coupang_returns','coupang_exchanges','coupang_inquiries','coupang_operation_requests','customer_service_items','ai_analysis_results'],
   inventory:['master_products','channel_products','cafe24_products','coupang_products','coupang_rg_inventory','coupang_item_inventory','coupang_product_items','inventory_lots','ai_analysis_results'],
   settlement:['cafe24_orders','naver_commerce_orders','naver_commerce_settlements','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_orders','coupang_rg_order_items','coupang_settlement_summaries','coupang_promotion_budgets','coupang_product_items','coupang_cost_transactions','coupang_cost_imports','channel_cost_settings','channel_shipping_rules','ai_analysis_results'],
   collection:['cafe24_products','automation_runs','data_quality_checks','coupang_sync_requests','coupang_operation_requests','worker_heartbeats','execution_path_controls','coupang_products','coupang_api_capabilities','owned_site_api_snapshots','shipping_reference_snapshots','operations_health_snapshots','optional_provider_snapshots','naver_campaigns','naver_adgroups','naver_keywords','naver_stats_daily','coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily'],
@@ -1022,6 +1022,53 @@ async function buildOrdersDashboardData({
   };
 }
 
+async function buildCsDashboardData({
+  loaderSession,generatedAt,queryIssues,
+  ordersResult,itemsResult,syncResult,alertsResult,
+  coupangOrdersResult,coupangItemsResult,coupangReturnsResult,coupangExchangesResult,coupangInquiriesResult,
+  channelCsItems,csOperationAudits,cafe24Token,latestAiPageResults
+}) {
+  const shell=await buildFocusedShellData({
+    queryIssues,syncResult,alertsResult,generatedAt,cafe24Token,
+    cafe24Counts:{orders:ordersResult.data?.length||0},
+    coupangCounts:{
+      orders:coupangOrdersResult.data?.length||0,
+      inquiries:coupangInquiriesResult.data?.length||0,
+      claims:(coupangReturnsResult.data?.length||0)+(coupangExchangesResult.data?.length||0)
+    },
+    summaries:{
+      NAVER:`${(channelCsItems||[]).filter(item=>String(item.platform).toUpperCase()==='NAVER').length.toLocaleString('ko-KR')}건 CS 저장`,
+      CAFE24:`${(channelCsItems||[]).filter(item=>String(item.platform).toUpperCase()==='CAFE24').length.toLocaleString('ko-KR')}건 CS 저장`,
+      COUPANG:`${((coupangInquiriesResult.data?.length||0)+(coupangReturnsResult.data?.length||0)+(coupangExchangesResult.data?.length||0)).toLocaleString('ko-KR')}건 문의·클레임`
+    }
+  });
+  const customerService=unifiedCustomerServiceModule.buildUnifiedCustomerService({
+    cafe24Orders:ordersResult.data||[],cafe24OrderItems:itemsResult.data||[],
+    coupangOrders:coupangOrdersResult.data||[],coupangOrderItems:coupangItemsResult.data||[],
+    coupangReturns:(coupangReturnsResult.data||[]).map(returnCaseView),
+    coupangExchanges:(coupangExchangesResult.data||[]).map(exchangeCaseView),
+    coupangInquiries:(coupangInquiriesResult.data||[]).map(({raw_data,...item})=>item),
+    channelItems:channelCsItems||[],operationAudits:csOperationAudits||[],
+    collectorPlatforms:[...new Set((syncResult.data||[])
+      .filter(item=>item.job_type==='CUSTOMER_SERVICE'&&['SUCCESS','PARTIAL'].includes(item.status))
+      .map(item=>item.platform))],
+    channelConnections:shell.channelConnections.channels||[],now:generatedAt
+  });
+  const builtPanels=aiPagePanelsModule.buildAiPagePanels({
+    dataHealth:shell.dataHealth,customerService,collectionCenter:shell.collectionCenter,
+    alerts:shell.alerts,aiConfiguration:openaiClientModule.configuration(),generatedAt,
+    period:kstScheduleModule.kstDateKey(generatedAt)
+  });
+  const aiPagePanels=finalizeAiPagePanels({cs:builtPanels.cs},latestAiPageResults,generatedAt,['cs']);
+  return {
+    loadedView:'cs',loadedWorkspace:null,loaderPerformance:loaderSession.snapshot(),generatedAt,
+    dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
+    customerService,aiPagePanels,
+    kpis:{sales:0,orders:ordersResult.data?.length||0,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:0},
+    products:[],syncs:shell.syncs,reports:[],actions:[],alerts:shell.alerts,automationRuns:[],qualityChecks:[],metricSnapshots:[]
+  };
+}
+
 async function getDashboardData(state) {
   const view=state?.view||'main';
   const generatedAt=new Date().toISOString();
@@ -1053,7 +1100,7 @@ async function getDashboardData(state) {
   const focusedProductWorkspace=view==='product'&&(['mappings','offers'].includes(state?.workspace)||(state?.workspace==='catalog'&&state?.platform!=='coupang'));
   const focusedProductPerformance=view==='product'&&['profit','ad-targets'].includes(state?.workspace);
   const focusedInsightProfitability=view==='insight'&&state?.workspace==='profitability';
-  const focusedEarlyReturn=view==='main'||view==='orders'||view==='inventory'||focusedInsightReport||focusedInsightProfitability||focusedKeywordHistory||(view==='product'&&state?.workspace==='costs')||focusedProductWorkspace||focusedProductPerformance||focusedSearchTerms||focusedKeywordWorkspace||focusedKeywordPerformance;
+  const focusedEarlyReturn=view==='main'||view==='orders'||view==='cs'||view==='inventory'||focusedInsightReport||focusedInsightProfitability||focusedKeywordHistory||(view==='product'&&state?.workspace==='costs')||focusedProductWorkspace||focusedProductPerformance||focusedSearchTerms||focusedKeywordWorkspace||focusedKeywordPerformance;
   const needsPacing=new Set(['main','insight','keyword','product','reports','changes']).has(view)&&!focusedEarlyReturn;
   const pacingPromise = (needsPacing?pacingService.buildPacingDashboard({ db }):Promise.resolve({status:'NO_DATA',channels:[],reasons:[]})).catch(error => {
     console.error('[dashboard] pacing unavailable', error);
@@ -1473,6 +1520,33 @@ async function getDashboardData(state) {
       coupangRgOrdersResult,coupangRgOrderItemsResult,coupangReturnsResult,
       naverCommerceOrdersResult,naverCommerceItemsResult,
       shippingReferenceSnapshots:shippingReferenceSettled.results[0].data||[],
+      cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,
+      latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[])
+    });
+  }
+  if(view==='cs'){
+    const [channelCsRaw,csAuditsRaw,aiResultsRaw,cafe24TokenRaw]=await Promise.all([
+      supplementalQueries.channelCs,supplementalQueries.csAudits,
+      supplementalQueries.aiResults,supplementalQueries.cafe24Token
+    ]);
+    const channelCsSettled=dataHealthModule.settleQueries(channelCsRaw,[
+      {platform:'SHARED',dataset:'customer_service_items'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const csAuditSettled=dataHealthModule.settleQueries(csAuditsRaw,[
+      {platform:'COUPANG',dataset:'coupang_operation_requests_cs'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const aiResultsSettled=dataHealthModule.settleQueries(aiResultsRaw,[
+      {platform:'SHARED',dataset:'ai_analysis_results'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const cafe24TokenSettled=dataHealthModule.settleQueries(cafe24TokenRaw,[
+      {platform:'CAFE24',dataset:'cafe24_oauth_tokens'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    queryIssues.push(...channelCsSettled.issues,...csAuditSettled.issues,...aiResultsSettled.issues,...cafe24TokenSettled.issues);
+    return buildCsDashboardData({
+      loaderSession,generatedAt,queryIssues,ordersResult,itemsResult,syncResult,alertsResult,
+      coupangOrdersResult,coupangItemsResult,coupangReturnsResult,coupangExchangesResult,coupangInquiriesResult,
+      channelCsItems:customerServiceStore.hydrateRows(channelCsSettled.results[0].data||[]),
+      csOperationAudits:csAuditSettled.results[0].data||[],
       cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,
       latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[])
     });

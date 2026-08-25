@@ -21,3 +21,9 @@ test('temporary production hydration probes are not shipped in the root layout',
   assert.doesNotMatch(layout,/harin-hydration-probe|HARIN_TEXT_HISTORY|MutationObserver/);
   assert.doesNotMatch(layout,/next\/script/);
 });
+
+test('26-8 shared SVG charts keep tooltip text out of browser-rewritten title children',()=>{
+  const ui=read('app/_design-system/harin-ui.js');
+  assert.match(ui,/data-chart-tooltip=\{chartPointLabel/);
+  assert.doesNotMatch(ui,/<(?:rect|circle)[^>]*><title>/);
+});
