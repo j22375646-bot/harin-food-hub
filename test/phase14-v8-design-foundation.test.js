@@ -19,7 +19,7 @@ test('14-1 keeps V8 compatibility aliases on the current brand token scale',()=>
   const css=read('app/_design-system/harin-v8.css');
   const tokens=read('app/_design-system/harin-brand-tokens.css');
   assert.match(css,/--v8-canvas:var\(--harin-color-canvas\)/);
-  assert.match(css,/--v8-lavender:var\(--harin-color-action\)/);
+  assert.match(css,/--v8-lavender:var\(--harin-color-selection\)/);
   assert.match(css,/--v8-mint-soft:var\(--harin-color-success-soft\)/);
   assert.match(css,/--v8-pink-soft:var\(--harin-color-danger-soft\)/);
   assert.match(css,/--v8-amber-soft:var\(--harin-color-warning-soft\)/);

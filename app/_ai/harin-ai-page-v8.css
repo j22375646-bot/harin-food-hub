@@ -1,9 +1,9 @@
 /* Phase 26-5 · one flat visual shell for page-scoped AI analysis.
    Analysis inputs, snapshots, results and writes remain isolated by route. */
 .harinV8 .aiPagePanel{
-  --ai-accent:var(--harin-color-action);
-  --ai-accent-strong:var(--harin-color-action-strong);
-  --ai-soft:var(--harin-color-action-soft);
+  --ai-accent:var(--harin-color-analysis);
+  --ai-accent-strong:var(--harin-color-analysis-strong);
+  --ai-soft:var(--harin-color-analysis-soft);
   position:relative;
   overflow:clip;
   margin:0 0 24px;
@@ -27,7 +27,7 @@
 }
 .harinV8 .aiPagePanel>summary::-webkit-details-marker{display:none}
 .harinV8 .aiPagePanel>summary:focus-visible{outline:3px solid color-mix(in srgb,var(--ai-accent) 32%,transparent);outline-offset:-3px}
-.harinV8 .aiPagePanel.open>summary{background:var(--harin-color-action-soft)}
+.harinV8 .aiPagePanel.open>summary{background:var(--ai-soft)}
 .harinV8 .aiPagePulse{display:grid;width:48px;height:48px;place-items:center}
 .harinV8 .aiPagePulse i{display:none}
 .harinV8 .aiPagePulse b{display:grid;width:48px;height:48px;place-items:center;border-radius:12px;background:var(--ai-accent);color:#fff;font-size:15px;letter-spacing:-.02em;transition:transform .18s ease}

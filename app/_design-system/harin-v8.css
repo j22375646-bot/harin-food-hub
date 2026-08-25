@@ -14,9 +14,9 @@ html[data-harin-ui="v8"]{
   --v8-ink-soft:var(--harin-color-body);
   --v8-muted:var(--harin-color-muted);
   --v8-faint:#7d8895;
-  --v8-lavender:var(--harin-color-action);
-  --v8-lavender-strong:var(--harin-color-action-strong);
-  --v8-lavender-soft:var(--harin-color-action-soft);
+  --v8-lavender:var(--harin-color-selection);
+  --v8-lavender-strong:var(--harin-color-selection-strong);
+  --v8-lavender-soft:var(--harin-color-selection-soft);
   --v8-mint:var(--harin-color-success);
   --v8-mint-strong:var(--harin-color-success);
   --v8-mint-soft:var(--harin-color-success-soft);

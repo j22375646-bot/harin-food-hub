@@ -24,9 +24,9 @@ test('26-5 page AI shell uses the flat brand system without decorative effects',
   const css=read('app/_ai/harin-ai-page-v8.css');
   const panel=read('app/harin-ai-page-panel.js');
 
-  assert.match(css,/--ai-accent:var\(--harin-color-action\)/);
+  assert.match(css,/--ai-accent:var\(--harin-color-analysis\)/);
   assert.match(css,/background:var\(--harin-color-surface\)/);
-  assert.match(css,/background:var\(--harin-color-action-soft\)/);
+  assert.match(css,/background:var\(--ai-soft\)/);
   assert.match(css,/font-size:var\(--harin-type-body\)/);
   assert.doesNotMatch(css,/(?:linear|radial)-gradient\(/);
   assert.doesNotMatch(css,/backdrop-filter\s*:/);
