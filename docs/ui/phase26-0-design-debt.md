@@ -1,17 +1,17 @@
 # 26-0 디자인 금지 규칙 자동 점검
 
-- 생성 시각: 2026-08-24T22:22:29.325Z
-- 검사한 CSS: 29개
-- 위반이 남은 CSS: 22개
-- 총 자동 탐지 부채 | 547건
+- 생성 시각: 2026-08-25T15:11:58.307Z
+- 검사한 CSS: 33개
+- 위반이 남은 CSS: 20개
+- 총 자동 탐지 부채 | 528건
 
 ## 규칙별 현황
 
 | 규칙 | 설명 | 현재 건수 |
 |---|---|---:|
-| `decorative-gradient` | 장식용 그라데이션 | 258 |
-| `border-and-shadow` | 테두리와 큰 그림자 중복 | 154 |
-| `radial-glow` | 방사형 글로우·헤이즈 | 48 |
+| `decorative-gradient` | 장식용 그라데이션 | 248 |
+| `border-and-shadow` | 테두리와 큰 그림자 중복 | 148 |
+| `radial-glow` | 방사형 글로우·헤이즈 | 45 |
 | `thick-side-accent` | 굵은 한쪽 컬러 보더 | 38 |
 | `oversized-card-radius` | 작은 카드의 과한 라운드 | 26 |
 | `glass-blur` | 글래스·블러 효과 | 20 |
@@ -51,117 +51,111 @@
 | `app/_analysis/harin-analysis-v8.css:54` | `decorative-gradient` | `.profitWaterfall article>div>i` |
 | `app/_analysis/harin-analysis-v8.css:54` | `decorative-gradient` | `.profitWaterfall article.cost>div>i` |
 | `app/_analysis/harin-analysis-v8.css:55` | `border-and-shadow` | `.analysisDetailDisclosure` |
-| `app/_analysis/harin-analysis-v8.css:63` | `border-and-shadow` | `.keywordOpsHeader` |
-| `app/_analysis/harin-analysis-v8.css:63` | `border-and-shadow` | `.keywordOpsSummary>span` |
-| `app/_analysis/harin-analysis-v8.css:63` | `border-and-shadow` | `.keywordOpsToolbar` |
-| `app/_analysis/harin-analysis-v8.css:63` | `border-and-shadow` | `.keywordOpsTableWrap` |
-| `app/_analysis/harin-analysis-v8.css:63` | `border-and-shadow` | `.keywordOpsDetail` |
-| `app/_analysis/harin-analysis-v8.css:63` | `decorative-gradient` | `.keywordOpsHeader` |
-| `app/_analysis/harin-analysis-v8.css:63` | `radial-glow` | `.keywordOpsHeader` |
-| `app/_analysis/harin-analysis-v8.css:63` | `thick-side-accent` | `.keywordOpsRow:not(.head):hover` |
-| `app/_analysis/harin-analysis-v8.css:63` | `thick-side-accent` | `.keywordOpsRow.changed` |
-| `app/_analysis/harin-analysis-v8.css:65` | `border-and-shadow` | `.keywordOpsRow:not(.head)` |
-| `app/_analysis/harin-analysis-v8.css:65` | `border-and-shadow` | `.keywordOpsMobileAction` |
-| `app/_analysis/harin-analysis-v8.css:65` | `glass-blur` | `.keywordOpsMobileAction` |
-| `app/_analysis/harin-analysis-v8.css:77` | `glass-blur` | `/* Phase 15-5: owner-approved Naver bid preview and live verification flow. */ .keywordOpsReviewBackdrop` |
-| `app/_analysis/harin-analysis-v8.css:78` | `border-and-shadow` | `.keywordOpsReview` |
-| `app/_analysis/harin-analysis-v8.css:78` | `decorative-gradient` | `.keywordOpsReview` |
-| `app/_analysis/harin-analysis-v8.css:88` | `border-and-shadow` | `/* Phase 23-5: a server-built owner brief connects change, cause and next action. */ .insightDecisionBrief` |
-| `app/_analysis/harin-analysis-v8.css:88` | `decorative-gradient` | `/* Phase 23-5: a server-built owner brief connects change, cause and next action. */ .insightDecisionBrief` |
-| `app/_analysis/harin-analysis-v8.css:88` | `radial-glow` | `/* Phase 23-5: a server-built owner brief connects change, cause and next action. */ .insightDecisionBrief` |
-| `app/_analysis/harin-analysis-v8.css:98` | `border-and-shadow` | `/* Phase 15-6: Coupang-only WING worklist. Public seller Open API writes stay locked. */ .keywordOpsCapability` |
-| `app/_analysis/harin-analysis-v8.css:98` | `decorative-gradient` | `/* Phase 15-6: Coupang-only WING worklist. Public seller Open API writes stay locked. */ .keywordOpsCapability` |
-| `app/_analysis/harin-analysis-v8.css:99` | `decorative-gradient` | `.keywordOpsWing` |
-| `app/_analysis/harin-analysis-v8.css:118` | `border-and-shadow` | `.keywordOpsContextStrip` |
-| `app/_analysis/harin-analysis-v8.css:127` | `border-and-shadow` | `/* Phase 24-2: Naver-only campaign and adgroup bid workspace. */ .keywordOpsAdgroupWorkspace` |
-| `app/_analysis/harin-analysis-v8.css:127` | `decorative-gradient` | `/* Phase 24-2: Naver-only campaign and adgroup bid workspace. */ .keywordOpsAdgroupWorkspace` |
-| `app/_analysis/harin-analysis-v8.css:127` | `radial-glow` | `/* Phase 24-2: Naver-only campaign and adgroup bid workspace. */ .keywordOpsAdgroupWorkspace` |
-| `app/_analysis/harin-analysis-v8.css:138` | `border-and-shadow` | `/* Phase 24-8: one-glance view state and mobile-safe keyword operations finish. */ .keywordOpsViewState` |
-| `app/_analysis/harin-analysis-v8.css:144` | `decorative-gradient` | `.keywordOpsViewState.active` |
-| `app/_analysis/harin-analysis-v8.css:145` | `thick-side-accent` | `.keywordOpsRow[tabindex="0"]:focus-visible` |
-| `app/_analysis/harin-analysis-v8.css:151` | `decorative-gradient` | `.keywordOpsRankSignal.loading i` |
-| `app/_analysis/harin-analysis-v8.css:158` | `decorative-gradient` | `.adCategoryBadge.inactive` |
-| `app/_analysis/harin-analysis-v8.css:159` | `decorative-gradient` | `.keywordOpsAdgroupRail button.inactive` |
-| `app/_analysis/harin-analysis-v8.css:162` | `decorative-gradient` | `.keywordOpsInactiveNotice` |
-| `app/_analysis/harin-analysis-v8.css:168` | `decorative-gradient` | `.keywordOpsNaverSearch` |
-| `app/_analysis/harin-analysis-v8.css:182` | `decorative-gradient` | `.keywordOpsSearch .keywordOpsSearchInput>input` |
-| `app/_analysis/harin-analysis-v8.css:183` | `border-and-shadow` | `.keywordOpsFinderResults` |
-| `app/_analysis/harin-analysis-v8.css:183` | `decorative-gradient` | `.keywordOpsFinderResults>header` |
-| `app/_analysis/harin-analysis-v8.css:183` | `decorative-gradient` | `.keywordOpsFinderResults>button.active,.keywordOpsFinderResults>button:hover` |
-| `app/_analysis/harin-analysis-v8.css:183` | `decorative-gradient` | `.keywordOpsRow.inspected` |
-| `app/_analysis/harin-analysis-v8.css:183` | `glass-blur` | `.keywordOpsFinderResults` |
-| `app/_analysis/harin-analysis-v8.css:183` | `thick-side-accent` | `.keywordOpsFinderResults>button.active,.keywordOpsFinderResults>button:hover` |
-| `app/_analysis/harin-analysis-v8.css:183` | `thick-side-accent` | `.keywordOpsRow.inspected` |
-| `app/_analysis/harin-analysis-v8.css:189` | `border-and-shadow` | `/* Phase 25-3: condition selection and bulk bid drafting stay local until final review. */ .keywordOpsBulkStudio` |
-| `app/_analysis/harin-analysis-v8.css:189` | `decorative-gradient` | `/* Phase 25-3: condition selection and bulk bid drafting stay local until final review. */ .keywordOpsBulkStudio` |
-| `app/_analysis/harin-analysis-v8.css:191` | `decorative-gradient` | `.keywordOpsBulkStudioFlow button.apply` |
-| `app/_analysis/harin-analysis-v8.css:199` | `border-and-shadow` | `/* Phase 25-4: Naver-only device and region operating scope, backed by actual breakdown rows. */ .keywordOperatingScope` |
-| `app/_analysis/harin-analysis-v8.css:199` | `decorative-gradient` | `/* Phase 25-4: Naver-only device and region operating scope, backed by actual breakdown rows. */ .keywordOperatingScope` |
-| `app/_analysis/harin-analysis-v8.css:199` | `radial-glow` | `/* Phase 25-4: Naver-only device and region operating scope, backed by actual breakdown rows. */ .keywordOperatingScope` |
-| `app/_analysis/harin-analysis-v8.css:200` | `decorative-gradient` | `.keywordOperatingHeading>i` |
-| `app/_analysis/harin-analysis-v8.css:201` | `decorative-gradient` | `.keywordOperatingSwitch button.active` |
-| `app/_analysis/harin-analysis-v8.css:202` | `decorative-gradient` | `.keywordDeviceCard` |
-| `app/_analysis/harin-analysis-v8.css:202` | `decorative-gradient` | `.keywordDeviceCard.mobile` |
-| `app/_analysis/harin-analysis-v8.css:203` | `decorative-gradient` | `.keywordRegionScope>article` |
-| `app/_analysis/harin-analysis-v8.css:205` | `decorative-gradient` | `.keywordOperatingSkeleton>i` |
-| `app/_analysis/harin-analysis-v8.css:215` | `decorative-gradient` | `.keywordHourCell.heat-5` |
+| `app/_analysis/harin-analysis-v8.css:83` | `border-and-shadow` | `.keywordOpsHeader` |
+| `app/_analysis/harin-analysis-v8.css:83` | `border-and-shadow` | `.keywordOpsSummary>span` |
+| `app/_analysis/harin-analysis-v8.css:83` | `border-and-shadow` | `.keywordOpsToolbar` |
+| `app/_analysis/harin-analysis-v8.css:83` | `border-and-shadow` | `.keywordOpsTableWrap` |
+| `app/_analysis/harin-analysis-v8.css:83` | `border-and-shadow` | `.keywordOpsDetail` |
+| `app/_analysis/harin-analysis-v8.css:83` | `decorative-gradient` | `.keywordOpsHeader` |
+| `app/_analysis/harin-analysis-v8.css:83` | `radial-glow` | `.keywordOpsHeader` |
+| `app/_analysis/harin-analysis-v8.css:83` | `thick-side-accent` | `.keywordOpsRow:not(.head):hover` |
+| `app/_analysis/harin-analysis-v8.css:83` | `thick-side-accent` | `.keywordOpsRow.changed` |
+| `app/_analysis/harin-analysis-v8.css:85` | `border-and-shadow` | `.keywordOpsRow:not(.head)` |
+| `app/_analysis/harin-analysis-v8.css:85` | `border-and-shadow` | `.keywordOpsMobileAction` |
+| `app/_analysis/harin-analysis-v8.css:85` | `glass-blur` | `.keywordOpsMobileAction` |
+| `app/_analysis/harin-analysis-v8.css:97` | `glass-blur` | `/* Phase 15-5: owner-approved Naver bid preview and live verification flow. */ .keywordOpsReviewBackdrop` |
+| `app/_analysis/harin-analysis-v8.css:98` | `border-and-shadow` | `.keywordOpsReview` |
+| `app/_analysis/harin-analysis-v8.css:98` | `decorative-gradient` | `.keywordOpsReview` |
+| `app/_analysis/harin-analysis-v8.css:108` | `border-and-shadow` | `/* Phase 23-5: a server-built owner brief connects change, cause and next action. */ .insightDecisionBrief` |
+| `app/_analysis/harin-analysis-v8.css:108` | `decorative-gradient` | `/* Phase 23-5: a server-built owner brief connects change, cause and next action. */ .insightDecisionBrief` |
+| `app/_analysis/harin-analysis-v8.css:108` | `radial-glow` | `/* Phase 23-5: a server-built owner brief connects change, cause and next action. */ .insightDecisionBrief` |
+| `app/_analysis/harin-analysis-v8.css:118` | `border-and-shadow` | `/* Phase 15-6: Coupang-only WING worklist. Public seller Open API writes stay locked. */ .keywordOpsCapability` |
+| `app/_analysis/harin-analysis-v8.css:118` | `decorative-gradient` | `/* Phase 15-6: Coupang-only WING worklist. Public seller Open API writes stay locked. */ .keywordOpsCapability` |
+| `app/_analysis/harin-analysis-v8.css:119` | `decorative-gradient` | `.keywordOpsWing` |
+| `app/_analysis/harin-analysis-v8.css:138` | `border-and-shadow` | `.keywordOpsContextStrip` |
+| `app/_analysis/harin-analysis-v8.css:147` | `border-and-shadow` | `/* Phase 24-2: Naver-only campaign and adgroup bid workspace. */ .keywordOpsAdgroupWorkspace` |
+| `app/_analysis/harin-analysis-v8.css:147` | `decorative-gradient` | `/* Phase 24-2: Naver-only campaign and adgroup bid workspace. */ .keywordOpsAdgroupWorkspace` |
+| `app/_analysis/harin-analysis-v8.css:147` | `radial-glow` | `/* Phase 24-2: Naver-only campaign and adgroup bid workspace. */ .keywordOpsAdgroupWorkspace` |
+| `app/_analysis/harin-analysis-v8.css:158` | `border-and-shadow` | `/* Phase 24-8: one-glance view state and mobile-safe keyword operations finish. */ .keywordOpsViewState` |
+| `app/_analysis/harin-analysis-v8.css:164` | `decorative-gradient` | `.keywordOpsViewState.active` |
+| `app/_analysis/harin-analysis-v8.css:165` | `thick-side-accent` | `.keywordOpsRow[tabindex="0"]:focus-visible` |
+| `app/_analysis/harin-analysis-v8.css:171` | `decorative-gradient` | `.keywordOpsRankSignal.loading i` |
+| `app/_analysis/harin-analysis-v8.css:178` | `decorative-gradient` | `.adCategoryBadge.inactive` |
+| `app/_analysis/harin-analysis-v8.css:179` | `decorative-gradient` | `.keywordOpsAdgroupRail button.inactive` |
+| `app/_analysis/harin-analysis-v8.css:182` | `decorative-gradient` | `.keywordOpsInactiveNotice` |
+| `app/_analysis/harin-analysis-v8.css:188` | `decorative-gradient` | `.keywordOpsNaverSearch` |
+| `app/_analysis/harin-analysis-v8.css:202` | `decorative-gradient` | `.keywordOpsSearch .keywordOpsSearchInput>input` |
+| `app/_analysis/harin-analysis-v8.css:203` | `border-and-shadow` | `.keywordOpsFinderResults` |
+| `app/_analysis/harin-analysis-v8.css:203` | `decorative-gradient` | `.keywordOpsFinderResults>header` |
+| `app/_analysis/harin-analysis-v8.css:203` | `decorative-gradient` | `.keywordOpsFinderResults>button.active,.keywordOpsFinderResults>button:hover` |
+| `app/_analysis/harin-analysis-v8.css:203` | `decorative-gradient` | `.keywordOpsRow.inspected` |
+| `app/_analysis/harin-analysis-v8.css:203` | `glass-blur` | `.keywordOpsFinderResults` |
+| `app/_analysis/harin-analysis-v8.css:203` | `thick-side-accent` | `.keywordOpsFinderResults>button.active,.keywordOpsFinderResults>button:hover` |
+| `app/_analysis/harin-analysis-v8.css:203` | `thick-side-accent` | `.keywordOpsRow.inspected` |
+| `app/_analysis/harin-analysis-v8.css:209` | `border-and-shadow` | `/* Phase 25-3: condition selection and bulk bid drafting stay local until final review. */ .keywordOpsBulkStudio` |
+| `app/_analysis/harin-analysis-v8.css:209` | `decorative-gradient` | `/* Phase 25-3: condition selection and bulk bid drafting stay local until final review. */ .keywordOpsBulkStudio` |
+| `app/_analysis/harin-analysis-v8.css:211` | `decorative-gradient` | `.keywordOpsBulkStudioFlow button.apply` |
+| `app/_analysis/harin-analysis-v8.css:219` | `border-and-shadow` | `/* Phase 25-4: Naver-only device and region operating scope, backed by actual breakdown rows. */ .keywordOperatingScope` |
+| `app/_analysis/harin-analysis-v8.css:219` | `decorative-gradient` | `/* Phase 25-4: Naver-only device and region operating scope, backed by actual breakdown rows. */ .keywordOperatingScope` |
+| `app/_analysis/harin-analysis-v8.css:219` | `radial-glow` | `/* Phase 25-4: Naver-only device and region operating scope, backed by actual breakdown rows. */ .keywordOperatingScope` |
+| `app/_analysis/harin-analysis-v8.css:220` | `decorative-gradient` | `.keywordOperatingHeading>i` |
+| `app/_analysis/harin-analysis-v8.css:221` | `decorative-gradient` | `.keywordOperatingSwitch button.active` |
+| `app/_analysis/harin-analysis-v8.css:222` | `decorative-gradient` | `.keywordDeviceCard` |
+| `app/_analysis/harin-analysis-v8.css:222` | `decorative-gradient` | `.keywordDeviceCard.mobile` |
+| `app/_analysis/harin-analysis-v8.css:223` | `decorative-gradient` | `.keywordRegionScope>article` |
+| `app/_analysis/harin-analysis-v8.css:225` | `decorative-gradient` | `.keywordOperatingSkeleton>i` |
+| `app/_analysis/harin-analysis-v8.css:235` | `decorative-gradient` | `.keywordHourCell.heat-5` |
 | `app/_analysis/harin-market-intelligence.css:4` | `border-and-shadow` | `.marketDeferredWorkbench` |
 | `app/_analysis/harin-market-intelligence.css:4` | `decorative-gradient` | `.marketDeferredWorkbench` |
 | `app/_analysis/harin-market-intelligence.css:8` | `decorative-gradient` | `.marketWorkbenchError` |
-| `app/_analysis/harin-market-intelligence.css:21` | `decorative-gradient` | `/* Phase 17-1 · reusable product-selectable market and conversion workspace. */ .harinV8 .marketHubMain` |
-| `app/_analysis/harin-market-intelligence.css:21` | `radial-glow` | `/* Phase 17-1 · reusable product-selectable market and conversion workspace. */ .harinV8 .marketHubMain` |
-| `app/_analysis/harin-market-intelligence.css:24` | `border-and-shadow` | `.harinV8 .marketProductPicker` |
-| `app/_analysis/harin-market-intelligence.css:24` | `decorative-gradient` | `.harinV8 .marketProductPicker` |
-| `app/_analysis/harin-market-intelligence.css:28` | `border-and-shadow` | `.harinV8 .marketFlowSection,.harinV8 .marketRecentSection` |
-| `app/_analysis/harin-market-intelligence.css:32` | `decorative-gradient` | `.harinV8 .marketWorkspaceTabs>a.active` |
-| `app/_analysis/harin-market-intelligence.css:41` | `decorative-gradient` | `.harinV8 .b2bFlowRail>article` |
-| `app/_analysis/harin-market-intelligence.css:42` | `border-and-shadow` | `.harinV8 .b2bOpportunitySection` |
-| `app/_analysis/harin-market-intelligence.css:44` | `decorative-gradient` | `.harinV8 .b2bConnectionCard` |
-| `app/_analysis/harin-market-intelligence.css:51` | `border-and-shadow` | `/* Phase 17-9: product-isolated page AI and NCLUE readiness pilot. */ .harinV8 .marketPageAi` |
-| `app/_analysis/harin-market-intelligence.css:51` | `decorative-gradient` | `/* Phase 17-9: product-isolated page AI and NCLUE readiness pilot. */ .harinV8 .marketPageAi` |
-| `app/_analysis/harin-market-intelligence.css:57` | `decorative-gradient` | `.harinV8 .ncluePilot` |
-| `app/_analysis/harin-market-intelligence.css:65` | `decorative-gradient` | `.harinV8 .marketDataMessage` |
-| `app/_analysis/harin-market-intelligence.css:67` | `decorative-gradient` | `.harinV8 .marketDropzone` |
-| `app/_analysis/harin-market-intelligence.css:70` | `border-and-shadow` | `.harinV8 .marketEvidenceLibrary` |
-| `app/_analysis/harin-market-intelligence.css:76` | `border-and-shadow` | `/* Phase 18-5 · owner-reviewed NAVER public Evidence candidates. */ .harinV8 .marketNaverEvidenceWorkbench` |
-| `app/_analysis/harin-market-intelligence.css:76` | `decorative-gradient` | `/* Phase 18-5 · owner-reviewed NAVER public Evidence candidates. */ .harinV8 .marketNaverEvidenceWorkbench` |
-| `app/_analysis/harin-market-intelligence.css:84` | `border-and-shadow` | `/* Phase 19-2 · product-isolated FoodSafetyKorea, recall and Korean law Evidence. */ .harinV8 .marketOfficialEvidenceWorkbench` |
-| `app/_analysis/harin-market-intelligence.css:84` | `decorative-gradient` | `/* Phase 19-2 · product-isolated FoodSafetyKorea, recall and Korean law Evidence. */ .harinV8 .marketOfficialEvidenceWorkbench` |
-| `app/_analysis/harin-market-intelligence.css:85` | `decorative-gradient` | `.harinV8 .marketOfficialEvidenceControl` |
-| `app/_analysis/harin-market-intelligence.css:94` | `border-and-shadow` | `/* Phase 20-1 · product-isolated PubMed, ClinicalTrials.gov and Crossref Evidence. */ .harinV8 .marketResearchEvidenceWorkbench` |
-| `app/_analysis/harin-market-intelligence.css:94` | `decorative-gradient` | `/* Phase 20-1 · product-isolated PubMed, ClinicalTrials.gov and Crossref Evidence. */ .harinV8 .marketResearchEvidenceWorkbench` |
-| `app/_analysis/harin-market-intelligence.css:95` | `decorative-gradient` | `.harinV8 .marketResearchEvidenceGuardrail` |
-| `app/_analysis/harin-market-intelligence.css:96` | `decorative-gradient` | `.harinV8 .marketResearchEvidenceControl` |
-| `app/_analysis/harin-market-intelligence.css:112` | `decorative-gradient` | `.harinV8 .marketScopeLevels>button` |
-| `app/_analysis/harin-market-intelligence.css:125` | `decorative-gradient` | `.harinV8 .marketCompetitorList article` |
-| `app/_analysis/harin-market-intelligence.css:127` | `decorative-gradient` | `.harinV8 .marketAppealFlow>section` |
-| `app/_analysis/harin-market-intelligence.css:136` | `decorative-gradient` | `.harinV8 .marketFunnelStepWrap>article` |
-| `app/_analysis/harin-market-intelligence.css:138` | `decorative-gradient` | `.harinV8 .marketBarrierGrid>button` |
-| `app/_analysis/harin-market-intelligence.css:148` | `decorative-gradient` | `.harinV8 .marketGrowthStepWrap>button` |
-| `app/_analysis/harin-market-intelligence.css:149` | `decorative-gradient` | `.harinV8 .marketGrowthActiveSignal` |
-| `app/_analysis/harin-market-intelligence.css:151` | `decorative-gradient` | `.harinV8 .marketRetentionStats>span` |
-| `app/_analysis/harin-market-intelligence.css:159` | `decorative-gradient` | `.harinV8 .marketExecutionStepWrap>article.done` |
-| `app/_analysis/harin-market-intelligence.css:161` | `decorative-gradient` | `.harinV8 .marketExecutionActionGrid>article` |
-| `app/_analysis/harin-market-intelligence.css:168` | `decorative-gradient` | `.harinV8 .marketTrendControl` |
-| `app/_analysis/harin-market-intelligence.css:171` | `decorative-gradient` | `.harinV8 .marketTrendPanel.stale` |
-| `app/_analysis/harin-market-intelligence.css:179` | `decorative-gradient` | `.harinV8 .marketAdResearchControl` |
-| `app/_analysis/harin-market-intelligence.css:182` | `decorative-gradient` | `.harinV8 .marketAdKeywordTable>label.selected` |
-| `app/_analysis/harin-market-intelligence.css:182` | `thick-side-accent` | `.harinV8 .marketAdKeywordTable>label.selected` |
-| `app/_analysis/harin-market-intelligence.css:183` | `decorative-gradient` | `.harinV8 .marketAdEstimatePanel.stale` |
-| `app/_analysis/harin-market-intelligence.css:191` | `decorative-gradient` | `.harinV8 .marketCommerceFlow` |
-| `app/_analysis/harin-market-intelligence.css:198` | `border-and-shadow` | `/* Phase 19-5 · product-isolated KAMIS, KMA and YouTube public context Evidence. */ .harinV8 .marketContextEvidenceWorkbench` |
-| `app/_analysis/harin-market-intelligence.css:198` | `decorative-gradient` | `/* Phase 19-5 · product-isolated KAMIS, KMA and YouTube public context Evidence. */ .harinV8 .marketContextEvidenceWorkbench` |
-| `app/_analysis/harin-market-intelligence.css:199` | `decorative-gradient` | `.harinV8 .marketContextEvidenceControl` |
-| `app/_analysis/harin-market-intelligence.css:209` | `border-and-shadow` | `/* Phase 20-2 · product-isolated MFDS, HACCP, ingredient and USDA label cross-check. */ .harinV8 .marketLabelEvidenceWorkbench` |
-| `app/_analysis/harin-market-intelligence.css:209` | `decorative-gradient` | `/* Phase 20-2 · product-isolated MFDS, HACCP, ingredient and USDA label cross-check. */ .harinV8 .marketLabelEvidenceWorkbench` |
-| `app/_analysis/harin-market-intelligence.css:210` | `decorative-gradient` | `.harinV8 .marketLabelEvidenceGuardrail` |
-| `app/_analysis/harin-market-intelligence.css:211` | `decorative-gradient` | `.harinV8 .marketLabelEvidenceControl` |
-| `app/_analysis/harin-market-intelligence.css:221` | `border-and-shadow` | `/* Phase 20-3 · product-isolated Customs, Korea Eximbank and KOSIS market context. */ .harinV8 .rawMarketEvidenceWorkbench` |
-| `app/_analysis/harin-market-intelligence.css:221` | `decorative-gradient` | `/* Phase 20-3 · product-isolated Customs, Korea Eximbank and KOSIS market context. */ .harinV8 .rawMarketEvidenceWorkbench` |
-| `app/_analysis/harin-market-intelligence.css:221` | `radial-glow` | `/* Phase 20-3 · product-isolated Customs, Korea Eximbank and KOSIS market context. */ .harinV8 .rawMarketEvidenceWorkbench` |
-| `app/_analysis/harin-market-intelligence.css:222` | `decorative-gradient` | `.harinV8 .rawMarketEvidenceGuardrail` |
-| `app/_analysis/harin-market-intelligence.css:223` | `decorative-gradient` | `.harinV8 .rawMarketEvidenceControl` |
-| `app/_analysis/harin-market-intelligence.css:233` | `decorative-gradient` | `.harinV8 .marketDevelopmentProgress i` |
+| `app/_analysis/harin-market-intelligence.css:29` | `decorative-gradient` | `.harinV8 .marketWorkspaceTabs>a.active` |
+| `app/_analysis/harin-market-intelligence.css:38` | `decorative-gradient` | `.harinV8 .b2bFlowRail>article` |
+| `app/_analysis/harin-market-intelligence.css:39` | `border-and-shadow` | `.harinV8 .b2bOpportunitySection` |
+| `app/_analysis/harin-market-intelligence.css:41` | `decorative-gradient` | `.harinV8 .b2bConnectionCard` |
+| `app/_analysis/harin-market-intelligence.css:48` | `border-and-shadow` | `/* Phase 17-9: product-isolated page AI and NCLUE readiness pilot. */ .harinV8 .marketPageAi` |
+| `app/_analysis/harin-market-intelligence.css:48` | `decorative-gradient` | `/* Phase 17-9: product-isolated page AI and NCLUE readiness pilot. */ .harinV8 .marketPageAi` |
+| `app/_analysis/harin-market-intelligence.css:54` | `decorative-gradient` | `.harinV8 .ncluePilot` |
+| `app/_analysis/harin-market-intelligence.css:62` | `decorative-gradient` | `.harinV8 .marketDataMessage` |
+| `app/_analysis/harin-market-intelligence.css:64` | `decorative-gradient` | `.harinV8 .marketDropzone` |
+| `app/_analysis/harin-market-intelligence.css:67` | `border-and-shadow` | `.harinV8 .marketEvidenceLibrary` |
+| `app/_analysis/harin-market-intelligence.css:73` | `border-and-shadow` | `/* Phase 18-5 · owner-reviewed NAVER public Evidence candidates. */ .harinV8 .marketNaverEvidenceWorkbench` |
+| `app/_analysis/harin-market-intelligence.css:73` | `decorative-gradient` | `/* Phase 18-5 · owner-reviewed NAVER public Evidence candidates. */ .harinV8 .marketNaverEvidenceWorkbench` |
+| `app/_analysis/harin-market-intelligence.css:81` | `border-and-shadow` | `/* Phase 19-2 · product-isolated FoodSafetyKorea, recall and Korean law Evidence. */ .harinV8 .marketOfficialEvidenceWorkbench` |
+| `app/_analysis/harin-market-intelligence.css:81` | `decorative-gradient` | `/* Phase 19-2 · product-isolated FoodSafetyKorea, recall and Korean law Evidence. */ .harinV8 .marketOfficialEvidenceWorkbench` |
+| `app/_analysis/harin-market-intelligence.css:82` | `decorative-gradient` | `.harinV8 .marketOfficialEvidenceControl` |
+| `app/_analysis/harin-market-intelligence.css:91` | `border-and-shadow` | `/* Phase 20-1 · product-isolated PubMed, ClinicalTrials.gov and Crossref Evidence. */ .harinV8 .marketResearchEvidenceWorkbench` |
+| `app/_analysis/harin-market-intelligence.css:91` | `decorative-gradient` | `/* Phase 20-1 · product-isolated PubMed, ClinicalTrials.gov and Crossref Evidence. */ .harinV8 .marketResearchEvidenceWorkbench` |
+| `app/_analysis/harin-market-intelligence.css:92` | `decorative-gradient` | `.harinV8 .marketResearchEvidenceGuardrail` |
+| `app/_analysis/harin-market-intelligence.css:93` | `decorative-gradient` | `.harinV8 .marketResearchEvidenceControl` |
+| `app/_analysis/harin-market-intelligence.css:109` | `decorative-gradient` | `.harinV8 .marketScopeLevels>button` |
+| `app/_analysis/harin-market-intelligence.css:122` | `decorative-gradient` | `.harinV8 .marketCompetitorList article` |
+| `app/_analysis/harin-market-intelligence.css:124` | `decorative-gradient` | `.harinV8 .marketAppealFlow>section` |
+| `app/_analysis/harin-market-intelligence.css:133` | `decorative-gradient` | `.harinV8 .marketFunnelStepWrap>article` |
+| `app/_analysis/harin-market-intelligence.css:135` | `decorative-gradient` | `.harinV8 .marketBarrierGrid>button` |
+| `app/_analysis/harin-market-intelligence.css:145` | `decorative-gradient` | `.harinV8 .marketGrowthStepWrap>button` |
+| `app/_analysis/harin-market-intelligence.css:146` | `decorative-gradient` | `.harinV8 .marketGrowthActiveSignal` |
+| `app/_analysis/harin-market-intelligence.css:148` | `decorative-gradient` | `.harinV8 .marketRetentionStats>span` |
+| `app/_analysis/harin-market-intelligence.css:156` | `decorative-gradient` | `.harinV8 .marketExecutionStepWrap>article.done` |
+| `app/_analysis/harin-market-intelligence.css:158` | `decorative-gradient` | `.harinV8 .marketExecutionActionGrid>article` |
+| `app/_analysis/harin-market-intelligence.css:165` | `decorative-gradient` | `.harinV8 .marketTrendControl` |
+| `app/_analysis/harin-market-intelligence.css:168` | `decorative-gradient` | `.harinV8 .marketTrendPanel.stale` |
+| `app/_analysis/harin-market-intelligence.css:176` | `decorative-gradient` | `.harinV8 .marketAdResearchControl` |
+| `app/_analysis/harin-market-intelligence.css:179` | `decorative-gradient` | `.harinV8 .marketAdKeywordTable>label.selected` |
+| `app/_analysis/harin-market-intelligence.css:179` | `thick-side-accent` | `.harinV8 .marketAdKeywordTable>label.selected` |
+| `app/_analysis/harin-market-intelligence.css:180` | `decorative-gradient` | `.harinV8 .marketAdEstimatePanel.stale` |
+| `app/_analysis/harin-market-intelligence.css:188` | `decorative-gradient` | `.harinV8 .marketCommerceFlow` |
+| `app/_analysis/harin-market-intelligence.css:195` | `border-and-shadow` | `/* Phase 19-5 · product-isolated KAMIS, KMA and YouTube public context Evidence. */ .harinV8 .marketContextEvidenceWorkbench` |
+| `app/_analysis/harin-market-intelligence.css:195` | `decorative-gradient` | `/* Phase 19-5 · product-isolated KAMIS, KMA and YouTube public context Evidence. */ .harinV8 .marketContextEvidenceWorkbench` |
+| `app/_analysis/harin-market-intelligence.css:196` | `decorative-gradient` | `.harinV8 .marketContextEvidenceControl` |
+| `app/_analysis/harin-market-intelligence.css:206` | `border-and-shadow` | `/* Phase 20-2 · product-isolated MFDS, HACCP, ingredient and USDA label cross-check. */ .harinV8 .marketLabelEvidenceWorkbench` |
+| `app/_analysis/harin-market-intelligence.css:206` | `decorative-gradient` | `/* Phase 20-2 · product-isolated MFDS, HACCP, ingredient and USDA label cross-check. */ .harinV8 .marketLabelEvidenceWorkbench` |
+| `app/_analysis/harin-market-intelligence.css:207` | `decorative-gradient` | `.harinV8 .marketLabelEvidenceGuardrail` |
+| `app/_analysis/harin-market-intelligence.css:208` | `decorative-gradient` | `.harinV8 .marketLabelEvidenceControl` |
+| `app/_analysis/harin-market-intelligence.css:218` | `border-and-shadow` | `/* Phase 20-3 · product-isolated Customs, Korea Eximbank and KOSIS market context. */ .harinV8 .rawMarketEvidenceWorkbench` |
+| `app/_analysis/harin-market-intelligence.css:218` | `decorative-gradient` | `/* Phase 20-3 · product-isolated Customs, Korea Eximbank and KOSIS market context. */ .harinV8 .rawMarketEvidenceWorkbench` |
+| `app/_analysis/harin-market-intelligence.css:218` | `radial-glow` | `/* Phase 20-3 · product-isolated Customs, Korea Eximbank and KOSIS market context. */ .harinV8 .rawMarketEvidenceWorkbench` |
+| `app/_analysis/harin-market-intelligence.css:219` | `decorative-gradient` | `.harinV8 .rawMarketEvidenceGuardrail` |
+| `app/_analysis/harin-market-intelligence.css:220` | `decorative-gradient` | `.harinV8 .rawMarketEvidenceControl` |
 | `app/_analysis/keyword-bid-capability-panel.css:1` | `border-and-shadow` | `.keywordCapabilityPanel` |
 | `app/_analysis/keyword-bid-capability-panel.css:1` | `decorative-gradient` | `.keywordCapabilityPanel` |
 | `app/_analysis/keyword-bid-capability-panel.css:1` | `radial-glow` | `.keywordCapabilityPanel` |
@@ -203,18 +197,6 @@
 | `app/_design-system/harin-bulk-selection.css:1` | `decorative-gradient` | `.v8BulkSelectionBar` |
 | `app/_design-system/harin-bulk-selection.css:4` | `glass-blur` | `.v8BulkSelectionBar.active` |
 | `app/_design-system/harin-v8.css:133` | `border-and-shadow` | `.v8Card` |
-| `app/_execution/harin-execution-v8.css:3` | `border-and-shadow` | `/* Route-scoped legacy styles moved from globals.css in Phase 23 hardening. */ /* Phase 13-7: diagnosis, approval, validation, and experiment workflow. */ .executionWorkflow` |
-| `app/_execution/harin-execution-v8.css:3` | `decorative-gradient` | `/* Route-scoped legacy styles moved from globals.css in Phase 23 hardening. */ /* Phase 13-7: diagnosis, approval, validation, and experiment workflow. */ .executionWorkflow` |
-| `app/_execution/harin-execution-v8.css:3` | `radial-glow` | `/* Route-scoped legacy styles moved from globals.css in Phase 23 hardening. */ /* Phase 13-7: diagnosis, approval, validation, and experiment workflow. */ .executionWorkflow` |
-| `app/_execution/harin-execution-v8.css:4` | `decorative-gradient` | `.executionWorkflow:before` |
-| `app/_execution/harin-execution-v8.css:6` | `decorative-gradient` | `.executionWorkflowStep>a.active` |
-| `app/_execution/harin-execution-v8.css:15` | `border-and-shadow` | `.executionHero` |
-| `app/_execution/harin-execution-v8.css:15` | `decorative-gradient` | `.executionHero` |
-| `app/_execution/harin-execution-v8.css:15` | `radial-glow` | `.executionHero` |
-| `app/_execution/harin-execution-v8.css:18` | `border-and-shadow` | `.executionStageRail>a` |
-| `app/_execution/harin-execution-v8.css:18` | `decorative-gradient` | `.executionStageRail>a.active` |
-| `app/_execution/harin-execution-v8.css:19` | `border-and-shadow` | `.executionDecisionDesk` |
-| `app/_execution/harin-execution-v8.css:19` | `decorative-gradient` | `.executionDecisionDesk` |
 | `app/_main/harin-main-v8.css:3` | `border-and-shadow` | `.harinV8 .mainDailyHero` |
 | `app/_main/harin-main-v8.css:3` | `decorative-gradient` | `.harinV8 .mainDailyHero` |
 | `app/_main/harin-main-v8.css:3` | `radial-glow` | `.harinV8 .mainDailyHero` |
@@ -392,7 +374,6 @@
 | `app/_reliability/harin-reliability-v8.css:9` | `border-and-shadow` | `.reliabilityWorkerSignals,.reliabilityExceptionPreview` |
 | `app/_reliability/harin-reliability-v8.css:18` | `border-and-shadow` | `.notificationAlertDetail` |
 | `app/_shell/harin-entry-v8.css:19` | `border-and-shadow` | `.harinV8 .loginCard` |
-| `app/_shell/harin-shell-v8.css:223` | `decorative-gradient` | `.harinV8 .mobileNavGroup[open]` |
 | `app/_workspace/harin-owner-workspace.css:3` | `border-and-shadow` | `.ownerWorkspaceTrigger` |
 | `app/_workspace/harin-owner-workspace.css:3` | `border-and-shadow` | `.ownerWorkspacePanel` |
 | `app/_workspace/harin-owner-workspace.css:3` | `border-and-shadow` | `.ownerWorkspaceSearch` |

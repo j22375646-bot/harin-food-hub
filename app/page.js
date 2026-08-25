@@ -1109,6 +1109,41 @@ async function buildReportsDashboardData({
   };
 }
 
+async function buildExecutionDashboardData({
+  view,loaderSession,generatedAt,queryIssues,syncResult,alertsResult,
+  reportsResult,actionsResult,evaluationsResult,automationResult,
+  financialChanges=[],financialAudits=[],experiments=[],latestAiPageResults
+}) {
+  const shell=await buildFocusedShellData({
+    queryIssues,syncResult,alertsResult,generatedAt,
+    summaries:{NAVER:'실행 근거 확인',CAFE24:'실행 근거 확인',COUPANG:'실행 근거 확인'}
+  });
+  const reports=reportsResult.data||[];
+  const actions=actionsResult.data||[];
+  const evaluations=evaluationsResult.data||[];
+  const automationRuns=automationResult.data||[];
+  const reportLearningHistory=reportLearningModule.buildLearningHistory({reports,automationRuns});
+  const execution=retentionValidationModule.buildExecutionValidation({
+    actions,evaluations,reports,experiments,financialChanges,financialAudits,asOf:generatedAt
+  });
+  const retentionValidation={execution};
+  const builtPanels=aiPagePanelsModule.buildAiPagePanels({
+    dataHealth:shell.dataHealth,collectionCenter:shell.collectionCenter,alerts:shell.alerts,
+    reportLearningHistory,retentionValidation,experiments,
+    aiConfiguration:openaiClientModule.configuration(),generatedAt,
+    period:kstScheduleModule.kstDateKey(generatedAt)
+  });
+  const aiPagePanels=finalizeAiPagePanels({[view]:builtPanels[view]},latestAiPageResults,generatedAt,[view]);
+  return {
+    loadedView:view,loadedWorkspace:null,loaderPerformance:loaderSession.snapshot(),generatedAt,
+    dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
+    reports,reportLearningHistory,actions,retentionValidation,experiments,automationRuns,aiPagePanels,
+    financialTrust:{},naverBidWorkbench:{summary:{},candidates:[],execution_enabled:false},
+    kpis:{sales:0,orders:0,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:0},
+    products:[],syncs:shell.syncs,alerts:shell.alerts,qualityChecks:[],metricSnapshots:[]
+  };
+}
+
 async function buildChangesDashboardData({
   loaderSession,generatedAt,queryIssues,syncResult,alertsResult,
   reportsResult,actionsResult,evaluationsResult,automationResult,
@@ -1208,7 +1243,8 @@ async function getDashboardData(state) {
   const focusedProductWorkspace=view==='product'&&(['mappings','offers'].includes(state?.workspace)||(state?.workspace==='catalog'&&state?.platform!=='coupang'));
   const focusedProductPerformance=view==='product'&&['profit','ad-targets'].includes(state?.workspace);
   const focusedInsightProfitability=view==='insight'&&state?.workspace==='profitability';
-  const focusedEarlyReturn=view==='main'||view==='orders'||view==='cs'||view==='inventory'||view==='reports'||view==='changes'||focusedInsightReport||focusedInsightProfitability||focusedKeywordHistory||(view==='product'&&state?.workspace==='costs')||focusedProductWorkspace||focusedProductPerformance||focusedSearchTerms||focusedKeywordWorkspace||focusedKeywordPerformance;
+  const focusedExecutionView=['validation','experiments'].includes(view);
+  const focusedEarlyReturn=view==='main'||view==='orders'||view==='cs'||view==='inventory'||view==='reports'||view==='changes'||focusedExecutionView||focusedInsightReport||focusedInsightProfitability||focusedKeywordHistory||(view==='product'&&state?.workspace==='costs')||focusedProductWorkspace||focusedProductPerformance||focusedSearchTerms||focusedKeywordWorkspace||focusedKeywordPerformance;
   const needsPacing=new Set(['main','insight','keyword','product','reports','changes']).has(view)&&!focusedEarlyReturn;
   const pacingPromise = (needsPacing?pacingService.buildPacingDashboard({ db }):Promise.resolve({status:'NO_DATA',channels:[],reasons:[]})).catch(error => {
     console.error('[dashboard] pacing unavailable', error);
@@ -1242,7 +1278,7 @@ async function getDashboardData(state) {
     phase7:Promise.allSettled([
       db.from('financial_change_requests').select('id,change_type,platform,target_key,status,before_value,proposed_value,impact_preview,created_at,approved_at,executed_at,verified_at,rolled_back_at,verification_result,error_message').order('created_at',{ascending:false}).limit(100),
       db.from('financial_change_audit_logs').select('id,change_request_id,event_type,from_status,to_status,created_at').order('created_at',{ascending:true}).limit(1000),
-      db.from('ab_tests').select('id,name,platform,status,evaluation_status,result_summary,created_at,ab_test_variants(id,entity_id)').order('created_at',{ascending:false}).limit(100)
+      db.from('ab_tests').select('id,name,platform,hypothesis,start_date,end_date,status,evaluation_status,winner_variant_id,result_summary,created_at,ab_test_variants(id,name,is_control,entity_id,impressions,clicks,conversions,orders,revenue)').order('created_at',{ascending:false}).limit(100)
     ]),
     csAudits:Promise.allSettled([
       db.from('coupang_operation_requests').select('id,operation_type,target_type,target_id,status,created_at,executed_at,error_message').in('target_type',['INQUIRY','RETURN','EXCHANGE']).order('created_at',{ascending:false}).limit(300)
@@ -1624,6 +1660,27 @@ async function getDashboardData(state) {
       loaderSession,generatedAt,queryIssues,syncResult,alertsResult,
       financialChanges:phase7Settled.results[0].data||[],
       cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,
+      latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[])
+    });
+  }
+  if(focusedExecutionView){
+    const [phase7Raw,aiResultsRaw]=await Promise.all([
+      supplementalQueries.phase7,supplementalQueries.aiResults
+    ]);
+    const phase7Settled=dataHealthModule.settleQueries(phase7Raw,[
+      {platform:'SHARED',dataset:'financial_change_requests'},
+      {platform:'SHARED',dataset:'financial_change_audit_logs'},
+      {platform:'SHARED',dataset:'ab_tests'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const aiResultsSettled=dataHealthModule.settleQueries(aiResultsRaw,[
+      {platform:'SHARED',dataset:'ai_analysis_results'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    queryIssues.push(...phase7Settled.issues,...aiResultsSettled.issues);
+    return buildExecutionDashboardData({
+      view,loaderSession,generatedAt,queryIssues,syncResult,alertsResult,
+      reportsResult,actionsResult,evaluationsResult,automationResult,
+      financialChanges:phase7Settled.results[0].data||[],financialAudits:phase7Settled.results[1].data||[],
+      experiments:phase7Settled.results[2].data||[],
       latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[])
     });
   }

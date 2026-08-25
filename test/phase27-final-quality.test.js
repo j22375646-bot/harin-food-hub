@@ -1,0 +1,30 @@
+'use strict';
+
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+
+const root=path.resolve(__dirname,'..');
+const read=file=>fs.readFileSync(path.join(root,file),'utf8');
+
+test('27-8 실행검증과 A/B 테스트는 거대한 공통 로더를 건너뛴다',()=>{
+  const source=read('app/page.js');
+  assert.match(source,/const focusedExecutionView=\['validation','experiments'\]\.includes\(view\)/);
+  assert.match(source,/async function buildExecutionDashboardData\(/);
+  assert.match(source,/if\(focusedExecutionView\)\{/);
+  assert.ok(
+    source.indexOf("if(focusedExecutionView){")<source.indexOf('const productTargetSettled='),
+    '실행 화면 전용 반환은 공통 상품·광고 로더보다 먼저 끝나야 합니다.'
+  );
+});
+
+test('27-8 실행 화면은 판단과 실험 미리보기에 필요한 근거만 보존한다',()=>{
+  const source=read('app/page.js');
+  for(const field of ['hypothesis','start_date','end_date','winner_variant_id','is_control','impressions','clicks','conversions','orders','revenue']){
+    assert.match(source,new RegExp(field));
+  }
+  assert.match(source,/finalizeAiPagePanels\(\{\[view\]:builtPanels\[view\]\}/);
+  assert.match(source,/loadedView:view/);
+  assert.match(source,/retentionValidation,experiments,automationRuns,aiPagePanels/);
+});
