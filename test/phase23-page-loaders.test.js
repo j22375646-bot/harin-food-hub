@@ -247,3 +247,9 @@ test('26-8 prewarms Naver change inputs and keeps unrelated Coupang jobs out of 
   assert.match(page,/changesBidInputsPromise[\s\S]*?change_keyword_performance/);
   assert.match(page,/if\(view==='changes'\)[\s\S]*?changesBidInputsPromise/);
 });
+
+test('26-8 loads only indexed latest report links for the change workbench',()=>{
+  const page=read('app/page.js');
+
+  assert.match(page,/view==='changes'[\s\S]*?from\('reports'\)[\s\S]*?select\('id,platform,title,created_at'\)[\s\S]*?eq\('is_latest',true\)[\s\S]*?order\('created_at',\{ascending:false\}\)[\s\S]*?limit\(12\)/);
+});
