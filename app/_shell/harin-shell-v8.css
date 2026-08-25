@@ -113,6 +113,7 @@ html[data-harin-ui="v8"]{
 .harinV8 .hubBreadcrumb{min-height:34px;margin-bottom:18px}
 .harinV8 .hubBreadcrumb li{font-size:14px}
 .harinV8 .hubBreadcrumb li:last-child{color:var(--v8-lavender-strong)}
+.harinV8 .hubMain[data-tone]{--harin-chart-primary:var(--nav-ink);--harin-chart-primary-soft:var(--nav-soft)}
 .harinV8 .hubMain[data-tone] .hubBreadcrumb li:last-child{color:var(--nav-ink)}
 .harinV8 .hubMain[data-tone] .v8PageHeaderEyebrow{color:var(--nav-ink)}
 .harinV8 .hubMain[data-tone] .v8PageHeader .v8Pictogram{background:var(--nav-soft);color:var(--nav-ink)}

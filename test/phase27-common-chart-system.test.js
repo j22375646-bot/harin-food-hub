@@ -61,6 +61,7 @@ test('27-2 common chart components expose status, evidence summary, and screen-r
   const ui=read('app/_design-system/harin-ui.js');
   const css=read('app/_design-system/harin-v8.css');
   const tokens=read('app/_design-system/harin-brand-tokens.css');
+  const shell=read('app/_shell/harin-shell-v8.css');
 
   assert.match(ui,/data-chart-status=\{model\.status\}/);
   assert.match(ui,/data-chart-evidence=/);
@@ -71,5 +72,6 @@ test('27-2 common chart components expose status, evidence summary, and screen-r
   assert.match(css,/\.v8ChartDataTable/);
   assert.match(tokens,/--harin-chart-primary:/);
   assert.match(tokens,/--harin-chart-missing:/);
+  assert.match(shell,/\.hubMain\[data-tone\]\{--harin-chart-primary:var\(--nav-ink\);--harin-chart-primary-soft:var\(--nav-soft\)\}/);
   assert.doesNotMatch(css.slice(css.indexOf('.v8MetricChart'),css.indexOf('.v8StateCard')),/(?:linear|radial|conic)-gradient/);
 });
