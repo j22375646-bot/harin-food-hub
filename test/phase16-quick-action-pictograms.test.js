@@ -13,7 +13,7 @@ test('16-9 replaces quick-action text symbols with the shared pictogram system',
   assert.match(source,/import \{ HarinIcon \}/);
   assert.match(source,/HarinQuickAction/);
   assert.match(read('app/_design-system/harin-ui.js'),/export function HarinQuickAction/);
-  for(const icon of ['growth','search','store','settlement','keyword','shield','product','link','ai'])assert.match(source,new RegExp(`['"]${icon}['"]`));
+  for(const icon of ['growth','search','settlement','checklist','keyword','shield','product','link','ai'])assert.match(source,new RegExp(`['"]${icon}['"]`));
   assert.doesNotMatch(source,/INSIGHT_ROUTES\.map\(\(\[id,label,description\],index\)/);
   assert.doesNotMatch(source,/<i>(?:▦|⌕|₩|↗|□|≠|AI)<\/i>/);
 });

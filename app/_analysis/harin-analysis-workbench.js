@@ -189,10 +189,9 @@ export default function HarinAnalysisWorkbench({view,workspace,platform='all',da
   const pageLabel=view==='insight'?'성과 분석':view==='keyword'?'광고 키워드 운영':'상품 성장 운영';
   return <HarinPageFrame kind="analysis" className={`analysisV8 analysisV8-${view}`}>
     {view!=='keyword'?<HarinPageHeader className="analysisHero" eyebrow={pageLabel} title={meta[0]} description={meta[1]} icon={view} tone={view==='product'?'amber':'lavender'} note="숫자는 서버 계산 · 자료 부족은 판단 보류" metrics={heroMetrics}/>:null}
-    {view!=='keyword'?<HarinPageToolbar className="analysisFocusToolbar" label="빠른 작업" description="지금 필요한 분석 위치로 바로 이동해요.">
+    {view==='product'?<HarinPageToolbar className="analysisFocusToolbar" label="빠른 작업" description="지금 필요한 상품 위치로 바로 이동해요.">
       <nav className="analysisFocusRail" aria-label="이 화면의 빠른 작업">
-        {view==='insight'?<>{INSIGHT_ROUTES.map(([id,label,description,icon,tone])=>{const query=platform==='all'?'':`?platform=${platform}`;return <HarinQuickAction as={Link} active={workspace===id} href={`/insights/${id}${query}`} icon={icon} tone={tone} eyebrow={label} title={description} key={id}/>;})}</>:null}
-        {view==='product'?<><HarinQuickAction as={Link} active={workspace==='catalog'} href="/products/catalog" icon="product" tone="amber" eyebrow="상품" title="판매 가능 목록"/><HarinQuickAction href="#product-channel-differences" icon="link" tone="blue" eyebrow="비교" title="채널 차이 확인"/><HarinQuickAction href="#page-ai-analysis" icon="ai" tone="lavender" eyebrow="설명" title="상품 AI 분석"/></>:null}
+        <HarinQuickAction as={Link} active={workspace==='catalog'} href="/products/catalog" icon="product" tone="amber" eyebrow="상품" title="판매 가능 목록"/><HarinQuickAction href="#product-channel-differences" icon="link" tone="blue" eyebrow="비교" title="채널 차이 확인"/><HarinQuickAction href="#page-ai-analysis" icon="ai" tone="lavender" eyebrow="설명" title="상품 AI 분석"/>
       </nav>
     </HarinPageToolbar>:null}
     <HarinPageContent className="analysisPageContent">
@@ -213,13 +212,6 @@ export default function HarinAnalysisWorkbench({view,workspace,platform='all',da
     <HarinPageAiRegion className="analysisAiSlot" id="page-ai-analysis" title={`${pageLabel} AI 분석`}>{aiPanel}</HarinPageAiRegion>
   </HarinPageFrame>;
 }
-
-const INSIGHT_ROUTES=[
-  ['overview','요약','오늘의 변화','growth','lavender'],
-  ['causes','원인','왜 달라졌는지','search','blue'],
-  ['channels','채널','플랫폼 비교','store','mint'],
-  ['profitability','수익','실제로 남는 돈','settlement','amber']
-];
 
 const KEYWORD_QUICK_ACTIONS=[
   ['registered','/keywords/registered','운영','플랫폼별 키워드 표','keyword','blue'],

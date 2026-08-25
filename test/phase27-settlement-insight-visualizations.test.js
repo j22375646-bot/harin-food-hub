@@ -35,4 +35,6 @@ test('27-4 인사이트는 변화, 원인, 이익, 행동 시각화를 분리하
   assert.match(source, /이익/);
   assert.match(source, /행동/);
   assert.match(source, /scopeReportPlatform\(report\.platform,platform\)/);
+  assert.doesNotMatch(source, /view!=='keyword'\?<HarinPageToolbar/);
+  assert.match(source, /view==='product'\?<HarinPageToolbar/);
 });
