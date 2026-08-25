@@ -4,6 +4,7 @@ import './_operations/harin-operations-v8.css';
 import { useDeferredValue, useMemo, useState } from 'react';
 import Link from 'next/link';
 import HarinIcon from './_design-system/harin-icon.js';
+import ProductReadinessFlow from './_products/product-readiness-flow.js';
 
 const CHANNELS = [
   ['CAFE24','Cafe24','cafe24'],
@@ -62,8 +63,9 @@ export default function UnifiedProductOperationsCenter({ center = {} }) {
     </div>
     <details className="productOpsHelp"><summary>이 화면은 어떻게 쓰나요?</summary><p><b>예:</b> Cafe24에서는 판매 중인데 쿠팡이 품절이면 해당 상품에 ‘쿠팡 품절’이 표시됩니다. 먼저 빨간 표시를 확인하고, 가격차나 미연결 상품을 이어서 검토하세요. 네이버 광고그룹은 스마트스토어 실상품으로 계산하지 않습니다.</p></details>
     <div className="productOpsKpis">
-      {KPI_ITEMS.map(([icon,label,key])=><span key={key}><i><HarinIcon name={icon} size={18}/></i><small>{label}</small><b>{summary[key] || 0}개</b></span>)}
+      {KPI_ITEMS.map(([icon,label,key])=><span key={key}><i><HarinIcon name={icon} size={18}/></i><small>{label}</small><b>{Object.prototype.hasOwnProperty.call(summary,key)&&summary[key]!=null?`${Number(summary[key]).toLocaleString('ko-KR')}개`:'판단 보류'}</b></span>)}
     </div>
+    <ProductReadinessFlow center={center}/>
     <div className="productOpsToolbar">
       <nav aria-label="상품 운영 필터">{FILTERS.map(([id,icon,label]) => <button type="button" className={filter === id ? 'active' : ''} onClick={() => {setFilter(id);setVisibleCount(24);}} key={id}><HarinIcon name={icon} size={15}/>{label}</button>)}</nav>
       <label><HarinIcon name="search" size={17}/><input aria-label="상품명 검색" placeholder="상품명 검색" value={query} onChange={event => {setQuery(event.target.value);setVisibleCount(24);}}/></label>

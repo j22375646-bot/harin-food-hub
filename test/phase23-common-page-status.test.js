@@ -14,6 +14,7 @@ const main = read('app/_main/harin-main-command-center.js');
 const analysis = read('app/_analysis/harin-analysis-workbench.js');
 const execution = read('app/_execution/harin-execution-workbench.js');
 const project = read('app/market-intelligence/project-home.js');
+const selectedProductFlow = read('app/market-intelligence/selected-product-development-flow.js');
 const styles = read('app/globals.css');
 
 test('relative freshness labels use short owner-readable elapsed times', () => {
@@ -52,5 +53,6 @@ test('major workbench top labels use simple Korean instead of decorative English
   for (const value of ['PERFORMANCE SNAPSHOT','CAUSE PATH','CHANNEL MATRIX','PROFIT WATERFALL']) assert.doesNotMatch(analysis, new RegExp(value));
   for (const value of ['기간별 성과 요약','원인 흐름','채널 비교표','실제 이익 흐름']) assert.match(analysis, new RegExp(value));
   for (const value of ['진단 근거','변경 안전 기록','실행 결과 검증','실험 학습']) assert.match(execution, new RegExp(value));
-  for (const value of ['상품개발','재사용 개발 흐름','개발 진행판']) assert.match(project, new RegExp(value));
+  for (const value of ['상품개발','어떤 상품을 키워볼까요?']) assert.match(project, new RegExp(value));
+  for (const value of ['현재 선택 상품','자료 준비','결과 학습']) assert.match(selectedProductFlow, new RegExp(value));
 });

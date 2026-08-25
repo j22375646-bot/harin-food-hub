@@ -51,12 +51,15 @@ test('22-5 links experiments to the selected master product and project',()=>{
 
 test('22-5 presents the reusable center without a fixed pilot product',()=>{
   const home=read('app/market-intelligence/project-home.js');
+  const selectedFlow=read('app/market-intelligence/selected-product-development-flow.js');
   const lab=read('app/_execution/harin-experiment-lab.js');
   const marketNav=routes.HUB_NAV.find(item=>item.id==='market');
   assert.equal(marketNav.label,'상품개발');
-  assert.match(home,/상품별 개발 현황/);
-  assert.match(home,/master_product_id=/);
+  assert.match(home,/SelectedProductDevelopmentFlow/);
+  assert.match(selectedFlow,/현재 선택 상품/);
+  assert.match(selectedFlow,/master_product_id=/);
   assert.doesNotMatch(home,/작수차|작두콩차/);
+  assert.doesNotMatch(selectedFlow,/작수차|작두콩차/);
   assert.match(lab,/상품별 실험 보기/);
   assert.match(lab,/다른 상품의 결과는 섞지 않습니다/);
 });

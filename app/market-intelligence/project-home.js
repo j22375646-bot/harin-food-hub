@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { HarinBadge, HarinButton, HarinCard, HarinPageFrame, HarinPageHeader, HarinPictogram, HarinProgressiveDetails, HarinSectionHeading } from '../_design-system/harin-ui.js';
+import { HarinButton, HarinPageFrame, HarinPageHeader, HarinPictogram, HarinProgressiveDetails } from '../_design-system/harin-ui.js';
+import SelectedProductDevelopmentFlow from './selected-product-development-flow.js';
 
 const won=value=>value==null?'가격 확인 필요':`${Math.round(Number(value)||0).toLocaleString('ko-KR')}원`;
 
@@ -45,17 +46,7 @@ export default function MarketProjectHome({initialData}){
       {message?<p className="marketProjectMessage" role="status">{message}</p>:null}
     </section>
 
-    <section className="marketFlowSection">
-      <HarinSectionHeading eyebrow="재사용 개발 흐름" title="상품마다 같은 흐름으로 끝까지 이어가요" description="개발 순서는 재사용하되 근거와 숫자, 실험 결과는 선택 상품에만 저장합니다." icon="growth"/>
-      <div className="marketFlowGrid">
-        {[['01','database','blue','자료 준비','파일·출처·상품 근거'],['02','analysis','lavender','시장 분석','시장범위·수요 신호'],['03','search','pink','경쟁 분석','리뷰 불편·차별화'],['04','target','mint','전환 설계','장벽·구성·재구매'],['05','experiments','amber','A/B 실험','가설·표본·성과 비교'],['06','analysis','blue','결과 학습','7·14일 검증·다음 개발']].map(([number,icon,tone,title,description])=><article data-tone={tone} key={number}><i>{number}</i><HarinPictogram icon={icon} tone={tone} size={20}/><span><b>{title}</b><small>{description}</small></span></article>)}
-      </div>
-    </section>
-
-    <section className="marketRecentSection">
-      <HarinSectionHeading eyebrow="개발 진행판" title="상품별 개발 현황" description="판매 중인 상품의 시장 준비·실험·결과 단계를 한눈에 비교하고 바로 이어가세요." icon="clock" aside={<HarinBadge tone="lavender">{products.length}개 상품</HarinBadge>}/>
-      {products.length?<div className="marketProjectGrid">{products.map(product=>{const project=product.project,development=product.development||{};const experimentHref=`/ab-tests?master_product_id=${encodeURIComponent(product.id)}${project?`&market_project_id=${encodeURIComponent(project.id)}`:''}`;return <HarinCard className="marketProjectCard marketDevelopmentCard" interactive key={product.id}><header><HarinPictogram icon="growth" tone={development.key==='LEARNED'?'mint':'lavender'} size={20}/><HarinBadge tone={development.progress>=80?'success':development.progress?'lavender':'neutral'}>{development.label}</HarinBadge></header><div><small>{won(product.selling_price)}</small><h3>{product.name}</h3><p>{project?`${project.project_name} · 버전 ${project.active_version}`:'아직 상품개발 기록이 없습니다.'}</p></div><div className="marketDevelopmentProgress" aria-label={`${product.name} 개발 진행률 ${development.progress||0}%`}><span><i style={{width:`${development.progress||0}%`}}/></span><b>{development.progress||0}%</b></div><div className="marketDevelopmentFacts"><span><small>실행계획</small><b>{development.plans||0}개</b></span><span><small>A/B 실험</small><b>{development.experiments||0}개</b></span><span><small>결과 기록</small><b>{development.reports||0}개</b></span></div><footer><HarinButton variant="secondary" icon="growth" onClick={()=>openProject(product.id)} disabled={busy}>{project?'개발 이어가기':'개발 시작'}</HarinButton><HarinButton as={Link} href={experimentHref} variant="secondary" icon="experiments">이 상품 실험</HarinButton></footer></HarinCard>;})}</div>:<section className="marketEmptyProjects"><HarinPictogram icon="growth" tone="lavender" size={26}/><div><b>판매 중인 기준상품이 없어요</b><p>상품목록에서 판매 중 상품을 준비하면 개발 프로젝트를 시작할 수 있습니다.</p></div></section>}
-    </section>
+    <SelectedProductDevelopmentFlow selected={selected} onOpen={()=>openProject()} busy={busy}/>
 
     <HarinProgressiveDetails eyebrow="페이지별 AI" title="시장·전환 프로젝트 AI는 어떻게 동작하나요?" description="다른 페이지 AI와 합치지 않고 선택 상품의 검수된 근거만 사용합니다." count="사용 시작 전 · 비용 0원">
       <div className="marketAiPreview"><HarinPictogram icon="ai" tone="lavender"/><span><b>현재 외부 AI 호출은 잠겨 있어요.</b><p>자료실과 시장·경쟁 근거가 준비된 뒤 이 상품 프로젝트 안에서만 분석하도록 연결합니다.</p></span></div>
