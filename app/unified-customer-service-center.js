@@ -1,10 +1,13 @@
 "use client";
 
 import "./_operations/harin-operations-v8.css";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useStoredState } from "./use-hub-preference.js";
 import { HarinIcon } from "./_design-system/harin-icon.js";
-import { HarinPageAiRegion, HarinPageFrame, HarinPageHeader } from "./_design-system/harin-ui.js";
+import { HarinEmptyState, HarinPageAiRegion, HarinPageFrame, HarinPageHeader } from "./_design-system/harin-ui.js";
+import visualizationModule from "../lib/ui/visualization.js";
+
+const { buildRecentDailyCounts } = visualizationModule;
 
 const count = (value) => Number(value || 0).toLocaleString("ko-KR");
 const dateTime = (value) =>
@@ -686,6 +689,16 @@ export default function UnifiedCustomerServiceCenter({ center, aiPanel }) {
   });
   useEffect(() => setVisibleCount(20), [workspace, platform, kind, due, query]);
   const visibleRows = rows.slice(0, visibleCount);
+  const relevantChannels = (data.channelStates || []).filter(
+    (item) => platform === "ALL" || item.platform === platform,
+  );
+  const hasReadableChannel = relevantChannels.some(
+    (item) => !["SETUP_REQUIRED", "FAILED", "ERROR", "NO_DATA"].includes(String(item.status || "").toUpperCase()),
+  );
+  const recentCsTrend = useMemo(
+    () => buildRecentDailyCounts(data.rows || [], { days: 7 }),
+    [data.rows],
+  );
   const kindTabs = [
     ["ALL", "전체"],
     ["INQUIRY", "문의"],
@@ -820,13 +833,19 @@ export default function UnifiedCustomerServiceCenter({ center, aiPanel }) {
               <ClaimCard row={row} key={row.id} />
             ),
           )
+        ) : hasReadableChannel ? (
+          <HarinEmptyState
+            state="empty"
+            title={workspace === "HISTORY" ? "아직 완료된 처리 이력이 없어요" : workspace === "CLAIMS" ? "지금 처리할 클레임이 없어요" : "지금 처리할 문의가 없어요"}
+            description="정상적으로 0건인 상태입니다. 최근 7일 접수 흐름은 아래에서 함께 확인할 수 있어요."
+            trend={recentCsTrend}
+          />
         ) : (
-          <div className="unifiedCsEmpty">
-            <b>이 조건에서 처리할 항목이 없습니다.</b>
-            <span>
-              연결되지 않은 채널은 위 상태 카드에서 확인할 수 있습니다.
-            </span>
-          </div>
+          <HarinEmptyState
+            state="uncollected"
+            title="CS 자료가 아직 수집되지 않았어요"
+            description="위 채널 상태에서 연결 설정이나 실패 원인을 확인한 뒤 전체 CS 수집을 실행해 주세요."
+          />
         )}
       </div>}
       {workspace !== "TEMPLATES" && visibleRows.length < rows.length ? <button type="button" className="unifiedCsMore" onClick={() => setVisibleCount((value) => value + 20)}>CS 20건 더 보기 · 남은 {count(rows.length - visibleRows.length)}건</button> : null}

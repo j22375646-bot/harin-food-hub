@@ -5,7 +5,7 @@ import { useDeferredValue, useMemo, useState } from 'react';
 import remainingBulkModule from '../lib/operations/remaining-bulk-workflows.js';
 import { HarinBulkCheckbox, HarinBulkSelectionBar, useHarinBulkSelection } from './_design-system/harin-bulk-selection.js';
 import { HarinIcon } from './_design-system/harin-icon.js';
-import { HarinPageAiRegion, HarinPageFrame, HarinPageHeader } from './_design-system/harin-ui.js';
+import { HarinEmptyState, HarinMetricChart, HarinPageAiRegion, HarinPageFrame, HarinPageHeader } from './_design-system/harin-ui.js';
 import inventoryLotModule from '../lib/inventory/lot-center.js';
 
 const { replenishmentRows, replenishmentRowsToCsv, replenishmentRowsToText, replenishmentTarget } = remainingBulkModule;
@@ -133,8 +133,8 @@ function InventoryLotWorkbench({ inventory, lots, setLots, onChooseItem }) {
       <button className="primary" type="submit" disabled={saving}><HarinIcon name={saving?'sync':'check'} size={18}/>{saving?'저장 중…':'LOT 저장'}</button>
       {message?<p role="status">{message}</p>:null}
     </form>
-    <section className="inventoryLotList"><header><div><span>EXPIRY PRIORITY</span><h2>먼저 확인할 유통기한</h2></div><small>가까운 날짜 순</small></header>{summary.active.length?summary.active.map(lot=>{const item=inventoryMap.get(String(lot.vendor_item_id));return <article className={`priority${lot.expiry.priority}`} key={lot.id||`${lot.vendor_item_id}-${lot.lot_code}`}><LotStatusBadge expiry={lot.expiry}/><div><b>{item?itemName(item):`상품번호 ${lot.vendor_item_id}`}</b><small>LOT {lot.lot_code} · 유통기한 {lot.expires_on}</small></div><span><small>기록 수량</small><b>{count(lot.quantity)}개</b></span><em>{lot.notes||'메모 없음'}</em><nav aria-label={`LOT ${lot.lot_code} 작업`}><button type="button" onClick={()=>editLot(lot)}>수정</button><button type="button" onClick={()=>finishLot(lot)} disabled={saving}>소진 완료</button></nav></article>}):<div className="inventoryOpsEmpty">아직 기록된 입고 LOT가 없습니다.</div>}</section>
-    <section className="inventoryLotUnregistered"><header><div><span>NOT REGISTERED</span><h2>유통기한을 아직 기록하지 않은 판매 상품</h2></div><small>{count(summary.unregistered.length)}개</small></header>{summary.unregistered.length?<div>{summary.unregistered.map(item=><article key={itemKey(item)}><span><b>{itemName(item)}</b><small>SKU {itemSku(item)} · 판매가능 {count(item.total_orderable_quantity)}개</small></span><button type="button" onClick={()=>chooseItem(item)}>LOT 입력</button></article>)}</div>:<div className="inventoryOpsEmpty">판매 중인 모든 SKU에 활성 LOT가 있습니다.</div>}</section>
+    <section className="inventoryLotList"><header><div><span>EXPIRY PRIORITY</span><h2>먼저 확인할 유통기한</h2></div><small>가까운 날짜 순</small></header>{summary.active.length?summary.active.map(lot=>{const item=inventoryMap.get(String(lot.vendor_item_id));return <article className={`priority${lot.expiry.priority}`} key={lot.id||`${lot.vendor_item_id}-${lot.lot_code}`}><LotStatusBadge expiry={lot.expiry}/><div><b>{item?itemName(item):`상품번호 ${lot.vendor_item_id}`}</b><small>LOT {lot.lot_code} · 유통기한 {lot.expires_on}</small></div><span><small>기록 수량</small><b>{count(lot.quantity)}개</b></span><em>{lot.notes||'메모 없음'}</em><nav aria-label={`LOT ${lot.lot_code} 작업`}><button type="button" onClick={()=>editLot(lot)}>수정</button><button type="button" onClick={()=>finishLot(lot)} disabled={saving}>소진 완료</button></nav></article>}):<HarinEmptyState state="uncollected" title="입고 LOT를 아직 기록하지 않았어요" description="실제 입고표의 LOT 번호와 유통기한을 위 입력란에 기록하면 가까운 날짜 순으로 정리합니다."/>}</section>
+    <section className="inventoryLotUnregistered"><header><div><span>NOT REGISTERED</span><h2>유통기한을 아직 기록하지 않은 판매 상품</h2></div><small>{count(summary.unregistered.length)}개</small></header>{summary.unregistered.length?<div>{summary.unregistered.map(item=><article key={itemKey(item)}><span><b>{itemName(item)}</b><small>SKU {itemSku(item)} · 판매가능 {count(item.total_orderable_quantity)}개</small></span><button type="button" onClick={()=>chooseItem(item)}>LOT 입력</button></article>)}</div>:<HarinEmptyState state="empty" title="판매 중인 모든 SKU에 활성 LOT가 있어요" description="지금 추가로 기록해야 할 유통기한이 없습니다."/>}</section>
   </section>;
 }
 
@@ -227,6 +227,7 @@ export default function UnifiedInventoryOperationsCenter({ coupang = {}, aiPanel
   const bulkSelection=useHarinBulkSelection({allIds:inventory.map(itemKey),filteredIds:bulkFilteredItems.map(itemKey),visibleIds:bulkVisibleItems.map(itemKey)});
   const selectedItems=useMemo(()=>{const selected=bulkSelection.selectedSet;return inventory.filter(item=>selected.has(itemKey(item)));},[inventory,bulkSelection.selectedSet]);
   const history=useMemo(()=>[...inventory].filter(item=>item.snapshot_at||item.updated_at).sort((a,b)=>Date.parse(b.snapshot_at||b.updated_at)-Date.parse(a.snapshot_at||a.updated_at)),[inventory]);
+  const visualInventory=useMemo(()=>[...inventory].sort((a,b)=>number(b.sales_last_30_days)-number(a.sales_last_30_days)).slice(0,6),[inventory]);
 
   function openWorkspace(id,nextFilter) {
     setWorkspace(id);
@@ -287,25 +288,27 @@ export default function UnifiedInventoryOperationsCenter({ coupang = {}, aiPanel
       {WORKSPACES.map(([id,label,description])=><button type="button" className={workspace===id?'active':''} onClick={()=>openWorkspace(id)} key={id}><span>{label}</span><small>{description}</small><b>{count(workspaceCounts[id])}</b></button>)}
     </nav>
 
+    {workspace==='OVERVIEW'&&visualInventory.length?<section className="inventoryVisualSummary"><HarinMetricChart kind="bar" title="판매 속도와 현재 재고를 함께 봐요" description="최근 30일 판매량이 큰 상품부터 최대 6개를 비교합니다." labels={visualInventory.map(item=>itemName(item).length>14?`${itemName(item).slice(0,14)}…`:itemName(item))} series={[{label:'판매가능 재고',tone:'blue',values:visualInventory.map(item=>item.total_orderable_quantity)},{label:'최근 30일 판매',tone:'amber',values:visualInventory.map(item=>item.sales_last_30_days)}]}/></section>:null}
+
     {['OVERVIEW','RISK'].includes(workspace)?<>
       <section className="inventoryOpsToolbar">
         <nav aria-label="로켓그로스 재고 필터">{FILTERS.map(([id,label])=><button type="button" className={filter===id?'active':''} onClick={()=>{setFilter(id);setVisibleCount(24);}} key={id}>{label}</button>)}</nav>
         <input type="search" aria-label="로켓그로스 상품명 검색" placeholder="상품명·SKU 찾기" value={query} onChange={event=>{setQuery(event.target.value);setVisibleCount(24);}}/>
       </section>
       {bulkBar}
-      <section className="inventoryOpsList">{displayed.map(item=><RocketGrowthInventoryRow item={item} selected={bulkSelection.isSelected(itemKey(item))} onSelect={checked=>bulkSelection.toggle(itemKey(item),checked)} key={item.vendor_item_id}/>) }{!filtered.length&&<div className="inventoryOpsEmpty">이 조건에 해당하는 판매 상품이 없습니다.</div>}</section>
+      <section className="inventoryOpsList">{displayed.map(item=><RocketGrowthInventoryRow item={item} selected={bulkSelection.isSelected(itemKey(item))} onSelect={checked=>bulkSelection.toggle(itemKey(item),checked)} key={item.vendor_item_id}/>) }{!filtered.length&&(sourceInventory.length?<HarinEmptyState state="empty" title="이 조건에 해당하는 판매 상품이 없어요" description="판매중단·30일 판매 0개·판매가능 0개 SKU는 운영 화면에서 제외합니다."/>:<HarinEmptyState state="uncollected" title="로켓그로스 재고가 아직 수집되지 않았어요" description="재고 수집 버튼을 누르면 서울 고정 IP 서버에서 판매 중 SKU를 가져옵니다."/>)}</section>
       {workspace!=='OVERVIEW'&&visibleCount<filtered.length?<button className="opsLoadMore" type="button" onClick={()=>setVisibleCount(value=>value+24)}>SKU 24개 더 보기 <small>{visible.length}/{filtered.length}</small></button>:null}
     </>:null}
 
     {workspace==='REPLENISH'?<>
       <section className="inventoryPlannerControls"><div><span><HarinIcon name="sparkles" size={20}/><b>목표 보유일을 골라보세요</b></span><p>로켓그로스 판매가능 수량과 최근 30일 판매속도로 필요한 입고량을 다시 계산합니다.</p></div><nav aria-label="목표 재고 보유일">{[14,30,45,60].map(days=><button type="button" className={targetDays===days?'active':''} onClick={()=>setTargetDays(days)} key={days}>{days}일</button>)}</nav><aside><small>현재 선택</small><b>{targetDays}일분</b><em>미리보기만 제공</em></aside></section>
       {bulkBar}
-      <section className="inventoryReplenishmentList">{replenishmentItems.length?replenishmentItems.map(item=><RocketGrowthReplenishmentCard item={item} targetDays={targetDays} selected={bulkSelection.isSelected(itemKey(item))} onSelect={checked=>bulkSelection.toggle(itemKey(item),checked)} key={item.vendor_item_id}/>):<div className="inventoryOpsEmpty">판매 표본이 있는 로켓그로스 SKU가 없습니다.</div>}</section>
+      <section className="inventoryReplenishmentList">{replenishmentItems.length?replenishmentItems.map(item=><RocketGrowthReplenishmentCard item={item} targetDays={targetDays} selected={bulkSelection.isSelected(itemKey(item))} onSelect={checked=>bulkSelection.toggle(itemKey(item),checked)} key={item.vendor_item_id}/>):<HarinEmptyState state={sourceInventory.length?'empty':'uncollected'} title={sourceInventory.length?'입고량을 계산할 판매 상품이 없어요':'로켓그로스 재고가 아직 수집되지 않았어요'} description="최근 30일 판매와 판매가능 재고가 함께 있는 SKU만 입고 미리보기를 계산합니다."/>}</section>
     </>:null}
 
     {workspace==='EXPIRY'?<InventoryLotWorkbench inventory={inventory} lots={lotRecords} setLots={setLotRecords}/>:null}
 
-    {workspace==='HISTORY'?<section className="inventoryHistoryList"><header><div><span>ROCKET GROWTH SNAPSHOTS</span><h2>SKU별 최근 재고 기준 시각</h2></div><small>쿠팡 로켓그로스 API 기준</small></header>{history.length?history.map(item=><article key={item.vendor_item_id}><span className={String(item.stock_status||'unknown').toLowerCase()}>RG</span><b>{itemName(item)}</b><small>{dateTime(item.snapshot_at||item.updated_at)}</small></article>):<div className="inventoryOpsEmpty">로켓그로스 재고 수집 기록이 없습니다.</div>}</section>:null}
+    {workspace==='HISTORY'?<section className="inventoryHistoryList"><header><div><span>ROCKET GROWTH SNAPSHOTS</span><h2>SKU별 최근 재고 기준 시각</h2></div><small>쿠팡 로켓그로스 API 기준</small></header>{history.length?history.map(item=><article key={item.vendor_item_id}><span className={String(item.stock_status||'unknown').toLowerCase()}>RG</span><b>{itemName(item)}</b><small>{dateTime(item.snapshot_at||item.updated_at)}</small></article>):<HarinEmptyState state="uncollected" title="로켓그로스 재고 수집 기록이 없어요" description="최초 수집이 끝나면 SKU별 기준 시각을 여기에 표시합니다."/>}</section>:null}
 
     <HarinPageAiRegion className="operationsAiSlot inventoryAiSlot" id="page-ai-analysis" title="로켓그로스 재고 AI 분석">{aiPanel}</HarinPageAiRegion>
     <details className="inventoryOpsHelp"><summary>도움말 · 어떤 상품과 날짜를 보나요?</summary><div><p><b>최근 30일 판매와 판매가능 재고가 모두 있는 상품</b>만 표시합니다. 판매중단·판매 0개·판매가능 0개 SKU와 Cafe24·네이버·판매자배송 재고는 섞지 않아요.</p><p><b>유통기한·LOT</b>는 쿠팡 재고 API가 제공하는 값이 아니라 실제 입고표를 보고 사장님이 기록한 운영 자료입니다. 30일 안 만료부터 먼저 확인할 수 있어요.</p></div></details>

@@ -3,9 +3,11 @@
 import { useState } from 'react';
 import HarinIcon from './harin-icon.js';
 import brandSystem from '../../lib/ui/brand-system.js';
+import visualizationModule from '../../lib/ui/visualization.js';
 
 const join=(...values)=>values.filter(Boolean).join(' ');
 const { resolveStatusTone }=brandSystem;
+const { buildChartModel, buildWaterfallModel }=visualizationModule;
 
 export function HarinPictogram({ icon='sparkles', tone='lavender', label, size=20, className='' }) {
   return <span className={join('v8Pictogram',`v8Pictogram-${tone}`,className)} aria-label={label}><HarinIcon name={icon} size={size}/></span>;
@@ -116,8 +118,97 @@ export function HarinPageAiRegion({ title='이 페이지의 AI 분석', descript
   </section>;
 }
 
-export function HarinEmptyState({ icon='sparkles', title='표시할 자료가 없어요', description, action, className='' }) {
-  return <section className={join('v8EmptyState',className)}><HarinPictogram icon={icon} tone="lavender" size={22}/><div><b>{title}</b>{description?<p>{description}</p>:null}</div>{action||null}</section>;
+export function HarinEmptyState({ state='empty', icon, title, description, action, trend, trendLabel='최근 7일 접수', className='' }) {
+  const resolvedState=['empty','uncollected','error'].includes(state)?state:'empty';
+  const meta={
+    empty:{icon:'check',tone:'mint',title:'지금 처리할 항목이 없어요'},
+    uncollected:{icon:'download',tone:'amber',title:'아직 수집된 자료가 없어요'},
+    error:{icon:'warning',tone:'pink',title:'자료를 불러오지 못했어요'},
+  }[resolvedState];
+  const trendValues=Array.isArray(trend)?trend:[];
+  return <section className={join('v8EmptyState',`v8EmptyState-${resolvedState}`,trendValues.length&&'v8EmptyState-withTrend',className)} data-empty-state={resolvedState}>
+    <HarinPictogram icon={icon||meta.icon} tone={meta.tone} size={22}/>
+    <div><b>{title||meta.title}</b>{description?<p>{description}</p>:null}</div>
+    {trendValues.length?<HarinMetricChart className="v8EmptyStateTrend" compact kind="line" title={trendLabel} labels={trendValues.map(item=>item.label)} series={[{label:'접수',tone:'blue',values:trendValues.map(item=>item.value)}]}/>:null}
+    {action?<div className="v8EmptyStateAction">{action}</div>:null}
+  </section>;
+}
+
+function chartSegments(values,max,width,height,padding) {
+  const count=Math.max(values.length,1);
+  const points=values.map((value,index)=>value==null?null:{
+    x:padding+(count===1?(width-padding*2)/2:index*(width-padding*2)/(count-1)),
+    y:height-padding-(Math.abs(value)/max)*(height-padding*2),
+    value,
+  });
+  const segments=[];
+  let current=[];
+  for(const point of points){
+    if(point)current.push(point);
+    else if(current.length){segments.push(current);current=[];}
+  }
+  if(current.length)segments.push(current);
+  return {points,segments};
+}
+
+export function HarinMetricChart({ kind='line', title, description, labels=[], series=[], compact=false, valueFormatter=(value)=>Number(value).toLocaleString('ko-KR'), className='' }) {
+  const model=buildChartModel({labels,series});
+  if(model.status==='UNCOLLECTED')return <HarinEmptyState state="uncollected" title={`${title||'차트'} 자료가 아직 없어요`} description="수집이 끝나면 확인된 값만 표시합니다. 비어 있는 값은 0으로 바꾸지 않아요." className={className}/>;
+  const width=640,height=compact?104:190,padding=compact?12:24;
+  const chartLabel=`${title||'지표 차트'} · ${model.series.map(item=>`${item.label} ${item.values.map(value=>value==null?'확인 필요':valueFormatter(value)).join(', ')}`).join(' · ')}`;
+  return <figure className={join('v8MetricChart',`v8MetricChart-${kind}`,compact&&'compact',model.hasMissingEvidence&&'hasMissingEvidence',className)} data-chart-kind={kind}>
+    <figcaption><span><b>{title}</b>{description?<small>{description}</small>:null}</span>{model.hasMissingEvidence?<em>일부 자료 확인 필요</em>:null}</figcaption>
+    <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={chartLabel} preserveAspectRatio="none">
+      <line className="v8ChartBaseline" x1={padding} x2={width-padding} y1={height-padding} y2={height-padding}/>
+      {kind==='bar'?model.series.flatMap((item,seriesIndex)=>item.values.map((value,index)=>{
+        if(value==null)return null;
+        const groupWidth=(width-padding*2)/Math.max(model.labels.length,1);
+        const barWidth=Math.max(4,Math.min(26,(groupWidth-8)/Math.max(model.series.length,1)));
+        const barHeight=Math.abs(value)/model.max*(height-padding*2);
+        const x=padding+index*groupWidth+(groupWidth-barWidth*model.series.length)/2+seriesIndex*barWidth;
+        return <rect className={`v8ChartSeries-${item.tone}`} x={x} y={height-padding-barHeight} width={Math.max(2,barWidth-2)} height={barHeight} rx="3" key={`${item.id}-${index}`}><title>{model.labels[index]} · {item.label} {valueFormatter(value)}</title></rect>;
+      })):model.series.flatMap(item=>{
+        const chart=chartSegments(item.values,model.max,width,height,padding);
+        return <g className={`v8ChartSeries-${item.tone}`} key={item.id}>{chart.segments.map((segment,index)=><polyline points={segment.map(point=>`${point.x},${point.y}`).join(' ')} key={`${item.id}-line-${index}`}/>)}{chart.points.map((point,index)=>point?<circle cx={point.x} cy={point.y} r={compact?3:4} key={`${item.id}-point-${index}`}><title>{model.labels[index]} · {item.label} {valueFormatter(point.value)}</title></circle>:null)}</g>;
+      })}
+    </svg>
+    {!compact?<><div className="v8ChartLabels">{model.labels.map((label,index)=><span key={`${label}-${index}`}>{label}</span>)}</div><div className="v8ChartLegend">{model.series.map(item=><span key={item.id}><i className={`v8ChartSeries-${item.tone}`}/>{item.label}</span>)}</div></>:null}
+  </figure>;
+}
+
+export function HarinWaterfallChart({ title, description, items=[], footer, valueFormatter=(value)=>`${Math.round(Number(value)).toLocaleString('ko-KR')}원`, className='' }) {
+  const model=buildWaterfallModel(items);
+  if(model.status==='UNCOLLECTED')return <HarinEmptyState state="uncollected" icon="settlement" title={`${title||'정산 흐름'} 자료가 아직 없어요`} description="채널 정산 자료가 들어오면 매출부터 예상 정산액까지 순서대로 표시합니다." className={className}/>;
+  return <section className={join('v8WaterfallChart',model.hasMissingEvidence&&'hasMissingEvidence',className)}>
+    <header><span><h2>{title}</h2>{description?<p>{description}</p>:null}</span>{model.hasMissingEvidence?<em>확인되지 않은 금액 포함</em>:null}</header>
+    <div className="v8WaterfallSteps">{model.items.map((item,index)=><article className={join(`v8Waterfall-${item.tone||'neutral'}`,item.displayStatus==='CHECK_REQUIRED'&&'checkRequired')} key={item.id}>
+      <span><small>{String(index+1).padStart(2,'0')}</small><b>{item.label}</b>{item.description?<em>{item.description}</em>:null}</span>
+      <i aria-hidden="true"><span style={{'--v8-waterfall-ratio':item.value==null?0:Math.abs(item.value)/model.max}}/></i>
+      <strong>{item.value==null?'확인 필요':valueFormatter(item.value)}</strong>
+    </article>)}</div>
+    {footer?<footer>{footer}</footer>:null}
+  </section>;
+}
+
+export function HarinDonutChart({ title, description, items=[], valueFormatter=(value)=>`${Math.round(Number(value)).toLocaleString('ko-KR')}원`, className='' }) {
+  const normalized=(Array.isArray(items)?items:[]).slice(0,5).map((item,index)=>({
+    ...item,
+    id:item.id||`donut-${index+1}`,
+    value:item.value===null||item.value===undefined||item.value===''?null:Number(item.value),
+    tone:item.tone||['blue','lavender','amber','mint','pink'][index%5],
+  })).filter(item=>Number.isFinite(item.value)&&item.value>=0);
+  const total=normalized.reduce((sum,item)=>sum+item.value,0);
+  if(!normalized.length)return <HarinEmptyState state="uncollected" title={`${title||'채널 비중'} 자료가 아직 없어요`} description="비교 가능한 확정 또는 예상 금액이 들어오면 비중을 표시합니다." className={className}/>;
+  const radius=52,circumference=2*Math.PI*radius;
+  let cursor=0;
+  return <figure className={join('v8DonutChart',className)}>
+    <figcaption><b>{title}</b>{description?<small>{description}</small>:null}</figcaption>
+    <div><svg viewBox="0 0 140 140" role="img" aria-label={`${title||'채널 비중'} · ${normalized.map(item=>`${item.label} ${valueFormatter(item.value)}`).join(' · ')}`}>
+      <circle className="v8DonutTrack" cx="70" cy="70" r={radius}/>
+      {normalized.map(item=>{const length=total>0?item.value/total*circumference:0;const offset=-cursor;cursor+=length;return <circle className={`v8DonutSegment v8ChartSeries-${item.tone}`} cx="70" cy="70" r={radius} strokeDasharray={`${length} ${circumference-length}`} strokeDashoffset={offset} key={item.id}><title>{item.label} · {valueFormatter(item.value)}</title></circle>;})}
+      <text x="70" y="64" textAnchor="middle">합계</text><text className="value" x="70" y="84" textAnchor="middle">{total>0?valueFormatter(total):'0원'}</text>
+    </svg><ul>{normalized.map(item=><li key={item.id}><i className={`v8ChartSeries-${item.tone}`}/><span><b>{item.label}</b><small>{total>0?`${(item.value/total*100).toFixed(1)}%`:'0.0%'}</small></span><strong>{valueFormatter(item.value)}</strong></li>)}</ul></div>
+  </figure>;
 }
 
 export function HarinStateCard({ tone='neutral', status, icon='shield', label, value, description, className='' }) {

@@ -3,7 +3,7 @@
 import './_operations/harin-operations-v8.css';
 import { useMemo, useState } from 'react';
 import { HarinIcon } from './_design-system/harin-icon.js';
-import { HarinPageAiRegion, HarinPageFrame, HarinPageHeader } from './_design-system/harin-ui.js';
+import { HarinDonutChart, HarinEmptyState, HarinPageAiRegion, HarinPageFrame, HarinPageHeader, HarinWaterfallChart } from './_design-system/harin-ui.js';
 
 const statusMeta = {
   ACTUAL:{label:'확정 자료',tone:'actual'}, ESTIMATED:{label:'예상 자료',tone:'estimated'},
@@ -58,18 +58,14 @@ function ChannelCard({ channel }) {
 }
 
 function SettlementWaterfall({ waterfall={} }) {
-  const rows=[
-    ['결제·매출',waterfall.gross_sales,'plus','전체 결제 금액','price'],
-    ['취소·환불',waterfall.refunds,'minus','매출에서 제외','warning'],
-    ['채널·결제 수수료',waterfall.fees,'minus','확인된 수수료','settlement'],
-    ['예상 정산 반영액',waterfall.expected_payout,'result','상품 원가·광고비 제외','growth']
+  const items=[
+    {label:'결제·매출',value:waterfall.gross_sales,tone:'plus',description:'전체 결제 금액'},
+    {label:'취소·환불',value:waterfall.refunds,tone:'minus',description:'매출에서 제외'},
+    {label:'채널·결제 수수료',value:waterfall.fees,tone:'minus',description:'확인된 수수료'},
+    {label:'예상 정산 반영액',value:waterfall.expected_payout,tone:'result',description:'상품 원가·광고비 제외'}
   ];
-  const max=Math.max(1,...rows.map(([,value])=>Math.abs(Number(value||0))));
-  return <section className="settlementWaterfall settlementMoneyJourney">
-    <header><div className="settlementSectionTitle"><i><HarinIcon name="growth" size={22}/></i><span><small>MONEY FLOW</small><h2>매출에서 정산액까지</h2><p>정산액의 흐름만 보여드려요. 상품 원가와 광고비를 반영한 실제 이익은 상품 화면에서 확인하세요.</p></span></div><small>최근 30일 · 서버 계산</small></header>
-    <div>{rows.map(([label,value,tone,description,icon],index)=><article className={tone} key={label}><span className="settlementJourneyHeading"><i><HarinIcon name={icon} size={17}/></i><span className="settlementJourneyCopy"><b>{label}</b><small><span>{String(index+1).padStart(2,'0')}</span>{description}</small></span></span><meter min="0" max={max} value={value==null?0:Math.abs(Number(value))}/><strong>{wonOrCheck(value)}</strong>{index<rows.length-1?<HarinIcon name="chevron" size={17}/>:null}</article>)}</div>
-    <footer><span><HarinIcon name="truck" size={18}/><small>별도 확인 물류비</small><b>{wonOrCheck(waterfall.logistics)}</b></span><span><HarinIcon name="settlement" size={18}/><small>실제 지급액 합계</small><b>{wonOrCheck(waterfall.actual_payout)}</b></span><span className={waterfall.variance<0?'negative':''}><HarinIcon name="growth" size={18}/><small>예상 대비 차이</small><b>{signedWon(waterfall.variance)}</b></span></footer>
-  </section>;
+  const facts=<><span><HarinIcon name="truck" size={18}/><small>별도 확인 물류비</small><b>{wonOrCheck(waterfall.logistics)}</b></span><span><HarinIcon name="settlement" size={18}/><small>실제 지급액 합계</small><b>{wonOrCheck(waterfall.actual_payout)}</b></span><span className={waterfall.variance<0?'negative':''}><HarinIcon name="growth" size={18}/><small>예상 대비 차이</small><b>{signedWon(waterfall.variance)}</b></span></>;
+  return <HarinWaterfallChart className="settlementEvidenceWaterfall settlementJourneyCopy" title="매출에서 정산액까지" description="정산액의 흐름만 보여드려요. 상품 원가와 광고비를 반영한 실제 이익은 상품 화면에서 확인하세요." items={items} footer={facts}/>;
 }
 
 export default function UnifiedSettlementOperationsCenter({ center = {}, children, aiPanel }) {
@@ -85,6 +81,7 @@ export default function UnifiedSettlementOperationsCenter({ center = {}, childre
     if(aCheck!==bCheck)return bCheck-aCheck;
     return Number(a.payout_variance??0)-Number(b.payout_variance??0);
   }),[channels]);
+  const channelShare=useMemo(()=>channels.map((channel,index)=>({id:channel.platform,label:channel.label||channel.platform,value:channel.actual_payout??channel.expected_payout,tone:['blue','lavender','amber','mint','pink'][index%5]})).filter(item=>item.value!=null&&Number(item.value)>=0),[channels]);
   const nextSchedule=schedules.find(item=>item.date)||null;
 
   return <HarinPageFrame kind="operations" className="settlementOpsCenter settlementOpsV8">
@@ -104,10 +101,10 @@ export default function UnifiedSettlementOperationsCenter({ center = {}, childre
 
     {workspace==='SUMMARY'?<>
       <SettlementWaterfall waterfall={center.waterfall}/>
-      <section className="settlementOpsSchedule"><header><div className="settlementSectionTitle"><i><HarinIcon name="clock" size={21}/></i><span><small>PAYMENT SCHEDULE</small><h2>최근 정산 일정</h2></span></div><small>현재 연결된 확정 정산 자료 기준</small></header>{schedules.length ? <div>{schedules.slice(0,6).map((item,index)=><article key={`${item.platform}-${item.date}-${index}`}><i><HarinIcon name={platformIcon(item.platform)} size={16}/></i><span>{item.platform}</span><b>{item.date}</b><strong>{wonOrCheck(item.amount)}</strong><small>{item.type || item.status || '정산'}</small></article>)}</div> : <p>가져온 정산 일정이 없습니다. 채널 정산 자료를 수집하면 지급일과 금액이 여기에 표시됩니다.</p>}</section>
+      <section className="settlementOpsSchedule"><header><div className="settlementSectionTitle"><i><HarinIcon name="clock" size={21}/></i><span><small>PAYMENT SCHEDULE</small><h2>최근 정산 일정</h2></span></div><small>현재 연결된 확정 정산 자료 기준</small></header>{schedules.length ? <div>{schedules.slice(0,6).map((item,index)=><article key={`${item.platform}-${item.date}-${index}`}><i><HarinIcon name={platformIcon(item.platform)} size={16}/></i><span>{item.platform}</span><b>{item.date}</b><strong>{wonOrCheck(item.amount)}</strong><small>{item.type || item.status || '정산'}</small></article>)}</div> : <HarinEmptyState state="uncollected" title="가져온 정산 일정이 아직 없어요" description="채널 정산 자료가 수집되면 지급 예정일과 확인된 금액을 여기에 표시합니다."/>}</section>
     </>:null}
 
-    {workspace==='RECONCILIATION'?<section className="settlementReconciliationWorkbench"><header><div className="settlementSectionTitle"><i><HarinIcon name="checklist" size={22}/></i><span><small>RECONCILIATION</small><h2>차이가 큰 채널부터 확인해요</h2><p>자료 확인이 필요하거나 실제 지급액이 예상보다 적은 채널을 앞에 배치했습니다.</p></span></div><aside><small>비교 가능한 채널</small><b>{count(center.waterfall?.comparable_channels)}개</b></aside></header><div className="settlementOpsChannels" aria-label="채널별 정산 상태">{reconciliation.map(channel=><ChannelCard channel={channel} key={channel.platform}/>)}</div></section>:null}
+    {workspace==='RECONCILIATION'?<section className="settlementReconciliationWorkbench"><header><div className="settlementSectionTitle"><i><HarinIcon name="checklist" size={22}/></i><span><small>RECONCILIATION</small><h2>차이가 큰 채널부터 확인해요</h2><p>자료 확인이 필요하거나 실제 지급액이 예상보다 적은 채널을 앞에 배치했습니다.</p></span></div><aside><small>비교 가능한 채널</small><b>{count(center.waterfall?.comparable_channels)}개</b></aside></header>{channelShare.length>1?<HarinDonutChart className="settlementChannelShare" title="채널별 정산액 비중" description="확정 지급액이 있으면 확정값을, 없으면 예상 정산액을 사용합니다." items={channelShare}/>:null}<div className="settlementOpsChannels" aria-label="채널별 정산 상태">{reconciliation.length?reconciliation.map(channel=><ChannelCard channel={channel} key={channel.platform}/>):<HarinEmptyState state="uncollected" title="대조할 채널 정산 자료가 없어요" description="정산 수집이 끝나면 채널별 예상액과 실제 지급액을 분리해 비교합니다."/>}</div></section>:null}
 
     {workspace==='COSTS'?<>
       <section className="settlementCostGuide"><div className="settlementSectionTitle"><i><HarinIcon name="price" size={22}/></i><span><small>COST SETTINGS</small><h2>비용 누락부터 채워주세요</h2><p>상품 원가와 채널 수수료·배송비는 상품 화면에서 한 번만 관리합니다. 이 화면은 정산 자료와 비용 설정이 맞는지 대조하는 곳이에요.</p></span></div><a href="/products"><HarinIcon name="product" size={17}/>상품·원가 설정 열기</a><ul>{channels.map(channel=><li key={channel.platform}><i><HarinIcon name={platformIcon(channel.platform)} size={16}/></i><b>{channel.label}</b><span>{channel.status==='COST_REQUIRED'?'수수료·결제수수료·배송비 입력 필요':channel.status==='UNAVAILABLE'?'수집 연결 확인 필요':channel.status==='NO_DATA'?'정산 자료 수집 대기':'비용 계산 가능'}</span></li>)}</ul></section>
