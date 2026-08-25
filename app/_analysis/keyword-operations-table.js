@@ -10,6 +10,7 @@ import { HarinBulkCheckbox, HarinBulkSelectionBar, useHarinBulkSelection } from 
 import KeywordBidRulePanel from './keyword-bid-rule-panel.js';
 import KeywordBidSchedulePanel from './keyword-bid-schedule-panel.js';
 import KeywordBidOperationsOverview from './keyword-bid-operations-overview.js';
+import KeywordPerformanceFlow from './keyword-performance-flow.js';
 import KeywordBidHistoryPanel from './keyword-bid-history-panel.js';
 import KeywordBidInlineTrend from './keyword-bid-inline-trend.js';
 import KeywordOperatingScopePanel from './keyword-operating-scope-panel.js';
@@ -362,6 +363,7 @@ export default function KeywordOperationsTable({workspace='registered',platform=
       <div className="keywordOpsAdgroupRail" role="list" aria-label="광고그룹 빠른 필터"><button type="button" className={adgroupId==='ALL'?'active':''} onClick={()=>selectAdgroup('ALL')}><i>ALL</i><span><b>전체 광고그룹</b><small>{count(campaignWorkspace.summary.keywords)}개 키워드 · {won(campaignWorkspace.summary.cost)}</small></span></button>{campaignWorkspace.adgroups.map(item=><button type="button" role="listitem" className={`${adgroupId===item.id?'active':''} ${item.operationalState==='INACTIVE'?'inactive':''}`} key={item.id} onClick={()=>selectAdgroup(item.id)}><i>G</i><span><b>{item.name}</b>{item.operationalState==='INACTIVE'?<strong className="adCategoryBadge inactive">사용중지</strong>:null}<small>{count(item.keywordCount)}개 키워드 · {won(item.cost)}</small></span><em>{percent(item.roas)}</em></button>)}</div>
     </details>:null}
     {!isCoupang&&groupEnabled&&(campaignId!=='ALL'||adgroupId!=='ALL')?<KeywordOperatingScopePanel campaignId={campaignId} campaignName={selectedCampaignName} adgroupId={adgroupId} adgroupName={selectedAdgroupName}/>:null}
+    {['registered','diagnosis'].includes(workspace)?<KeywordPerformanceFlow platform={platform} rows={tableSourceRows}/>:null}
     {!isCoupang&&groupEnabled?<div className="keywordOpsOverviewPane"><KeywordBidOperationsOverview adgroups={naverGroupCatalog.adgroups} selectedAdgroupId={adgroupId} onSelectAdgroup={selectAdgroupFromOverview}/></div>:null}
     {!isCoupang&&groupEnabled&&adgroupId!=='ALL'?<div className="keywordOpsSchedulePane">{selectedAdgroup?.operationalState==='INACTIVE'?<p className="keywordOpsInactiveNotice"><strong className="adCategoryBadge inactive">사용중지</strong><span>중지된 광고 카테고리는 기록만 확인할 수 있고, 입찰가 변경과 자동입찰 예약에서는 제외됩니다.</span></p>:<KeywordBidSchedulePanel adgroupId={adgroupId} adgroupName={selectedAdgroup?.name||''} rules={bidRules}/>}</div>:null}
     <div className="keywordOpsToolbar">
