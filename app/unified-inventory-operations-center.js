@@ -288,7 +288,7 @@ export default function UnifiedInventoryOperationsCenter({ coupang = {}, aiPanel
       {WORKSPACES.map(([id,label,description])=><button type="button" className={workspace===id?'active':''} onClick={()=>openWorkspace(id)} key={id}><span>{label}</span><small>{description}</small><b>{count(workspaceCounts[id])}</b></button>)}
     </nav>
 
-    {workspace==='OVERVIEW'&&visualInventory.length?<section className="inventoryVisualSummary"><HarinMetricChart kind="bar" title="판매 속도와 현재 재고를 함께 봐요" description="최근 30일 판매량이 큰 상품부터 최대 6개를 비교합니다." labels={visualInventory.map(item=>itemName(item).length>14?`${itemName(item).slice(0,14)}…`:itemName(item))} series={[{label:'판매가능 재고',tone:'blue',values:visualInventory.map(item=>item.total_orderable_quantity)},{label:'최근 30일 판매',tone:'amber',values:visualInventory.map(item=>item.sales_last_30_days)}]}/></section>:null}
+    {workspace==='OVERVIEW'&&visualInventory.length?<section className="inventoryVisualSummary" data-core-visualization="inventory-stock-sales"><HarinMetricChart kind="bar" title="판매 속도와 현재 재고를 함께 봐요" description="최근 30일 판매량이 큰 상품부터 최대 6개를 비교합니다." labels={visualInventory.map(item=>itemName(item).length>14?`${itemName(item).slice(0,14)}…`:itemName(item))} series={[{label:'판매가능 재고',tone:'primary',values:visualInventory.map(item=>item.total_orderable_quantity)},{label:'최근 30일 판매',tone:'secondary',values:visualInventory.map(item=>item.sales_last_30_days)}]}/></section>:null}
 
     {['OVERVIEW','RISK'].includes(workspace)?<>
       <section className="inventoryOpsToolbar">

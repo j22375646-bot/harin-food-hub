@@ -4,7 +4,7 @@ import "./_operations/harin-operations-v8.css";
 import { useEffect, useMemo, useState } from "react";
 import { useStoredState } from "./use-hub-preference.js";
 import { HarinIcon } from "./_design-system/harin-icon.js";
-import { HarinEmptyState, HarinPageAiRegion, HarinPageFrame, HarinPageHeader } from "./_design-system/harin-ui.js";
+import { HarinEmptyState, HarinMetricChart, HarinPageAiRegion, HarinPageFrame, HarinPageHeader } from "./_design-system/harin-ui.js";
 import visualizationModule from "../lib/ui/visualization.js";
 
 const { buildRecentDailyCounts } = visualizationModule;
@@ -696,8 +696,8 @@ export default function UnifiedCustomerServiceCenter({ center, aiPanel }) {
     (item) => !["SETUP_REQUIRED", "FAILED", "ERROR", "NO_DATA"].includes(String(item.status || "").toUpperCase()),
   );
   const recentCsTrend = useMemo(
-    () => buildRecentDailyCounts(data.rows || [], { days: 7 }),
-    [data.rows],
+    () => buildRecentDailyCounts((data.rows || []).filter((row) => platform === "ALL" || row.platform === platform), { days: 7 }),
+    [data.rows, platform],
   );
   const kindTabs = [
     ["ALL", "전체"],
@@ -732,6 +732,7 @@ export default function UnifiedCustomerServiceCenter({ center, aiPanel }) {
           {syncing ? "수집 요청 중…" : "전체 CS 수집"}
         </button>
       </section>
+      {hasReadableChannel ? <section className="csCoreVisual" data-core-visualization="cs-trend"><HarinMetricChart kind="line" title="최근 7일 CS 접수 흐름" description={`${platformLabel[platform] || "전체 채널"}에서 실제 접수된 문의·취소·반품·교환 건수입니다.`} labels={recentCsTrend.map(item=>item.label)} series={[{label:'접수',tone:'primary',values:recentCsTrend.map(item=>item.value)}]} valueFormatter={value=>`${count(value)}건`}/></section> : null}
       <section className="csQuickMacros"><header><span><HarinIcon name="sparkles" size={18}/><b>빠른 답변 양식</b></span><button type="button" onClick={()=>setWorkspace("TEMPLATES")}>전체 양식 보기</button></header><div>{(data.templates||[]).slice(0,4).map(template=><button type="button" key={template.id} onClick={()=>copyQuickReply(template)}><span>{template.label}</span><small>복사 후 확인</small></button>)}</div>{macroMessage?<p role="status">{macroMessage}</p>:null}</section>
       <nav className="phase13WorkspaceNav customer" aria-label="CS 작업공간">
         {[

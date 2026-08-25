@@ -3,6 +3,7 @@
 import './harin-main-v8.css';
 import { useEffect, useMemo, useState } from 'react';
 import { HarinIcon } from '../_design-system/harin-icon.js';
+import { HarinMetricChart } from '../_design-system/harin-ui.js';
 
 const STATUS_LABEL={READY:'바로 처리',BLOCKED:'먼저 확인',ON_HOLD:'보류',COMPLETED:'완료'};
 const SOURCE_LABEL={TRUST_GATE:'재무 신뢰',ALERT:'운영 알림',DATA_QUALITY:'데이터 품질',ACTION:'실행 결정',PACING:'월 목표'};
@@ -109,7 +110,7 @@ function BusinessPacing({ metrics={}, likelihood={}, month, onOpenTargets }) {
     ['목표까지 부족',won(metrics.shortage),'현재 매출과 목표의 차이'],
     ['하루 필요 매출',won(metrics.requiredDailyRevenue),'남은 기간 매일 필요한 금액']
   ];
-  return <section className="mainPacing"><header><div><span>월간 매출 속도</span><h2>이번 달 매출 속도</h2></div><button type="button" onClick={onOpenTargets}>목표·계산 근거</button></header><div className="mainPacingGrid">{cards.map(([label,value,description],index)=><article className={index===4?'focus':''} key={label}><small>{label}</small><strong>{value}</strong><span>{description}</span></article>)}</div><aside className={String(likelihood.code||'check_required').toLowerCase()}><i><HarinIcon name="analysis" size={20}/></i><span><small>목표 달성 가능성</small><b>{likelihood.label||'계산 대기'}</b><em>{likelihood.description}</em></span></aside></section>;
+  return <section className="mainPacing"><header><div><span>월간 매출 속도</span><h2>이번 달 매출 속도</h2></div><button type="button" onClick={onOpenTargets}>목표·계산 근거</button></header><div className="mainPacingGrid">{cards.map(([label,value,description],index)=><article className={index===4?'focus':''} key={label}><small>{label}</small><strong>{value}</strong><span>{description}</span></article>)}</div><section className="mainPacingVisual" data-core-visualization="main-pacing"><HarinMetricChart kind="bar" title="현재 속도와 목표를 비교해요" description="현재 매출, 지금 속도로 예상한 월말 매출, 입력한 목표를 같은 기준으로 봅니다." labels={['현재 매출','월말 예상','이번 달 목표']} series={[{label:'매출 금액',tone:'primary',values:[metrics.current==null?null:metrics.current,metrics.forecast==null?null:metrics.forecast,metrics.target==null?null:metrics.target]}]} valueFormatter={won}/></section><aside className={String(likelihood.code||'check_required').toLowerCase()}><i><HarinIcon name="analysis" size={20}/></i><span><small>목표 달성 가능성</small><b>{likelihood.label||'계산 대기'}</b><em>{likelihood.description}</em></span></aside></section>;
 }
 
 function ChannelHealth({ channels=[], onOpen }) {
