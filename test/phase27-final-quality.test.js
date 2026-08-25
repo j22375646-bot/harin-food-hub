@@ -40,3 +40,11 @@ test('27-8 A/B 첫 화면은 실험과 해당 AI만 읽고 미수집 실행 단�
   assert.match(page,/experiments:view==='experiments'\?experiments:null/);
   assert.match(page,/const retentionValidation=executionDataLoaded\?\{execution\}:\{execution:null\}/);
 });
+
+test('27-8 A/B 모바일 글자는 14px 이상이고 입력 동작은 44px 이상이다',()=>{
+  const css=read('app/globals.css');
+
+  assert.match(css,/\.harinV8 \.hubMain\[data-view="experiments"\] \.experimentCreate label>span[\s\S]*?font-size:14px/);
+  assert.match(css,/\.harinV8 \.hubMain\[data-view="experiments"\] \.experimentCreate input[\s\S]*?min-height:44px/);
+  assert.match(css,/\.harinV8 \.hubMain\[data-view="experiments"\] \.experimentProductScope\{[\s\S]*?background:#f7f8fc/);
+});

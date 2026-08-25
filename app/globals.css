@@ -511,6 +511,44 @@ html[data-font-scale="xlarge"] main th{font-size:15px!important}html[data-font-s
 /* Phase 22-5 · product-scoped experiment selector. */
 .harinV8 .experimentProductScope{display:grid;grid-template-columns:minmax(220px,.75fr) minmax(280px,1fr) auto;align-items:end;gap:13px;margin:12px 0 18px;border:1px solid #ddd7ec;border-radius:20px;background:linear-gradient(135deg,#fff,#f6f2fc);padding:16px 18px}.harinV8 .experimentProductScope>div{display:flex;align-items:center;gap:10px}.harinV8 .experimentProductScope>div>svg{flex:none;color:#8173b6}.harinV8 .experimentProductScope>div>span,.harinV8 .experimentProductScope>label{display:flex;min-width:0;flex-direction:column;gap:4px}.harinV8 .experimentProductScope small,.harinV8 .experimentProductScope label>span{color:var(--v8-muted);font-size:13px}.harinV8 .experimentProductScope b{overflow:hidden;color:var(--v8-ink);font-size:17px;text-overflow:ellipsis;white-space:nowrap}.harinV8 .experimentProductScope select{width:100%;min-height:46px;border:1px solid #d9d3e7;border-radius:13px;background:#fff;padding:0 13px;color:var(--v8-ink);font:inherit;font-weight:800}.harinV8 .experimentProductScope>a{display:inline-flex;min-height:46px;align-items:center;justify-content:center;border:1px solid #d8d1e8;border-radius:13px;background:#fff;padding:0 14px;color:#6f619f;font-weight:900;text-decoration:none}.harinV8 .experimentProductScope select:focus,.harinV8 .experimentProductScope>a:focus-visible{outline:3px solid rgba(158,145,207,.24);outline-offset:2px}
 @media(max-width:760px){.harinV8 .experimentProductScope{grid-template-columns:1fr;padding:15px}.harinV8 .experimentProductScope>a{width:100%}}
+
+/* Phase 27-8: the experiment workbench is an operating form, so its labels and
+   controls must remain readable and tappable on the smallest supported phone. */
+.harinV8 .hubMain[data-view="experiments"] .experimentProductScope{background:#f7f8fc}
+.harinV8 .hubMain[data-view="experiments"] .experimentCreate{border-color:#e3e6ef;background:#fff}
+.harinV8 .hubMain[data-view="experiments"] .helpOpenLabel,
+.harinV8 .hubMain[data-view="experiments"] .helpCloseLabel,
+.harinV8 .hubMain[data-view="experiments"] .panelHead .period,
+.harinV8 .hubMain[data-view="experiments"] .experimentProductScope small,
+.harinV8 .hubMain[data-view="experiments"] .experimentProductScope label>span,
+.harinV8 .hubMain[data-view="experiments"] .experimentCreateHead>small,
+.harinV8 .hubMain[data-view="experiments"] .experimentCreate label>span,
+.harinV8 .hubMain[data-view="experiments"] .variantCreate b,
+.harinV8 .hubMain[data-view="experiments"] .experimentCard header span,
+.harinV8 .hubMain[data-view="experiments"] .experimentCard header small,
+.harinV8 .hubMain[data-view="experiments"] .experimentCard header em,
+.harinV8 .hubMain[data-view="experiments"] .benchmarkCard header em,
+.harinV8 .hubMain[data-view="experiments"] .hypothesis,
+.harinV8 .hubMain[data-view="experiments"] .variantResults span,
+.harinV8 .hubMain[data-view="experiments"] .variantResults b,
+.harinV8 .hubMain[data-view="experiments"] .variantResults small,
+.harinV8 .hubMain[data-view="experiments"] .experimentVerdict b,
+.harinV8 .hubMain[data-view="experiments"] .experimentVerdict small,
+.harinV8 .hubMain[data-view="experiments"] .experimentCard footer span,
+.harinV8 .hubMain[data-view="experiments"] .manualMetrics>section>b,
+.harinV8 .hubMain[data-view="experiments"] .manualMetrics label span,
+.harinV8 .hubMain[data-view="experiments"] .benchmarkCard header span,
+.harinV8 .hubMain[data-view="experiments"] .benchmarkCard section small,
+.harinV8 .hubMain[data-view="experiments"] .benchmarkCard footer span,
+.harinV8 .hubMain[data-view="experiments"] .benchmarkCard footer small{font-size:14px}
+.harinV8 .hubMain[data-view="experiments"] .experimentIntro button,
+.harinV8 .hubMain[data-view="experiments"] .experimentCreate input,
+.harinV8 .hubMain[data-view="experiments"] .experimentCreate select,
+.harinV8 .hubMain[data-view="experiments"] .experimentSubmit,
+.harinV8 .hubMain[data-view="experiments"] .experimentCard footer button,
+.harinV8 .hubMain[data-view="experiments"] .manualMetrics input{min-height:44px;font-size:15px}
+.harinV8 .hubMain[data-view="experiments"] .variantResults strong,
+.harinV8 .hubMain[data-view="experiments"] .benchmarkCard section strong{font-size:17px}
 .phase7HeroBadge b{max-width:130px;text-align:center}
 .phase8Automation>div{grid-template-columns:repeat(3,1fr)}
 
