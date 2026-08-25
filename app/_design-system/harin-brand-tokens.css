@@ -132,6 +132,17 @@ html[data-harin-ui="v8"]{
   --harin-motion-fast:150ms ease;
   --harin-motion-disclosure:180ms cubic-bezier(.2,.8,.2,1);
   --harin-motion-standard:220ms cubic-bezier(.2,.8,.2,1);
+
+  /* Evidence-aware chart contracts. Primary follows the current page identity. */
+  --harin-chart-primary:var(--nav-ink,var(--harin-color-action-strong));
+  --harin-chart-primary-soft:var(--nav-soft,var(--harin-color-action-soft));
+  --harin-chart-secondary:var(--harin-color-selection-strong);
+  --harin-chart-positive:var(--harin-color-success);
+  --harin-chart-warning:var(--harin-color-warning);
+  --harin-chart-negative:var(--harin-color-danger);
+  --harin-chart-grid:var(--harin-color-line);
+  --harin-chart-baseline:var(--harin-color-line-strong);
+  --harin-chart-missing:var(--harin-color-warning);
 }
 
 html[data-harin-ui="v8"][data-font-scale="xlarge"]{
