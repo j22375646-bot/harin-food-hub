@@ -477,4 +477,27 @@ html[data-font-scale="xlarge"] .unifiedOrdersCenter{--order-badge-height:34px;--
 .orderCoreVisual,.csCoreVisual{margin:0}
 .orderCoreVisual .v8MetricChart,.csCoreVisual .v8MetricChart,.inventoryVisualSummary .v8MetricChart{--v8-chart-primary:var(--v8-page-nav-ink,var(--v8-blue));--v8-chart-secondary:var(--v8-page-nav-soft,var(--v8-blue-soft))}
 .settlementEvidenceWaterfall>footer>span{display:grid;min-width:180px;grid-template-columns:28px minmax(0,1fr);align-items:center;gap:2px 8px;border-radius:var(--v8-radius-sm);background:var(--v8-surface-soft);padding:12px}.settlementEvidenceWaterfall>footer>span>svg{grid-row:1/3;color:var(--v8-lavender-strong)}.settlementEvidenceWaterfall>footer small{color:var(--v8-muted);font-size:var(--harin-type-support)}.settlementEvidenceWaterfall>footer b{font-size:var(--harin-type-body)}.settlementEvidenceWaterfall>footer .negative{background:var(--v8-pink-soft)}.settlementChannelShare{margin-bottom:16px}
+
+/* 27-4 settlement decision path: a flat sequence, not another nested card stack. */
+.settlementDecisionFlow{display:flex;min-width:0;flex-direction:column;gap:12px}
+.settlementDecisionFlow>ol{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;margin:0;border:1px solid var(--v8-line);border-radius:var(--v8-radius-lg);background:#fff;padding:0;list-style:none;overflow:hidden}
+.settlementDecisionFlow>ol>li{position:relative;display:grid;min-width:0;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:11px;min-height:104px;padding:16px 18px}
+.settlementDecisionFlow>ol>li+li{border-left:1px solid var(--v8-line)}
+.settlementDecisionFlow>ol>li:nth-child(1){background:var(--v8-blue-soft)}
+.settlementDecisionFlow>ol>li:nth-child(2){background:var(--v8-amber-soft)}
+.settlementDecisionFlow>ol>li:nth-child(3){background:var(--v8-mint-soft)}
+.settlementDecisionFlow li>i{display:grid;width:40px;height:40px;place-items:center;border-radius:13px;background:#fff;color:var(--v8-blue)}
+.settlementDecisionFlow li:nth-child(2)>i{color:var(--v8-amber-strong)}
+.settlementDecisionFlow li:nth-child(3)>i{color:var(--v8-mint-strong)}
+.settlementDecisionFlow li>span{display:grid;min-width:0;grid-template-columns:auto 1fr;gap:2px 7px;align-items:baseline}
+.settlementDecisionFlow li>span small{color:var(--v8-muted);font-size:var(--harin-type-caption);font-weight:900}
+.settlementDecisionFlow li>span b{color:var(--v8-ink);font-size:var(--harin-type-body)}
+.settlementDecisionFlow li>span strong{grid-column:1/-1;min-width:0;margin-top:4px;color:var(--v8-ink);font-size:18px;line-height:1.35;overflow-wrap:anywhere}
+.settlementDecisionFlow li>span em{grid-column:1/-1;color:var(--v8-muted);font-size:var(--harin-type-support);font-style:normal}
+.settlementDecisionFlow li>button{min-width:58px;min-height:44px;border:1px solid var(--v8-line-strong);border-radius:12px;background:#fff;color:var(--v8-ink);font-weight:850;cursor:pointer}
+.settlementDecisionFlow>p{margin:0;border-radius:var(--v8-radius-sm);background:var(--v8-surface-soft);padding:12px 15px;color:var(--v8-muted);font-size:var(--harin-type-support);line-height:1.55}
+.settlementDecisionFlow>p a{color:var(--v8-lavender-strong);font-weight:900}
+
+@media(max-width:900px){.settlementDecisionFlow>ol{grid-template-columns:1fr}.settlementDecisionFlow>ol>li+li{border-top:1px solid var(--v8-line);border-left:0}}
+@media(max-width:520px){.settlementDecisionFlow>ol>li{grid-template-columns:36px minmax(0,1fr);min-height:110px;padding:14px}.settlementDecisionFlow li>i{width:36px;height:36px;border-radius:11px}.settlementDecisionFlow li>button{grid-column:2;justify-self:start}.settlementDecisionFlow li>span strong{font-size:16px}}
 @media(max-width:600px){.orderCoreVisual,.csCoreVisual,.inventoryVisualSummary{padding:16px}.orderCoreVisual .v8ChartLabels,.csCoreVisual .v8ChartLabels,.inventoryVisualSummary .v8ChartLabels{grid-template-columns:repeat(2,minmax(0,1fr));text-align:left}}

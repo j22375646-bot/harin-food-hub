@@ -1,6 +1,7 @@
 'use client';
 
 import './_operations/harin-operations-v8.css';
+import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { HarinIcon } from './_design-system/harin-icon.js';
 import { HarinDonutChart, HarinEmptyState, HarinPageAiRegion, HarinPageFrame, HarinPageHeader, HarinWaterfallChart } from './_design-system/harin-ui.js';
@@ -68,6 +69,30 @@ function SettlementWaterfall({ waterfall={} }) {
   return <HarinWaterfallChart className="settlementEvidenceWaterfall settlementJourneyCopy" title="매출에서 정산액까지" description="정산액의 흐름만 보여드려요. 상품 원가와 광고비를 반영한 실제 이익은 상품 화면에서 확인하세요." items={items} footer={facts}/>;
 }
 
+function SettlementDecisionFlow({ waterfall={}, checkRequired=0, onCompare, onCosts }) {
+  const knownCauses=[
+    waterfall.refunds==null?null:`취소·환불 ${wonOrCheck(waterfall.refunds)}`,
+    waterfall.fees==null?null:`수수료 ${wonOrCheck(waterfall.fees)}`,
+    waterfall.logistics==null?null:`물류비 ${wonOrCheck(waterfall.logistics)}`
+  ].filter(Boolean);
+  const action=waterfall.actual_payout==null
+    ? '실제 지급액 수집 확인'
+    : waterfall.variance<0
+      ? '채널 대조에서 차감 원인 확인'
+      : checkRequired>0
+        ? '자료·비용 설정 보완'
+        : '다음 정산 일정 확인';
+  return <section className="settlementDecisionFlow" data-core-visualization="settlement-flow" aria-label="정산 금액 변화와 다음 행동">
+    <ol>
+      <li><i><HarinIcon name="growth" size={20}/></i><span><small>1</small><b>금액 변화</b><strong>{signedWon(waterfall.variance)}</strong><em>예상 대비 실제 지급액</em></span></li>
+      <li><i><HarinIcon name="search" size={20}/></i><span><small>2</small><b>원인 확인</b><strong>{knownCauses.length?knownCauses.slice(0,2).join(' · '):'확인 필요'}</strong><em>{knownCauses.length>2?`외 ${knownCauses.length-2}개 항목`:'확인된 차감 항목'}</em></span><button type="button" onClick={onCompare}>비교</button></li>
+      <li><i><HarinIcon name="checklist" size={20}/></i><span><small>3</small><b>다음 행동</b><strong>{action}</strong><em>{checkRequired>0?`확인할 채널 ${count(checkRequired)}개`:'정산 자료 기준'}</em></span><button type="button" onClick={checkRequired>0?onCosts:onCompare}>열기</button></li>
+    </ol>
+    <SettlementWaterfall waterfall={waterfall}/>
+    <p>상품 원가와 광고비를 반영한 실제 이익은 <Link href="/insights/profitability">인사이트 수익성 분석</Link>에서만 판단합니다.</p>
+  </section>;
+}
+
 export default function UnifiedSettlementOperationsCenter({ center = {}, children, aiPanel }) {
   const [workspace,setWorkspace]=useState('SUMMARY');
   const summary = center.summary || {};
@@ -100,7 +125,7 @@ export default function UnifiedSettlementOperationsCenter({ center = {}, childre
     </nav>
 
     {workspace==='SUMMARY'?<>
-      <SettlementWaterfall waterfall={center.waterfall}/>
+      <SettlementDecisionFlow waterfall={center.waterfall} checkRequired={summary.check_required_channels} onCompare={()=>setWorkspace('RECONCILIATION')} onCosts={()=>setWorkspace('COSTS')}/>
       <section className="settlementOpsSchedule"><header><div className="settlementSectionTitle"><i><HarinIcon name="clock" size={21}/></i><span><small>PAYMENT SCHEDULE</small><h2>최근 정산 일정</h2></span></div><small>현재 연결된 확정 정산 자료 기준</small></header>{schedules.length ? <div>{schedules.slice(0,6).map((item,index)=><article key={`${item.platform}-${item.date}-${index}`}><i><HarinIcon name={platformIcon(item.platform)} size={16}/></i><span>{item.platform}</span><b>{item.date}</b><strong>{wonOrCheck(item.amount)}</strong><small>{item.type || item.status || '정산'}</small></article>)}</div> : <HarinEmptyState state="uncollected" title="가져온 정산 일정이 아직 없어요" description="채널 정산 자료가 수집되면 지급 예정일과 확인된 금액을 여기에 표시합니다."/>}</section>
     </>:null}
 

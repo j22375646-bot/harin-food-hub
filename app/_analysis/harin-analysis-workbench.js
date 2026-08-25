@@ -158,6 +158,20 @@ function ProductDifferenceDesk({data={}}){
   </section>;
 }
 
+function InsightDecisionFlow({workspace='overview',platform='all',decision={}}){
+  const query=platform==='all'?'':`?platform=${platform}`;
+  const action=decision.actions?.[0];
+  const steps=[
+    ['overview','변화','어떤 숫자가 달라졌는지','growth',`/insights${query}`],
+    ['causes','원인','왜 달라졌는지','search',`/insights/causes${query}`],
+    ['profitability','이익','실제로 얼마가 남는지','settlement',`/insights/profitability${query}`],
+    ['action','행동','지금 무엇을 할지','checklist',action?.href||'/diagnoses']
+  ];
+  return <nav className="insightDecisionFlow" data-core-visualization="insight-decision-flow" aria-label="인사이트 판단 순서">
+    {steps.map(([id,label,description,icon,href],index)=><Link className={workspace===id?'active':''} href={href} key={id}><small>{String(index+1).padStart(2,'0')}</small><i><HarinIcon name={icon} size={19}/></i><span><b>{label}</b><em>{description}</em></span>{index<steps.length-1?<strong aria-hidden="true">→</strong>:null}</Link>)}
+  </nav>;
+}
+
 export default function HarinAnalysisWorkbench({view,workspace,platform='all',data={},aiPanel,children}){
   const meta=WORKSPACE_META[view]?.[workspace]||['분석 작업대','필요한 숫자와 다음 행동을 한 화면에서 확인해요.'];
   const loadedReportCount=(data.reports||[]).filter(report=>scopeReportPlatform(report.platform,platform)).length;
@@ -182,6 +196,7 @@ export default function HarinAnalysisWorkbench({view,workspace,platform='all',da
       </nav>
     </HarinPageToolbar>:null}
     <HarinPageContent className="analysisPageContent">
+      {view==='insight'?<InsightDecisionFlow workspace={workspace} platform={platform} decision={data.insightDecision}/>:null}
       {view==='insight'&&workspace==='overview'?<><InsightDecisionBrief decision={data.insightDecision}/><InsightOverviewDesk data={data} platform={platform}/><InsightComparison reports={data.reports||[]} alerts={data.alerts||[]} platform={platform}/></>:null}
       {view==='insight'&&workspace==='causes'?<InsightCauseDesk data={data} platform={platform}/>:null}
       {view==='insight'&&workspace==='channels'?<InsightChannelDesk data={data}/>:null}
@@ -237,7 +252,7 @@ function InsightOverviewDesk({data={},platform='all'}){
   const primaryType=periodMetrics.find(metrics=>metrics[0]?.[2])?.[0]?.[2]||'money';
   const chartMetricIndexes=[0,1].filter(index=>periodMetrics.some(metrics=>metrics[index]?.[2]===primaryType));
   const overviewSeries=chartMetricIndexes.map((metricIndex,index)=>({label:periodMetrics.find(metrics=>metrics[metricIndex])?.[metricIndex]?.[0]||`지표 ${index+1}`,tone:index?'amber':'blue',values:periodMetrics.map(metrics=>metrics[metricIndex]?.[2]===primaryType?metrics[metricIndex][1]:null)}));
-  return <section className="insightOverviewDesk" id="insight-overview">
+  return <section className="insightOverviewDesk" id="insight-overview" data-core-visualization="insight-change">
     <header><div><span>기간별 성과 요약</span><h2>기간별 흐름과 지금 볼 신호를 함께 봐요</h2><p>보고서가 없는 기간은 다른 숫자로 채우지 않고 판단 보류로 표시합니다.</p></div><Link href="/insights/causes">원인 분석하기 <i>→</i></Link></header>
     <div className="insightPeriodGrid">{periodReports.map((report,index)=>{const metric=reportMetric(report,platform)[0];return <article key={`${report?.id||'empty'}-${index}`}><i>{index+1}</i><span><small>{reportPeriodLabel(report,index)}</small><b>{displayMetric(metric?.[1],metric?.[2])}</b><em>{metric?.[0]||'자료 없음'} · {report?.title||'저장 보고서 없음'}</em></span>{index<2?<strong aria-hidden="true">→</strong>:null}</article>;})}</div>
     <HarinMetricChart className="insightPeriodChart" kind="bar" title="기간별 확인된 성과" description="오늘·7일·30일 보고서를 임의 환산하지 않고 저장된 값 그대로 비교합니다." labels={periodReports.map(reportPeriodLabel)} series={overviewSeries} valueFormatter={primaryType==='percent'?value=>`${Number(value).toFixed(1)}%`:primaryType==='count'?value=>`${count(value)}건`:value=>won(value)}/>
@@ -263,7 +278,7 @@ function InsightCauseDesk({data={},platform='all'}){
   const factors=[['가격','price','가격 변경·할인'],['재고','stock','품절·재고 부족'],['리뷰','review','리뷰·평점'],['광고','ad_','광고비·입찰'],['상세페이지','conversion','방문 후 전환']];
   const events=(data.platformEvents||[]).filter(item=>scopePlatform(item.platform,platform)).slice(0,4);
   const insight=Array.isArray(summary.insights)?summary.insights[0]:summary.insights;
-  return <section className="insightCauseDesk" id="insight-causes">
+  return <section className="insightCauseDesk" id="insight-causes" data-core-visualization="insight-cause-action">
     <header><div><span>원인 흐름</span><h2>매출이 달라진 길을 순서대로 확인해요</h2><p>관찰 → 영향 → 근거 → 다음 행동 순서로 읽으면 됩니다.</p></div><em>{report?.title||'저장 보고서 없음'}</em></header>
     <div className="insightCauseFlow">{steps.map(([label,value,unit],index)=><article className={value==null?'blocked':''} key={label}><small>{index+1}. {label}</small><b>{unit==='money'?won(value):value==null?'판단 보류':`${count(value)}${unit}`}</b><em>{value==null?'자료 확인 필요':'서버 보고서 기준'}</em>{index<steps.length-1?<i aria-hidden="true">→</i>:null}</article>)}</div>
     <div className="insightCauseColumns"><article><h3>원인별 근거 준비 상태</h3><div className="insightCauseFactors">{factors.map(([label,key,hint])=>{const ready=evidence.includes(key);return <span className={ready?'ready':'blocked'} key={label}><i>{ready?'✓':'?'}</i><b>{label}</b><small>{ready?hint:'직접 근거 없음'}</small></span>;})}</div></article><article><h3>관찰과 다음 행동</h3><div className="insightObservation"><span><small>관찰</small><b>{decision.headline?.title||typeof insight==='string'&&insight||insight?.title||report?.title||'비교할 보고서를 먼저 저장해 주세요.'}</b></span><span><small>영향</small><b>{profit.contribution_profit==null?'이익 영향 판단 보류':`공헌이익 ${won(profit.contribution_profit)}`}</b></span><span><small>추천</small><b>{decision.actions?.[0]?.title||alertsToRecommendation(data.alerts,platform)}</b></span></div></article></div>
@@ -304,7 +319,7 @@ function InsightProfitabilityDesk({data={}}){
   const ready=trust.allowed?.contribution_profit===true&&String(profit.cost_status||'').toUpperCase()!=='BLOCKED';
   const values=[['매출',number(profit.revenue),false],['수수료',number(profit.fees),true],['배송비',number(profit.shipping_cost),true],['상품 원가',number(profit.product_cost),true],['광고비',number(profit.ad_spend),true],['실제 이익',ready?number(profit.contribution_profit):null,false]];
   const products=(data.unifiedProductPerformance?.items||[]).slice(0,8);
-  return <section className="insightProfitDesk" id="insight-profitability">
+  return <section className="insightProfitDesk" id="insight-profitability" data-core-visualization="insight-profit-flow">
     <header><div><span>실제 이익 흐름</span><h2>매출에서 모든 비용을 빼고 실제 남는 돈을 봐요</h2><p>원가나 자료가 부족하면 0원이 아니라 판단 보류로 잠급니다.</p></div><em className={ready?'ready':'blocked'}>{ready?'계산 가능':'판단 보류'}</em></header>
     <div className="profitGuardMetrics"><span><small>실제 이익</small><b>{ready?won(profit.contribution_profit):'판단 보류'}</b><em>{ready?percent(profit.contribution_margin_rate):'비용 자료 확인'}</em></span><span><small>손익분기 ROAS</small><b>{ready?percent(profit.break_even_roas):'판단 보류'}</b><em>이보다 높아야 안전</em></span><span><small>원가 준비율</small><b>{percent(profit.cost_coverage_rate)}</b><em>{count(profit.missing_cost_products)}개 확인 필요</em></span><span><small>광고비</small><b>{won(profit.ad_spend)}</b><em>서버 수집 기준</em></span></div>
     <HarinWaterfallChart className="insightProfitWaterfall" title="매출에서 실제 이익까지" description="원가·수수료·배송비·광고비를 순서대로 보여주며 모르는 값은 확인 필요로 유지합니다." items={values.map(([label,value,isCost])=>({label,value,tone:label==='실제 이익'?'result':isCost?'minus':'plus',description:value==null?'자료 확인 필요':isCost?'차감 비용':'계산 결과'}))}/>
