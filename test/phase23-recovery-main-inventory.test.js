@@ -38,7 +38,7 @@ test('23-R1 gives Main a bounded dedicated loader instead of the generic dashboa
   const page=read('app/page.js');
   assert.match(page,/focusedEarlyReturn=view==='main'/);
   assert.match(page,/if\(view==='main'\)\{[\s\S]*?return buildMainDashboardData/);
-  assert.match(page,/view==='collection'\?SHELL_TABLES:LIGHT_SHELL_TABLES/);
+  assert.match(page,/view==='collection'[\s\S]*?\? SHELL_TABLES[\s\S]*?MINIMAL_SHELL_TABLES:LIGHT_SHELL_TABLES/);
   const mainScope=page.match(/const MAIN_OVERVIEW_TABLES = \[([\s\S]*?)\n\];/)?.[1]||'';
   assert.match(mainScope,/cafe24_order_items|cafe24_oauth_tokens|naver_commerce_order_items|coupang_returns/);
   assert.doesNotMatch(mainScope,/coupang_order_items/);

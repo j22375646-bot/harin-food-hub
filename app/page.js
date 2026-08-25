@@ -107,6 +107,7 @@ function exchangeCaseView(item) {
 
 const SHELL_TABLES = ['sync_logs','alerts','worker_heartbeats','coupang_operation_requests','coupang_sync_requests'];
 const LIGHT_SHELL_TABLES = ['sync_logs','alerts','coupang_operation_requests'];
+const MINIMAL_SHELL_TABLES = ['sync_logs','alerts'];
 // Main is an operational decision surface, not a raw analytics export. Keep
 // current orders, task signals, inventory, pacing and trust inputs here; the
 // heavier settlement/keyword evidence remains on its dedicated real route.
@@ -157,7 +158,9 @@ function tablesForView(view, workspace, platform='all') {
 }
 
 function databaseForLoaderState(db, view, workspace, platform='all', loaderSession=null) {
-  const shellTables=view==='collection'?SHELL_TABLES:LIGHT_SHELL_TABLES;
+  const shellTables=view==='collection'
+    ? SHELL_TABLES
+    : ['reports','changes'].includes(view)?MINIMAL_SHELL_TABLES:LIGHT_SHELL_TABLES;
   const allowed=new Set([...shellTables,...tablesForView(view,workspace,platform)]);
   const wrappedQueries=new WeakMap();
   const instrumentQuery=(query,table)=>{
@@ -1313,6 +1316,33 @@ async function getDashboardData(state) {
       db.from('sync_logs').select('platform,job_type,status,started_at,finished_at').order('started_at',{ascending:false}).limit(300)
     ]) : Promise.resolve(Array.from({length:6},()=>({status:'fulfilled',value:{data:[],error:null}})))
   };
+  const changesBidInputsPromise=view==='changes'
+    ? (async()=>{
+      const [campaignsRaw,groupsRaw,periodRaw]=await Promise.all([
+        Promise.allSettled([
+          db.from('naver_campaigns').select('ncc_campaign_id,name,campaign_type,status,user_lock')
+        ]),
+        Promise.allSettled([
+          db.from('naver_adgroups').select('ncc_adgroup_id,ncc_campaign_id,name,status,user_lock',{count:'exact'}).limit(1000)
+        ]),
+        supplementalQueries.keywordPeriod
+      ]);
+      const campaigns=campaignsRaw[0]?.status==='fulfilled'&&!campaignsRaw[0].value?.error?campaignsRaw[0].value.data||[]:[];
+      const groups=groupsRaw[0]?.status==='fulfilled'&&!groupsRaw[0].value?.error?groupsRaw[0].value.data||[]:[];
+      const keywordPeriod=periodRaw[0]?.status==='fulfilled'&&!periodRaw[0].value?.error?periodRaw[0].value.data||null:null;
+      const activeNaverAdgroupIds=naverBidWorkbenchModule.activeAdgroupIds({campaigns,adgroups:groups});
+      const downstreamRaw=await Promise.allSettled([
+        keywordPeriod
+          ? db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,period_start,period_end,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).order('cost',{ascending:false}).limit(5000)
+          : Promise.resolve({data:[],error:null}),
+        activeNaverAdgroupIds.length
+          ? db.from('naver_keywords').select('ncc_keyword_id,ncc_adgroup_id,keyword,bid_amount,status,user_lock,updated_at').in('ncc_adgroup_id',activeNaverAdgroupIds).limit(1000)
+          : Promise.resolve({data:[],error:null}),
+        db.from('naver_keywords').select('ncc_keyword_id,ncc_adgroup_id,keyword,bid_amount,status,user_lock,updated_at').limit(5000)
+      ]);
+      return {campaignsRaw,groupsRaw,periodRaw,downstreamRaw};
+    })()
+    : Promise.resolve(null);
   const reportFields='id,platform,report_type,period_start,period_end,title,status,summary_json,version,supersedes_report_id,is_latest,revision_note,approved_at,approved_by,created_at';
   const reportsQuery=view==='insight'&&['overview','causes','channels'].includes(state?.workspace)
     ? db.from('reports').select(reportFields,{count:'exact'}).order('period_end',{ascending:false}).order('created_at',{ascending:false}).limit(12)
@@ -1334,8 +1364,8 @@ async function getDashboardData(state) {
     db.from('channel_products')
       .select(view==='orders'?'master_product_id,platform,external_product_id,external_product_name,raw_data,updated_at':'id,master_product_id,platform,external_product_id,external_product_name,selling_price,is_active,match_method,match_confidence,matched_at,matched_by,raw_data,updated_at')
       .order('updated_at',{ascending:false}).limit(view==='orders'?100:500),
-    db.from('naver_campaigns').select('ncc_campaign_id,name,campaign_type,status,user_lock'),
-    db.from('naver_adgroups').select('ncc_adgroup_id,ncc_campaign_id,name,status,user_lock',{count:'exact'}).limit(1000),
+    view==='changes'?Promise.resolve({data:[],error:null}):db.from('naver_campaigns').select('ncc_campaign_id,name,campaign_type,status,user_lock'),
+    view==='changes'?Promise.resolve({data:[],error:null}):db.from('naver_adgroups').select('ncc_adgroup_id,ncc_campaign_id,name,status,user_lock',{count:'exact'}).limit(1000),
     db.from('naver_keywords').select('*',{count:'exact',head:true}),
     focusedEarlyReturn?Promise.resolve({data:null,error:null}):db.from('sync_logs').select('status,finished_at,error_message,metadata').eq('platform','NAVER').eq('job_type','FETCH_ALL').order('started_at',{ascending:false}).limit(1).maybeSingle(),
     db.from('naver_stats_daily').select('date,entity_id,impressions,clicks,cost,conversions,conversion_revenue').order('date',{ascending:false}).limit(1200),
@@ -1616,9 +1646,9 @@ async function getDashboardData(state) {
     });
   }
   if(view==='changes'){
-    const [phase7Raw,aiResultsRaw,productTargetsRaw,keywordPeriodRaw,bidLinksRaw]=await Promise.all([
+    const [phase7Raw,aiResultsRaw,productTargetsRaw,bidLinksRaw,changeBidInputsRaw]=await Promise.all([
       supplementalQueries.phase7,supplementalQueries.aiResults,supplementalQueries.productTargets,
-      supplementalQueries.keywordPeriod,supplementalQueries.bidLinks
+      supplementalQueries.bidLinks,changesBidInputsPromise
     ]);
     const phase7Settled=dataHealthModule.settleQueries(phase7Raw,[
       {platform:'SHARED',dataset:'financial_change_requests'},
@@ -1631,38 +1661,37 @@ async function getDashboardData(state) {
     const productTargetsSettled=dataHealthModule.settleQueries(productTargetsRaw,[
       {platform:'SHARED',dataset:'product_ad_targets'}
     ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
-    const keywordPeriodSettled=dataHealthModule.settleQueries(keywordPeriodRaw,[
+    const changeCampaignsSettled=dataHealthModule.settleQueries(changeBidInputsRaw.campaignsRaw,[
+      {platform:'NAVER',dataset:'change_campaigns'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const changeGroupsSettled=dataHealthModule.settleQueries(changeBidInputsRaw.groupsRaw,[
+      {platform:'NAVER',dataset:'change_adgroups'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    const keywordPeriodSettled=dataHealthModule.settleQueries(changeBidInputsRaw.periodRaw,[
       {platform:'NAVER',dataset:'naver_keyword_stats_period'}
     ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
     const bidLinksSettled=dataHealthModule.settleQueries(bidLinksRaw,[
       {platform:'NAVER',dataset:'naver_keyword_product_links'}
     ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
-    queryIssues.push(...phase7Settled.issues,...aiResultsSettled.issues,...productTargetsSettled.issues,...keywordPeriodSettled.issues,...bidLinksSettled.issues);
-    const keywordPeriod=keywordPeriodSettled.results[0].data||null;
-    const activeNaverAdgroupIds=naverBidWorkbenchModule.activeAdgroupIds({
-      campaigns:naverCampaignResult.data||[],adgroups:naverGroupResult.data||[]
-    });
-    const bidInputsSettled=dataHealthModule.settleQueries(await Promise.allSettled([
-      keywordPeriod
-        ? db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,period_start,period_end,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).order('cost',{ascending:false}).limit(5000)
-        : Promise.resolve({data:[],error:null}),
-      activeNaverAdgroupIds.length
-        ? db.from('naver_keywords').select('ncc_keyword_id,ncc_adgroup_id,keyword,bid_amount,status,user_lock,updated_at').in('ncc_adgroup_id',activeNaverAdgroupIds).limit(1000)
-        : Promise.resolve({data:[],error:null}),
-      db.from('naver_keywords').select('ncc_keyword_id,ncc_adgroup_id,keyword,bid_amount,status,user_lock,updated_at').limit(5000)
-    ]),[
+    const bidInputsSettled=dataHealthModule.settleQueries(changeBidInputsRaw.downstreamRaw,[
       {platform:'NAVER',dataset:'change_keyword_performance'},
       {platform:'NAVER',dataset:'change_active_keyword_catalog'},
       {platform:'NAVER',dataset:'change_keyword_catalog'}
     ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
-    queryIssues.push(...bidInputsSettled.issues);
+    queryIssues.push(
+      ...phase7Settled.issues,...aiResultsSettled.issues,...productTargetsSettled.issues,
+      ...changeCampaignsSettled.issues,...changeGroupsSettled.issues,...keywordPeriodSettled.issues,
+      ...bidLinksSettled.issues,...bidInputsSettled.issues
+    );
+    const keywordPeriod=keywordPeriodSettled.results[0].data||null;
     const marketingKeywordCatalog=naverBidWorkbenchModule.mergeKeywordCatalog({
       activeKeywords:bidInputsSettled.results[1].data||[],fallbackKeywords:bidInputsSettled.results[2].data||[]
     });
     return buildChangesDashboardData({
       loaderSession,generatedAt,queryIssues,syncResult,alertsResult,reportsResult,actionsResult,evaluationsResult,automationResult,
       financialChanges:phase7Settled.results[0].data||[],financialAudits:phase7Settled.results[1].data||[],
-      experiments:phase7Settled.results[2].data||[],masterResult,costsResult,naverCampaignResult,naverGroupResult,
+      experiments:phase7Settled.results[2].data||[],masterResult,costsResult,
+      naverCampaignResult:changeCampaignsSettled.results[0],naverGroupResult:changeGroupsSettled.results[0],
       keywordPeriod,marketingKeywordStats:bidInputsSettled.results[0].data||[],marketingKeywordCatalog,
       productAdTargetRows:productTargetsSettled.results[0].data||[],naverKeywordProductLinks:bidLinksSettled.results[0].data||[],
       latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[])

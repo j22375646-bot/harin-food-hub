@@ -134,7 +134,7 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/loaderPerformance:loaderSession\.snapshot\(\)/);
   assert.match(page,/databaseForLoaderState\(db, view, workspace, platform='all', loaderSession=null\)/);
   assert.match(page,/orders:\{orders:200,items:400,costs:300\}/);
-  assert.match(page,/view==='collection'\?SHELL_TABLES:LIGHT_SHELL_TABLES/);
+  assert.match(page,/view==='collection'[\s\S]*?\? SHELL_TABLES[\s\S]*?MINIMAL_SHELL_TABLES:LIGHT_SHELL_TABLES/);
   assert.match(page,/coupang_orders'[\s\S]*?limit\(rowLimit\('orders',2000\)\)/);
   assert.match(page,/shippingReference:view==='orders'[\s\S]*?\.eq\('provider','HOLIDAY_CALENDAR'\)[\s\S]*?\.limit\(10\)/);
   assert.match(page,/\.limit\(view==='orders'\?100:500\)/);
@@ -235,4 +235,15 @@ test('26-8 gives diagnoses and change history focused execution loaders',()=>{
   assert.match(page,/if\(view==='changes'\)\{[\s\S]*?return buildChangesDashboardData\(/);
   assert.match(page,/buildChangesDashboardData[\s\S]*?buildNaverBidWorkbench/);
   assert.match(page,/buildChangesDashboardData[\s\S]*?finalizeAiPagePanels\(\{changes:builtPanels\.changes\}/);
+});
+
+test('26-8 prewarms Naver change inputs and keeps unrelated Coupang jobs out of execution pages',()=>{
+  const page=read('app/page.js');
+
+  assert.match(page,/const MINIMAL_SHELL_TABLES = \['sync_logs','alerts'\]/);
+  assert.match(page,/\['reports','changes'\]\.includes\(view\)\?MINIMAL_SHELL_TABLES/);
+  assert.match(page,/const changesBidInputsPromise=view==='changes'/);
+  assert.match(page,/changesBidInputsPromise[\s\S]*?activeAdgroupIds/);
+  assert.match(page,/changesBidInputsPromise[\s\S]*?change_keyword_performance/);
+  assert.match(page,/if\(view==='changes'\)[\s\S]*?changesBidInputsPromise/);
 });
