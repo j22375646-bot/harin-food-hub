@@ -89,7 +89,7 @@ export function HarinPageContent({ as:Element='div', className='', children, ...
   return <Element className={join('v8PageContent',className)} {...props}>{children}</Element>;
 }
 
-export function HarinProgressiveDetails({ eyebrow='상세 운영', title, description, count, action='열기', className='', children, defaultOpen=false, lazy=true, onToggle, ...props }) {
+export function HarinProgressiveDetails({ eyebrow='상세 운영', title, description, count, action='열기', closeAction='접기', className='', children, defaultOpen=false, lazy=true, onToggle, ...props }) {
   const [open,setOpen]=useState(Boolean(defaultOpen));
   const [contentMounted,setContentMounted]=useState(Boolean(defaultOpen)||!lazy);
   if(!children)return null;
@@ -99,12 +99,12 @@ export function HarinProgressiveDetails({ eyebrow='상세 운영', title, descri
     if(nextOpen&&!contentMounted)setContentMounted(true);
     onToggle?.(event);
   };
-  return <details className={join('v8ProgressiveDetails',className)} open={open} onToggle={handleToggle} data-content-mounted={contentMounted?'true':'false'} {...props}>
-    <summary>
+  return <details className={join('v8ProgressiveDetails',className)} open={open} onToggle={handleToggle} data-state={open?'open':'closed'} data-content-mounted={contentMounted?'true':'false'} {...props}>
+    <summary aria-atomic="true">
       <span className="v8ProgressiveDetailsIcon"><HarinIcon name="chevron" size={18}/></span>
       <span className="v8ProgressiveDetailsCopy"><small>{eyebrow}</small><b>{title}</b>{description?<em>{description}</em>:null}</span>
       {count!=null?<strong>{count}</strong>:null}
-      <span className="v8ProgressiveDetailsAction">{action}</span>
+      <span className="v8ProgressiveDetailsAction">{open?closeAction:action}</span>
     </summary>
     {contentMounted?<div className="v8ProgressiveDetailsBody">{children}</div>:null}
   </details>;

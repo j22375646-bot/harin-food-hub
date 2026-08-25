@@ -63,7 +63,9 @@ html[data-harin-ui="v8"]{
   --harin-card-bg:var(--harin-color-surface);
   --harin-card-line:var(--harin-color-line);
   --harin-focus-ring:0 0 0 3px rgba(54,90,120,.24);
+  --harin-motion-press:90ms ease-out;
   --harin-motion-fast:150ms ease;
+  --harin-motion-disclosure:180ms cubic-bezier(.2,.8,.2,1);
   --harin-motion-standard:220ms cubic-bezier(.2,.8,.2,1);
 }
 

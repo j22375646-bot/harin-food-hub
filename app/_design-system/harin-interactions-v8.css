@@ -1,14 +1,18 @@
-/* Phase 23-7 · Shared interaction polish.
+/* Phase 23-7 foundation · Phase 26-7 shared, quiet interaction feedback.
    Keep motion and feedback here so route styles stay focused on page layout. */
 html[data-harin-ui="v8"]{
-  --v8-motion-fast:150ms cubic-bezier(.2,.8,.2,1);
-  --v8-motion-enter:280ms cubic-bezier(.16,1,.3,1);
-  --v8-motion-spring:360ms cubic-bezier(.2,1.35,.4,1);
+  --v8-motion-fast:var(--harin-motion-fast);
+  --v8-motion-enter:var(--harin-motion-standard);
+  --v8-motion-spring:var(--harin-motion-disclosure);
   scrollbar-gutter:stable;
 }
 
 /* Consolidation pass 1 · navigation never blanks, dims or locks the current job. */
 .harinV8 :where(button,a,summary,[role="button"]){touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.harinV8 :where(button,a,summary,[role="button"]):focus-visible{outline:2px solid var(--harin-color-action);outline-offset:2px}
+.harinV8 :where(.v8Button,.v8QuickAction,details>summary):focus-visible{outline:0;box-shadow:var(--harin-focus-ring)}
+.harinV8 details>summary:focus-visible{outline:2px solid var(--harin-color-action);outline-offset:-4px}
+.harinV8 :where(.v8Button,.v8QuickAction):active{transform:translateY(1px);transition-duration:var(--harin-motion-press)}
 .harinV8 :where(h1,h2,h3){text-wrap:balance}
 .harinV8 :where(.v8PageHeaderCopy p,.v8SectionHeadingCopy p,.pageIntro p,.pageHeader p){text-wrap:pretty}
 .harinV8 :where(.kpi,.v8PageHeaderMetrics,.keywordOpsTable,.inventoryOpsCenter,.settlementOpsCenter,.mainCommandCenter){font-variant-numeric:tabular-nums}
@@ -44,7 +48,7 @@ html[data-harin-ui="v8"]{
 .harinV8 .viewLoadingCopy{display:flex;min-width:0;flex-direction:column;gap:1px}
 .harinV8 .viewLoadingCopy b{overflow:hidden;color:var(--v8-ink);font-size:14px;line-height:1.35;text-overflow:ellipsis;white-space:nowrap}
 .harinV8 .viewLoadingCopy small{overflow:hidden;color:var(--v8-muted);font-size:13px!important;line-height:1.4;text-overflow:ellipsis;white-space:nowrap}
-.harinV8 .viewLoadingProgress{position:absolute;right:0;bottom:0;left:0;display:block;width:auto;height:3px;border:0;border-radius:0;background:#ece9f5;animation:none}
+.harinV8 .viewLoadingProgress{position:absolute;right:0;bottom:0;left:0;display:block;width:auto;height:3px;border:0;border-radius:0;background:var(--harin-color-line);animation:none}
 .harinV8 .viewLoadingProgress i{display:block;width:42%;height:100%;border-radius:3px;background:var(--v8-lavender);animation:v8RouteProgress 1.05s ease-in-out infinite}
 .harinV8 .viewLoadingRibbon:after{content:none}
 
@@ -99,14 +103,15 @@ html[data-harin-ui="v8"]{
 .harinV8 .v8InlineStatus b{color:var(--v8-ink);font-size:var(--v8-readable-control,15px);line-height:1.4}
 .harinV8 .v8InlineStatus small{color:var(--v8-muted);font-size:var(--v8-readable-support,14px)!important;line-height:1.5}
 .harinV8 .v8InlineStatus>div{display:flex;align-items:center;gap:8px}
-.harinV8 .v8InlineStatus-success{border-color:#cfe1d8;background:var(--v8-mint-soft)}
-.harinV8 .v8InlineStatus-warning{border-color:#eadfbe;background:var(--v8-amber-soft)}
-.harinV8 .v8InlineStatus-danger{border-color:#ead5db;background:var(--v8-pink-soft)}
-.harinV8 .v8InlineStatus-info{border-color:#d1deea;background:var(--v8-blue-soft)}
+.harinV8 .v8InlineStatus-success{border-color:color-mix(in srgb,var(--harin-color-success) 24%,var(--harin-color-line));background:var(--v8-mint-soft)}
+.harinV8 .v8InlineStatus-warning{border-color:color-mix(in srgb,var(--harin-color-warning) 24%,var(--harin-color-line));background:var(--v8-amber-soft)}
+.harinV8 .v8InlineStatus-danger{border-color:color-mix(in srgb,var(--harin-color-danger) 24%,var(--harin-color-line));background:var(--v8-pink-soft)}
+.harinV8 .v8InlineStatus-info{border-color:color-mix(in srgb,var(--harin-color-info) 24%,var(--harin-color-line));background:var(--v8-blue-soft)}
 .harinV8 .v8InlineStatus-busy .v8Pictogram{animation:v8SoftPulse 1.15s ease-in-out infinite}
 
 @keyframes v8ControlSpin{to{transform:rotate(360deg)}}
 @keyframes v8FeedbackEnter{from{opacity:0;transform:translateY(6px) scale(.992)}to{opacity:1;transform:none}}
+@keyframes v8DisclosureEnter{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 @keyframes v8SoftPulse{50%{opacity:.72;transform:scale(1.025)}}
 @keyframes v8RouteFeedbackIn{to{opacity:1;transform:translateX(-50%) translateY(0)}}
 @keyframes v8RouteProgress{0%{transform:translateX(-105%)}55%{transform:translateX(88%)}100%{transform:translateX(250%)}}
@@ -126,7 +131,7 @@ html[data-harin-ui="v8"]{
 }
 
 @media(prefers-reduced-motion:reduce){
-  .harinV8 .v8QuickAction,.harinV8 .v8QuickAction:after,.harinV8 .v8QuickActionArrow,.harinV8 .v8Button,.harinV8 .v8Pictogram{transition:none!important}
-  .harinV8 .v8ButtonSpinner,.harinV8 .v8InlineStatus,.harinV8 .v8InlineStatus-busy .v8Pictogram,.harinV8 .viewLoadingRibbon,.harinV8 .viewLoadingSpinner,.harinV8 .viewLoadingProgress i{animation:none!important}
+  .harinV8 .v8QuickAction,.harinV8 .v8QuickAction:after,.harinV8 .v8QuickActionArrow,.harinV8 .v8Button,.harinV8 .v8Pictogram,.harinV8 details>summary{transition:none!important}
+  .harinV8 .v8ButtonSpinner,.harinV8 .v8InlineStatus,.harinV8 .v8InlineStatus-busy .v8Pictogram,.harinV8 .viewLoadingRibbon,.harinV8 .viewLoadingSpinner,.harinV8 .viewLoadingProgress i,.harinV8 .v8ProgressiveDetailsBody{animation:none!important}
   .harinV8 .viewLoadingRibbon{opacity:1;transform:translateX(-50%)}
 }
