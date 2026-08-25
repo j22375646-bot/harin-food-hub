@@ -8,14 +8,16 @@ const root=path.join(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('13-7 connects four separate workflow pages with real routes and mobile UI',()=>{
-  const client=read('app/dashboard-client.js');
+  const routes=read('lib/navigation/hub-routes.js');
+  const visual=read('lib/execution/decision-loop.js');
   const shell=read('app/_shell/harin-app-shell.js');
   const css=[read('app/globals.css'),read('app/_execution/harin-execution-v8.css')].join('\n');
   for(const [id,href] of [['reports','/diagnoses'],['changes','/approvals'],['validation','/execution-validation'],['experiments','/ab-tests']]){
-    assert.match(client,new RegExp(`id:'${id}',href:'${href.replaceAll('/','\\/')}'`));
+    assert.match(routes,new RegExp(`id:'${id}'[\\s\\S]*?href:'${href.replaceAll('/','\\/')}'`));
+    assert.match(visual,new RegExp(`id:'${id}'[\\s\\S]*?href:'${href.replaceAll('/','\\/')}'`));
   }
   assert.match(shell,/메뉴·업무 찾기/);
-  assert.match(css,/Phase 13-7: diagnosis, approval, validation, and experiment workflow/);
+  assert.match(css,/Phase 27-7: flat execution, validation, and experiment workbenches/);
   assert.match(css,/\.executionWorkflow>nav\{display:flex;overflow-x:auto/);
 });
 

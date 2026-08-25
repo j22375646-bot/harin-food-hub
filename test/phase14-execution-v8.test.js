@@ -22,7 +22,7 @@ test('14-7 keeps diagnosis approval validation and experiments on separate real 
 test('14-7 and 22-1 keep owner safety preview audit and explicit write lock',()=>{
   const workbench=read('app/_execution/harin-execution-workbench.js');
   const changes=read('app/_execution/harin-financial-change-center.js');
-  assert.match(workbench,/OWNER SAFETY PREVIEW/);
+  assert.match(workbench,/변경값 미리보기/);
   assert.match(workbench,/안전 미리보기/);
   assert.match(workbench,/변경 기록/);
   assert.match(workbench,/실제 플랫폼 변경은 사장님 확인 팝업 뒤/);
@@ -47,11 +47,11 @@ test('14-7 only offers rollback when the server change can actually be reversed'
 });
 
 test('14-7 connects diagnosis through 7 and 14 day validation to A B learning',()=>{
-  const workbench=read('app/_execution/harin-execution-workbench.js');
-  assert.match(workbench,/진단/);
+  const workbench=[read('app/_execution/harin-execution-workbench.js'),read('lib/execution/decision-loop.js')].join('\n');
+  assert.match(workbench,/진단 근거/);
   assert.match(workbench,/변경 기록/);
-  assert.match(workbench,/7·14일 검증/);
-  assert.match(workbench,/A\/B 학습/);
+  assert.match(workbench,/7·14일 결과/);
+  assert.match(workbench,/다음 실험/);
   assert.match(workbench,/day7/);
   assert.match(workbench,/day14/);
   assert.match(workbench,/variants/);

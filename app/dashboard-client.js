@@ -369,29 +369,6 @@ export default function Dashboard({ initialData, initialState }) {
   </div>;
 }
 
-const executionWorkflowSteps=[
-  {id:'reports',href:'/diagnoses',number:'01',label:'진단',description:'근거와 문제 확인'},
-  {id:'changes',href:'/approvals',number:'02',label:'변경 기록',description:'실행·검증·복구 이력'},
-  {id:'validation',href:'/execution-validation',number:'03',label:'7·14일 검증',description:'매출·이익 결과 비교'},
-  {id:'experiments',href:'/ab-tests',number:'04',label:'A/B 학습',description:'검증된 기준 축적'}
-];
-
-function ExecutionWorkflowNav({view,data={}}){
-  const validation=data.retentionValidation?.execution?.summary||{};
-  const learning=data.reportLearningHistory?.summary||{};
-  const actionItems=Array.isArray(data.actions)?data.actions:[];
-  const counts={
-    reports:num(learning.learned??data.reports?.length),
-    changes:actionItems.filter(item=>['PLANNED','ON_HOLD'].includes(item.status)).length,
-    validation:num(validation.day7_ready)+num(validation.day14_ready),
-    experiments:num(validation.linked_experiments)
-  };
-  return <section className="executionWorkflow" aria-label="진단부터 학습까지 운영 흐름">
-    <header><div><span>결정 → 검증 → 학습</span><h1>한 번의 진단을 끝까지 이어서 확인해요</h1><p>페이지를 합치지 않고, 지금 할 단계와 다음 단계를 한 줄로 연결했습니다.</p></div><aside><b>{executionWorkflowSteps.findIndex(step=>step.id===view)+1}/4</b><small>현재 단계</small></aside></header>
-    <nav>{executionWorkflowSteps.map((step,index)=><div className="executionWorkflowStep" key={step.id}><Link href={step.href} className={view===step.id?'active':''} aria-current={view===step.id?'step':undefined}><i>{step.number}</i><span><b>{step.label}</b><small>{step.description}</small></span><em>{counts[step.id]}건</em></Link>{index<executionWorkflowSteps.length-1?<strong aria-hidden="true">→</strong>:null}</div>)}</nav>
-  </section>;
-}
-
 function SalesCommandCenter({ center={}, onOpen, onOpenTargets }) {
   const metrics=center.metrics||{}, likelihood=center.likelihood||{}, actions=center.actions||[], products=center.products||{}, cashflow=center.cashflow||{};
   const statusLabel={READY:'실행 가능',BLOCKED:'선행 작업 필요',ON_HOLD:'보류',COMPLETED:'완료'};

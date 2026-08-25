@@ -1,0 +1,19 @@
+.loop{min-width:0}
+.loop ol{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px;margin:0;padding:0;list-style:none}
+.loop li{position:relative;min-width:0}
+.loop li>i{position:absolute;top:50%;right:-15px;color:var(--v8-line-strong);font-size:18px;font-style:normal;transform:translateY(-50%)}
+.loop a{position:relative;z-index:1;display:grid;min-height:74px;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:11px;border-radius:14px;padding:10px 12px;color:var(--v8-ink);text-decoration:none;transition:background-color var(--harin-motion-fast),transform var(--harin-motion-fast)}
+.loop a.active{background:var(--v8-lavender-soft)}
+.loop li[data-tone='pink'] a.active{background:var(--v8-pink-soft)}
+.loop li[data-tone='blue'] a.active{background:var(--v8-blue-soft)}
+.loop li[data-tone='mint'] a.active{background:var(--v8-mint-soft)}
+.loop a>span{display:flex;min-width:0;flex-direction:column;gap:3px}
+.loop b{overflow:hidden;font-size:16px;line-height:1.35;text-overflow:ellipsis;white-space:nowrap}
+.loop small{overflow:hidden;color:var(--v8-muted);font-size:14px;line-height:1.4;text-overflow:ellipsis;white-space:nowrap}
+.loop em{color:var(--v8-ink-soft);font-size:14px;font-style:normal;font-weight:850;white-space:nowrap}
+.loop li[data-evidence='CHECK_REQUIRED'] em{color:var(--harin-status-warning-text)}
+.loop>p{margin:10px 0 0;color:var(--v8-muted);font-size:14px;line-height:1.55}
+@media(hover:hover) and (pointer:fine){.loop a:hover{background:var(--v8-surface-soft);transform:translateY(-2px)}}
+@media(max-width:1000px){.loop ol{grid-template-columns:repeat(2,minmax(0,1fr))}.loop li:nth-child(2)>i{display:none}}
+@media(max-width:700px){.loop ol{grid-template-columns:1fr;gap:6px}.loop a{min-height:76px;padding:10px 8px}.loop li>i{top:auto;right:auto;bottom:-9px;left:27px;transform:rotate(90deg)}.loop li:nth-child(2)>i{display:block}.loop b{font-size:16px}.loop small,.loop em,.loop>p{font-size:14px}}
+@media(prefers-reduced-motion:reduce){.loop a{transition:none}.loop a:hover{transform:none}}

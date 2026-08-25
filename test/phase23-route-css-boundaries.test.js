@@ -29,11 +29,11 @@ test('23 hardening loads each extracted style with its owning workbench',()=>{
   assert.match(operations,/Phase 11-3: packing and shipping workbench/);
   assert.match(operations,/Phase 23 hardening · owner-maintained Rocket Growth expiry lots/);
   assert.match(analysis,/Phase 23-4B: spreadsheet product costs/);
-  assert.match(execution,/Phase 13-7: diagnosis, approval, validation, and experiment workflow/);
+  assert.match(execution,/Phase 27-7: flat execution, validation, and experiment workbenches/);
   assert.match(market,/Phase 17-10: instant workspace paint/);
   assert.ok(operations.indexOf('Route-scoped legacy styles')<operations.indexOf('Phase 14-4: Orders'));
   assert.ok(analysis.indexOf('Route-scoped legacy styles')<analysis.indexOf('Phase 14-6: separate Insights'));
-  assert.ok(execution.indexOf('Route-scoped legacy styles')<execution.indexOf('Phase 14-7: diagnosis'));
+  assert.match(execution,/\.executionPageContent/);
   for(const file of [
     'app/unified-orders-center.js',
     'app/unified-customer-service-center.js',
