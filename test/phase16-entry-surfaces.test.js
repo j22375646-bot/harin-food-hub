@@ -19,12 +19,13 @@ test('23-8 loads the isolated entry stylesheet only on entry surfaces',()=>{
 
 test('16-2 keeps password-only owner login while adding the pastel welcome layout',()=>{
   const login=read('app/login/page.js');
+  const form=read('app/login/login-form.js');
   assert.match(login,/className="loginWelcome"/);
   assert.match(login,/className="loginAccess"/);
-  assert.match(login,/action="\/api\/dashboard\/login" method="post"/);
-  assert.match(login,/name="password" type="password" inputMode="numeric" pattern="\[0-9\]\{6\}"/);
+  assert.match(form,/action="\/api\/dashboard\/login" method="post"/);
+  assert.match(form,/name="password"[\s\S]*type="password"[\s\S]*inputMode="numeric"[\s\S]*pattern="\[0-9\]\{6\}"/);
   assert.match(login,/nextPath\.startsWith\('\/'\)&&!nextPath\.startsWith\('\/\/'\)/);
-  assert.doesNotMatch(login,/name="(?:account|username|email)"/);
+  assert.doesNotMatch(`${login}\n${form}`,/name="(?:account|username|email)"/);
 });
 
 test('23-1 supersedes full route and hydration loading with the persistent shell',()=>{

@@ -51,11 +51,40 @@ test('개인 세션은 사용자·역할·12시간 만료를 서명하고 위조
 
 test('단일 OWNER 로그인은 계정 입력 없이 비밀번호만 받는다', () => {
   const page=fs.readFileSync(path.resolve(__dirname,'../app/login/page.js'),'utf8');
+  const form=fs.readFileSync(path.resolve(__dirname,'../app/login/login-form.js'),'utf8');
   const route=fs.readFileSync(path.resolve(__dirname,'../app/api/dashboard/login/route.js'),'utf8');
-  assert.doesNotMatch(page,/name="account"/);
-  assert.match(page,/minLength="6"/);
-  assert.match(page,/pattern="\[0-9\]\{6\}"/);
+  assert.doesNotMatch(`${page}\n${form}`,/name="account"/);
+  assert.match(form,/minLength="6"/);
+  assert.match(form,/pattern="\[0-9\]\{6\}"/);
   assert.match(route,/account:'owner'/);
+});
+
+test('로그인 폼은 중복 제출을 막고 처리 상태를 즉시 알린다', () => {
+  const form=fs.readFileSync(path.resolve(__dirname,'../app/login/login-form.js'),'utf8');
+  assert.match(form,/submittingRef\.current/);
+  assert.match(form,/event\.preventDefault\(\)/);
+  assert.match(form,/disabled=\{pending\}/);
+  assert.match(form,/aria-live="polite"/);
+  assert.match(form,/안전하게 확인 중/);
+});
+
+test('비밀번호 검증은 제한 시간 안에 끝나며 성공 후 불필요한 원격 로그아웃을 기다리지 않는다', async () => {
+  const source=fs.readFileSync(path.resolve(__dirname,'../lib/dashboard-auth.js'),'utf8');
+  assert.doesNotMatch(source,/client\.auth\.signOut/);
+  let signOutCalls=0;
+  const client={auth:{
+    signInWithPassword:async()=>({data:{user:{id:'u1'}},error:null}),
+    signOut:async()=>{signOutCalls+=1;return new Promise(()=>{});}
+  }};
+  const result=await auth.signInWithTimeout(client,{email:'owner@example.com',password:'123456'},50);
+  assert.equal(result.data.user.id,'u1');
+  assert.equal(signOutCalls,0);
+
+  const stalled={auth:{signInWithPassword:()=>new Promise(()=>{})}};
+  await assert.rejects(
+    auth.signInWithTimeout(stalled,{email:'owner@example.com',password:'123456'},15),
+    error=>error?.code==='LOGIN_AUTH_TIMEOUT'
+  );
 });
 
 test('단일 OWNER Proxy는 다른 역할과 다른 출처 요청을 차단한다', () => {

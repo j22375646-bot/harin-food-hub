@@ -29,7 +29,12 @@ export async function POST(request) {
     return response;
   } catch (error) {
     const login = new URL('/login', request.url);
-    login.searchParams.set('error', error.code === 'LOGIN_RATE_LIMITED' ? 'blocked' : 'invalid');
+    const errorType = error.code === 'LOGIN_RATE_LIMITED'
+      ? 'blocked'
+      : error.code === 'LOGIN_AUTH_TIMEOUT'
+        ? 'delayed'
+        : 'invalid';
+    login.searchParams.set('error', errorType);
     if (safeNext !== '/') login.searchParams.set('next', safeNext);
     return NextResponse.redirect(login, 303);
   }

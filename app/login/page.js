@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import '../_shell/harin-entry-v8.css';
 import authModule from '../../lib/dashboard-auth.js';
 import { HarinIcon } from '../_design-system/harin-icon.js';
+import { LoginForm } from './login-form.js';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +14,8 @@ export default async function LoginPage({ searchParams }) {
   const params = await searchParams;
   const error = params?.error === 'blocked'
     ? '로그인 시도가 잠시 차단되었습니다. 15분 뒤 다시 시도해주세요.'
+    : params?.error === 'delayed'
+      ? '로그인 서버 연결이 늦어졌어요. 잠시 후 한 번만 다시 시도해주세요.'
     : params?.error
       ? '비밀번호를 다시 확인해주세요.'
       : null;
@@ -33,12 +36,7 @@ export default async function LoginPage({ searchParams }) {
       <div className="loginAccess">
         <header><span><HarinIcon name="shield"/>사장님 전용</span><h2>허브에 들어갈까요?</h2><p>계정 이름 없이 6자리 비밀번호만 입력해주세요.</p></header>
         {error && <div className="loginError" role="alert"><HarinIcon name="alerts"/><span>{error}</span></div>}
-        <form action="/api/dashboard/login" method="post">
-          <input type="hidden" name="next" value={nextPath.startsWith('/')&&!nextPath.startsWith('//')?nextPath:'/'} />
-          <label htmlFor="password">사장님 비밀번호</label>
-          <div className="loginPasswordField"><HarinIcon name="shield"/><input id="password" name="password" type="password" inputMode="numeric" pattern="[0-9]{6}" autoComplete="current-password" minLength="6" maxLength="6" required autoFocus placeholder="6자리 숫자" /></div>
-          <button type="submit"><span>허브 시작하기</span><HarinIcon name="chevron"/></button>
-        </form>
+        <LoginForm nextPath={nextPath.startsWith('/')&&!nextPath.startsWith('//')?nextPath:'/'} />
         <footer><HarinIcon name="shield"/><span><b>이 기기에서 12시간 유지</b><small>비밀번호와 운영 자료는 화면에 공개되지 않습니다.</small></span></footer>
       </div>
     </section>
