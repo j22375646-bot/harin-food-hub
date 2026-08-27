@@ -32,7 +32,10 @@ export function LoginForm({ nextPath = '/' }) {
         maxLength="6"
         required
         autoFocus
-        disabled={pending}
+        // disabled 입력값은 브라우저의 native form 전송에서 제외된다.
+        // 재입력만 막고 비밀번호 값은 반드시 서버에 제출되도록 readOnly를 사용한다.
+        readOnly={pending}
+        aria-disabled={pending}
         placeholder="6자리 숫자"
       />
     </div>

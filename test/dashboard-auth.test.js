@@ -68,6 +68,14 @@ test('로그인 폼은 중복 제출을 막고 처리 상태를 즉시 알린다
   assert.match(form,/안전하게 확인 중/);
 });
 
+test('로그인 제출 중에도 비밀번호 입력값은 폼 전송 대상에 남는다', () => {
+  const form=fs.readFileSync(path.resolve(__dirname,'../app/login/login-form.js'),'utf8');
+  const passwordInput=form.match(/<input\s+[\s\S]*?id="password"[\s\S]*?\/>/)?.[0]||'';
+  assert.ok(passwordInput,'비밀번호 입력칸을 찾을 수 있어야 한다');
+  assert.doesNotMatch(passwordInput,/(?:^|\s)disabled=\{pending\}/);
+  assert.match(passwordInput,/readOnly=\{pending\}/);
+});
+
 test('비밀번호 검증은 제한 시간 안에 끝나며 성공 후 불필요한 원격 로그아웃을 기다리지 않는다', async () => {
   const source=fs.readFileSync(path.resolve(__dirname,'../lib/dashboard-auth.js'),'utf8');
   assert.doesNotMatch(source,/client\.auth\.signOut/);
