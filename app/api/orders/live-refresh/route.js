@@ -5,6 +5,7 @@ import cafe24Config from '../../../../lib/cafe24/config.js';
 import cafe24Sync from '../../../../lib/cafe24/sync.js';
 import requestQueue from '../../../../lib/coupang/request-queue.js';
 import operationQueue from '../../../../lib/coupang/operation-queue.js';
+import reliabilityCenter from '../../../../lib/operations/reliability-center.js';
 import unifiedOrdersModule from '../../../../lib/orders/unified-orders.js';
 
 export const runtime='nodejs';
@@ -26,18 +27,38 @@ function publicRequest(row) {
   return safe;
 }
 
+function workerUnavailable(readiness) {
+  return apiSafety.json({
+    ok:false,
+    code:'FIXED_IP_WORKER_OFFLINE',
+    error:'서울 고정 IP 주문 서버가 멈춰 있어 수동 조회를 시작하지 않았습니다. AWS 워커를 재시작한 뒤 다시 눌러주세요.',
+    worker:{
+      lastSeenAt:readiness.lastSeenAt,
+      silenceMinutes:readiness.silenceMinutes
+    }
+  },{status:503});
+}
+
 export async function POST(request) {
   if(!apiSafety.isAuthorized(request,authModule))return apiSafety.unauthorized();
   try {
     const db=supabaseModule.getSupabase();
-    const executionMinute=new Date().toISOString().slice(0,16);
-    const coupang=await requestQueue.queueRequest(db,'ORDER_REALTIME',{idempotencyKey:`orders-live:${executionMinute}`});
+    const now=new Date();
+    const readiness=await reliabilityCenter.loadLiveRefreshWorkerReadiness(db,{now});
+    if(!readiness.ready)return workerUnavailable(readiness);
+    const executionMinute=now.toISOString().slice(0,16);
+    const coupang=await requestQueue.queueRequest(db,'ORDER_REALTIME',{
+      idempotencyKey:`orders-live:${executionMinute}`,
+      now,
+      staleAfterMs:reliabilityCenter.SILENCE_MINUTES*60*1000
+    });
     let naver=null; let naverError=null;
     try {
       naver=await operationQueue.queueOperation(db,{
         operationType:'NAVER_COMMERCE_SYNC',targetType:'CHANNEL',targetId:'SMARTSTORE',
-        payload:{requestedAt:new Date().toISOString(),days:31},
-        idempotencyKey:`orders-live:naver:${executionMinute}`
+        payload:{requestedAt:now.toISOString(),days:31},
+        idempotencyKey:`orders-live:naver:${executionMinute}`,
+        now
       });
     } catch(error) { naverError=error.message; }
     let cafe24=null; let cafe24Error=null;
@@ -65,6 +86,8 @@ export async function GET(request) {
     if(!coupangRequestId&&!naverRequestId)return apiSafety.json({ok:false,error:'수집 요청번호를 확인하세요.'},{status:400});
     if((coupangRequestId&&!UUID.test(coupangRequestId))||(naverRequestId&&!UUID.test(naverRequestId)))return apiSafety.json({ok:false,error:'수집 요청번호를 확인하세요.'},{status:400});
     const db=supabaseModule.getSupabase();
+    const readiness=await reliabilityCenter.loadLiveRefreshWorkerReadiness(db,{now:new Date()});
+    if(!readiness.ready)return workerUnavailable(readiness);
     const [coupangResult,naverResult]=await Promise.all([
       coupangRequestId?db.from('coupang_sync_requests').select('id,status,requested_at,started_at,finished_at,error_message').eq('id',coupangRequestId).single():Promise.resolve({data:null,error:null}),
       naverRequestId?db.from('coupang_operation_requests').select('id,status,created_at,started_at,executed_at,error_message').eq('id',naverRequestId).single():Promise.resolve({data:null,error:null})

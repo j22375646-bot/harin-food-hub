@@ -10,13 +10,17 @@ const actions = require("../lib/coupang/actions.js");
 
 function chain(terminal, calls) {
   const query = {};
-  for (const method of ["select", "eq", "in", "order", "limit"])
+  for (const method of ["select", "eq", "in", "order", "limit", "lt"])
     query[method] = (...args) => {
       calls.push([method, ...args]);
       return query;
     };
   query.insert = (value) => {
     calls.push(["insert", value]);
+    return query;
+  };
+  query.update = (value) => {
+    calls.push(["update", value]);
     return query;
   };
   query.maybeSingle = async () => terminal;
@@ -60,6 +64,42 @@ test("Coupang queue inserts when no active request exists", async () => {
     scheduled_for: null,
     kst_execution_date: null,
   });
+});
+
+test("Coupang queue expires an abandoned active request before inserting a new manual refresh", async () => {
+  const calls = [];
+  const stale = {
+    id: "stale",
+    request_type: "ORDER_REALTIME",
+    status: "PENDING",
+    requested_at: "2026-08-26T23:00:00.000Z",
+  };
+  const inserted = {
+    id: "new",
+    request_type: "ORDER_REALTIME",
+    status: "PENDING",
+    requested_at: "2026-08-27T00:30:00.000Z",
+  };
+  const responses = [
+    { data: null, error: null },
+    { data: stale, error: null },
+    { data: stale, error: null },
+    { data: inserted, error: null },
+  ];
+  let tableCalls = 0;
+  const db = { from: () => chain(responses[tableCalls++], calls) };
+
+  const result = await queue.queueRequest(db, "ORDER_REALTIME", {
+    idempotencyKey: "orders-live:2026-08-27T00:30",
+    now: new Date("2026-08-27T00:30:00.000Z"),
+    staleAfterMs: 15 * 60 * 1000,
+  });
+
+  assert.equal(result.existing, false);
+  assert.equal(result.request.id, "new");
+  const update = calls.find(([method]) => method === "update")?.[1];
+  assert.equal(update?.status, "FAILED");
+  assert.match(update?.error_message || "", /대기 시간이 초과/);
 });
 
 test("Coupang queue reuses a completed request with the same KST execution key", async () => {

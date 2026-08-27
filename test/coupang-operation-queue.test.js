@@ -11,8 +11,9 @@ const secret = 'test-only-service-role-secret';
 
 function chain(terminal, calls) {
   const query = {};
-  for (const method of ['select','eq','in','order','limit']) query[method] = (...args) => { calls.push([method,...args]); return query; };
+  for (const method of ['select','eq','in','order','limit','lt']) query[method] = (...args) => { calls.push([method,...args]); return query; };
   query.insert = value => { calls.push(['insert',value]); return query; };
+  query.update = value => { calls.push(['update',value]); return query; };
   query.maybeSingle = async () => terminal;
   query.single = async () => terminal;
   return query;
@@ -40,6 +41,39 @@ test('같은 대상의 진행 중 작업은 중복 등록하지 않는다', asyn
   const result=await queue.queueOperation(db,{operationType:'ORDER_DETAIL',targetType:'ORDER',targetId:'123',payload:{shipmentBoxId:'123'}});
   assert.equal(result.existing,true);
   assert.equal(calls.some(([method])=>method==='insert'),false);
+});
+
+test('처리 기한이 지난 진행 중 작업은 새 주문 조회를 막지 않는다', async () => {
+  const previous=process.env.SUPABASE_SERVICE_ROLE_KEY;
+  process.env.SUPABASE_SERVICE_ROLE_KEY=secret;
+  try {
+    const calls=[];
+    const expired={
+      id:'expired',operation_type:'ORDER_DETAIL',target_type:'ORDER',target_id:'123',status:'PENDING',
+      created_at:'2026-08-26T23:00:00.000Z',expires_at:'2026-08-26T23:10:00.000Z'
+    };
+    const inserted={id:'new',operation_type:'ORDER_DETAIL',target_type:'ORDER',target_id:'123',status:'PENDING'};
+    const responses=[
+      {data:expired,error:null},
+      {data:expired,error:null},
+      {data:inserted,error:null},
+    ];
+    let tableCalls=0;
+    const db={from:()=>chain(responses[tableCalls++],calls)};
+
+    const result=await queue.queueOperation(db,{
+      operationType:'ORDER_DETAIL',targetType:'ORDER',targetId:'123',
+      now:new Date('2026-08-27T00:30:00.000Z')
+    });
+
+    assert.equal(result.existing,false);
+    assert.equal(result.request.id,'new');
+    const update=calls.find(([method])=>method==='update')?.[1];
+    assert.equal(update?.status,'FAILED');
+    assert.match(update?.error_message||'',/처리 기한/);
+  } finally {
+    if(previous===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=previous;
+  }
 });
 
 test('새 작업은 PENDING 상태와 암호문만 저장한다', async () => {

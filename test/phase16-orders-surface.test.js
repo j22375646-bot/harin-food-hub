@@ -71,3 +71,14 @@ test('16-15 loads platform image catalogs and attaches them before building the 
   assert.match(page,/naverOrderItems:unifiedOrdersModule\.attachOrderImages\([^\n]*'NAVER'/);
   assert.match(page,/coupangOrderItems:unifiedOrdersModule\.attachOrderImages\([^\n]*'COUPANG'/);
 });
+
+test('manual order refresh fails fast when the fixed-IP worker is offline',()=>{
+  const center=read('app/unified-orders-center.js');
+  const route=read('app/api/orders/live-refresh/route.js');
+  assert.match(route,/loadLiveRefreshWorkerReadiness/);
+  assert.match(route,/FIXED_IP_WORKER_OFFLINE/);
+  assert.match(route,/staleAfterMs/);
+  assert.match(center,/AbortController/);
+  assert.match(center,/LIVE_REFRESH_DEADLINE_MS/);
+  assert.doesNotMatch(center,/attempt<70/);
+});

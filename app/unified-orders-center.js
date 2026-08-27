@@ -133,6 +133,16 @@ function OrderCard({ order, selected, onSelect, invoiceDraft='', onInvoiceChange
 }
 
 const wait=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
+const LIVE_REFRESH_DEADLINE_MS=45*1000;
+async function liveRefreshFetch(url,options={},timeoutMs=10*1000){
+  const controller=new AbortController();
+  const timer=window.setTimeout(()=>controller.abort(),timeoutMs);
+  try{return await fetch(url,{...options,signal:controller.signal});}
+  catch(error){
+    if(error?.name==='AbortError')throw new Error('주문 조회 응답 시간이 초과됐습니다. 고정 IP 서버 상태를 확인해 주세요.');
+    throw error;
+  }finally{window.clearTimeout(timer);}
+}
 async function pollShippingTransfer(item){
   if(item.platform!=='COUPANG'||!item.requestId||!['QUEUED','RUNNING'].includes(item.status))return item;
   for(let attempt=0;attempt<35;attempt+=1){
@@ -416,7 +426,7 @@ export default function UnifiedOrdersCenter({ center, children, aiPanel }) {
     const afterShipping=options?.afterShipping===true;
     setLiveState({status:'LOADING',message:afterShipping?'송장 등록 완료 · Cafe24·쿠팡·네이버 최신 주문 상태를 다시 수집하고 있습니다.':'전체 플랫폼 주문·배송 상태를 수집하고 있습니다.'});
     try{
-      const response=await fetch('/api/orders/live-refresh',{method:'POST',cache:'no-store'});
+      const response=await liveRefreshFetch('/api/orders/live-refresh',{method:'POST',cache:'no-store'},45*1000);
       const result=await response.json();
       if(result.center)setCurrentCenter(result.center);
       if(!response.ok||!result.ok)throw new Error(result.error||result.cafe24Error||'최신 주문 상태 확인 실패');
@@ -431,9 +441,10 @@ export default function UnifiedOrdersCenter({ center, children, aiPanel }) {
       const params=new URLSearchParams();
       if(coupangRequestId)params.set('coupangRequestId',coupangRequestId);
       if(naverRequestId)params.set('naverRequestId',naverRequestId);
-      for(let attempt=0;attempt<70;attempt+=1){
-        await wait(1500);
-        const pollResponse=await fetch(`/api/orders/live-refresh?${params}`,{cache:'no-store'});
+      const deadline=Date.now()+LIVE_REFRESH_DEADLINE_MS;
+      while(Date.now()<deadline){
+        await wait(1200);
+        const pollResponse=await liveRefreshFetch(`/api/orders/live-refresh?${params}`,{cache:'no-store'});
         const poll=await pollResponse.json();
         if(pollResponse.status===202)continue;
         if(!pollResponse.ok||!poll.ok)throw new Error(poll.error||'택배 연동 채널 최신 주문 상태 확인 실패');

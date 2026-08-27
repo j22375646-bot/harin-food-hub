@@ -25,6 +25,24 @@ test('23 polish accepts an ISO generated-at value when checking worker silence',
   assert.equal(health.workers[0].stale,true);
 });
 
+test('manual order refresh readiness rejects a silent fixed-IP worker immediately',async()=>{
+  const rows=[{
+    worker_id:'FIXED_IP_WORKER',service_name:'harin-coupang-worker',collector:'FIXED_IP_WORKER',
+    status:'ONLINE',source_ip:'13.124.12.17',last_seen_at:'2026-08-27T00:00:00.000Z'
+  }];
+  const query={
+    select(){return this;},eq(){return this;},order(){return this;},limit(){return Promise.resolve({data:rows,error:null});}
+  };
+  const result=await reliability.loadLiveRefreshWorkerReadiness(
+    {from:()=>query},
+    {now:new Date('2026-08-27T00:30:00.000Z')}
+  );
+  assert.equal(result.ready,false);
+  assert.equal(result.code,'FIXED_IP_WORKER_OFFLINE');
+  assert.equal(result.silenceMinutes,30);
+  assert.equal(result.lastSeenAt,'2026-08-27T00:00:00.000Z');
+});
+
 test('13-8 dead-letter workbench contains only terminal failures and no payload',()=>{
   const center=reliability.buildReliabilityCenter({operationRequests:[{id:'op-1',status:'FAILED',operation_type:'INVOICE_UPLOAD',target_type:'ORDER',target_id:'100',error_message:'failed',attempt_count:2},{id:'op-2',status:'SUCCESS',operation_type:'ORDER_DETAIL'}],syncRequests:[{id:'sync-1',status:'FAILED',request_type:'FULL',error_message:'timeout'}]});
   assert.equal(center.dead_letter_count,2);
