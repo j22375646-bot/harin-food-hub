@@ -1,4 +1,5 @@
 import authModule from '../../../../lib/dashboard-auth.js';
+import loginRequestModule from '../../../../lib/dashboard-login-request.js';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -10,9 +11,8 @@ function sourceIp(request) {
 }
 
 export async function POST(request) {
-  const origin = request.headers.get('origin');
-  if (!origin || origin !== new URL(request.url).origin) {
-    return NextResponse.redirect(new URL('/login?error=invalid', request.url), 303);
+  if (!loginRequestModule.isTrustedLoginRequest(request)) {
+    return NextResponse.redirect(new URL('/login?error=source', request.url), 303);
   }
   const form = await request.formData();
   const nextPath = String(form.get('next') || '/');

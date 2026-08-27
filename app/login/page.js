@@ -16,6 +16,8 @@ export default async function LoginPage({ searchParams }) {
     ? '로그인 시도가 잠시 차단되었습니다. 15분 뒤 다시 시도해주세요.'
     : params?.error === 'delayed'
       ? '로그인 서버 연결이 늦어졌어요. 잠시 후 한 번만 다시 시도해주세요.'
+    : params?.error === 'source'
+      ? '로그인 화면을 새로 연 뒤 다시 시도해주세요.'
     : params?.error
       ? '비밀번호를 다시 확인해주세요.'
       : null;
