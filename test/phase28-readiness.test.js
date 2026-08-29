@@ -29,3 +29,27 @@ test('readiness recognizes the implemented Main, Orders, and CS adapters',()=>{
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='cs'),false);
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='inventory'),true);
 });
+
+test('readiness requires complete page coverage before whole-app cutover',()=>{
+  const hubNav=routes.PHASE28_ROUTES.map(route=>({id:route.id,href:route.href}));
+  const availableAdapters=routes.PHASE28_ROUTES.map(route=>route.adapterId);
+  const partial=buildPhase28Readiness({
+    routes:routes.PHASE28_ROUTES,
+    hubNav,
+    hubWorkspaces:{},
+    env:{HARIN_PHASE28_ENABLED:'true',HARIN_PHASE28_PAGES:'home,orders'},
+    availableAdapters
+  });
+  assert.equal(partial.cutover,'BLOCKED');
+  assert.ok(partial.blockers.some(item=>item.code==='INCOMPLETE_PAGE_COVERAGE'));
+
+  const complete=buildPhase28Readiness({
+    routes:routes.PHASE28_ROUTES,
+    hubNav,
+    hubWorkspaces:{},
+    env:{HARIN_PHASE28_ENABLED:'true',HARIN_PHASE28_PAGES:routes.PHASE28_ROUTE_IDS.join(',')},
+    availableAdapters
+  });
+  assert.equal(complete.cutover,'READY');
+  assert.equal(complete.flags.complete,true);
+});

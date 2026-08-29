@@ -12,11 +12,12 @@ test('Phase 28 is disabled with no active pages by default',()=>{
   assert.equal(flags.harinUiConfig({}).phase28.enabled,false);
 });
 
-test('Phase 28 activates only allowlisted pages when the master flag is on',()=>{
+test('Phase 28 records a partial allowlist without activating an overlay page',()=>{
   const config=flags.phase28UiConfig({HARIN_PHASE28_ENABLED:'true',HARIN_PHASE28_PAGES:'home, orders,home'});
   assert.equal(config.valid,true);
   assert.deepEqual(config.pages,['home','orders']);
-  assert.equal(config.active('home'),true);
+  assert.equal(config.coverage,'PARTIAL');
+  assert.equal(config.active('home'),false);
   assert.equal(config.active('cs'),false);
 });
 
@@ -27,15 +28,18 @@ test('Phase 28 refuses all activation when any configured page is unknown',()=>{
   assert.equal(config.active('home'),false);
 });
 
-test('Phase 28 runtime config exposes only serializable active pages',()=>{
-  const runtime=flags.phase28RuntimeConfig({HARIN_PHASE28_ENABLED:'true',HARIN_PHASE28_PAGES:'home'});
-  assert.deepEqual(runtime.activePages,['home']);
+test('Phase 28 runtime config exposes only serializable fail-closed state',()=>{
+  const runtime=flags.phase28RuntimeConfig({NODE_ENV:'production',HARIN_PHASE28_ENABLED:'true',HARIN_PHASE28_PAGES:'home'},{readiness:{cutover:'BLOCKED'},routeId:'home'});
+  assert.deepEqual(runtime.activePages,[]);
   assert.deepEqual(JSON.parse(JSON.stringify(runtime)),{
     enabled:true,
     valid:true,
     pages:['home'],
-    activePages:['home'],
-    invalidPages:[]
+    invalidPages:[],
+    coverage:'PARTIAL',
+    renderMode:'legacy',
+    activePages:[],
+    routeId:'home'
   });
 });
 
