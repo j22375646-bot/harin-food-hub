@@ -28,7 +28,7 @@ test('Phase 28 상품개발 어댑터는 판매상품별 프로젝트와 근거�
   assert.equal(model.policy.projectIsolation,'master_product_id');
   assert.equal(model.stages.length,5);
   assert.deepEqual(model.stages.map(item=>item.label),['자료 준비','시장 분석','경쟁·전환 설계','A/B 실험','결과 학습']);
-  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system']);
+  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system','notifications']);
 });
 
 test('Phase 28 상품개발 어댑터는 프로젝트가 없어도 추정 프로젝트를 만들지 않는다',()=>{

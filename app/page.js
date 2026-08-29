@@ -2746,6 +2746,14 @@ async function renderDashboardState(initialState) {
         phase28={system:null,adapter_status:'ERROR'};
       }
     }
+    if(phase28Runtime.activePages.includes('notifications')&&initialState.view==='notifications'){
+      try{
+        phase28={notifications:phase28AdaptersModule.buildPhase28NotificationsModel({generatedAt:dashboardData.generatedAt,alerts:dashboardData.alerts||[]}),adapter_status:'READY'};
+        clientDashboardData={...dashboardData,reports:[]};
+      }catch{
+        phase28={notifications:null,adapter_status:'ERROR'};
+      }
+    }
     return <Dashboard initialData={{...clientDashboardData,phase28Runtime,phase28}} initialState={initialState} />;
   } catch (error) {
     return <Dashboard initialData={{ error:error.message,phase28Runtime }} initialState={initialState} />;

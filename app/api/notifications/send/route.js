@@ -18,8 +18,8 @@ export async function POST(request){
       return responseFor(delivery);
     }
     if(body.action==='ALERTS'){
-      const result=await db.from('alerts').select('id,platform,severity,title,message,fingerprint').eq('status','OPEN').order('created_at',{ascending:false}).limit(20);if(result.error)throw result.error;
-      const delivery=await notificationService.deliverAlerts(result.data||[],{db,force:false,triggerType:'MANUAL'});
+      const result=await db.from('alerts').select('id,platform,severity,title,message,fingerprint,status,snoozed_until').eq('status','OPEN').order('created_at',{ascending:false}).limit(20);if(result.error)throw result.error;
+      const delivery=await notificationService.deliverAlerts(notificationService.activeAlertsForDelivery(result.data||[],new Date()),{db,force:false,triggerType:'MANUAL'});
       return responseFor(delivery);
     }
     if(body.action==='TEST'){
