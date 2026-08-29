@@ -17,6 +17,21 @@ test('main adapter keeps a confirmed numeric zero',()=>{
   assert.equal(model.metrics.current.value,0);
 });
 
+test('missing Main counts stay unknown instead of becoming zero',()=>{
+  const model=buildPhase28MainModel({salesCommandCenter:{daily:{},metrics:{},cashflow:{}}});
+  assert.equal(model.hero.taskCount,null);
+  assert.equal(model.hero.exceptionCount,null);
+  assert.equal(model.hero.status,'BLOCKED');
+  assert.equal(model.hero.headline,'오늘 운영 건수는 확인이 필요해요.');
+});
+
+test('measured zero Main counts remain ready evidence',()=>{
+  const model=buildPhase28MainModel({salesCommandCenter:{daily:{total:0,exception_total:0},metrics:{},cashflow:{}}});
+  assert.equal(model.hero.taskCount,0);
+  assert.equal(model.hero.exceptionCount,0);
+  assert.equal(model.hero.status,'READY');
+});
+
 test('main adapter reuses server-owned schedules, decisions, channels, and growth signals',()=>{
   const model=buildPhase28MainModel({
     generatedAt:'2026-08-29T01:40:00.000Z',

@@ -6,6 +6,7 @@ const {
   PHASE28_ROUTES,
   PHASE28_ROUTE_IDS,
   phase28Route,
+  phase28RouteForLegacyState,
   phase28RouteForPath,
   validatePhase28Registry
 }=require('../lib/ui/phase28-route-registry.js');
@@ -27,6 +28,12 @@ test('Phase 28 registry keeps workspaces and channel writes explicit',()=>{
   assert.equal(phase28Route('orders').writePolicy,'GUARDED');
   assert.equal(phase28Route('product-analysis').writePolicy,'READ_ONLY');
   assert.equal(phase28Route('analysis').writePolicy,'READ_ONLY');
+});
+
+test('legacy state resolves to one stable Phase 28 route',()=>{
+  assert.equal(phase28RouteForLegacyState({view:'main',workspace:null}).id,'home');
+  assert.equal(phase28RouteForLegacyState({view:'product',workspace:'catalog'}).id,'products');
+  assert.equal(phase28RouteForLegacyState({view:'unknown',workspace:null}),null);
 });
 
 test('Phase 28 registry rejects duplicates and incomplete entries',()=>{
