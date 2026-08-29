@@ -35,6 +35,7 @@ const UnifiedInventoryOperationsCenter=dynamic(()=>import('./unified-inventory-o
 const UnifiedSettlementOperationsCenter=dynamic(()=>import('./unified-settlement-operations-center.js'),{loading:LazyWorkbenchFallback});
 const UnifiedCollectionOperationsCenter=dynamic(()=>import('./unified-collection-operations-center.js'),{loading:LazyWorkbenchFallback});
 const Phase14MainCommandCenter=dynamic(()=>import('./_main/harin-main-command-center.js'),{loading:LazyWorkbenchFallback});
+const Phase28MainDashboard=dynamic(()=>import('./_phase28/main-dashboard.js'),{loading:LazyWorkbenchFallback});
 const HarinAnalysisWorkbench=dynamic(()=>import('./_analysis/harin-analysis-workbench.js'),{loading:LazyWorkbenchFallback});
 const KeywordOwnerShell=dynamic(()=>import('./_analysis/keyword-owner-shell.js'),{loading:LazyWorkbenchFallback});
 const HarinKeywordDetailWorkbench=dynamic(()=>import('./_analysis/harin-keyword-detail-workbench.js'),{loading:LazyWorkbenchFallback});
@@ -228,6 +229,8 @@ export default function Dashboard({ initialData, initialState }) {
   const prefetchedViews=useRef(new Set([normalizedInitial.view]));
   const [fontScale,setFontScale]=useStoredState('font-scale','large',['large','xlarge']);
   const [sidebarCollapsed,setSidebarCollapsed]=useStoredState('desktop-sidebar-collapsed',false,[true,false]);
+  const phase28ActivePages=useMemo(()=>new Set(initialData.phase28Runtime?.activePages||[]),[initialData.phase28Runtime?.activePages]);
+  const phase28HomeActive=phase28ActivePages.has('home')&&Boolean(initialData.phase28?.main);
   const incomingNavigationSnapshot=useMemo(
     ()=>navigationOperationSnapshotModule.buildNavigationOperationSnapshot(initialData),
     [initialData.loadedView,initialData.generatedAt,initialData.unifiedOrders,initialData.customerService,initialData.unifiedInventory,initialData.alerts,initialData.channelConnections]
@@ -307,6 +310,8 @@ export default function Dashboard({ initialData, initialState }) {
     prefetchedViews.current.add(id);
     router.prefetch(hubRoutesModule.buildHubHref(hubRoutesModule.primaryNavigationState(id)));
   };
+  const openMainItem=item=>{const target=String(item.platform||'ALL').toLowerCase();navigate({platform:['naver','coupang','cafe24'].includes(target)?target:'all',view:item.view||'main',product:'ALL',period:'DAY'});};
+  const openMainTargets=()=>{const detail=document.getElementById('monthly-target-details');if(detail){detail.open=true;detail.scrollIntoView({behavior:'smooth',block:'start'});}};
 
   return <div className="shell">
     <HarinTopbar context={navContext} connectionLabel={connectionLabel} connectionTone={connectionTone} fontScale={fontScale} onFontScale={setFontScale} syncing={syncing} onSync={runSync}/>
@@ -326,8 +331,8 @@ export default function Dashboard({ initialData, initialState }) {
       {syncMessage && <div className="syncToast">{syncMessage}</div>}
 
       {channelUnavailable&&['insight','keyword','product'].includes(view)&&<ChannelUnavailable health={selectedHealth} onOpenCollection={()=>openView('collection')}/>}
-      {view==='main' && platform==='all' && !channelUnavailable && <Phase14MainCommandCenter center={initialData.salesCommandCenter} onOpen={item=>{const target=String(item.platform||'ALL').toLowerCase();navigate({platform:['naver','coupang','cafe24'].includes(target)?target:'all',view:item.view||'main',product:'ALL',period:'DAY'});}} onOpenTargets={()=>{const detail=document.getElementById('monthly-target-details');if(detail){detail.open=true;detail.scrollIntoView({behavior:'smooth',block:'start'});}}}/>}
-      {view==='main' && platform==='all' && !channelUnavailable && <div className="mainAiSlot"><HarinAiPagePanel panel={initialData.aiPagePanels?.main}/></div>}
+      {view==='main' && platform==='all' && !channelUnavailable && (phase28HomeActive?<Phase28MainDashboard model={initialData.phase28.main} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.main}/>} onOpen={openMainItem} onOpenTargets={openMainTargets}/>:<Phase14MainCommandCenter center={initialData.salesCommandCenter} onOpen={openMainItem} onOpenTargets={openMainTargets}/>)}
+      {view==='main' && platform==='all' && !channelUnavailable && !phase28HomeActive && <div className="mainAiSlot"><HarinAiPagePanel panel={initialData.aiPagePanels?.main}/></div>}
       {view==='main' && platform==='all' && !channelUnavailable && <details className="commandEvidence" id="monthly-target-details"><summary><span><b>목표 설정·계산 근거 보기</b><small>월 목표를 바꾸거나 숫자의 출처를 확인할 때만 열어보세요.</small></span><em>열기</em></summary><div><BusinessPacingPanel platform={platform} pacing={initialData.pacing}/><MetricProvenanceStrip snapshots={initialData.metricSnapshots||[]}/></div></details>}
       {view==='collection' && workspace==='naver-api' && <NaverApiConnectionCenter center={initialData.naverApiCenter}/>}
       {view==='collection' && workspace==='advertising' && <AdvertisingChannelCenter center={initialData.advertisingChannelCenter}/>}
@@ -362,7 +367,7 @@ export default function Dashboard({ initialData, initialState }) {
       {view==='experiments' && <HarinExecutionWorkbench view="experiments" data={initialData} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.experiments}/>}><HarinExperimentLab /></HarinExecutionWorkbench>}
       {view==='notifications' && <HarinNotificationCenter reports={reports} center={initialData.collectionCenter} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.notifications}/>} />}
     </main>
-    <HarinOwnerWorkspace pageKey={view} pageLabel={navContext.item.label}/>
+    {!phase28HomeActive&&<HarinOwnerWorkspace pageKey={view} pageLabel={navContext.item.label}/>}
     <HarinLiveStatusDock center={initialData.collectionCenter} alerts={initialData.alerts} generatedAt={initialData.generatedAt}/>
     <HarinMobileNavigation nav={nav} groups={navGroups} countsKnown={navigationSnapshotKnown} countsStale={navigationSnapshotStale} view={view} onOpenView={openView} onPrefetch={prefetchView} fontScale={fontScale} onFontScale={setFontScale}/>
     <footer className="hubFooter" data-canvas-profile={canvasProfile}>하린식품 광고·매출 통합 관리 허브 <span>·</span> 네이버 + 쿠팡 + Cafe24 + Supabase</footer>
