@@ -1,0 +1,38 @@
+:root{--phase28-readable-detail:12px}
+
+/* V106 fixed readability floor: preserve the established scale and lift only sub-12px operational detail. */
+.ceo-main .forecast-day,
+.ceo-main .change-effect-row span,
+#ordersPage .cutoff-clock>small,
+#ordersPage .orders-freshness-summary small,
+#ordersPage .orders-channel-chip strong,
+#ordersPage .order-product-image small,
+#csPage .cs-lane-scale,
+#csPage .cs-lane-track button small,
+#csPage .cs-stage-tabs button b,
+#developmentPage .development-radar text,
+#developmentPage .development-lazy>button i,
+#knowledgePage .knowledge-scope i,
+#knowledgePage .knowledge-source-card code,
+#knowledgePage .knowledge-history p,
+#knowledgePage .knowledge-history p b{font-size:var(--phase28-readable-detail)!important}
+
+#app .channel-brand-logo{font-size:var(--phase28-readable-detail)!important;line-height:1!important}
+#app .cs-avatar-channel{min-width:22px;height:22px;padding:0 4px;font-size:var(--phase28-readable-detail)!important}
+
+/* Visible keyboard focus follows the same balanced full-outline selection rule. */
+#app :is(button,a,input,select,summary):focus-visible{outline:2px solid #6f89d5;outline-offset:2px}
+
+@media(max-width:700px){
+  .decision-loop-shell{position:relative;margin-bottom:24px}
+  .decision-loop-line{margin-bottom:0;scroll-padding-inline:1px;scroll-snap-type:x proximity;scrollbar-width:thin}
+  .decision-loop-line button{scroll-snap-align:start}
+  .decision-loop-scroll-hint{display:flex;align-items:center;justify-content:flex-end;gap:7px;margin:8px 2px 0;color:var(--ops-muted);font-size:12px;font-weight:800;line-height:1.4}
+  .decision-loop-scroll-hint svg{width:17px;height:17px;flex:none;animation:decisionHintNudge 1.8s ease-in-out infinite}
+}
+
+@media(min-width:701px){.decision-loop-scroll-hint{display:none}}
+
+@keyframes decisionHintNudge{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
+@media(prefers-reduced-motion:reduce){.decision-loop-scroll-hint svg{animation:none}}
+

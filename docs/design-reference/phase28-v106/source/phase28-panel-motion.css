@@ -1,0 +1,236 @@
+:root {
+  --panel-motion-duration: 440ms;
+  --panel-content-duration: 220ms;
+  --panel-motion-ease: cubic-bezier(.22,1,.36,1);
+  --panel-content-ease: cubic-bezier(.2,.8,.2,1);
+  --panel-open-width: clamp(370px,21vw,410px);
+  --panel-closed-width: 48px;
+  --panel-open-gap: 28px;
+  --panel-closed-gap: 16px;
+}
+
+/* Phase 28 공통 규칙: 화면별 색과 내용은 유지하고, 보조석의 공간과 내용만 한 호흡으로 전환한다. */
+@media (min-width:1481px) {
+  .ceo-layout {
+    grid-template-columns:minmax(0,1fr) var(--panel-open-width);
+    gap:var(--panel-open-gap);
+    transition:grid-template-columns var(--panel-motion-duration) var(--panel-motion-ease),gap var(--panel-motion-duration) var(--panel-motion-ease);
+  }
+  .ceo-layout.rail-collapsed {
+    grid-template-columns:minmax(0,1fr) var(--panel-closed-width);
+    gap:var(--panel-closed-gap);
+  }
+}
+
+@media (min-width:1451px) {
+  .orders-layout,
+  .cs-layout,
+  .inventory-layout,
+  .products-layout,
+  .operations-layout {
+    grid-template-columns:minmax(0,1fr) var(--panel-open-width);
+    gap:var(--panel-open-gap);
+    transition:grid-template-columns var(--panel-motion-duration) var(--panel-motion-ease),gap var(--panel-motion-duration) var(--panel-motion-ease);
+  }
+  .orders-layout.rail-collapsed,
+  .cs-layout.rail-collapsed,
+  .inventory-layout.rail-collapsed,
+  .products-layout.rail-collapsed,
+  .operations-layout.rail-collapsed {
+    grid-template-columns:minmax(0,1fr) var(--panel-closed-width);
+    gap:var(--panel-closed-gap);
+  }
+}
+
+@media (min-width:1451px) {
+  .ceo-aside,
+  .orders-aside,
+  .cs-aside,
+  .inventory-aside,
+  .products-aside,
+  .operations-aside {
+    min-width:0;
+    transform-origin:right top;
+    transition:max-height var(--panel-motion-duration) var(--panel-motion-ease),padding var(--panel-motion-duration) var(--panel-motion-ease),border-color var(--panel-content-duration) ease,background-color var(--panel-content-duration) ease;
+  }
+
+  .ceo-aside.collapsed,
+  .orders-aside.collapsed,
+  .cs-aside.collapsed,
+  .inventory-aside.collapsed,
+  .products-aside.collapsed,
+  .operations-aside.collapsed {
+    /* 레일 트랙 폭을 따라 줄어들게 해 패널 자체가 48px로 순간이동하지 않도록 한다. */
+    width:100%;
+    min-height:48px;
+    max-height:48px;
+    justify-self:stretch;
+    align-self:start;
+    overflow:hidden;
+    padding:0;
+    border:0;
+    background:transparent;
+    box-shadow:none;
+  }
+
+  .ceo-aside > :not(.rail-control),
+  .orders-aside > :not(.rail-control),
+  .cs-aside > :not(.cs-rail-control),
+  .inventory-aside > :not(.inventory-rail-control),
+  .products-aside > :not(.products-rail-control),
+  .operations-aside > :not(.operations-rail-control) {
+    opacity:1;
+    transform:translateX(0) scale(1);
+    transform-origin:right center;
+    visibility:visible;
+    transition:opacity var(--panel-content-duration) var(--panel-content-ease) 110ms,transform var(--panel-motion-duration) var(--panel-motion-ease) 70ms,visibility 0s linear 0s;
+  }
+
+  /* 이전 display:none 규칙을 무효화해 닫히는 중에도 마지막 프레임이 남도록 한다. */
+  .ceo-aside.collapsed .ceo-card,
+  .orders-aside.collapsed .orders-rail-card,
+  .orders-aside.collapsed .orders-rail-summary,
+  .cs-layout.rail-collapsed .cs-aside > :not(.cs-rail-control),
+  .inventory-layout.rail-collapsed .inventory-aside > :not(.inventory-rail-control),
+  .products-layout.rail-collapsed .products-aside > :not(.products-rail-control),
+  .operations-layout.rail-collapsed .operations-aside > :not(.operations-rail-control) {
+    display:block;
+  }
+  .ceo-aside.collapsed .rail-scroll-guide { display:flex; }
+
+  .ceo-aside.collapsed > :not(.rail-control),
+  .orders-aside.collapsed > :not(.rail-control),
+  .cs-aside.collapsed > :not(.cs-rail-control),
+  .inventory-aside.collapsed > :not(.inventory-rail-control),
+  .products-aside.collapsed > :not(.products-rail-control),
+  .operations-aside.collapsed > :not(.operations-rail-control) {
+    opacity:0;
+    transform:translateX(16px) scale(.985);
+    visibility:hidden;
+    pointer-events:none;
+    transition:opacity 150ms ease,transform 260ms var(--panel-content-ease),visibility 0s linear 260ms;
+  }
+
+  .ceo-aside .rail-control,
+  .orders-aside .rail-control,
+  .cs-aside .cs-rail-control,
+  .inventory-aside .inventory-rail-control,
+  .products-aside .products-rail-control,
+  .operations-aside .operations-rail-control {
+    transition:width var(--panel-motion-duration) var(--panel-motion-ease),height var(--panel-motion-duration) var(--panel-motion-ease),min-height var(--panel-motion-duration) var(--panel-motion-ease),margin var(--panel-motion-duration) var(--panel-motion-ease),background-color 160ms ease;
+  }
+
+  .ceo-aside .rail-control span,
+  .orders-aside .rail-control span,
+  .cs-aside .cs-rail-control span,
+  .inventory-aside .inventory-rail-control span,
+  .products-aside .products-rail-control span,
+  .operations-aside .operations-rail-control span {
+    display:inline-block;
+    max-width:220px;
+    overflow:hidden;
+    opacity:1;
+    transform:translateX(0);
+    white-space:nowrap;
+    transition:max-width 320ms var(--panel-motion-ease),opacity 150ms ease 90ms,transform 300ms var(--panel-motion-ease);
+  }
+
+  .ceo-aside.collapsed .rail-control,
+  .orders-aside.collapsed .rail-control,
+  .cs-aside.collapsed .cs-rail-control,
+  .inventory-aside.collapsed .inventory-rail-control,
+  .products-aside.collapsed .products-rail-control,
+  .operations-aside.collapsed .operations-rail-control {
+    width:48px;
+    height:48px;
+    min-height:48px;
+    margin:0;
+    padding:0;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:var(--surface);
+    writing-mode:horizontal-tb;
+  }
+
+  .ceo-aside.collapsed .rail-control span,
+  .orders-aside.collapsed .rail-control span,
+  .cs-aside.collapsed .cs-rail-control span,
+  .inventory-aside.collapsed .inventory-rail-control span,
+  .products-aside.collapsed .products-rail-control span,
+  .operations-aside.collapsed .operations-rail-control span {
+    display:inline-block;
+    max-width:0;
+    opacity:0;
+    transform:translateX(8px);
+    pointer-events:none;
+    transition:max-width 230ms var(--panel-content-ease),opacity 100ms ease,transform 230ms var(--panel-content-ease);
+  }
+
+  .ceo-aside .rail-control svg,
+  .orders-aside .rail-control svg,
+  .cs-aside .cs-rail-control svg,
+  .inventory-aside .inventory-rail-control svg,
+  .products-aside .products-rail-control svg,
+  .operations-aside .operations-rail-control svg {
+    flex:0 0 auto;
+    transition:transform var(--panel-motion-duration) var(--panel-motion-ease);
+  }
+}
+
+/* 접힌 상태로 창 폭을 줄여도 인라인 보조석 내용이 사라진 채 남지 않는다. */
+@media (max-width:1480px) {
+  .ceo-aside.collapsed {
+    overflow:visible;
+  }
+  .ceo-aside.collapsed .ceo-card {
+    display:block;
+  }
+  .ceo-aside.collapsed .rail-scroll-guide {
+    display:none;
+  }
+}
+
+@media (max-width:1450px) {
+  .orders-aside.collapsed,
+  .cs-aside.collapsed,
+  .inventory-aside.collapsed,
+  .products-aside.collapsed,
+  .operations-aside.collapsed {
+    overflow:visible;
+  }
+  .orders-aside.collapsed .orders-rail-card,
+  .orders-aside.collapsed .orders-rail-summary,
+  .cs-layout.rail-collapsed .cs-aside,
+  .cs-layout.rail-collapsed .cs-aside > :not(.cs-rail-control),
+  .inventory-layout.rail-collapsed .inventory-aside,
+  .inventory-layout.rail-collapsed .inventory-aside > :not(.inventory-rail-control),
+  .products-layout.rail-collapsed .products-aside,
+  .products-layout.rail-collapsed .products-aside > :not(.products-rail-control),
+  .operations-layout.rail-collapsed .operations-aside,
+  .operations-layout.rail-collapsed .operations-aside > :not(.operations-rail-control) {
+    display:block;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ceo-layout,
+  .orders-layout,
+  .cs-layout,
+  .inventory-layout,
+  .products-layout,
+  .operations-layout,
+  .ceo-aside,
+  .orders-aside,
+  .cs-aside,
+  .inventory-aside,
+  .products-aside,
+  .operations-aside,
+  .ceo-aside > *,
+  .orders-aside > *,
+  .cs-aside > *,
+  .inventory-aside > *,
+  .products-aside > *,
+  .operations-aside > * {
+    transition:none !important;
+  }
+}

@@ -1,0 +1,88 @@
+/* V83 — one fixed Naver / Cafe24 / Coupang logo tile across every route. */
+#app {
+  /* Primitive */
+  --channel-logo-white:#fff;
+  --channel-logo-slate-200:#d9e1ec;
+  --channel-logo-slate-850:#171e2b;
+  --channel-logo-slate-700:#344054;
+  --channel-logo-green:#179b5b;
+  --channel-logo-blue:#315bd5;
+  --channel-logo-red:#e25437;
+  --channel-logo-muted:#98a2b3;
+
+  /* Semantic */
+  --channel-logo-surface:var(--channel-logo-white);
+  --channel-logo-border:var(--channel-logo-slate-200);
+
+  /* Component */
+  --channel-logo-size:40px;
+  --channel-logo-compact-size:30px;
+  --channel-logo-micro-size:20px;
+  --channel-logo-radius:10px;
+  --channel-logo-compact-radius:8px;
+  --channel-logo-micro-radius:6px;
+}
+
+.channel-brand-logo {
+  width:var(--channel-logo-size) !important;
+  min-width:var(--channel-logo-size) !important;
+  height:var(--channel-logo-size) !important;
+  min-height:var(--channel-logo-size) !important;
+  display:inline-grid !important;
+  place-items:center;
+  flex:0 0 auto;
+  margin:0;
+  padding:0 !important;
+  border:1px solid var(--channel-logo-border) !important;
+  border-radius:var(--channel-logo-radius) !important;
+  background:var(--channel-logo-surface) !important;
+  box-shadow:none !important;
+  font-family:var(--font-body,inherit);
+  font-size:12px !important;
+  font-style:normal;
+  font-weight:900 !important;
+  line-height:1;
+  letter-spacing:-.02em;
+  text-align:center;
+  text-decoration:none;
+  transition-property:color,background-color,border-color !important;
+}
+
+.channel-brand-logo[data-logo-size="compact"] {
+  width:var(--channel-logo-compact-size) !important;
+  min-width:var(--channel-logo-compact-size) !important;
+  height:var(--channel-logo-compact-size) !important;
+  min-height:var(--channel-logo-compact-size) !important;
+  border-radius:var(--channel-logo-compact-radius) !important;
+  font-size:11px !important;
+}
+
+.channel-brand-logo[data-logo-size="micro"] {
+  width:var(--channel-logo-micro-size) !important;
+  min-width:var(--channel-logo-micro-size) !important;
+  height:var(--channel-logo-micro-size) !important;
+  min-height:var(--channel-logo-micro-size) !important;
+  border-radius:var(--channel-logo-micro-radius) !important;
+  font-size:8px !important;
+}
+
+.channel-brand-logo[data-brand="naver"] { color:var(--channel-logo-green) !important; }
+.channel-brand-logo[data-brand="cafe24"] { color:var(--channel-logo-blue) !important; }
+.channel-brand-logo[data-brand="coupang"] { color:var(--channel-logo-red) !important; }
+
+.channel-brand-logo.missing {
+  color:var(--channel-logo-muted) !important;
+  text-decoration:line-through;
+}
+
+html[data-theme="dark"] #app {
+  --channel-logo-surface:var(--channel-logo-slate-850);
+  --channel-logo-border:var(--channel-logo-slate-700);
+  --channel-logo-green:#8ed0ae;
+  --channel-logo-blue:#a9bbed;
+  --channel-logo-red:#e6ae83;
+}
+
+@media (forced-colors:active) {
+  .channel-brand-logo { border-color:CanvasText !important; }
+}

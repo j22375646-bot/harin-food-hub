@@ -1,0 +1,74 @@
+/* V82 — one fixed Phase 28 reading and interaction scale across all eleven routes. */
+#app {
+  --fixed-section-title-size:24px;
+  --fixed-row-primary-size:16px;
+  --fixed-row-secondary-size:14px;
+  --fixed-control-min-height:44px;
+  --fixed-work-row-min-height:80px;
+}
+
+/* Orders and CS are the visual references, but their remaining compact controls
+   still need the same reliable touch target used by every later route. */
+:is(.orders-main,.cs-main) :is(button,input:not([type="checkbox"]):not([type="radio"]),select,textarea) {
+  min-height:var(--fixed-control-min-height);
+}
+
+/* A section title is one shared level, not a page-by-page size decision. */
+:is(
+  .inventory-section-heading,
+  .products-readiness-heading,
+  .products-workbench-heading,
+  .operations-section-heading,
+  .operations-workbench-heading,
+  .keyword-flow-head
+) h2 {
+  font-size:var(--fixed-section-title-size);
+  line-height:1.25;
+  letter-spacing:-.035em;
+}
+
+/* Operational rows inherit the CS information hierarchy: title 16, support 14. */
+#app .operations-main :is(.settlement-table-head~button,.signal-rows button,.system-queue button) {
+  min-height:var(--fixed-work-row-min-height);
+  font-size:14px;
+}
+
+.settlement-table-head~button b,
+.signal-rows strong,
+.system-queue strong,
+.keyword-name strong,
+.keyword-scope strong,
+.development-checklist strong {
+  font-size:var(--fixed-row-primary-size);
+  line-height:1.4;
+}
+
+.settlement-table-head~button small,
+.signal-rows small,
+.system-queue small,
+.keyword-name small,
+.keyword-scope small,
+.development-checklist small {
+  font-size:var(--fixed-row-secondary-size) !important;
+  line-height:1.5;
+}
+
+.settlement-table-head~button :is(strong,em),
+.signal-rows b,
+.system-queue button>b,
+.keyword-row :is(.keyword-status,.keyword-number) {
+  font-size:14px;
+}
+
+@media (max-width:700px) {
+  :is(
+    .inventory-section-heading,
+    .products-readiness-heading,
+    .products-workbench-heading,
+    .operations-section-heading,
+    .operations-workbench-heading,
+    .keyword-flow-head
+  ) h2 {
+    font-size:22px;
+  }
+}
