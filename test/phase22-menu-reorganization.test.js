@@ -16,7 +16,7 @@ test('22-4 preserves the six approved one-glance operating groups',()=>{
 test('22-4 replaces execution, collection and settings with focused development and system groups',()=>{
   assert.deepEqual(HUB_NAV_GROUPS.slice(6).map(group=>group.id),['development','system']);
   assert.deepEqual(HUB_NAV_GROUPS.find(group=>group.id==='analysis').items,['insight','keyword','reports']);
-  assert.deepEqual(HUB_NAV_GROUPS.find(group=>group.id==='development').items,['market','validation','experiments']);
+  assert.deepEqual(HUB_NAV_GROUPS.find(group=>group.id==='development').items,['product-analysis','market','validation','experiments']);
   assert.deepEqual(HUB_NAV_GROUPS.find(group=>group.id==='system').items,['collection','changes','notifications','knowledge']);
   assert.equal(HUB_NAV_GROUPS.some(group=>['execution','collection','settings'].includes(group.id)),false);
 });

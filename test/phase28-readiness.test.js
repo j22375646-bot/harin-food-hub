@@ -12,7 +12,7 @@ test('readiness reports the foundation as safe but not cut over by default',()=>
   assert.equal(report.foundation,'READY');
   assert.equal(report.cutover,'BLOCKED');
   assert.equal(report.flags.enabled,false);
-  assert.ok(report.blockers.some(item=>item.code==='MISSING_PRODUCTION_ROUTE'&&item.page==='product-analysis'));
+  assert.equal(report.blockers.some(item=>item.code==='MISSING_PRODUCTION_ROUTE'&&item.page==='product-analysis'),false);
   assert.ok(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='home'));
 });
 
@@ -22,7 +22,7 @@ test('readiness refuses an invalid flag instead of activating a partial screen s
   assert.ok(report.blockers.some(item=>item.code==='INVALID_FLAG_PAGE'&&item.page==='admin'));
 });
 
-test('readiness recognizes the implemented Main through Keywords adapters',()=>{
+test('readiness recognizes the implemented Main through Product Analysis adapters',()=>{
   const report=buildPhase28Readiness({routes:routes.PHASE28_ROUTES,hubNav:hub.HUB_NAV,hubWorkspaces:hub.HUB_WORKSPACES,env:{},availableAdapters:PHASE28_AVAILABLE_ADAPTERS});
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='home'),false);
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='orders'),false);
@@ -31,6 +31,7 @@ test('readiness recognizes the implemented Main through Keywords adapters',()=>{
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='products'),false);
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='settlement'),false);
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='keywords'),false);
+  assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='product-analysis'),false);
 });
 
 test('readiness requires complete page coverage before whole-app cutover',()=>{

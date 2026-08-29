@@ -4,10 +4,10 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { HUB_NAV, HUB_NAV_GROUPS, HUB_WORKSPACES, HUB_LEGACY_ROUTES, normalizeHubState, buildHubHref, parseHubHref, primaryNavigationState, groupForView, navigationContext } = require('../lib/navigation/hub-routes.js');
 
-test('all sixteen hub functions have stable unique addresses', () => {
-  assert.equal(HUB_NAV.length,16);
-  assert.equal(new Set(HUB_NAV.map(item=>item.href)).size,16);
-  assert.deepEqual(HUB_NAV.map(item=>item.label),['메인','주문','CS','재고관리','정산·비용','데이터수집','인사이트','키워드','상품개발','상품','AI 기준자료','진단목록','변경기록','실행검증','A/B 테스트','알림']);
+test('all seventeen hub functions have stable unique addresses', () => {
+  assert.equal(HUB_NAV.length,17);
+  assert.equal(new Set(HUB_NAV.map(item=>item.href)).size,17);
+  assert.deepEqual(HUB_NAV.map(item=>item.label),['메인','주문','CS','재고관리','정산·비용','데이터수집','인사이트','키워드','상품분석','상품개발','상품','AI 기준자료','진단목록','변경기록','실행검증','A/B 테스트','알림']);
   assert.equal(buildHubHref({view:'orders',platform:'naver'}),'/orders');
   assert.equal(buildHubHref({view:'cs'}),'/cs');
   assert.equal(buildHubHref({view:'inventory'}),'/inventory');
@@ -18,6 +18,7 @@ test('all sixteen hub functions have stable unique addresses', () => {
   assert.equal(buildHubHref({view:'notifications'}),'/notifications');
   assert.equal(buildHubHref({view:'knowledge'}),'/ai-knowledge');
   assert.equal(buildHubHref({view:'market'}),'/market-intelligence');
+  assert.equal(buildHubHref({view:'product-analysis'}),'/product-analysis');
 });
 
 test('platform, product, and period survive a refresh through the URL', () => {

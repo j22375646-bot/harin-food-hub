@@ -33,6 +33,7 @@ test('Phase 28 registry keeps workspaces and channel writes explicit',()=>{
 test('legacy state resolves to one stable Phase 28 route',()=>{
   assert.equal(phase28RouteForLegacyState({view:'main',workspace:null}).id,'home');
   assert.equal(phase28RouteForLegacyState({view:'product',workspace:'catalog'}).id,'products');
+  assert.equal(phase28RouteForLegacyState({view:'product-analysis',workspace:null}).id,'product-analysis');
   assert.equal(phase28RouteForLegacyState({view:'unknown',workspace:null}),null);
 });
 
