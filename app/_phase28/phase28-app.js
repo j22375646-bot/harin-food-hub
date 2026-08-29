@@ -10,6 +10,7 @@ import Phase28InventoryProductsPage from './pages/inventory-products-page.js';
 import Phase28SettlementPage from './pages/settlement-page.js';
 import Phase28KeywordsPage from './pages/keywords-page.js';
 import Phase28ProductAnalysisPage from './pages/product-analysis-page.js';
+import Phase28InsightsPage from './pages/insights-page.js';
 import Phase28Shell from './phase28-shell.js';
 
 const {phase28Route,phase28RouteForLegacyState}=routeRegistryModule;
@@ -35,6 +36,7 @@ export default function Phase28App({initialData}) {
   else if(routeId==='settlement')page=<Phase28SettlementPage model={initialData.phase28?.settlement||{}} aiPanel={initialData.aiPagePanels?.settlement||null}/>;
   else if(routeId==='keywords')page=<Phase28KeywordsPage model={initialData.phase28?.keywords||{}} aiPanel={initialData.aiPagePanels?.keyword||null}/>;
   else if(routeId==='product-analysis')page=<Phase28ProductAnalysisPage model={initialData.phase28?.productAnalysis||{}}/>;
+  else if(routeId==='analysis')page=<Phase28InsightsPage model={initialData.phase28?.insights||{}}/>;
   else page=<section data-phase28-root="true" data-phase28-page={routeId} aria-label="Phase 28 페이지 준비 상태">이 페이지의 운영 화면은 확인 필요 상태예요.</section>;
 
   return <Phase28Shell routeId={routeId} badges={navigationSnapshot?.badges||{}} generatedAt={generatedAt}>

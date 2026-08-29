@@ -2674,6 +2674,7 @@ async function renderDashboardState(initialState) {
   try {
     const dashboardData=await getDashboardData(initialState);
     let phase28={};
+    let clientDashboardData=dashboardData;
     if(phase28Runtime.activePages.includes('home')&&initialState.view==='main'){
       try{
         phase28={main:phase28AdaptersModule.buildPhase28MainModel(dashboardData),adapter_status:'READY'};
@@ -2730,7 +2731,15 @@ async function renderDashboardState(initialState) {
         phase28={productAnalysis:null,adapter_status:'ERROR'};
       }
     }
-    return <Dashboard initialData={{...dashboardData,phase28Runtime,phase28}} initialState={initialState} />;
+    if(phase28Runtime.activePages.includes('analysis')&&initialState.view==='insight'){
+      try{
+        phase28={insights:phase28AdaptersModule.buildPhase28InsightsModel(dashboardData,{workspace:initialState.workspace}),adapter_status:'READY'};
+        clientDashboardData={...dashboardData,reports:[],insightDecision:null};
+      }catch{
+        phase28={insights:null,adapter_status:'ERROR'};
+      }
+    }
+    return <Dashboard initialData={{...clientDashboardData,phase28Runtime,phase28}} initialState={initialState} />;
   } catch (error) {
     return <Dashboard initialData={{ error:error.message,phase28Runtime }} initialState={initialState} />;
   }
