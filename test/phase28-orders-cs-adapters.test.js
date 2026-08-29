@@ -53,10 +53,11 @@ test('cs adapter preserves setup-required channels and due priorities',()=>{
     generatedAt:'2026-08-29T01:40:00.000Z',
     customerService:{
       active:[
-        {id:'C1',platform:'CAFE24',kind:'INQUIRY',title:'배송 문의',content:'언제 도착하나요?',due:{code:'OVERDUE',label:'기한 초과',ageHours:27},order:{orderId:'O-1'}},
+        {id:'C1',sourceId:'C24-101',platform:'CAFE24',kind:'INQUIRY',kindLabel:'배송 문의',title:'배송 문의',content:'언제 도착하나요?',occurredAt:'2026-08-28T22:00:00.000Z',status:'WAITING',due:{code:'OVERDUE',label:'기한 초과',ageHours:27},orderId:'O-1',order:{orderId:'O-1',status:'PAID',amount:12000,products:[{name:'작두콩차',option:'30티백',quantity:1}]}},
         {id:'N1',platform:'NAVER',kind:'RETURN',title:'반품 문의',content:'반품 접수',due:{code:'TODAY',label:'오늘 처리',ageHours:2}}
       ],
       channelStates:[{platform:'NAVER',status:'SETUP_REQUIRED',statusLabel:'설정 필요',message:'연결 필요'}],
+      templates:[{id:'SHIPPING',label:'배송 확인',content:'배송 상태를 확인하겠습니다.'}],
       summary:{active:2,unanswered:1,overdue:1,claims:1,linkedOrders:1,completed:4}
     }
   });
@@ -68,6 +69,12 @@ test('cs adapter preserves setup-required channels and due priorities',()=>{
   assert.equal(model.priorities[0].id,'C1');
   assert.equal(model.priorities[0].dueCode,'OVERDUE');
   assert.equal(model.priorities[0].linkedOrder,true);
+  assert.equal(model.rows[0].sourceId,'C24-101');
+  assert.equal(model.rows[0].kindLabel,'배송 문의');
+  assert.equal(model.rows[0].order.products[0].option,'30티백');
+  assert.equal(model.templates[0].id,'SHIPPING');
+  assert.equal(model.rows[0].stageIds.includes('ACTIVE'),true);
+  assert.equal(model.rows[1].stageIds.includes('CLAIMS'),true);
 });
 
 test('orders and cs adapters are advertised as available without removing main',()=>{
