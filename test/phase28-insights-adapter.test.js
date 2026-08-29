@@ -69,5 +69,5 @@ test('saved insight detail exposes only the decision flow and provenance, not th
 });
 
 test('insights joins the implemented V106 adapter set',()=>{
-  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development']);
+  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system']);
 });

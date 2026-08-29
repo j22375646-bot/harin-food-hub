@@ -2739,6 +2739,13 @@ async function renderDashboardState(initialState) {
         phase28={insights:null,adapter_status:'ERROR'};
       }
     }
+    if(phase28Runtime.activePages.includes('system')&&initialState.view==='collection'){
+      try{
+        phase28={system:phase28AdaptersModule.buildPhase28SystemModel(dashboardData),adapter_status:'READY'};
+      }catch{
+        phase28={system:null,adapter_status:'ERROR'};
+      }
+    }
     return <Dashboard initialData={{...clientDashboardData,phase28Runtime,phase28}} initialState={initialState} />;
   } catch (error) {
     return <Dashboard initialData={{ error:error.message,phase28Runtime }} initialState={initialState} />;

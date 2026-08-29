@@ -21,6 +21,7 @@
     "verify:phase28-product-analysis": "pnpm verify:phase28-keywords && node --test test/phase28-product-analysis-adapter.test.js test/phase28-product-analysis-v106-render.test.js test/product-analysis-report.test.js test/product-performance.test.js",
     "verify:phase28-insights": "pnpm verify:phase28-product-analysis && node --test test/phase28-insights-adapter.test.js test/phase28-insights-v106-render.test.js test/phase23-insight-decision-workbench.test.js test/phase12-report-learning.test.js test/phase23-reports-lazy-boundary.test.js",
     "verify:phase28-development": "pnpm verify:phase28-insights && node --test test/phase28-development-adapter.test.js test/phase28-development-v106-render.test.js test/phase22-product-development-center.test.js test/phase27-product-development-visual-workbench.test.js",
+    "verify:phase28-system": "pnpm verify:phase28-development && node --test test/phase28-system-adapter.test.js test/phase28-system-v106-render.test.js test/phase28-system-loader-api.test.js test/unified-collection-center.test.js test/phase19-operations-health.test.js test/phase20-provider-runtime.test.js",
     "test:phase14-final": "node --test test/phase14-final-quality.test.js",
     "start": "next start",
     "start:legacy": "node cafe24-oauth-server.js",
