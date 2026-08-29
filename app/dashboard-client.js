@@ -36,6 +36,8 @@ const UnifiedSettlementOperationsCenter=dynamic(()=>import('./unified-settlement
 const UnifiedCollectionOperationsCenter=dynamic(()=>import('./unified-collection-operations-center.js'),{loading:LazyWorkbenchFallback});
 const Phase14MainCommandCenter=dynamic(()=>import('./_main/harin-main-command-center.js'),{loading:LazyWorkbenchFallback});
 const Phase28MainDashboard=dynamic(()=>import('./_phase28/main-dashboard.js'),{loading:LazyWorkbenchFallback});
+const Phase28OrdersDashboard=dynamic(()=>import('./_phase28/orders-dashboard.js'),{loading:LazyWorkbenchFallback});
+const Phase28CsDashboard=dynamic(()=>import('./_phase28/cs-dashboard.js'),{loading:LazyWorkbenchFallback});
 const HarinAnalysisWorkbench=dynamic(()=>import('./_analysis/harin-analysis-workbench.js'),{loading:LazyWorkbenchFallback});
 const KeywordOwnerShell=dynamic(()=>import('./_analysis/keyword-owner-shell.js'),{loading:LazyWorkbenchFallback});
 const HarinKeywordDetailWorkbench=dynamic(()=>import('./_analysis/harin-keyword-detail-workbench.js'),{loading:LazyWorkbenchFallback});
@@ -231,6 +233,9 @@ export default function Dashboard({ initialData, initialState }) {
   const [sidebarCollapsed,setSidebarCollapsed]=useStoredState('desktop-sidebar-collapsed',false,[true,false]);
   const phase28ActivePages=useMemo(()=>new Set(initialData.phase28Runtime?.activePages||[]),[initialData.phase28Runtime?.activePages]);
   const phase28HomeActive=phase28ActivePages.has('home')&&Boolean(initialData.phase28?.main);
+  const phase28OrdersActive=phase28ActivePages.has('orders')&&Boolean(initialData.phase28?.orders);
+  const phase28CsActive=phase28ActivePages.has('cs')&&Boolean(initialData.phase28?.cs);
+  const phase28OwnsRail=phase28HomeActive||phase28OrdersActive||phase28CsActive;
   const incomingNavigationSnapshot=useMemo(
     ()=>navigationOperationSnapshotModule.buildNavigationOperationSnapshot(initialData),
     [initialData.loadedView,initialData.generatedAt,initialData.unifiedOrders,initialData.customerService,initialData.unifiedInventory,initialData.alerts,initialData.channelConnections]
@@ -350,8 +355,8 @@ export default function Dashboard({ initialData, initialState }) {
         {workspace==='causes'?<>{(platform==='all'||platform==='naver')?<><NaverExecutiveBoard board={initialData.naver?.executiveBoard}/><MarketingInsightSummary diagnosis={initialData.naver?.marketingDiagnosis}/></>:null}<InsightView key={`insight-${platform}`} platform={platform} reports={reports} actions={actions} liveNaver={initialData.naver} platformEvents={initialData.platformEvents||[]}/></>:null}
         {workspace==='channels'?<><InsightView key={`channel-insight-${platform}`} platform={platform} reports={reports} actions={actions} liveNaver={initialData.naver} platformEvents={initialData.platformEvents||[]}/>{platform==='coupang'?<CoupangSalesCenter coupang={initialData.coupang} selectedProduct={selectedProduct} selectedPeriod={period} onSelectProduct={product=>navigate({product},true)} onSelectPeriod={nextPeriod=>navigate({period:nextPeriod},true)}/>:null}{['naver','cafe24'].includes(platform)?<details className="channelLegacyDetails"><summary><span><b>{platformLabel[platform]} 채널 운영 상세</b><small>필요할 때만 기존 채널 상세를 펼쳐보세요.</small></span><em>열기</em></summary><div><MainView platform={platform} data={initialData}/></div></details>:null}</>:null}
       </HarinAnalysisWorkbench>}
-      {view==='orders' && (<UnifiedOrdersCenter center={initialData.unifiedOrders} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.orders}/>}><CoupangOrdersView coupang={initialData.coupang}/></UnifiedOrdersCenter>)}
-      {view==='cs' && (<UnifiedCustomerServiceCenter center={initialData.customerService} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.cs}/>}/>)}
+      {view==='orders' && (phase28OrdersActive?<Phase28OrdersDashboard model={initialData.phase28.orders} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.orders}/>}><UnifiedOrdersCenter center={initialData.unifiedOrders} embedded><CoupangOrdersView coupang={initialData.coupang}/></UnifiedOrdersCenter></Phase28OrdersDashboard>:<UnifiedOrdersCenter center={initialData.unifiedOrders} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.orders}/>}><CoupangOrdersView coupang={initialData.coupang}/></UnifiedOrdersCenter>)}
+      {view==='cs' && (phase28CsActive?<Phase28CsDashboard model={initialData.phase28.cs} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.cs}/>}><UnifiedCustomerServiceCenter center={initialData.customerService} embedded/></Phase28CsDashboard>:<UnifiedCustomerServiceCenter center={initialData.customerService} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.cs}/>}/>)}
       {view==='inventory' && (<UnifiedInventoryOperationsCenter coupang={initialData.coupang} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.inventory}/>}/>)}
       {view==='settlement' && (<UnifiedSettlementOperationsCenter center={initialData.unifiedSettlement} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.settlement}/>}><CoupangSettlementView coupang={initialData.coupang}/></UnifiedSettlementOperationsCenter>)}
       {view==='keyword' && !channelUnavailable && <HarinAnalysisWorkbench view="keyword" workspace={workspace} platform={platform} data={initialData} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.keyword}/>}>
@@ -367,7 +372,7 @@ export default function Dashboard({ initialData, initialState }) {
       {view==='experiments' && <HarinExecutionWorkbench view="experiments" data={initialData} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.experiments}/>}><HarinExperimentLab /></HarinExecutionWorkbench>}
       {view==='notifications' && <HarinNotificationCenter reports={reports} center={initialData.collectionCenter} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.notifications}/>} />}
     </main>
-    {!phase28HomeActive&&<HarinOwnerWorkspace pageKey={view} pageLabel={navContext.item.label}/>}
+    {!phase28OwnsRail&&<HarinOwnerWorkspace pageKey={view} pageLabel={navContext.item.label}/>}
     <HarinLiveStatusDock center={initialData.collectionCenter} alerts={initialData.alerts} generatedAt={initialData.generatedAt}/>
     <HarinMobileNavigation nav={nav} groups={navGroups} countsKnown={navigationSnapshotKnown} countsStale={navigationSnapshotStale} view={view} onOpenView={openView} onPrefetch={prefetchView} fontScale={fontScale} onFontScale={setFontScale}/>
     <footer className="hubFooter" data-canvas-profile={canvasProfile}>하린식품 광고·매출 통합 관리 허브 <span>·</span> 네이버 + 쿠팡 + Cafe24 + Supabase</footer>

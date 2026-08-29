@@ -57,6 +57,10 @@
 .phase28OperationalLayout{display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,400px);gap:20px;align-items:start;transition:grid-template-columns 440ms cubic-bezier(.22,1,.36,1)}
 .phase28Operational[data-rail-open="false"] .phase28OperationalLayout{grid-template-columns:minmax(0,1fr) 48px}
 .phase28OperationalBody{min-width:0}
+.phase28OperationalBody .phase28EmbeddedOperations{width:100%;gap:18px}
+.phase28OperationalBody .phase28EmbeddedOperations .unifiedOrderCard{border:1px solid var(--p28-line);box-shadow:none}
+.phase28OperationalBody .phase28EmbeddedOperations .unifiedCsWorkCard{border:1px solid var(--p28-line);box-shadow:none}
+.phase28OperationalBody .phase28EmbeddedOperations .unifiedCsWorkCard.overdue{border-color:#e7aaa5}
 .phase28OperationalRail{position:sticky;top:82px;min-width:0;width:100%;overflow:hidden;border:1px solid var(--p28-line);border-radius:16px;background:var(--p28-surface);transition:width 440ms cubic-bezier(.22,1,.36,1),border-radius 440ms cubic-bezier(.22,1,.36,1)}
 .phase28Operational[data-rail-open="false"] .phase28OperationalRail{width:48px;border-radius:14px}
 .phase28OperationalRailControl{width:100%;min-height:48px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 12px;border:0;border-bottom:1px solid var(--p28-line);background:var(--p28-soft);color:var(--p28-muted);font-size:13px;font-weight:850;cursor:pointer}

@@ -581,7 +581,7 @@ function ClaimCard(props) {
   );
 }
 
-export default function UnifiedCustomerServiceCenter({ center, aiPanel }) {
+export default function UnifiedCustomerServiceCenter({ center, aiPanel, embedded=false }) {
   const [data,setData] = useState(center || {
     rows: [],
     active: [],
@@ -707,8 +707,8 @@ export default function UnifiedCustomerServiceCenter({ center, aiPanel }) {
     ["EXCHANGE", "교환"],
   ];
   return (
-    <HarinPageFrame kind="operations" className="unifiedCsCenter">
-      <HarinPageHeader className="unifiedCsHero" eyebrow="고객 문의·클레임 업무" title="통합 CS·클레임센터" description="처리 요청, 클레임, 완료 이력, 답변 양식을 나눠 지금 할 일만 확인합니다." icon="customer" tone="pink" note="답변 양식은 초안이며 확인 전에는 채널로 자동 전송하지 않음" metrics={[["지금 처리할 항목",`${count(data.summary?.active)}건`],["기한 초과",`${count(data.summary?.overdue)}건`,null,data.summary?.overdue?'danger':''],["미답변 문의",`${count(data.summary?.unanswered)}건`],["주문 연결",`${count(data.summary?.linkedOrders)}건`]]}/>
+    <HarinPageFrame kind="operations" className={`unifiedCsCenter${embedded?' phase28EmbeddedOperations':''}`}>
+      {!embedded?<HarinPageHeader className="unifiedCsHero" eyebrow="고객 문의·클레임 업무" title="통합 CS·클레임센터" description="처리 요청, 클레임, 완료 이력, 답변 양식을 나눠 지금 할 일만 확인합니다." icon="customer" tone="pink" note="답변 양식은 초안이며 확인 전에는 채널로 자동 전송하지 않음" metrics={[["지금 처리할 항목",`${count(data.summary?.active)}건`],["기한 초과",`${count(data.summary?.overdue)}건`,null,data.summary?.overdue?'danger':''],["미답변 문의",`${count(data.summary?.unanswered)}건`],["주문 연결",`${count(data.summary?.linkedOrders)}건`]]}/>:null}
       <section className="csFocusRail" aria-label="CS 우선 처리 항목">
         <button type="button" className={count(data.summary?.overdue)?"danger":""} onClick={()=>{setWorkspace("ACTIVE");setDue("OVERDUE");setKind("ALL");}}><HarinIcon name="alerts" size={22}/><span><small>가장 먼저</small><b>기한 초과 {count(data.summary?.overdue)}건</b></span><em>열기</em></button>
         <button type="button" onClick={()=>{setWorkspace("ACTIVE");setDue("ALL");setKind("INQUIRY");}}><HarinIcon name="customer" size={22}/><span><small>답변 필요</small><b>미답변 문의 {count(data.summary?.unanswered)}건</b></span><em>열기</em></button>
@@ -850,7 +850,7 @@ export default function UnifiedCustomerServiceCenter({ center, aiPanel }) {
         )}
       </div>}
       {workspace !== "TEMPLATES" && visibleRows.length < rows.length ? <button type="button" className="unifiedCsMore" onClick={() => setVisibleCount((value) => value + 20)}>CS 20건 더 보기 · 남은 {count(rows.length - visibleRows.length)}건</button> : null}
-      <HarinPageAiRegion className="operationsAiSlot csAiSlot" id="page-ai-analysis" title="CS·클레임 AI 분석">{aiPanel}</HarinPageAiRegion>
+      {!embedded?<HarinPageAiRegion className="operationsAiSlot csAiSlot" id="page-ai-analysis" title="CS·클레임 AI 분석">{aiPanel}</HarinPageAiRegion>:null}
       <details className="unifiedCsHelp">
         <summary><span><b>이 화면은 어떻게 쓰나요?</b><small>처리 순서와 표시 기준을 쉬운 말로 확인하세요.</small></span><em>도움말 열기</em></summary>
         <div><p><b>1. 기한 초과부터</b> 접수 후 24시간이 지난 미처리 문의를 먼저 확인합니다.</p><p><b>2. 주문 연결 확인</b> 문의 아래에서 상품과 배송상태를 보고 답변합니다.</p><p><b>3. 답변·처리 확인</b> 템플릿은 초안이며 확인창을 통과해야 실제 전송됩니다.</p><p><b>4. 기록 확인</b> 처리 결과는 최근 처리기록에서 성공·실패와 시각을 확인합니다.</p></div>
