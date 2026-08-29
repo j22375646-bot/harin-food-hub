@@ -22,14 +22,14 @@ test('readiness refuses an invalid flag instead of activating a partial screen s
   assert.ok(report.blockers.some(item=>item.code==='INVALID_FLAG_PAGE'&&item.page==='admin'));
 });
 
-test('readiness recognizes the implemented Main, Orders, CS, Inventory, and Products adapters',()=>{
+test('readiness recognizes the implemented Main through Settlement adapters',()=>{
   const report=buildPhase28Readiness({routes:routes.PHASE28_ROUTES,hubNav:hub.HUB_NAV,hubWorkspaces:hub.HUB_WORKSPACES,env:{},availableAdapters:PHASE28_AVAILABLE_ADAPTERS});
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='home'),false);
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='orders'),false);
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='cs'),false);
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='inventory'),false);
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='products'),false);
-  assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='settlement'),true);
+  assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='settlement'),false);
 });
 
 test('readiness requires complete page coverage before whole-app cutover',()=>{

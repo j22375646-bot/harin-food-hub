@@ -78,5 +78,5 @@ test('cs adapter preserves setup-required channels and due priorities',()=>{
 });
 
 test('orders and cs adapters are advertised as available without removing main',()=>{
-  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs','inventory','products']);
+  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs','inventory','products','settlement']);
 });

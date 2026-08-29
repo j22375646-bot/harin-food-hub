@@ -2139,7 +2139,7 @@ async function getDashboardData(state) {
     coupangProductItems:coupangProductItemsResult.data || [],
     coupangItemInventory:coupangItemInventoryResult.data || []
   });
-  const unifiedSettlement = unifiedSettlementModule.buildUnifiedSettlementCenter({
+  const settlementCenterInput = {
     cafe24Orders:ordersResult.data || [],
     naverOrders:naverCommerceOrdersResult.data || [],
     naverSettlements:naverCommerceSettlementsResult.data || [],
@@ -2154,7 +2154,12 @@ async function getDashboardData(state) {
       COUPANG:Boolean(coupangSettlementsResult.unavailable && coupangSettlementSummaryResult.unavailable)
     },
     now:new Date(generatedAt)
-  });
+  };
+  const settlementPeriods=Object.fromEntries([7,30,90].map(periodDays=>[
+    periodDays,
+    unifiedSettlementModule.buildUnifiedSettlementCenter({...settlementCenterInput,periodDays})
+  ]));
+  const unifiedSettlement = settlementPeriods[30];
   const marketingDiagnosis=marketingDiagnosisModule.buildMarketingDiagnosis({
     keywordStats:marketingKeywordStats,
     naverKeywords:marketingKeywordCatalog,
@@ -2582,6 +2587,7 @@ async function getDashboardData(state) {
     productOperations,
     unifiedInventory,
     unifiedSettlement,
+    settlementPeriods,
     unifiedProductPerformance:trustedProductPerformance,
     productAdTargets,
     financialReadiness,
@@ -2696,6 +2702,13 @@ async function renderDashboardState(initialState) {
         phase28={products:phase28AdaptersModule.buildPhase28ProductsModel(dashboardData),adapter_status:'READY'};
       }catch{
         phase28={products:null,adapter_status:'ERROR'};
+      }
+    }
+    if(phase28Runtime.activePages.includes('settlement')&&initialState.view==='settlement'){
+      try{
+        phase28={settlement:phase28AdaptersModule.buildPhase28SettlementModel(dashboardData),adapter_status:'READY'};
+      }catch{
+        phase28={settlement:null,adapter_status:'ERROR'};
       }
     }
     return <Dashboard initialData={{...dashboardData,phase28Runtime,phase28}} initialState={initialState} />;
