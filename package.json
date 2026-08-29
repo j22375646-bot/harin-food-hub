@@ -12,6 +12,7 @@
     "verify:phase15": "pnpm test && pnpm build",
     "verify:phase23": "pnpm test && pnpm build",
     "verify:phase26": "pnpm test && pnpm build",
+    "verify:phase28-foundation": "node --test test/phase28-route-registry.test.js test/phase28-feature-flags.test.js test/phase28-view-model.test.js test/phase28-readiness.test.js && node scripts/check-phase28-overlay-readiness.js",
     "test:phase14-final": "node --test test/phase14-final-quality.test.js",
     "start": "next start",
     "start:legacy": "node cafe24-oauth-server.js",
