@@ -35,7 +35,6 @@ const UnifiedInventoryOperationsCenter=dynamic(()=>import('./unified-inventory-o
 const UnifiedSettlementOperationsCenter=dynamic(()=>import('./unified-settlement-operations-center.js'),{loading:LazyWorkbenchFallback});
 const UnifiedCollectionOperationsCenter=dynamic(()=>import('./unified-collection-operations-center.js'),{loading:LazyWorkbenchFallback});
 const Phase14MainCommandCenter=dynamic(()=>import('./_main/harin-main-command-center.js'),{loading:LazyWorkbenchFallback});
-const Phase28MainDashboard=dynamic(()=>import('./_phase28/main-dashboard.js'),{loading:LazyWorkbenchFallback});
 const Phase28OrdersDashboard=dynamic(()=>import('./_phase28/orders-dashboard.js'),{loading:LazyWorkbenchFallback});
 const Phase28CsDashboard=dynamic(()=>import('./_phase28/cs-dashboard.js'),{loading:LazyWorkbenchFallback});
 const HarinAnalysisWorkbench=dynamic(()=>import('./_analysis/harin-analysis-workbench.js'),{loading:LazyWorkbenchFallback});
@@ -232,10 +231,9 @@ export default function Dashboard({ initialData, initialState }) {
   const [fontScale,setFontScale]=useStoredState('font-scale','large',['large','xlarge']);
   const [sidebarCollapsed,setSidebarCollapsed]=useStoredState('desktop-sidebar-collapsed',false,[true,false]);
   const phase28ActivePages=useMemo(()=>new Set(initialData.phase28Runtime?.activePages||[]),[initialData.phase28Runtime?.activePages]);
-  const phase28HomeActive=phase28ActivePages.has('home')&&Boolean(initialData.phase28?.main);
   const phase28OrdersActive=phase28ActivePages.has('orders')&&Boolean(initialData.phase28?.orders);
   const phase28CsActive=phase28ActivePages.has('cs')&&Boolean(initialData.phase28?.cs);
-  const phase28OwnsRail=phase28HomeActive||phase28OrdersActive||phase28CsActive;
+  const phase28OwnsRail=phase28OrdersActive||phase28CsActive;
   const incomingNavigationSnapshot=useMemo(
     ()=>navigationOperationSnapshotModule.buildNavigationOperationSnapshot(initialData),
     [initialData.loadedView,initialData.generatedAt,initialData.unifiedOrders,initialData.customerService,initialData.unifiedInventory,initialData.alerts,initialData.channelConnections]
@@ -336,8 +334,8 @@ export default function Dashboard({ initialData, initialState }) {
       {syncMessage && <div className="syncToast">{syncMessage}</div>}
 
       {channelUnavailable&&['insight','keyword','product'].includes(view)&&<ChannelUnavailable health={selectedHealth} onOpenCollection={()=>openView('collection')}/>}
-      {view==='main' && platform==='all' && !channelUnavailable && (phase28HomeActive?<Phase28MainDashboard model={initialData.phase28.main} aiPanel={<HarinAiPagePanel panel={initialData.aiPagePanels?.main}/>} onOpen={openMainItem} onOpenTargets={openMainTargets}/>:<Phase14MainCommandCenter center={initialData.salesCommandCenter} onOpen={openMainItem} onOpenTargets={openMainTargets}/>)}
-      {view==='main' && platform==='all' && !channelUnavailable && !phase28HomeActive && <div className="mainAiSlot"><HarinAiPagePanel panel={initialData.aiPagePanels?.main}/></div>}
+      {view==='main' && platform==='all' && !channelUnavailable && <Phase14MainCommandCenter center={initialData.salesCommandCenter} onOpen={openMainItem} onOpenTargets={openMainTargets}/>}
+      {view==='main' && platform==='all' && !channelUnavailable && <div className="mainAiSlot"><HarinAiPagePanel panel={initialData.aiPagePanels?.main}/></div>}
       {view==='main' && platform==='all' && !channelUnavailable && <details className="commandEvidence" id="monthly-target-details"><summary><span><b>목표 설정·계산 근거 보기</b><small>월 목표를 바꾸거나 숫자의 출처를 확인할 때만 열어보세요.</small></span><em>열기</em></summary><div><BusinessPacingPanel platform={platform} pacing={initialData.pacing}/><MetricProvenanceStrip snapshots={initialData.metricSnapshots||[]}/></div></details>}
       {view==='collection' && workspace==='naver-api' && <NaverApiConnectionCenter center={initialData.naverApiCenter}/>}
       {view==='collection' && workspace==='advertising' && <AdvertisingChannelCenter center={initialData.advertisingChannelCenter}/>}
