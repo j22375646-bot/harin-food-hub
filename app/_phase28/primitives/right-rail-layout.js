@@ -13,7 +13,7 @@ export function Phase28RightRailLayout({label='보조 작업석',rail,children,d
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
         <b>{open?`${label} 접기`:`${label} 열기`}</b>
       </button>
-      <div id={contentId} className={styles.railContent} aria-hidden={!open} inert={open?undefined:''}>{rail}</div>
+      <div id={contentId} className={styles.railContent} aria-hidden={!open} inert={open?undefined:true}>{rail}</div>
     </aside>
   </div>;
 }

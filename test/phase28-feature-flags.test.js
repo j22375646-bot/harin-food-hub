@@ -48,3 +48,15 @@ test('Phase 28 runtime config fail-closes invalid page lists',()=>{
   assert.deepEqual(runtime.activePages,[]);
   assert.deepEqual(runtime.invalidPages,['admin']);
 });
+
+test('development preview resolves the server Main state to the V106 home route',()=>{
+  const runtime=flags.phase28RuntimeForState({
+    NODE_ENV:'development',
+    HARIN_PHASE28_PREVIEW:'true',
+    HARIN_PHASE28_PAGES:'home'
+  },{view:'main'});
+
+  assert.equal(runtime.routeId,'home');
+  assert.equal(runtime.renderMode,'preview');
+  assert.deepEqual(runtime.activePages,['home']);
+});

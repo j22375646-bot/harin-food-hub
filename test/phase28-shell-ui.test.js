@@ -11,6 +11,8 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 test('V106 shell owns navigation without legacy shell imports',()=>{
   const shell=read('app/_phase28/phase28-shell.js');
   assert.match(shell,/next\/link/);
+  assert.match(shell,/오늘 회사 활력/);
+  assert.match(shell,/운영 확인 항목 기준/);
   assert.match(shell,/aria-label="허브 메뉴"/);
   assert.match(shell,/aria-label="모바일 주요 메뉴"/);
   assert.match(shell,/aria-current=\{active\?'page':undefined\}/);

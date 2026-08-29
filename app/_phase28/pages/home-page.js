@@ -8,65 +8,115 @@ import styles from './home-page.module.css';
 const channelNames={NAVER:'네이버',CAFE24:'Cafe24',COUPANG:'쿠팡'};
 const statusLabels={READY:'정상',PARTIAL:'일부 확인',BLOCKED:'확인 필요',SETUP_REQUIRED:'설정 필요',ERROR:'수집 오류',FAILED:'수집 실패',STALE:'갱신 필요',PREVIOUS:'이전 자료',WAITING:'수집 대기',RUNNING:'수집 중'};
 
+function metricReady(metric){return Boolean(metric&&['READY','PARTIAL'].includes(metric.status)&&typeof metric.value==='number');}
 function formatWon(metric){
-  if(!metric||!['READY','PARTIAL'].includes(metric.status)||typeof metric.value!=='number')return metric?.status==='SETUP_REQUIRED'?'설정 필요':'확인 필요';
+  if(!metricReady(metric))return metric?.status==='SETUP_REQUIRED'?'설정 필요':'확인 필요';
   return `${Math.round(metric.value).toLocaleString('ko-KR')}원`;
 }
-
+function formatPlainWon(value){return typeof value==='number'?`${Math.round(value).toLocaleString('ko-KR')}원`:'확인 필요';}
 function formatAsOf(value){
   if(!value)return '기준시각 확인 필요';
   const date=new Date(value);
   if(Number.isNaN(date.getTime()))return '기준시각 확인 필요';
   return new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'long',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(date);
 }
-
+function formatDate(value){
+  if(!value)return '날짜 확인';
+  const date=new Date(`${String(value).slice(0,10)}T00:00:00+09:00`);
+  if(Number.isNaN(date.getTime()))return '날짜 확인';
+  return new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',weekday:'short'}).format(date);
+}
+function formatDeadline(deadline={}){
+  if(typeof deadline.remainingMinutes!=='number')return '남은 시간 확인 필요';
+  if(deadline.remainingMinutes<=0)return '마감 시각 확인';
+  const hours=Math.floor(deadline.remainingMinutes/60);
+  const minutes=deadline.remainingMinutes%60;
+  return hours?`${hours}시간 ${minutes}분 남음`:`${minutes}분 남음`;
+}
 function metricEvidence(metric){
   if(metric?.status==='READY')return '실제 운영 근거 · 자세히 보기';
   if(metric?.status==='PARTIAL')return '현재 근거의 예상값 · 계산 보기';
   return statusLabels[metric?.status]||'근거 자료 확인 필요';
 }
 
+function CompanyStatus({hero,deadline}){
+  const exceptionCount=Number(hero.exceptionCount)||0;
+  return <aside className={styles.companyStatus} aria-label="오늘 회사 상태">
+    <div className={styles.companyState}><span>오늘 회사 상태</span><strong>{hero.taskCount==null?'확인 필요':exceptionCount>0?'집중 운영':'순항 중'}</strong></div>
+    <div className={styles.statusMatrix}>
+      <span><i data-tone="good"/>매출 근거</span>
+      <span><i data-tone={exceptionCount>0?'warn':'good'}/>운영 상태</span>
+      <span><i data-tone={hero.status==='BLOCKED'?'warn':'good'}/>자료 수집</span>
+      <span><i data-tone="good"/>채널 연결</span>
+    </div>
+    <div className={styles.deadlineClock}><span>다음 운영 마감</span><strong>{deadline?.label||'마감 확인 필요'}</strong><small>{formatDeadline(deadline)}</small></div>
+  </aside>;
+}
+
 function MainMetrics({metrics,onNavigate}){
   const items=[
     {id:'current',label:'현재 매출',metric:metrics.current},
     {id:'forecast',label:'월말 예상 매출',metric:metrics.forecast},
-    {id:'balance',label:'30일 예상 잔액',metric:metrics.balance},
-    {id:'target',label:'이번 달 목표',metric:metrics.target}
+    {id:'profit',label:'이번 달 실제 이익',metric:metrics.profit}
   ];
+  const progress=metricReady(metrics.current)&&metricReady(metrics.target)&&metrics.target.value>0?Math.max(0,Math.min(100,metrics.current.value/metrics.target.value*100)):0;
   return <section className={styles.executiveBoard} aria-label="이번 달 경영 현황">
-    <header className={styles.boardHeader}><div><h2>이번 달, 목표까지 얼마나 남았을까요?</h2><p>매출뿐 아니라 실제 이익과 현금 흐름까지 함께 봐요.</p></div><span>{formatAsOf(metrics.current?.asOf)}</span></header>
+    <header className={styles.boardHeader}><div><span>EXECUTIVE BOARD</span><h2>이번 달, 목표까지 얼마나 남았을까요?</h2><p>매출이 들어와 실제 이익으로 남는 흐름을 한눈에 봐요.</p></div><small>{formatAsOf(metrics.current?.asOf)}</small></header>
     <div className={styles.boardMetrics}>{items.map(item=><button type="button" key={item.id} className={styles.boardMetric} onClick={()=>onNavigate({view:'settlement'})}><span>{item.label}</span><strong>{formatWon(item.metric)}</strong><small>{metricEvidence(item.metric)}</small></button>)}</div>
     <div className={styles.vitalityStage}>
-      <div className={styles.vitalityHeader}><div><strong>하린식품 경영 활력선</strong><span>실제 자료가 준비된 흐름과 확인할 지점을 함께 표시해요.</span></div><b>{metrics.current?.status==='READY'?'실제 자료 기준':'근거 확인 필요'}</b></div>
+      <div className={styles.vitalityHeader}><div><strong>하린식품 경영 활력선</strong><span>돈이 들어와 실제 이익으로 남는 흐름이에요.</span></div><b>{metricReady(metrics.current)?'실제 자료 기준':'근거 확인 필요'}</b></div>
       <div className={styles.vitalityTrack} aria-label="경영 지표 근거 상태">
-        <svg viewBox="0 0 840 90" preserveAspectRatio="none" aria-hidden="true"><path d="M30 66 C135 5 205 68 300 42 S470 12 555 48 S690 82 810 22"/></svg>
-        <div className={styles.vitalityPoints}>{items.map(item=><span key={item.id} data-ready={['READY','PARTIAL'].includes(item.metric?.status)?'true':'false'}><i/><strong>{item.label}</strong><small>{statusLabels[item.metric?.status]||'확인 필요'}</small></span>)}</div>
+        <svg viewBox="0 0 840 90" preserveAspectRatio="none" aria-hidden="true"><path d="M30 66 C135 5 205 68 300 42 S470 12 555 48 S690 82 810 22"/><path className={styles.pulsePath} d="M30 66 C135 5 205 68 300 42 S470 12 555 48 S690 82 810 22"/></svg>
+        <div className={styles.vitalityPoints}>
+          <span data-tone={metricReady(metrics.current)?'good':'check'}><i/><strong>매출</strong><small>{metricReady(metrics.current)?'실제 집계':'확인 필요'}</small></span>
+          <span data-tone="check"><i/><strong>광고 효율</strong><small>근거 확인</small></span>
+          <span data-tone={metricReady(metrics.profit)?'good':'check'}><i/><strong>실제 이익</strong><small>{statusLabels[metrics.profit?.status]||'확인 필요'}</small></span>
+          <span data-tone={progress>0?'good':'check'}><i/><strong>월말 목표</strong><small>{progress>0?`${progress.toFixed(1)}% 도달`:'확인 필요'}</small></span>
+        </div>
       </div>
     </div>
+    <button type="button" className={styles.goalRunway} onClick={()=>onNavigate({view:'settlement'})} aria-label="이번 달 목표 근거 보기">
+      <span><b>현재 {formatWon(metrics.current)}</b><i>목표 {formatWon(metrics.target)}</i></span>
+      <em><i style={{width:`${progress}%`}}/></em>
+    </button>
   </section>;
 }
 
 function OperatingLine({items,onNavigate}){
   return <section className={styles.operatingLine} aria-label="오늘의 운영선">
-    <div className={styles.operatingSummary}><strong>오늘의 운영선</strong><span>실제 수집 일정과 운영 상태를 시간 순서로 확인해요.</span></div>
+    <div className={styles.operatingSummary}><span>지난 접속 이후</span><strong>{items.length?`확인할 운영 일정 ${items.length}개`:'새 운영 일정 확인 중'}</strong><small>실제 수집 일정과 운영 상태를 시간 순서로 확인해요.</small><button type="button" onClick={()=>onNavigate('changes')}>지난 접속과 비교</button></div>
     <div className={styles.operatingTrack} role="list">{items.length?items.map(item=><button type="button" role="listitem" key={item.id} data-state={String(item.status||'UPCOMING').toLowerCase()} onClick={()=>onNavigate({view:item.view||'main',workspace:item.workspace||null})}><i/><span><time>{item.time||'시간 확인'}</time><strong>{item.label||'운영 일정 확인'}</strong></span></button>):<div className={styles.emptyState}><strong>운영 일정을 확인하고 있어요.</strong><span>수집 근거가 준비되면 시간 순서로 표시합니다.</span></div>}</div>
   </section>;
 }
 
 function MainDecisionList({items,blocked,onNavigate}){
   return <article className={styles.decisionSheet}>
-    <header className={styles.sectionHeader}><div><h2>오늘 사장님이 결정할 일</h2><p>매출과 운영에 영향이 큰 순서대로 정리했어요.</p></div><button type="button" onClick={()=>onNavigate({view:'reports'})}>전체 업무 보기</button></header>
+    <header className={styles.sectionHeader}><div><span>DECISION DESK</span><h2>오늘 사장님이 결정할 일</h2><p>매출과 운영에 영향이 큰 순서대로 정리했어요.</p></div><button type="button" onClick={()=>onNavigate({view:'reports'})}>전체 업무 보기</button></header>
     <div className={styles.decisionList}>{items.length?items.map(item=><button type="button" className={styles.decisionRow} key={item.id} onClick={()=>onNavigate(item)}><b>{item.rank}</b><span><strong>{item.title}</strong><small>{item.reason}</small></span><em><small>{item.status==='READY'?'다음 행동':'선행 확인'}</small><strong>{item.nextStep||'내용 보기'}</strong></em></button>):<div className={styles.emptyState}><strong>{blocked?'운영 건수 근거를 확인해주세요.':'새로 결정할 일이 없어요.'}</strong><span>{blocked?'자료가 준비되면 우선순위대로 표시합니다.':'채널 상태와 매출 흐름만 확인하면 됩니다.'}</span></div>}</div>
   </article>;
 }
 
-function MainSignalSheets({growth,risks,onNavigate}){
-  const growthRows=growth.slice(0,3);
-  const riskRows=risks.slice(0,3);
-  return <div className={styles.signalSheets}>
-    <article className={styles.signalSheet}><header className={styles.sectionHeader}><div><h2>이번 주 성장 동력</h2><p>판매 근거가 있는 상품 신호만 보여드려요.</p></div><button type="button" onClick={()=>onNavigate('product-analysis')}>상품분석</button></header><div>{growthRows.length?growthRows.map((item,index)=><button type="button" key={item.key||index} onClick={()=>onNavigate({view:'product',workspace:'catalog'})}><span className={styles.signalMark}>↗</span><span><strong>{item.name||'상품 확인'}</strong><small>{item.growthRate==null?'성장 근거 확인':`이전 7일보다 +${item.growthRate}%`}</small></span><em>{typeof item.currentRevenue==='number'?`${Math.round(item.currentRevenue).toLocaleString('ko-KR')}원`:'보기'}</em></button>):<div className={styles.emptyState}><strong>비교 가능한 성장 신호를 모으고 있어요.</strong><span>판매 자료가 쌓이면 이곳에 표시합니다.</span></div>}</div></article>
-    <article className={styles.signalSheet}><header className={styles.sectionHeader}><div><h2>지금 볼 위험 신호</h2><p>확인할 근거를 정상 숫자와 섞지 않아요.</p></div><button type="button" onClick={()=>onNavigate({view:'reports'})}>진단 보기</button></header><div>{riskRows.length?riskRows.map((item,index)=><button type="button" key={item.key||index} onClick={()=>onNavigate({view:'product',workspace:'catalog'})}><span className={`${styles.signalMark} ${styles.riskMark}`}>!</span><span><strong>{item.name||'상품 확인'}</strong><small>{item.riskReason||'판매 흐름 확인 필요'}</small></span><em>확인</em></button>):<div className={styles.emptyState}><strong>현재 표시할 상품 위험이 없어요.</strong><span>자료가 부족한 항목은 별도로 확인 필요 상태를 유지합니다.</span></div>}</div></article>
-  </div>;
+function CashFlowSheet({cashflow,onNavigate}){
+  const rows=cashflow?.rows||[];
+  const maximum=Math.max(1,...rows.map(item=>typeof item.value==='number'?Math.abs(item.value):0));
+  return <article className={styles.cashSheet}>
+    <header className={styles.sectionHeader}><div><span>CASH FLOW</span><h2>돈이 얼마나 남았나요?</h2><p>결제 매출에서 비용과 실제 이익까지 같은 기준으로 봐요.</p></div><button type="button" onClick={()=>onNavigate({view:'settlement'})}>정산·비용 보기</button></header>
+    <div className={styles.cashRows}>{rows.length?rows.map((item,index)=><div key={item.key||index} data-profit={item.key==='profit'?'true':'false'}><span>{item.label}</span><em><i style={{width:`${typeof item.value==='number'?Math.max(4,Math.abs(item.value)/maximum*100):0}%`}}/></em><strong>{formatPlainWon(item.value)}</strong></div>):<div className={styles.emptyState}><strong>현금 흐름 근거를 확인하고 있어요.</strong><span>자료가 준비되면 비용과 실제 이익을 분리해 표시합니다.</span></div>}</div>
+  </article>;
+}
+
+function GrowthHorizon({growth,forecast,onNavigate}){
+  const growthRows=(growth||[]).slice(0,3);
+  const days=forecast?.days||[];
+  const maximum=Math.max(1,...days.map(item=>Number(item.revenue)||0));
+  return <section className={styles.growthHorizon}>
+    <article className={styles.growthPanel}><header className={styles.sectionHeader}><div><span>GROWTH HORIZON</span><h2>이번 주 성장 동력</h2><p>판매 근거가 있는 상품 신호만 보여드려요.</p></div><button type="button" onClick={()=>onNavigate('product-analysis')}>상품분석</button></header><div className={styles.growthRows}>{growthRows.length?growthRows.map((item,index)=><button type="button" key={item.key||index} onClick={()=>onNavigate({view:'product',workspace:'catalog'})}><b>↗</b><span><strong>{item.name||'상품 확인'}</strong><small>{item.growthRate==null?'성장 근거 확인':`이전 7일보다 +${item.growthRate}%`}</small></span><em>{formatPlainWon(item.currentRevenue)}</em></button>):<div className={styles.emptyState}><strong>비교 가능한 성장 신호를 모으고 있어요.</strong><span>판매 자료가 쌓이면 이곳에 표시합니다.</span></div>}</div></article>
+    <article className={styles.forecastPanel}><header><div><span>다음 7일 전망</span><strong>{formatPlainWon(forecast?.expectedRevenue)}</strong></div><em>{forecast?.status==='PARTIAL'?'예상값':'확인 필요'}</em></header><div className={styles.forecastChart} aria-label="다음 7일 매출 전망">{days.length?days.map(item=><span key={item.date}><i style={{height:`${Math.max(12,(Number(item.revenue)||0)/maximum*100)}%`}}/><small>{formatDate(item.date).replace('요일','')}</small></span>):<div className={styles.emptyState}><strong>7일 전망을 계산할 근거가 부족해요.</strong><span>최근 판매 자료가 준비되면 예상값으로 표시합니다.</span></div>}</div><p>{forecast?.basis||'최근 판매 근거 확인 필요'}</p></article>
+  </section>;
+}
+
+function CashCalendar({items}){
+  return <section className={styles.railCard}><header><h2>앞으로 7일 입출금</h2><span>{items?.length?`${items.length}건`:'확인 중'}</span></header><div className={styles.cashCalendar}>{items?.length?items.map((item,index)=><div key={`${item.date}-${item.platform}-${index}`}><Phase28ChannelLogo brand={item.platform} compact/><span><strong>{channelNames[item.platform]||item.platform||'공통'}</strong><small>{formatDate(item.date)} · {item.status}</small></span><em>{formatPlainWon(item.amount)}</em></div>):<div className={styles.emptyState}><strong>예정된 입출금 근거가 없어요.</strong><span>정산 일정이 준비되면 날짜별로 표시합니다.</span></div>}</div></section>;
 }
 
 function MainDecisionRail({model,aiPanel,onNavigate}){
@@ -78,9 +128,9 @@ function MainDecisionRail({model,aiPanel,onNavigate}){
     <section className={`${styles.railCard} ${styles.railBrief}`}><header><h2>오늘의 판단</h2><span>운영 브리핑</span></header><div className={styles.remaining}><strong>{hero.taskCount==null?'—':hero.taskCount}</strong><span>{hero.taskCount==null?'건수 확인 필요':'건 남았어요'}</span></div><p>{firstDecision?.title||hero.summary||'지금 바로 처리할 결정은 없습니다.'}</p><button type="button" onClick={()=>firstDecision&&onNavigate(firstDecision)} disabled={!firstDecision}>첫 번째 결정 시작</button></section>
     <section className={styles.railCard}><header><h2>지금 막힐 수 있는 것</h2><span>{risks.length?`주의 ${risks.length}건`:'현재 신호'}</span></header><div className={styles.riskList}>{risks.length?risks.slice(0,3).map((item,index)=><button type="button" key={item.key||index} onClick={()=>onNavigate({view:'product',workspace:'catalog'})}><i/><span><strong>{item.name||'위험 신호 확인'}</strong><small>{item.riskReason||'근거 확인 필요'}</small></span><em>보기</em></button>):<div className={styles.emptyState}><strong>확정된 위험 신호가 없어요.</strong><span>자료 공백은 확인 필요로 유지합니다.</span></div>}</div></section>
     <section className={styles.railCard}><header><h2>판매 채널 체온</h2><span>{formatAsOf(hero.asOf)}</span></header><div className={styles.channelList}>{channels.length?channels.map(item=>{const brand=String(item.platform||'').toUpperCase();return <button type="button" key={brand} onClick={()=>onNavigate({view:'insight',workspace:'overview',platform:brand})}><Phase28ChannelLogo brand={brand}/><span><strong>{channelNames[brand]||brand||'채널 확인'}</strong><small>{item.summary||'최근 수집 상태 확인'}</small></span><em data-ready={['READY','RUNNING'].includes(item.status)?'true':'false'}>{item.label||statusLabels[item.status]||'확인 필요'}</em></button>}):<div className={styles.emptyState}><strong>채널 수집 상태를 확인하고 있어요.</strong><span>연결되지 않은 채널은 설정 필요로 표시합니다.</span></div>}</div></section>
-    <section className={styles.railCard}><header><h2>목표 달성 가능성</h2><span>{model.likelihood?.code==='HIGH'?'안정':model.likelihood?.code==='LOW'?'주의':'관찰'}</span></header><strong className={styles.railValue}>{model.likelihood?.label||'확인 필요'}</strong><p>{model.likelihood?.description||'목표와 매출 근거를 확인한 뒤 계산할 수 있어요.'}</p><button type="button" onClick={()=>onNavigate({view:'settlement'})}>목표·근거 확인</button></section>
-    <section className={styles.railCard}><header><h2>돈이 남는 흐름</h2><span>{model.trust?.status==='READY'?'근거 확인':'판단 보류'}</span></header><strong className={styles.railValue}>{formatWon(model.metrics?.balance)}</strong><p>{model.cashflow?.description||'재무 근거를 확인한 뒤 예상 잔액을 계산합니다.'}</p><button type="button" onClick={()=>onNavigate({view:'settlement'})}>정산·비용 보기</button></section>
-    {aiPanel?<details className={`${styles.railCard} ${styles.aiCard}`}><summary><span>오늘의 AI 경영 메모</span><em>{aiPanel.execution_enabled?'사용 중':'비용 0원'}</em></summary><div><strong>{aiPanel.title||'페이지별 분석'}</strong><p>{aiPanel.summary||'실제 운영 자료가 준비되면 분석 근거를 확인할 수 있어요.'}</p><button type="button" onClick={()=>onNavigate('knowledge')}>분석 설정 보기</button></div></details>:null}
+    <CashCalendar items={model.cashCalendar||[]}/>
+    <details className={`${styles.railCard} ${styles.foldCard}`}><summary><span>변경 후 좋아진 것</span><em>{model.changeEffects?.length?`${model.changeEffects.length}건`:'비교 준비'}</em></summary><div>{model.changeEffects?.length?model.changeEffects.map((item,index)=><p key={item.id||index}>{item.summary||item.title}</p>):<p>현재 메인에서 불러온 변경 효과가 없어요.</p>}<button type="button" onClick={()=>onNavigate('changes')}>변경 기록 보기</button></div></details>
+    {aiPanel?<details className={`${styles.railCard} ${styles.foldCard}`}><summary><span>오늘의 AI 경영 메모</span><em>{aiPanel.execution_enabled?'사용 중':'비용 0원'}</em></summary><div><strong>{aiPanel.title||'페이지별 분석'}</strong><p>{aiPanel.summary||'실제 운영 자료가 준비되면 분석 근거를 확인할 수 있어요.'}</p><button type="button" onClick={()=>onNavigate('knowledge')}>분석 설정 보기</button></div></details>:null}
   </div>;
 }
 
@@ -89,16 +139,16 @@ export default function Phase28HomePage({model={},aiPanel=null,onNavigate=()=>{}
   const taskCount=typeof hero.taskCount==='number'?hero.taskCount:null;
   return <section className={styles.home} data-phase28-page="home">
     <div className={styles.intro}>
-      <Phase28PageHeading context={`실제 운영 자료 · ${formatAsOf(hero.asOf)}`} title={taskCount===null?'오늘 운영 건수는 ':taskCount>0?'오늘 처리할 일은 ':'오늘 회사는 '} accent={taskCount===null?'확인 필요':taskCount>0?`${taskCount}건`:'순항 중'} suffix="이에요." summary={hero.summary||'운영 자료를 확인하고 있어요.'}/>
-      <aside className={styles.companyStatus}><span>오늘 회사 상태</span><strong>{taskCount===null?'확인 필요':hero.exceptionCount>0?'집중 운영':'순항 중'}</strong><div><i data-tone="good"/>매출 근거<i data-tone={hero.exceptionCount>0?'warn':'good'}/>운영 상태</div><small>{hero.exceptionCount>0?`예외 ${hero.exceptionCount}건을 먼저 확인하세요.`:taskCount===null?'수집 기준시각과 운영 근거를 확인해주세요.':'운영 근거가 보호된 상태예요.'}</small></aside>
+      <div className={styles.introCopy}><Phase28PageHeading context={`실제 운영 자료 · ${formatAsOf(hero.asOf)}`} title={taskCount===null?'오늘 운영 건수는 ':taskCount>0?'오늘 처리할 일은 ':'오늘 회사는 '} accent={taskCount===null?'확인 필요':taskCount>0?`${taskCount}건`:'순항 중'} suffix="이에요." summary={hero.summary||'운영 자료를 확인하고 있어요.'}/><div className={styles.todayNote}><span>오늘의 메모</span><strong>{hero.note||'등록된 메모 없음'}</strong></div></div>
+      <CompanyStatus hero={hero} deadline={model.deadline||{}}/>
     </div>
-    <MainMetrics metrics={model.metrics||{}} onNavigate={onNavigate}/>
-    <OperatingLine items={model.schedule||[]} onNavigate={onNavigate}/>
-    <Phase28RightRailLayout
-      label="사장님 판단 보조석"
-      rail={<MainDecisionRail model={model} aiPanel={aiPanel} onNavigate={onNavigate}/>}
-    >
-      <div className={styles.mainColumn}><MainDecisionList items={model.decisions||[]} blocked={hero.status==='BLOCKED'} onNavigate={onNavigate}/><MainSignalSheets growth={model.growth||[]} risks={model.risks||[]} onNavigate={onNavigate}/></div>
+    <Phase28RightRailLayout label="사장님 판단 보조석" rail={<MainDecisionRail model={model} aiPanel={aiPanel} onNavigate={onNavigate}/> }>
+      <div className={styles.mainColumn}>
+        <MainMetrics metrics={model.metrics||{}} onNavigate={onNavigate}/>
+        <OperatingLine items={model.schedule||[]} onNavigate={onNavigate}/>
+        <div className={styles.decisionDesk}><MainDecisionList items={model.decisions||[]} blocked={hero.status==='BLOCKED'} onNavigate={onNavigate}/><CashFlowSheet cashflow={model.cashflow||{}} onNavigate={onNavigate}/></div>
+        <GrowthHorizon growth={model.growth||[]} forecast={model.forecast||{}} onNavigate={onNavigate}/>
+      </div>
     </Phase28RightRailLayout>
   </section>;
 }

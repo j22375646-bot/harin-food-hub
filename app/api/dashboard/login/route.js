@@ -25,7 +25,9 @@ export async function POST(request) {
       userAgent:request.headers.get('user-agent')
     });
     const response = NextResponse.redirect(new URL(safeNext, request.url), 303);
-    response.cookies.set(authModule.COOKIE_NAME, authenticated.token, authModule.sessionCookieOptions());
+    response.cookies.set(authModule.COOKIE_NAME, authenticated.token, authModule.sessionCookieOptions(undefined,{
+      secure:loginRequestModule.secureSessionCookie(request)
+    }));
     return response;
   } catch (error) {
     const login = new URL('/login', request.url);

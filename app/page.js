@@ -2659,7 +2659,7 @@ async function renderDashboardState(initialState) {
   const cookieStore = await cookies();
   const currentUser = await authModule.validateSession(cookieStore.get(authModule.COOKIE_NAME)?.value).catch(()=>null);
   if (!currentUser) redirect('/login');
-  const phase28Runtime=featureFlagsModule.phase28RuntimeConfig(process.env);
+  const phase28Runtime=featureFlagsModule.phase28RuntimeForState(process.env,initialState);
   try {
     const dashboardData=await getDashboardData(initialState);
     let phase28={};

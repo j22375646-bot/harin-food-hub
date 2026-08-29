@@ -10,7 +10,7 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('Main route creates Phase 28 runtime state on the server',()=>{
   const page=read('app/page.js');
-  assert.match(page,/featureFlagsModule\.phase28RuntimeConfig\(process\.env\)/);
+  assert.match(page,/featureFlagsModule\.phase28RuntimeForState\(process\.env,initialState\)/);
   assert.match(page,/phase28Runtime/);
   assert.doesNotMatch(read('app/dashboard-client.js'),/process\.env\.HARIN_PHASE28/);
 });

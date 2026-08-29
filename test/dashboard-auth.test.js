@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const auth = require('../lib/dashboard-auth.js');
+const loginRequest = require('../lib/dashboard-login-request.js');
 
 function withSecret(run) {
   const previous = process.env.DASHBOARD_SESSION_SECRET;
@@ -74,6 +75,15 @@ test('로그인 제출 중에도 비밀번호 입력값은 폼 전송 대상에 
   assert.ok(passwordInput,'비밀번호 입력칸을 찾을 수 있어야 한다');
   assert.doesNotMatch(passwordInput,/(?:^|\s)disabled=\{pending\}/);
   assert.match(passwordInput,/readOnly=\{pending\}/);
+});
+
+test('로컬 HTTP 로그인만 Secure 쿠키를 해제하고 운영 HTTPS는 유지한다', () => {
+  const headers = value => ({ get:name => name === 'x-forwarded-proto' ? value : null });
+  assert.equal(loginRequest.secureSessionCookie({ url:'http://127.0.0.1:3310/api/dashboard/login', headers:headers(null) }),false);
+  assert.equal(loginRequest.secureSessionCookie({ url:'https://harin-cafe24-sync.vercel.app/api/dashboard/login', headers:headers(null) }),true);
+  assert.equal(loginRequest.secureSessionCookie({ url:'http://internal/api/dashboard/login', headers:headers('https') }),true);
+  assert.equal(auth.sessionCookieOptions(undefined,{secure:false}).secure,false);
+  assert.equal(auth.sessionCookieOptions().secure,true);
 });
 
 test('비밀번호 검증은 제한 시간 안에 끝나며 성공 후 불필요한 원격 로그아웃을 기다리지 않는다', async () => {

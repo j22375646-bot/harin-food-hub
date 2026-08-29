@@ -12,6 +12,8 @@ test('shared heading owns the single underline animation',()=>{
   const heading=read('app/_phase28/primitives/page-heading.js');
   const css=read('app/_phase28/primitives/primitives.module.css');
   assert.match(heading,/page-title-accent/);
+  assert.match(css,/\.heading h1\{[^}]*font-size:clamp\(34px,3vw,50px\)!important/);
+  assert.match(css,/\.heading \.headingAccent\{[^}]*font-size:inherit!important/);
   assert.match(css,/transform:scaleX\(0\)/);
   assert.match(css,/transform-origin:left/);
   assert.match(css,/@media \(prefers-reduced-motion:reduce\)/);
@@ -32,7 +34,7 @@ test('right rail collapses to a square without a vertical shell',()=>{
   const css=read('app/_phase28/primitives/primitives.module.css');
   assert.match(rail,/aria-expanded=\{open\}/);
   assert.match(rail,/aria-hidden=\{!open\}/);
-  assert.match(rail,/inert=\{open\?undefined:''\}/);
+  assert.match(rail,/inert=\{open\?undefined:true\}/);
   assert.match(css,/--panel-closed-width:48px/);
   assert.match(css,/max-height:48px/);
   assert.match(css,/440ms/);

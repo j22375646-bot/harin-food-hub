@@ -16,6 +16,17 @@
 .brandCopy small{color:var(--p28-muted);font-size:14px;white-space:nowrap;}
 .sideSearch{width:calc(100% - 8px);min-height:48px;margin:14px 4px 16px;padding:0 12px;display:flex;align-items:center;gap:9px;border:1px solid var(--p28-line);border-radius:12px;background:var(--p28-soft);color:var(--p28-muted);font-size:15px;cursor:pointer;}
 .sideSearch>span:first-child{font-size:23px;line-height:1;transform:rotate(-12deg);}
+.sideCompanyStatus{display:grid;gap:10px;margin:0 4px 14px;padding:14px;border:1px solid #253352;border-radius:14px;background:#172036;color:#fff;}
+.sideCompanyStatus>header{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.sideCompanyStatus>header span{color:#c2cce0;font-size:13px;font-weight:800;}
+.sideCompanyStatus>header b{color:#92dabd;font-size:13px;}
+.sideCompanyStatus>div{display:flex;align-items:end;justify-content:space-between;gap:10px;}
+.sideCompanyStatus>div>strong{font-size:29px;line-height:1;letter-spacing:-.045em;}
+.sideCompanyStatus>div>p{margin:0;color:#c2cce0;font-size:12px;line-height:1.45;text-align:right;}
+.sideCompanyStatus>div>p b{color:#fff;}
+.sideCompanyStatus>em{height:6px;overflow:hidden;border-radius:99px;background:rgba(255,255,255,.13);}
+.sideCompanyStatus>em>i{display:block;height:100%;border-radius:inherit;background:#7bc8a8;transition:width 620ms cubic-bezier(.22,1,.36,1);}
+.sideCompanyStatus>small{color:#9eabc1;font-size:12px;text-align:right;}
 .navigation{display:grid;gap:2px;}
 .navigation section{display:grid;gap:3px;}
 .navigation h2{margin:18px 10px 8px;color:var(--p28-muted);font-size:13px;font-weight:800;}
@@ -54,7 +65,7 @@
 .shell[data-sidebar="compact"]{--p28-sidebar:82px;}
 .shell[data-sidebar="compact"] .sidebar{padding-inline:10px;}
 .shell[data-sidebar="compact"] .brand{justify-content:center;padding:0;}
-.shell[data-sidebar="compact"] .brandCopy,.shell[data-sidebar="compact"] .sideSearch>span:last-child,.shell[data-sidebar="compact"] .navigation h2,.shell[data-sidebar="compact"] .navCopy,.shell[data-sidebar="compact"] .navBadge,.shell[data-sidebar="compact"] .collapseButton strong{display:none;}
+.shell[data-sidebar="compact"] .brandCopy,.shell[data-sidebar="compact"] .sideSearch>span:last-child,.shell[data-sidebar="compact"] .sideCompanyStatus,.shell[data-sidebar="compact"] .navigation h2,.shell[data-sidebar="compact"] .navCopy,.shell[data-sidebar="compact"] .navBadge,.shell[data-sidebar="compact"] .collapseButton strong{display:none;}
 .shell[data-sidebar="compact"] .sideSearch{width:44px;min-height:44px;justify-content:center;margin-inline:auto;padding:0;}
 .shell[data-sidebar="compact"] .navItem{width:54px;min-height:54px;justify-content:center;margin-inline:auto;padding:6px;}
 .shell[data-sidebar="compact"] .navIcon{width:40px;height:40px;}

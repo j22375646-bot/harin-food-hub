@@ -55,3 +55,37 @@ test('main adapter reuses server-owned schedules, decisions, channels, and growt
   assert.equal(model.metrics.balance.status,'PARTIAL');
   assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs']);
 });
+
+test('main adapter supplies the complete V106 money, deadline, forecast, and payout evidence',()=>{
+  const model=buildPhase28MainModel({
+    generatedAt:'2026-08-29T05:42:00.000Z',
+    financialTrust:{status:'READY'},
+    liveProfitability:{
+      revenue:60829400,product_cost:22000000,shipping_cost:7200000,fees:4100000,ad_spend:4800000,
+      contribution_profit:22729400,cost_coverage_rate:96
+    },
+    cafe24Analytics:{daily:[
+      {date:'2026-08-23',orders:3,revenue:120000},{date:'2026-08-24',orders:4,revenue:180000},
+      {date:'2026-08-25',orders:5,revenue:210000},{date:'2026-08-26',orders:4,revenue:190000},
+      {date:'2026-08-27',orders:6,revenue:240000},{date:'2026-08-28',orders:5,revenue:220000},
+      {date:'2026-08-29',orders:7,revenue:280000}
+    ]},
+    unifiedSettlement:{schedules:[
+      {platform:'NAVER',date:'2026-08-30',status:'정산예정',amount:2410000},
+      {platform:'COUPANG',date:'2026-09-10',status:'예정',amount:900000}
+    ]},
+    salesCommandCenter:{
+      metrics:{target:85000000,current:60829400,forecast:72527360},
+      cashflow:{status:'ESTIMATE',expectedBalance:12634200},
+      daily:{total:3,exception_total:1,schedule:{cutoff_at:'2026-08-29T15:00:00+09:00',items:[]}}
+    }
+  });
+
+  assert.equal(model.metrics.profit.value,22729400);
+  assert.equal(model.deadline.at,'2026-08-29T15:00:00+09:00');
+  assert.deepEqual(model.cashflow.rows.map(item=>item.key),['sales','operating','fees','profit']);
+  assert.equal(model.forecast.days.length,7);
+  assert.equal(model.forecast.status,'PARTIAL');
+  assert.equal(model.cashCalendar.length,1);
+  assert.equal(model.cashCalendar[0].platform,'NAVER');
+});

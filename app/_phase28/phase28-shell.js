@@ -65,6 +65,9 @@ export default function Phase28Shell({routeId,badges={},generatedAt=null,childre
   const primaryItems=navigation.mobilePrimary.map(id=>navigation.items.find(item=>item.id===id)).filter(Boolean);
   const secondaryItems=navigation.items.filter(item=>!navigation.mobilePrimary.includes(item.id));
   const notificationCount=navigation.items.find(item=>item.id==='notifications')?.badge;
+  const operatingAttention=navigation.items.reduce((total,item)=>total+(Number.isFinite(item.badge)&&item.badge>0?item.badge:0),0);
+  const vitalityScore=Math.max(25,100-Math.min(75,operatingAttention*6));
+  const vitalityLabel=operatingAttention===0?'순항 중':operatingAttention<=4?'확인 중':'집중 운영';
   const closeCommand=useCallback(()=>setCommandOpen(false),[]);
   const closeEvidence=useCallback(()=>setEvidenceOpen(false),[]);
   const closeMore=useCallback(()=>setMoreOpen(false),[]);
@@ -130,6 +133,12 @@ export default function Phase28Shell({routeId,badges={},generatedAt=null,childre
       <aside className={styles.sidebar} aria-label="데스크톱 메뉴 영역">
         <div className={styles.brand}><span className={styles.brandMark}>H</span><span className={styles.brandCopy}><strong>하린식품</strong><small>성장 운영 허브</small></span></div>
         <button className={styles.sideSearch} type="button" onClick={()=>setCommandOpen(true)} aria-label="메뉴와 업무 찾기"><span aria-hidden="true">⌕</span><span>메뉴·업무 찾기</span></button>
+        <section className={styles.sideCompanyStatus} aria-label={`오늘 회사 활력 ${vitalityScore}점, ${vitalityLabel}`}>
+          <header><span>오늘 회사 활력</span><b>{vitalityLabel}</b></header>
+          <div><strong>{vitalityScore}</strong><p><b>{operatingAttention}건</b> 확인하면<br/>운영 흐름이 가벼워져요.</p></div>
+          <em><i style={{width:`${vitalityScore}%`}}/></em>
+          <small>운영 확인 항목 기준</small>
+        </section>
         <nav className={styles.navigation} aria-label="허브 메뉴">
           {navigation.groups.map(group=><section key={group.id}><h2>{group.label}</h2>{group.items.map(item=><NavigationLink item={item} routeId={routeId} compact={compact} key={item.id}/>)}</section>)}
         </nav>
