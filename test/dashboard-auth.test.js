@@ -86,6 +86,31 @@ test('로컬 HTTP 로그인만 Secure 쿠키를 해제하고 운영 HTTPS는 유
   assert.equal(auth.sessionCookieOptions().secure,true);
 });
 
+test('로그인 우회는 명시적으로 켠 로컬 개발에서만 OWNER 세션을 만든다', async () => {
+  assert.equal(auth.developmentAuthBypassEnabled({ NODE_ENV:'development', HARIN_DEV_AUTH_BYPASS:'1' }),true);
+  assert.equal(auth.developmentAuthBypassEnabled({ NODE_ENV:'development', HARIN_DEV_AUTH_BYPASS:'0' }),false);
+  assert.equal(auth.developmentAuthBypassEnabled({ NODE_ENV:'production', HARIN_DEV_AUTH_BYPASS:'1' }),false);
+  assert.equal(auth.developmentAuthBypassEnabled({ NODE_ENV:'test', HARIN_DEV_AUTH_BYPASS:'1' }),false);
+
+  const previousNodeEnv=process.env.NODE_ENV;
+  const previousBypass=process.env.HARIN_DEV_AUTH_BYPASS;
+  try {
+    process.env.NODE_ENV='development';
+    process.env.HARIN_DEV_AUTH_BYPASS='1';
+    const session=await auth.validateSession('');
+    assert.equal(session.role,'OWNER');
+    assert.equal(session.username,'local-owner');
+    assert.equal(auth.verifySession(''),true);
+
+    process.env.NODE_ENV='production';
+    assert.equal(await auth.validateSession(''),null);
+    assert.equal(auth.verifySession(''),false);
+  } finally {
+    if(previousNodeEnv===undefined)delete process.env.NODE_ENV;else process.env.NODE_ENV=previousNodeEnv;
+    if(previousBypass===undefined)delete process.env.HARIN_DEV_AUTH_BYPASS;else process.env.HARIN_DEV_AUTH_BYPASS=previousBypass;
+  }
+});
+
 test('비밀번호 검증은 제한 시간 안에 끝나며 성공 후 불필요한 원격 로그아웃을 기다리지 않는다', async () => {
   const source=fs.readFileSync(path.resolve(__dirname,'../lib/dashboard-auth.js'),'utf8');
   assert.doesNotMatch(source,/client\.auth\.signOut/);
@@ -111,6 +136,13 @@ test('단일 OWNER Proxy는 다른 역할과 다른 출처 요청을 차단한�
   assert.match(proxy,/CSRF_ORIGIN_MISMATCH/);
   assert.match(proxy,/x-harin-role/);
   assert.match(proxy,/validateSession/);
+});
+
+test('개발 로그인 우회는 쿠키가 없는 Proxy 요청에도 적용된다', () => {
+  const proxy=fs.readFileSync(path.resolve(__dirname,'../proxy.js'),'utf8');
+  assert.match(proxy,/developmentAuthBypassEnabled/);
+  assert.match(proxy,/token \|\| developmentBypass/);
+  assert.match(proxy,/pathname === '\/login' && \(token \|\| developmentBypass\)/);
 });
 
 test('계정·세션·로그인 제한 테이블은 브라우저 역할에서 격리된다', () => {

@@ -19,16 +19,19 @@ function apiDenied(status, error, code) {
 export async function proxy(request) {
   const pathname = request.nextUrl.pathname;
   const token = request.cookies.get(authModule.COOKIE_NAME)?.value;
+  const developmentBypass = authModule.developmentAuthBypassEnabled();
 
   if (isPublic(pathname)) {
-    if (pathname === '/login' && token) {
+    if (pathname === '/login' && (token || developmentBypass)) {
       const session = await authModule.validateSession(token).catch(()=>null);
       if (session) return NextResponse.redirect(new URL('/', request.url));
     }
     return NextResponse.next();
   }
 
-  const session = token ? await authModule.validateSession(token, { touch:true }).catch(()=>null) : null;
+  const session = token || developmentBypass
+    ? await authModule.validateSession(token, { touch:true }).catch(()=>null)
+    : null;
   if (!session) {
     if (pathname.startsWith('/api/')) return apiDenied(401, '로그인이 필요합니다.', 'UNAUTHENTICATED');
     const login = new URL('/login', request.url);
