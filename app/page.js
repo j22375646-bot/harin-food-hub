@@ -2670,6 +2670,20 @@ async function renderDashboardState(initialState) {
         phase28={main:null,adapter_status:'ERROR'};
       }
     }
+    if(phase28Runtime.activePages.includes('orders')&&initialState.view==='orders'){
+      try{
+        phase28={orders:phase28AdaptersModule.buildPhase28OrdersModel(dashboardData),adapter_status:'READY'};
+      }catch{
+        phase28={orders:null,adapter_status:'ERROR'};
+      }
+    }
+    if(phase28Runtime.activePages.includes('cs')&&initialState.view==='cs'){
+      try{
+        phase28={cs:phase28AdaptersModule.buildPhase28CsModel(dashboardData),adapter_status:'READY'};
+      }catch{
+        phase28={cs:null,adapter_status:'ERROR'};
+      }
+    }
     return <Dashboard initialData={{...dashboardData,phase28Runtime,phase28}} initialState={initialState} />;
   } catch (error) {
     return <Dashboard initialData={{ error:error.message,phase28Runtime }} initialState={initialState} />;
