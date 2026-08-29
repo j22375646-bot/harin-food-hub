@@ -53,7 +53,7 @@ test('product analysis adapter restores only saved product-analysis reports with
 });
 
 test('product analysis joins the implemented V106 adapter set',()=>{
-  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system','notifications','diagnoses']);
+  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system','notifications','diagnoses','changes']);
 });
 
 test('product analysis loads only its calculation inputs and saved reports',()=>{

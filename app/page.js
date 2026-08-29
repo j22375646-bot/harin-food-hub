@@ -2762,6 +2762,19 @@ async function renderDashboardState(initialState) {
         phase28={diagnoses:null,adapter_status:'ERROR'};
       }
     }
+    if(phase28Runtime.activePages.includes('changes')&&initialState.view==='changes'){
+      try{
+        const compactChanges=(dashboardData.retentionValidation?.execution?.changes||[]).map(item=>({
+          id:item.id,change_type:item.change_type,platform:item.platform,target_key:item.target_key,status:item.status,
+          created_at:item.created_at,executed_at:item.executed_at,verified_at:item.verified_at,rolled_back_at:item.rolled_back_at,
+          impact_preview:{changes:item.changes||[]},rollback_value:{exists:item.reversible!==false}
+        }));
+        phase28={changes:phase28AdaptersModule.buildPhase28ChangesModel({generatedAt:dashboardData.generatedAt,requests:compactChanges,audits:[],naverWriteEnabled:dashboardData.naverBidWorkbench?.execution_enabled===true}),adapter_status:'READY'};
+        clientDashboardData={...dashboardData,reports:[],actions:[],retentionValidation:null,experiments:[],automationRuns:[],naverBidWorkbench:null,productAdTargets:null,financialTrust:null};
+      }catch{
+        phase28={changes:null,adapter_status:'ERROR'};
+      }
+    }
     return <Dashboard initialData={{...clientDashboardData,phase28Runtime,phase28}} initialState={initialState} />;
   } catch (error) {
     return <Dashboard initialData={{ error:error.message,phase28Runtime }} initialState={initialState} />;
