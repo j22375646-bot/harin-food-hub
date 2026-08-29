@@ -55,6 +55,7 @@ import unifiedOrdersModule from '../lib/orders/unified-orders.js';
 import unifiedCustomerServiceModule from '../lib/customer-service/unified-center.js';
 import customerServiceStore from '../lib/customer-service/store.js';
 import featureFlagsModule from '../lib/ui/feature-flags.js';
+import phase28AdaptersModule from '../lib/ui/phase28-adapters/index.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -2661,7 +2662,15 @@ async function renderDashboardState(initialState) {
   const phase28Runtime=featureFlagsModule.phase28RuntimeConfig(process.env);
   try {
     const dashboardData=await getDashboardData(initialState);
-    return <Dashboard initialData={{...dashboardData,phase28Runtime}} initialState={initialState} />;
+    let phase28={};
+    if(phase28Runtime.activePages.includes('home')&&initialState.view==='main'){
+      try{
+        phase28={main:phase28AdaptersModule.buildPhase28MainModel(dashboardData),adapter_status:'READY'};
+      }catch{
+        phase28={main:null,adapter_status:'ERROR'};
+      }
+    }
+    return <Dashboard initialData={{...dashboardData,phase28Runtime,phase28}} initialState={initialState} />;
   } catch (error) {
     return <Dashboard initialData={{ error:error.message,phase28Runtime }} initialState={initialState} />;
   }

@@ -3,13 +3,14 @@
 const routes=require('../lib/ui/phase28-route-registry.js');
 const hub=require('../lib/navigation/hub-routes.js');
 const {buildPhase28Readiness}=require('../lib/ui/phase28-readiness.js');
+const {PHASE28_AVAILABLE_ADAPTERS}=require('../lib/ui/phase28-adapters/index.js');
 
 const report=buildPhase28Readiness({
   routes:routes.PHASE28_ROUTES,
   hubNav:hub.HUB_NAV,
   hubWorkspaces:hub.HUB_WORKSPACES,
   env:process.env,
-  availableAdapters:[]
+  availableAdapters:PHASE28_AVAILABLE_ADAPTERS
 });
 
 process.stdout.write(`${JSON.stringify(report,null,2)}\n`);

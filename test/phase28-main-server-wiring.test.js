@@ -14,3 +14,11 @@ test('Main route creates Phase 28 runtime state on the server',()=>{
   assert.match(page,/phase28Runtime/);
   assert.doesNotMatch(read('app/dashboard-client.js'),/process\.env\.HARIN_PHASE28/);
 });
+
+test('Main route builds the new ViewModel only for an active home request',()=>{
+  const page=read('app/page.js');
+  assert.match(page,/phase28AdaptersModule\.buildPhase28MainModel\(dashboardData\)/);
+  assert.match(page,/phase28Runtime\.activePages\.includes\('home'\)/);
+  assert.match(page,/initialState\.view==='main'/);
+  assert.match(page,/adapter_status:'ERROR'/);
+});
