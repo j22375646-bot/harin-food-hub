@@ -38,5 +38,5 @@ test('main adapter reuses server-owned schedules, decisions, channels, and growt
   assert.equal(model.channels[0].platform,'NAVER');
   assert.equal(model.growth[0].name,'작두콩차');
   assert.equal(model.metrics.balance.status,'PARTIAL');
-  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main']);
+  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs']);
 });

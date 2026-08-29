@@ -1,0 +1,69 @@
+'use strict';
+
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const {
+  buildPhase28OrdersModel,
+  buildPhase28CsModel,
+  PHASE28_AVAILABLE_ADAPTERS
+}=require('../lib/ui/phase28-adapters/index.js');
+
+test('orders adapter derives seller-delivery work without inventing retry totals',()=>{
+  const model=buildPhase28OrdersModel({
+    generatedAt:'2026-08-29T01:40:00.000Z',
+    unifiedOrders:{
+      orders:[
+        {hubOrderId:'NV-1',platform:'NAVER',stage:'PAID',fulfillment:'SELLER',shippingEligible:true,invoiceNumber:'',timingBadge:{type:'DELAYED'},productName:'작두콩차'},
+        {hubOrderId:'CP-RG-1',platform:'COUPANG',stage:'PAID',fulfillment:'ROCKET_GROWTH',shippingEligible:false,invoiceNumber:''},
+        {hubOrderId:'C24-1',platform:'CAFE24',stage:'DELIVERED',fulfillment:'SELLER',shippingEligible:false,invoiceNumber:'1234567890123'}
+      ],
+      channels:[{platform:'NAVER',status:'READY',label:'정상',message:'1건 표시'}],
+      summary:{actionRequired:1,cancellations:0,windowDays:30,windowStart:'2026-07-31',windowEnd:'2026-08-29'}
+    }
+  });
+
+  assert.equal(model.hero.workCount,1);
+  assert.equal(model.hero.delayedCount,1);
+  assert.equal(model.workspaces.find(item=>item.id==='ACTIVE').count,1);
+  assert.equal(model.workspaces.find(item=>item.id==='RETRY').status,'CHECK_REQUIRED');
+  assert.equal(model.workspaces.find(item=>item.id==='RETRY').count,null);
+  assert.equal(model.channels[0].status,'READY');
+  assert.equal(model.priorities[0].id,'NV-1');
+});
+
+test('orders adapter distinguishes an observed zero from an unavailable client-only retry count',()=>{
+  const model=buildPhase28OrdersModel({
+    unifiedOrders:{orders:[],channels:[],summary:{cancellations:0,windowDays:30}}
+  });
+
+  assert.equal(model.hero.workCount,0);
+  assert.equal(model.hero.cancellationCount,0);
+  assert.equal(model.workspaces.find(item=>item.id==='ACTIVE').status,'READY');
+  assert.equal(model.workspaces.find(item=>item.id==='RETRY').status,'CHECK_REQUIRED');
+});
+
+test('cs adapter preserves setup-required channels and due priorities',()=>{
+  const model=buildPhase28CsModel({
+    generatedAt:'2026-08-29T01:40:00.000Z',
+    customerService:{
+      active:[
+        {id:'C1',platform:'CAFE24',kind:'INQUIRY',title:'배송 문의',content:'언제 도착하나요?',due:{code:'OVERDUE',label:'기한 초과',ageHours:27},order:{orderId:'O-1'}},
+        {id:'N1',platform:'NAVER',kind:'RETURN',title:'반품 문의',content:'반품 접수',due:{code:'TODAY',label:'오늘 처리',ageHours:2}}
+      ],
+      channelStates:[{platform:'NAVER',status:'SETUP_REQUIRED',statusLabel:'설정 필요',message:'연결 필요'}],
+      summary:{active:2,unanswered:1,overdue:1,claims:1,linkedOrders:1,completed:4}
+    }
+  });
+
+  assert.equal(model.hero.activeCount,2);
+  assert.equal(model.hero.overdueCount,1);
+  assert.equal(model.hero.unansweredCount,1);
+  assert.equal(model.channels[0].status,'SETUP_REQUIRED');
+  assert.equal(model.priorities[0].id,'C1');
+  assert.equal(model.priorities[0].dueCode,'OVERDUE');
+  assert.equal(model.priorities[0].linkedOrder,true);
+});
+
+test('orders and cs adapters are advertised as available without removing main',()=>{
+  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs']);
+});
