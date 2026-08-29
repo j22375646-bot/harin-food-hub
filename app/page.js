@@ -54,6 +54,7 @@ import channelCapabilitiesModule from '../lib/platforms/channel-capabilities.js'
 import unifiedOrdersModule from '../lib/orders/unified-orders.js';
 import unifiedCustomerServiceModule from '../lib/customer-service/unified-center.js';
 import customerServiceStore from '../lib/customer-service/store.js';
+import featureFlagsModule from '../lib/ui/feature-flags.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -2657,10 +2658,12 @@ async function renderDashboardState(initialState) {
   const cookieStore = await cookies();
   const currentUser = await authModule.validateSession(cookieStore.get(authModule.COOKIE_NAME)?.value).catch(()=>null);
   if (!currentUser) redirect('/login');
+  const phase28Runtime=featureFlagsModule.phase28RuntimeConfig(process.env);
   try {
-    return <Dashboard initialData={await getDashboardData(initialState)} initialState={initialState} />;
+    const dashboardData=await getDashboardData(initialState);
+    return <Dashboard initialData={{...dashboardData,phase28Runtime}} initialState={initialState} />;
   } catch (error) {
-    return <Dashboard initialData={{ error: error.message }} initialState={initialState} />;
+    return <Dashboard initialData={{ error:error.message,phase28Runtime }} initialState={initialState} />;
   }
 }
 

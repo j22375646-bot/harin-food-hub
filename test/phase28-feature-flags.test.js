@@ -26,3 +26,21 @@ test('Phase 28 refuses all activation when any configured page is unknown',()=>{
   assert.deepEqual(config.invalidPages,['admin']);
   assert.equal(config.active('home'),false);
 });
+
+test('Phase 28 runtime config exposes only serializable active pages',()=>{
+  const runtime=flags.phase28RuntimeConfig({HARIN_PHASE28_ENABLED:'true',HARIN_PHASE28_PAGES:'home'});
+  assert.deepEqual(runtime.activePages,['home']);
+  assert.deepEqual(JSON.parse(JSON.stringify(runtime)),{
+    enabled:true,
+    valid:true,
+    pages:['home'],
+    activePages:['home'],
+    invalidPages:[]
+  });
+});
+
+test('Phase 28 runtime config fail-closes invalid page lists',()=>{
+  const runtime=flags.phase28RuntimeConfig({HARIN_PHASE28_ENABLED:'true',HARIN_PHASE28_PAGES:'home,admin'});
+  assert.deepEqual(runtime.activePages,[]);
+  assert.deepEqual(runtime.invalidPages,['admin']);
+});
