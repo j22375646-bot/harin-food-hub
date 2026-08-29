@@ -2684,6 +2684,20 @@ async function renderDashboardState(initialState) {
         phase28={cs:null,adapter_status:'ERROR'};
       }
     }
+    if(phase28Runtime.activePages.includes('inventory')&&initialState.view==='inventory'){
+      try{
+        phase28={inventory:phase28AdaptersModule.buildPhase28InventoryModel(dashboardData),adapter_status:'READY'};
+      }catch{
+        phase28={inventory:null,adapter_status:'ERROR'};
+      }
+    }
+    if(phase28Runtime.activePages.includes('products')&&initialState.view==='product'){
+      try{
+        phase28={products:phase28AdaptersModule.buildPhase28ProductsModel(dashboardData),adapter_status:'READY'};
+      }catch{
+        phase28={products:null,adapter_status:'ERROR'};
+      }
+    }
     return <Dashboard initialData={{...dashboardData,phase28Runtime,phase28}} initialState={initialState} />;
   } catch (error) {
     return <Dashboard initialData={{ error:error.message,phase28Runtime }} initialState={initialState} />;

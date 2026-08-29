@@ -15,6 +15,7 @@
     "verify:phase28-foundation": "node --test test/phase28-route-registry.test.js test/phase28-feature-flags.test.js test/phase28-view-model.test.js test/phase28-readiness.test.js && node scripts/check-phase28-overlay-readiness.js",
     "verify:phase28-main": "pnpm verify:phase28-foundation && node --test test/phase28-main-server-wiring.test.js test/phase28-main-adapter.test.js test/phase28-main-ui.test.js test/phase14-v8-main-command-center.test.js test/phase28-main-acceptance.test.js",
     "verify:phase28-orders-cs": "pnpm verify:phase28-main && node --test test/phase28-orders-cs-adapters.test.js test/phase28-orders-cs-server-wiring.test.js test/phase28-orders-cs-ui.test.js test/phase28-orders-cs-integration.test.js test/phase16-orders-surface.test.js test/phase15-remaining-page-structure.test.js test/unified-orders.test.js",
+    "verify:phase28-inventory-products": "pnpm verify:phase28-orders-cs && node --test test/phase28-inventory-products-adapters.test.js test/phase28-inventory-products-v106-render.test.js test/phase23-inventory-lots.test.js test/product-operations-center.test.js test/product-performance.test.js",
     "test:phase14-final": "node --test test/phase14-final-quality.test.js",
     "start": "next start",
     "start:legacy": "node cafe24-oauth-server.js",

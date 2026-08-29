@@ -31,6 +31,7 @@ const securityHeaders = [
 
 module.exports = {
   poweredByHeader:false,
+  allowedDevOrigins:['127.0.0.1'],
   distDir:process.env.NEXT_DIST_DIR || '.next',
   turbopack:{root:__dirname},
   async redirects() {
