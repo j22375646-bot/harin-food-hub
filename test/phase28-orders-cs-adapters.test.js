@@ -13,7 +13,7 @@ test('orders adapter derives seller-delivery work without inventing retry totals
     generatedAt:'2026-08-29T01:40:00.000Z',
     unifiedOrders:{
       orders:[
-        {hubOrderId:'NV-1',platform:'NAVER',stage:'PAID',fulfillment:'SELLER',shippingEligible:true,invoiceNumber:'',timingBadge:{type:'DELAYED'},productName:'작두콩차'},
+        {hubOrderId:'NV-1',externalOrderId:'20260829-1',platform:'NAVER',channelLabel:'네이버',stage:'PAID',fulfillment:'SELLER',shippingEligible:true,invoiceNumber:'',timingBadge:{type:'DELAYED',label:'배송지연'},productName:'작두콩차',orderedAt:'2026-08-29T01:18:00.000Z',amount:12000,quantity:1,receiver:{name:'김하린',contact:'010-0000-0000',address:'충남 천안시',message:'문 앞'},items:[{name:'작두콩차',option:'30티백',quantity:1}]},
         {hubOrderId:'CP-RG-1',platform:'COUPANG',stage:'PAID',fulfillment:'ROCKET_GROWTH',shippingEligible:false,invoiceNumber:''},
         {hubOrderId:'C24-1',platform:'CAFE24',stage:'DELIVERED',fulfillment:'SELLER',shippingEligible:false,invoiceNumber:'1234567890123'}
       ],
@@ -29,6 +29,12 @@ test('orders adapter derives seller-delivery work without inventing retry totals
   assert.equal(model.workspaces.find(item=>item.id==='RETRY').count,null);
   assert.equal(model.channels[0].status,'READY');
   assert.equal(model.priorities[0].id,'NV-1');
+  assert.equal(model.orders[0].hubOrderId,'NV-1');
+  assert.deepEqual(model.orders[0].stageIds,['ACTIVE','EPOST']);
+  assert.equal(model.orders[0].receiver.name,'김하린');
+  assert.equal(model.orders[0].amount,12000);
+  assert.equal(model.orders[0].items[0].option,'30티백');
+  assert.equal(model.cutoff.label,'오후 3시');
 });
 
 test('orders adapter distinguishes an observed zero from an unavailable client-only retry count',()=>{
