@@ -24,6 +24,10 @@
 - At `1480px` and below, the right rail moves under the main workspace; at `430px` and `390px`, reflow content instead of deleting it or shrinking type.
 - Global CSS remains limited to true document-wide rules. V106 components use CSS Modules to avoid leakage from the legacy V8 styles, following the installed Next.js 16.3 CSS guidance.
 - Server data and secrets stay in Server Components/server modules; only serializable ViewModels cross into client components.
+- Keep the V106 UI unchanged while reducing payloads, route JavaScript, queries, and API calls behind it.
+- Every migrated page serializes only its shell summary and page ViewModel; raw legacy `dashboardData` and unopened detail datasets stay on the server.
+- Do not delete an API from code-reference evidence alone; verify route callers, cron jobs, webhooks, recent execution evidence, and data dependencies first.
+- Git stores API/data retirement manifests, schema, counts, checksums, and restore instructions only; never commit operational rows, personal data, tokens, or passwords.
 - Write failing tests first, verify the expected failure, implement the minimum complete behavior, rerun focused tests, then commit.
 
 ## Plan Series
@@ -607,7 +611,7 @@ import operationSnapshotModule from '../../lib/navigation/operation-snapshot.js'
 
 export default function Phase28App({initialData}){
   const routeId=initialData.phase28Runtime?.routeId||'home';
-  const navigationSnapshot=operationSnapshotModule.buildNavigationOperationSnapshot(initialData);
+  const navigationSnapshot=initialData.navigationSnapshot||operationSnapshotModule.buildNavigationOperationSnapshot(initialData);
   return <Phase28Shell routeId={routeId} badges={navigationSnapshot?.badges||{}} generatedAt={initialData.generatedAt}>
     <section data-phase28-page={routeId} aria-label="Phase 28 페이지 준비 상태">이 페이지의 운영 화면을 준비하고 있어요.</section>
   </Phase28Shell>;
@@ -1069,7 +1073,161 @@ git commit -m "feat: wire authenticated Phase 28 Main preview"
 
 ---
 
-### Task 9: Run full regression, browser parity, and review gate
+### Task 9: Add the lightweight client payload and API retirement inventory
+
+**Files:**
+- Create: `lib/ui/phase28-client-payload.js`
+- Create: `lib/integrations/api-catalog.js`
+- Create: `scripts/audit-phase28-api-usage.js`
+- Create: `test/phase28-client-payload.test.js`
+- Create: `test/phase28-api-catalog.test.js`
+- Create: `docs/runtime/phase28-api-inventory.json`
+- Create: `docs/runtime/phase28-data-retirement-policy.md`
+- Modify: `app/page.js`
+- Modify: `package.json`
+
+**Interfaces:**
+- Consumes: `{dashboardData,phase28Runtime,phase28,navigationSnapshot}`.
+- Produces: `buildPhase28ClientPayload(input)` containing only shell metadata, the current page ViewModel, current page AI panel, and navigation snapshot.
+- Produces: `classifyApiUsage({routeFiles,callSites,scheduledCallers,webhookCallers}) -> [{route,status,evidence}]`.
+
+- [ ] **Step 1: Write failing payload and API-classification tests**
+
+```js
+'use strict';
+
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const {buildPhase28ClientPayload}=require('../lib/ui/phase28-client-payload.js');
+const {classifyApiUsage}=require('../lib/integrations/api-catalog.js');
+
+test('V106 client payload excludes raw legacy page datasets',()=>{
+  const payload=buildPhase28ClientPayload({
+    dashboardData:{generatedAt:'2026-08-29T00:00:00.000Z',unifiedOrders:{rows:[{id:1}]},customerService:{rows:[{id:2}]},products:[{id:3}],aiPagePanels:{main:{status:'READY'}}},
+    phase28Runtime:{renderMode:'preview',routeId:'home'},
+    phase28:{main:{hero:{status:'READY'}}},
+    navigationSnapshot:{version:1,badges:{orders:2}}
+  });
+  assert.deepEqual(Object.keys(payload).sort(),['generatedAt','navigationSnapshot','phase28','phase28Runtime']);
+  assert.equal(payload.phase28.aiPanel.status,'READY');
+  assert.equal('unifiedOrders' in payload,false);
+  assert.equal('customerService' in payload,false);
+  assert.equal('products' in payload,false);
+});
+
+test('API usage requires all caller classes to be absent before removal candidacy',()=>{
+  const result=classifyApiUsage({
+    routeFiles:['/api/orders/live-refresh','/api/unused/probe'],
+    callSites:['/api/orders/live-refresh'],
+    scheduledCallers:[],
+    webhookCallers:[]
+  });
+  assert.equal(result.find(item=>item.route==='/api/orders/live-refresh').status,'CURRENT');
+  assert.equal(result.find(item=>item.route==='/api/unused/probe').status,'REMOVAL_CANDIDATE');
+});
+
+test('scheduled and webhook callers prevent API removal candidacy',()=>{
+  const result=classifyApiUsage({
+    routeFiles:['/api/cron/hourly-orders','/api/webhook/channel'],
+    callSites:[],scheduledCallers:['/api/cron/hourly-orders'],webhookCallers:['/api/webhook/channel']
+  });
+  assert.deepEqual(result.map(item=>item.status),['CURRENT','CURRENT']);
+});
+```
+
+- [ ] **Step 2: Run tests and verify the modules are missing**
+
+Run:
+
+```powershell
+node --test test/phase28-client-payload.test.js test/phase28-api-catalog.test.js
+```
+
+Expected: FAIL with `MODULE_NOT_FOUND`.
+
+- [ ] **Step 3: Implement the minimal client payload boundary**
+
+```js
+'use strict';
+
+function buildPhase28ClientPayload({dashboardData={},phase28Runtime,phase28={},navigationSnapshot=null}){
+  const routeId=phase28Runtime?.routeId||null;
+  const pageModel=routeId==='home'?phase28.main:phase28[routeId];
+  const aiPanel=routeId==='home'?dashboardData.aiPagePanels?.main:null;
+  return Object.freeze({
+    generatedAt:dashboardData.generatedAt||null,
+    navigationSnapshot,
+    phase28Runtime,
+    phase28:Object.freeze({[routeId]:pageModel||null,aiPanel:aiPanel||null,adapter_status:phase28.adapter_status||'ERROR'})
+  });
+}
+
+module.exports={buildPhase28ClientPayload};
+```
+
+In `app/page.js`, keep the complete `dashboardData` only for `renderMode==='legacy'`. For `preview` or `full`, build the navigation snapshot on the server and pass `buildPhase28ClientPayload(...)` to `<Dashboard>`. Update `Phase28App` and `Phase28HomePage` to read `initialData.phase28.home` and `initialData.phase28.aiPanel`.
+
+- [ ] **Step 4: Implement the auditable API classification**
+
+```js
+'use strict';
+
+const API_STATUS=Object.freeze(['CURRENT','RECOMMENDED','OPTIONAL','REMOVAL_CANDIDATE','RETIRED']);
+
+function classifyApiUsage({routeFiles=[],callSites=[],scheduledCallers=[],webhookCallers=[]}={}){
+  const callers=new Set([...callSites,...scheduledCallers,...webhookCallers]);
+  return [...new Set(routeFiles)].sort().map(route=>Object.freeze({
+    route,status:callers.has(route)?'CURRENT':'REMOVAL_CANDIDATE',
+    evidence:Object.freeze({client:callSites.includes(route),scheduled:scheduledCallers.includes(route),webhook:webhookCallers.includes(route)})
+  }));
+}
+
+module.exports={API_STATUS,classifyApiUsage};
+```
+
+The audit script scans `app/api/**/route.js`, literal internal fetch/form targets, cron route references, and documented webhook entry points. It writes the deterministic JSON inventory but performs no deletion. Each entry includes route, status, caller evidence, and the page plan that must review it.
+
+- [ ] **Step 5: Document the deletion gate**
+
+`phase28-data-retirement-policy.md` must state:
+
+```markdown
+# Phase 28 data retirement policy
+
+1. Remove unused data from the client payload and initial query first.
+2. Verify table references, foreign keys, scheduled jobs, reports, and retention obligations.
+3. Record target table/path, date range, row count, checksum, and restore owner.
+4. Store the encrypted data export outside GitHub.
+5. Store schema, manifest, checksum, and restore procedure in Git.
+6. Delete only the verified target and run read-after-delete plus application regression checks.
+```
+
+- [ ] **Step 6: Generate the first inventory, verify, and commit**
+
+Add:
+
+```json
+"audit:phase28-runtime": "node scripts/audit-phase28-api-usage.js"
+```
+
+Run:
+
+```powershell
+node --test test/phase28-client-payload.test.js test/phase28-api-catalog.test.js
+pnpm audit:phase28-runtime
+pnpm verify:phase28-foundation-main
+```
+
+Expected: tests PASS; inventory generation exits 0; no API or data is deleted in this discovery task.
+
+```powershell
+git add lib/ui/phase28-client-payload.js lib/integrations/api-catalog.js scripts/audit-phase28-api-usage.js test/phase28-client-payload.test.js test/phase28-api-catalog.test.js docs/runtime/phase28-api-inventory.json docs/runtime/phase28-data-retirement-policy.md app/page.js app/_phase28/phase28-app.js app/_phase28/pages/home-page.js package.json
+git commit -m "perf: isolate Phase 28 payload and API inventory"
+```
+
+---
+
+### Task 10: Run full regression, browser parity, and review gate
 
 **Files:**
 - Create: `output/phase28-foundation-main/verification.md`
