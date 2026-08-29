@@ -2754,6 +2754,14 @@ async function renderDashboardState(initialState) {
         phase28={notifications:null,adapter_status:'ERROR'};
       }
     }
+    if(phase28Runtime.activePages.includes('diagnoses')&&initialState.view==='reports'){
+      try{
+        phase28={diagnoses:phase28AdaptersModule.buildPhase28DiagnosesModel({generatedAt:dashboardData.generatedAt,latestReports:(dashboardData.reports||[]).filter(item=>item.is_latest!==false),versionHeaders:dashboardData.reports||[]}),adapter_status:'READY'};
+        clientDashboardData={...dashboardData,reports:[],reportLearningHistory:null,actions:[],retentionValidation:null,experiments:[]};
+      }catch{
+        phase28={diagnoses:null,adapter_status:'ERROR'};
+      }
+    }
     return <Dashboard initialData={{...clientDashboardData,phase28Runtime,phase28}} initialState={initialState} />;
   } catch (error) {
     return <Dashboard initialData={{ error:error.message,phase28Runtime }} initialState={initialState} />;

@@ -69,5 +69,5 @@ test('settlement adapter exposes payout, variance, cost, and history evidence wi
 });
 
 test('settlement joins the implemented V106 adapter set',()=>{
-  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system','notifications']);
+  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system','notifications','diagnoses']);
 });

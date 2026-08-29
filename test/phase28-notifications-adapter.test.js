@@ -37,5 +37,5 @@ test('알림 조회 오류는 빈 정상 상태나 0건으로 바뀌지 않는�
 });
 
 test('notifications joins the implemented V106 adapter set',()=>{
-  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system','notifications']);
+  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system','notifications','diagnoses']);
 });

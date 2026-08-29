@@ -53,7 +53,7 @@ test('main adapter reuses server-owned schedules, decisions, channels, and growt
   assert.equal(model.channels[0].platform,'NAVER');
   assert.equal(model.growth[0].name,'작두콩차');
   assert.equal(model.metrics.balance.status,'PARTIAL');
-  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system','notifications']);
+  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system','notifications','diagnoses']);
 });
 
 test('main adapter supplies the complete V106 money, deadline, forecast, and payout evidence',()=>{
