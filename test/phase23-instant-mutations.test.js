@@ -63,7 +63,7 @@ test('23-3 refreshes collection, CS, and provider cards without reloading the pa
   ];
   for(const file of files)assert.doesNotMatch(read(file),/window\.location\.reload|location\.reload|router\.refresh/,file);
   assert.match(read('app/_reliability/instant-probe-state.js'),/export function mergeProbeService/);
-  assert.match(read('app/dashboard-client.js'),/const \[liveCollectionCenter,setLiveCollectionCenter\]=useState/);
+  assert.match(read('app/legacy-dashboard-client.js'),/const \[liveCollectionCenter,setLiveCollectionCenter\]=useState/);
   assert.match(read('app/unified-customer-service-center.js'),/setData\(\(current\) =>/);
 });
 

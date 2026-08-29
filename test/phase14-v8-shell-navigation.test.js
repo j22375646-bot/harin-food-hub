@@ -10,7 +10,7 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('14-2 loads an isolated shell layer and extracts navigation from the page renderer',()=>{
   const layout=read('app/layout.js');
-  const client=read('app/dashboard-client.js');
+  const client=read('app/legacy-dashboard-client.js');
   const shell=read('app/_shell/harin-app-shell.js');
   assert.match(layout,/import '.\/_shell\/harin-shell-v8\.css'/);
   for(const component of ['HarinTopbar','HarinSidebar','HarinMobileNavigation','HarinBreadcrumbBar','HarinFocusedWorkspaceNav']){
@@ -22,7 +22,7 @@ test('14-2 loads an isolated shell layer and extracts navigation from the page r
 });
 
 test('14-2 keeps real URL navigation, prefetch, back restoration, and focused route links',()=>{
-  const client=read('app/dashboard-client.js');
+  const client=read('app/legacy-dashboard-client.js');
   const shell=read('app/_shell/harin-app-shell.js');
   assert.match(client,/window\.addEventListener\('popstate',syncFromAddress\)/);
   assert.match(client,/router\[replace\|\|current===href\?'replace':'push'\]\(href,\{scroll:false\}\)/);
@@ -48,7 +48,7 @@ test('14-2 mobile More is a controlled accessible bottom sheet',()=>{
 });
 
 test('14-2 derives the connection label from actual channel readiness',()=>{
-  const client=read('app/dashboard-client.js');
+  const client=read('app/legacy-dashboard-client.js');
   const snapshot=read('lib/navigation/operation-snapshot.js');
   assert.match(client,/navigationSnapshot\?\.connection\?\.label/);
   assert.match(snapshot,/READY_CONNECTION_STATUSES=new Set\(\['READ_READY','WRITE_READY'\]\)/);

@@ -30,7 +30,7 @@ test('22-4 keeps product operations with inventory and moves support tools into 
 
 test('13-3 keeps legacy addresses and browser history restoration behavior',()=>{
   assert.ok(HUB_LEGACY_ROUTES.every(route=>parseHubHref(route.href).view===route.view));
-  const client=read('app/dashboard-client.js');
+  const client=read('app/legacy-dashboard-client.js');
   assert.match(client,/window\.addEventListener\('popstate',syncFromAddress\)/);
   assert.match(client,/router\[replace\|\|current===href\?'replace':'push'\]\(href,\{scroll:false\}\)/);
 });

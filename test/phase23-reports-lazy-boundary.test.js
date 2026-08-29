@@ -9,7 +9,7 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('진단목록과 자동보고서는 실행 화면에서만 지연 로딩한다',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const reports=read('app/_execution/harin-reports-center.js');
   assert.match(dashboard,/const HarinReportsCenter=dynamic\(\(\)=>import\('\.\/_execution\/harin-reports-center\.js'\),\{loading:LazyWorkbenchFallback\}\)/);
   assert.match(dashboard,/<HarinReportsCenter reports=\{reports\} learningHistory=\{initialData\.reportLearningHistory\}\/>/);

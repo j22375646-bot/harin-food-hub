@@ -4,7 +4,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 
-const dashboardPath='app/dashboard-client.js';
+const dashboardPath='app/legacy-dashboard-client.js';
 const notificationsPath='app/_reliability/harin-notification-center.js';
 const read=file=>fs.readFileSync(file,'utf8');
 

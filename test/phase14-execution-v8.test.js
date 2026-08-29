@@ -9,7 +9,7 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('14-7 keeps diagnosis approval validation and experiments on separate real routes',()=>{
   const routes=read('lib/navigation/hub-routes.js');
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   assert.match(routes,/href:'\/diagnoses'/);
   assert.match(routes,/href:'\/approvals'/);
   assert.match(routes,/href:'\/execution-validation'/);
@@ -58,7 +58,7 @@ test('14-7 connects diagnosis through 7 and 14 day validation to A B learning',(
 });
 
 test('14-7 keeps one isolated zero-cost AI panel per execution page',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const panel=read('app/harin-ai-page-panel.js');
   for(const page of ['reports','changes','validation','experiments']){
     assert.match(dashboard,new RegExp(`aiPagePanels\\?\\.${page}`));

@@ -39,7 +39,7 @@ test('navigation snapshot keeps the newest authoritative value without turning a
 });
 
 test('dashboard never replaces sidebar badges with route-scoped page arrays',()=>{
-  const client=fs.readFileSync(path.join(root,'app','dashboard-client.js'),'utf8');
+  const client=fs.readFileSync(path.join(root,'app','legacy-dashboard-client.js'),'utf8');
   assert.match(client,/buildNavigationOperationSnapshot\(initialData\)/);
   assert.match(client,/selectNavigationOperationSnapshot/);
   assert.match(client,/navigationSnapshotKnown/);

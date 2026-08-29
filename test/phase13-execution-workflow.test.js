@@ -22,7 +22,7 @@ test('13-7 connects four separate workflow pages with real routes and mobile UI'
 });
 
 test('13-7 leaves collection history in collection and moves execution decisions to approvals',()=>{
-  const client=read('app/dashboard-client.js');
+  const client=read('app/legacy-dashboard-client.js');
   const reports=read('app/_execution/harin-reports-center.js');
   const approvals=read('app/_execution/harin-financial-change-center.js');
   assert.doesNotMatch(reports,/SyncTable|ActionPanel|COLLECTION HISTORY/);
@@ -32,7 +32,7 @@ test('13-7 leaves collection history in collection and moves execution decisions
 });
 
 test('13-7 provides the same structured analysis panel on every workflow page',()=>{
-  const client=read('app/dashboard-client.js');
+  const client=read('app/legacy-dashboard-client.js');
   const panels=require('../lib/ai/page-panels.js').buildAiPagePanels({
     generatedAt:'2026-08-15T12:00:00.000Z',period:'2026-08-15',
     reportLearningHistory:{summary:{learned:2}},

@@ -8,14 +8,16 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
-test('Phase 28 Main is lazy loaded behind the home runtime flag',()=>{
-  const client=read('app/dashboard-client.js');
+test('Phase 28 Main belongs to the exclusive V106 application root',()=>{
+  const entry=read('app/dashboard-client.js');
+  const legacy=read('app/legacy-dashboard-client.js');
+  const app=read('app/_phase28/phase28-app.js');
   const main=read('app/_phase28/main-dashboard.js');
   const css=read('app/_phase28/phase28-main.css');
-  assert.match(client,/dynamic\(\(\)=>import\('\.\/_phase28\/main-dashboard\.js'\),\{loading:LazyWorkbenchFallback\}\)/);
-  assert.match(client,/phase28ActivePages\.has\('home'\)/);
-  assert.match(client,/phase28HomeActive\?<Phase28MainDashboard/);
-  assert.match(client,/:<Phase14MainCommandCenter/);
+  assert.match(entry,/dynamic\(\(\)=>import\('\.\/_phase28\/phase28-app\.js'\)/);
+  assert.doesNotMatch(entry,/main-dashboard|Phase14MainCommandCenter|UnifiedOrdersCenter/);
+  assert.doesNotMatch(app,/legacy-dashboard|Phase14MainCommandCenter|UnifiedOrdersCenter/);
+  assert.match(legacy,/dynamic\(\(\)=>import\('\.\/_phase28\/main-dashboard\.js'\),\{loading:LazyWorkbenchFallback\}\)/);
   assert.match(main,/page-title-accent/);
   assert.match(css,/@media\(prefers-reduced-motion:reduce\)/);
 });

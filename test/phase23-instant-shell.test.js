@@ -9,7 +9,7 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('23-1 keeps the current hub shell visible during App Router navigation',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   assert.equal(fs.existsSync(path.join(root,'app/loading.js')),false);
   assert.doesNotMatch(dashboard,/const \[mounted|setMounted\(true\)|if \(!mounted\)/);
   assert.match(dashboard,/view=\{pendingView\|\|view\}/);
@@ -17,7 +17,7 @@ test('23-1 keeps the current hub shell visible during App Router navigation',()=
 });
 
 test('23-1 gives immediate compact feedback and a content-only skeleton',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const ui=read('app/_design-system/harin-ui.js');
   const sharedLoading=read('app/_design-system/harin-loading-screen.js');
   const marketLoading=read('app/market-intelligence/loading.js');

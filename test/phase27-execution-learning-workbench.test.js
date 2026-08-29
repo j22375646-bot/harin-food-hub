@@ -29,7 +29,7 @@ test('27-7 실행 흐름은 확인된 자료만 건수로 표시하고 미수집
 
 test('27-7 네 실행 페이지는 중복 이동막대 대신 하나의 학습 흐름을 공유한다',()=>{
   const workbench=read('app/_execution/harin-execution-workbench.js');
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const visual=[read('app/_execution/execution-learning-loop.js'),read('lib/execution/decision-loop.js')].join('\n');
 
   assert.match(workbench,/ExecutionLearningLoop/);
@@ -45,7 +45,7 @@ test('27-7 실행 작업대는 평면 V8, 읽기 크기, 모바일과 동작 감
     read('app/_execution/harin-execution-v8.css')
   ].join('\n');
   const workbench=read('app/_execution/harin-execution-workbench.js');
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
 
   assert.doesNotMatch(css,/(?:linear|radial)-gradient\(|backdrop-filter|filter:\s*blur/i);
   assert.match(css,/font-size:\s*14px/);

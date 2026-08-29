@@ -9,7 +9,7 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('26-4 scopes the flat brand treatment to keyword pages only',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   assert.match(dashboard,/data-view=\{view\}/);
   assert.match(dashboard,/harin-keyword-flat-v8\.css/);
 });

@@ -10,7 +10,7 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('16-4 renders inventory from Coupang Rocket Growth only',()=>{
   const component=read('app/unified-inventory-operations-center.js');
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   assert.match(component,/coupang\.rgInventory/);
   assert.match(component,/data-inventory-scope="coupang-rocket-growth"/);
   assert.doesNotMatch(component,/center\.items/);

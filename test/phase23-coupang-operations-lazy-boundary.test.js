@@ -9,7 +9,7 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('쿠팡 주문·정산 상세는 필요한 운영 화면에서만 지연 로딩한다',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const details=read('app/_operations/coupang-operation-details.js');
   assert.match(dashboard,/const CoupangOrdersView=dynamic\(\(\)=>import\('\.\/_operations\/coupang-operation-details\.js'\)\.then\(module=>module\.CoupangOrdersView\),\{loading:LazyWorkbenchFallback\}\)/);
   assert.match(dashboard,/const CoupangSettlementView=dynamic\(\(\)=>import\('\.\/_operations\/coupang-operation-details\.js'\)\.then\(module=>module\.CoupangSettlementView\),\{loading:LazyWorkbenchFallback\}\)/);

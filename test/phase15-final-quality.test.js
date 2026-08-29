@@ -18,7 +18,7 @@ test('15-8 lazy-mounts closed heavy drawers while preserving opened state',()=>{
 
 test('15-8 gives focused workspace links immediate pending feedback and eager prefetch',()=>{
   const shell=read('app/_shell/harin-app-shell.js');
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   assert.match(shell,/pendingWorkspace/);
   assert.match(shell,/<Link prefetch href=/);
   assert.match(shell,/onNavigate\?\.\(item\.id\)/);
@@ -50,7 +50,7 @@ test('15-8 mobile shell and route feedback stay usable without horizontal clippi
 });
 
 test('15-8 retains channel-separated keyword UI and page-specific AI slots',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const ownerShell=read('app/_analysis/keyword-owner-shell.js');
   const keywordOperations=read('lib/marketing/keyword-operations.js');
   assert.match(dashboard,/const KeywordOwnerShell=dynamic/);

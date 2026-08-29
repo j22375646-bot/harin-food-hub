@@ -7,7 +7,7 @@ const root=path.join(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('쿠팡 매출 상세는 공통 대시보드와 분리해 필요할 때만 불러온다',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const sales=read('app/_analysis/coupang-sales-center.js');
 
   assert.match(dashboard,/const CoupangSalesCenter=dynamic\(\(\)=>import\('\.\/_analysis\/coupang-sales-center\.js'\),\{loading:LazyWorkbenchFallback\}\)/);

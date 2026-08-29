@@ -79,7 +79,7 @@ test('Telegram delivery claims the dedup key before sending and does not resend'
 
 test('23-6 scheduled sync and dashboard use the same provider-aware result',()=>{
   const cron=fs.readFileSync(path.join(root,'app/api/cron/daily-sync/route.js'),'utf8');
-  const dashboard=fs.readFileSync(path.join(root,'app/dashboard-client.js'),'utf8');
+  const dashboard=fs.readFileSync(path.join(root,'app/legacy-dashboard-client.js'),'utf8');
   const migration=fs.readFileSync(path.join(root,'supabase/migrations/20260819193000_expand_notification_delivery_channels.sql'),'utf8');
   assert.match(cron,/syncAllPlatforms/);assert.doesNotMatch(cron,/syncCafe24\('CRON'/);assert.doesNotMatch(cron,/queueRequest\(/);
   assert.match(dashboard,/channel_updates/);assert.doesNotMatch(dashboard,/health_status:'RUNNING',latest_collection_summary:'전체 수집·검증 요청'/);

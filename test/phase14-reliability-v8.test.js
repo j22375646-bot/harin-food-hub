@@ -9,7 +9,7 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('14-8 keeps collection and notifications on separate real routes and workbenches',()=>{
   const routes=read('lib/navigation/hub-routes.js');
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const notifications=read('app/_reliability/harin-notification-center.js');
   assert.match(routes,/href:'\/data-collection'/);
   assert.match(routes,/href:'\/notifications'/);
@@ -32,7 +32,7 @@ test('14-8 exposes channel readiness heartbeat exception inbox and safe retry',(
 
 test('14-8 adds a compact global live status dock without merging pages',()=>{
   const source=read('app/_reliability/harin-live-status-dock.js');
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const page=read('app/page.js');
   assert.match(source,/export default function HarinLiveStatusDock/);
   assert.match(source,/운영 신호 바로보기/);
@@ -44,7 +44,7 @@ test('14-8 adds a compact global live status dock without merging pages',()=>{
 });
 
 test('14-9 promotes notification snooze to cross-device server state and keeps explicit resolution',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const notifications=read('app/_reliability/harin-notification-center.js');
   const route=read('app/api/alerts/[id]/route.js');
   const migration=read('supabase/migrations/20260816150000_add_owner_workspace.sql');
@@ -57,7 +57,7 @@ test('14-9 promotes notification snooze to cross-device server state and keeps e
 });
 
 test('14-8 keeps isolated zero-cost AI panels for collection and notifications',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const panels=buildAiPagePanels({collectionCenter:{summary:{ready_channels:2,attention_channels:1,dead_letters:1}},alerts:[{status:'OPEN'}],aiConfiguration:{execution_enabled:false}});
   assert.match(dashboard,/aiPagePanels\?\.collection/);
   assert.match(dashboard,/aiPagePanels\?\.notifications/);

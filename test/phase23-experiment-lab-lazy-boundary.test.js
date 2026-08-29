@@ -9,7 +9,7 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('실험실은 전용 실행 화면에서만 지연 로딩한다',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const experimentLab=read('app/_execution/harin-experiment-lab.js');
   assert.match(dashboard,/const HarinExperimentLab=dynamic\(\(\)=>import\('\.\/_execution\/harin-experiment-lab\.js'\),\{loading:LazyWorkbenchFallback\}\)/);
   assert.match(dashboard,/view==='experiments'.*<HarinExperimentLab \/>/);

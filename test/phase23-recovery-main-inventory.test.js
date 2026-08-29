@@ -60,7 +60,7 @@ test('23-R1 applies one Rocket Growth policy to focused inventory and the legacy
 });
 
 test('23-R1 keeps first-render time labels deterministic across server and browser',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const inventoryCenter=read('app/unified-inventory-operations-center.js');
   const ordersCenter=read('app/unified-orders-center.js');
   const collectionCenter=read('app/unified-collection-operations-center.js');

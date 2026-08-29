@@ -49,7 +49,7 @@ test('15-2 keeps page AI independent and places it after the working content',()
     assert.ok(source.lastIndexOf('HarinPageAiRegion')>source.lastIndexOf(contentMarker),`${file} should render its AI region after the working content`);
     assert.match(source,/id="page-ai-analysis"/);
   }
-  assert.doesNotMatch(read('app/dashboard-client.js'),/aiPagePanels\?\.(?:insight|keyword|product)\s*\|\|/);
+  assert.doesNotMatch(read('app/legacy-dashboard-client.js'),/aiPagePanels\?\.(?:insight|keyword|product)\s*\|\|/);
 });
 
 test('15-2 removes duplicate summary strips from CS inventory and settlement',()=>{

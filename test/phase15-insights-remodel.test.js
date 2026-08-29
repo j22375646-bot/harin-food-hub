@@ -26,7 +26,7 @@ test('phase 15-3 gives each insight route a dedicated decision desk',()=>{
 
 test('phase 15-3 preserves legacy details progressively and keeps page AI independent',()=>{
   const workbench=read('app/_analysis/harin-analysis-workbench.js');
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   assert.match(workbench,/className="analysisDetailDisclosure"/);
   assert.match(workbench,/HarinPageAiRegion className="analysisAiSlot"/);
   assert.doesNotMatch(dashboard,/function ProfitabilitySnapshot/);

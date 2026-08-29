@@ -36,7 +36,7 @@ test('15-7 separates current notifications from delivery settings and completed 
 });
 
 test('15-7 keeps detailed channel and source views collapsed while 16-4 removes the duplicate inventory drawer',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   assert.match(read('app/_products/harin-product-workbench.js'),/className="productSourceCatalogDisclosure"/);
   assert.match(read('app/unified-orders-center.js'),/<details className="legacyCoupangOrders">/);
   assert.doesNotMatch(read('app/unified-inventory-operations-center.js'),/inventoryOpsCoupangDetail/);
@@ -46,7 +46,7 @@ test('15-7 keeps detailed channel and source views collapsed while 16-4 removes 
 });
 
 test('15-7 preserves separate AI slots for each remaining workbench',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   for(const page of ['orders','cs','inventory','settlement','reports','changes','validation','experiments','notifications','collection']){
     assert.match(dashboard,new RegExp(`aiPagePanels\\?\\.${page}`));
   }

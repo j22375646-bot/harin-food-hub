@@ -27,7 +27,7 @@ test('23-8 keeps private client quality telemetry bounded and free of payload te
 });
 
 test('23-8 exposes route and server-loader timings for live browser verification',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   assert.match(dashboard,/__HARIN_CLIENT_HEALTH__\?\.startRoute/);
   assert.match(dashboard,/__HARIN_CLIENT_HEALTH__\?\.finishRoute/);
   assert.match(dashboard,/data-loader-within-target/);

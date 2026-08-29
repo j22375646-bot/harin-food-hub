@@ -9,7 +9,7 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('키워드 기존 상세 도구는 키워드 화면에서만 지연 로딩한다',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const details=read('app/_analysis/harin-keyword-detail-workbench.js');
   assert.match(dashboard,/const HarinKeywordDetailWorkbench=dynamic\(\(\)=>import\('\.\/_analysis\/harin-keyword-detail-workbench\.js'\),\{loading:LazyWorkbenchFallback\}\)/);
   assert.doesNotMatch(dashboard,/function PlatformKeywordView|function CoupangAdImporter|function CoupangDemandView|function CoupangKeywordTable|function Cafe24AcquisitionView|function KeywordView|function KeywordTable/);

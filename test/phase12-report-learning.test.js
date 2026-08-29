@@ -9,7 +9,7 @@ const scheduler=require('../lib/automation/report-scheduler.js');
 
 const root=path.join(__dirname,'..');
 const client=[
-  fs.readFileSync(path.join(root,'app','dashboard-client.js'),'utf8'),
+  fs.readFileSync(path.join(root,'app','legacy-dashboard-client.js'),'utf8'),
   fs.readFileSync(path.join(root,'app','_execution','harin-reports-center.js'),'utf8')
 ].join('\n');
 const vercel=JSON.parse(fs.readFileSync(path.join(root,'vercel.json'),'utf8'));

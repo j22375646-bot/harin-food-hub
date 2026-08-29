@@ -50,7 +50,7 @@ test('27-1 page identity text keeps WCAG AA contrast on its soft surface',()=>{
 
 test('27-1 shell consumes semantic page tones without decorative gradients or glow shadows',()=>{
   const shell=read('app/_shell/harin-shell-v8.css');
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const marketShell=read('app/_shell/market-intelligence-shell.js');
   for(const area of ['today','orders','customer','inventory','settlement','analysis','development','system']){
     assert.match(shell,new RegExp(`\\[data-tone="${area}"\\]`));

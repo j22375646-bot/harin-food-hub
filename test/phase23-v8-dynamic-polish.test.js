@@ -46,7 +46,7 @@ test('feedback, readable text, mobile touch and reduced-motion safeguards share 
 
 test('consolidation keeps navigation interactive and defers the orders workbench bundle',()=>{
   const css=read('app/_design-system/harin-interactions-v8.css');
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   assert.match(css,/routePending>:not\(\.viewLoadingRibbon\)\{opacity:1;pointer-events:auto/);
   assert.match(css,/scrollbar-gutter:stable/);
   assert.match(css,/font-variant-numeric:tabular-nums/);

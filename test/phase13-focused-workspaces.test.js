@@ -18,7 +18,7 @@ test('13-6 insight, keyword, and product workspaces are real route pages',()=>{
 });
 
 test('13-6 dashboard renders only the selected focused workspace',()=>{
-  const client=read('app/dashboard-client.js');
+  const client=read('app/legacy-dashboard-client.js');
   const keywordWorkbench=read('app/_analysis/harin-keyword-detail-workbench.js');
   const productWorkbench=read('app/_products/harin-product-workbench.js');
   const shell=read('app/_shell/harin-app-shell.js');

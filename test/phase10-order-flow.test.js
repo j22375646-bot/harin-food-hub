@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const client = fs.readFileSync(path.join(__dirname, '..', 'app', 'dashboard-client.js'), 'utf8');
+const client = fs.readFileSync(path.join(__dirname, '..', 'app', 'legacy-dashboard-client.js'), 'utf8');
 const coupangOperations = fs.readFileSync(path.join(__dirname, '..', 'app', '_operations', 'coupang-operation-details.js'), 'utf8');
 const styles = fs.readFileSync(path.join(__dirname, '..', 'app', 'globals.css'), 'utf8');
 

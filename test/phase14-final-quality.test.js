@@ -34,7 +34,7 @@ test('14-11 critical navigation remains real-route based and unique',()=>{
 });
 
 test('14-11 lazy workbenches show a readable fallback instead of a blank page',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   assert.match(dashboard,/function LazyWorkbenchFallback/);
   assert.match(dashboard,/role="status" aria-live="polite" aria-busy="true"/);
   assert.ok((dashboard.match(/,\{loading:LazyWorkbenchFallback\}\)/g)||[]).length>=20);

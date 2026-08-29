@@ -128,7 +128,7 @@ test('23-2 records real, skipped and target loader telemetry',()=>{
 
 test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   const page=read('app/page.js');
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const analysis=read('app/_analysis/harin-analysis-workbench.js');
   assert.match(page,/pageLoaderProfilesModule\.createLoaderSession/);
   assert.match(page,/loaderPerformance:loaderSession\.snapshot\(\)/);

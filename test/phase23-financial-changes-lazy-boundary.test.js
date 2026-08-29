@@ -9,7 +9,7 @@ const root=path.join(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('23 hardening loads the financial change center only for the change route',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const changes=read('app/_execution/harin-financial-change-center.js');
   assert.match(dashboard,/const HarinFinancialChangeCenter=dynamic\(\(\)=>import\('\.\/_execution\/harin-financial-change-center\.js'\)/);
   assert.match(dashboard,/<HarinFinancialChangeCenter bidWorkbench=\{initialData\.naverBidWorkbench\}/);
@@ -29,6 +29,6 @@ test('23 hardening preserves owner confirmation, Naver writes, verification, and
 });
 
 test('23 hardening keeps the shared dashboard client below its lazy-boundary budget',()=>{
-  const dashboardPath=path.join(root,'app/dashboard-client.js');
+  const dashboardPath=path.join(root,'app/legacy-dashboard-client.js');
   assert.ok(fs.statSync(dashboardPath).size<250000,`dashboard-client.js is ${fs.statSync(dashboardPath).size} bytes`);
 });

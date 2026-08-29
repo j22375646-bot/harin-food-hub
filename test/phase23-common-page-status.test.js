@@ -8,7 +8,7 @@ const { relativeFreshnessLabel } = require('../lib/ui/freshness.js');
 
 const root = path.join(__dirname, '..');
 const read = file => fs.readFileSync(path.join(root, file), 'utf8');
-const client = read('app/dashboard-client.js');
+const client = read('app/legacy-dashboard-client.js');
 const shell = read('app/_shell/harin-app-shell.js');
 const main = read('app/_main/harin-main-command-center.js');
 const analysis = read('app/_analysis/harin-analysis-workbench.js');

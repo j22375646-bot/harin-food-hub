@@ -61,7 +61,7 @@ test('provider fallback workspace is a real responsive owner-only route',()=>{
   assert.deepEqual(routes.parseHubHref('/data-collection/provider-fallback'),{view:'collection',workspace:'provider-fallback',platform:'all',period:'DAY',product:'ALL'});
   assert.equal(fs.existsSync(path.join(root,'app/data-collection/provider-fallback/page.js')),true);
   const page=fs.readFileSync(path.join(root,'app/data-collection/provider-fallback/page.js'),'utf8');
-  const dashboard=fs.readFileSync(path.join(root,'app/dashboard-client.js'),'utf8');
+  const dashboard=fs.readFileSync(path.join(root,'app/legacy-dashboard-client.js'),'utf8');
   const css=fs.readFileSync(path.join(root,'app/_reliability/harin-naver-api-center.css'),'utf8');
   assert.match(page,/renderDashboardRoute\('collection'/);
   assert.match(dashboard,/workspace==='provider-fallback'/);

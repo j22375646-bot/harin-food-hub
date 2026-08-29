@@ -29,7 +29,7 @@ test('13-2 shares card state and motion rules with reduced motion protection',()
 });
 
 test('13-2 keeps desktop text control and moves mobile control into More view settings',()=>{
-  const client=read('app/dashboard-client.js');
+  const client=read('app/legacy-dashboard-client.js');
   const shell=read('app/_shell/harin-app-shell.js');
   const css=read('app/globals.css');
   assert.match(shell,/className="fontScaleControl"/);

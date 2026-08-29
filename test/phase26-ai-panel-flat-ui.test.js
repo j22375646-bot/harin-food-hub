@@ -9,7 +9,7 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('26-5 keeps every page AI analysis independent while sharing only its visual shell',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const panel=read('app/harin-ai-page-panel.js');
 
   for(const page of ['main','collection','insight','orders','cs','inventory','settlement','keyword','product','reports','changes','validation','experiments','notifications']){

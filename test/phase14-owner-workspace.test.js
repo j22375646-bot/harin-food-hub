@@ -32,7 +32,7 @@ test('14-9 stores quick work and saved views in server-only RLS tables',()=>{
 });
 
 test('14-9 installs a global command palette quick capture saved views and autosave',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const component=read('app/_workspace/harin-owner-workspace.js');
   const layout=read('app/layout.js');
   assert.match(dashboard,/HarinOwnerWorkspace pageKey=\{view\} pageLabel=\{navContext\.item\.label\}/);

@@ -29,7 +29,7 @@ test('16-2 keeps password-only owner login while adding the pastel welcome layou
 });
 
 test('23-1 supersedes full route and hydration loading with the persistent shell',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const shared=read('app/_design-system/harin-loading-screen.js');
   const marketLoading=read('app/market-intelligence/loading.js');
   assert.equal(fs.existsSync(path.join(root,'app/loading.js')),false);

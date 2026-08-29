@@ -10,7 +10,7 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('14-3 loads a route-scoped Main command center and its isolated design layer',()=>{
   const layout=read('app/layout.js');
-  const client=read('app/dashboard-client.js');
+  const client=read('app/legacy-dashboard-client.js');
   const main=read('app/_main/harin-main-command-center.js');
   assert.match(main,/harin-main-v8\.css/);
   assert.doesNotMatch(layout,/harin-main-v8\.css/);
@@ -23,7 +23,7 @@ test('14-3 loads a route-scoped Main command center and its isolated design laye
 });
 
 test('14-3 keeps Main AI page-scoped and disabled configuration outside the command center',()=>{
-  const client=read('app/dashboard-client.js');
+  const client=read('app/legacy-dashboard-client.js');
   const main=read('app/_main/harin-main-command-center.js');
   assert.match(client,/className="mainAiSlot"><HarinAiPagePanel panel=\{initialData\.aiPagePanels\?\.main\}/);
   assert.doesNotMatch(main,/HarinAiPagePanel|OPENAI_ANALYSIS_ENABLED/);

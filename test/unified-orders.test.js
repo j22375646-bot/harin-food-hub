@@ -179,7 +179,7 @@ test('order export stays authenticated and guards spreadsheet formulas',()=>{
 });
 
 test('orders page renders unified center while preserving Coupang action detail',()=>{
-  const client=fs.readFileSync(path.join(__dirname,'..','app','dashboard-client.js'),'utf8');
+  const client=fs.readFileSync(path.join(__dirname,'..','app','legacy-dashboard-client.js'),'utf8');
   const details=fs.readFileSync(path.join(__dirname,'..','app','_operations','coupang-operation-details.js'),'utf8');
   assert.match(client,/UnifiedOrdersCenter center=\{initialData\.unifiedOrders\}/);
   assert.match(client,/<CoupangOrdersView coupang=\{initialData\.coupang\}\/>/);

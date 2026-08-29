@@ -58,7 +58,7 @@ test('advertising workspace is a real owner-only dashboard route',()=>{
   assert.deepEqual(routes.parseHubHref('/data-collection/advertising'),{view:'collection',workspace:'advertising',platform:'all',period:'DAY',product:'ALL'});
   assert.equal(fs.existsSync(path.join(root,'app/data-collection/advertising/page.js')),true);
   const page=fs.readFileSync(path.join(root,'app/data-collection/advertising/page.js'),'utf8');
-  const dashboard=fs.readFileSync(path.join(root,'app/dashboard-client.js'),'utf8');
+  const dashboard=fs.readFileSync(path.join(root,'app/legacy-dashboard-client.js'),'utf8');
   const service=fs.readFileSync(path.join(root,'lib/advertising/channel-center.js'),'utf8');
   assert.match(page,/renderDashboardRoute\('collection'/);
   assert.match(dashboard,/workspace==='advertising'/);

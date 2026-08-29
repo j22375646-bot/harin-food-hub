@@ -11,9 +11,9 @@ test('14-6 keeps Insights Keywords and Products on separate real routes',()=>{
   assert.match(routes,/href:'\/insights\/overview'/);
   assert.match(routes,/href:'\/keywords\/search-terms'/);
   assert.match(routes,/href:'\/products\/catalog'/);
-  assert.match(read('app/dashboard-client.js'),/HarinAnalysisWorkbench view="insight"/);
-  assert.match(read('app/dashboard-client.js'),/HarinAnalysisWorkbench view="keyword"/);
-  assert.match(read('app/dashboard-client.js'),/HarinAnalysisWorkbench view="product"/);
+  assert.match(read('app/legacy-dashboard-client.js'),/HarinAnalysisWorkbench view="insight"/);
+  assert.match(read('app/legacy-dashboard-client.js'),/HarinAnalysisWorkbench view="keyword"/);
+  assert.match(read('app/legacy-dashboard-client.js'),/HarinAnalysisWorkbench view="product"/);
 });
 
 test('14-6 adds saved comparison anomaly selection and keyword stop-loss preview',()=>{
@@ -36,7 +36,7 @@ test('14-6 product workbench keeps sellable catalog channel differences costs an
 });
 
 test('14-6 page AI stays separated and zero-cost guard remains in the page panel',()=>{
-  const dashboard=read('app/dashboard-client.js');
+  const dashboard=read('app/legacy-dashboard-client.js');
   const panel=read('app/harin-ai-page-panel.js');
   assert.match(dashboard,/aiPagePanels\?\.insight/);
   assert.match(dashboard,/aiPagePanels\?\.keyword/);
