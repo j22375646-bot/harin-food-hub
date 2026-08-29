@@ -22,7 +22,7 @@ test('readiness refuses an invalid flag instead of activating a partial screen s
   assert.ok(report.blockers.some(item=>item.code==='INVALID_FLAG_PAGE'&&item.page==='admin'));
 });
 
-test('readiness recognizes the implemented Main through Insights adapters',()=>{
+test('readiness recognizes the implemented Main through Product Development adapters',()=>{
   const report=buildPhase28Readiness({routes:routes.PHASE28_ROUTES,hubNav:hub.HUB_NAV,hubWorkspaces:hub.HUB_WORKSPACES,env:{},availableAdapters:PHASE28_AVAILABLE_ADAPTERS});
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='home'),false);
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='orders'),false);
@@ -33,6 +33,7 @@ test('readiness recognizes the implemented Main through Insights adapters',()=>{
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='keywords'),false);
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='product-analysis'),false);
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='analysis'),false);
+  assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='development'),false);
 });
 
 test('readiness requires complete page coverage before whole-app cutover',()=>{
