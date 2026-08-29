@@ -91,9 +91,11 @@ test('phase 10-4 separates Coupang work into four sidebar pages', () => {
   assert.match(client,/const CoupangSalesCenter=dynamic\(\(\)=>import\('\.\/_analysis\/coupang-sales-center\.js'\)/);
   assert.match(coupangSales,/export default function CoupangSalesCenter/);
   assert.doesNotMatch(client,/function CoupangCommandCenter/);
-  assert.match(client,/view==='orders' && \(<UnifiedOrdersCenter/);
+  assert.match(client,/view==='orders' && \(phase28OrdersActive\?<Phase28OrdersDashboard/);
+  assert.match(client,/:<UnifiedOrdersCenter center=\{initialData\.unifiedOrders\}/);
   assert.match(client,/<CoupangOrdersView coupang=\{initialData\.coupang\}\/>/);
-  assert.match(client,/view==='cs' && \(<UnifiedCustomerServiceCenter/);
+  assert.match(client,/view==='cs' && \(phase28CsActive\?<Phase28CsDashboard/);
+  assert.match(client,/:<UnifiedCustomerServiceCenter center=\{initialData\.customerService\}/);
   assert.match(client,/view==='inventory' && \(<UnifiedInventoryOperationsCenter/);
   assert.match(client,/<UnifiedInventoryOperationsCenter coupang=\{initialData\.coupang\}/);
   assert.match(client,/view==='settlement' && \(<UnifiedSettlementOperationsCenter/);
