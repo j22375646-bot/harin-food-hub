@@ -9,5 +9,6 @@ node_modules/
 tmp/
 .tmp-sheet-analysis/
 .tools/
+.worktrees/
 supabase/.temp/
 *.log
