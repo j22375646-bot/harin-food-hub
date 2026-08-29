@@ -17,6 +17,7 @@
     "verify:phase28-orders-cs": "pnpm verify:phase28-main && node --test test/phase28-orders-cs-adapters.test.js test/phase28-orders-cs-server-wiring.test.js test/phase28-orders-cs-ui.test.js test/phase28-orders-cs-integration.test.js test/phase16-orders-surface.test.js test/phase15-remaining-page-structure.test.js test/unified-orders.test.js",
     "verify:phase28-inventory-products": "pnpm verify:phase28-orders-cs && node --test test/phase28-inventory-products-adapters.test.js test/phase28-inventory-products-v106-render.test.js test/phase23-inventory-lots.test.js test/product-operations-center.test.js test/product-performance.test.js",
     "verify:phase28-settlement": "pnpm verify:phase28-inventory-products && node --test test/phase28-settlement-adapter.test.js test/phase28-settlement-v106-render.test.js test/unified-settlement-center.test.js",
+    "verify:phase28-keywords": "pnpm verify:phase28-settlement && node --test test/phase28-keywords-adapter.test.js test/phase28-keywords-v106-render.test.js test/phase15-keyword-operations.test.js test/phase24-keyword-workbench-finish.test.js test/phase25-keyword-workbench-contract.test.js",
     "test:phase14-final": "node --test test/phase14-final-quality.test.js",
     "start": "next start",
     "start:legacy": "node cafe24-oauth-server.js",

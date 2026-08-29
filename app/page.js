@@ -2711,6 +2711,13 @@ async function renderDashboardState(initialState) {
         phase28={settlement:null,adapter_status:'ERROR'};
       }
     }
+    if(phase28Runtime.activePages.includes('keywords')&&initialState.view==='keyword'){
+      try{
+        phase28={keywords:phase28AdaptersModule.buildPhase28KeywordsModel(dashboardData,{platform:initialState.platform,workspace:initialState.workspace}),adapter_status:'READY'};
+      }catch{
+        phase28={keywords:null,adapter_status:'ERROR'};
+      }
+    }
     return <Dashboard initialData={{...dashboardData,phase28Runtime,phase28}} initialState={initialState} />;
   } catch (error) {
     return <Dashboard initialData={{ error:error.message,phase28Runtime }} initialState={initialState} />;
