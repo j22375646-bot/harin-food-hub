@@ -14,6 +14,17 @@ test('V106 navigation exposes all 17 stable routes once',()=>{
   assert.equal(model.items.find(item=>item.id==='home').badge,null);
 });
 
+test('저빈도 기록 페이지는 메뉴 클릭 전 자동으로 받지 않는다',()=>{
+  const model=navigation.buildPhase28Navigation();
+  const onDemandIds=['diagnoses','changes','validation','experiments','knowledge'];
+  assert.deepEqual(
+    model.items.filter(item=>item.prefetch===false).map(item=>item.id),
+    onDemandIds
+  );
+  assert.equal(model.items.find(item=>item.id==='home').prefetch,null);
+  assert.equal(model.items.find(item=>item.id==='orders').prefetch,null);
+});
+
 test('운영 배지가 없으면 회사 활력을 100점이나 0건으로 만들지 않는다',()=>{
   assert.deepEqual(navigation.buildPhase28Vitality(null),{
     known:false,

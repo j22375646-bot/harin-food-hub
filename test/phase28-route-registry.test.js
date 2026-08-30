@@ -30,6 +30,11 @@ test('Phase 28 registry keeps workspaces and channel writes explicit',()=>{
   assert.equal(phase28Route('analysis').writePolicy,'READ_ONLY');
 });
 
+test('low-frequency operational records are declared click-only',()=>{
+  const clickOnly=PHASE28_ROUTES.filter(route=>route.loadPolicy==='ON_DEMAND').map(route=>route.id);
+  assert.deepEqual(clickOnly,['diagnoses','changes','validation','experiments','knowledge']);
+});
+
 test('legacy state resolves to one stable Phase 28 route',()=>{
   assert.equal(phase28RouteForLegacyState({view:'main',workspace:null}).id,'home');
   assert.equal(phase28RouteForLegacyState({view:'product',workspace:'catalog'}).id,'products');

@@ -17,7 +17,7 @@ const DEFAULT_FLOW=[
 ];
 
 function DecisionLoop({flow=[]}){
-  return <nav className="changeLoop" aria-label="운영 결정 순환">{flow.map((item,index)=><Link href={item.href} data-active={item.id==='changes'} aria-current={item.id==='changes'?'step':undefined} key={item.id}><i>{item.step}</i><span><small>DECISION LOOP</small><strong>{item.label}</strong><em>{item.description}</em></span>{index<flow.length-1?<b aria-hidden="true">›</b>:null}</Link>)}</nav>;
+  return <nav className="changeLoop" aria-label="운영 결정 순환">{flow.map((item,index)=><Link href={item.href} prefetch={false} data-active={item.id==='changes'} aria-current={item.id==='changes'?'step':undefined} key={item.id}><i>{item.step}</i><span><small>DECISION LOOP</small><strong>{item.label}</strong><em>{item.description}</em></span>{index<flow.length-1?<b aria-hidden="true">›</b>:null}</Link>)}</nav>;
 }
 
 function SummaryStrip({model,dataUnavailable}){
@@ -53,7 +53,7 @@ function ChangeDetail({item,model,busy,onAction}){
     <ol className="changeTimeline">{steps.map((step,index)=><li key={step.id||`${step.eventType}-${index}`}><i aria-hidden="true"></i><span><b>{step.label}</b><small>{step.createdLabel}</small></span></li>)}</ol>
     {item.error?<div className="changeDetailError" role="alert"><HarinIcon name="warning" size={18}/><span><b>확인 필요</b><small>{item.error}</small></span></div>:null}
     <section className="changeNext"><span>OWNER SAFETY</span><strong>{item.writeLocked?'쓰기 잠금을 유지하고 기록만 확인합니다.':'한 번 확인하면 실행·실제값 재조회까지 이어집니다.'}</strong><div>{item.actions.map(action=><button type="button" className={action==='CONFIRM_EXECUTE'?'primary':''} disabled={Boolean(busy)} onClick={()=>onAction(item,action)} key={action}>{busy===`${item.id}:${action}`?'처리 중…':ACTION_LABELS[action]}</button>)}{!item.actions.length?<small>현재 상태에서 실행할 작업이 없습니다.</small>:null}</div></section>
-    <Link className="changeValidationLink" href="/execution-validation">7·14일 결과로 이어보기 →</Link>
+    <Link className="changeValidationLink" href="/execution-validation" prefetch={false}>7·14일 결과로 이어보기 →</Link>
     <p className="changeFootnote">모든 변경은 멱등키·전후값·재조회·복구 기록을 보존하며, 누락값은 0으로 계산하지 않습니다.</p>
   </div>;
 }

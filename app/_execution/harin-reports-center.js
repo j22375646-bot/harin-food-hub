@@ -99,7 +99,7 @@ function ManualAutomationButtons(){
       setMessage(`${label} 완료`);setTimeout(()=>window.location.reload(),800);
     }catch(error){setMessage(`확인 필요 · ${error.message}`);setRunning('');}
   }
-  return <section className="manualAutomation"><button onClick={()=>run('/api/reports/daily','일일 보고서·이상징후 재생성')} disabled={Boolean(running)}>{running==='/api/reports/daily'?'생성 중…':'일일 보고서 + 이상징후 재계산'}</button><Link href="/approvals">변경·복구 기록 보기</Link>{message&&<span>{message}</span>}</section>;
+  return <section className="manualAutomation"><button onClick={()=>run('/api/reports/daily','일일 보고서·이상징후 재생성')} disabled={Boolean(running)}>{running==='/api/reports/daily'?'생성 중…':'일일 보고서 + 이상징후 재계산'}</button><Link href="/approvals" prefetch={false}>변경·복구 기록 보기</Link>{message&&<span>{message}</span>}</section>;
 }
 
 function AutomationPanel({learningHistory={}}){

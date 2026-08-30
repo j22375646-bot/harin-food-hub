@@ -60,7 +60,7 @@ export function Phase28CommandPalette({open,items,onClose}) {
           <input ref={inputRef} type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="정산, 문의, 상품처럼 입력" autoComplete="off"/>
         </label>
         <div className={styles.commandResults}>
-          {matches.map((item,index)=><Link href={item.href} key={item.id} onClick={onClose}><span>{item.label}</span><strong>{item.description}</strong><kbd>{index+1}</kbd></Link>)}
+          {matches.map((item,index)=><Link href={item.href} prefetch={item.prefetch} key={item.id} onClick={onClose}><span>{item.label}</span><strong>{item.description}</strong><kbd>{index+1}</kbd></Link>)}
           {!matches.length?<p className={styles.emptyResult}>찾는 업무가 없어요. 메뉴 이름을 다시 입력해 주세요.</p>:null}
         </div>
         <footer className={styles.commandFooter}><span><kbd>Tab</kbd> 이동</span><span><kbd>Enter</kbd> 열기</span><span><kbd>Esc</kbd> 닫기</span><b>메뉴 검색 · 외부 API 조회 없음</b></footer>

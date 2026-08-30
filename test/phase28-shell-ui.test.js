@@ -30,6 +30,20 @@ test('V106 shell retains command search and evidence access',()=>{
   assert.match(evidence,/role="dialog"/);
 });
 
+test('V106 shell carries per-route prefetch policy through every navigation surface',()=>{
+  const shell=read('app/_phase28/phase28-shell.js');
+  const palette=read('app/_phase28/phase28-command-palette.js');
+  assert.ok((shell.match(/prefetch=\{item\.prefetch\}/g)||[]).length>=3);
+  assert.match(palette,/prefetch=\{item\.prefetch\}/);
+});
+
+test('record workflow links do not warm sibling low-frequency pages',()=>{
+  for(const file of ['diagnoses-page.js','changes-page.js','validation-page.js','experiments-page.js']){
+    const source=read(`app/_phase28/pages/${file}`);
+    assert.match(source,/prefetch=\{false\}/);
+  }
+});
+
 test('V106 shell preserves readable responsive and balanced-selection rules',()=>{
   const css=[read('app/_phase28/phase28-shell.module.css'),read('app/_phase28/phase28-tokens.module.css')].join('\n');
   assert.match(css,/--p28-gutter:clamp\(34px,3vw,72px\)/);

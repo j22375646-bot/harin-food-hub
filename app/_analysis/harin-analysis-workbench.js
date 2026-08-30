@@ -168,7 +168,7 @@ function InsightDecisionFlow({workspace='overview',platform='all',decision={}}){
     ['action','행동','지금 무엇을 할지','checklist',action?.href||'/diagnoses']
   ];
   return <nav className="insightDecisionFlow" data-core-visualization="insight-decision-flow" aria-label="인사이트 판단 순서">
-    {steps.map(([id,label,description,icon,href],index)=><Link className={workspace===id?'active':''} href={href} key={id}><small>{String(index+1).padStart(2,'0')}</small><i><HarinIcon name={icon} size={19}/></i><span><b>{label}</b><em>{description}</em></span>{index<steps.length-1?<strong aria-hidden="true">→</strong>:null}</Link>)}
+    {steps.map(([id,label,description,icon,href],index)=><Link className={workspace===id?'active':''} href={href} prefetch={id==='action'?false:null} key={id}><small>{String(index+1).padStart(2,'0')}</small><i><HarinIcon name={icon} size={19}/></i><span><b>{label}</b><em>{description}</em></span>{index<steps.length-1?<strong aria-hidden="true">→</strong>:null}</Link>)}
   </nav>;
 }
 

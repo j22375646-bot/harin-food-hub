@@ -22,7 +22,7 @@ function scoreLabel(value){return value==null?'판단 보류':`${Math.round(Numb
 function deltaLabel(value){return value==null?'비교 기준 부족':`${value>0?'+':''}${Number(value).toFixed(1)}`;}
 
 function DecisionLoop({flow=[]}){
-  return <nav className="diagLoop" aria-label="운영 결정 순환">{flow.map((item,index)=><Link href={item.href} data-active={item.id==='diagnoses'} aria-current={item.id==='diagnoses'?'step':undefined} key={item.id}><i>{item.step}</i><span><small>DECISION LOOP</small><strong>{item.label}</strong><em>{item.description}</em></span>{index<flow.length-1?<b aria-hidden="true">›</b>:null}</Link>)}</nav>;
+  return <nav className="diagLoop" aria-label="운영 결정 순환">{flow.map((item,index)=><Link href={item.href} prefetch={false} data-active={item.id==='diagnoses'} aria-current={item.id==='diagnoses'?'step':undefined} key={item.id}><i>{item.step}</i><span><small>DECISION LOOP</small><strong>{item.label}</strong><em>{item.description}</em></span>{index<flow.length-1?<b aria-hidden="true">›</b>:null}</Link>)}</nav>;
 }
 
 function SummaryStrip({model,dataUnavailable}){
@@ -67,7 +67,7 @@ function DiagnosisDetail({item,model,busy,onReportAction,onSend,onGenerate,onDai
     <header><div><span>EVIDENCE REPORT</span><h2>{item.title}</h2><p>{item.channel} · {item.reportTypeLabel} · {item.periodLabel} · v{item.version}</p></div><em data-state={item.state}>{item.stateLabel}</em></header>
     <section className="diagJudgement"><span>핵심 판단</span><p>{item.detailCopy}</p></section>
     <dl><div><dt>운영 점수</dt><dd>{scoreLabel(item.score)} · {deltaLabel(item.scoreDelta)}</dd></div><div><dt>근거 구성</dt><dd>{item.evidenceLabel}</dd></div><div><dt>마지막 계산</dt><dd>{item.lastCalculatedLabel}</dd></div><div><dt>AI 역할</dt><dd>{item.aiRole}</dd></div></dl>
-    <section className="diagNext"><span>NEXT SAFE ACTION</span><strong>{item.nextAction}</strong><p>{item.nextActionNote}</p><Link href="/approvals">변경 기록으로 이어보기 →</Link></section>
+    <section className="diagNext"><span>NEXT SAFE ACTION</span><strong>{item.nextAction}</strong><p>{item.nextActionNote}</p><Link href="/approvals" prefetch={false}>변경 기록으로 이어보기 →</Link></section>
     <div className="diagReportActions">
       <a href={`/api/reports/${encodeURIComponent(item.id)}/print`} target="_blank" rel="noreferrer">상세 보고서</a>
       <a href={`/api/reports/${encodeURIComponent(item.id)}/print?mode=owner`} target="_blank" rel="noreferrer">사장님 1페이지</a>

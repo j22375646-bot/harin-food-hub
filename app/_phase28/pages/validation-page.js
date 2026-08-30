@@ -19,7 +19,7 @@ const count=(value,unavailable)=>unavailable?'확인 필요':`${Number(value||0)
 const TIMELINE_LABELS=['실행 전 예상','DAY 0','DAY 7','DAY 14'];
 
 function DecisionLoop({flow=[]}){
-  return <nav className="validationLoop" aria-label="운영 결정 순환">{flow.map((item,index)=><Link href={item.href} data-active={item.id==='validation'} aria-current={item.id==='validation'?'step':undefined} key={item.id}><i>{item.step}</i><span><small>DECISION LOOP</small><strong>{item.label}</strong><em>{item.description}</em></span>{index<flow.length-1?<b aria-hidden="true">›</b>:null}</Link>)}</nav>;
+  return <nav className="validationLoop" aria-label="운영 결정 순환">{flow.map((item,index)=><Link href={item.href} prefetch={false} data-active={item.id==='validation'} aria-current={item.id==='validation'?'step':undefined} key={item.id}><i>{item.step}</i><span><small>DECISION LOOP</small><strong>{item.label}</strong><em>{item.description}</em></span>{index<flow.length-1?<b aria-hidden="true">›</b>:null}</Link>)}</nav>;
 }
 
 function SummaryStrip({model,unavailable}){
@@ -70,7 +70,7 @@ function ValidationRail({item,model}){
     <header><div><span>OUTCOME CHECK</span><h2>{item.targetLabel}</h2><p>{item.channel} · {item.executedLabel} · DAY 14</p></div><em data-state={item.decisionState}>{item.decisionLabel}</em></header>
     <section className="validationRailCopy"><span>예상과 실제</span><p>{item.decisionCopy}</p></section>
     <dl><div><dt>예상 효과</dt><dd>{item.expectation.metric}</dd></div><div><dt>7일 결과</dt><dd>{item.day7.valueLabel}</dd></div><div><dt>14일 이익</dt><dd>{item.day14.profitLabel}</dd></div><div><dt>연결 실험</dt><dd>{item.experimentLabel}</dd></div></dl>
-    <section className="validationNext"><span>NEXT DECISION</span><strong>{item.decisionCopy}</strong><Link href="/ab-tests">연결 실험 보기 →</Link></section>
+    <section className="validationNext"><span>NEXT DECISION</span><strong>{item.decisionCopy}</strong><Link href="/ab-tests" prefetch={false}>연결 실험 보기 →</Link></section>
     {(model.reportsError||model.experimentsError)?<p className="validationPartial">일부 연결 자료 확인 필요 · {model.reportsError||model.experimentsError}</p>:null}
     <p className="validationFootnote">실제 저장 자료 · 고객 식별자 없음 · 부족한 자료는 판단 보류</p>
   </div>;

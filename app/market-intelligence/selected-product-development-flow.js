@@ -43,7 +43,7 @@ export default function SelectedProductDevelopmentFlow({ selected, onOpen, busy 
     </div>
     <footer className={styles.actions}>
       <button type="button" onClick={onOpen} disabled={busy}>{busy ? '개발공간 여는 중…' : selected.project ? '이 상품 개발 이어가기' : '이 상품 개발 시작하기'}</button>
-      <Link href={experimentHref}><HarinPictogram icon="experiments" tone="pink" size={17}/>이 상품 실험만 보기</Link>
+      <Link href={experimentHref} prefetch={false}><HarinPictogram icon="experiments" tone="pink" size={17}/>이 상품 실험만 보기</Link>
     </footer>
   </section>;
 }

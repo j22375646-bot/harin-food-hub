@@ -70,7 +70,7 @@ function ChapterDesk({stageId,project,productId}){
   const chapter=CHAPTERS[stageId]||CHAPTERS.data;
   const href=workspaceHref(stageId,project.id,productId);
   const secondary=stageId==='conversion'?`/market-intelligence/${project.id}/conversion`:null;
-  return <section className="pdChapter"><header><b>{chapter.number}</b><div><span>{chapter.eyebrow}</span><h3>{chapter.title}</h3><p>{chapter.body}</p></div></header><div><article><HarinIcon name={ICONS[stageId]} size={25}/><span><small>현재 판단</small><strong>저장 근거를 열어 확인하세요.</strong><em>미연결 값은 판단 보류</em></span></article><article><HarinIcon name="checklist" size={25}/><span><small>안전 기준</small><strong>{chapter.fact}</strong><em>자동 실행 없음</em></span></article></div><footer><Link href={href}>이 단계 작업공간 열기 <i>→</i></Link>{secondary?<Link href={secondary} className="pdSecondaryLink">구매 전환 설계 이어보기</Link>:null}</footer></section>;
+  return <section className="pdChapter"><header><b>{chapter.number}</b><div><span>{chapter.eyebrow}</span><h3>{chapter.title}</h3><p>{chapter.body}</p></div></header><div><article><HarinIcon name={ICONS[stageId]} size={25}/><span><small>현재 판단</small><strong>저장 근거를 열어 확인하세요.</strong><em>미연결 값은 판단 보류</em></span></article><article><HarinIcon name="checklist" size={25}/><span><small>안전 기준</small><strong>{chapter.fact}</strong><em>자동 실행 없음</em></span></article></div><footer><Link href={href} prefetch={false}>이 단계 작업공간 열기 <i>→</i></Link>{secondary?<Link href={secondary} prefetch={false} className="pdSecondaryLink">구매 전환 설계 이어보기</Link>:null}</footer></section>;
 }
 
 function ProjectReport({detail,product,stages,activeStage,onStage}){

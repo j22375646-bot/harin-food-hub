@@ -43,7 +43,7 @@ function formatReferenceTime(value) {
 
 function NavigationLink({item,routeId,compact=false,onNavigate}) {
   const active=item.id===routeId;
-  return <Link href={item.href} className={`${styles.navItem}${active?` ${styles.active}`:''}`} aria-current={active?'page':undefined} onClick={onNavigate} title={compact?item.label:undefined}>
+  return <Link href={item.href} prefetch={item.prefetch} className={`${styles.navItem}${active?` ${styles.active}`:''}`} aria-current={active?'page':undefined} onClick={onNavigate} title={compact?item.label:undefined}>
     <span className={styles.navIcon}><RouteIcon id={item.id}/></span>
     <span className={styles.navCopy}><strong>{item.label}</strong><small>{item.description}</small></span>
     {item.badge==null?null:<span className={styles.navBadge}>{item.badge}</span>}
@@ -196,13 +196,13 @@ export default function Phase28Shell({routeId,badges=null,generatedAt=null,child
       </div>
 
       <nav className={styles.mobileNav} aria-label="모바일 주요 메뉴">
-        {primaryItems.map(item=>{const active=item.id===routeId;return <Link href={item.href} key={item.id} aria-current={active?'page':undefined} className={active?styles.active:undefined}><RouteIcon id={item.id}/><span>{item.id==='orders'?'주문':item.id==='inventory'?'재고·상품':item.label}</span>{item.badge==null?null:<b>{item.badge}</b>}</Link>;})}
+        {primaryItems.map(item=>{const active=item.id===routeId;return <Link href={item.href} prefetch={item.prefetch} key={item.id} aria-current={active?'page':undefined} className={active?styles.active:undefined}><RouteIcon id={item.id}/><span>{item.id==='orders'?'주문':item.id==='inventory'?'재고·상품':item.label}</span>{item.badge==null?null:<b>{item.badge}</b>}</Link>;})}
         <button ref={moreTriggerRef} type="button" onClick={()=>setMoreOpen(true)} aria-haspopup="dialog" aria-expanded={moreOpen} className={!navigation.mobilePrimary.includes(routeId)?styles.active:undefined}><RouteIcon id="system"/><span>더보기</span></button>
       </nav>
 
       {moreOpen?<section className={styles.mobileMoreBackdrop} role="dialog" aria-modal="true" aria-labelledby="phase28-more-title"><div className={styles.mobileMore} ref={moreDialogRef}>
         <header className={styles.dialogHeader}><div><span>전체 메뉴</span><h2 id="phase28-more-title">어디로 이동할까요?</h2></div><button type="button" onClick={closeMore} aria-label="더보기 메뉴 닫기">×</button></header>
-        <div className={styles.mobileMoreRoutes}>{secondaryItems.map(item=><Link href={item.href} key={item.id} onClick={closeMore} aria-current={item.id===routeId?'page':undefined}><span className={styles.navIcon}><RouteIcon id={item.id}/></span><span><strong>{item.label}</strong><small>{item.description}</small></span>{item.badge==null?null:<b>{item.badge}</b>}</Link>)}</div>
+        <div className={styles.mobileMoreRoutes}>{secondaryItems.map(item=><Link href={item.href} prefetch={item.prefetch} key={item.id} onClick={closeMore} aria-current={item.id===routeId?'page':undefined}><span className={styles.navIcon}><RouteIcon id={item.id}/></span><span><strong>{item.label}</strong><small>{item.description}</small></span>{item.badge==null?null:<b>{item.badge}</b>}</Link>)}</div>
         <form action="/api/dashboard/logout" method="post"><button className={styles.mobileLogout} type="submit">로그아웃</button></form>
       </div></section>:null}
 

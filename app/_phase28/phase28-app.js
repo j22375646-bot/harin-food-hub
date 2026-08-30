@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import {useRouter} from 'next/navigation';
 import operationSnapshotModule from '../../lib/navigation/operation-snapshot.js';
 import routeRegistryModule from '../../lib/ui/phase28-route-registry.js';
@@ -13,12 +14,17 @@ import Phase28ProductAnalysisPage from './pages/product-analysis-page.js';
 import Phase28InsightsPage from './pages/insights-page.js';
 import Phase28SystemPage from './pages/system-page.js';
 import Phase28NotificationsPage from './pages/notifications-page.js';
-import Phase28DiagnosesPage from './pages/diagnoses-page.js';
-import Phase28ChangesPage from './pages/changes-page.js';
-import Phase28ValidationPage from './pages/validation-page.js';
-import Phase28ExperimentsPage from './pages/experiments-page.js';
-import Phase28KnowledgePage from './pages/knowledge-page.js';
 import Phase28Shell from './phase28-shell.js';
+
+function OnDemandRouteLoading({label}){
+  return <section className="phase28OnDemandLoading" role="status" aria-live="polite"><span>필요할 때 불러오기</span><strong>{label} 준비 중</strong><small>선택한 페이지 자료만 불러오고 있어요.</small></section>;
+}
+
+const Phase28DiagnosesPage=dynamic(()=>import('./pages/diagnoses-page.js'),{loading:()=> <OnDemandRouteLoading label="진단목록"/>});
+const Phase28ChangesPage=dynamic(()=>import('./pages/changes-page.js'),{loading:()=> <OnDemandRouteLoading label="변경기록"/>});
+const Phase28ValidationPage=dynamic(()=>import('./pages/validation-page.js'),{loading:()=> <OnDemandRouteLoading label="실행검증"/>});
+const Phase28ExperimentsPage=dynamic(()=>import('./pages/experiments-page.js'),{loading:()=> <OnDemandRouteLoading label="A/B 테스트"/>});
+const Phase28KnowledgePage=dynamic(()=>import('./pages/knowledge-page.js'),{loading:()=> <OnDemandRouteLoading label="AI 기준자료"/>});
 
 const {phase28Route,phase28RouteForLegacyState}=routeRegistryModule;
 
