@@ -57,6 +57,16 @@ test('manual analysis passes the loaded Cafe24 order rows into the performance c
   assert.doesNotMatch(api,/\n\s*cafe24Orders,cafe24OrderItems:/);
 });
 
+test('product analysis report types are allowed by the reports table constraint',()=>{
+  const migrations=fs.readdirSync(path.join(root,'supabase/migrations'));
+  const file=migrations.find(name=>name.endsWith('_allow_product_analysis_report_types.sql'));
+  assert.ok(file,'product analysis report type migration is missing');
+  const sql=read(`supabase/migrations/${file}`);
+  assert.match(sql,/drop constraint if exists reports_report_type_check/i);
+  assert.match(sql,/PRODUCT_ANALYSIS_/);
+  assert.match(sql,/report_type ~ '\^PRODUCT_ANALYSIS_/);
+});
+
 test('product analysis CSS keeps the fixed readable scale and balanced selection',()=>{
   const css=read('app/_phase28/pages/product-analysis-page.css');
   assert.match(css,/max-width:2300px/);
