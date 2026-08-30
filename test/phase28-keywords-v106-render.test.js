@@ -88,3 +88,20 @@ test('V106 keyword CSS keeps readable fixed UI and neutral balanced selection',(
   assert.doesNotMatch(css,/linear-gradient|radial-gradient|backdrop-filter/);
   assert.doesNotMatch(css,/font-size:(?:[0-9]|1[01])px/);
 });
+
+test('keyword performance flow keeps its labels, values, and decision summary owner-readable',()=>{
+  const css=read('app/_phase28/pages/keywords-page.css');
+  assert.match(css,/\.kpFlow>header h2\{[^}]*font-size:28px[^}]*font-weight:900/);
+  assert.match(css,/\.kpFlow>header p\{[^}]*font-size:15px/);
+  assert.match(css,/\.kpFlowStages article>span\{[^}]*font-size:15px/);
+  assert.match(css,/\.kpFlowStages article>strong\{[^}]*font-size:28px[^}]*font-weight:900/);
+  assert.match(css,/\.kpFlowStages article>small\{[^}]*font-size:14px/);
+  assert.match(css,/\.kpWaste span small\{[^}]*font-size:15px/);
+  assert.match(css,/\.kpWaste span strong\{[^}]*font-size:26px[^}]*font-weight:900/);
+  assert.match(css,/\.kpWaste span em\{[^}]*font-size:14px/);
+  assert.match(css,/\.kpDistribution>header span strong\{font-size:16px/);
+  assert.match(css,/\.kpDistribution>header>b\{[^}]*font-size:20px[^}]*font-weight:900/);
+  assert.match(css,/\.kpDistribution>div small\{[^}]*font-size:14px/);
+  assert.match(css,/\.kpDistribution>div strong\{[^}]*font-size:18px[^}]*font-weight:900/);
+  assert.match(css,/@media \(max-width:760px\)\{[\s\S]*\.kpFlow>header h2\{font-size:26px\}[\s\S]*\.kpFlowStages article>strong\{font-size:26px;line-height:32px\}/);
+});
