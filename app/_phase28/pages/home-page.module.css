@@ -120,6 +120,7 @@
 .forecastPanel>header strong{font-size:24px;letter-spacing:-.04em;}
 .forecastPanel>header>em{padding:5px 8px;border-radius:8px;background:var(--p28-blue-soft);color:var(--p28-blue);font-size:13px;font-style:normal;font-weight:850;}
 .forecastChart{height:150px;display:grid;grid-template-columns:repeat(7,1fr);align-items:end;gap:7px;margin-top:18px;padding-top:8px;border-bottom:1px solid var(--p28-line);}
+.forecastChart>.emptyState{grid-column:1/-1;width:100%;}
 .forecastChart>span{height:100%;display:grid;grid-template-rows:minmax(0,1fr) 25px;align-items:end;justify-items:center;gap:5px;}
 .forecastChart>span>i{width:min(27px,72%);min-height:10px;border-radius:7px 7px 2px 2px;background:#8fa6e4;animation:barRise 620ms cubic-bezier(.22,1,.36,1) both;transform-origin:bottom;}
 @keyframes barRise{from{transform:scaleY(.05);opacity:.3;}to{transform:scaleY(1);opacity:1;}}
