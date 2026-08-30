@@ -21,6 +21,12 @@ function moveMonth(month,amount){const [year,value]=month.split('-').map(Number)
 function monthLabel(month){const [year,value]=month.split('-').map(Number);return `${year}년 ${value}월`;}
 function fullDateLabel(date){return new Intl.DateTimeFormat('ko-KR',{timeZone:'UTC',month:'long',day:'numeric',weekday:'long'}).format(new Date(`${date}T00:00:00Z`));}
 function sortEntries(entries){return [...entries].sort((a,b)=>`${a.date} ${a.time||'00:00'} ${a.title}`.localeCompare(`${b.date} ${b.time||'00:00'} ${b.title}`,'ko'));}
+function calendarEntryTone(entry){
+  if(entry.type==='MEMO')return 'AMBER';
+  const palette=['BLUE','CORAL','MINT','VIOLET'];
+  const seed=String(entry.id||entry.title||'').split('').reduce((total,letter)=>total+letter.charCodeAt(0),0);
+  return palette[seed%palette.length];
+}
 
 function CalendarRail({selectedDate,entries,editing,onEdit,onCancel,onSaved,onRemoved}){
   const [form,setForm]=useState({...EMPTY_FORM,date:selectedDate});
@@ -134,7 +140,7 @@ export default function Phase28CalendarPage({model={}}){
           const items=byDate[date]||[],outside=!date.startsWith(month),selected=date===selectedDate;
           return <button type="button" key={date} className="calendarDay" data-outside={outside} data-selected={selected} data-today={date===today} onClick={()=>selectDay(date)} aria-label={`${fullDateLabel(date)} ${items.length}개`}>
             <span className="calendarDayNumber">{Number(date.slice(-2))}{date===today?<em>오늘</em>:null}</span>
-            <span className="calendarDayEntries">{items.slice(0,3).map(item=><i key={item.id} data-type={item.type} data-done={item.status==='DONE'}><b>{item.time|| (item.type==='MEMO'?'메모':'종일')}</b>{item.title}</i>)}{items.length>3?<small>+{items.length-3}개 더보기</small>:null}</span>
+            <span className="calendarDayEntries">{items.slice(0,4).map(item=><i key={item.id} data-type={item.type} data-tone={calendarEntryTone(item)} data-done={item.status==='DONE'} title={item.title}><b>{item.time|| (item.type==='MEMO'?'메모':'종일')}</b><span>{item.title}</span></i>)}{items.length>4?<small>+{items.length-4}개 더보기</small>:null}</span>
           </button>;
         })}</div>
         </div>
