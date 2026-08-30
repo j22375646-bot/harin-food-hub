@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import '../_analysis/harin-market-intelligence.css';
 import authModule from '../../lib/dashboard-auth.js';
-import featureFlagsModule from '../../lib/ui/feature-flags.js';
+import featureFlagsModule from '../../lib/ui/phase28-production-runtime.js';
 import Phase28Shell from '../_phase28/phase28-shell.js';
 import MarketIntelligenceShell from '../_shell/market-intelligence-shell.js';
 

@@ -54,7 +54,7 @@ import channelCapabilitiesModule from '../lib/platforms/channel-capabilities.js'
 import unifiedOrdersModule from '../lib/orders/unified-orders.js';
 import unifiedCustomerServiceModule from '../lib/customer-service/unified-center.js';
 import customerServiceStore from '../lib/customer-service/store.js';
-import featureFlagsModule from '../lib/ui/feature-flags.js';
+import featureFlagsModule from '../lib/ui/phase28-production-runtime.js';
 import phase28AdaptersModule from '../lib/ui/phase28-adapters/index.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';

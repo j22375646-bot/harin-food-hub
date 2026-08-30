@@ -2,7 +2,7 @@ import {renderDashboardRoute} from '../page.js';
 import supabaseModule from '../../lib/cafe24/supabase.js';
 import knowledgeSnapshot from '../../lib/ai/phase28-knowledge-snapshot.js';
 import phase28Adapters from '../../lib/ui/phase28-adapters/index.js';
-import featureFlagsModule from '../../lib/ui/feature-flags.js';
+import featureFlagsModule from '../../lib/ui/phase28-production-runtime.js';
 import Phase28KnowledgePage from '../_phase28/pages/knowledge-page.js';
 
 export const dynamic='force-dynamic';

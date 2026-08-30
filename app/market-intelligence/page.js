@@ -1,7 +1,7 @@
 import supabaseModule from '../../lib/cafe24/supabase.js';
 import projectsModule from '../../lib/market-intelligence/projects.js';
 import phase28Adapters from '../../lib/ui/phase28-adapters/index.js';
-import featureFlagsModule from '../../lib/ui/feature-flags.js';
+import featureFlagsModule from '../../lib/ui/phase28-production-runtime.js';
 import Phase28DevelopmentPage from '../_phase28/pages/development-page.js';
 import MarketProjectHome from './project-home.js';
 

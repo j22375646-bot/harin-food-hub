@@ -2,7 +2,7 @@ import {renderDashboardRoute} from '../page.js';
 import supabaseModule from '../../lib/cafe24/supabase.js';
 import notificationSnapshotModule from '../../lib/notifications/phase28-snapshot.js';
 import phase28Adapters from '../../lib/ui/phase28-adapters/index.js';
-import featureFlagsModule from '../../lib/ui/feature-flags.js';
+import featureFlagsModule from '../../lib/ui/phase28-production-runtime.js';
 import Phase28NotificationsPage from '../_phase28/pages/notifications-page.js';
 
 export const dynamic='force-dynamic';
