@@ -18,9 +18,14 @@ test('product analysis summary calculates only connected evidence and leaves ext
   assert.equal(summary.metrics.click_rate,Number((482/27800*100).toFixed(2)));
   assert.equal(summary.metrics.order_value,8000);
   assert.equal(summary.sources.sales.status,'READY');
+  assert.equal(summary.sources.sales.href,'/products/mappings?product=p-1');
   assert.equal(summary.sources.profit.status,'CALCULATED');
+  assert.equal(summary.sources.search.href,'/keywords/registered?platform=naver&product=p-1');
   assert.equal(summary.sources.competition.status,'SETUP_REQUIRED');
+  assert.equal(summary.sources.competition.href,'/market-intelligence?master_product_id=p-1');
   assert.equal(summary.sources.audience.status,'SETUP_REQUIRED');
+  assert.equal(summary.sources.audience.href,'/market-intelligence?master_product_id=p-1');
+  assert.equal(summary.sources.reviews.href,'/market-intelligence?master_product_id=p-1');
   assert.equal(summary.keywords[0].keyword,'보리차');
 });
 
@@ -68,6 +73,8 @@ test('product analysis summary promotes connected customer and verified market e
   assert.match(summary.sources.reviews.detail,/표본 84건/);
   assert.equal(summary.sources.profit.href,'/products/costs?master_product_id=p-1');
   assert.equal(summary.sources.competition.href,'/market-intelligence/project-1/competition');
+  assert.equal(summary.sources.audience.href,'/market-intelligence/project-1/market');
+  assert.equal(summary.sources.reviews.href,'/market-intelligence/project-1/competition');
   assert.deepEqual(summary.customer,{order_count:7,identified_customers:5,repeat_customers:1});
   assert.equal(summary.market.project_id,'project-1');
   assert.doesNotMatch(JSON.stringify(summary),/customer-a|customer-b/);

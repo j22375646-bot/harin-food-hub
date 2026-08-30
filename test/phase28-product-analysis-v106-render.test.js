@@ -35,7 +35,21 @@ test('V106 product analysis renders the runner, saved ledger, marketer report, a
   assert.match(page,/Phase28RightRailLayout/);
   assert.match(page,/item\.href/);
   assert.match(page,/근거 연결/);
+  assert.match(page,/근거 보기/);
+  assert.match(page,/paProvenanceAction/);
+  assert.match(page,/prefetch=\{false\}/);
   assert.doesNotMatch(page,/재고|inventory/i);
+});
+
+test('product analysis evidence links preselect the same product in the development workspace',()=>{
+  const route=read('app/market-intelligence/page.js');
+  const adapter=read('lib/ui/phase28-adapters/development.js');
+  const view=read('app/_phase28/pages/development-page.js');
+  assert.match(route,/await searchParams/);
+  assert.match(route,/master_product_id/);
+  assert.match(route,/initialProductId/);
+  assert.match(adapter,/initialProductId/);
+  assert.match(view,/model\.initialProductId/);
 });
 
 test('manual analysis uses one authenticated server route and keeps unavailable evidence visible',()=>{

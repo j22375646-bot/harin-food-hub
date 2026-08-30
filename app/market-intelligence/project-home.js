@@ -8,12 +8,13 @@ import SelectedProductDevelopmentFlow from './selected-product-development-flow.
 
 const won=value=>value==null?'가격 확인 필요':`${Math.round(Number(value)||0).toLocaleString('ko-KR')}원`;
 
-export default function MarketProjectHome({initialData}){
+export default function MarketProjectHome({initialData,initialProductId=''}){
   const router=useRouter();
   const products=initialData.products||[];
   const projects=initialData.projects||[];
   const recentProduct=projects[0]?.master_product_id;
-  const [selectedProduct,setSelectedProduct]=useState(recentProduct||products[0]?.id||'');
+  const requestedProduct=products.some(item=>item.id===initialProductId)?initialProductId:'';
+  const [selectedProduct,setSelectedProduct]=useState(requestedProduct||recentProduct||products[0]?.id||'');
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState(initialData.error||'');
   const selected=useMemo(()=>products.find(item=>item.id===selectedProduct)||null,[products,selectedProduct]);

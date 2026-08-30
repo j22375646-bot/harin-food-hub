@@ -30,7 +30,11 @@ test('product analysis adapter exposes real product evidence and keeps missing m
   assert.equal(model.products[0].metrics.revenue,328000);
   assert.equal(model.products[0].metrics.searchDemand,27800);
   assert.equal(model.products[0].sources.sales.status,'READY');
+  assert.equal(model.products[0].sources.sales.href,'/products/mappings?product=p-1');
+  assert.equal(model.products[0].sources.profit.href,'/products/costs?master_product_id=p-1');
+  assert.equal(model.products[0].sources.search.href,'/keywords/registered?platform=naver&product=p-1');
   assert.equal(model.products[0].sources.competition.status,'SETUP_REQUIRED');
+  assert.equal(model.products[0].sources.competition.href,'/market-intelligence?master_product_id=p-1');
   assert.equal(model.products[0].sources.audience.status,'SETUP_REQUIRED');
   assert.equal(model.history.length,0);
   assert.equal('inventory' in model.products[0],false);
@@ -50,6 +54,9 @@ test('product analysis adapter restores only saved product-analysis reports with
   assert.equal(model.history[0].product.name,'보리차 50티백');
   assert.equal(model.history[0].periodDays,30);
   assert.equal(model.activeReportId,'pa-1');
+  assert.equal(model.history[0].sources.sales.href,'/products/mappings?product=p-1');
+  assert.equal(model.history[0].sources.search.href,'/keywords/registered?platform=naver&product=p-1');
+  assert.equal(model.history[0].sources.competition.href,'/market-intelligence?master_product_id=p-1');
   assert.equal('activeReport' in model,false);
   assert.equal('report' in model.history[0],false);
 });

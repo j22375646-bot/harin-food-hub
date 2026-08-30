@@ -89,7 +89,7 @@ function DecisionDesk({product,detail,policy}){
 export default function Phase28DevelopmentPage({model={}}){
   const [products,setProducts]=useState(model.products||[]);
   const [projects,setProjects]=useState(model.projects||[]);
-  const [selectedId,setSelectedId]=useState(products.find(item=>item.project)?.id||products[0]?.id||'');
+  const [selectedId,setSelectedId]=useState(products.some(item=>item.id===model.initialProductId)?model.initialProductId:products.find(item=>item.project)?.id||products[0]?.id||'');
   const [activeDetail,setActiveDetail]=useState(null);
   const [activeStage,setActiveStage]=useState('data');
   const [detailCache,setDetailCache]=useState({});
