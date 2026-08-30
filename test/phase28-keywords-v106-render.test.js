@@ -29,6 +29,23 @@ test('Phase 28 app renders the V106 keyword flow, workbench, and decision desk',
   assert.match(page,/Phase28RightRailLayout/);
 });
 
+test('keyword page uses the fixed Phase 28 section canvas without inheriting legacy main padding',()=>{
+  const page=read('app/_phase28/pages/keywords-page.js');
+  const css=read('app/_phase28/pages/keywords-page.css');
+  assert.match(page,/return <section className="p28Keywords"/);
+  assert.doesNotMatch(page,/return <main className="p28Keywords"/);
+  assert.match(page,/className="kpIntro"/);
+  assert.match(css,/\.kpIntro\{/);
+});
+
+test('keyword workbench progressively reveals large result sets like the orders page',()=>{
+  const page=read('app/_phase28/pages/keywords-page.js');
+  const css=read('app/_phase28/pages/keywords-page.css');
+  assert.match(page,/visibleRows\.slice\(0,showCount\)/);
+  assert.match(page,/키워드 .*건 더 보기/);
+  assert.match(css,/\.kpMore\{/);
+});
+
 test('keyword workbench keeps the campaign column focused and omits product-link presentation',()=>{
   const page=read('app/_phase28/pages/keywords-page.js');
   assert.match(page,/<span>캠페인<\/span>/);

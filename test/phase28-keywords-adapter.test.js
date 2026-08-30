@@ -32,6 +32,7 @@ test('keyword adapter keeps channel and write boundaries while exposing editable
   assert.equal(model.rows[1].recommendedBid,null);
   assert.equal(model.rows[1].statusLabel,'판단 보류');
   assert.equal(model.summary.noOrderSpend,96400);
+  assert.equal(model.visibleLimit,20);
   assert.equal(model.channels.find(item=>item.id==='coupang').writeMode,'WING_MANUAL');
 });
 
