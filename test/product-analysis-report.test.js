@@ -2,7 +2,7 @@
 
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {buildProductAnalysisSummary,productAnalysisReportType}=require('../lib/analytics/product-analysis-report.js');
+const {buildCustomerPurchaseEvidence,buildProductAnalysisSummary,productAnalysisReportType}=require('../lib/analytics/product-analysis-report.js');
 
 test('product analysis summary calculates only connected evidence and leaves external market data unavailable',()=>{
   const summary=buildProductAnalysisSummary({
@@ -12,6 +12,7 @@ test('product analysis summary calculates only connected evidence and leaves ext
   });
 
   assert.equal(summary.kind,'PRODUCT_ANALYSIS');
+  assert.equal(summary.schema_version,'1.1');
   assert.equal(summary.metrics.revenue,328000);
   assert.equal(summary.metrics.search_demand,27800);
   assert.equal(summary.metrics.click_rate,Number((482/27800*100).toFixed(2)));
@@ -26,4 +27,48 @@ test('product analysis summary calculates only connected evidence and leaves ext
 test('product analysis report type is stable and safe per product',()=>{
   assert.equal(productAnalysisReportType('P-1_한글'),'PRODUCT_ANALYSIS_P-1_');
   assert.equal(productAnalysisReportType('../../'),'PRODUCT_ANALYSIS_PRODUCT');
+});
+
+test('customer purchase evidence connects only product orders and never exposes customer ids',()=>{
+  const evidence=buildCustomerPurchaseEvidence({
+    orders:[
+      {order_id:'o-1',customer_id:'customer-a'},
+      {order_id:'o-2',customer_id:'customer-a'},
+      {order_id:'o-3',customer_id:'customer-b'},
+      {order_id:'o-4',customer_id:'customer-c'}
+    ],
+    productOrderIds:['o-1','o-2','o-3']
+  });
+
+  assert.deepEqual(evidence,{order_count:3,identified_customers:2,repeat_customers:1});
+  assert.doesNotMatch(JSON.stringify(evidence),/customer-[abc]/);
+});
+
+test('product analysis summary promotes connected customer and verified market evidence',()=>{
+  const summary=buildProductAnalysisSummary({
+    product:{id:'p-1',name:'작두콩차'},generatedAt:'2026-08-31T01:00:00Z',
+    performance:{revenue:120000,orders:10,cost_status:'CHECK_REQUIRED',channels:{}},
+    customerEvidence:{order_count:7,identified_customers:5,repeat_customers:1},
+    marketEvidence:{
+      project_id:'project-1',
+      verified_competitors:3,
+      competitor_price_samples:2,
+      verified_personas:1,
+      verified_review_sets:2,
+      review_sample_size:84,
+      as_of:'2026-08-31T00:30:00Z'
+    }
+  });
+
+  assert.equal(summary.sources.audience.status,'READY');
+  assert.match(summary.sources.audience.detail,/Cafe24 구매고객 5명/);
+  assert.equal(summary.sources.competition.status,'READY');
+  assert.match(summary.sources.competition.detail,/가격 표본 2개/);
+  assert.equal(summary.sources.reviews.status,'READY');
+  assert.match(summary.sources.reviews.detail,/표본 84건/);
+  assert.equal(summary.sources.profit.href,'/products/costs?master_product_id=p-1');
+  assert.equal(summary.sources.competition.href,'/market-intelligence/project-1/competition');
+  assert.deepEqual(summary.customer,{order_count:7,identified_customers:5,repeat_customers:1});
+  assert.equal(summary.market.project_id,'project-1');
+  assert.doesNotMatch(JSON.stringify(summary),/customer-a|customer-b/);
 });

@@ -33,6 +33,8 @@ test('V106 product analysis renders the runner, saved ledger, marketer report, a
   assert.match(page,/NAVER MARKETER REPORT/);
   assert.match(page,/PRODUCT DECISION DESK/);
   assert.match(page,/Phase28RightRailLayout/);
+  assert.match(page,/item\.href/);
+  assert.match(page,/근거 연결/);
   assert.doesNotMatch(page,/재고|inventory/i);
 });
 
@@ -55,6 +57,17 @@ test('manual analysis passes the loaded Cafe24 order rows into the performance c
   const api=read('app/api/product-analysis/route.js');
   assert.match(api,/cafe24Orders:cafeOrders/);
   assert.doesNotMatch(api,/\n\s*cafe24Orders,cafe24OrderItems:/);
+});
+
+test('manual analysis connects privacy-safe buyers and verified market evidence to the saved report',()=>{
+  const api=read('app/api/product-analysis/route.js');
+  assert.match(api,/select\('order_id,order_date,customer_id'\)/);
+  assert.match(api,/buildCustomerPurchaseEvidence/);
+  for(const table of ['market_projects','market_competitors','market_personas','market_review_insights','market_competitor_review_insights']){
+    assert.match(api,new RegExp(`from\\('${table}'\\)`));
+  }
+  assert.match(api,/customerEvidence/);
+  assert.match(api,/marketEvidence/);
 });
 
 test('product analysis report types are allowed by the reports table constraint',()=>{
