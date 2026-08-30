@@ -130,10 +130,10 @@ export default function Phase28SettlementPage({model={},aiPanel=null}){
   useEffect(()=>{if(channels.length&&!channels.some(item=>item.id===selectedId))setSelectedId(channels[0].id);},[channels,selectedId]);
   const selected=channels.find(item=>item.id===selectedId)||channels[0]||null;
   const hero=model.hero||{};
-  return <main className="p28Settlement" data-phase28-root="true" data-phase28-page="settlement">
+  return <section className="p28Settlement" data-phase28-root="true" data-phase28-page="settlement">
     <div className="spIntro"><Phase28PageHeading context={`${hero.channelCount??0}개 판매 채널 대조 · 근거 없는 비용은 확인 필요`} title="오늘 확인할 " accent={`정산 차이 ${hero.checkCount??0}건`} suffix="이 있어요." summary={hero.summary||'받을 돈과 실제 지급액을 맞춰 보고, 근거가 없는 비용은 0원으로 만들지 않아요.'}/><div className="spDataStatus"><i><HarinIcon name="settlement" size={22}/></i><span><small>정산 데이터 기준</small><strong>{referenceTime(hero.asOf)}</strong><em>채널별 계산 경로 분리</em></span></div></div>
     <DecisionBoard model={periodModel} period={period} setPeriod={setPeriod} selectedId={selectedId} onSelect={setSelectedId}/>
     <Phase28RightRailLayout label="정산 근거 패널" rail={<EvidenceRail channel={selected} router={router}/> }><SettlementWorkbench model={current} workspace={workspace} setWorkspace={setWorkspace} selectedId={selectedId} onSelect={setSelectedId}/></Phase28RightRailLayout>
     <SettlementAi panel={aiPanel}/>
-  </main>;
+  </section>;
 }

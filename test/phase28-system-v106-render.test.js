@@ -15,11 +15,18 @@ test('V106 시스템은 전용 경량 로더와 공통 셸로 canonical route를
   assert.match(page,/buildPhase28SystemModel/);
   assert.match(page,/Phase28SystemPage/);
   assert.match(page,/phase28RuntimeConfig/);
+  assert.match(page,/await searchParams/);
+  assert.match(page,/workspace/);
+  assert.match(page,/buildPhase28SystemModel\(snapshot,\{workspace\}\)/);
   assert.match(layout,/Phase28Shell/);
   assert.match(layout,/routeId="system"/);
   assert.doesNotMatch(page,/renderDashboardRoute\('collection'.*activePages\.includes\('system'/s);
   const legacyWorkspaces=['advertising','execution-paths','naver-api','operations-health','optional-providers','owned-site','provider-fallback','provider-runtime','shipping-reference'];
-  for(const workspace of legacyWorkspaces)assert.match(read(`app/data-collection/${workspace}/page.js`),/redirectLegacySystemWorkspace/);
+  for(const workspace of legacyWorkspaces){
+    const legacy=read(`app/data-collection/${workspace}/page.js`);
+    assert.match(legacy,/redirectLegacySystemWorkspace/);
+    assert.match(legacy,new RegExp(`redirectLegacySystemWorkspace\\('${workspace}'\\)`));
+  }
 });
 
 test('V106 시스템은 네 작업공간, 다섯 흐름, 핵심 여섯 연결과 지연 상세를 렌더링한다',()=>{
@@ -33,6 +40,9 @@ test('V106 시스템은 네 작업공간, 다섯 흐름, 핵심 여섯 연결과
   assert.match(page,/detailCache/);
   assert.match(page,/Phase28RightRailLayout/);
   assert.match(page,/Phase28ChannelLogo/);
+  assert.match(page,/useRouter/);
+  assert.match(page,/pushPhase28Route/);
+  assert.match(page,/model\.initialWorkspace/);
   assert.doesNotMatch(page,/Brave Search|Clova OCR|Semrush|DeepL|Google Trends Alpha|공공조달|썸트렌드/);
 });
 

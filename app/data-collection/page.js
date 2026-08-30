@@ -8,13 +8,15 @@ import Phase28SystemPage from '../_phase28/pages/system-page.js';
 export const dynamic='force-dynamic';
 
 export default async function Page({searchParams}){
+  const params=await searchParams;
+  const workspace=typeof params?.workspace==='string'?params.workspace:'connections';
   const phase28Runtime=featureFlagsModule.phase28RuntimeConfig(process.env,{routeId:'system'});
-  if(!phase28Runtime.activePages.includes('system'))return renderDashboardRoute('collection',searchParams);
+  if(!phase28Runtime.activePages.includes('system'))return renderDashboardRoute('collection',params);
   try{
     const snapshot=await systemSnapshotModule.loadPhase28SystemSnapshot({db:supabaseModule.getSupabase(),env:process.env,now:new Date()});
-    return <Phase28SystemPage model={phase28Adapters.buildPhase28SystemModel(snapshot)}/>;
+    return <Phase28SystemPage model={phase28Adapters.buildPhase28SystemModel(snapshot,{workspace})}/>;
   }catch(error){
-    const model=phase28Adapters.buildPhase28SystemModel({generatedAt:null,services:[],jobs:[],recovery:{},error:error.message});
+    const model=phase28Adapters.buildPhase28SystemModel({generatedAt:null,services:[],jobs:[],recovery:{},error:error.message},{workspace});
     return <Phase28SystemPage model={model}/>;
   }
 }

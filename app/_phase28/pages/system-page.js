@@ -1,10 +1,12 @@
 'use client';
 
-import {useMemo,useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
+import {useRouter} from 'next/navigation';
 import HarinIcon from '../../_design-system/harin-icon.js';
 import {Phase28ChannelLogo} from '../primitives/channel-logo.js';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
 import {Phase28RightRailLayout} from '../primitives/right-rail-layout.js';
+import {pushPhase28Route} from '../phase28-navigation-feedback.js';
 import './system-page.css';
 
 const WORKSPACES=[
@@ -22,6 +24,7 @@ const JOB_LABELS={'vercel-cron':'Vercel Cron','fixed-ip':'서울 고정 IP 워�
 const STATUS_LABEL={READY:'정상',RUNNING:'작업 중',PARTIAL:'일부 확인',STALE:'갱신 필요',FAILED:'오류 확인',SETUP_REQUIRED:'설정 필요',VERIFY_REQUIRED:'읽기 확인 필요'};
 const AXIS_LABEL={configuration:'설정',read:'읽기 검증',freshness:'자료 최신성',write:'쓰기 잠금',job:'작업 상태'};
 const FLOW_WORKSPACE={api:'connections',probe:'connections',job:'jobs',store:'datasets',hub:'recovery'};
+const WORKSPACE_HREF={connections:'/data-collection',datasets:'/data-collection?workspace=datasets',jobs:'/data-collection?workspace=jobs',recovery:'/data-collection?workspace=recovery'};
 
 function ServiceMark({service}){
   const brand=SERVICE_BRAND[service.id];
@@ -69,7 +72,8 @@ function SystemDesk({model,selected}){
 }
 
 export default function Phase28SystemPage({model={}}){
-  const [workspace,setWorkspace]=useState('connections');
+  const router=useRouter();
+  const [workspace,setWorkspace]=useState(model.initialWorkspace||'connections');
   const [selectedId,setSelectedId]=useState('');
   const [detailCache,setDetailCache]=useState({});
   const [busyId,setBusyId]=useState('');
@@ -77,8 +81,16 @@ export default function Phase28SystemPage({model={}}){
   const selected=useMemo(()=>(model.services||[]).find(item=>item.id===selectedId)||null,[model.services,selectedId]);
   const detail=selectedId?detailCache[selectedId]||null:null;
 
+  useEffect(()=>setWorkspace(model.initialWorkspace||'connections'),[model.initialWorkspace]);
+
+  function openWorkspace(id){
+    const next=WORKSPACE_HREF[id]?id:'connections';
+    setWorkspace(next);
+    pushPhase28Route(router,WORKSPACE_HREF[next]);
+  }
+
   async function loadService(serviceId){
-    setSelectedId(serviceId);setWorkspace('connections');setError('');
+    setSelectedId(serviceId);openWorkspace('connections');setError('');
     if(detailCache[serviceId]||busyId===serviceId)return;
     setBusyId(serviceId);
     try{
@@ -93,8 +105,8 @@ export default function Phase28SystemPage({model={}}){
   return <section className="sysPage" data-phase28-root="true" data-phase28-page="system">
     <Phase28PageHeading context={`운영 기반 · 핵심 연결 ${(model.services||[]).length||6}개`} title="허브가 움직이는 " accent="연결 흐름" suffix="을 확인해요." summary="필요한 API, 받는 자료, 실행 위치와 복구 상태를 한 화면에서 보고 상세는 필요할 때만 불러옵니다."/>
     {model.error?<div className="sysPageError" role="alert"><HarinIcon name="warning" size={22}/><span><strong>시스템 요약을 모두 불러오지 못했습니다.</strong><small>{model.error} · 누락값은 확인 필요로 유지합니다.</small></span></div>:null}
-    <FlowRunway flow={model.flow} onStage={setWorkspace}/>
-    <nav className="sysWorkspaceTabs" role="tablist" aria-label="시스템 작업공간">{(model.workspaces?.length?model.workspaces:WORKSPACES).map(item=><button type="button" role="tab" aria-selected={workspace===item.id} data-selected={workspace===item.id} onClick={()=>setWorkspace(item.id)} key={item.id}><span>{item.label}</span><small>{item.description}</small></button>)}</nav>
+    <FlowRunway flow={model.flow} onStage={openWorkspace}/>
+    <nav className="sysWorkspaceTabs" role="tablist" aria-label="시스템 작업공간">{(model.workspaces?.length?model.workspaces:WORKSPACES).map(item=><button type="button" role="tab" aria-selected={workspace===item.id} data-selected={workspace===item.id} onClick={()=>openWorkspace(item.id)} key={item.id}><span>{item.label}</span><small>{item.description}</small></button>)}</nav>
     <Phase28RightRailLayout label="시스템 운영 작업석" rail={<SystemDesk model={model} selected={selected}/>}>
       {workspace==='connections'?<ConnectionsPanel model={model} selectedId={selectedId} onSelect={loadService} detail={detail} busy={busyId===selectedId} error={error}/>:null}
       {workspace==='datasets'?<DatasetsPanel rows={model.datasets||[]}/>:null}

@@ -4,6 +4,6 @@ import {redirectLegacySystemWorkspace} from '../route-mode.js';
 export const dynamic='force-dynamic';
 
 export default function AdvertisingApiPage({searchParams}){
-  redirectLegacySystemWorkspace();
+  redirectLegacySystemWorkspace('advertising');
   return renderDashboardRoute('collection',searchParams,{workspace:'advertising'});
 }

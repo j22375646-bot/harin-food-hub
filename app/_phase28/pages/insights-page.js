@@ -1,16 +1,19 @@
 'use client';
 
-import {useMemo,useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
+import {useRouter} from 'next/navigation';
 import HarinIcon from '../../_design-system/harin-icon.js';
 import {Phase28ChannelLogo} from '../primitives/channel-logo.js';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
 import {Phase28RightRailLayout} from '../primitives/right-rail-layout.js';
+import {pushPhase28Route} from '../phase28-navigation-feedback.js';
 import './insights-page.css';
 
 const STAGE_LABELS=['변화','원인','이익','행동'];
 const STAGE_ICONS=['growth','analysis','settlement','target'];
 const WORKSPACES=['이번 주','저장 인사이트','채널 비교','수익성'];
 const WORKSPACE_IDS=['week','saved','compare','profit'];
+const WORKSPACE_HREF={week:'/insights/overview',saved:'/insights/saved',compare:'/insights/channels',profit:'/insights/profitability'};
 const STATUS_LABEL={READY:'READY',CHECK_REQUIRED:'확인 필요',CALCULATED:'계산 완료',NO_DATA:'자료 없음'};
 const money=value=>value==null||!Number.isFinite(Number(value))?'판단 보류':`${Number(value)<0?'-':''}₩${Math.abs(Math.round(Number(value))).toLocaleString('ko-KR')}`;
 const count=value=>value==null||!Number.isFinite(Number(value))?'확인 필요':`${Math.round(Number(value)).toLocaleString('ko-KR')}건`;
@@ -55,9 +58,10 @@ function InsightDesk({channel,selectedSignal,schedule,policy}){
 }
 
 export default function Phase28InsightsPage({model={}}){
+  const router=useRouter();
   const channels=model.channels||[];
-  const [selectedId,setSelectedId]=useState(channels[0]?.id||'naver');
-  const initialWorkspace=model.initialWorkspace==='channels'?'compare':model.initialWorkspace==='profitability'?'profit':'week';
+  const [selectedId,setSelectedId]=useState(model.initialChannel||channels[0]?.id||'naver');
+  const initialWorkspace=model.initialWorkspace==='saved'?'saved':model.initialWorkspace==='channels'?'compare':model.initialWorkspace==='profitability'?'profit':'week';
   const [workspace,setWorkspace]=useState(initialWorkspace);
   const [selectedSignal,setSelectedSignal]=useState(null);
   const [openReport,setOpenReport]=useState(null);
@@ -65,6 +69,16 @@ export default function Phase28InsightsPage({model={}}){
   const [detailState,setDetailState]=useState({});
   const selected=useMemo(()=>channels.find(channel=>channel.id===selectedId)||channels[0]||null,[channels,selectedId]);
   const reports=model.savedReports?.[selected?.platform]||[];
+
+  useEffect(()=>setSelectedId(model.initialChannel||channels[0]?.id||'naver'),[model.initialChannel,channels]);
+  useEffect(()=>setWorkspace(initialWorkspace),[initialWorkspace]);
+
+  function workspaceHref(id,channelId=selectedId){
+    const href=WORKSPACE_HREF[id]||WORKSPACE_HREF.week;
+    return `${href}?platform=${encodeURIComponent(channelId)}`;
+  }
+
+  function openWorkspace(id){setWorkspace(id);pushPhase28Route(router,workspaceHref(id));}
 
   async function loadReport(reportId){
     if(detailCache[reportId])return;
@@ -86,13 +100,13 @@ export default function Phase28InsightsPage({model={}}){
     loadReport(reportId);
   }
 
-  function selectChannel(id){setSelectedId(id);setSelectedSignal(null);setOpenReport(null);}
+  function selectChannel(id){setSelectedId(id);setSelectedSignal(null);setOpenReport(null);pushPhase28Route(router,workspaceHref(workspace,id));}
   const hero=model.hero||{};
   return <section className="p28Insights" data-phase28-root="true" data-phase28-page="insights" aria-label="이번 주 먼저 볼 인사이트">
     <div className="inIntro"><Phase28PageHeading context={`주간 자동 생성 · 채널 분리 · 저장 보고서 ${model.reportCount||0}건`} title="이번 주 먼저 볼 " accent="인사이트" suffix={` ${hero.count||0}건이 있어요.`} summary={hero.summary||'주간 변화와 원인, 이익, 다음 행동을 채널별 저장 근거로 이어서 봅니다.'}/><div className="inIntroStatus"><HarinIcon name="analysis" size={23}/><span><small>다음 자동 생성</small><strong>{model.schedule?.label||'매주 월요일 07:30'}</strong><em>상세 지연 로딩 · 서버 저장</em></span></div></div>
     <ChannelDeck channels={channels} selectedId={selectedId} onSelect={selectChannel} schedule={model.schedule}/>
     <SignalTrack channel={selected}/>
-    <nav className="inWorkspaceTabs" aria-label="인사이트 작업 보기" role="tablist">{WORKSPACES.map((label,index)=><button type="button" role="tab" key={WORKSPACE_IDS[index]} aria-selected={workspace===WORKSPACE_IDS[index]} onClick={()=>setWorkspace(WORKSPACE_IDS[index])}>{label}</button>)}</nav>
+    <nav className="inWorkspaceTabs" aria-label="인사이트 작업 보기" role="tablist">{WORKSPACES.map((label,index)=><button type="button" role="tab" key={WORKSPACE_IDS[index]} aria-selected={workspace===WORKSPACE_IDS[index]} onClick={()=>openWorkspace(WORKSPACE_IDS[index])}>{label}</button>)}</nav>
     <Phase28RightRailLayout label="주간 인사이트 판단석" rail={<InsightDesk channel={selected} selectedSignal={selectedSignal} schedule={model.schedule} policy={model.policy}/>}>{workspace==='week'?<ThisWeek channel={selected} selectedSignal={selectedSignal} onSelectSignal={setSelectedSignal}/>:workspace==='saved'?<SavedReports reports={reports} detailCache={detailCache} detailState={detailState} openReport={openReport} onToggle={toggleReport}/>:workspace==='compare'?<ChannelCompare channels={channels}/>:<ProfitPanel channel={selected}/>}</Phase28RightRailLayout>
   </section>;
 }

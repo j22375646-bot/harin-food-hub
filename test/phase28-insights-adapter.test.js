@@ -68,6 +68,12 @@ test('saved insight detail exposes only the decision flow and provenance, not th
   assert.equal('raw' in detail,false);
 });
 
+test('insights adapter preserves the selected workspace and channel after refresh',()=>{
+  const model=buildPhase28InsightsModel({reports:[]},{workspace:'saved',platform:'coupang'});
+  assert.equal(model.initialWorkspace,'saved');
+  assert.equal(model.initialChannel,'coupang');
+});
+
 test('insights joins the implemented V106 adapter set',()=>{
   assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','calendar','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system','notifications','diagnoses','changes','validation','experiments','knowledge']);
 });

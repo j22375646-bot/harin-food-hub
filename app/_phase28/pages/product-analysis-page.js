@@ -77,11 +77,11 @@ export default function Phase28ProductAnalysisPage({model={}}){
   const selected=useMemo(()=>products.find(item=>item.id===selectedId)||null,[products,selectedId]);
   async function run(){if(!selected||running)return;setRunning(true);setMessage('');try{const response=await fetch('/api/product-analysis',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({product_id:selected.id,period_days:period})});const payload=await response.json();if(!response.ok||!payload.ok)throw new Error(payload.error||'상품 분석을 만들지 못했습니다.');const report=normalizeReport(payload.report);setActive(report);setHistory(current=>[report,...current.filter(item=>item.id!==report.id)]);setMessage('새 분석표를 계산하고 저장했습니다.');}catch(error){setMessage(error.message||'상품 분석을 만들지 못했습니다.');}finally{setRunning(false);}}
   const hero=model.hero||{};
-  return <main className="p28ProductAnalysis" data-phase28-root="true" data-phase28-page="product-analysis">
+  return <section className="p28ProductAnalysis" data-phase28-root="true" data-phase28-page="product-analysis">
     <div className="paIntro"><Phase28PageHeading context={`판매상품 ${hero.productCount??products.length}개 · 저장 분석 ${hero.savedCount??history.length}건 · 실제 근거와 미연결 근거 분리`} title="상품과 기간을 고르면 " accent="분석표" suffix="를 만들어요." summary={hero.summary||'검색 수요, 고객층, 경쟁 가격과 실제 판매 실적을 같은 분석 시점으로 묶어 봅니다.'}/><div className="paIntroStatus"><HarinIcon name="analysis" size={23}/><span><small>분석 기준</small><strong>{time(model.generatedAt)}</strong><em>선택 실행 · 서버 저장</em></span></div></div>
     <AnalysisRunner products={products} selectedId={selectedId} setSelectedId={setSelectedId} period={period} setPeriod={setPeriod} onRun={run} running={running}/>
     {message?<div className="paMessage" role="status">{message}</div>:null}
     <AnalysisHistory history={history} activeId={active?.id} onOpen={setActive}/>
     <Phase28RightRailLayout label="상품 분석 판단 패널" rail={<DecisionDesk product={selected} report={active}/>}>{active?<div className="paReport"><header><div><span>상품 세부 분석</span><h2>숫자를 나열하지 않고, 팔린 근거를 하나의 이야기로 읽어요.</h2></div><em>{PERIOD_LABEL[active.periodDays]} · {active.periodEnd}</em></header><ReportHero report={active}/><Provenance sources={active.sources}/><section className="paMarketer"><header><span>NAVER MARKETER REPORT</span><h2>지금 꼭 봐야 할 판매·검색 근거부터 한 줄로 확인해요.</h2><small>보고서 기준일 {active.periodStart} ~ {active.periodEnd}</small></header><MetricBrief report={active}/><AnalysisChapters report={active}/></section></div>:<EmptyReport/>}</Phase28RightRailLayout>
-  </main>;
+  </section>;
 }

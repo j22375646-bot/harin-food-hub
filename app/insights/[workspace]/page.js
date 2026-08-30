@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import hubRoutes from '../../../lib/navigation/hub-routes.js';
 import { renderDashboardRoute } from '../../page.js';
 
@@ -6,6 +6,8 @@ export const dynamic='force-dynamic';
 
 export default async function Page({ params, searchParams }) {
   const { workspace }=await params;
-  if(!(hubRoutes.HUB_WORKSPACES.insight||[]).some(item=>item.id===workspace))notFound();
-  return renderDashboardRoute('insight',searchParams,{workspace});
+  if(workspace==='causes')redirect('/insights/overview');
+  const currentWorkspaces=new Set([...(hubRoutes.HUB_WORKSPACES.insight||[]).map(item=>item.id).filter(id=>id!=='causes'),'saved']);
+  if(!currentWorkspaces.has(workspace))notFound();
+  return renderDashboardRoute('insight',searchParams,{phase28Workspace:workspace});
 }

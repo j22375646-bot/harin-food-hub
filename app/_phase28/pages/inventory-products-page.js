@@ -169,9 +169,9 @@ export default function Phase28InventoryProductsPage({mode='inventory',model={}}
   const router=useRouter();
   const inventory=mode==='inventory';
   const hero=model.hero||{};
-  return <main className="p28InventoryProducts" data-phase28-root="true" data-phase28-page={mode}>
+  return <section className="p28InventoryProducts" data-phase28-root="true" data-phase28-page={mode}>
     <div className="ipIntro"><Phase28PageHeading context={inventory?'쿠팡 로켓그로스 조회 전용 · 판매 가능 재고 기준':'기준 상품 · 채널 연결과 원가 근거 함께 표시'} title={inventory?'오늘 살펴볼 재고 항목은 ':'확인할 상품 작업은 '} accent={`${count(inventory?hero.itemCount:hero.actionCount)}건`} suffix="이에요." summary={hero.summary||(inventory?'판매 흐름과 주문 가능 재고를 함께 보고, 입고가 필요한 순서만 빠르게 정리합니다.':'기준 상품부터 채널 연결, 원가 신뢰, 판매 판단까지 한 흐름으로 확인합니다.')}/><div className="ipSnapshot"><i><HarinIcon name={inventory?'inventory':'product'} size={22}/></i><span><small>{inventory?'재고 기준 시각':'상품 기준 시각'}</small><strong>{referenceTime(hero.asOf)}</strong></span></div></div>
     <OperationSwitch mode={mode} onChange={target=>pushPhase28Route(router,target==='inventory'?'/inventory':'/products/catalog')}/>
     {inventory?<InventoryWorkspace model={model}/>:<ProductsWorkspace model={model}/>}
-  </main>;
+  </section>;
 }

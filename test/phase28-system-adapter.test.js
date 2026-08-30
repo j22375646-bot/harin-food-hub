@@ -42,6 +42,11 @@ test('Phase 28 시스템 어댑터는 핵심 6개 연결만 고정 순서로 노
   assert.equal('detail' in model.services[0],false);
 });
 
+test('Phase 28 시스템 어댑터는 URL 작업공간을 검증해 새로고침 상태로 보존한다',()=>{
+  assert.equal(buildPhase28SystemModel(snapshot,{workspace:'jobs'}).initialWorkspace,'jobs');
+  assert.equal(buildPhase28SystemModel(snapshot,{workspace:'unknown'}).initialWorkspace,'connections');
+});
+
 test('Phase 28 시스템 상세는 다섯 상태 축과 해당 제공처 자료만 반환한다',()=>{
   const detail=buildPhase28SystemProviderDetail(snapshot,'coupang');
   assert.equal(detail.id,'coupang');

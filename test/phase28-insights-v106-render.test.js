@@ -14,6 +14,8 @@ test('V106 insights owns the canonical route and server adapter',()=>{
   const page=read('app/page.js');
   const registry=read('lib/ui/phase28-route-registry.js');
   assert.match(route,/renderDashboardRoute\('insight'/);
+  assert.match(route,/workspace==='causes'/);
+  assert.match(route,/redirect\('\/insights\/overview'\)/);
   assert.match(registry,/id:'analysis'.*href:'\/insights\/overview'.*adapterId:'insights'/);
   assert.match(page,/activePages\.includes\('analysis'\)&&initialState\.view==='insight'/);
   assert.match(page,/buildPhase28InsightsModel\(dashboardData/);
@@ -34,6 +36,9 @@ test('V106 insights renders channel deck, four-stage signal track, saved reports
   assert.match(page,/WEEKLY INSIGHT DESK/);
   assert.match(page,/Phase28RightRailLayout/);
   assert.match(page,/Phase28ChannelLogo/);
+  assert.match(page,/useRouter/);
+  assert.match(page,/pushPhase28Route/);
+  assert.match(page,/model\.initialWorkspace==='saved'/);
 });
 
 test('saved report detail is authenticated, one-report-only, lazy, and cached in the browser',()=>{

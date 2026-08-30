@@ -4,6 +4,6 @@ import {redirectLegacySystemWorkspace} from '../route-mode.js';
 export const dynamic = 'force-dynamic';
 
 export default function NaverApiPage({ searchParams }) {
-  redirectLegacySystemWorkspace();
+  redirectLegacySystemWorkspace('naver-api');
   return renderDashboardRoute('collection', searchParams, { workspace:'naver-api' });
 }

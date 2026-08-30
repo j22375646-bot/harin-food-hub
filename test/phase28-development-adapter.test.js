@@ -38,3 +38,8 @@ test('Phase 28 상품개발 어댑터는 프로젝트가 없어도 추정 프로
   assert.equal(model.products[0].development.nextAction,'프로젝트 만들기');
   assert.equal(model.summary.projectCount,0);
 });
+
+test('Phase 28 상품개발 상품명은 채널 HTML 조각을 화면 문자로 노출하지 않는다',()=>{
+  const model=buildPhase28DevelopmentModel({products:[{id:'product-a',name:'구기결명자차 30g(1gX30TB)<br>',project:null}],projects:[]});
+  assert.equal(model.products[0].name,'구기결명자차 30g(1gX30TB)');
+});

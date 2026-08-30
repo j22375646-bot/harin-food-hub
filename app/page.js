@@ -2776,7 +2776,7 @@ async function renderDashboardState(initialState) {
     }
     if(phase28Runtime.activePages.includes('analysis')&&initialState.view==='insight'){
       try{
-        phase28={insights:phase28AdaptersModule.buildPhase28InsightsModel(dashboardData,{workspace:initialState.workspace}),adapter_status:'READY'};
+        phase28={insights:phase28AdaptersModule.buildPhase28InsightsModel(dashboardData,{workspace:initialState.workspace,platform:initialState.platform}),adapter_status:'READY'};
         clientDashboardData={...dashboardData,reports:[],insightDecision:null};
       }catch{
         phase28={insights:null,adapter_status:'ERROR'};
@@ -2784,7 +2784,7 @@ async function renderDashboardState(initialState) {
     }
     if(phase28Runtime.activePages.includes('system')&&initialState.view==='collection'){
       try{
-        phase28={system:phase28AdaptersModule.buildPhase28SystemModel(dashboardData),adapter_status:'READY'};
+        phase28={system:phase28AdaptersModule.buildPhase28SystemModel(dashboardData,{workspace:initialState.workspace}),adapter_status:'READY'};
       }catch{
         phase28={system:null,adapter_status:'ERROR'};
       }
@@ -2826,7 +2826,9 @@ async function renderDashboardState(initialState) {
 
 export async function renderDashboardRoute(view, searchParams, overrides={}) {
   const params=await searchParams;
-  const initialState=hubRoutesModule.normalizeHubState({...params,...overrides,view});
+  const {phase28Workspace,...stateOverrides}=overrides;
+  const normalizedState=hubRoutesModule.normalizeHubState({...params,...stateOverrides,view});
+  const initialState=phase28Workspace?{...normalizedState,workspace:phase28Workspace}:normalizedState;
   return renderDashboardState(initialState);
 }
 
