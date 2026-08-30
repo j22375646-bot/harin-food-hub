@@ -15,6 +15,7 @@ import Phase28InsightsPage from './pages/insights-page.js';
 import Phase28SystemPage from './pages/system-page.js';
 import Phase28NotificationsPage from './pages/notifications-page.js';
 import Phase28Shell from './phase28-shell.js';
+import {pushPhase28Route} from './phase28-navigation-feedback.js';
 
 function OnDemandRouteLoading({label}){
   return <section className="phase28OnDemandLoading" role="status" aria-live="polite"><span>필요할 때 불러오기</span><strong>{label} 준비 중</strong><small>선택한 페이지 자료만 불러오고 있어요.</small></section>;
@@ -38,7 +39,7 @@ export default function Phase28App({initialData}) {
     const route=typeof target==='string'
       ?phase28Route(target)
       :phase28Route(target?.id)||phase28RouteForLegacyState(target);
-    if(route)router.push(route.href);
+    if(route)pushPhase28Route(router,route.href);
   }
 
   let page;

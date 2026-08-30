@@ -6,6 +6,7 @@ import HarinIcon from '../../_design-system/harin-icon.js';
 import {Phase28ChannelLogo} from '../primitives/channel-logo.js';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
 import {Phase28RightRailLayout} from '../primitives/right-rail-layout.js';
+import {pushPhase28Route} from '../phase28-navigation-feedback.js';
 import './keywords-page.css';
 
 const FILTERS=[['all','전체'],['lower','감액 후보'],['raise','확대 후보'],['hold','유지·관찰'],['blocked','판단 보류']];
@@ -34,7 +35,7 @@ function visibleReasons(row={}){
 }
 
 function ChannelDeck({model,router}){
-  return <section className="kpChannelDeck" aria-label="키워드 운영 채널 선택"><div className="kpChannelSwitch">{(model.channels||[]).map(channel=><button type="button" aria-pressed={channel.active} data-active={channel.active} key={channel.id} onClick={()=>router.push(channel.href)}><Phase28ChannelLogo brand={channel.brand}/><span><strong>{channel.label}</strong><small>{channel.description}</small></span><em>{channel.id==='naver'?'API 운영':'WING 수동'}</em></button>)}</div></section>;
+  return <section className="kpChannelDeck" aria-label="키워드 운영 채널 선택"><div className="kpChannelSwitch">{(model.channels||[]).map(channel=><button type="button" aria-pressed={channel.active} data-active={channel.active} key={channel.id} onClick={()=>pushPhase28Route(router,channel.href)}><Phase28ChannelLogo brand={channel.brand}/><span><strong>{channel.label}</strong><small>{channel.description}</small></span><em>{channel.id==='naver'?'API 운영':'WING 수동'}</em></button>)}</div></section>;
 }
 
 function ChannelMode({model}){
@@ -54,7 +55,7 @@ function PerformanceFlow({model}){
 }
 
 function WorkspaceTabs({model,router}){
-  return <nav className="kpTabs" role="tablist" aria-label="키워드 작업공간">{(model.workspaces||[]).map(item=><button type="button" role="tab" aria-selected={item.active} key={item.id} onClick={()=>router.push(item.href)}><strong>{item.label}</strong><small>{item.description}</small></button>)}</nav>;
+  return <nav className="kpTabs" role="tablist" aria-label="키워드 작업공간">{(model.workspaces||[]).map(item=><button type="button" role="tab" aria-selected={item.active} key={item.id} onClick={()=>pushPhase28Route(router,item.href)}><strong>{item.label}</strong><small>{item.description}</small></button>)}</nav>;
 }
 
 function KeywordTable({model,rows,selected,activeId,drafts,onToggle,onInspect,onDraft}){

@@ -10,7 +10,7 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('V106 shell owns navigation without legacy shell imports',()=>{
   const shell=read('app/_phase28/phase28-shell.js');
-  assert.match(shell,/next\/link/);
+  assert.match(shell,/Phase28IntentLink/);
   assert.match(shell,/오늘 회사 활력/);
   assert.match(shell,/운영 확인 항목 기준/);
   assert.match(shell,/aria-label="허브 메뉴"/);
@@ -63,8 +63,44 @@ test('V106 shell reuses the newest authoritative Main snapshot across routes',()
 test('V106 shell carries per-route prefetch policy through every navigation surface',()=>{
   const shell=read('app/_phase28/phase28-shell.js');
   const palette=read('app/_phase28/phase28-command-palette.js');
-  assert.ok((shell.match(/prefetch=\{item\.prefetch\}/g)||[]).length>=3);
-  assert.match(palette,/prefetch=\{item\.prefetch\}/);
+  const intentLink=read('app/_phase28/phase28-intent-link.js');
+  assert.ok((shell.match(/prefetchPolicy=\{item\.prefetch\}/g)||[]).length>=3);
+  assert.match(palette,/prefetchPolicy=\{item\.prefetch\}/);
+  assert.match(intentLink,/prefetch=\{canPrefetch\?\(intentDetected\?true:false\):false\}/);
+  assert.match(intentLink,/onMouseEnter=\{event=>\{prepareRoute\(\)/);
+  assert.match(intentLink,/onFocus=\{event=>\{prepareRoute\(\)/);
+  assert.match(intentLink,/onTouchStart=\{event=>\{prepareRoute\(\)/);
+  assert.match(intentLink,/const canPrefetch=prefetchPolicy!==false/);
+});
+
+test('shared shell shows delayed non-blocking route feedback without a fullscreen overlay',()=>{
+  const shell=read('app/_phase28/phase28-shell.js');
+  const css=read('app/_phase28/phase28-shell.module.css');
+  const layout=read('app/layout.js');
+  assert.match(shell,/onClickCapture=\{beginRouteNavigation\}/);
+  assert.match(shell,/role="status" aria-live="polite"/);
+  assert.match(shell,/페이지 이동 중/);
+  assert.match(shell,/window\.setTimeout\(finishRouteNavigation,15000\)/);
+  assert.match(shell,/window\.location\.href!==startingUrl/);
+  assert.match(shell,/PHASE28_NAVIGATION_START_EVENT/);
+  assert.match(css,/\.routeProgress\{[^}]*position:fixed[^}]*height:3px[^}]*pointer-events:none/);
+  assert.match(css,/routeProgressReveal 1ms 120ms both/);
+  assert.match(css,/@media \(max-width:980px\)\{[\s\S]*\.routeProgress\{[^}]*left:0/);
+  assert.match(css,/@media \(prefers-reduced-motion:reduce\)\{[\s\S]*\.routeProgress\[data-active="true"\]\{[^}]*opacity:1/);
+  assert.doesNotMatch(css,/\.routeProgress\{[^}]*inset:0/);
+  assert.match(layout,/data-scroll-behavior="smooth"/);
+});
+
+test('button-driven Phase 28 route changes share the same feedback event',()=>{
+  const feedback=read('app/_phase28/phase28-navigation-feedback.js');
+  assert.match(feedback,/window\.dispatchEvent\(new Event\(PHASE28_NAVIGATION_START_EVENT\)\)/);
+  assert.match(feedback,/destination\.pathname===current\.pathname&&destination\.search===current\.search&&destination\.hash===current\.hash/);
+  assert.match(feedback,/router\.push\(href\)/);
+  for(const file of ['phase28-app.js','pages/experiments-page.js','pages/inventory-products-page.js','pages/keywords-page.js','pages/settlement-page.js']){
+    const source=read(`app/_phase28/${file}`);
+    assert.match(source,/pushPhase28Route/);
+    assert.doesNotMatch(source,/router\.push\(/);
+  }
 });
 
 test('record workflow links do not warm sibling low-frequency pages',()=>{

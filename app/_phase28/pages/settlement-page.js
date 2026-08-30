@@ -6,6 +6,7 @@ import HarinIcon from '../../_design-system/harin-icon.js';
 import {Phase28ChannelLogo} from '../primitives/channel-logo.js';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
 import {Phase28RightRailLayout} from '../primitives/right-rail-layout.js';
+import {pushPhase28Route} from '../phase28-navigation-feedback.js';
 import './settlement-page.css';
 
 const CHANNEL_ORDER=['NAVER','CAFE24','COUPANG'];
@@ -109,7 +110,7 @@ function SettlementWorkbench({model,workspace,setWorkspace,selectedId,onSelect})
 
 function EvidenceRail({channel,router}){
   if(!channel)return <div className="spRailEmpty"><HarinIcon name="settlement" size={24}/><strong>선택된 정산 근거가 없어요.</strong><span>채널 자료가 수집되면 예상액과 실제 지급액을 나란히 표시합니다.</span></div>;
-  return <div className="spRailBody"><header><span>SELECTED DIFFERENCE</span><h2>{channel.label} 정산 근거</h2><p>예상 {money(channel.expected)} · 실제 {money(channel.actual)} · 차이 {money(channel.variance,{signed:true})}</p></header><div className="spRailStatus" data-tone={channel.tone}><i/><strong>{channel.stateLabel}</strong></div><dl><div><dt>주문 원본</dt><dd>{count(channel.evidence.orderCount)}</dd></div><div><dt>정산 기준</dt><dd>{channel.basis}</dd></div><div><dt>수수료</dt><dd>{money(channel.fees)}</dd></div><div><dt>물류비</dt><dd>{money(channel.logistics)}</dd></div><div><dt>광고비</dt><dd>{money(channel.advertising)}</dd></div><div><dt>근거 수집률</dt><dd>{channel.evidence.coverage}%</dd></div><div><dt>기준 시각</dt><dd>{referenceTime(channel.asOf)}</dd></div></dl><section><span>NEXT CHECK</span><strong>{channel.action}</strong><button type="button" onClick={()=>router.push('/products/costs')}>상품 원가로 이어보기 <i>→</i></button></section><p>조회 전용 · 채널별 원본과 수정 경로를 섞지 않아요.</p></div>;
+  return <div className="spRailBody"><header><span>SELECTED DIFFERENCE</span><h2>{channel.label} 정산 근거</h2><p>예상 {money(channel.expected)} · 실제 {money(channel.actual)} · 차이 {money(channel.variance,{signed:true})}</p></header><div className="spRailStatus" data-tone={channel.tone}><i/><strong>{channel.stateLabel}</strong></div><dl><div><dt>주문 원본</dt><dd>{count(channel.evidence.orderCount)}</dd></div><div><dt>정산 기준</dt><dd>{channel.basis}</dd></div><div><dt>수수료</dt><dd>{money(channel.fees)}</dd></div><div><dt>물류비</dt><dd>{money(channel.logistics)}</dd></div><div><dt>광고비</dt><dd>{money(channel.advertising)}</dd></div><div><dt>근거 수집률</dt><dd>{channel.evidence.coverage}%</dd></div><div><dt>기준 시각</dt><dd>{referenceTime(channel.asOf)}</dd></div></dl><section><span>NEXT CHECK</span><strong>{channel.action}</strong><button type="button" onClick={()=>pushPhase28Route(router,'/products/costs')}>상품 원가로 이어보기 <i>→</i></button></section><p>조회 전용 · 채널별 원본과 수정 경로를 섞지 않아요.</p></div>;
 }
 
 function SettlementAi({panel}){

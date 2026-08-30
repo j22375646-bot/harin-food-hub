@@ -17,5 +17,5 @@ const themeBootstrap="try{var t=localStorage.getItem('harin-hub-theme');if(t==='
 
 export default function RootLayout({ children }) {
   const ui=uiFlags.harinUiConfig();
-  return <html lang="ko" data-harin-ui={ui.version} data-harin-rollback={ui.rollbackFlag} data-harin-health-version="23-8" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{__html:themeBootstrap}}/></head><body className={ui.bodyClass}>{children}</body></html>;
+  return <html lang="ko" data-harin-ui={ui.version} data-harin-rollback={ui.rollbackFlag} data-harin-health-version="23-8" data-scroll-behavior="smooth" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{__html:themeBootstrap}}/></head><body className={ui.bodyClass}>{children}</body></html>;
 }

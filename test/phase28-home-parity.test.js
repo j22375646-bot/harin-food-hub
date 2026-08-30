@@ -34,7 +34,7 @@ test('Main interactions resolve only through the stable route registry',()=>{
   assert.match(app,/useRouter/);
   assert.match(app,/phase28RouteForLegacyState/);
   assert.match(app,/phase28Route\(/);
-  assert.match(app,/router\.push\(route\.href\)/);
+  assert.match(app,/pushPhase28Route\(router,route\.href\)/);
   assert.match(app,/routeId==='home'/);
   assert.match(app,/Phase28HomePage/);
   assert.doesNotMatch(app,/main-dashboard|legacy-dashboard|Phase14MainCommandCenter/);

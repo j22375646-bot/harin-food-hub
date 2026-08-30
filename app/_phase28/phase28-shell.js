@@ -1,12 +1,13 @@
 'use client';
 
-import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState,useTransition} from 'react';
 import operationSnapshotModule from '../../lib/navigation/operation-snapshot.js';
 import navigationModule from '../../lib/ui/phase28-navigation.js';
 import {Phase28CommandPalette} from './phase28-command-palette.js';
 import {Phase28EvidenceDrawer} from './phase28-evidence-drawer.js';
+import {Phase28IntentLink} from './phase28-intent-link.js';
+import {PHASE28_NAVIGATION_START_EVENT} from './phase28-navigation-feedback.js';
 import tokens from './phase28-tokens.module.css';
 import styles from './phase28-shell.module.css';
 
@@ -50,11 +51,11 @@ function formatLiveTime(value) {
 
 function NavigationLink({item,routeId,compact=false,onNavigate}) {
   const active=item.id===routeId;
-  return <Link href={item.href} prefetch={item.prefetch} className={`${styles.navItem}${active?` ${styles.active}`:''}`} aria-current={active?'page':undefined} onClick={onNavigate} title={compact?item.label:undefined}>
+  return <Phase28IntentLink href={item.href} prefetchPolicy={item.prefetch} className={`${styles.navItem}${active?` ${styles.active}`:''}`} aria-current={active?'page':undefined} onClick={onNavigate} title={compact?item.label:undefined}>
     <span className={styles.navIcon}><RouteIcon id={item.id}/></span>
     <span className={styles.navCopy}><strong>{item.label}</strong><small>{item.description}</small></span>
     {item.badge==null?null:<span className={styles.navBadge}>{item.badge}</span>}
-  </Link>;
+  </Phase28IntentLink>;
 }
 
 export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigationSnapshot=null,badges=null,generatedAt=null,children}) {
@@ -65,11 +66,14 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
   const [evidenceOpen,setEvidenceOpen]=useState(false);
   const [moreOpen,setMoreOpen]=useState(false);
   const [liveTime,setLiveTime]=useState(null);
+  const [routePending,setRoutePending]=useState(false);
   const [refreshing,startRefresh]=useTransition();
   const sidebarScrollRef=useRef(null);
   const [sidebarScrollState,setSidebarScrollState]=useState({up:false,down:false});
   const moreDialogRef=useRef(null);
   const moreTriggerRef=useRef(null);
+  const routePendingTimerRef=useRef(null);
+  const routePendingFrameRef=useRef(null);
   const incomingSnapshot=useMemo(()=>parseNavigationOperationSnapshot(incomingNavigationSnapshot),[incomingNavigationSnapshot]);
   const [storedNavigationSnapshot,setStoredNavigationSnapshot]=useState(incomingSnapshot);
   const activeNavigationSnapshot=selectNavigationOperationSnapshot(incomingSnapshot,storedNavigationSnapshot);
@@ -84,6 +88,39 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
   const closeCommand=useCallback(()=>setCommandOpen(false),[]);
   const closeEvidence=useCallback(()=>setEvidenceOpen(false),[]);
   const closeMore=useCallback(()=>setMoreOpen(false),[]);
+  const finishRouteNavigation=useCallback(()=>{
+    setRoutePending(false);
+    if(routePendingTimerRef.current){
+      window.clearTimeout(routePendingTimerRef.current);
+      routePendingTimerRef.current=null;
+    }
+    if(routePendingFrameRef.current){
+      window.cancelAnimationFrame(routePendingFrameRef.current);
+      routePendingFrameRef.current=null;
+    }
+  },[]);
+  const showRouteNavigation=useCallback(()=>{
+    const startingUrl=window.location.href;
+    setRoutePending(true);
+    if(routePendingTimerRef.current)window.clearTimeout(routePendingTimerRef.current);
+    if(routePendingFrameRef.current)window.cancelAnimationFrame(routePendingFrameRef.current);
+    const watchLocation=()=>{
+      if(window.location.href!==startingUrl){finishRouteNavigation();return;}
+      routePendingFrameRef.current=window.requestAnimationFrame(watchLocation);
+    };
+    routePendingFrameRef.current=window.requestAnimationFrame(watchLocation);
+    routePendingTimerRef.current=window.setTimeout(finishRouteNavigation,15000);
+  },[finishRouteNavigation]);
+  const beginRouteNavigation=useCallback(event=>{
+    if(event.defaultPrevented||event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;
+    const anchor=event.target?.closest?.('a[href]');
+    if(!anchor||anchor.hasAttribute('download')||(anchor.target&&anchor.target!=='_self'))return;
+    const destination=new URL(anchor.href,window.location.href);
+    const current=new URL(window.location.href);
+    if(destination.origin!==current.origin)return;
+    if(destination.pathname===current.pathname&&destination.search===current.search)return;
+    showRouteNavigation();
+  },[showRouteNavigation]);
   const syncSidebarScrollState=useCallback(()=>{
     const node=sidebarScrollRef.current;
     if(!node)return;
@@ -119,6 +156,15 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
       if(intervalId)window.clearInterval(intervalId);
     };
   },[]);
+
+  useEffect(()=>{
+    window.addEventListener(PHASE28_NAVIGATION_START_EVENT,showRouteNavigation);
+    return ()=>{
+      window.removeEventListener(PHASE28_NAVIGATION_START_EVENT,showRouteNavigation);
+      if(routePendingTimerRef.current)window.clearTimeout(routePendingTimerRef.current);
+      if(routePendingFrameRef.current)window.cancelAnimationFrame(routePendingFrameRef.current);
+    };
+  },[showRouteNavigation]);
 
   useEffect(()=>{
     function onKeyDown(event) {
@@ -193,7 +239,7 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
   }
 
   return (
-    <div className={`${tokens.root} ${styles.shell}`} data-theme={theme} data-sidebar={compact?'compact':'expanded'}>
+    <div className={`${tokens.root} ${styles.shell}`} data-theme={theme} data-sidebar={compact?'compact':'expanded'} onClickCapture={beginRouteNavigation}>
       <aside className={styles.sidebar} aria-label="데스크톱 메뉴 영역" data-can-scroll-up={sidebarScrollState.up} data-can-scroll-down={sidebarScrollState.down}>
         <div className={styles.sidebarScrollArea} ref={sidebarScrollRef} onScroll={syncSidebarScrollState}>
           <div className={styles.brand}><span className={styles.brandMark}>H</span><span className={styles.brandCopy}><strong>하린식품</strong><small>성장 운영 허브</small></span></div>
@@ -219,7 +265,7 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
           <span className={styles.topSpacer}/>
           <button className={styles.commandButton} type="button" onClick={()=>setCommandOpen(true)} aria-haspopup="dialog"><span aria-hidden="true">⌕</span>메뉴·상품·업무 빠르게 찾기 <kbd>Ctrl K</kbd></button>
           <button className={styles.topAction} type="button" onClick={toggleTheme} aria-label={theme==='light'?'어두운 화면으로 바꾸기':'밝은 화면으로 바꾸기'} aria-pressed={theme==='dark'}><span aria-hidden="true">{theme==='light'?'◐':'☀'}</span>{theme==='light'?'다크 모드':'라이트 모드'}</button>
-          <Link className={styles.topAction} href="/notifications"><span className={styles.alertDot}/>{notificationCount==null?'운영 확인':`운영 확인 ${notificationCount}건`}</Link>
+          <Phase28IntentLink className={styles.topAction} href="/notifications"><span className={styles.alertDot}/>{notificationCount==null?'운영 확인':`운영 확인 ${notificationCount}건`}</Phase28IntentLink>
           <button className={`${styles.topAction} ${styles.primaryAction}`} type="button" onClick={refreshStatus} disabled={refreshing}><span aria-hidden="true">↻</span>{refreshing?'다시 확인 중':'전체 상태 새로고침'}</button>
           <form action="/api/dashboard/logout" method="post"><button className={styles.logoutButton} type="submit">로그아웃</button></form>
         </header>
@@ -227,21 +273,25 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
         <header className={styles.mobileHeader}>
           <span className={styles.brandMark}>H</span><strong>{activeItem.label}</strong><span className={styles.mobileLiveChip}>운영</span><span className={styles.mobileSpacer}/>
           <button type="button" onClick={toggleTheme} aria-label={theme==='light'?'어두운 화면으로 바꾸기':'밝은 화면으로 바꾸기'} aria-pressed={theme==='dark'}>{theme==='light'?'◐':'☀'}</button>
-          <Link href="/notifications" aria-label={notificationCount==null?'운영 확인':'운영 확인 항목'}>▣{notificationCount==null?null:<span>{notificationCount}</span>}</Link>
+          <Phase28IntentLink href="/notifications" aria-label={notificationCount==null?'운영 확인':'운영 확인 항목'}>▣{notificationCount==null?null:<span>{notificationCount}</span>}</Phase28IntentLink>
           <button type="button" onClick={refreshStatus} disabled={refreshing} aria-label="전체 상태 새로고침">↻</button>
         </header>
 
         <main className={styles.main}>{children}</main>
       </div>
 
+      <div className={styles.routeProgress} data-active={routePending?'true':'false'} role="status" aria-live="polite" aria-label={routePending?'페이지 이동 중':undefined}>
+        <i aria-hidden="true"/><span>페이지 이동 중</span>
+      </div>
+
       <nav className={styles.mobileNav} aria-label="모바일 주요 메뉴">
-        {primaryItems.map(item=>{const active=item.id===routeId;return <Link href={item.href} prefetch={item.prefetch} key={item.id} aria-current={active?'page':undefined} className={active?styles.active:undefined}><RouteIcon id={item.id}/><span>{item.id==='orders'?'주문':item.id==='inventory'?'재고·상품':item.label}</span>{item.badge==null?null:<b>{item.badge}</b>}</Link>;})}
+        {primaryItems.map(item=>{const active=item.id===routeId;return <Phase28IntentLink href={item.href} prefetchPolicy={item.prefetch} key={item.id} aria-current={active?'page':undefined} className={active?styles.active:undefined}><RouteIcon id={item.id}/><span>{item.id==='orders'?'주문':item.id==='inventory'?'재고·상품':item.label}</span>{item.badge==null?null:<b>{item.badge}</b>}</Phase28IntentLink>;})}
         <button ref={moreTriggerRef} type="button" onClick={()=>setMoreOpen(true)} aria-haspopup="dialog" aria-expanded={moreOpen} className={!navigation.mobilePrimary.includes(routeId)?styles.active:undefined}><RouteIcon id="system"/><span>더보기</span></button>
       </nav>
 
       {moreOpen?<section className={styles.mobileMoreBackdrop} role="dialog" aria-modal="true" aria-labelledby="phase28-more-title"><div className={styles.mobileMore} ref={moreDialogRef}>
         <header className={styles.dialogHeader}><div><span>전체 메뉴</span><h2 id="phase28-more-title">어디로 이동할까요?</h2></div><button type="button" onClick={closeMore} aria-label="더보기 메뉴 닫기">×</button></header>
-        <div className={styles.mobileMoreRoutes}>{secondaryItems.map(item=><Link href={item.href} prefetch={item.prefetch} key={item.id} onClick={closeMore} aria-current={item.id===routeId?'page':undefined}><span className={styles.navIcon}><RouteIcon id={item.id}/></span><span><strong>{item.label}</strong><small>{item.description}</small></span>{item.badge==null?null:<b>{item.badge}</b>}</Link>)}</div>
+        <div className={styles.mobileMoreRoutes}>{secondaryItems.map(item=><Phase28IntentLink href={item.href} prefetchPolicy={item.prefetch} key={item.id} onClick={closeMore} aria-current={item.id===routeId?'page':undefined}><span className={styles.navIcon}><RouteIcon id={item.id}/></span><span><strong>{item.label}</strong><small>{item.description}</small></span>{item.badge==null?null:<b>{item.badge}</b>}</Phase28IntentLink>)}</div>
         <form action="/api/dashboard/logout" method="post"><button className={styles.mobileLogout} type="submit">로그아웃</button></form>
       </div></section>:null}
 

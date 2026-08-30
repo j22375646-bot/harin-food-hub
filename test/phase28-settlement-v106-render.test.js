@@ -37,7 +37,7 @@ test('settlement page remains read-only and hands cost evidence to the existing 
   const page=read('app/_phase28/pages/settlement-page.js');
   assert.doesNotMatch(page,/fetch\(/);
   assert.doesNotMatch(page,/method:\s*['"](?:POST|PUT|PATCH|DELETE)/);
-  assert.match(page,/router\.push\('\/products\/costs'\)/);
+  assert.match(page,/pushPhase28Route\(router,'\/products\/costs'\)/);
   assert.match(page,/확인 필요/);
 });
 

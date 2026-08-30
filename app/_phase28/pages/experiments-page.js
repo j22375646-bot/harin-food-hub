@@ -5,6 +5,7 @@ import {useEffect,useMemo,useState,useTransition} from 'react';
 import {useRouter} from 'next/navigation';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
 import {Phase28RightRailLayout} from '../primitives/right-rail-layout.js';
+import {pushPhase28Route} from '../phase28-navigation-feedback.js';
 import './experiments-page.css';
 
 const LOOP=[
@@ -77,7 +78,7 @@ export default function Phase28ExperimentsPage({model}){
   const active=model.items.find(item=>item.id===activeId)||visible[0]||model.items[0]||null;
   useEffect(()=>{if(active&&!activeId)setActiveId(active.id);},[active?.id,activeId]);
 
-  function chooseProduct(productId){const query=productId?`?master_product_id=${encodeURIComponent(productId)}`:'';router.push(`/ab-tests${query}`);}
+  function chooseProduct(productId){const query=productId?`?master_product_id=${encodeURIComponent(productId)}`:'';pushPhase28Route(router,`/ab-tests${query}`);}
   async function request(url,payload){
     setMessage('서버에서 저장·계산하는 중입니다.');
     try{const response=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'처리 실패');setMessage(result.summary||result.result?.summary||'변경 후 실제값을 다시 확인했습니다.');startTransition(()=>router.refresh());return true;}catch(error){setMessage(`확인 필요 · ${error.message}`);return false;}

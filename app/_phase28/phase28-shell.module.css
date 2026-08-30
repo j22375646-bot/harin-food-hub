@@ -69,6 +69,15 @@
 .logoutButton{min-height:44px;padding:0 10px;border:0;background:transparent;color:var(--p28-muted);font-size:13px;font-weight:800;cursor:pointer;}
 .main{width:100%;max-width:var(--p28-canvas-max);min-height:calc(100vh - var(--p28-header));margin:0 auto;padding:34px var(--p28-gutter) 64px;}
 
+.routeProgress{position:fixed;z-index:39;top:calc(var(--p28-header) - 3px);right:0;left:var(--p28-sidebar);height:3px;overflow:visible;visibility:hidden;pointer-events:none;opacity:0;transition:left .2s ease;}
+.routeProgress::before{content:"";position:absolute;inset:0;background:var(--p28-blue-soft);}
+.routeProgress i{position:absolute;inset:0 auto 0 0;width:34%;background:var(--p28-blue);transform:translateX(-110%);}
+.routeProgress span{position:absolute;top:9px;right:32px;padding:5px 9px;border:1px solid color-mix(in srgb,var(--p28-blue) 24%,var(--p28-line));border-radius:999px;background:var(--p28-surface);color:var(--p28-blue);font-size:12px;font-weight:850;line-height:1.2;white-space:nowrap;}
+.routeProgress[data-active="true"]{visibility:visible;animation:routeProgressReveal 1ms 120ms both;}
+.routeProgress[data-active="true"] i{animation:routeProgressTravel 1.05s cubic-bezier(.45,0,.55,1) 120ms infinite;}
+@keyframes routeProgressReveal{to{opacity:1;}}
+@keyframes routeProgressTravel{from{transform:translateX(-110%);}to{transform:translateX(300%);}}
+
 .shell[data-sidebar="compact"]{--p28-sidebar:82px;}
 .shell[data-sidebar="compact"] .sidebarScrollArea{padding-inline:10px;}
 .shell[data-sidebar="compact"] .brand{justify-content:center;padding:0;}
@@ -138,6 +147,8 @@
 @media (max-width:980px){
   .sidebar,.topbar{display:none;}
   .workspace{padding-left:0;}
+  .routeProgress{z-index:69;top:61px;left:0;}
+  .routeProgress span{top:8px;right:12px;}
   .mobileHeader{position:sticky;top:0;z-index:50;height:64px;padding:0 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--p28-line);background:color-mix(in srgb,var(--p28-surface) 97%,transparent);}
   .mobileHeader .brandMark{width:36px;height:36px;border-radius:11px;font-size:17px;}
   .mobileHeader>strong{font-size:17px;font-weight:900;white-space:nowrap;}
@@ -168,4 +179,6 @@
 
 @media (prefers-reduced-motion:reduce){
   .shell *{scroll-behavior:auto!important;animation:none!important;transition:none!important;}
+  .routeProgress[data-active="true"]{visibility:visible;opacity:1;}
+  .routeProgress[data-active="true"] i{width:100%;transform:none;}
 }
