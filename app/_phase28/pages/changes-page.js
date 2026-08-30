@@ -32,10 +32,14 @@ function SummaryStrip({model,dataUnavailable}){
 
 function ChangeCard({item,active,onSelect}){
   const changes=item.changes?.length?item.changes:[{field:'unknown',label:'변경값',beforeLabel:'확인 필요',afterLabel:'확인 필요'}];
+  const primaryChange=changes[0];
+  const extraChangeCount=Math.max(0,changes.length-1);
   return <button type="button" className="changeCard" data-selected={active} data-state={item.state} onClick={()=>onSelect(item.id)} aria-pressed={active}>
-    <header><span><strong>{item.title}</strong><small>{item.targetLabel} · {item.createdLabel} · 멱등키 {item.idempotencyLabel}</small></span><em data-state={item.state}>{item.statusLabel}</em></header>
-    <div className="changeDiffs">{changes.slice(0,4).map(change=><span className="changeDiff" key={change.field}><small>{change.label}</small><span>{change.beforeLabel}</span><i aria-hidden="true">›</i><strong>{change.afterLabel}</strong></span>)}</div>
-    <footer><span>{item.writeLocked?'서버 쓰기 잠금':`${item.auditCount}개 감사 기록 · ${item.lastAuditLabel}`}</span><strong>{item.rollbackSupported?item.state==='ROLLBACK'?'복구 기록 보존':'롤백 가능':'기록 보존'}</strong></footer>
+    <span className="changeRecordIdentity"><strong>{item.title}</strong><small>{item.targetLabel} · {item.createdLabel}</small><em>{item.channel} · {item.idempotencyLabel}</em></span>
+    <span className="changeRecordDelta"><small>{primaryChange.label}{extraChangeCount?` 외 ${extraChangeCount}개`:''}</small><span><b>{primaryChange.beforeLabel}</b><i aria-hidden="true">→</i><strong>{primaryChange.afterLabel}</strong></span></span>
+    <span className="changeRecordAudit"><small>감사 기록</small><strong>{item.writeLocked?'서버 쓰기 잠금':`${item.auditCount}건 · ${item.lastAuditLabel}`}</strong></span>
+    <span className="changeRecordState"><em data-state={item.state}>{item.statusLabel}</em><small>{item.rollbackSupported?item.state==='ROLLBACK'?'복구 기록 보존':'롤백 가능':'기록 보존'}</small></span>
+    <i className="changeRecordOpen" aria-hidden="true">›</i>
   </button>;
 }
 
@@ -90,6 +94,7 @@ export default function Phase28ChangesPage({model={}}){
     <Phase28RightRailLayout label="변경 감사 기록" rail={rail}>
       <section className="changeWorkbench" aria-label="변경 실행과 복구 기록">
         <header className="changeToolbar"><div role="tablist" aria-label="변경 상태">{FILTERS.map(item=><button type="button" role="tab" aria-selected={filter===item.id} data-selected={filter===item.id} onClick={()=>setFilter(item.id)} key={item.id}>{item.label} {dataUnavailable?'확인 필요':counts[item.id]}</button>)}</div><label>채널 <select value={platform} onChange={event=>setPlatform(event.target.value)}><option value="ALL">전체</option><option value="NAVER">네이버</option><option value="CAFE24">Cafe24</option><option value="COUPANG">쿠팡</option></select></label></header>
+        <div className="changeListHeader" aria-hidden="true"><span>변경 대상</span><span>전후 값</span><span>감사 기록</span><span>현재 상태</span><span></span></div>
         <div className="changeList">{visible.map(item=><ChangeCard item={item} active={active?.id===item.id} onSelect={setActiveId} key={item.id}/>)}{!visible.length?<div className="changeEmpty"><HarinIcon name={dataUnavailable?'warning':'approvals'} size={26}/><strong>{dataUnavailable?'변경 기록을 확인할 수 없습니다.':'이 조건의 변경 기록이 없습니다.'}</strong><p>{dataUnavailable?'저장소 연결을 확인한 뒤 다시 열어주세요.':'상태나 채널을 바꾸면 다른 기록을 확인할 수 있습니다.'}</p></div>:null}</div>
       </section>
     </Phase28RightRailLayout>

@@ -34,7 +34,11 @@ test('V106 변경 기록은 결정 순환·필터·확인·실행·재조회·�
 });
 
 test('변경 CSS는 고정 읽기 크기·균형 선택·모바일·절제된 동작을 지킨다',()=>{
+  const page=read('app/_phase28/pages/changes-page.js');
   const css=read('app/_phase28/pages/changes-page.css');
+  for(const className of ['changeListHeader','changeRecordIdentity','changeRecordDelta','changeRecordAudit','changeRecordState'])assert.match(page,new RegExp(className));
+  assert.match(css,/\.changeCard\{[^}]*grid-template-columns:\s*minmax\(220px,1\.2fr\)\s+minmax\(240px,1fr\)\s+minmax\(150px,\.7fr\)\s+minmax\(132px,\.55fr\)\s+24px/);
+  assert.match(css,/\.changeCard\{[^}]*min-height:\s*96px/);
   assert.match(css,/max-width:\s*2300px/);
   assert.match(css,/min-height:\s*(?:44|46|48)px/);
   assert.match(css,/@media\s*\(max-width:\s*760px\)/);
