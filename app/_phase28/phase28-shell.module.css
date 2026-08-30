@@ -55,8 +55,9 @@
 .pageName{font-size:21px;font-weight:900;letter-spacing:-.025em;white-space:nowrap;}
 .updated{color:var(--p28-muted);font-size:14px;white-space:nowrap;}
 .topSpacer{flex:1;}
-.evidenceButton{min-height:46px;display:grid;align-content:center;gap:1px;padding:0 11px;border:1px solid var(--p28-line);border-radius:11px;background:var(--p28-surface);color:var(--p28-muted);text-align:left;cursor:pointer;}
-.evidenceButton span{font-size:12px;font-weight:800;}
+.evidenceButton{min-width:128px;min-height:46px;display:inline-flex;align-items:center;justify-content:center;gap:9px;padding:0 13px;border:1px solid var(--p28-line);border-radius:11px;background:var(--p28-surface);color:var(--p28-muted);text-align:left;white-space:nowrap;cursor:pointer;}
+.evidenceButton span{display:inline-flex;align-items:center;gap:9px;font-size:12px;font-weight:800;}
+.evidenceButton span::after{content:"";width:1px;height:14px;background:var(--p28-line-strong);}
 .evidenceButton strong{color:var(--p28-ink);font-size:12px;}
 .commandButton{width:min(360px,30vw);min-height:46px;display:flex;align-items:center;gap:9px;padding:0 12px;border:1px solid var(--p28-line);border-radius:11px;background:var(--p28-soft);color:var(--p28-muted);font-size:14px;white-space:nowrap;cursor:pointer;}
 .commandButton>span{font-size:22px;line-height:1;}

@@ -30,6 +30,13 @@ test('V106 shell retains command search and evidence access',()=>{
   assert.match(evidence,/role="dialog"/);
 });
 
+test('shared evidence control stays a horizontal single-line chip on every desktop route',()=>{
+  const css=read('app/_phase28/phase28-shell.module.css');
+  assert.match(css,/\.evidenceButton\{[^}]*min-width:128px[^}]*display:inline-flex[^}]*align-items:center[^}]*white-space:nowrap/);
+  assert.doesNotMatch(css,/\.evidenceButton\{[^}]*display:grid/);
+  assert.match(css,/\.evidenceButton span::after\{[^}]*width:1px[^}]*height:14px/);
+});
+
 test('V106 shell reuses the newest authoritative Main snapshot across routes',()=>{
   const shell=read('app/_phase28/phase28-shell.js');
   const app=read('app/_phase28/phase28-app.js');
