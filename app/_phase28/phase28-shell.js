@@ -42,9 +42,9 @@ function RouteIcon({id}) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICON_PATHS[id]||ICON_PATHS.home}</svg>;
 }
 
-function formatReferenceTime(value) {
+function formatLiveTime(value) {
   const date=new Date(value||'');
-  if(Number.isNaN(date.getTime()))return '기준시각 확인 필요';
+  if(Number.isNaN(date.getTime()))return '현재시간 확인 중';
   return `${new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',weekday:'short'}).format(date)} · ${new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',hour:'numeric',minute:'2-digit'}).format(date)} 기준`;
 }
 
@@ -64,6 +64,7 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
   const [commandOpen,setCommandOpen]=useState(false);
   const [evidenceOpen,setEvidenceOpen]=useState(false);
   const [moreOpen,setMoreOpen]=useState(false);
+  const [liveTime,setLiveTime]=useState(null);
   const [refreshing,startRefresh]=useTransition();
   const sidebarScrollRef=useRef(null);
   const [sidebarScrollState,setSidebarScrollState]=useState({up:false,down:false});
@@ -102,6 +103,21 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
         document.documentElement.dataset.harinTheme=saved;
       }
     }catch{}
+  },[]);
+
+  useEffect(()=>{
+    let intervalId;
+    const tick=()=>setLiveTime(new Date().toISOString());
+    tick();
+    const delayUntilNextMinute=60000-(Date.now()%60000)+50;
+    const timeoutId=window.setTimeout(()=>{
+      tick();
+      intervalId=window.setInterval(tick,60000);
+    },delayUntilNextMinute);
+    return ()=>{
+      window.clearTimeout(timeoutId);
+      if(intervalId)window.clearInterval(intervalId);
+    };
   },[]);
 
   useEffect(()=>{
@@ -198,7 +214,7 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
       <div className={styles.workspace}>
         <header className={styles.topbar}>
           <strong className={styles.pageName}>{activeItem.label}</strong>
-          <span className={styles.updated}>{formatReferenceTime(generatedAt)}</span>
+          <time className={styles.updated} dateTime={liveTime||undefined} aria-label="현재 한국시간">{formatLiveTime(liveTime)}</time>
           <button className={styles.evidenceButton} type="button" onClick={()=>setEvidenceOpen(true)} aria-haspopup="dialog" aria-expanded={evidenceOpen}><span>자료 근거</span><strong>{generatedAt?'현재 표본':'확인 필요'}</strong></button>
           <span className={styles.topSpacer}/>
           <button className={styles.commandButton} type="button" onClick={()=>setCommandOpen(true)} aria-haspopup="dialog"><span aria-hidden="true">⌕</span>메뉴·상품·업무 빠르게 찾기 <kbd>Ctrl K</kbd></button>

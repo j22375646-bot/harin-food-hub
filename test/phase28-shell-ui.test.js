@@ -30,6 +30,18 @@ test('V106 shell retains command search and evidence access',()=>{
   assert.match(evidence,/role="dialog"/);
 });
 
+test('shared top bar clock follows live Korea time without polling operational APIs',()=>{
+  const shell=read('app/_phase28/phase28-shell.js');
+  assert.match(shell,/const \[liveTime,setLiveTime\]=useState\(null\)/);
+  assert.match(shell,/timeZone:'Asia\/Seoul'/);
+  assert.match(shell,/delayUntilNextMinute=60000-\(Date\.now\(\)%60000\)\+50/);
+  assert.match(shell,/window\.setInterval\(tick,60000\)/);
+  assert.match(shell,/window\.clearInterval\(intervalId\)/);
+  assert.match(shell,/aria-label="현재 한국시간"/);
+  assert.match(shell,/formatLiveTime\(liveTime\)/);
+  assert.doesNotMatch(shell,/setInterval\([^)]*router\.refresh/);
+});
+
 test('shared evidence control stays a horizontal single-line chip on every desktop route',()=>{
   const css=read('app/_phase28/phase28-shell.module.css');
   assert.match(css,/\.evidenceButton\{[^}]*min-width:128px[^}]*display:inline-flex[^}]*align-items:center[^}]*white-space:nowrap/);
