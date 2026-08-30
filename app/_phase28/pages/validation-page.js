@@ -33,7 +33,10 @@ function SummaryStrip({model,unavailable}){
 
 function ActionChooser({items,activeId,onSelect}){
   if(!items.length)return <div className="validationEmpty"><HarinIcon name="validation" size={27}/><strong>추적할 실행 기록이 없습니다.</strong><p>진단에서 실행 후보를 만들고 변경기록에서 실제 반영하면 7·14일 결과가 이어집니다.</p></div>;
-  return <div className="validationActions" aria-label="검증할 실행 선택">{items.map(item=><button type="button" className="validationAction" data-selected={activeId===item.id} aria-pressed={activeId===item.id} onClick={()=>onSelect(item.id)} key={item.id}><span><i><HarinIcon name="validation" size={20}/></i><span><strong>{item.targetLabel}</strong><small>{item.channel} · {item.executedLabel}</small></span></span><em data-state={item.decisionState}>{item.decisionLabel}</em></button>)}</div>;
+  return <section className="validationPicker" aria-label="검증할 실행 선택">
+    <header className="validationPickerHeader"><span><small>OUTCOME QUEUE</small><strong>검증할 실행 고르기</strong></span><em>{items.length}건 · 전체 펼침</em></header>
+    <div className="validationActions">{items.map(item=>{const selected=activeId===item.id;return <button type="button" className="validationAction" data-selected={selected} aria-pressed={selected} onClick={()=>onSelect(item.id)} key={item.id}><span className="validationActionMain"><i><HarinIcon name="validation" size={20}/></i><span><strong>{item.targetLabel}</strong><small>{item.channel} · {item.executedLabel}</small></span></span><span className="validationActionState"><em data-state={item.decisionState}>{item.decisionLabel}</em><small>{selected?'선택됨':'결과 보기'} <b aria-hidden="true">›</b></small></span></button>;})}</div>
+  </section>;
 }
 
 function ExecutionPanel({item}){

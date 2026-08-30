@@ -30,7 +30,13 @@ test('V106 실행검증은 결정 순환·4단계 타임라인·고객 재구매
 });
 
 test('실행검증 CSS는 고정 읽기 크기·균형 선택·모바일·절제된 동작을 지킨다',()=>{
+  const page=read('app/_phase28/pages/validation-page.js');
   const css=read('app/_phase28/pages/validation-page.css');
+  assert.match(page,/validationPickerHeader/);
+  assert.match(page,/검증할 실행 고르기/);
+  assert.match(css,/\.validationActions\{[^}]*display:\s*grid/);
+  assert.match(css,/\.validationActions\{[^}]*grid-template-columns:\s*repeat\(3,minmax\(0,1fr\)\)/);
+  assert.doesNotMatch(css,/\.validationActions\{[^}]*overflow-x:\s*auto/);
   assert.match(css,/max-width:\s*2300px/);
   assert.match(css,/min-height:\s*(?:44|46|48)px/);
   assert.match(css,/@media\s*\(max-width:\s*760px\)/);
