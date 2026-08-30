@@ -9,7 +9,9 @@ const workbench=require('../lib/shipping/workbench.js');
 test('blocks canceled and Rocket Growth orders from seller shipping actions',()=>{
   assert.equal(workbench.canShip({stage:'PAID',cancellationRequested:true}).ok,false);
   assert.equal(workbench.canShip({stage:'PAID',fulfillment:'ROCKET_GROWTH'}).ok,false);
-  assert.equal(workbench.canShip({stage:'PAID',platform:'NAVER'}).ok,false);
+  const naver=workbench.canShip({stage:'PAID',platform:'NAVER'});
+  assert.equal(naver.ok,false);
+  assert.match(naver.reason,/네이버에서 송장을 발급/);
   assert.equal(workbench.canShip({stage:'PAID',platform:'CAFE24',fulfillment:'SELLER'}).ok,true);
 });
 

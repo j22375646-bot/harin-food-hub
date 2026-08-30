@@ -34,6 +34,8 @@ test('orders adapter derives seller-delivery work without inventing retry totals
   assert.equal(model.orders[0].receiver.name,'김하린');
   assert.equal(model.orders[0].amount,12000);
   assert.equal(model.orders[0].items[0].option,'30티백');
+  assert.equal(model.orders[0].selectionEligible,false);
+  assert.match(model.orders[0].selectionBlockedReason,/네이버에서 송장을 발급/);
   assert.equal(model.cutoff.label,'오후 3시');
 });
 

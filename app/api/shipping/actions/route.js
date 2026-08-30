@@ -164,7 +164,7 @@ export async function POST(request) {
         let outcome;
         if(order.platform==='CAFE24')outcome=await runCafe24(db,action,order,input);
         else if(order.platform==='COUPANG')outcome=await runCoupang(db,action,order,input);
-        else throw Object.assign(new Error('네이버 주문 조회는 연결됐지만 발주·발송 전송은 안전 잠금 중입니다.'),{status:409});
+        else throw Object.assign(new Error('네이버에서 송장을 발급하므로 허브 출고 작업에서 제외합니다.'),{status:409});
         results.push({hubOrderId,platform:order.platform,ok:true,status:outcome.status,requestId:outcome.requestId||null,reused:Boolean(outcome.reused),retried:Boolean(outcome.retried)});
       } catch(error) {
         results.push({hubOrderId,platform:order?.platform||'UNKNOWN',ok:false,error:error.message});
