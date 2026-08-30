@@ -87,7 +87,9 @@ function GoalDialog({settings={},onClose,onSaved}){
       </form>
     </section>
   </div>;
-  return typeof document==='undefined'?content:createPortal(content,document.body);
+  if(typeof document==='undefined')return content;
+  const portalTarget=document.querySelector('[data-phase28-root="true"]')||document.body;
+  return createPortal(content,portalTarget);
 }
 
 function CompanyStatus({hero,deadline}){

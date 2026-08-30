@@ -34,6 +34,16 @@ registerHooks({
 
 const pageUrl=pathToFileURL(path.resolve(__dirname,'../app/_phase28/pages/home-page.js')).href;
 
+test('V106 Main mounts the monthly goal dialog inside the Phase 28 theme root',()=>{
+  const pageSource=fs.readFileSync(path.resolve(__dirname,'../app/_phase28/pages/home-page.js'),'utf8');
+  const shellSource=fs.readFileSync(path.resolve(__dirname,'../app/_phase28/phase28-shell.js'),'utf8');
+
+  assert.match(shellSource,/data-phase28-root="true"/);
+  assert.match(pageSource,/document\.querySelector\('\[data-phase28-root="true"\]'\)/);
+  assert.match(pageSource,/createPortal\(content,portalTarget\)/);
+  assert.doesNotMatch(pageSource,/createPortal\(content,document\.body\)/);
+});
+
 test('V106 Main renders the complete owner-approved executive desk',async()=>{
   const {default:Phase28HomePage}=await import(pageUrl);
   const html=renderToStaticMarkup(React.createElement(Phase28HomePage,{
