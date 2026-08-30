@@ -54,5 +54,5 @@ test('실행검증 조회 오류와 보조자료 오류는 0건 성공으로 숨
 });
 
 test('validation joins the implemented V106 adapter set',()=>{
-  assert.equal(PHASE28_AVAILABLE_ADAPTERS.at(-1),'validation');
+  assert.equal(PHASE28_AVAILABLE_ADAPTERS.at(-3),'validation');
 });

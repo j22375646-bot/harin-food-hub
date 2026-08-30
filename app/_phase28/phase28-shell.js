@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
-import {useCallback,useEffect,useMemo,useRef,useState,useTransition} from 'react';
+import {useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState,useTransition} from 'react';
 import navigationModule from '../../lib/ui/phase28-navigation.js';
 import {Phase28CommandPalette} from './phase28-command-palette.js';
 import {Phase28EvidenceDrawer} from './phase28-evidence-drawer.js';
@@ -72,10 +72,14 @@ export default function Phase28Shell({routeId,badges={},generatedAt=null,childre
   const closeEvidence=useCallback(()=>setEvidenceOpen(false),[]);
   const closeMore=useCallback(()=>setMoreOpen(false),[]);
 
-  useEffect(()=>{
+  useLayoutEffect(()=>{
     try{
-      const saved=localStorage.getItem('harin-hub-theme');
-      if(saved==='dark'||saved==='light')setTheme(saved);
+      const bootstrapped=document.documentElement.dataset.harinTheme;
+      const saved=bootstrapped||localStorage.getItem('harin-hub-theme');
+      if(saved==='dark'||saved==='light'){
+        setTheme(saved);
+        document.documentElement.dataset.harinTheme=saved;
+      }
     }catch{}
   },[]);
 
@@ -121,7 +125,10 @@ export default function Phase28Shell({routeId,badges={},generatedAt=null,childre
   function toggleTheme() {
     const next=theme==='light'?'dark':'light';
     setTheme(next);
-    try{localStorage.setItem('harin-hub-theme',next);}catch{}
+    try{
+      document.documentElement.dataset.harinTheme=next;
+      localStorage.setItem('harin-hub-theme',next);
+    }catch{}
   }
 
   function refreshStatus() {

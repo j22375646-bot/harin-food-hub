@@ -7,8 +7,8 @@ const path=require('node:path');
 
 const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
-const pageFiles=['home-page.js','orders-page.js','cs-page.js','inventory-products-page.js','settlement-page.js','keywords-page.js','product-analysis-page.js','insights-page.js','development-page.js','system-page.js','notifications-page.js','diagnoses-page.js','changes-page.js','validation-page.js'];
-const cssFiles=['orders-page.css','cs-page.css','inventory-products-page.css','settlement-page.css','keywords-page.css','product-analysis-page.css','insights-page.css','development-page.css','system-page.css','notifications-page.css','diagnoses-page.css','changes-page.css','validation-page.css'];
+const pageFiles=['home-page.js','orders-page.js','cs-page.js','inventory-products-page.js','settlement-page.js','keywords-page.js','product-analysis-page.js','insights-page.js','development-page.js','system-page.js','notifications-page.js','diagnoses-page.js','changes-page.js','validation-page.js','experiments-page.js','knowledge-page.js'];
+const cssFiles=['orders-page.css','cs-page.css','inventory-products-page.css','settlement-page.css','keywords-page.css','product-analysis-page.css','insights-page.css','development-page.css','system-page.css','notifications-page.css','diagnoses-page.css','changes-page.css','validation-page.css','experiments-page.css','knowledge-page.css'];
 
 function finalInteractiveHeights(css){
   const values=new Map();
@@ -57,4 +57,11 @@ test('공통 제목과 우측 패널은 승인된 V106 모션과 접힘 크기�
   assert.match(rail,/aria-expanded=\{open\}/);
   assert.match(rail,/aria-hidden=\{!open\}/);
   assert.match(rail,/inert=\{open\?undefined:true\}/);
+});
+
+test('공통 셸과 채널 로고도 12px 미만 텍스트를 만들지 않는다',()=>{
+  for(const file of ['app/_phase28/phase28-shell.module.css','app/_phase28/phase28-operational.css','app/_phase28/primitives/primitives.module.css']){
+    const css=read(file);
+    assert.doesNotMatch(css,/font-size:\s*(?:[0-9]|1[01])px/,`${file} 12px 미만 텍스트`);
+  }
 });

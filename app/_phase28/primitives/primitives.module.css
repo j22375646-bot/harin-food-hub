@@ -30,7 +30,7 @@
   letter-spacing:-.02em;
   text-align:center;
 }
-.channelLogo.compact{width:var(--channel-logo-compact-size);min-width:var(--channel-logo-compact-size);height:var(--channel-logo-compact-size);min-height:var(--channel-logo-compact-size);border-radius:8px;font-size:11px;}
+.channelLogo.compact{width:var(--channel-logo-compact-size);min-width:var(--channel-logo-compact-size);height:var(--channel-logo-compact-size);min-height:var(--channel-logo-compact-size);border-radius:8px;font-size:12px;}
 .channelLogo[data-brand="naver"]{color:#179b5b;}
 .channelLogo[data-brand="cafe24"]{color:#315bd5;}
 .channelLogo[data-brand="coupang"]{color:#e25437;}
