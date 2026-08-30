@@ -15,7 +15,9 @@
 .sidebar[data-can-scroll-up="true"]::before,.sidebar[data-can-scroll-down="true"]::after{opacity:1;}
 .sidebarScrollArea{position:relative;z-index:1;width:100%;height:100%;padding:20px 16px 24px;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;-ms-overflow-style:none;transition:padding .2s ease;}
 .sidebarScrollArea::-webkit-scrollbar{display:none;width:0;height:0;}
-.brand{height:58px;display:flex;align-items:center;gap:12px;padding:0 8px;}
+.brand{height:58px;display:flex;align-items:center;gap:12px;padding:0 8px;border-radius:12px;color:inherit;text-decoration:none;transition:background-color .16s ease,box-shadow .16s ease;}
+.brand:hover{background:var(--p28-soft);}
+.brand:focus-visible{outline:0;box-shadow:0 0 0 3px color-mix(in srgb,var(--p28-blue) 24%,transparent);}
 .brandMark{width:42px;height:42px;flex:0 0 auto;display:grid;place-items:center;border-radius:12px;background:var(--p28-ink);color:var(--p28-surface);font-size:20px;font-weight:900;}
 .brandCopy{display:grid;gap:1px;min-width:0;}
 .brandCopy strong{font-size:20px;font-weight:900;letter-spacing:-.025em;white-space:nowrap;}

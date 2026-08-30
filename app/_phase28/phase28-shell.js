@@ -242,7 +242,7 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
     <div className={`${tokens.root} ${styles.shell}`} data-theme={theme} data-sidebar={compact?'compact':'expanded'} onClickCapture={beginRouteNavigation}>
       <aside className={styles.sidebar} aria-label="데스크톱 메뉴 영역" data-can-scroll-up={sidebarScrollState.up} data-can-scroll-down={sidebarScrollState.down}>
         <div className={styles.sidebarScrollArea} ref={sidebarScrollRef} onScroll={syncSidebarScrollState}>
-          <div className={styles.brand}><span className={styles.brandMark}>H</span><span className={styles.brandCopy}><strong>하린식품</strong><small>성장 운영 허브</small></span></div>
+          <Phase28IntentLink href="/" className={styles.brand} aria-label="하린식품 홈(오늘)으로 이동"><span className={styles.brandMark}>H</span><span className={styles.brandCopy}><strong>하린식품</strong><small>성장 운영 허브</small></span></Phase28IntentLink>
           <button className={styles.sideSearch} type="button" onClick={()=>setCommandOpen(true)} aria-label="메뉴와 업무 찾기"><span aria-hidden="true">⌕</span><span>메뉴·업무 찾기</span></button>
           <section className={styles.sideCompanyStatus} aria-label={vitality.known?`오늘 회사 활력 ${vitality.score}점, ${vitality.label}`:'오늘 회사 활력 확인 필요'}>
             <header><span>오늘 회사 활력</span><b>{vitality.label}</b></header>

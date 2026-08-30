@@ -15,6 +15,7 @@ test('V106 shell owns navigation without legacy shell imports',()=>{
   assert.match(shell,/운영 확인 항목 기준/);
   assert.match(shell,/aria-label="허브 메뉴"/);
   assert.match(shell,/aria-label="모바일 주요 메뉴"/);
+  assert.match(shell,/<Phase28IntentLink href="\/" className=\{styles\.brand\} aria-label="하린식품 홈\(오늘\)으로 이동">/);
   assert.match(shell,/aria-current=\{active\?'page':undefined\}/);
   assert.doesNotMatch(shell,/HarinAppShell|HarinSidebar|HarinMobileNavigation/);
 });
