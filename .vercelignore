@@ -1,9 +1,15 @@
 /.env
+/.git
+/.worktrees
 /node_modules
 /.next
 /.next-*
 /1260716041210-.next
 /output
+/tmp
+/.tmp-sheet-analysis
+/.tools
+/supabase/.temp
 /test
 /server.js
 /server.mjs
