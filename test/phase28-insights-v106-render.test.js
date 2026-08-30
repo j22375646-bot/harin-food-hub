@@ -26,6 +26,8 @@ test('V106 insights renders channel deck, four-stage signal track, saved reports
   assert.match(app,/Phase28InsightsPage/);
   assert.match(app,/routeId==='analysis'/);
   assert.match(page,/data-phase28-page="insights"/);
+  assert.match(page,/return <section className="p28Insights"/,'공통 셸 안에 중첩 main을 만들면 구형 전역 여백이 다시 적용됩니다.');
+  assert.doesNotMatch(page,/return <main className="p28Insights"/);
   assert.match(page,/이번 주 먼저 볼 인사이트/);
   assert.match(page,/\['변화','원인','이익','행동'\]/);
   assert.match(page,/\['이번 주','저장 인사이트','채널 비교','수익성'\]/);
@@ -79,7 +81,12 @@ test('saved report detail route rejects guests and returns one normalized channe
 
 test('insights CSS keeps fixed readable sizing, balanced selection, responsive layout, and restrained motion',()=>{
   const css=read('app/_phase28/pages/insights-page.css');
+  assert.match(css,/--ops-surface:var\(--p28-surface\)/,'인사이트 페이지가 공통 Phase 28 표면 토큰을 사용해야 합니다.');
+  assert.match(css,/--ops-line:var\(--p28-line\)/);
+  assert.match(css,/--ops-soft:var\(--p28-soft\)/);
   assert.match(css,/max-width:2300px/);
+  assert.match(css,/padding-bottom:110px/);
+  assert.match(css,/min-height:112px/);
   assert.match(css,/min-height:78px/);
   assert.match(css,/min-height:44px/);
   assert.match(css,/font-size:16px/);

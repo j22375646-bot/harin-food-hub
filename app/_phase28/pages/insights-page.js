@@ -8,6 +8,7 @@ import {Phase28RightRailLayout} from '../primitives/right-rail-layout.js';
 import './insights-page.css';
 
 const STAGE_LABELS=['변화','원인','이익','행동'];
+const STAGE_ICONS=['growth','analysis','settlement','target'];
 const WORKSPACES=['이번 주','저장 인사이트','채널 비교','수익성'];
 const WORKSPACE_IDS=['week','saved','compare','profit'];
 const STATUS_LABEL={READY:'READY',CHECK_REQUIRED:'확인 필요',CALCULATED:'계산 완료',NO_DATA:'자료 없음'};
@@ -23,12 +24,12 @@ function ChannelDeck({channels,selectedId,onSelect,schedule}){
 }
 
 function SignalTrack({channel}){
-  return <section className="inSignalTrack" aria-labelledby="inSignalTitle"><header><div><span>WEEKLY SIGNAL TRACK</span><h2 id="inSignalTitle">{channel?.name||'채널'}에서 달라진 흐름을 한 줄로 이어서 봅니다.</h2></div><strong>{channel?.currentPeriod?.end||'보고서 대기'} 기준</strong></header><div className="inSignalStages">{(channel?.stages||[]).map((stage,index)=><article key={stage.id}><i>{String(index+1).padStart(2,'0')}</i><span>{STAGE_LABELS[index]||stage.label}</span><strong>{stageValue(stage)}</strong><small>{stage.note}</small></article>)}</div></section>;
+  return <section className="inSignalTrack" aria-labelledby="inSignalTitle"><header><div><span>WEEKLY SIGNAL TRACK</span><h2 id="inSignalTitle">{channel?.name||'채널'}에서 달라진 흐름을 한 줄로 이어서 봅니다.</h2></div><strong>{channel?.currentPeriod?.end||'보고서 대기'} 기준</strong></header><div className="inSignalStages">{(channel?.stages||[]).map((stage,index)=><article key={stage.id}><i><HarinIcon name={STAGE_ICONS[index]||'analysis'} size={20}/><b>{String(index+1).padStart(2,'0')}</b></i><span>{STAGE_LABELS[index]||stage.label}</span><strong>{stageValue(stage)}</strong><small>{stage.note}</small></article>)}</div></section>;
 }
 
-function ThisWeek({channel,onSelectSignal}){
+function ThisWeek({channel,selectedSignal,onSelectSignal}){
   const signals=channel?.signals||[];
-  return <section className="inWeekPanel"><header><div><span>OWNER WEEKLY BRIEF</span><h3>{channel?.name||'선택 채널'}에서 먼저 판단할 변화</h3></div><b>{channel?.currentReportId?`${channel.reportCount}개 보고서 근거`:'보고서 생성 대기'}</b></header><div className="inBriefGrid"><article><span>무엇이 달라졌나요?</span><strong>{channel?.stages?.[0]?.value||'변화 확인 필요'}</strong><small>{channel?.stages?.[0]?.note}</small></article><article><span>왜 달라졌나요?</span><strong>{channel?.cause||'원인 판단 보류'}</strong><small>{channel?.causeNote}</small></article><article><span>그래서 무엇을 할까요?</span><strong>{channel?.action||'다음 행동 확인 필요'}</strong><small>{channel?.actionNote}</small></article></div><div className="inSignals">{signals.map((item,index)=><button type="button" onClick={()=>onSelectSignal(item)} key={item.id} data-tone={item.tone}><b>{String(index+1).padStart(2,'0')}</b><span><strong>{item.title}</strong><small>{item.note}</small></span><em>{item.tone==='danger'||item.tone==='warning'?'우선 확인':item.tone==='hold'?'판단 보류':'근거 보기'}</em></button>)}</div></section>;
+  return <section className="inWeekPanel"><header><div><span>OWNER WEEKLY BRIEF</span><h3>{channel?.name||'선택 채널'}에서 먼저 판단할 변화</h3></div><b>{channel?.currentReportId?`${channel.reportCount}개 보고서 근거`:'보고서 생성 대기'}</b></header><div className="inBriefGrid"><article><span>무엇이 달라졌나요?</span><strong>{channel?.stages?.[0]?.value||'변화 확인 필요'}</strong><small>{channel?.stages?.[0]?.note}</small></article><article><span>왜 달라졌나요?</span><strong>{channel?.cause||'원인 판단 보류'}</strong><small>{channel?.causeNote}</small></article><article><span>그래서 무엇을 할까요?</span><strong>{channel?.action||'다음 행동 확인 필요'}</strong><small>{channel?.actionNote}</small></article></div><div className="inSignals">{signals.map((item,index)=><button type="button" onClick={()=>onSelectSignal(item)} key={item.id} data-tone={item.tone} data-selected={selectedSignal?.id===item.id} aria-pressed={selectedSignal?.id===item.id}><b>{String(index+1).padStart(2,'0')}</b><span><strong>{item.title}</strong><small>{item.note}</small></span><em>{item.tone==='danger'||item.tone==='warning'?'우선 확인':item.tone==='hold'?'판단 보류':'근거 보기'}</em></button>)}</div></section>;
 }
 
 function DetailFlow({detail}){
@@ -87,11 +88,11 @@ export default function Phase28InsightsPage({model={}}){
 
   function selectChannel(id){setSelectedId(id);setSelectedSignal(null);setOpenReport(null);}
   const hero=model.hero||{};
-  return <main className="p28Insights" data-phase28-root="true" data-phase28-page="insights" aria-label="이번 주 먼저 볼 인사이트">
+  return <section className="p28Insights" data-phase28-root="true" data-phase28-page="insights" aria-label="이번 주 먼저 볼 인사이트">
     <div className="inIntro"><Phase28PageHeading context={`주간 자동 생성 · 채널 분리 · 저장 보고서 ${model.reportCount||0}건`} title="이번 주 먼저 볼 " accent="인사이트" suffix={` ${hero.count||0}건이 있어요.`} summary={hero.summary||'주간 변화와 원인, 이익, 다음 행동을 채널별 저장 근거로 이어서 봅니다.'}/><div className="inIntroStatus"><HarinIcon name="analysis" size={23}/><span><small>다음 자동 생성</small><strong>{model.schedule?.label||'매주 월요일 07:30'}</strong><em>상세 지연 로딩 · 서버 저장</em></span></div></div>
     <ChannelDeck channels={channels} selectedId={selectedId} onSelect={selectChannel} schedule={model.schedule}/>
     <SignalTrack channel={selected}/>
     <nav className="inWorkspaceTabs" aria-label="인사이트 작업 보기" role="tablist">{WORKSPACES.map((label,index)=><button type="button" role="tab" key={WORKSPACE_IDS[index]} aria-selected={workspace===WORKSPACE_IDS[index]} onClick={()=>setWorkspace(WORKSPACE_IDS[index])}>{label}</button>)}</nav>
-    <Phase28RightRailLayout label="주간 인사이트 판단석" rail={<InsightDesk channel={selected} selectedSignal={selectedSignal} schedule={model.schedule} policy={model.policy}/>}>{workspace==='week'?<ThisWeek channel={selected} onSelectSignal={setSelectedSignal}/>:workspace==='saved'?<SavedReports reports={reports} detailCache={detailCache} detailState={detailState} openReport={openReport} onToggle={toggleReport}/>:workspace==='compare'?<ChannelCompare channels={channels}/>:<ProfitPanel channel={selected}/>}</Phase28RightRailLayout>
-  </main>;
+    <Phase28RightRailLayout label="주간 인사이트 판단석" rail={<InsightDesk channel={selected} selectedSignal={selectedSignal} schedule={model.schedule} policy={model.policy}/>}>{workspace==='week'?<ThisWeek channel={selected} selectedSignal={selectedSignal} onSelectSignal={setSelectedSignal}/>:workspace==='saved'?<SavedReports reports={reports} detailCache={detailCache} detailState={detailState} openReport={openReport} onToggle={toggleReport}/>:workspace==='compare'?<ChannelCompare channels={channels}/>:<ProfitPanel channel={selected}/>}</Phase28RightRailLayout>
+  </section>;
 }
