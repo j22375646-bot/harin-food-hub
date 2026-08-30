@@ -52,6 +52,17 @@ test('V106 inventory-products CSS preserves readable balanced fixed UI',()=>{
   assert.doesNotMatch(css,/font-size:(?:[0-9]|1[01])px/);
 });
 
+test('inventory workbench footer keeps selection and snapshot evidence at the fixed readable scale',()=>{
+  const page=read('app/_phase28/pages/inventory-products-page.js');
+  const css=read('app/_phase28/pages/inventory-products-page.css');
+  assert.match(page,/className="ipWorkbenchFootStatus"/);
+  assert.match(page,/<small>선택 상태<\/small>/);
+  assert.match(page,/<small>자료 기준<\/small>/);
+  assert.match(css,/\.ipWorkbenchFoot\{min-height:76px/);
+  assert.match(css,/\.ipWorkbenchFootIcon\{width:42px;height:42px;display:grid;place-items:center/);
+  assert.match(css,/\.ipWorkbenchFoot strong\{[^}]*font-size:15px/);
+});
+
 test('the local V106 verification host can load Next development assets',()=>{
   const config=read('next.config.js');
   assert.match(config,/allowedDevOrigins:\['127\.0\.0\.1'\]/);
