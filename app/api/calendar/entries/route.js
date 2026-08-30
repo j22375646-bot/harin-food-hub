@@ -24,13 +24,24 @@ export async function GET(request){
     const to=calendarCenter.validDateKey(url.searchParams.get('to'));
     if(!from||!to||from>to)throw new calendarCenter.CalendarInputError('조회할 날짜 범위를 확인해주세요.');
     const db=supabaseModule.getSupabase();
-    const result=await db.from('hub_work_items').select(ENTRY_FIELDS)
+    const years=Array.from({length:Number(to.slice(0,4))-Number(from.slice(0,4))+1},(_,index)=>Number(from.slice(0,4))+index);
+    const [result,holidayResult]=await Promise.all([
+      db.from('hub_work_items').select(ENTRY_FIELDS)
       .eq('context_href','/calendar').neq('status','ARCHIVED')
-      .gte('due_at',new Date(`${from}T00:00:00+09:00`).toISOString())
+      .gte('due_at',new Date(`${calendarCenter.addDays(from,-366)}T00:00:00+09:00`).toISOString())
       .lt('due_at',new Date(`${calendarCenter.addDays(to,1)}T00:00:00+09:00`).toISOString())
-      .order('due_at',{ascending:true}).limit(500);
+      .order('due_at',{ascending:true}).limit(500),
+      db.from('shipping_reference_snapshots')
+        .select('provider,status,reference_year,source_data,fetched_at')
+        .eq('provider','HOLIDAY_CALENDAR').eq('status','SUCCESS').in('reference_year',years)
+        .order('fetched_at',{ascending:false}).limit(Math.max(10,years.length*5))
+    ]);
     if(result.error)throw result.error;
-    return apiSafety.json({ok:true,entries:(result.data||[]).map(calendarCenter.decorateEntry),range:{from,to},generatedAt:new Date().toISOString()});
+    if(holidayResult.error)console.error('[calendar holiday read]',holidayResult.error);
+    const entries=(result.data||[]).map(calendarCenter.decorateEntry)
+      .filter(item=>item.date<=to&&(item.endDate||item.date)>=from);
+    const holidayCalendar=calendarCenter.buildHolidayCalendar({snapshots:holidayResult.error?[]:(holidayResult.data||[]),from,to});
+    return apiSafety.json({ok:true,entries,holidays:holidayCalendar.holidays,holidayReady:holidayCalendar.ready,holidayMissingYears:holidayCalendar.missingYears,range:{from,to},generatedAt:new Date().toISOString()});
   }catch(error){
     const status=error instanceof calendarCenter.CalendarInputError?error.status:500;
     if(status===500)console.error('[calendar read]',error);
@@ -51,7 +62,7 @@ export async function POST(request){
       result=await ownerWorkspace.mutateWorkspace(db,{
         action:action==='CREATE_ENTRY'?'CREATE_ITEM':'UPDATE_ITEM',id:body.id,
         itemType:entry.type==='MEMO'?'NOTE':'TASK',title:entry.title,body:entry.body,priority:entry.priority,
-        pageKey:'main',contextLabel:'캘린더',contextHref:'/calendar',dueAt:entry.dueAt
+        pageKey:'main',contextLabel:entry.contextLabel,contextHref:'/calendar',dueAt:entry.dueAt
       });
     }else if(action==='TOGGLE_ENTRY'||action==='ARCHIVE_ENTRY'){
       await calendarItem(db,body.id);

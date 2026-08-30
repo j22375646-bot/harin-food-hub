@@ -47,3 +47,18 @@ test('월간 날짜 칸은 큰 화면에서도 충분한 높이와 일정별 색
   assert.match(css,/\.calendarDayEntries i\[data-tone="VIOLET"\]/);
   assert.match(css,/\.calendarDayEntries i\[data-tone="AMBER"\]/);
 });
+
+test('캘린더는 주말과 공식 공휴일, 시작일과 종료일을 잇는 띠를 표시한다',()=>{
+  const page=read('app/_phase28/pages/calendar-page.js');
+  const css=read('app/_phase28/pages/calendar-page.css');
+  const api=read('app/api/calendar/entries/route.js');
+  assert.match(page,/name="endDate"/);
+  assert.match(page,/data-weekend=/);
+  assert.match(page,/data-holiday=/);
+  assert.match(page,/data-range-position=\{item\.rangePosition\}/);
+  assert.match(page,/holiday\.name/);
+  assert.match(css,/\.calendarDay\[data-weekend="SUNDAY"\]/);
+  assert.match(css,/\.calendarDayEntries i\[data-range-position="MIDDLE"\]/);
+  assert.match(api,/shipping_reference_snapshots/);
+  assert.match(api,/buildHolidayCalendar/);
+});

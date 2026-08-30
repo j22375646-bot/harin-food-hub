@@ -1303,9 +1303,9 @@ async function getDashboardData(state) {
     calendarItems:['main','calendar'].includes(view) ? Promise.allSettled([
       db.from('hub_work_items').select('id,item_type,title,body,status,priority,due_at,page_key,context_label,context_href,completed_at,created_at,updated_at')
         .eq('context_href','/calendar').neq('status','ARCHIVED')
-        .gte('due_at',new Date(`${calendarQueryRange.start}T00:00:00+09:00`).toISOString())
+        .gte('due_at',new Date(`${calendarCenterModule.addDays(calendarQueryRange.start,-366)}T00:00:00+09:00`).toISOString())
         .lt('due_at',new Date(`${calendarQueryRange.endExclusive}T00:00:00+09:00`).toISOString())
-        .order('due_at',{ascending:true}).limit(view==='main'?40:500)
+        .order('due_at',{ascending:true}).limit(view==='main'?200:500)
     ]) : Promise.resolve([{status:'fulfilled',value:{data:[],error:null}}]),
     cafe24Token:focusedEarlyReturn||view==='collection' ? Promise.allSettled([
       db.from('cafe24_oauth_tokens').select('token_data').eq('mall_id',process.env.CAFE24_MALL_ID).maybeSingle()
