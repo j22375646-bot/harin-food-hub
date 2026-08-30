@@ -113,3 +113,52 @@ test('일괄 연결해제도 플랫폼을 섞지 않고 선택한 연결만 계�
   assert.equal(plan.operations[0].source.platform, 'COUPANG');
   assert.equal(plan.operations[0].rpcAction, 'UNLINK');
 });
+
+test('다중 직접 연결은 각 채널 상품을 선택한 기준상품에 한 번에 연결한다', () => {
+  const dashboard = {
+    masterProducts:[
+      {id:'M1',name:'작두콩차 30티백',selling_price:11000,is_active:true},
+      {id:'M2',name:'우엉차 40티백',selling_price:14200,is_active:true}
+    ],
+    candidates:[
+      {platform:'NAVER',external_product_id:'N1',external_product_name:'네이버 작두콩차',selling_price:11000,candidates:[{master_product_id:'M1',score:0.98}]},
+      {platform:'NAVER',external_product_id:'N2',external_product_name:'네이버 우엉차',selling_price:14200,candidates:[{master_product_id:'M2',score:0.97}]},
+      {platform:'COUPANG',external_product_id:'C1',external_product_name:'쿠팡 작두콩차',selling_price:11000,candidates:[{master_product_id:'M1',score:0.96}]}
+    ],
+    links:[]
+  };
+  const plan = service.planBulkManualMappingOperations({
+    dashboard,
+    platform:'NAVER',
+    assignments:[
+      {external_product_id:'N1',master_product_id:'M1'},
+      {external_product_id:'N2',master_product_id:'M2'}
+    ]
+  });
+  assert.equal(plan.requested,2);
+  assert.deepEqual(plan.operations.map(item=>[item.source.platform,item.source.external_product_id,item.masterProductId,item.rpcAction]),[
+    ['NAVER','N1','M1','LINK'],
+    ['NAVER','N2','M2','LINK']
+  ]);
+});
+
+test('다중 직접 연결은 선택 플랫폼의 실상품과 판매 중인 기준상품만 받는다', () => {
+  const dashboard = {
+    masterProducts:[{id:'M1',name:'작두콩차',selling_price:11000,is_active:true}],
+    candidates:[
+      {platform:'NAVER',external_product_id:'N1',external_product_name:'네이버 작두콩차',selling_price:11000,candidates:[]},
+      {platform:'COUPANG',external_product_id:'C1',external_product_name:'쿠팡 작두콩차',selling_price:11000,candidates:[]}
+    ],
+    links:[]
+  };
+  assert.throws(()=>service.planBulkManualMappingOperations({
+    dashboard,
+    platform:'NAVER',
+    assignments:[{external_product_id:'C1',master_product_id:'M1'}]
+  }),/선택한 플랫폼/);
+  assert.throws(()=>service.planBulkManualMappingOperations({
+    dashboard,
+    platform:'NAVER',
+    assignments:[{external_product_id:'N1',master_product_id:'MISSING'}]
+  }),/기준상품/);
+});

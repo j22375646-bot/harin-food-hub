@@ -39,6 +39,18 @@ test('V106 inventory keeps real collection and owner-confirmed LOT seams',()=>{
   assert.doesNotMatch(page,/fetch\([^\n]*inventory[^\n]*method:'DELETE'/);
 });
 
+test('Phase 28 channel mapping supports platform-isolated multi-select manual linking',()=>{
+  const page=read('app/_phase28/pages/inventory-products-page.js');
+  assert.match(page,/function ProductMappingWorkspace/);
+  assert.match(page,/\['NAVER','COUPANG'\]/);
+  assert.match(page,/action:'BULK_MANUAL_LINK'/);
+  assert.match(page,/assignments:/);
+  assert.match(page,/fetch\('\/api\/products\/mappings'/);
+  assert.match(page,/선택 .*\uAC1C 연결/);
+  assert.match(page,/선택한 플랫폼의 실상품만 표시/);
+  assert.match(page,/연결할 기준상품/);
+});
+
 test('V106 inventory-products CSS preserves readable balanced fixed UI',()=>{
   const css=read('app/_phase28/pages/inventory-products-page.css');
   assert.match(css,/max-width:2300px/);

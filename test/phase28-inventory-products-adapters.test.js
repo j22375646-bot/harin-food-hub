@@ -69,6 +69,27 @@ test('products adapter keeps channel evidence separate and blocks unknown costs'
   assert.equal(model.hero.costReadyCount,1);
 });
 
+test('products adapter exposes a sanitized platform-separated mapping workbench',()=>{
+  const model=buildPhase28ProductsModel({
+    loadedWorkspace:'mappings',
+    masterProducts:[{id:'M1',name:'작두콩차 30티백',selling_price:11000,is_active:true}],
+    productMapping:{
+      summary:{source_naver:1,source_coupang:1,candidate_naver:1,candidate_coupang:1},
+      candidates:[
+        {platform:'NAVER',external_product_id:'N1',external_product_name:'네이버 작두콩차',selling_price:11000,raw_data:{access_token:'secret'},auto_eligible:true,candidates:[{master_product_id:'M1',master_name:'작두콩차 30티백',score:.98,confidence:98,reasons:['상품명 일치']}]},
+        {platform:'COUPANG',external_product_id:'C1',external_product_name:'쿠팡 작두콩차',selling_price:12000,candidates:[]}
+      ],
+      links:[{platform:'NAVER',external_product_id:'N2',external_product_name:'연결된 상품',master_product_id:'M1',match_method:'MANUAL',match_confidence:.97,raw_data:{secret:'hide'}}]
+    }
+  });
+  assert.equal(model.mapping.masterProducts[0].id,'M1');
+  assert.deepEqual(model.mapping.candidates.map(item=>item.platform),['NAVER','COUPANG']);
+  assert.equal(model.mapping.candidates[0].suggestions[0].masterProductId,'M1');
+  assert.equal(model.mapping.links[0].masterProductId,'M1');
+  assert.equal(JSON.stringify(model.mapping).includes('secret'),false);
+  assert.equal(JSON.stringify(model.mapping).includes('access_token'),false);
+});
+
 test('inventory and products adapters join the implemented V106 set',()=>{
   assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','calendar','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system','notifications','diagnoses','changes','validation','experiments','knowledge']);
 });
