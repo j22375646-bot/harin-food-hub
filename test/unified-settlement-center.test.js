@@ -43,6 +43,34 @@ test('쿠팡 매출·환불·수수료와 확정 지급액을 분리한다', () 
   assert.equal(center.summary.actual_payout,71200);
 });
 
+test('쿠팡 광고 정산 요약을 광고비로 분리하고 예상 정산액에서 한 번만 차감한다', () => {
+  const center=buildUnifiedSettlementCenter({now,coupangSettlements:[
+    {order_id:'O1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:9000,service_fee_vat:1000,settlement_amount:90000}
+  ],coupangAdSettlements:[
+    {date:'2026-08-10',row_type:'DELIVERY_SUMMARY',delivery_type:'판매자배송',chargeable_ad_spend:30000,vat:3000,billed_amount:33000},
+    {date:'2026-08-10',row_type:'CAMPAIGN',campaign_id:'campaign-1',chargeable_ad_spend:30000,vat:0,billed_amount:0}
+  ],coupangSettlementSummaries:[{settlement_date:'2026-08-13',final_amount:57000,status:'DONE'}]});
+  const coupang=center.channels.find(item=>item.platform==='COUPANG');
+  assert.equal(coupang.advertising,33000);
+  assert.equal(coupang.logistics,null);
+  assert.equal(coupang.expected_payout,57000);
+  assert.equal(coupang.actual_payout,57000);
+  assert.equal(coupang.payout_variance,0);
+  assert.equal(center.waterfall.advertising,33000);
+  assert.equal(center.summary.known_advertising,33000);
+});
+
+test('금액이 비어 있는 쿠팡 광고 정산 행은 광고비 0원으로 만들지 않는다', () => {
+  const center=buildUnifiedSettlementCenter({now,coupangSettlements:[
+    {order_id:'O1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:9000,service_fee_vat:1000,settlement_amount:90000}
+  ],coupangAdSettlements:[
+    {date:'2026-08-10',row_type:'DELIVERY_SUMMARY',delivery_type:'판매자배송'}
+  ]});
+  const coupang=center.channels.find(item=>item.platform==='COUPANG');
+  assert.equal(coupang.advertising,null);
+  assert.equal(center.summary.known_advertising,null);
+});
+
 test('네이버 커머스 정산 자료가 없으면 0원이 아닌 자료 없음으로 표시한다', () => {
   const center=buildUnifiedSettlementCenter({now});
   const naver=center.channels.find(item=>item.platform==='NAVER');

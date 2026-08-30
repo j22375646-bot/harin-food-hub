@@ -15,6 +15,8 @@ test('server owns three settlement periods and the settlement adapter on its rea
   assert.match(page,/phase28Runtime\.activePages\.includes\('settlement'\)&&initialState\.view==='settlement'/);
   assert.match(page,/buildPhase28SettlementModel\(dashboardData\)/);
   assert.match(page,/settlement:null,adapter_status:'ERROR'/);
+  assert.match(page,/coupang_ad_settlement_daily/);
+  assert.match(page,/coupangAdSettlements:coupangAdSettlementResult\.data \|\| \[\]/);
 });
 
 test('Phase 28 app renders the V106 settlement decision spine',()=>{

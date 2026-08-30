@@ -13,6 +13,7 @@ const channel=(platform,overrides={})=>({
   refunds:50000,
   fees:100000,
   logistics:30000,
+  advertising:20000,
   expected_payout:850000,
   actual_payout:820000,
   payout_variance:-30000,
@@ -31,8 +32,8 @@ function center(days,channels){
       {platform:'NAVER',date:'2026-09-01',status:'정산예정',amount:820000,type:'일별 정산'},
       {platform:'COUPANG',date:'2026-09-04',status:'예정',amount:null,type:'주정산'}
     ],
-    waterfall:{gross_sales:3000000,refunds:150000,fees:300000,logistics:90000,expected_payout:2550000,actual_payout:1640000,variance:-60000,comparable_channels:2},
-    summary:{actual_payout:1640000,estimated_payout:null,known_fees:300000,known_logistics:90000,actual_channels:2,estimated_channels:0,check_required_channels:1}
+    waterfall:{gross_sales:3000000,refunds:150000,fees:300000,logistics:90000,advertising:20000,expected_payout:2530000,actual_payout:1640000,variance:-60000,comparable_channels:2},
+    summary:{actual_payout:1640000,estimated_payout:null,known_fees:300000,known_logistics:90000,known_advertising:20000,actual_channels:2,estimated_channels:0,check_required_channels:1}
   };
 }
 
@@ -60,8 +61,9 @@ test('settlement adapter keeps channel boundaries and unknown money explicit',()
 test('settlement adapter exposes payout, variance, cost, and history evidence without write commands',()=>{
   const model=buildPhase28SettlementModel({settlementPeriods:{30:center(30,[channel('NAVER'),channel('CAFE24',{actual_payout:850000,payout_variance:0}),channel('COUPANG')])}});
   const period=model.periods['30'];
-  assert.equal(period.waterfall.length,6);
-  assert.deepEqual(period.waterfall.map(item=>item.id),['gross','refunds','fees','logistics','expected','actual']);
+  assert.equal(period.waterfall.length,7);
+  assert.deepEqual(period.waterfall.map(item=>item.id),['gross','refunds','fees','logistics','advertising','expected','actual']);
+  assert.equal(period.channels[2].advertising,20000);
   assert.equal(period.channels[0].evidence.orderCount,18);
   assert.equal(period.channels[0].evidence.coverage,100);
   assert.equal(period.schedules[1].amount,null);
