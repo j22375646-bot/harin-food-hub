@@ -17,7 +17,7 @@ test('product analysis owns a stable production route and server adapter',()=>{
   assert.match(route,/buildPhase28ProductAnalysisModel\(snapshot\)/);
   assert.match(route,/Phase28ProductAnalysisPage/);
   assert.doesNotMatch(route,/renderDashboardRoute/);
-  assert.match(layout,/Phase28Shell/);
+  assert.match(layout,/Phase28RouteShell/);
   assert.match(layout,/routeId="product-analysis"/);
   assert.match(registry,/id:'product-analysis'.*legacyView:'product-analysis'/);
 });

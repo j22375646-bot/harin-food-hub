@@ -14,7 +14,7 @@ test('V106 A/B 테스트는 전용 경량 로더와 공통 셸로 canonical rout
   assert.match(route,/loadPhase28ExperimentsSnapshot/);
   assert.match(route,/buildPhase28ExperimentsModel/);
   assert.match(route,/Phase28ExperimentsPage/);
-  assert.match(layout,/Phase28Shell/);
+  assert.match(layout,/Phase28RouteShell/);
   assert.match(layout,/routeId="experiments"/);
 });
 

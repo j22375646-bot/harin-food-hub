@@ -14,7 +14,7 @@ test('V106 변경 기록은 전용 경량 로더와 공통 셸로 canonical rout
   assert.match(route,/loadPhase28ChangesSnapshot/);
   assert.match(route,/buildPhase28ChangesModel/);
   assert.match(route,/Phase28ChangesPage/);
-  assert.match(layout,/Phase28Shell/);
+  assert.match(layout,/Phase28RouteShell/);
   assert.match(layout,/routeId="changes"/);
 });
 

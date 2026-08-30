@@ -14,7 +14,7 @@ test('V106 진단은 전용 경량 로더와 공통 셸로 canonical route를 �
   assert.match(route,/loadPhase28DiagnosisSnapshot/);
   assert.match(route,/buildPhase28DiagnosesModel/);
   assert.match(route,/Phase28DiagnosesPage/);
-  assert.match(layout,/Phase28Shell/);
+  assert.match(layout,/Phase28RouteShell/);
   assert.match(layout,/routeId="diagnoses"/);
 });
 

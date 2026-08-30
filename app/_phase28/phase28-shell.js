@@ -14,9 +14,12 @@ import styles from './phase28-shell.module.css';
 const {buildPhase28Navigation,buildPhase28Vitality}=navigationModule;
 const {
   NAVIGATION_SNAPSHOT_KEY,
+  NAVIGATION_SNAPSHOT_COOKIE,
+  DISPLAY_MAX_AGE_MS,
   navigationOperationSnapshotFreshness,
   parseNavigationOperationSnapshot,
-  selectNavigationOperationSnapshot
+  selectNavigationOperationSnapshot,
+  serializeNavigationOperationSnapshotCookie
 }=operationSnapshotModule;
 
 const ICON_PATHS={
@@ -178,14 +181,21 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
     return ()=>document.removeEventListener('keydown',onKeyDown);
   },[]);
 
-  useEffect(()=>{
+  useLayoutEffect(()=>{
     let storedSnapshot=null;
     try{
       storedSnapshot=parseNavigationOperationSnapshot(window.localStorage.getItem(NAVIGATION_SNAPSHOT_KEY));
     }catch{}
     setStoredNavigationSnapshot(current=>selectNavigationOperationSnapshot(incomingSnapshot,storedSnapshot,current));
     if(incomingSnapshot){
-      try{window.localStorage.setItem(NAVIGATION_SNAPSHOT_KEY,JSON.stringify(incomingSnapshot));}catch{}
+      try{
+        window.localStorage.setItem(NAVIGATION_SNAPSHOT_KEY,JSON.stringify(incomingSnapshot));
+        const encoded=serializeNavigationOperationSnapshotCookie(incomingSnapshot);
+        if(encoded){
+          const secure=window.location.protocol==='https:'?'; Secure':'';
+          document.cookie=`${NAVIGATION_SNAPSHOT_COOKIE}=${encoded}; Path=/; Max-Age=${Math.floor(DISPLAY_MAX_AGE_MS/1000)}; SameSite=Lax${secure}`;
+        }
+      }catch{}
     }
   },[incomingSnapshot]);
 

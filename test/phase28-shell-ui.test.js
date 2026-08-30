@@ -53,12 +53,30 @@ test('shared evidence control stays a horizontal single-line chip on every deskt
 test('V106 shell reuses the newest authoritative Main snapshot across routes',()=>{
   const shell=read('app/_phase28/phase28-shell.js');
   const app=read('app/_phase28/phase28-app.js');
+  const page=read('app/page.js');
   assert.match(shell,/operation-snapshot\.js/);
   assert.match(shell,/NAVIGATION_SNAPSHOT_KEY/);
   assert.match(shell,/parseNavigationOperationSnapshot\(window\.localStorage\.getItem\(NAVIGATION_SNAPSHOT_KEY\)\)/);
+  assert.match(shell,/NAVIGATION_SNAPSHOT_COOKIE/);
+  assert.match(shell,/serializeNavigationOperationSnapshotCookie\(incomingSnapshot\)/);
+  assert.match(shell,/document\.cookie=/);
   assert.match(shell,/selectNavigationOperationSnapshot/);
+  assert.match(page,/parseNavigationOperationSnapshotCookie\(\s*cookieStore\.get\(operationSnapshotModule\.NAVIGATION_SNAPSHOT_COOKIE\)\?\.value\s*\)/);
+  assert.match(page,/fallbackNavigationSnapshot/);
   assert.match(app,/navigationSnapshot=\{navigationSnapshot\}/);
   assert.doesNotMatch(app,/navigationSnapshot\?\.badges\|\|\{\}/);
+});
+
+test('standalone lightweight routes receive the same verified navigation snapshot',()=>{
+  const routeShell=read('app/_phase28/phase28-route-shell.js');
+  assert.match(routeShell,/await cookies\(\)/);
+  assert.match(routeShell,/parseNavigationOperationSnapshotCookie/);
+  assert.match(routeShell,/navigationSnapshot=\{navigationSnapshot\}/);
+  for(const directory of ['notifications','diagnoses','approvals','execution-validation','ab-tests','ai-knowledge','data-collection','market-intelligence','product-analysis']){
+    const layout=read(`app/${directory}/layout.js`);
+    assert.match(layout,/Phase28RouteShell/);
+    assert.doesNotMatch(layout,/navigationSnapshot=\{null\}|<Phase28Shell/);
+  }
 });
 
 test('V106 shell carries per-route prefetch policy through every navigation surface',()=>{

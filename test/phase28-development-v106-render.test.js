@@ -16,7 +16,7 @@ test('V106 상품개발은 기존 전용 라우트에서 공통 셸과 프로젝
   assert.match(page,/buildPhase28DevelopmentModel/);
   assert.match(page,/Phase28DevelopmentPage/);
   assert.match(page,/phase28RuntimeConfig\(process\.env/);
-  assert.match(layout,/Phase28Shell/);
+  assert.match(layout,/Phase28RouteShell/);
   assert.match(layout,/routeId="development"/);
   assert.match(view,/data-phase28-page="development"/);
   assert.match(view,/상품 선택/);

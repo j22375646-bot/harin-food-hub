@@ -18,7 +18,7 @@ test('V106 시스템은 전용 경량 로더와 공통 셸로 canonical route를
   assert.match(page,/await searchParams/);
   assert.match(page,/workspace/);
   assert.match(page,/buildPhase28SystemModel\(snapshot,\{workspace\}\)/);
-  assert.match(layout,/Phase28Shell/);
+  assert.match(layout,/Phase28RouteShell/);
   assert.match(layout,/routeId="system"/);
   assert.doesNotMatch(page,/renderDashboardRoute\('collection'.*activePages\.includes\('system'/s);
   const legacyWorkspaces=['advertising','execution-paths','naver-api','operations-health','optional-providers','owned-site','provider-fallback','provider-runtime','shipping-reference'];

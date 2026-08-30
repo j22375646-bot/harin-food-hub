@@ -12,6 +12,19 @@ test('navigation snapshot uses one shared browser storage key',()=>{
   assert.equal(snapshotModule.NAVIGATION_SNAPSHOT_KEY,'harin-hub:navigation-operation-snapshot');
 });
 
+test('navigation snapshot has one validated cookie format for full route loads',()=>{
+  assert.equal(snapshotModule.NAVIGATION_SNAPSHOT_COOKIE,'harin_hub_navigation_operation_snapshot');
+  const snapshot={
+    version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:new Date().toISOString(),
+    badges:{orders:2,cs:1,inventory:3,notifications:4},
+    connection:{ready:3,total:3,label:'3개 채널 연결',tone:'ready'}
+  };
+  const encoded=snapshotModule.serializeNavigationOperationSnapshotCookie(snapshot);
+  assert.match(encoded,/^%7B/);
+  assert.deepEqual(snapshotModule.parseNavigationOperationSnapshotCookie(encoded),snapshot);
+  assert.equal(snapshotModule.parseNavigationOperationSnapshotCookie('%7Bbroken'),null);
+});
+
 test('navigation snapshot accepts only the complete main operating summary',()=>{
   const main=snapshotModule.buildNavigationOperationSnapshot({
     loadedView:'main',generatedAt:'2026-08-23T03:00:00.000Z',

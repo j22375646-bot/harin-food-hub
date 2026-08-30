@@ -60,6 +60,7 @@ import featureFlagsModule from '../lib/ui/phase28-production-runtime.js';
 import phase28AdaptersModule from '../lib/ui/phase28-adapters/index.js';
 import calendarCenterModule from '../lib/calendar/calendar-center.js';
 import phase28ClientPayloadModule from '../lib/ui/phase28-client-payload.js';
+import operationSnapshotModule from '../lib/navigation/operation-snapshot.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -2706,6 +2707,9 @@ async function renderDashboardState(initialState) {
   const cookieStore = await cookies();
   const currentUser = await authModule.validateSession(cookieStore.get(authModule.COOKIE_NAME)?.value).catch(()=>null);
   if (!currentUser) redirect('/login');
+  const fallbackNavigationSnapshot=operationSnapshotModule.parseNavigationOperationSnapshotCookie(
+    cookieStore.get(operationSnapshotModule.NAVIGATION_SNAPSHOT_COOKIE)?.value
+  );
   const phase28Runtime=featureFlagsModule.phase28RuntimeForState(process.env,initialState);
   try {
     const dashboardData=await getDashboardData(initialState);
@@ -2830,7 +2834,8 @@ async function renderDashboardState(initialState) {
       dashboardData:clientDashboardData,
       phase28Runtime,
       phase28,
-      aiPanelKey
+      aiPanelKey,
+      fallbackNavigationSnapshot
     });
     return <Dashboard initialData={initialData} initialState={initialState} />;
   } catch (error) {

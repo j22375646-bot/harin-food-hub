@@ -15,7 +15,7 @@ test('V106 알림은 전용 경량 로더와 공통 셸로 canonical route를 �
   assert.match(route,/buildPhase28NotificationsModel/);
   assert.match(route,/Phase28NotificationsPage/);
   assert.match(route,/phase28RuntimeConfig/);
-  assert.match(layout,/Phase28Shell/);
+  assert.match(layout,/Phase28RouteShell/);
   assert.match(layout,/routeId="notifications"/);
 });
 

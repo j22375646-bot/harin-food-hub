@@ -38,14 +38,27 @@ test('Phase 28 client payload keeps rendered models and drops raw operational ro
   assert.equal(payload.reports,undefined);
 });
 
-test('non-main route payload does not invent a navigation snapshot',()=>{
+test('non-main route payload reuses the verified main navigation snapshot without inventing route counts',()=>{
+  const generatedAt=new Date().toISOString();
+  const verifiedMainSnapshot={
+    version:1,
+    source:'MAIN_OPERATION_SUMMARY',
+    generatedAt,
+    badges:{orders:2,cs:1,inventory:3,notifications:4},
+    connection:{ready:3,total:3,label:'3개 채널 연결',tone:'ready'}
+  };
   const payload=payloadModule.buildPhase28ClientPayload({
-    dashboardData:{loadedView:'keyword',generatedAt:'2026-08-31T01:23:00.000Z'},
+    dashboardData:{
+      loadedView:'keyword',generatedAt,
+      unifiedOrders:{summary:{actionRequired:99}},
+      alerts:[]
+    },
     phase28Runtime:{routeId:'keywords'},
     phase28:{keywords:{rows:[]}},
-    aiPanelKey:'keyword'
+    aiPanelKey:'keyword',
+    fallbackNavigationSnapshot:verifiedMainSnapshot
   });
 
-  assert.equal(payload.navigationSnapshot,null);
+  assert.deepEqual(payload.navigationSnapshot,verifiedMainSnapshot);
   assert.deepEqual(payload.aiPagePanels,{});
 });

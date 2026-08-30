@@ -14,7 +14,7 @@ test('V106 실행검증은 전용 경량 로더와 공통 셸로 canonical route
   assert.match(route,/loadPhase28ValidationSnapshot/);
   assert.match(route,/buildPhase28ValidationModel/);
   assert.match(route,/Phase28ValidationPage/);
-  assert.match(layout,/Phase28Shell/);
+  assert.match(layout,/Phase28RouteShell/);
   assert.match(layout,/routeId="validation"/);
 });
 
