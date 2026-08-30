@@ -74,7 +74,7 @@ export async function POST(request){
     const performance=productPerformance.buildUnifiedProductPerformance({
       masterProducts:[masterResult.data],channelProducts:[...channelProducts,...naverGroupLinks],productCosts:costs,
       channelCostSettings:settings,channelShippingRules:rules,periodStart:period.start,periodEnd:period.end,
-      cafe24Orders,cafe24OrderItems:fail(cafeItemsResult),naverKeywords:keywords,naverKeywordStats:keywordStats,
+      cafe24Orders:cafeOrders,cafe24OrderItems:fail(cafeItemsResult),naverKeywords:keywords,naverKeywordStats:keywordStats,
       coupangOrders,coupangOrderItems:fail(coupangItemsResult),coupangProductItems:productItems,
       coupangRgOrders:rgOrders,coupangRgOrderItems:fail(rgItemsResult),coupangAdKeywords:fail(coupangAdsResult)
     });

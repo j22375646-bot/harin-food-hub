@@ -51,6 +51,12 @@ test('manual analysis uses one authenticated server route and keeps unavailable 
   assert.doesNotMatch(api,/st-[A-Za-z0-9_-]{20,}/);
 });
 
+test('manual analysis passes the loaded Cafe24 order rows into the performance calculator',()=>{
+  const api=read('app/api/product-analysis/route.js');
+  assert.match(api,/cafe24Orders:cafeOrders/);
+  assert.doesNotMatch(api,/\n\s*cafe24Orders,cafe24OrderItems:/);
+});
+
 test('product analysis CSS keeps the fixed readable scale and balanced selection',()=>{
   const css=read('app/_phase28/pages/product-analysis-page.css');
   assert.match(css,/max-width:2300px/);
