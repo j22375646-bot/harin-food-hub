@@ -22,6 +22,29 @@ test('공휴일이 월요일이면 다음 화요일 출고로 계산한다',()=>
   assert.equal(estimate.confidence,'READY');
 });
 
+test('당일출고 타이머는 15시 이후 다음 영업일 마감으로 자동 전환한다',()=>{
+  const sunday=calendar.calculateCutoffSchedule({asOf:'2026-08-30T22:10:00+09:00',holidayReady:true});
+  assert.equal(sunday.deadlineDate,'2026-08-31');
+  assert.equal(sunday.deadlineAt,'2026-08-31T06:00:00.000Z');
+  assert.equal(sunday.dayLabel,'월요일 오후 3시');
+  assert.equal(sunday.remainingMinutes,1010);
+  assert.equal(sunday.confidence,'READY');
+});
+
+test('당일출고 타이머는 저장된 공휴일을 건너뛰고 자료 신뢰도를 표시한다',()=>{
+  const holidayMonday=calendar.calculateCutoffSchedule({
+    asOf:'2026-08-14T15:01:00+09:00',
+    holidayDates:['20260817'],
+    holidayReady:true
+  });
+  const partial=calendar.calculateCutoffSchedule({asOf:'2026-08-14T15:01:00+09:00'});
+  assert.equal(holidayMonday.deadlineDate,'2026-08-18');
+  assert.equal(holidayMonday.dayLabel,'화요일 오후 3시');
+  assert.match(holidayMonday.note,/주말·공휴일/);
+  assert.equal(partial.confidence,'PARTIAL');
+  assert.match(partial.note,/공휴일 확인 필요/);
+});
+
 test('공휴일 자료가 없으면 확정 지연 대신 부분 판단을 반환한다',()=>{
   const estimate=calendar.calculateShippingEstimate({orderedAt:'2026-08-13T10:00:00+09:00',asOf:'2026-08-14T10:00:00+09:00'});
   assert.equal(estimate.status,'OVERDUE');

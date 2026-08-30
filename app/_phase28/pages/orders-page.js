@@ -1,15 +1,17 @@
 'use client';
 
-import {useEffect,useMemo,useRef,useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import HarinIcon from '../../_design-system/harin-icon.js';
 import {Phase28ChannelLogo} from '../primitives/channel-logo.js';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
 import {Phase28RightRailLayout} from '../primitives/right-rail-layout.js';
 import collectionProgress from '../../../lib/orders/collection-progress.js';
+import businessCalendar from '../../../lib/shipping-reference/business-calendar.js';
 import './orders-page.css';
 
 const {activeCollectionPlatforms,collectionProgressLabel}=collectionProgress;
+const {calculateCutoffSchedule}=businessCalendar;
 
 const STAGES=[
   {id:'ACTIVE',label:'송장 발급 전',icon:'orders',progress:0,description:'수취정보를 확인한 뒤 송장을 발급하세요.',action:'선택 주문 송장 발급'},
@@ -51,19 +53,22 @@ function rowTone(order={}){
   return {PAID:'paid',PREPARING:'preparing',READY_TO_SHIP:'preparing',SHIPPING:'shipping',DELIVERED:'complete',CANCELLED:'cancelled'}[order.stage]||'preparing';
 }
 
-function useCutoff(initialMinutes){
-  const initial=typeof initialMinutes==='number'?Math.max(0,initialMinutes):null;
-  const deadlineRef=useRef(initial==null?null:Date.now()+initial*60*1000);
-  const [remaining,setRemaining]=useState(initial);
+function cutoffView(state={}){
+  const remaining=typeof state.remainingMinutes==='number'?Math.max(0,state.remainingMinutes):null;
+  return {...state,hours:remaining==null?'--':String(Math.floor(remaining/60)).padStart(2,'0'),minutes:remaining==null?'--':String(remaining%60).padStart(2,'0'),remaining};
+}
+function useCutoff(initialState={}){
+  const holidayKey=Array.isArray(initialState.holidayDates)?initialState.holidayDates.join('|'):'';
+  const holidayReady=Boolean(initialState.holidayReady);
+  const [current,setCurrent]=useState(()=>cutoffView(initialState));
   useEffect(()=>{
-    if(deadlineRef.current==null)return undefined;
-    const update=()=>setRemaining(Math.max(0,Math.ceil((deadlineRef.current-Date.now())/60000)));
+    const holidayDates=holidayKey?holidayKey.split('|'):[];
+    const update=()=>setCurrent(cutoffView(calculateCutoffSchedule({asOf:new Date(),holidayDates,holidayReady})));
     update();
     const timer=window.setInterval(update,60000);
     return()=>window.clearInterval(timer);
-  },[]);
-  if(remaining==null)return {hours:'--',minutes:'--',remaining:null};
-  return {hours:String(Math.floor(remaining/60)).padStart(2,'0'),minutes:String(remaining%60).padStart(2,'0'),remaining};
+  },[holidayKey,holidayReady]);
+  return current;
 }
 
 async function pollCoupangTransfer(item){
@@ -100,11 +105,11 @@ function Runway({workspaces,activeStage,onStageChange,cutoff,onOpenActions,delay
   return <section className="ordersRunway" aria-label="오늘의 출고 흐름">
     <div className="runwayHead">
       <div><h2>오늘의 출고 레일</h2><p>막힌 단계를 누르면 그 주문만 바로 모아드려요.</p><span className="mobileRunwayHint">좌우로 밀어 출고 5단계를 확인하세요.</span></div>
-      <div className={`cutoffClock${cutoff.remaining!=null&&cutoff.remaining<=60?' urgent':''}`} aria-label={cutoff.remaining==null?'당일출고 마감 확인 필요':`당일출고 마감까지 ${cutoff.hours}시간 ${cutoff.minutes}분 남음`}>
-        <div><span>당일출고 마감</span><em>오후 3시</em></div>
+      <div className={`cutoffClock${cutoff.remaining!=null&&cutoff.remaining<=60?' urgent':''}`} aria-label={cutoff.remaining==null?'당일출고 마감 확인 필요':`${cutoff.dayLabel||'당일출고 마감'}까지 ${cutoff.hours}시간 ${cutoff.minutes}분 남음`}>
+        <div><span>당일출고 마감</span><em>{cutoff.dayLabel||cutoff.label||'오후 3시'}</em></div>
         <strong><span>{cutoff.hours}</span><i>:</i><span>{cutoff.minutes}</span></strong>
         <b aria-hidden="true"><i style={{width:`${cutoff.remaining==null?0:Math.max(0,Math.min(100,cutoff.remaining/300*100))}%`}}/></b>
-        <small>{cutoff.remaining==null?'기준시각 확인 필요':'남은 시간 · 1분마다 갱신'}</small>
+        <small>{cutoff.remaining==null?'기준시각 확인 필요':cutoff.confidence==='PARTIAL'?'1분마다 갱신 · 공휴일 확인 필요':cutoff.deadlineDate&&cutoff.dayLabel?.startsWith('오늘')?'남은 시간 · 1분마다 갱신':'다음 영업일 · 1분마다 갱신'}</small>
       </div>
     </div>
     <div className="stageTrack" role="tablist" aria-label="배송 단계" style={{'--stage-progress':stage.progress}}>
@@ -196,7 +201,7 @@ export default function Phase28OrdersPage({model={}}){
   const [syncPlatforms,setSyncPlatforms]=useState([]);
   const [statusMessage,setStatusMessage]=useState('');
   const [toastVisible,setToastVisible]=useState(false);
-  const cutoff=useCutoff(model.cutoff?.remainingMinutes);
+  const cutoff=useCutoff(model.cutoff||{});
   const selectedOrders=useMemo(()=>orders.filter(order=>selectedIds.has(order.hubOrderId)),[orders,selectedIds]);
   const stageOrders=useMemo(()=>orders.filter(order=>order.stageIds?.includes(activeStage)),[orders,activeStage]);
   const previewOrder=selectedOrders[0]||stageOrders[0]||null;

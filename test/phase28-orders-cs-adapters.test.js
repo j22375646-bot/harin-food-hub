@@ -11,6 +11,7 @@ const {
 test('orders adapter derives seller-delivery work without inventing retry totals',()=>{
   const model=buildPhase28OrdersModel({
     generatedAt:'2026-08-29T01:40:00.000Z',
+    shippingReferenceCenter:{calendar:{ready:true,holidays:[{date:'20260831',name:'임시 공휴일'}]}},
     unifiedOrders:{
       orders:[
         {hubOrderId:'NV-1',externalOrderId:'20260829-1',platform:'NAVER',channelLabel:'네이버',stage:'PAID',fulfillment:'SELLER',shippingEligible:true,invoiceNumber:'',timingBadge:{type:'DELAYED',label:'배송지연'},productName:'작두콩차',orderedAt:'2026-08-29T01:18:00.000Z',amount:12000,quantity:1,receiver:{name:'김하린',contact:'010-0000-0000',address:'충남 천안시',message:'문 앞'},items:[{name:'작두콩차',option:'30티백',quantity:1}]},
@@ -37,6 +38,10 @@ test('orders adapter derives seller-delivery work without inventing retry totals
   assert.equal(model.orders[0].selectionEligible,false);
   assert.match(model.orders[0].selectionBlockedReason,/네이버에서 송장을 발급/);
   assert.equal(model.cutoff.label,'오후 3시');
+  assert.equal(model.cutoff.deadlineDate,'2026-09-01');
+  assert.equal(model.cutoff.dayLabel,'화요일 오후 3시');
+  assert.deepEqual(model.cutoff.holidayDates,['20260831']);
+  assert.equal(model.cutoff.holidayReady,true);
 });
 
 test('orders adapter distinguishes an observed zero from an unavailable client-only retry count',()=>{
