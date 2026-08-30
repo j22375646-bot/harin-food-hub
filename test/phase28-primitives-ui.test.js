@@ -41,3 +41,16 @@ test('right rail collapses to a square without a vertical shell',()=>{
   assert.match(css,/@media \(max-width:1480px\)/);
   assert.doesNotMatch(css,/border-left\s*:/);
 });
+
+test('right rail pages keep route-scoped panels and hide nested scrollbar tracks',()=>{
+  const css=read('app/_phase28/primitives/primitives.module.css');
+  const orders=read('app/_phase28/pages/orders-page.css');
+  const cs=read('app/_phase28/pages/cs-page.css');
+  assert.match(css,/--panel-open-width:clamp\(400px,22vw,460px\)/);
+  assert.match(css,/\.railContent,.railContent :global\(\*\)\{[^}]*scrollbar-width:none/);
+  assert.match(css,/\.railContent::-webkit-scrollbar,.railContent :global\(\*\)::-webkit-scrollbar\{[^}]*display:none/);
+  assert.match(orders,/\.ordersRailPanels\{/);
+  assert.match(cs,/\.csRailPanels\{/);
+  assert.doesNotMatch(orders,/\.railPanels\b/);
+  assert.doesNotMatch(cs,/\.railPanels\b/);
+});

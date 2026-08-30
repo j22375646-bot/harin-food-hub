@@ -43,7 +43,7 @@
   --panel-content-duration:220ms;
   --panel-motion-ease:cubic-bezier(.22,1,.36,1);
   --panel-content-ease:cubic-bezier(.2,.8,.2,1);
-  --panel-open-width:clamp(370px,21vw,410px);
+  --panel-open-width:clamp(400px,22vw,460px);
   --panel-closed-width:48px;
   --panel-open-gap:28px;
   --panel-closed-gap:16px;
@@ -60,6 +60,8 @@
 .railControl svg{width:18px;height:18px;flex:0 0 auto;transition:transform var(--panel-motion-duration) var(--panel-motion-ease);}
 .railControl b{display:inline-block;max-width:260px;overflow:hidden;opacity:1;transform:translateX(0);color:inherit;font-size:13px;font-weight:850;white-space:nowrap;transition:max-width 320ms var(--panel-motion-ease),opacity 150ms ease 90ms,transform 300ms var(--panel-motion-ease);}
 .railContent{min-width:0;opacity:1;transform:translateX(0) scale(1);transform-origin:right center;visibility:visible;transition:opacity var(--panel-content-duration) var(--panel-content-ease) 110ms,transform var(--panel-motion-duration) var(--panel-motion-ease) 70ms,visibility 0s linear 0s;}
+.railContent,.railContent :global(*){scrollbar-width:none;-ms-overflow-style:none;}
+.railContent::-webkit-scrollbar,.railContent :global(*)::-webkit-scrollbar{display:none;width:0;height:0;}
 .workspace[data-open="false"] .rail{width:100%;min-height:48px;max-height:48px;justify-self:stretch;overflow:hidden;padding:0;border:0;background:transparent;box-shadow:none;}
 .workspace[data-open="false"] .railControl{width:48px;height:48px;min-height:48px;margin:0;padding:0;border:1px solid var(--p28-line);border-radius:12px;background:var(--p28-surface);}
 .workspace[data-open="false"] .railControl svg{transform:rotate(180deg);}

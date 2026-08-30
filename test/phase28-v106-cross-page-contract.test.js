@@ -48,7 +48,7 @@ test('공통 제목과 우측 패널은 승인된 V106 모션과 접힘 크기�
   const shellCss=read('app/_phase28/phase28-shell.module.css');
   const rail=read('app/_phase28/primitives/right-rail-layout.js');
   assert.match(css,/--panel-motion-duration:440ms/);
-  assert.match(css,/--panel-open-width:clamp\(370px,21vw,410px\)/);
+  assert.match(css,/--panel-open-width:clamp\(400px,22vw,460px\)/);
   assert.match(css,/--panel-closed-width:48px/);
   assert.match(css,/--panel-closed-gap:16px/);
   assert.match(css,/\.heading h1\{[^}]*font-size:clamp\(34px,3vw,50px\)!important/);

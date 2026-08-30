@@ -47,7 +47,7 @@ test('the V106 orders surface keeps the approved runway, stable rail, and real a
 
 test('orders rail panels share one grid cell so tab changes do not move the page',()=>{
   const css=read('app/_phase28/pages/orders-page.css');
-  assert.match(css,/\.railPanels\{display:grid;grid-template-columns:minmax\(0,1fr\);grid-template-rows:minmax\(0,1fr\)/);
+  assert.match(css,/\.ordersRailPanels\{display:grid;grid-template-columns:minmax\(0,1fr\);grid-template-rows:minmax\(0,1fr\)/);
   assert.match(css,/grid-column:1;grid-row:1/);
   assert.match(css,/visibility:hidden/);
   assert.match(css,/pointer-events:none/);

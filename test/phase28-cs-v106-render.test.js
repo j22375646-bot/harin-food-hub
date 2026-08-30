@@ -49,7 +49,7 @@ test('V106 customer service CSS preserves the fixed readable layout and balanced
   assert.match(css,/@media \(max-width:760px\)/);
   assert.match(css,/@media \(prefers-reduced-motion:reduce\)/);
   assert.match(css,/\.p28CsPage \.csThread\.selected\{[^}]*box-shadow:inset 0 0 0 1px/);
-  assert.match(css,/\.railPanels\{display:grid;grid-template-columns:minmax\(0,1fr\);grid-template-rows:minmax\(0,1fr\)/);
+  assert.match(css,/\.csRailPanels\{display:grid;grid-template-columns:minmax\(0,1fr\);grid-template-rows:minmax\(0,1fr\)/);
   assert.doesNotMatch(css,/border-left\s*:/);
   assert.doesNotMatch(css,/linear-gradient|radial-gradient|backdrop-filter/);
   assert.doesNotMatch(css,/font-size:(?:[0-9]|1[01])px/);
