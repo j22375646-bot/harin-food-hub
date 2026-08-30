@@ -48,6 +48,7 @@ test('V106 상품개발 스타일은 고정 UI와 균형 선택 규칙을 지킨
   assert.doesNotMatch(css,/\.pdIntro>header\{[^}]*padding:/);
   assert.match(css,/\.pdIntroStatus\{[^}]*width:360px;[^}]*height:112px/);
   assert.match(css,/\.pdDecisionDesk\{[^}]*padding:20px/);
+  assert.match(css,/\.pdRunner>footer\{[^}]*width:100%;[^}]*max-width:none;[^}]*margin:0;[^}]*border-top:1px solid var\(--ops-line\)/);
   assert.match(css,/\.pdLedger>div>button\[data-selected="true"\]\{[^}]*background:var\(--ops-soft\)/);
   assert.match(css,/@media\s*\(max-width:\s*1160px\)\{\.pdIntroStatus\{[^}]*flex-basis:auto/);
   assert.doesNotMatch(css,/gradient\(|backdrop-filter|filter:\s*blur/i);
