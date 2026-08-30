@@ -38,3 +38,14 @@ test('V106 shell preserves readable responsive and balanced-selection rules',()=
   assert.match(css,/min-height:44px/);
   assert.doesNotMatch(css,/border-left\s*:/);
 });
+
+test('V106 desktop navigation keeps scrolling without exposing a draggable rail',()=>{
+  const shell=read('app/_phase28/phase28-shell.js');
+  const css=read('app/_phase28/phase28-shell.module.css');
+  assert.match(shell,/className=\{styles\.sidebarScrollArea\}/);
+  assert.match(shell,/data-can-scroll-down/);
+  assert.match(css,/\.sidebarScrollArea\{[^}]*overflow-y:auto/);
+  assert.match(css,/\.sidebarScrollArea\{[^}]*scrollbar-width:none/);
+  assert.match(css,/\.sidebarScrollArea::-webkit-scrollbar\{display:none/);
+  assert.match(css,/\.sidebar\{[^}]*overflow:hidden/);
+});

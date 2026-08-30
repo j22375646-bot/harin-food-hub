@@ -58,6 +58,8 @@ export default function Phase28Shell({routeId,badges=null,generatedAt=null,child
   const [evidenceOpen,setEvidenceOpen]=useState(false);
   const [moreOpen,setMoreOpen]=useState(false);
   const [refreshing,startRefresh]=useTransition();
+  const sidebarScrollRef=useRef(null);
+  const [sidebarScrollState,setSidebarScrollState]=useState({up:false,down:false});
   const moreDialogRef=useRef(null);
   const moreTriggerRef=useRef(null);
   const navigation=useMemo(()=>buildPhase28Navigation({badges}),[badges]);
@@ -69,6 +71,15 @@ export default function Phase28Shell({routeId,badges=null,generatedAt=null,child
   const closeCommand=useCallback(()=>setCommandOpen(false),[]);
   const closeEvidence=useCallback(()=>setEvidenceOpen(false),[]);
   const closeMore=useCallback(()=>setMoreOpen(false),[]);
+  const syncSidebarScrollState=useCallback(()=>{
+    const node=sidebarScrollRef.current;
+    if(!node)return;
+    const next={
+      up:node.scrollTop>2,
+      down:node.scrollTop+node.clientHeight<node.scrollHeight-2
+    };
+    setSidebarScrollState(current=>current.up===next.up&&current.down===next.down?current:next);
+  },[]);
 
   useLayoutEffect(()=>{
     try{
@@ -91,6 +102,15 @@ export default function Phase28Shell({routeId,badges=null,generatedAt=null,child
     document.addEventListener('keydown',onKeyDown);
     return ()=>document.removeEventListener('keydown',onKeyDown);
   },[]);
+
+  useEffect(()=>{
+    const frame=requestAnimationFrame(syncSidebarScrollState);
+    window.addEventListener('resize',syncSidebarScrollState);
+    return ()=>{
+      cancelAnimationFrame(frame);
+      window.removeEventListener('resize',syncSidebarScrollState);
+    };
+  },[compact,navigation.items.length,syncSidebarScrollState]);
 
   useEffect(()=>{
     if(!moreOpen)return undefined;
@@ -135,19 +155,21 @@ export default function Phase28Shell({routeId,badges=null,generatedAt=null,child
 
   return (
     <div className={`${tokens.root} ${styles.shell}`} data-theme={theme} data-sidebar={compact?'compact':'expanded'}>
-      <aside className={styles.sidebar} aria-label="데스크톱 메뉴 영역">
-        <div className={styles.brand}><span className={styles.brandMark}>H</span><span className={styles.brandCopy}><strong>하린식품</strong><small>성장 운영 허브</small></span></div>
-        <button className={styles.sideSearch} type="button" onClick={()=>setCommandOpen(true)} aria-label="메뉴와 업무 찾기"><span aria-hidden="true">⌕</span><span>메뉴·업무 찾기</span></button>
-        <section className={styles.sideCompanyStatus} aria-label={vitality.known?`오늘 회사 활력 ${vitality.score}점, ${vitality.label}`:'오늘 회사 활력 확인 필요'}>
-          <header><span>오늘 회사 활력</span><b>{vitality.label}</b></header>
-          <div><strong>{vitality.known?vitality.score:'—'}</strong>{vitality.known?<p><b>{vitality.attention}건</b> 확인하면<br/>운영 흐름이 가벼워져요.</p>:<p><b>확인 필요</b><br/>운영 집계를 불러오지 않았어요.</p>}</div>
-          <em><i style={{width:vitality.known?`${vitality.score}%`:'0%'}}/></em>
-          <small>{vitality.known?'운영 확인 항목 기준':'운영 집계 확인 필요'}</small>
-        </section>
-        <nav className={styles.navigation} aria-label="허브 메뉴">
-          {navigation.groups.map(group=><section key={group.id}><h2>{group.label}</h2>{group.items.map(item=><NavigationLink item={item} routeId={routeId} compact={compact} key={item.id}/>)}</section>)}
-        </nav>
-        <button className={styles.collapseButton} type="button" onClick={()=>setCompact(value=>!value)} aria-label={compact?'사이드바 펼치기':'사이드바 접기'} aria-expanded={!compact}><span aria-hidden="true">{compact?'›':'‹'}</span><strong>{compact?'':'메뉴 접기'}</strong></button>
+      <aside className={styles.sidebar} aria-label="데스크톱 메뉴 영역" data-can-scroll-up={sidebarScrollState.up} data-can-scroll-down={sidebarScrollState.down}>
+        <div className={styles.sidebarScrollArea} ref={sidebarScrollRef} onScroll={syncSidebarScrollState}>
+          <div className={styles.brand}><span className={styles.brandMark}>H</span><span className={styles.brandCopy}><strong>하린식품</strong><small>성장 운영 허브</small></span></div>
+          <button className={styles.sideSearch} type="button" onClick={()=>setCommandOpen(true)} aria-label="메뉴와 업무 찾기"><span aria-hidden="true">⌕</span><span>메뉴·업무 찾기</span></button>
+          <section className={styles.sideCompanyStatus} aria-label={vitality.known?`오늘 회사 활력 ${vitality.score}점, ${vitality.label}`:'오늘 회사 활력 확인 필요'}>
+            <header><span>오늘 회사 활력</span><b>{vitality.label}</b></header>
+            <div><strong>{vitality.known?vitality.score:'—'}</strong>{vitality.known?<p><b>{vitality.attention}건</b> 확인하면<br/>운영 흐름이 가벼워져요.</p>:<p><b>확인 필요</b><br/>운영 집계를 불러오지 않았어요.</p>}</div>
+            <em><i style={{width:vitality.known?`${vitality.score}%`:'0%'}}/></em>
+            <small>{vitality.known?'운영 확인 항목 기준':'운영 집계 확인 필요'}</small>
+          </section>
+          <nav className={styles.navigation} aria-label="허브 메뉴">
+            {navigation.groups.map(group=><section key={group.id}><h2>{group.label}</h2>{group.items.map(item=><NavigationLink item={item} routeId={routeId} compact={compact} key={item.id}/>)}</section>)}
+          </nav>
+          <button className={styles.collapseButton} type="button" onClick={()=>setCompact(value=>!value)} aria-label={compact?'사이드바 펼치기':'사이드바 접기'} aria-expanded={!compact}><span aria-hidden="true">{compact?'›':'‹'}</span><strong>{compact?'':'메뉴 접기'}</strong></button>
+        </div>
       </aside>
 
       <div className={styles.workspace}>
