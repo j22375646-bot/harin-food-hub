@@ -15,6 +15,7 @@ import Phase28SystemPage from './pages/system-page.js';
 import Phase28NotificationsPage from './pages/notifications-page.js';
 import Phase28DiagnosesPage from './pages/diagnoses-page.js';
 import Phase28ChangesPage from './pages/changes-page.js';
+import Phase28ValidationPage from './pages/validation-page.js';
 import Phase28Shell from './phase28-shell.js';
 
 const {phase28Route,phase28RouteForLegacyState}=routeRegistryModule;
@@ -45,6 +46,7 @@ export default function Phase28App({initialData}) {
   else if(routeId==='notifications')page=<Phase28NotificationsPage model={initialData.phase28?.notifications||{}}/>;
   else if(routeId==='diagnoses')page=<Phase28DiagnosesPage model={initialData.phase28?.diagnoses||{}}/>;
   else if(routeId==='changes')page=<Phase28ChangesPage model={initialData.phase28?.changes||{}}/>;
+  else if(routeId==='validation')page=<Phase28ValidationPage model={initialData.phase28?.validation||{}}/>;
   else page=<section data-phase28-root="true" data-phase28-page={routeId} aria-label="Phase 28 페이지 준비 상태">이 페이지의 운영 화면은 확인 필요 상태예요.</section>;
 
   return <Phase28Shell routeId={routeId} badges={navigationSnapshot?.badges||{}} generatedAt={generatedAt}>

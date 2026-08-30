@@ -137,7 +137,7 @@ function MainDecisionRail({model,aiPanel,onNavigate}){
 export default function Phase28HomePage({model={},aiPanel=null,onNavigate=()=>{}}){
   const hero=model.hero||{};
   const taskCount=typeof hero.taskCount==='number'?hero.taskCount:null;
-  return <section className={styles.home} data-phase28-page="home">
+  return <section className={styles.home} data-phase28-root="true" data-phase28-page="home">
     <div className={styles.intro}>
       <div className={styles.introCopy}><Phase28PageHeading context={`실제 운영 자료 · ${formatAsOf(hero.asOf)}`} title={taskCount===null?'오늘 운영 건수는 ':taskCount>0?'오늘 처리할 일은 ':'오늘 회사는 '} accent={taskCount===null?'확인 필요':taskCount>0?`${taskCount}건`:'순항 중'} suffix="이에요." summary={hero.summary||'운영 자료를 확인하고 있어요.'}/><div className={styles.todayNote}><span>오늘의 메모</span><strong>{hero.note||'등록된 메모 없음'}</strong></div></div>
       <CompanyStatus hero={hero} deadline={model.deadline||{}}/>

@@ -43,5 +43,5 @@ test('변경 조회 오류는 확인 대기와 검증 완료를 0건으로 바�
 });
 
 test('changes joins the implemented V106 adapter set',()=>{
-  assert.equal(PHASE28_AVAILABLE_ADAPTERS.at(-1),'changes');
+  assert.equal(PHASE28_AVAILABLE_ADAPTERS.at(-2),'changes');
 });

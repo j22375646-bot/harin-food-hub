@@ -63,7 +63,7 @@
 .csInboxUtility>span{color:var(--p28-muted);font-size:13px;font-weight:750;white-space:nowrap;}
 .csInboxUtility>.sort{min-height:44px;display:flex;align-items:center;gap:8px;margin-inline-start:auto;padding:0 10px 0 12px;border:1px solid var(--p28-line);border-radius:10px;background:var(--p28-surface);}
 .csInboxUtility>.sort>span{color:var(--p28-muted);font-size:12px;font-weight:800;}
-.csInboxUtility select{min-height:40px;border:0;outline:0;background:transparent;color:var(--p28-ink);font-size:13px;font-weight:850;}
+.csInboxUtility select{min-height:44px;border:0;outline:0;background:transparent;color:var(--p28-ink);font-size:13px;font-weight:850;}
 
 .csInboxToolbar{min-height:62px;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:8px 18px;border-bottom:1px solid var(--p28-line);background:var(--p28-soft);}
 .csStageTabs,.csPriorityFilter{display:flex;align-items:center;gap:4px;}
@@ -76,7 +76,7 @@
 .csBulkBar input,.csThread>input{width:20px;height:20px;accent-color:var(--p28-blue);}
 .csBulkBar strong{color:var(--p28-blue);font-size:15px;}
 .csBulkBar>span{color:var(--p28-muted);font-size:14px;}
-.csBulkBar>button{min-height:42px;margin-inline-start:auto;padding:0 14px;border:0;border-radius:9px;background:var(--p28-ink);color:var(--p28-surface);font-size:13px;font-weight:850;}
+.csBulkBar>button{min-height:44px;margin-inline-start:auto;padding:0 14px;border:0;border-radius:9px;background:var(--p28-ink);color:var(--p28-surface);font-size:13px;font-weight:850;}
 .csInboxColumns{display:grid;grid-template-columns:minmax(300px,1.55fr) minmax(190px,.76fr) 72px 96px 94px;gap:14px;padding:11px 20px 10px 112px;border-bottom:1px solid var(--p28-line);color:var(--p28-muted);font-size:12px;font-weight:800;}
 
 .csThreadList{background:var(--p28-surface);}
@@ -109,21 +109,21 @@
 .csThreadWait.calm{color:var(--p28-mint);}.csThreadWait.watch{color:#9b6b28;}.csThreadWait.urgent{color:#b15b35;}
 .csStatusBadge{display:inline-flex;align-items:center;justify-content:center;min-height:30px;padding:0 9px;border-radius:8px;background:#eef2fb;color:#4964a1;font-size:12px;font-weight:850;white-space:nowrap;}
 .csStatusBadge[data-tone="watch"]{background:#fff3df;color:#9b5e1e;}.csStatusBadge[data-tone="urgent"]{background:#fdeceb;color:#ad4c49;}
-.csRowAction{min-height:42px;padding:0 10px;border:1px solid var(--p28-line);border-radius:9px;background:var(--p28-surface);color:var(--p28-blue);font-size:13px;font-weight:850;}
+.csRowAction{min-height:44px;padding:0 10px;border:1px solid var(--p28-line);border-radius:9px;background:var(--p28-surface);color:var(--p28-blue);font-size:13px;font-weight:850;}
 .csThreadPreview{grid-column:3/-1;max-height:0;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.9fr) auto;gap:13px 18px;align-items:center;overflow:hidden;opacity:0;padding:0;border-top:0 solid transparent;transform:translateY(-4px);transition:max-height 300ms cubic-bezier(.22,1,.36,1),opacity 220ms ease,transform 300ms cubic-bezier(.22,1,.36,1),padding 300ms cubic-bezier(.22,1,.36,1),border-color 200ms ease;}
 .csThread.selected .csThreadPreview{max-height:180px;opacity:1;padding:15px 0 2px;border-top:1px solid var(--p28-line);transform:translateY(0);}
 .csThreadFacts{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;}
 .csThreadFacts span{padding:5px 8px;border:1px solid var(--p28-line);border-radius:7px;background:var(--p28-surface);color:var(--p28-ink-2);font-size:12px;font-weight:800;}
 .csThreadPreview p,.csThreadPreview>span{margin:0;font-size:14px;line-height:1.52;}
 .csThreadPreview p{font-weight:750;}.csThreadPreview>span{color:var(--p28-muted);}
-.csThreadPreview>button{min-height:42px;padding:0 12px;border:0;border-radius:9px;background:var(--p28-ink);color:var(--p28-surface);font-size:13px;font-weight:850;}
+.csThreadPreview>button{min-height:44px;padding:0 12px;border:0;border-radius:9px;background:var(--p28-ink);color:var(--p28-surface);font-size:13px;font-weight:850;}
 .csEmptyState{padding:42px 20px;text-align:center;}.csEmptyState strong,.csEmptyState span{display:block;}.csEmptyState strong{font-size:17px;}.csEmptyState span{margin-top:7px;color:var(--p28-muted);font-size:14px;}
 .csOpsNote{min-height:62px;display:flex;align-items:center;gap:12px;padding:10px 20px;border-top:1px solid var(--p28-line);background:color-mix(in srgb,var(--p28-mint-soft) 38%,var(--p28-surface));}
 .csOpsNote>span{width:36px;height:36px;flex:0 0 auto;display:grid;place-items:center;border-radius:9px;background:var(--p28-surface);color:var(--p28-mint);}
 .csOpsNote p{margin:0;color:var(--p28-ink-2);font-size:14px;line-height:1.55;}.csOpsNote strong{margin-inline-end:7px;color:var(--p28-ink);}
 .csInboxStatusline{min-height:62px;display:flex;align-items:center;justify-content:space-between;gap:20px;padding:10px 20px;border-top:1px solid var(--p28-line);background:var(--p28-soft);}
 .csInboxStatusline>span{display:flex;flex-wrap:wrap;align-items:baseline;gap:7px;}.csInboxStatusline strong,.csInboxStatusline small{font-size:14px;}.csInboxStatusline small{color:var(--p28-muted);}
-.csInboxStatusline button{min-height:42px;display:flex;align-items:center;gap:7px;padding:0 12px;border:1px solid var(--p28-line);border-radius:9px;background:var(--p28-surface);color:var(--p28-blue);font-size:13px;font-weight:850;}
+.csInboxStatusline button{min-height:44px;display:flex;align-items:center;gap:7px;padding:0 12px;border:1px solid var(--p28-line);border-radius:9px;background:var(--p28-surface);color:var(--p28-blue);font-size:13px;font-weight:850;}
 
 .csRailBody{min-width:0;transition:opacity 440ms cubic-bezier(.22,1,.36,1);}
 .csRailTabs{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:6px;border:1px solid var(--p28-line);border-radius:13px 13px 0 0;background:var(--p28-surface);}

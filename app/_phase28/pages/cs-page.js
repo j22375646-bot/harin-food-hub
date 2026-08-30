@@ -274,7 +274,7 @@ export default function Phase28CsPage({model={}}){
   }
 
   const currentStage=STAGES.find(item=>item.id===activeStage)||STAGES[0];
-  return <section className="p28CsPage" data-phase28-page="cs">
+  return <section className="p28CsPage" data-phase28-root="true" data-phase28-page="cs">
     <div className="csIntro"><Phase28PageHeading context={`채널 ${channels.filter(item=>['READY','RUNNING'].includes(safeText(item.status).toUpperCase())).length}/${channels.length||3} 최신 · 미처리 문의만 표시`} title="오늘 답할 문의는 " accent={`${count(hero.activeCount)}건`} suffix="이에요." summary="문의 내용과 주문 상태를 한 화면에서 확인하고, 필요한 답변부터 바로 처리해요."/><div className="csResponseSignal"><span><HarinIcon name="customer" size={21}/></span><span><small>첫 답변 목표</small><strong>{model.responseTargetMinutes||30}분 안에</strong></span><b><small>가장 오래된 문의</small><strong>{waitLabel(oldestMinutes)}</strong></b></div></div>
     <Phase28RightRailLayout label="CS 답변 보조석" rail={<CsRail row={selectedRow} asOf={hero.asOf} activeTab={activeTab} setActiveTab={setActiveTab} draft={draft} setDraft={setDraft} templates={templates} replyBy={replyBy} setReplyBy={setReplyBy} busy={Boolean(busy)} onReply={reply} onCopy={copyDraft} onClaim={runClaim}/> }>
       <div className="csCore">

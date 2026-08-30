@@ -38,6 +38,7 @@ test('readiness recognizes the implemented Main through Changes adapters',()=>{
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='notifications'),false);
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='diagnoses'),false);
   assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='changes'),false);
+  assert.equal(report.blockers.some(item=>item.code==='MISSING_ADAPTER'&&item.page==='validation'),false);
 });
 
 test('readiness requires complete page coverage before whole-app cutover',()=>{

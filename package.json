@@ -25,6 +25,7 @@
     "verify:phase28-notifications": "pnpm verify:phase28-system && node --test test/phase28-notifications-adapter.test.js test/phase28-notifications-v106-render.test.js test/phase28-notifications-loader.test.js test/phase23-notifications-lazy-boundary.test.js test/phase15-remaining-page-structure.test.js test/phase22-bulk-selection.test.js",
     "verify:phase28-diagnoses": "pnpm verify:phase28-notifications && node --test test/phase28-diagnoses-adapter.test.js test/phase28-diagnoses-loader.test.js test/phase28-diagnoses-v106-render.test.js test/phase12-report-learning.test.js test/report-versioning.test.js test/report-presentation.test.js test/phase23-reports-lazy-boundary.test.js",
     "verify:phase28-changes": "pnpm verify:phase28-diagnoses && node --test test/phase28-changes-adapter.test.js test/phase28-changes-loader.test.js test/phase28-changes-v106-render.test.js test/financial-change.test.js test/phase22-owner-direct-execution.test.js test/phase23-financial-changes-lazy-boundary.test.js",
+    "verify:phase28-validation": "pnpm verify:phase28-changes && node --test test/phase28-validation-adapter.test.js test/phase28-validation-loader.test.js test/phase28-validation-v106-render.test.js test/retention-validation.test.js",
     "test:phase14-final": "node --test test/phase14-final-quality.test.js",
     "start": "next start",
     "start:legacy": "node cafe24-oauth-server.js",
