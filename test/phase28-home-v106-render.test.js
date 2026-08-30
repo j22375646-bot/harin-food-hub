@@ -61,4 +61,26 @@ test('V106 Main renders the complete owner-approved executive desk',async()=>{
   ])assert.match(html,new RegExp(label));
   assert.match(html,/이번 달 실제 이익/);
   assert.match(html,/목표 85,000,000원/);
+  assert.match(html,/월 목표 수정/);
+  assert.doesNotMatch(html,/role="progressbar"/);
+});
+
+test('V106 Main gives a direct goal-setting action when the monthly target is missing',async()=>{
+  const {default:Phase28HomePage}=await import(pageUrl);
+  const html=renderToStaticMarkup(React.createElement(Phase28HomePage,{
+    model:{
+      hero:{taskCount:0,exceptionCount:0,summary:'운영 요약',asOf:'2026-08-31T10:42:00+09:00'},
+      metrics:{
+        current:{value:8_327_610,status:'READY',asOf:'2026-08-31T10:42:00+09:00'},
+        forecast:{value:8_327_610,status:'PARTIAL'},
+        profit:{value:null,status:'BLOCKED'},
+        target:{value:null,status:'BLOCKED'}
+      },
+      schedule:[],decisions:[],growth:[],risks:[],channels:[],cashflow:{rows:[]},forecast:{days:[]},cashCalendar:[]
+    }
+  }));
+
+  assert.match(html,/이번 달 목표 설정/);
+  assert.match(html,/저장하면 월 매출과 예상치를 자동으로 다시 계산해요/);
+  assert.doesNotMatch(html,/goalRunway/);
 });

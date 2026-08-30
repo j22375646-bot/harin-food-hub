@@ -55,12 +55,35 @@
 @keyframes warnPulse{50%{box-shadow:0 0 0 9px rgba(214,154,112,0);}}
 .vitalityPoints strong{color:#fff;font-size:14px;}
 .vitalityPoints small{font-size:12px;}
-.goalRunway{width:calc(100% - 54px);display:grid;gap:9px;margin:0 27px 25px;padding:0;border:0;background:transparent;color:#fff;text-align:left;cursor:pointer;}
-.goalRunway>span{display:flex;align-items:center;justify-content:space-between;gap:16px;font-size:13px;}
-.goalRunway>span b{font-size:14px;}
-.goalRunway>span i{color:#bdc7d9;font-style:normal;font-weight:750;}
-.goalRunway>em{height:9px;overflow:hidden;border-radius:99px;background:rgba(255,255,255,.12);}
-.goalRunway>em>i{display:block;height:100%;border-radius:inherit;background:#8fa6e4;transition:width 720ms cubic-bezier(.22,1,.36,1);}
+.goalControl{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0 27px 24px;padding:15px 17px;border:1px solid rgba(255,255,255,.14);border-radius:13px;background:rgba(255,255,255,.055);}
+.goalControl>span{min-width:0;display:grid;gap:4px;}
+.goalControl b{font-size:14px;line-height:1.4;}
+.goalControl small{color:#bdc7d9;font-size:13px;line-height:1.45;}
+.goalControl>button{min-height:44px;flex:0 0 auto;padding:0 16px;border:1px solid #8fa6e4;border-radius:11px;background:#f7f9ff;color:#263c78;font-size:14px;font-weight:900;cursor:pointer;transition:transform 160ms ease,background 160ms ease;}
+.goalControl>button:hover{transform:translateY(-1px);background:#fff;}
+.goalSaved{margin:0;padding:12px 15px;border:1px solid color-mix(in srgb,var(--p28-mint) 34%,var(--p28-line));border-radius:12px;background:color-mix(in srgb,var(--p28-mint) 10%,var(--p28-surface));color:var(--p28-ink);font-size:14px;font-weight:800;}
+.goalDialogBackdrop{position:fixed;z-index:1400;inset:0;display:grid;place-items:center;padding:24px;background:rgba(10,18,34,.64);animation:goalBackdropIn 180ms ease both;}
+.goalDialog{width:min(620px,100%);overflow:hidden;border:1px solid var(--p28-line);border-radius:19px;background:var(--p28-surface);color:var(--p28-ink);animation:goalDialogIn 260ms cubic-bezier(.22,1,.36,1) both;}
+.goalDialog>header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:23px 24px 19px;border-bottom:1px solid var(--p28-line);}
+.goalDialog>header>div>span{display:block;margin-bottom:6px;color:var(--p28-blue);font-size:12px;font-weight:900;letter-spacing:.12em;}
+.goalDialog h2{margin:0;font-size:24px;letter-spacing:-.04em;}
+.goalDialog header p{margin:6px 0 0;color:var(--p28-muted);font-size:14px;line-height:1.55;}
+.goalDialog>header>button{width:40px;height:40px;flex:0 0 auto;border:1px solid var(--p28-line);border-radius:11px;background:var(--p28-surface);color:var(--p28-muted);font-size:25px;line-height:1;cursor:pointer;}
+.goalDialog form{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:22px 24px 24px;}
+.goalDialog label{min-width:0;display:grid;gap:7px;color:var(--p28-ink);font-size:13px;font-weight:850;}
+.goalDialog input{width:100%;min-height:48px;padding:0 13px;border:1px solid var(--p28-line);border-radius:11px;background:var(--p28-soft);color:var(--p28-ink);font-size:15px;font-weight:750;outline:0;}
+.goalDialog input:focus{border-color:var(--p28-blue);box-shadow:0 0 0 3px color-mix(in srgb,var(--p28-blue) 13%,transparent);}
+.goalInputUnit{position:relative;display:block;}
+.goalInputUnit>input{padding-right:38px;}
+.goalInputUnit>i{position:absolute;right:14px;top:50%;color:var(--p28-muted);font-style:normal;transform:translateY(-50%);}
+.goalNotes{grid-column:1/-1;}
+.goalError{grid-column:1/-1;margin:0;padding:11px 13px;border-radius:10px;background:color-mix(in srgb,var(--p28-rose) 12%,var(--p28-surface));color:var(--p28-rose);font-size:13px;font-weight:800;}
+.goalDialog form>footer{grid-column:1/-1;display:flex;justify-content:flex-end;gap:9px;padding-top:3px;}
+.goalDialog footer button{min-height:46px;padding:0 17px;border:1px solid var(--p28-line);border-radius:11px;background:var(--p28-surface);color:var(--p28-ink);font-size:14px;font-weight:900;cursor:pointer;}
+.goalDialog footer button[type="submit"]{border-color:#172036;background:#172036;color:#fff;}
+.goalDialog footer button:disabled{opacity:.58;cursor:wait;}
+@keyframes goalBackdropIn{from{opacity:0;}to{opacity:1;}}
+@keyframes goalDialogIn{from{opacity:0;transform:translateY(14px) scale(.985);}to{opacity:1;transform:translateY(0) scale(1);}}
 
 .operatingLine{min-height:166px;display:grid;grid-template-columns:minmax(300px,.82fr) minmax(0,1.7fr);align-items:center;gap:30px;padding:24px 27px;border:1px solid var(--p28-line);border-radius:16px;background:var(--p28-surface);}
 .operatingSummary{height:100%;display:grid;align-content:center;gap:5px;padding-right:28px;border-right:1px solid var(--p28-line);}
@@ -201,7 +224,7 @@
   .vitalityTrack{min-height:208px;}
   .vitalityTrack svg{display:none;}
   .vitalityPoints{grid-template-columns:1fr 1fr;gap:18px;min-height:190px;}
-  .goalRunway{width:calc(100% - 28px);margin:0 14px 20px;}
+  .goalControl{align-items:stretch;margin:0 14px 20px;}
   .operatingLine{padding:20px 18px;}
   .operatingTrack{grid-template-columns:1fr 1fr;}
   .operatingTrack::before{display:none;}
@@ -227,10 +250,17 @@
   .growthRows em{grid-column:2;}
   .forecastChart{gap:4px;}
   .forecastChart small{font-size:12px;}
+  .goalControl{display:grid;}
+  .goalControl>button{width:100%;}
+  .goalDialogBackdrop{padding:12px;}
+  .goalDialog form{grid-template-columns:1fr;padding:19px;}
+  .goalDialog>header{padding:20px 19px 17px;}
+  .goalNotes,.goalError,.goalDialog form>footer{grid-column:auto;}
+  .goalDialog form>footer{display:grid;grid-template-columns:1fr 1fr;}
 }
 
 @media (prefers-reduced-motion:reduce){
-  .executiveBoard,.boardMetric>strong,.goalRunway>em>i,.cashRows>div>em>i{transition:none;}
+  .executiveBoard,.boardMetric>strong,.goalControl>button,.cashRows>div>em>i{transition:none;}
   .executiveBoard:hover{transform:none;}
-  .vitalityTrack .pulsePath,.vitalityPoints>span[data-tone="warn"] i,.forecastChart>span>i{animation:none;}
+  .vitalityTrack .pulsePath,.vitalityPoints>span[data-tone="warn"] i,.forecastChart>span>i,.goalDialogBackdrop,.goalDialog{animation:none;}
 }

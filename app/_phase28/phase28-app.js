@@ -42,7 +42,7 @@ export default function Phase28App({initialData}) {
   }
 
   let page;
-  if(routeId==='home')page=<Phase28HomePage model={initialData.phase28?.main||{}} aiPanel={initialData.aiPagePanels?.main||null} onNavigate={navigate}/>;
+  if(routeId==='home')page=<Phase28HomePage model={initialData.phase28?.main||{}} aiPanel={initialData.aiPagePanels?.main||null} onNavigate={navigate} onRefresh={()=>router.refresh()}/>;
   else if(routeId==='orders')page=<Phase28OrdersPage model={initialData.phase28?.orders||{}}/>;
   else if(routeId==='cs')page=<Phase28CsPage model={initialData.phase28?.cs||{}}/>;
   else if(routeId==='inventory'||routeId==='products')page=<Phase28InventoryProductsPage mode={routeId} model={routeId==='inventory'?initialData.phase28?.inventory||{}:initialData.phase28?.products||{}}/>;

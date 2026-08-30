@@ -1,5 +1,7 @@
 'use client';
 
+import {useState} from 'react';
+import {createPortal} from 'react-dom';
 import {Phase28ChannelLogo} from '../primitives/channel-logo.js';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
 import {Phase28RightRailLayout} from '../primitives/right-rail-layout.js';
@@ -39,6 +41,55 @@ function metricEvidence(metric){
   return statusLabels[metric?.status]||'근거 자료 확인 필요';
 }
 
+function GoalDialog({settings={},onClose,onSaved}){
+  const [form,setForm]=useState({
+    revenueTarget:settings.revenueTarget??'',
+    adBudget:settings.adBudget??0,
+    targetRoas:settings.targetRoas??250,
+    notes:''
+  });
+  const [saving,setSaving]=useState(false);
+  const [error,setError]=useState('');
+  const month=settings.month||new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit'}).format(new Date());
+  const update=event=>setForm(current=>({...current,[event.target.name]:event.target.value}));
+  async function save(event){
+    event.preventDefault();
+    if(saving)return;
+    setSaving(true);setError('');
+    try{
+      const idempotencyKey=`main-target-${month}-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+      const previewResponse=await fetch('/api/targets',{
+        method:'POST',headers:{'content-type':'application/json','idempotency-key':idempotencyKey},
+        body:JSON.stringify({month,platform:'ALL',revenueTarget:Number(form.revenueTarget),adBudget:Number(form.adBudget),targetRoas:Number(form.targetRoas),notes:form.notes})
+      });
+      const preview=await previewResponse.json();
+      if(!previewResponse.ok||!preview.ok||!preview.request?.id)throw new Error(preview.error||'목표 변경안을 만들지 못했습니다.');
+      const confirmResponse=await fetch(`/api/financial-changes/${preview.request.id}`,{
+        method:'POST',headers:{'content-type':'application/json'},
+        body:JSON.stringify({action:'CONFIRM_EXECUTE',confirm:true,note:'메인에서 월 목표 설정'})
+      });
+      const confirmation=await confirmResponse.json();
+      if(!confirmResponse.ok||!confirmation.ok||!confirmation.applied||!confirmation.verified)throw new Error(confirmation.error||'저장 후 검증이 완료되지 않았습니다.');
+      onSaved('목표를 저장했고 월 매출과 예상치를 다시 계산했어요.');
+    }catch(cause){setError(cause?.message||'목표를 저장하지 못했습니다.');}
+    finally{setSaving(false);}
+  }
+  const content=<div className={styles.goalDialogBackdrop} role="presentation" onMouseDown={event=>event.target===event.currentTarget&&onClose()}>
+    <section className={styles.goalDialog} role="dialog" aria-modal="true" aria-labelledby="monthly-goal-title">
+      <header><div><span>MONTHLY GOAL</span><h2 id="monthly-goal-title">{month} 목표 설정</h2><p>한 번 확인하면 저장·검증 후 월 매출과 예상치를 자동으로 다시 계산해요.</p></div><button type="button" onClick={onClose} aria-label="목표 설정 닫기">×</button></header>
+      <form onSubmit={save}>
+        <label><span>월 매출 목표</span><input name="revenueTarget" type="number" min="1" step="10000" required value={form.revenueTarget} onChange={update} placeholder="예: 10000000"/></label>
+        <label><span>월 광고 예산</span><input name="adBudget" type="number" min="0" step="10000" required value={form.adBudget} onChange={update}/></label>
+        <label><span>목표 ROAS</span><span className={styles.goalInputUnit}><input name="targetRoas" type="number" min="0" step="10" required value={form.targetRoas} onChange={update}/><i>%</i></span></label>
+        <label className={styles.goalNotes}><span>메모</span><input name="notes" maxLength="500" value={form.notes} onChange={update} placeholder="예: 9월 프로모션 반영"/></label>
+        {error?<p className={styles.goalError} role="alert">{error}</p>:null}
+        <footer><button type="button" onClick={onClose} disabled={saving}>취소</button><button type="submit" disabled={saving}>{saving?'저장·검증 중…':'확인하고 목표 적용'}</button></footer>
+      </form>
+    </section>
+  </div>;
+  return typeof document==='undefined'?content:createPortal(content,document.body);
+}
+
 function CompanyStatus({hero,deadline}){
   const exceptionCount=Number(hero.exceptionCount)||0;
   return <aside className={styles.companyStatus} aria-label="오늘 회사 상태">
@@ -53,7 +104,8 @@ function CompanyStatus({hero,deadline}){
   </aside>;
 }
 
-function MainMetrics({metrics,onNavigate}){
+function MainMetrics({metrics,targetSettings,onNavigate,onGoalSaved}){
+  const [goalOpen,setGoalOpen]=useState(false);
   const items=[
     {id:'current',label:'현재 매출',metric:metrics.current},
     {id:'forecast',label:'월말 예상 매출',metric:metrics.forecast},
@@ -75,10 +127,11 @@ function MainMetrics({metrics,onNavigate}){
         </div>
       </div>
     </div>
-    <button type="button" className={styles.goalRunway} onClick={()=>onNavigate({view:'settlement'})} aria-label="이번 달 목표 근거 보기">
-      <span><b>현재 {formatWon(metrics.current)}</b><i>목표 {formatWon(metrics.target)}</i></span>
-      <em><i style={{width:`${progress}%`}}/></em>
-    </button>
+    <div className={styles.goalControl}>
+      <span><b>{metricReady(metrics.target)?`목표 ${formatWon(metrics.target)}`:'이번 달 목표가 아직 없어요.'}</b><small>{metricReady(metrics.target)?`현재 ${progress.toFixed(1)}% 도달 · 저장 시 자동 재계산`:'저장하면 월 매출과 예상치를 자동으로 다시 계산해요.'}</small></span>
+      <button type="button" onClick={()=>setGoalOpen(true)}>{metricReady(metrics.target)?'월 목표 수정':'이번 달 목표 설정'}</button>
+    </div>
+    {goalOpen?<GoalDialog settings={targetSettings} onClose={()=>setGoalOpen(false)} onSaved={message=>{setGoalOpen(false);onGoalSaved(message);}}/>:null}
   </section>;
 }
 
@@ -135,9 +188,10 @@ function MainDecisionRail({model,aiPanel,onNavigate}){
   </div>;
 }
 
-export default function Phase28HomePage({model={},aiPanel=null,onNavigate=()=>{}}){
+export default function Phase28HomePage({model={},aiPanel=null,onNavigate=()=>{},onRefresh=()=>{}}){
   const hero=model.hero||{};
   const taskCount=typeof hero.taskCount==='number'?hero.taskCount:null;
+  const [goalMessage,setGoalMessage]=useState('');
   return <section className={styles.home} data-phase28-root="true" data-phase28-page="home">
     <div className={styles.intro}>
       <div className={styles.introCopy}><Phase28PageHeading context={`실제 운영 자료 · ${formatAsOf(hero.asOf)}`} title={taskCount===null?'오늘 운영 건수는 ':taskCount>0?'오늘 처리할 일은 ':'오늘 회사는 '} accent={taskCount===null?'확인 필요':taskCount>0?`${taskCount}건`:'순항 중'} suffix="이에요." summary={hero.summary||'운영 자료를 확인하고 있어요.'}/><div className={styles.todayNote}><span>오늘의 메모</span><strong>{hero.note||'등록된 메모 없음'}</strong></div></div>
@@ -145,7 +199,8 @@ export default function Phase28HomePage({model={},aiPanel=null,onNavigate=()=>{}
     </div>
     <Phase28RightRailLayout label="사장님 판단 보조석" rail={<MainDecisionRail model={model} aiPanel={aiPanel} onNavigate={onNavigate}/> }>
       <div className={styles.mainColumn}>
-        <MainMetrics metrics={model.metrics||{}} onNavigate={onNavigate}/>
+        <MainMetrics metrics={model.metrics||{}} targetSettings={model.targetSettings||{}} onNavigate={onNavigate} onGoalSaved={message=>{setGoalMessage(message);onRefresh();}}/>
+        {goalMessage?<p className={styles.goalSaved} role="status">{goalMessage}</p>:null}
         <OperatingLine items={model.schedule||[]} onNavigate={onNavigate}/>
         <div className={styles.decisionDesk}><MainDecisionList items={model.decisions||[]} blocked={hero.status==='BLOCKED'} onNavigate={onNavigate}/><CashFlowSheet cashflow={model.cashflow||{}} onNavigate={onNavigate}/></div>
         <GrowthHorizon growth={model.growth||[]} sources={model.growthSources||{}} forecast={model.forecast||{}} onNavigate={onNavigate}/>

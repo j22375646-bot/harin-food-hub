@@ -8,6 +8,7 @@ import metricCalculator from '../lib/metrics/calculator.js';
 import metricSnapshotModule from '../lib/metrics/snapshot.js';
 import pacingService from '../lib/analytics/pacing-service.js';
 import pacingCalculatorModule from '../lib/analytics/pacing.js';
+import monthlyRevenueModule from '../lib/analytics/monthly-revenue.js';
 import insightDecisionWorkbenchModule from '../lib/analytics/insight-decision-workbench.js';
 import cafe24AnalyticsModule from '../lib/cafe24/analytics.js';
 import mappingService from '../lib/products/mapping-service.js';
@@ -264,44 +265,31 @@ async function buildFocusedShellData({
   return {syncs,alerts,dataHealth,channelConnections,collectionCenter};
 }
 
-function isCurrentMonth(value, month) {
-  return dateOnly(value).startsWith(month);
-}
-
-function cafe24MainRevenue(order = {}) {
-  const raw=order.raw_data||{};
-  const marketId=String(raw.market_id||raw.order_place_id||'').toUpperCase();
-  if(marketId&&!['SELF','MOBILE','CAFE24'].includes(marketId))return 0;
-  return orderAmount(order);
-}
-
-function buildMainPacing({ generatedAt, targets = [], cafe24Orders = [], naverOrders = [], coupangOrders = [], rgOrders = [] }) {
+function buildMainPacing({ generatedAt, targets = [], monthlyRevenue = null }) {
   const asOf=kstScheduleModule.kstDateKey(generatedAt);
   const month=asOf.slice(0,7);
-  const rgIds=new Set(rgOrders.map(item=>String(item.order_id)));
-  const actuals={
-    CAFE24:cafe24Orders.filter(item=>isCurrentMonth(item.order_date,month)).reduce((sum,item)=>sum+cafe24MainRevenue(item),0),
-    NAVER:naverOrders.filter(item=>isCurrentMonth(item.order_date||item.payment_date,month)).reduce((sum,item)=>sum+number(item.paid_amount),0),
-    COUPANG:rgOrders.filter(item=>isCurrentMonth(item.paid_at,month)).reduce((sum,item)=>sum+number(item.total_amount),0)
-      +coupangOrders.filter(item=>!rgIds.has(String(item.order_id))&&isCurrentMonth(item.ordered_at||item.paid_at,month)).reduce((sum,item)=>sum+number(item.gross_amount),0)
-  };
-  actuals.ALL=actuals.CAFE24+actuals.NAVER+actuals.COUPANG;
+  const actuals=monthlyRevenue?.totals||{};
   const targetMap=new Map(targets.map(item=>[String(item.platform||'ALL').toUpperCase(),item]));
   const items=['ALL','NAVER','CAFE24','COUPANG'].map(platform=>{
     const target=targetMap.get(platform)||{};
+    if(typeof actuals[platform]!=='number'||!Number.isFinite(actuals[platform]))return {
+      month,asOf,platform,status:'NO_DATA',revenueActual:null,revenueForecast:null,adSpendActual:null,
+      revenueTarget:target.revenue_target==null?null:Number(target.revenue_target),
+      adBudget:target.ad_budget==null?null:Number(target.ad_budget),targetRoas:target.target_roas==null?null:Number(target.target_roas)
+    };
     return pacingCalculatorModule.calculatePacing({
       month,asOf,platform,revenueActual:actuals[platform],adSpendActual:0,
       revenueTarget:target.revenue_target,adBudget:target.ad_budget,targetRoas:target.target_roas
     });
   });
-  return {month,asOf,items,targets};
+  return {month,asOf,items,targets,status:monthlyRevenue?.status||'NO_DATA',counts:monthlyRevenue?.counts||{},issues:monthlyRevenue?.issues||[]};
 }
 
 async function buildMainDashboardData({
   loaderSession,generatedAt,queryIssues,syncResult,alertsResult,
   ordersResult,itemsResult,coupangOrdersResult,coupangOrderTerminalsResult,coupangItemsResult,coupangReturnsResult,
   coupangInventoryResult,coupangRgOrdersResult,
-  naverCommerceOrdersResult,naverCommerceItemsResult,businessTargetsResult,customerServiceRows,cafe24Token,reportsResult
+  naverCommerceOrdersResult,naverCommerceItemsResult,businessTargetsResult,monthlyRevenueResult,customerServiceRows,cafe24Token,reportsResult
 }) {
   const rawInventory=coupangInventoryResult.data||[];
   const {active:operationalInventory,excluded:excludedInventory}=coupangOperationalInventoryModule.splitOperationalInventory(rawInventory);
@@ -328,8 +316,7 @@ async function buildMainDashboardData({
   const customerService={active:activeCs.map(item=>({id:item.source_key||item.id,platform:item.platform,kind:item.kind})),summary:{active:activeCs.length}};
   const unifiedInventory=coupangOperationalInventoryModule.buildOperationalInventoryCenter(rgInventory);
   const pacing=buildMainPacing({
-    generatedAt,targets:businessTargetsResult.data||[],cafe24Orders:ordersResult.data||[],
-    naverOrders:naverCommerceOrdersResult.data||[],coupangOrders:coupangOrdersResult.data||[],rgOrders:coupangRgOrdersResult.data||[]
+    generatedAt,targets:businessTargetsResult.data||[],monthlyRevenue:monthlyRevenueResult
   });
   const priorityCenter=priorityCenterModule.buildPriorityCenter({
     alerts:shell.alerts,pacing,financialTrust:{},now:new Date(generatedAt)
@@ -347,7 +334,7 @@ async function buildMainDashboardData({
   return {
     loadedView:'main',loadedWorkspace:null,loaderPerformance:loaderSession.snapshot(),generatedAt,
     dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
-    kpis:{sales:pacing.items.find(item=>item.platform==='ALL')?.revenueActual||0,orders:unifiedOrders.summary.total,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:rgInventory.length},
+    kpis:{sales:pacing.items.find(item=>item.platform==='ALL')?.revenueActual??null,orders:unifiedOrders.summary.total,visitors:null,pageviews:null,conversion:null,averageOrder:null,products:rgInventory.length},
     products:[],syncs:shell.syncs,reports:[],growthReports:reportsResult?.data||[],actions:[],alerts:shell.alerts,automationRuns:[],qualityChecks:[],metricSnapshots:[],
     priorityCenter,salesCommandCenter,unifiedOrders,customerService,unifiedInventory,pacing,financialTrust:{},
     coupang:{
@@ -1271,6 +1258,12 @@ async function getDashboardData(state) {
     mainTargets:view==='main' ? Promise.allSettled([
       db.from('business_targets').select('id,target_month,platform,revenue_target,ad_budget,target_roas,notes,updated_at').eq('target_month',`${kstScheduleModule.kstDateKey(generatedAt).slice(0,7)}-01`)
     ]) : Promise.resolve([{status:'fulfilled',value:{data:[],error:null}}]),
+    mainRevenue:view==='main'
+      ? monthlyRevenueModule.fetchMonthlyRevenue(db,kstScheduleModule.kstDateKey(generatedAt).slice(0,7)).catch(error=>({
+          status:'PARTIAL',totals:{ALL:null,NAVER:null,CAFE24:null,COUPANG:null},counts:{},
+          issues:[{platform:'ALL',dataset:'monthly_revenue',code:'MONTHLY_QUERY_FAILED',message:String(error?.message||error||'월 매출 조회 실패')}]
+        }))
+      : Promise.resolve({status:'NO_DATA',totals:{ALL:null,NAVER:null,CAFE24:null,COUPANG:null},counts:{},issues:[]}),
     cafe24Token:focusedEarlyReturn||view==='collection' ? Promise.allSettled([
       db.from('cafe24_oauth_tokens').select('token_data').eq('mall_id',process.env.CAFE24_MALL_ID).maybeSingle()
     ]) : Promise.resolve([{status:'fulfilled',value:{data:null,error:null}}]),
@@ -1459,8 +1452,8 @@ async function getDashboardData(state) {
   const queryIssues = [...settled.issues];
   const [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, shippingRulesResult, coupangProductsResult, coupangOrdersResult, coupangOrderTerminalsResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult, coupangAdSettlementResult] = settled.results;
   if(view==='main'){
-    const [naverCommerceRaw,targetsRaw,channelCsRaw,cafe24TokenRaw]=await Promise.all([
-      supplementalQueries.naverCommerce,supplementalQueries.mainTargets,supplementalQueries.channelCs,supplementalQueries.cafe24Token
+    const [naverCommerceRaw,targetsRaw,monthlyRevenueResult,channelCsRaw,cafe24TokenRaw]=await Promise.all([
+      supplementalQueries.naverCommerce,supplementalQueries.mainTargets,supplementalQueries.mainRevenue,supplementalQueries.channelCs,supplementalQueries.cafe24Token
     ]);
     const naverCommerceSettled=dataHealthModule.settleQueries(naverCommerceRaw,[
       {platform:'NAVER',dataset:'naver_commerce_orders'},
@@ -1476,10 +1469,10 @@ async function getDashboardData(state) {
     const cafe24TokenSettled=dataHealthModule.settleQueries(cafe24TokenRaw,[
       {platform:'CAFE24',dataset:'cafe24_oauth_tokens'}
     ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
-    queryIssues.push(...naverCommerceSettled.issues,...targetSettled.issues,...channelCsSettled.issues,...cafe24TokenSettled.issues);
+    queryIssues.push(...naverCommerceSettled.issues,...targetSettled.issues,...(monthlyRevenueResult.issues||[]),...channelCsSettled.issues,...cafe24TokenSettled.issues);
     return buildMainDashboardData({
       loaderSession,generatedAt,queryIssues,syncResult,alertsResult,ordersResult,itemsResult,coupangOrdersResult,coupangOrderTerminalsResult,coupangItemsResult,coupangReturnsResult,coupangInventoryResult,coupangRgOrdersResult,
-      naverCommerceOrdersResult:naverCommerceSettled.results[0],naverCommerceItemsResult:naverCommerceSettled.results[1],businessTargetsResult:targetSettled.results[0],
+      naverCommerceOrdersResult:naverCommerceSettled.results[0],naverCommerceItemsResult:naverCommerceSettled.results[1],businessTargetsResult:targetSettled.results[0],monthlyRevenueResult,
       customerServiceRows:channelCsSettled.results[0].data||[],cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,reportsResult
     });
   }
