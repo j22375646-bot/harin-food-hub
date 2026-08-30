@@ -7,6 +7,7 @@ const path=require('node:path');
 
 const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
+const distDir=process.env.NEXT_DIST_DIR||'.next';
 
 test('쿠팡 주문·정산 상세는 필요한 운영 화면에서만 지연 로딩한다',()=>{
   const dashboard=read('app/legacy-dashboard-client.js');
@@ -31,14 +32,11 @@ test('쿠팡 전용 모듈은 주문 처리와 정산 기능을 그대로 보존
   ]) assert.match(details,new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')));
 });
 
-test('프로덕션 공통 청크에는 쿠팡 상세 화면 문구가 포함되지 않는다',t=>{
-  const chunksDir=path.join(root,'.next','static','chunks');
+test('프로덕션 Phase 28 청크에는 사용하지 않는 쿠팡 레거시 상세 코드가 포함되지 않는다',t=>{
+  const chunksDir=path.join(root,distDir,'static','chunks');
   if(!fs.existsSync(chunksDir))return t.skip('프로덕션 빌드 뒤 확인합니다.');
   const chunks=fs.readdirSync(chunksDir).filter(file=>file.endsWith('.js')).map(file=>({file,source:fs.readFileSync(path.join(chunksDir,file),'utf8')}));
-  const dashboardChunks=chunks.filter(item=>item.source.includes('작업공간을 준비하고 있어요'));
-  assert.ok(dashboardChunks.length>0,'공통 대시보드 청크를 찾지 못했습니다.');
-  for(const chunk of dashboardChunks){
+  for(const chunk of chunks){
     assert.doesNotMatch(chunk.source,/판매자배송 관리|로켓그로스 비용 엑셀/,`${chunk.file}에 쿠팡 상세 코드가 다시 포함됐습니다.`);
   }
-  assert.ok(chunks.some(item=>item.source.includes('판매자배송 관리')&&item.source.includes('로켓그로스 비용 엑셀')),'쿠팡 주문·정산 전용 청크를 찾지 못했습니다.');
 });

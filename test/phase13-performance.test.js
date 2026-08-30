@@ -17,6 +17,10 @@ test('13-1 canonical menu addresses are real App Router pages',()=>{
     if(item.id==='market'){
       assert.match(source,/MarketProjectHome/);
       assert.doesNotMatch(source,/renderDashboardRoute/);
+    }else if(item.id==='product-analysis'){
+      assert.match(source,/Phase28ProductAnalysisPage/);
+      assert.match(source,/loadPhase28ProductAnalysisSnapshot/);
+      assert.doesNotMatch(source,/renderDashboardRoute/);
     }else{
       assert.match(source,new RegExp(`renderDashboardRoute\\('${item.id}'`));
     }

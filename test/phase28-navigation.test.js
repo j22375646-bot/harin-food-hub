@@ -13,3 +13,18 @@ test('V106 navigation exposes all 17 stable routes once',()=>{
   assert.equal(model.items.find(item=>item.id==='orders').badge,2);
   assert.equal(model.items.find(item=>item.id==='home').badge,null);
 });
+
+test('운영 배지가 없으면 회사 활력을 100점이나 0건으로 만들지 않는다',()=>{
+  assert.deepEqual(navigation.buildPhase28Vitality(null),{
+    known:false,
+    attention:null,
+    score:null,
+    label:'확인 필요'
+  });
+  assert.deepEqual(navigation.buildPhase28Vitality({orders:2,cs:3}),{
+    known:true,
+    attention:5,
+    score:70,
+    label:'집중 운영'
+  });
+});

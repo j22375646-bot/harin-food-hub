@@ -3,7 +3,6 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {buildPhase28ProductAnalysisModel,PHASE28_AVAILABLE_ADAPTERS}=require('../lib/ui/phase28-adapters/index.js');
-const loaders=require('../lib/dashboard/page-loader-profiles.js');
 
 const performance={
   master_product_id:'p-1',name:'보리차 50티백',revenue:328000,orders:41,units:70,
@@ -52,18 +51,29 @@ test('product analysis adapter restores only saved product-analysis reports with
   assert.equal(model.history[0].periodDays,30);
 });
 
-test('product analysis joins the implemented V106 adapter set',()=>{
-  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system','notifications','diagnoses','changes','validation','experiments','knowledge']);
+test('product analysis adapter builds selectable products from the lightweight catalog snapshot',()=>{
+  const model=buildPhase28ProductAnalysisModel({
+    generatedAt:'2026-08-29T01:42:00.000Z',
+    masterProducts:[
+      {id:'p-1',name:'보리차 50티백',selling_price:8900,is_active:true},
+      {id:'p-2',name:'작두콩차 30티백',selling_price:12900,is_active:true}
+    ],
+    channelProducts:[
+      {master_product_id:'p-1',platform:'NAVER',is_active:true},
+      {master_product_id:'p-1',platform:'CAFE24',is_active:true},
+      {master_product_id:'p-2',platform:'COUPANG',is_active:true}
+    ],
+    reports:[]
+  });
+
+  assert.equal(model.products.length,2);
+  assert.equal(model.products[0].name,'보리차 50티백');
+  assert.equal(model.products[0].connectedChannels,2);
+  assert.equal(model.products[0].metrics.revenue,null);
+  assert.equal(model.products[0].sources.sales.status,'NO_DATA');
+  assert.equal(model.products[1].connectedChannels,1);
 });
 
-test('product analysis loads only its calculation inputs and saved reports',()=>{
-  const profile=loaders.profileForState({view:'product-analysis',workspace:null,platform:'all'});
-  assert.ok(profile.tables.includes('master_products'));
-  assert.ok(profile.tables.includes('cafe24_orders'));
-  assert.ok(profile.tables.includes('naver_keyword_stats'));
-  assert.ok(profile.tables.includes('coupang_ad_keyword_daily'));
-  assert.ok(profile.tables.includes('reports'));
-  assert.equal(profile.tables.includes('customer_service_items'),false);
-  assert.equal(profile.tables.includes('automation_runs'),false);
-  assert.equal(profile.tables.includes('coupang_settlements'),false);
+test('product analysis joins the implemented V106 adapter set',()=>{
+  assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system','notifications','diagnoses','changes','validation','experiments','knowledge']);
 });

@@ -11,11 +11,15 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 test('product analysis owns a stable production route and server adapter',()=>{
   const route=read('app/product-analysis/page.js');
   const registry=read('lib/ui/phase28-route-registry.js');
-  const page=read('app/page.js');
-  assert.match(route,/renderDashboardRoute\('product-analysis'/);
+  assert.equal(fs.existsSync(path.join(root,'app/product-analysis/layout.js')),true,'product analysis shared shell layout is missing');
+  const layout=read('app/product-analysis/layout.js');
+  assert.match(route,/loadPhase28ProductAnalysisSnapshot/);
+  assert.match(route,/buildPhase28ProductAnalysisModel\(snapshot\)/);
+  assert.match(route,/Phase28ProductAnalysisPage/);
+  assert.doesNotMatch(route,/renderDashboardRoute/);
+  assert.match(layout,/Phase28Shell/);
+  assert.match(layout,/routeId="product-analysis"/);
   assert.match(registry,/id:'product-analysis'.*legacyView:'product-analysis'/);
-  assert.match(page,/activePages\.includes\('product-analysis'\)&&initialState\.view==='product-analysis'/);
-  assert.match(page,/buildPhase28ProductAnalysisModel\(dashboardData\)/);
 });
 
 test('V106 product analysis renders the runner, saved ledger, marketer report, and decision desk',()=>{
