@@ -29,6 +29,25 @@ test('Phase 28 app renders the V106 keyword flow, workbench, and decision desk',
   assert.match(page,/Phase28RightRailLayout/);
 });
 
+test('keyword workbench keeps the campaign column focused and omits product-link presentation',()=>{
+  const page=read('app/_phase28/pages/keywords-page.js');
+  assert.match(page,/<span>캠페인<\/span>/);
+  assert.match(page,/className="kpCampaign"/);
+  assert.match(page,/placeholder="키워드·캠페인 검색"/);
+  assert.doesNotMatch(page,/캠페인·상품/);
+  assert.doesNotMatch(page,/row\.product/);
+  assert.doesNotMatch(page,/row\.adgroup\?/);
+});
+
+test('keyword table and decision desk keep their own layout boundaries',()=>{
+  const css=read('app/_phase28/pages/keywords-page.css');
+  assert.match(css,/\.kpCampaign/);
+  assert.match(css,/\.kpTable\{min-width:1080px/);
+  assert.match(css,/aside\[aria-label="키워드 판단 패널"\]\{max-height:calc/);
+  assert.match(css,/scrollbar-gutter:stable/);
+  assert.match(css,/@media \(max-width:1480px\)[\s\S]*order:-1/);
+});
+
 test('keyword bid changes preserve the existing owner-confirmed proposal and verification route',()=>{
   const page=read('app/_phase28/pages/keywords-page.js');
   assert.match(page,/fetch\('\/api\/naver\/bid-proposals'/);
