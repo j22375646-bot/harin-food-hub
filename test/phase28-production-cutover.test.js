@@ -16,13 +16,14 @@ test('production defaults to the complete Phase 28 application after final cutov
   assert.deepEqual(runtime.activePages,PHASE28_ROUTE_IDS);
 });
 
-test('the production rollback flag still returns the entire hub to legacy',()=>{
+test('the retired UI flag cannot put the live hub back on the legacy frontend',()=>{
   const runtime=productionRuntime.phase28RuntimeConfig({
     NODE_ENV:'production',
     HARIN_PHASE28_ENABLED:'false'
   },{routeId:'home'});
-  assert.equal(runtime.renderMode,'legacy');
-  assert.deepEqual(runtime.activePages,[]);
+  assert.equal(runtime.renderMode,'full');
+  assert.equal(runtime.coverage,'COMPLETE');
+  assert.deepEqual(runtime.activePages,PHASE28_ROUTE_IDS);
 });
 
 test('every server route that selects Phase 28 uses the production readiness runtime',()=>{
