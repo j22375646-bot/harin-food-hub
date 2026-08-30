@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import {useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState,useTransition} from 'react';
+import operationSnapshotModule from '../../lib/navigation/operation-snapshot.js';
 import navigationModule from '../../lib/ui/phase28-navigation.js';
 import {Phase28CommandPalette} from './phase28-command-palette.js';
 import {Phase28EvidenceDrawer} from './phase28-evidence-drawer.js';
@@ -10,6 +11,12 @@ import tokens from './phase28-tokens.module.css';
 import styles from './phase28-shell.module.css';
 
 const {buildPhase28Navigation,buildPhase28Vitality}=navigationModule;
+const {
+  NAVIGATION_SNAPSHOT_KEY,
+  navigationOperationSnapshotFreshness,
+  parseNavigationOperationSnapshot,
+  selectNavigationOperationSnapshot
+}=operationSnapshotModule;
 
 const ICON_PATHS={
   home:<><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/></>,
@@ -50,7 +57,7 @@ function NavigationLink({item,routeId,compact=false,onNavigate}) {
   </Link>;
 }
 
-export default function Phase28Shell({routeId,badges=null,generatedAt=null,children}) {
+export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigationSnapshot=null,badges=null,generatedAt=null,children}) {
   const router=useRouter();
   const [compact,setCompact]=useState(false);
   const [theme,setTheme]=useState('light');
@@ -62,12 +69,17 @@ export default function Phase28Shell({routeId,badges=null,generatedAt=null,child
   const [sidebarScrollState,setSidebarScrollState]=useState({up:false,down:false});
   const moreDialogRef=useRef(null);
   const moreTriggerRef=useRef(null);
-  const navigation=useMemo(()=>buildPhase28Navigation({badges}),[badges]);
+  const incomingSnapshot=useMemo(()=>parseNavigationOperationSnapshot(incomingNavigationSnapshot),[incomingNavigationSnapshot]);
+  const [storedNavigationSnapshot,setStoredNavigationSnapshot]=useState(incomingSnapshot);
+  const activeNavigationSnapshot=selectNavigationOperationSnapshot(incomingSnapshot,storedNavigationSnapshot);
+  const effectiveBadges=activeNavigationSnapshot?.badges||badges;
+  const snapshotFreshness=activeNavigationSnapshot?navigationOperationSnapshotFreshness(activeNavigationSnapshot):null;
+  const navigation=useMemo(()=>buildPhase28Navigation({badges:effectiveBadges}),[effectiveBadges]);
   const activeItem=navigation.items.find(item=>item.id===routeId)||navigation.items[0];
   const primaryItems=navigation.mobilePrimary.map(id=>navigation.items.find(item=>item.id===id)).filter(Boolean);
   const secondaryItems=navigation.items.filter(item=>!navigation.mobilePrimary.includes(item.id));
   const notificationCount=navigation.items.find(item=>item.id==='notifications')?.badge;
-  const vitality=buildPhase28Vitality(badges);
+  const vitality=buildPhase28Vitality(effectiveBadges);
   const closeCommand=useCallback(()=>setCommandOpen(false),[]);
   const closeEvidence=useCallback(()=>setEvidenceOpen(false),[]);
   const closeMore=useCallback(()=>setMoreOpen(false),[]);
@@ -102,6 +114,17 @@ export default function Phase28Shell({routeId,badges=null,generatedAt=null,child
     document.addEventListener('keydown',onKeyDown);
     return ()=>document.removeEventListener('keydown',onKeyDown);
   },[]);
+
+  useEffect(()=>{
+    let storedSnapshot=null;
+    try{
+      storedSnapshot=parseNavigationOperationSnapshot(window.localStorage.getItem(NAVIGATION_SNAPSHOT_KEY));
+    }catch{}
+    setStoredNavigationSnapshot(current=>selectNavigationOperationSnapshot(incomingSnapshot,storedSnapshot,current));
+    if(incomingSnapshot){
+      try{window.localStorage.setItem(NAVIGATION_SNAPSHOT_KEY,JSON.stringify(incomingSnapshot));}catch{}
+    }
+  },[incomingSnapshot]);
 
   useEffect(()=>{
     const frame=requestAnimationFrame(syncSidebarScrollState);
@@ -163,7 +186,7 @@ export default function Phase28Shell({routeId,badges=null,generatedAt=null,child
             <header><span>오늘 회사 활력</span><b>{vitality.label}</b></header>
             <div><strong>{vitality.known?vitality.score:'—'}</strong>{vitality.known?<p><b>{vitality.attention}건</b> 확인하면<br/>운영 흐름이 가벼워져요.</p>:<p><b>확인 필요</b><br/>운영 집계를 불러오지 않았어요.</p>}</div>
             <em><i style={{width:vitality.known?`${vitality.score}%`:'0%'}}/></em>
-            <small>{vitality.known?'운영 확인 항목 기준':'운영 집계 확인 필요'}</small>
+            <small>{vitality.known?(snapshotFreshness?.stale?'최근 운영 집계 기준':'운영 확인 항목 기준'):'운영 집계 확인 필요'}</small>
           </section>
           <nav className={styles.navigation} aria-label="허브 메뉴">
             {navigation.groups.map(group=><section key={group.id}><h2>{group.label}</h2>{group.items.map(item=><NavigationLink item={item} routeId={routeId} compact={compact} key={item.id}/>)}</section>)}

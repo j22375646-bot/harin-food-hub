@@ -30,6 +30,17 @@ test('V106 shell retains command search and evidence access',()=>{
   assert.match(evidence,/role="dialog"/);
 });
 
+test('V106 shell reuses the newest authoritative Main snapshot across routes',()=>{
+  const shell=read('app/_phase28/phase28-shell.js');
+  const app=read('app/_phase28/phase28-app.js');
+  assert.match(shell,/operation-snapshot\.js/);
+  assert.match(shell,/NAVIGATION_SNAPSHOT_KEY/);
+  assert.match(shell,/parseNavigationOperationSnapshot\(window\.localStorage\.getItem\(NAVIGATION_SNAPSHOT_KEY\)\)/);
+  assert.match(shell,/selectNavigationOperationSnapshot/);
+  assert.match(app,/navigationSnapshot=\{navigationSnapshot\}/);
+  assert.doesNotMatch(app,/navigationSnapshot\?\.badges\|\|\{\}/);
+});
+
 test('V106 shell carries per-route prefetch policy through every navigation surface',()=>{
   const shell=read('app/_phase28/phase28-shell.js');
   const palette=read('app/_phase28/phase28-command-palette.js');

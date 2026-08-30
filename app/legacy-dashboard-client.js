@@ -86,7 +86,7 @@ const platformLabel = { all: '전체', naver: '네이버', coupang: '쿠팡', ca
 const channelScopedViews = new Set(['insight','keyword','product']);
 const financialContextViews = new Set(['insight','keyword','product']);
 const embeddedHelpViews = new Set(['orders','cs','inventory','settlement','collection']);
-const NAVIGATION_SNAPSHOT_KEY='harin-hub:navigation-operation-snapshot';
+const NAVIGATION_SNAPSHOT_KEY=navigationOperationSnapshotModule.NAVIGATION_SNAPSHOT_KEY;
 async function coupangFixedIpResult(response) {
   const initial = await response.json();
   if (response.status !== 202 || !initial.request?.id) return initial;

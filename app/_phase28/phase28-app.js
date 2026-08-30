@@ -59,7 +59,7 @@ export default function Phase28App({initialData}) {
   else if(routeId==='knowledge')page=<Phase28KnowledgePage model={initialData.phase28?.knowledge||{items:[],categories:{},pageLabels:{},recommended:[],summary:{}}}/>;
   else page=<section data-phase28-root="true" data-phase28-page={routeId} aria-label="Phase 28 페이지 준비 상태">이 페이지의 운영 화면은 확인 필요 상태예요.</section>;
 
-  return <Phase28Shell routeId={routeId} badges={navigationSnapshot?.badges||{}} generatedAt={generatedAt}>
+  return <Phase28Shell routeId={routeId} navigationSnapshot={navigationSnapshot} generatedAt={generatedAt}>
     {page}
   </Phase28Shell>;
 }

@@ -32,10 +32,28 @@ test('운영 배지가 없으면 회사 활력을 100점이나 0건으로 만들
     score:null,
     label:'확인 필요'
   });
+  assert.deepEqual(navigation.buildPhase28Vitality({}),{
+    known:false,
+    attention:null,
+    score:null,
+    label:'확인 필요'
+  });
   assert.deepEqual(navigation.buildPhase28Vitality({orders:2,cs:3}),{
+    known:false,
+    attention:null,
+    score:null,
+    label:'확인 필요'
+  });
+  assert.deepEqual(navigation.buildPhase28Vitality({orders:2,cs:3,inventory:0,notifications:0}),{
     known:true,
     attention:5,
     score:70,
     label:'집중 운영'
+  });
+  assert.deepEqual(navigation.buildPhase28Vitality({orders:0,cs:0,inventory:0,notifications:0}),{
+    known:true,
+    attention:0,
+    score:100,
+    label:'순항 중'
   });
 });

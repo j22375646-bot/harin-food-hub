@@ -8,6 +8,10 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const snapshotModule=require('../lib/navigation/operation-snapshot.js');
 
+test('navigation snapshot uses one shared browser storage key',()=>{
+  assert.equal(snapshotModule.NAVIGATION_SNAPSHOT_KEY,'harin-hub:navigation-operation-snapshot');
+});
+
 test('navigation snapshot accepts only the complete main operating summary',()=>{
   const main=snapshotModule.buildNavigationOperationSnapshot({
     loadedView:'main',generatedAt:'2026-08-23T03:00:00.000Z',
