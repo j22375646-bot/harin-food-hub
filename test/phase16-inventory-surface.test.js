@@ -41,7 +41,7 @@ test('16-4 gives the Rocket Growth workbench an amber pastel responsive surface'
 
 test('16-4 scopes the inventory AI evidence to Rocket Growth data',()=>{
   const panels=read('lib/ai/page-panels.js');
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
   assert.match(page,/rocketGrowthInventory:coupangInventory/);
   assert.match(panels,/로켓그로스 재고 위험 자동분석/);
   assert.match(panels,/로켓그로스 판매가능 수량/);

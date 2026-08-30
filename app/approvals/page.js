@@ -1,4 +1,4 @@
-import {renderDashboardRoute} from '../page.js';
+import {renderDashboardRoute} from '../dashboard-route.js';
 import supabaseModule from '../../lib/cafe24/supabase.js';
 import changesSnapshotModule from '../../lib/changes/phase28-changes-snapshot.js';
 import naverBidExecutionModule from '../../lib/naver/bid-execution.js';

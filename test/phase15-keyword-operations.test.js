@@ -119,7 +119,7 @@ test('15-5 history uses financial change requests and preserves live verificatio
   assert.equal(naver[0].observedBid,290);
   assert.equal(naver[0].status,'VERIFIED');
   assert.equal(coupang.length,0);
-  const page=fs.readFileSync('app/page.js','utf8');
+  const page=fs.readFileSync('app/dashboard-route.js','utf8');
   assert.match(page,/before_value,proposed_value,impact_preview/);
   assert.match(page,/verification_result/);
 });

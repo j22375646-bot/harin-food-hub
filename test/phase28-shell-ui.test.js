@@ -53,7 +53,7 @@ test('shared evidence control stays a horizontal single-line chip on every deskt
 test('V106 shell reuses the newest authoritative Main snapshot across routes',()=>{
   const shell=read('app/_phase28/phase28-shell.js');
   const app=read('app/_phase28/phase28-app.js');
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
   assert.match(shell,/operation-snapshot\.js/);
   assert.match(shell,/NAVIGATION_SNAPSHOT_KEY/);
   assert.match(shell,/parseNavigationOperationSnapshot\(window\.localStorage\.getItem\(NAVIGATION_SNAPSHOT_KEY\)\)/);

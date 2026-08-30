@@ -1,4 +1,4 @@
-import {renderDashboardRoute} from '../page.js';
+import {renderDashboardRoute} from '../dashboard-route.js';
 
 export const dynamic='force-dynamic';
 

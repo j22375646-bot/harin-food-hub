@@ -44,7 +44,7 @@ test('23-5 shows no more than three prioritized actions and preserves caveats',(
 });
 
 test('23-5 renders the owner brief before detailed insight tools',()=>{
-  const page=fs.readFileSync('app/page.js','utf8');
+  const page=fs.readFileSync('app/dashboard-route.js','utf8');
   const client=fs.readFileSync('app/_analysis/harin-analysis-workbench.js','utf8');
   const css=fs.readFileSync('app/_analysis/harin-analysis-v8.css','utf8');
   assert.match(page,/buildInsightDecisionWorkbench/);

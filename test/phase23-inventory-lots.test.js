@@ -30,7 +30,7 @@ test('23 hardening validates owner-entered lot rows and never invents API expiry
 test('23 hardening ships a service-role-only lot table and focused loader',()=>{
   const migration=read('supabase/migrations/20260820083237_add_inventory_lots.sql');
   const profiles=read('lib/dashboard/page-loader-profiles.js');
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
   assert.match(migration,/create table if not exists public\.inventory_lots/);
   assert.match(migration,/enable row level security/);
   assert.match(migration,/revoke all on table public\.inventory_lots from public, anon, authenticated/);

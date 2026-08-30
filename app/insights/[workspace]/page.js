@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import hubRoutes from '../../../lib/navigation/hub-routes.js';
-import { renderDashboardRoute } from '../../page.js';
+import { renderDashboardRoute } from '../../dashboard-route.js';
 
 export const dynamic='force-dynamic';
 

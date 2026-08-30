@@ -53,7 +53,7 @@ test('24-10 keeps running ads ahead of stopped ads and offers explicit state fil
 
 test('24-10 exposes running and stopped views in the Naver workbench',()=>{
   const component=fs.readFileSync('app/_analysis/keyword-operations-table.js','utf8');
-  const loader=fs.readFileSync('app/page.js','utf8');
+  const loader=fs.readFileSync('app/dashboard-route.js','utf8');
   assert.match(component,/운영 중 광고/);
   assert.match(component,/사용중지 광고/);
   assert.match(loader,/activeNaverAdgroupIds/);

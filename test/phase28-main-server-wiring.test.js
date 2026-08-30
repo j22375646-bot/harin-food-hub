@@ -17,10 +17,11 @@ test('Main route creates Phase 28 runtime state on the server',()=>{
 
 test('Main route builds the new ViewModel only for an active home request',()=>{
   const page=read('app/page.js');
-  assert.match(page,/phase28AdaptersModule\.buildPhase28MainModel\(dashboardData\)/);
+  const loader=read('lib/dashboard/phase28-main-loader.js');
+  assert.match(page,/phase28MainAdapter\.buildPhase28MainModel\(dashboardData\)/);
   assert.match(page,/phase28Runtime\.activePages\.includes\('home'\)/);
-  assert.match(page,/initialState\.view==='main'/);
-  assert.match(page,/adapter_status:'ERROR'/);
-  assert.match(page,/calendarEntries/);
-  assert.match(page,/hub_calendar_entries/);
+  assert.match(page,/initialState\.view!==\s*'main'/);
+  assert.match(page,/adapter_status:'READY'/);
+  assert.match(loader,/calendarEntries/);
+  assert.match(loader,/hub_work_items/);
 });

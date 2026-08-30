@@ -11,7 +11,7 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('V106 insights owns the canonical route and server adapter',()=>{
   const route=read('app/insights/[workspace]/page.js');
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
   const registry=read('lib/ui/phase28-route-registry.js');
   assert.match(route,/renderDashboardRoute\('insight'/);
   assert.match(route,/workspace==='causes'/);

@@ -33,7 +33,7 @@ test('14-8 exposes channel readiness heartbeat exception inbox and safe retry',(
 test('14-8 adds a compact global live status dock without merging pages',()=>{
   const source=read('app/_reliability/harin-live-status-dock.js');
   const dashboard=read('app/legacy-dashboard-client.js');
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
   assert.match(source,/export default function HarinLiveStatusDock/);
   assert.match(source,/운영 신호 바로보기/);
   assert.match(source,/href="\/data-collection"/);

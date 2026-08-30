@@ -9,7 +9,7 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('server owns inventory and products adapters for their actual routes',()=>{
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
   assert.match(page,/phase28Runtime\.activePages\.includes\('inventory'\)&&initialState\.view==='inventory'/);
   assert.match(page,/buildPhase28InventoryModel\(dashboardData\)/);
   assert.match(page,/phase28Runtime\.activePages\.includes\('products'\)&&initialState\.view==='product'/);

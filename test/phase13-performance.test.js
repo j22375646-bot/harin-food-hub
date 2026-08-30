@@ -25,12 +25,12 @@ test('13-1 canonical menu addresses are real App Router pages',()=>{
       assert.match(source,new RegExp(`renderDashboardRoute\\('${item.id}'`));
     }
   }
-  assert.match(read('app/page.js'),/export async function renderDashboardRoute/);
+  assert.match(read('app/dashboard-route.js'),/export async function renderDashboardRoute/);
   assert.doesNotMatch(read('next.config.js'),/async rewrites\s*\(/);
 });
 
 test('13-1 limits heavy route payloads and long client lists',()=>{
-  const server=read('app/page.js');
+  const server=read('app/dashboard-route.js');
   assert.match(server,/rowLimit\('orders',10000\)/);
   assert.match(server,/rowLimit\('items',10000\)/);
   assert.match(server,/needsPacing/);

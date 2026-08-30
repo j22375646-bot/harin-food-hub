@@ -35,7 +35,7 @@ test('23-R1 gives Main a bounded dedicated loader instead of the generic dashboa
     'coupang_orders','coupang_rg_orders','coupang_returns',
     'coupang_rg_inventory','business_targets','customer_service_items','reports','hub_work_items'
   ]);
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
   assert.match(page,/focusedEarlyReturn=view==='main'/);
   assert.match(page,/if\(view==='main'\)\{[\s\S]*?return buildMainDashboardData/);
   assert.match(page,/view==='collection'[\s\S]*?\? SHELL_TABLES[\s\S]*?MINIMAL_SHELL_TABLES:LIGHT_SHELL_TABLES/);
@@ -53,7 +53,7 @@ test('23-R1 gives Main a bounded dedicated loader instead of the generic dashboa
 });
 
 test('23-R1 applies one Rocket Growth policy to focused inventory and the legacy fallback path',()=>{
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
   assert.match(page,/buildInventoryDashboardData[\s\S]*?splitOperationalInventory\(inventoryBase\)/);
   assert.match(page,/splitOperationalInventory\(coupangInventoryBase\)/);
   assert.match(page,/rgInventoryExcludedCount/);

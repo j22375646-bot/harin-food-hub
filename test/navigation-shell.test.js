@@ -14,7 +14,7 @@ const styles=[
 ].join('\n');
 const shellStyles=fs.readFileSync(path.join(__dirname,'..','app','_shell','harin-shell-v8.css'),'utf8');
 const validation=fs.readFileSync(path.join(__dirname,'..','app','customer-retention-validation-center.js'),'utf8');
-const page=fs.readFileSync(path.join(__dirname,'..','app','page.js'),'utf8');
+const page=fs.readFileSync(path.join(__dirname,'..','app','dashboard-route.js'),'utf8');
 const preferences=fs.readFileSync(path.join(__dirname,'..','app','use-hub-preference.js'),'utf8');
 const collectionCenter=fs.readFileSync(path.join(__dirname,'..','app','unified-collection-operations-center.js'),'utf8');
 const coupangOperationDetails=fs.readFileSync(path.join(__dirname,'..','app','_operations','coupang-operation-details.js'),'utf8');

@@ -30,7 +30,7 @@ test('14-3 keeps Main AI page-scoped and disabled configuration outside the comm
 });
 
 test('14-3 server owns deduplicated task counts and does not treat missing money as zero',()=>{
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
   const builder=read('lib/dashboard/sales-command-center.js');
   const main=read('app/_main/harin-main-command-center.js');
   assert.match(page,/unifiedOrders,\s*customerService,\s*unifiedInventory,\s*reliabilityCenter/);

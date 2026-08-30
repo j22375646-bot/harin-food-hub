@@ -9,7 +9,7 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('server owns the keywords adapter only on the real keyword route',()=>{
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
   assert.match(page,/phase28Runtime\.activePages\.includes\('keywords'\)&&initialState\.view==='keyword'/);
   assert.match(page,/buildPhase28KeywordsModel\(dashboardData,\{platform:initialState\.platform,workspace:initialState\.workspace\}\)/);
   assert.match(page,/keywords:null,adapter_status:'ERROR'/);

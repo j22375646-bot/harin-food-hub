@@ -1,4 +1,4 @@
-import {renderDashboardRoute} from '../page.js';
+import {renderDashboardRoute} from '../dashboard-route.js';
 import supabaseModule from '../../lib/cafe24/supabase.js';
 import validationSnapshotModule from '../../lib/validation/phase28-validation-snapshot.js';
 import phase28Adapters from '../../lib/ui/phase28-adapters/index.js';

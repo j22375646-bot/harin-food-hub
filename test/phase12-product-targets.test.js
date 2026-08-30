@@ -6,7 +6,7 @@ const fs = require('node:fs');
 
 test('12-1 상품 화면은 상품별 광고 목표 계산센터와 서버 API를 연결한다', () => {
   const productWorkbench=fs.readFileSync('app/_products/harin-product-workbench.js','utf8');
-  const page=fs.readFileSync('app/page.js','utf8');
+  const page=fs.readFileSync('app/dashboard-route.js','utf8');
   assert.match(productWorkbench,/ProductAdTargetsCenter/);
   assert.match(page,/buildProductAdTargets/);
   assert.match(page,/product_ad_targets/);

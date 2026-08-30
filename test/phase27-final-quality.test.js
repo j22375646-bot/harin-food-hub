@@ -9,7 +9,7 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('27-8 실행검증과 A/B 테스트는 거대한 공통 로더를 건너뛴다',()=>{
-  const source=read('app/page.js');
+  const source=read('app/dashboard-route.js');
   assert.match(source,/const focusedExecutionView=\['validation','experiments'\]\.includes\(view\)/);
   assert.match(source,/async function buildExecutionDashboardData\(/);
   assert.match(source,/if\(focusedExecutionView\)\{/);
@@ -20,7 +20,7 @@ test('27-8 실행검증과 A/B 테스트는 거대한 공통 로더를 건너뛴
 });
 
 test('27-8 실행 화면은 판단과 실험 미리보기에 필요한 근거만 보존한다',()=>{
-  const source=read('app/page.js');
+  const source=read('app/dashboard-route.js');
   for(const field of ['hypothesis','start_date','end_date','winner_variant_id','is_control','impressions','clicks','conversions','orders','revenue']){
     assert.match(source,new RegExp(field));
   }
@@ -30,7 +30,7 @@ test('27-8 실행 화면은 판단과 실험 미리보기에 필요한 근거만
 });
 
 test('27-8 A/B 첫 화면은 실험과 해당 AI만 읽고 미수집 실행 단계는 확인 필요로 둔다',()=>{
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
   const profiles=read('lib/dashboard/page-loader-profiles.js');
   assert.match(profiles,/experiments:\['ab_tests','ai_analysis_results'\]/);
   assert.match(profiles,/validation:\['actions','action_evaluations','financial_change_requests','financial_change_audit_logs','ai_analysis_results'\]/);

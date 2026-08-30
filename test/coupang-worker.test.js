@@ -266,7 +266,7 @@ test("daily cron uses the connected-provider collector and production data sourc
     path.join(root, "app/api/cron/daily-sync/route.js"),
     "utf8",
   );
-  const page = fs.readFileSync(path.join(root, "app/page.js"), "utf8");
+  const page = fs.readFileSync(path.join(root, "app/dashboard-route.js"), "utf8");
   const workerSource = fs.readFileSync(
     path.join(root, "scripts/coupang-local-worker.js"),
     "utf8",

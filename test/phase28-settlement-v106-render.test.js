@@ -9,7 +9,7 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('server owns three settlement periods and the settlement adapter on its real route',()=>{
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
   assert.match(page,/const settlementPeriods=Object\.fromEntries\(\[7,30,90\]/);
   assert.match(page,/periodDays/);
   assert.match(page,/phase28Runtime\.activePages\.includes\('settlement'\)&&initialState\.view==='settlement'/);

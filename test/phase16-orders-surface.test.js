@@ -63,7 +63,7 @@ test('16-12 shows linked product images with a pastel fallback in every order ca
 });
 
 test('16-15 loads platform image catalogs and attaches them before building the order page',()=>{
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
   assert.match(page,/orders:\[[^\]]*'cafe24_products'[^\]]*'channel_products'[^\]]*'coupang_products'[^\]]*'coupang_product_items'/);
   assert.match(page,/const orderImageCatalog=unifiedOrdersModule\.buildOrderImageCatalog/);
   assert.match(page,/\.\.\.\(channelsResult\.data \|\| \[\]\)/);

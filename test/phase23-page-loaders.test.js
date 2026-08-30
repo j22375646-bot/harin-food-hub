@@ -127,7 +127,7 @@ test('23-2 records real, skipped and target loader telemetry',()=>{
 });
 
 test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
   const dashboard=read('app/legacy-dashboard-client.js');
   const analysis=read('app/_analysis/harin-analysis-workbench.js');
   assert.match(page,/pageLoaderProfilesModule\.createLoaderSession/);
@@ -185,7 +185,7 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
 });
 
 test('26-8 gives customer service a focused loader instead of the full dashboard waterfall',()=>{
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
   const cs=loaders.profileForState({view:'cs',workspace:null,platform:'all'},[
     'cafe24_orders','cafe24_order_items','cafe24_oauth_tokens','coupang_orders','coupang_order_items',
     'coupang_returns','coupang_exchanges','coupang_inquiries','coupang_operation_requests',
@@ -204,7 +204,7 @@ test('26-8 gives customer service a focused loader instead of the full dashboard
 });
 
 test('26-8 gives diagnoses and change history focused execution loaders',()=>{
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
   const reports=loaders.profileForState({view:'reports',workspace:null,platform:'all'});
   const changes=loaders.profileForState({view:'changes',workspace:null,platform:'all'});
 
@@ -238,7 +238,7 @@ test('26-8 gives diagnoses and change history focused execution loaders',()=>{
 });
 
 test('26-8 prewarms Naver change inputs and keeps unrelated Coupang jobs out of execution pages',()=>{
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
 
   assert.match(page,/const MINIMAL_SHELL_TABLES = \['sync_logs','alerts'\]/);
   assert.match(page,/\['reports','changes','validation','experiments'\]\.includes\(view\)\?MINIMAL_SHELL_TABLES/);
@@ -249,7 +249,7 @@ test('26-8 prewarms Naver change inputs and keeps unrelated Coupang jobs out of 
 });
 
 test('26-8 loads only indexed latest report links for the change workbench',()=>{
-  const page=read('app/page.js');
+  const page=read('app/dashboard-route.js');
 
   assert.match(page,/view==='changes'[\s\S]*?from\('reports'\)[\s\S]*?select\('id,platform,title,created_at'\)[\s\S]*?eq\('is_latest',true\)[\s\S]*?order\('created_at',\{ascending:false\}\)[\s\S]*?limit\(12\)/);
 });
