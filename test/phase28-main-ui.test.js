@@ -25,6 +25,10 @@ test('Phase 28 Main belongs to the exclusive V106 application root',()=>{
 
 test('Phase 28 Main keeps the fixed readable scale and balanced selection language',()=>{
   const css=read('app/_phase28/pages/home-page.module.css');
+  assert.match(css,/\.home\{width:100%;min-width:0;max-width:100%;/);
+  assert.match(css,/\.mainColumn>\*\{min-width:0;max-width:100%;/);
+  assert.match(css,/\.decisionDesk,\.growthHorizon\{grid-template-columns:minmax\(0,1fr\);\}/);
+  assert.match(css,/\.forecastChart\{[^}]*grid-template-columns:repeat\(7,minmax\(0,1fr\)\)/);
   assert.match(css,/min-height:44px/);
   assert.match(css,/440ms cubic-bezier\(\.22,1,\.36,1\)/);
   assert.match(css,/@media \(max-width:430px\)/);

@@ -1,5 +1,6 @@
-.home{width:100%;display:grid;gap:22px;color:var(--p28-ink);}
+.home{width:100%;min-width:0;max-width:100%;display:grid;gap:22px;color:var(--p28-ink);}
 .home *{box-sizing:border-box;}
+.mainColumn>*{min-width:0;max-width:100%;}
 .home button,.home summary{font:inherit;}
 .home button:focus-visible,.home summary:focus-visible{outline:3px solid color-mix(in srgb,var(--p28-blue) 28%,transparent);outline-offset:3px;}
 .intro{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:30px;align-items:end;}
@@ -151,7 +152,7 @@
 .forecastPanel>header span{color:var(--p28-muted);font-size:14px;font-weight:800;white-space:nowrap;}
 .forecastPanel>header strong{font-size:24px;letter-spacing:-.04em;white-space:nowrap;}
 .forecastPanel>header>em{padding:5px 8px;border-radius:8px;background:var(--p28-blue-soft);color:var(--p28-blue);font-size:13px;font-style:normal;font-weight:850;}
-.forecastChart{height:150px;display:grid;grid-template-columns:repeat(7,1fr);align-items:end;gap:7px;margin-top:18px;padding-top:8px;border-bottom:1px solid var(--p28-line);}
+.forecastChart{height:150px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));align-items:end;gap:7px;margin-top:18px;padding-top:8px;border-bottom:1px solid var(--p28-line);}
 .forecastEmpty{grid-column:1/-1;width:100%;min-height:76px;display:grid;align-content:center;gap:4px;padding:15px;color:var(--p28-muted);}
 .forecastEmpty strong{color:var(--p28-ink);font-size:15px;}
 .forecastEmpty span{font-size:13px;line-height:1.5;}
@@ -214,7 +215,7 @@
 @media (max-width:1260px){
   .intro{grid-template-columns:1fr;}
   .companyStatus{display:none;}
-  .decisionDesk,.growthHorizon{grid-template-columns:1fr;}
+  .decisionDesk,.growthHorizon{grid-template-columns:minmax(0,1fr);}
 }
 
 @media (max-width:980px){

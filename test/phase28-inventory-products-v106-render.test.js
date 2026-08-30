@@ -64,6 +64,7 @@ test('inventory workbench footer keeps selection and snapshot evidence at the fi
   assert.match(page,/<small>자료 기준<\/small>/);
   assert.match(css,/\.ipWorkbenchFoot\{min-height:76px/);
   assert.match(css,/\.ipWorkbenchFootIcon\{width:42px;height:42px;display:grid;place-items:center/);
+  assert.match(css,/\.ipWorkbenchFoot>span\{font-size:13px;line-height:1\.45/);
   assert.match(css,/\.ipWorkbenchFoot strong\{[^}]*font-size:15px/);
 });
 
