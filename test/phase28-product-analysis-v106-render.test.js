@@ -42,9 +42,11 @@ test('manual analysis uses one authenticated server route and keeps unavailable 
   const page=read('app/_phase28/pages/product-analysis-page.js');
   const api=read('app/api/product-analysis/route.js');
   const report=read('lib/analytics/product-analysis-report.js');
-  assert.match(page,/fetch\('\/api\/product-analysis'/);
-  assert.match(page,/product_id/);
-  assert.match(page,/period_days/);
+  const saveFlow=read('lib/analytics/product-analysis-save-flow.js');
+  assert.match(saveFlow,/fetchImpl\('\/api\/product-analysis'/);
+  assert.match(saveFlow,/product_id/);
+  assert.match(saveFlow,/period_days/);
+  assert.match(page,/saveProductAnalysisReport/);
   assert.match(api,/validateSession|verifySession/);
   assert.match(api,/create_report_version/);
   assert.match(report,/SETUP_REQUIRED/);

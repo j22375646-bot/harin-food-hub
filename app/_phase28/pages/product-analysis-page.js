@@ -1,11 +1,15 @@
 'use client';
 
 import {useMemo,useState} from 'react';
+import {useRouter} from 'next/navigation';
 import HarinIcon from '../../_design-system/harin-icon.js';
 import {Phase28ChannelLogo} from '../primitives/channel-logo.js';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
 import {Phase28RightRailLayout} from '../primitives/right-rail-layout.js';
+import productAnalysisSaveFlow from '../../../lib/analytics/product-analysis-save-flow.js';
 import './product-analysis-page.css';
+
+const {saveProductAnalysisReport}=productAnalysisSaveFlow;
 
 const SOURCE_LABEL={sales:'자사·채널 판매',profit:'원가·공헌이익',search:'네이버 검색광고',competition:'경쟁 상품 가격',audience:'고객 구성',reviews:'검증 리뷰'};
 const STATUS_LABEL={READY:'실제값',CALCULATED:'계산값',NO_DATA:'자료 없음',CHECK_REQUIRED:'확인 필요',SETUP_REQUIRED:'연결 필요',PARTIAL:'일부 준비'};
@@ -67,6 +71,7 @@ function DecisionDesk({product,report}){const sources=report?.sources||product?.
 function EmptyReport(){return <section className="paEmpty"><div><i/><b>?</b></div><article><span>REPORT WAITING</span><h2>아직 계산된 분석표가 없어요.</h2><p>위에서 판매상품과 분석 기간을 선택한 다음 분석 시작을 눌러주세요. 기존 보고서를 선택해도 같은 계산 스냅샷을 다시 엽니다.</p></article><ol><li><b>1</b> 상품·채널 매칭 확인</li><li><b>2</b> 기간별 주문·검색 근거 계산</li><li><b>3</b> 완료 스냅샷 저장</li></ol></section>;}
 
 export default function Phase28ProductAnalysisPage({model={}}){
+  const router=useRouter();
   const products=model.products||[];
   const savedReports=model.history||[];
   const initialActiveReport=savedReports.find(item=>item.id===model.activeReportId)||savedReports[0]||null;
@@ -77,7 +82,7 @@ export default function Phase28ProductAnalysisPage({model={}}){
   const [running,setRunning]=useState(false);
   const [message,setMessage]=useState('');
   const selected=useMemo(()=>products.find(item=>item.id===selectedId)||null,[products,selectedId]);
-  async function run(){if(!selected||running)return;setRunning(true);setMessage('');try{const response=await fetch('/api/product-analysis',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({product_id:selected.id,period_days:period})});const payload=await response.json();if(!response.ok||!payload.ok)throw new Error(payload.error||'상품 분석을 만들지 못했습니다.');const report=normalizeReport(payload.report);setActive(report);setHistory(current=>[report,...current.filter(item=>item.id!==report.id)]);setMessage('새 분석표를 계산하고 저장했습니다.');}catch(error){setMessage(error.message||'상품 분석을 만들지 못했습니다.');}finally{setRunning(false);}}
+  async function run(){if(!selected||running)return;setRunning(true);setMessage('');try{const saved=await saveProductAnalysisReport({router,productId:selected.id,periodDays:period});const report=normalizeReport(saved);setActive(report);setHistory(current=>[report,...current.filter(item=>item.id!==report.id)]);setMessage('새 분석표를 계산하고 저장했습니다.');}catch(error){setMessage(error.message||'상품 분석을 만들지 못했습니다.');}finally{setRunning(false);}}
   const hero=model.hero||{};
   return <section className="p28ProductAnalysis" data-phase28-root="true" data-phase28-page="product-analysis">
     <div className="paIntro"><Phase28PageHeading context={`판매상품 ${hero.productCount??products.length}개 · 저장 분석 ${hero.savedCount??history.length}건 · 실제 근거와 미연결 근거 분리`} title="상품과 기간을 고르면 " accent="분석표" suffix="를 만들어요." summary={hero.summary||'검색 수요, 고객층, 경쟁 가격과 실제 판매 실적을 같은 분석 시점으로 묶어 봅니다.'}/><div className="paIntroStatus"><HarinIcon name="analysis" size={23}/><span><small>분석 기준</small><strong>{time(model.generatedAt)}</strong><em>선택 실행 · 서버 저장</em></span></div></div>
