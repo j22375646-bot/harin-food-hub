@@ -14,7 +14,7 @@ test('Phase 28 Main belongs to the exclusive V106 application root',()=>{
   const app=read('app/_phase28/phase28-app.js');
   const main=read('app/_phase28/pages/home-page.js');
   const css=read('app/_phase28/pages/home-page.module.css');
-  assert.match(entry,/dynamic\(\(\)=>import\('\.\/_phase28\/phase28-app\.js'\)/);
+  assert.match(entry,/import Phase28App from '\.\/_phase28\/phase28-app\.js'/);
   assert.doesNotMatch(entry,/main-dashboard|Phase14MainCommandCenter|UnifiedOrdersCenter/);
   assert.doesNotMatch(app,/legacy-dashboard|Phase14MainCommandCenter|UnifiedOrdersCenter/);
   assert.doesNotMatch(legacy,/main-dashboard|Phase28MainDashboard/);

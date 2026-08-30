@@ -10,7 +10,7 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('the Phase 28 application renders the V106 orders page without a legacy work center',()=>{
   const app=read('app/_phase28/phase28-app.js');
-  assert.match(app,/import Phase28OrdersPage from '\.\/pages\/orders-page\.js'/);
+  assert.match(app,/const Phase28OrdersPage=dynamic\(\(\)=>import\('\.\/pages\/orders-page\.js'\)/);
   assert.match(app,/routeId==='orders'/);
   assert.match(app,/<Phase28OrdersPage model=\{initialData\.phase28\?\.orders\|\|\{\}\}/);
   assert.doesNotMatch(app,/UnifiedOrdersCenter|Phase28OrdersDashboard/);

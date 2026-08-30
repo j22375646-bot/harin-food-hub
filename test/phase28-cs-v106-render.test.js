@@ -11,7 +11,7 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 test('Phase 28 app renders the V106 customer service page for the cs route',()=>{
   const app=read('app/_phase28/phase28-app.js');
   const page=read('app/_phase28/pages/cs-page.js');
-  assert.match(app,/import Phase28CsPage from '\.\/pages\/cs-page\.js'/);
+  assert.match(app,/const Phase28CsPage=dynamic\(\(\)=>import\('\.\/pages\/cs-page\.js'\)/);
   assert.match(app,/routeId==='cs'[^\n]*<Phase28CsPage model=\{initialData\.phase28\?\.cs\|\|\{\}\}/);
   assert.match(page,/data-phase28-page="cs"/);
   assert.match(page,/오늘 답할 문의는/);

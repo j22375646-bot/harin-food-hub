@@ -19,7 +19,7 @@ test('server owns inventory and products adapters for their actual routes',()=>{
 test('Phase 28 app renders the V106 inventory-products workbench for both routes',()=>{
   const app=read('app/_phase28/phase28-app.js');
   const page=read('app/_phase28/pages/inventory-products-page.js');
-  assert.match(app,/import Phase28InventoryProductsPage from '\.\/pages\/inventory-products-page\.js'/);
+  assert.match(app,/const Phase28InventoryProductsPage=dynamic\(\(\)=>import\('\.\/pages\/inventory-products-page\.js'\)/);
   assert.match(app,/routeId==='inventory'\|\|routeId==='products'/);
   assert.match(page,/data-phase28-page=\{mode\}/);
   assert.match(page,/<i>01<\/i><span><strong>재고 운영/);

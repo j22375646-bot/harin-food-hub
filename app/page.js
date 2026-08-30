@@ -59,6 +59,7 @@ import customerServiceStore from '../lib/customer-service/store.js';
 import featureFlagsModule from '../lib/ui/phase28-production-runtime.js';
 import phase28AdaptersModule from '../lib/ui/phase28-adapters/index.js';
 import calendarCenterModule from '../lib/calendar/calendar-center.js';
+import phase28ClientPayloadModule from '../lib/ui/phase28-client-payload.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -2818,7 +2819,20 @@ async function renderDashboardState(initialState) {
         phase28={changes:null,adapter_status:'ERROR'};
       }
     }
-    return <Dashboard initialData={{...clientDashboardData,phase28Runtime,phase28}} initialState={initialState} />;
+    const aiPanelKey=initialState.view==='main'
+      ?'main'
+      :initialState.view==='settlement'
+        ?'settlement'
+        :initialState.view==='keyword'
+          ?'keyword'
+          :null;
+    const initialData=phase28ClientPayloadModule.buildPhase28ClientPayload({
+      dashboardData:clientDashboardData,
+      phase28Runtime,
+      phase28,
+      aiPanelKey
+    });
+    return <Dashboard initialData={initialData} initialState={initialState} />;
   } catch (error) {
     return <Dashboard initialData={{ error:error.message,phase28Runtime }} initialState={initialState} />;
   }

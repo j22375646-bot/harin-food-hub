@@ -18,7 +18,7 @@ test('server owns the keywords adapter only on the real keyword route',()=>{
 test('Phase 28 app renders the V106 keyword flow, workbench, and decision desk',()=>{
   const app=read('app/_phase28/phase28-app.js');
   const page=read('app/_phase28/pages/keywords-page.js');
-  assert.match(app,/import Phase28KeywordsPage from '\.\/pages\/keywords-page\.js'/);
+  assert.match(app,/const Phase28KeywordsPage=dynamic\(\(\)=>import\('\.\/pages\/keywords-page\.js'\)/);
   assert.match(app,/routeId==='keywords'/);
   assert.match(page,/data-phase28-page="keywords"/);
   assert.match(page,/광고비가 주문으로 이어지는 흐름/);

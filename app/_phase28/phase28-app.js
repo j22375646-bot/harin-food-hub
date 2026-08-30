@@ -4,17 +4,6 @@ import dynamic from 'next/dynamic';
 import {useRouter} from 'next/navigation';
 import operationSnapshotModule from '../../lib/navigation/operation-snapshot.js';
 import routeRegistryModule from '../../lib/ui/phase28-route-registry.js';
-import Phase28HomePage from './pages/home-page.js';
-import Phase28CalendarPage from './pages/calendar-page.js';
-import Phase28OrdersPage from './pages/orders-page.js';
-import Phase28CsPage from './pages/cs-page.js';
-import Phase28InventoryProductsPage from './pages/inventory-products-page.js';
-import Phase28SettlementPage from './pages/settlement-page.js';
-import Phase28KeywordsPage from './pages/keywords-page.js';
-import Phase28ProductAnalysisPage from './pages/product-analysis-page.js';
-import Phase28InsightsPage from './pages/insights-page.js';
-import Phase28SystemPage from './pages/system-page.js';
-import Phase28NotificationsPage from './pages/notifications-page.js';
 import Phase28Shell from './phase28-shell.js';
 import {pushPhase28Route} from './phase28-navigation-feedback.js';
 
@@ -22,6 +11,17 @@ function OnDemandRouteLoading({label}){
   return <section className="phase28OnDemandLoading" role="status" aria-live="polite"><span>필요할 때 불러오기</span><strong>{label} 준비 중</strong><small>선택한 페이지 자료만 불러오고 있어요.</small></section>;
 }
 
+const Phase28HomePage=dynamic(()=>import('./pages/home-page.js'),{loading:()=> <OnDemandRouteLoading label="오늘"/>});
+const Phase28CalendarPage=dynamic(()=>import('./pages/calendar-page.js'),{loading:()=> <OnDemandRouteLoading label="캘린더"/>});
+const Phase28OrdersPage=dynamic(()=>import('./pages/orders-page.js'),{loading:()=> <OnDemandRouteLoading label="주문·배송"/>});
+const Phase28CsPage=dynamic(()=>import('./pages/cs-page.js'),{loading:()=> <OnDemandRouteLoading label="고객·CS"/>});
+const Phase28InventoryProductsPage=dynamic(()=>import('./pages/inventory-products-page.js'),{loading:()=> <OnDemandRouteLoading label="재고·상품"/>});
+const Phase28SettlementPage=dynamic(()=>import('./pages/settlement-page.js'),{loading:()=> <OnDemandRouteLoading label="정산·비용"/>});
+const Phase28KeywordsPage=dynamic(()=>import('./pages/keywords-page.js'),{loading:()=> <OnDemandRouteLoading label="키워드"/>});
+const Phase28ProductAnalysisPage=dynamic(()=>import('./pages/product-analysis-page.js'),{loading:()=> <OnDemandRouteLoading label="상품분석"/>});
+const Phase28InsightsPage=dynamic(()=>import('./pages/insights-page.js'),{loading:()=> <OnDemandRouteLoading label="인사이트"/>});
+const Phase28SystemPage=dynamic(()=>import('./pages/system-page.js'),{loading:()=> <OnDemandRouteLoading label="시스템"/>});
+const Phase28NotificationsPage=dynamic(()=>import('./pages/notifications-page.js'),{loading:()=> <OnDemandRouteLoading label="알림"/>});
 const Phase28DiagnosesPage=dynamic(()=>import('./pages/diagnoses-page.js'),{loading:()=> <OnDemandRouteLoading label="진단목록"/>});
 const Phase28ChangesPage=dynamic(()=>import('./pages/changes-page.js'),{loading:()=> <OnDemandRouteLoading label="변경기록"/>});
 const Phase28ValidationPage=dynamic(()=>import('./pages/validation-page.js'),{loading:()=> <OnDemandRouteLoading label="실행검증"/>});

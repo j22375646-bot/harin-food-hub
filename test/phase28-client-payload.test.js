@@ -1,0 +1,51 @@
+'use strict';
+
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const payloadModule=require('../lib/ui/phase28-client-payload.js');
+
+test('Phase 28 client payload keeps rendered models and drops raw operational rows',()=>{
+  const generatedAt='2026-08-31T01:23:00.000Z';
+  const payload=payloadModule.buildPhase28ClientPayload({
+    dashboardData:{
+      loadedView:'main',generatedAt,
+      channelConnections:{channels:[
+        {status:'READ_READY'},{status:'WRITE_READY'},{status:'READ_READY'}
+      ]},
+      alerts:[{status:'OPEN'}],
+      unifiedOrders:{summary:{actionRequired:2}},
+      customerService:{summary:{active:3}},
+      unifiedInventory:{summary:{action_required:4}},
+      orders:Array.from({length:500},(_,index)=>({id:index,raw_data:{large:'x'.repeat(100)}})),
+      reports:Array.from({length:80},(_,index)=>({id:index,summary_json:{large:'x'.repeat(100)}})),
+      aiPagePanels:{main:{status:'READY'},settlement:{status:'CHECK'}}
+    },
+    phase28Runtime:{routeId:'home'},
+    phase28:{main:{title:'오늘'}},
+    aiPanelKey:'main'
+  });
+
+  assert.deepEqual(Object.keys(payload).sort(),[
+    'aiPagePanels','generatedAt','navigationSnapshot','phase28','phase28Runtime'
+  ]);
+  assert.deepEqual(payload.phase28,{main:{title:'오늘'}});
+  assert.deepEqual(payload.aiPagePanels,{main:{status:'READY'}});
+  assert.equal(payload.navigationSnapshot.badges.orders,2);
+  assert.equal(payload.navigationSnapshot.badges.cs,3);
+  assert.equal(payload.navigationSnapshot.badges.inventory,4);
+  assert.equal(payload.navigationSnapshot.badges.notifications,1);
+  assert.equal(payload.orders,undefined);
+  assert.equal(payload.reports,undefined);
+});
+
+test('non-main route payload does not invent a navigation snapshot',()=>{
+  const payload=payloadModule.buildPhase28ClientPayload({
+    dashboardData:{loadedView:'keyword',generatedAt:'2026-08-31T01:23:00.000Z'},
+    phase28Runtime:{routeId:'keywords'},
+    phase28:{keywords:{rows:[]}},
+    aiPanelKey:'keyword'
+  });
+
+  assert.equal(payload.navigationSnapshot,null);
+  assert.deepEqual(payload.aiPagePanels,{});
+});
