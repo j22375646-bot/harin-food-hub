@@ -32,6 +32,18 @@ test('measured zero Main counts remain ready evidence',()=>{
   assert.equal(model.hero.status,'READY');
 });
 
+test('main hero chooses the highest-priority memo when today has several memos',()=>{
+  const model=buildPhase28MainModel({
+    generatedAt:'2026-08-31T10:00:00+09:00',
+    calendarEntries:[
+      {id:'normal',item_type:'NOTE',title:'보통 메모',priority:'NORMAL',due_at:'2026-08-30T15:00:00.000Z',status:'OPEN'},
+      {id:'high',item_type:'NOTE',title:'중요 메모',priority:'HIGH',due_at:'2026-08-30T15:00:00.000Z',status:'OPEN'}
+    ]
+  });
+  assert.equal(model.hero.note,'중요 메모');
+  assert.deepEqual(model.calendar.items.map(item=>item.title),['중요 메모','보통 메모']);
+});
+
 test('main adapter reuses server-owned schedules, decisions, channels, and growth signals',()=>{
   const model=buildPhase28MainModel({
     generatedAt:'2026-08-29T01:40:00.000Z',

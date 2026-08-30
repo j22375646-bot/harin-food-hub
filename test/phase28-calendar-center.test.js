@@ -64,6 +64,16 @@ test('월 화면은 앞뒤 주까지 포함하고 오늘 항목만 메인으로 
   assert.deepEqual(today.summary,{total:2,schedules:1,memos:1,open:1,done:0});
 });
 
+test('메인 오늘 항목은 중요도가 높은 메모를 대표로 먼저 표시한다',()=>{
+  const rows=[
+    {id:'normal',item_type:'NOTE',title:'보통 메모',priority:'NORMAL',due_at:'2026-08-30T15:00:00.000Z',status:'OPEN'},
+    {id:'low',item_type:'NOTE',title:'낮은 메모',priority:'LOW',due_at:'2026-08-30T15:00:00.000Z',status:'OPEN'},
+    {id:'high',item_type:'NOTE',title:'중요 메모',priority:'HIGH',due_at:'2026-08-30T15:00:00.000Z',status:'OPEN'}
+  ];
+  const today=calendar.buildTodayCalendar(rows,'2026-08-31T10:00:00+09:00');
+  assert.deepEqual(today.items.map(item=>item.title),['중요 메모','보통 메모','낮은 메모']);
+});
+
 test('잘못된 날짜와 빈 제목은 저장 전에 거절한다',()=>{
   assert.throws(()=>calendar.normalizeEntryInput({title:'',date:'2026-02-30'}),/날짜를 확인/);
   assert.throws(()=>calendar.normalizeEntryInput({title:'',date:'2026-08-31'}),/제목을 입력/);
