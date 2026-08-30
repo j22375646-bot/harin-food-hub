@@ -59,6 +59,12 @@ test('공통 제목과 우측 패널은 승인된 V106 모션과 접힘 크기�
   assert.match(rail,/inert=\{open\?undefined:true\}/);
 });
 
+test('모바일 요약문도 V106의 18px와 1.55 읽기 기준을 유지한다',()=>{
+  const css=read('app/_phase28/primitives/primitives.module.css');
+  const mobile=css.match(/@media\s*\(max-width:\s*760px\)\{([\s\S]*?)\n\}/)?.[1]||'';
+  assert.match(mobile,/\.heading p\{[^}]*font-size:18px!important;line-height:1\.55!important/);
+});
+
 test('공통 셸과 채널 로고도 12px 미만 텍스트를 만들지 않는다',()=>{
   for(const file of ['app/_phase28/phase28-shell.module.css','app/_phase28/phase28-operational.css','app/_phase28/primitives/primitives.module.css']){
     const css=read(file);

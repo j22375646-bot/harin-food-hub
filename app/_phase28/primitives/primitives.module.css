@@ -78,7 +78,7 @@
   .heading{padding:8px 0 6px;}
   .context{font-size:15px;}
   .heading h1{font-size:34px!important;}
-  .heading p{margin-top:20px;font-size:16px!important;line-height:1.6!important;}
+  .heading p{margin-top:20px;font-size:18px!important;line-height:1.55!important;}
 }
 
 @media (prefers-reduced-motion:reduce){
