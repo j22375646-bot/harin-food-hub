@@ -116,7 +116,7 @@ const MINIMAL_SHELL_TABLES = ['sync_logs','alerts'];
 const MAIN_OVERVIEW_TABLES = [
   'cafe24_orders','cafe24_order_items','cafe24_oauth_tokens','naver_commerce_orders','naver_commerce_order_items',
   'coupang_orders','coupang_rg_orders','coupang_returns',
-  'coupang_rg_inventory','business_targets','customer_service_items'
+  'coupang_rg_inventory','business_targets','customer_service_items','reports'
 ];
 const VIEW_TABLES = {
   main:MAIN_OVERVIEW_TABLES,
@@ -301,7 +301,7 @@ async function buildMainDashboardData({
   loaderSession,generatedAt,queryIssues,syncResult,alertsResult,
   ordersResult,itemsResult,coupangOrdersResult,coupangOrderTerminalsResult,coupangItemsResult,coupangReturnsResult,
   coupangInventoryResult,coupangRgOrdersResult,
-  naverCommerceOrdersResult,naverCommerceItemsResult,businessTargetsResult,customerServiceRows,cafe24Token
+  naverCommerceOrdersResult,naverCommerceItemsResult,businessTargetsResult,customerServiceRows,cafe24Token,reportsResult
 }) {
   const rawInventory=coupangInventoryResult.data||[];
   const {active:operationalInventory,excluded:excludedInventory}=coupangOperationalInventoryModule.splitOperationalInventory(rawInventory);
@@ -348,7 +348,7 @@ async function buildMainDashboardData({
     loadedView:'main',loadedWorkspace:null,loaderPerformance:loaderSession.snapshot(),generatedAt,
     dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
     kpis:{sales:pacing.items.find(item=>item.platform==='ALL')?.revenueActual||0,orders:unifiedOrders.summary.total,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:rgInventory.length},
-    products:[],syncs:shell.syncs,reports:[],actions:[],alerts:shell.alerts,automationRuns:[],qualityChecks:[],metricSnapshots:[],
+    products:[],syncs:shell.syncs,reports:[],growthReports:reportsResult?.data||[],actions:[],alerts:shell.alerts,automationRuns:[],qualityChecks:[],metricSnapshots:[],
     priorityCenter,salesCommandCenter,unifiedOrders,customerService,unifiedInventory,pacing,financialTrust:{},
     coupang:{
       rgInventory,rgInventoryCount:rgInventory.length,rgInventoryExcludedCount:excludedInventory.length,
@@ -1387,8 +1387,11 @@ async function getDashboardData(state) {
     })()
     : Promise.resolve(null);
   const reportFields='id,platform,report_type,period_start,period_end,title,status,summary_json,version,supersedes_report_id,is_latest,revision_note,approved_at,approved_by,created_at';
+  const mainGrowthReportFields='id,platform,report_type,period_end,title,status,summary_json,is_latest,created_at';
   const reportsQuery=view==='changes'
     ? db.from('reports').select('id,platform,title,created_at').eq('is_latest',true).order('created_at',{ascending:false}).limit(12)
+    : view==='main'
+      ? db.from('reports').select(mainGrowthReportFields).eq('is_latest',true).or('report_type.eq.WEEKLY,report_type.ilike.PRODUCT_ANALYSIS_%').order('created_at',{ascending:false}).limit(12)
     : view==='insight'&&['overview','causes','channels'].includes(state?.workspace)
       ? db.from('reports').select(reportFields,{count:'exact'}).order('period_end',{ascending:false}).order('created_at',{ascending:false}).limit(12)
       : db.from('reports').select(reportFields).order('period_end',{ascending:false}).order('created_at',{ascending:false}).limit(80);
@@ -1477,7 +1480,7 @@ async function getDashboardData(state) {
     return buildMainDashboardData({
       loaderSession,generatedAt,queryIssues,syncResult,alertsResult,ordersResult,itemsResult,coupangOrdersResult,coupangOrderTerminalsResult,coupangItemsResult,coupangReturnsResult,coupangInventoryResult,coupangRgOrdersResult,
       naverCommerceOrdersResult:naverCommerceSettled.results[0],naverCommerceItemsResult:naverCommerceSettled.results[1],businessTargetsResult:targetSettled.results[0],
-      customerServiceRows:channelCsSettled.results[0].data||[],cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null
+      customerServiceRows:channelCsSettled.results[0].data||[],cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,reportsResult
     });
   }
   if(focusedSearchTerms){
@@ -2680,6 +2683,7 @@ async function renderDashboardState(initialState) {
     if(phase28Runtime.activePages.includes('home')&&initialState.view==='main'){
       try{
         phase28={main:phase28AdaptersModule.buildPhase28MainModel(dashboardData),adapter_status:'READY'};
+        clientDashboardData={...dashboardData,growthReports:[]};
       }catch{
         phase28={main:null,adapter_status:'ERROR'};
       }

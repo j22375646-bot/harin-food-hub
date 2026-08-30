@@ -105,12 +105,13 @@ function CashFlowSheet({cashflow,onNavigate}){
   </article>;
 }
 
-function GrowthHorizon({growth,forecast,onNavigate}){
+function GrowthHorizon({growth,sources={},forecast,onNavigate}){
   const growthRows=(growth||[]).slice(0,3);
   const days=forecast?.days||[];
   const maximum=Math.max(1,...days.map(item=>Number(item.revenue)||0));
+  const openGrowthSource=destination=>onNavigate(destination==='insights'?{view:'insight',workspace:'overview'}:'product-analysis');
   return <section className={styles.growthHorizon}>
-    <article className={styles.growthPanel}><header className={styles.sectionHeader}><div><span>GROWTH HORIZON</span><h2>이번 주 성장 동력</h2><p>판매 근거가 있는 상품 신호만 보여드려요.</p></div><button type="button" onClick={()=>onNavigate('product-analysis')}>상품분석</button></header><div className={styles.growthRows}>{growthRows.length?growthRows.map((item,index)=><button type="button" key={item.key||index} onClick={()=>onNavigate({view:'product',workspace:'catalog'})}><b>↗</b><span><strong>{item.name||'상품 확인'}</strong><small>{item.growthRate==null?'성장 근거 확인':`이전 7일보다 +${item.growthRate}%`}</small></span><em>{formatPlainWon(item.currentRevenue)}</em></button>):<div className={styles.emptyState}><strong>비교 가능한 성장 신호를 모으고 있어요.</strong><span>판매 자료가 쌓이면 이곳에 표시합니다.</span></div>}</div></article>
+    <article className={styles.growthPanel}><header className={styles.sectionHeader}><div><span>GROWTH HORIZON</span><h2>이번 주 성장 동력</h2><p>저장된 인사이트와 상품분석의 실제 근거만 연결해요.</p></div><nav className={styles.growthNav} aria-label="성장 동력 근거 페이지"><button type="button" onClick={()=>openGrowthSource('insights')}>인사이트</button><button type="button" onClick={()=>openGrowthSource('product-analysis')}>상품분석</button></nav></header><div className={styles.growthSources} aria-label="연결된 성장 근거"><button type="button" onClick={()=>openGrowthSource('insights')}><span>인사이트</span><strong>{sources.insights?.reportCount?`${sources.insights.reportCount}개 저장`:'근거 확인 필요'}</strong></button><button type="button" onClick={()=>openGrowthSource('product-analysis')}><span>상품분석</span><strong>{sources.productAnalysis?.reportCount?`${sources.productAnalysis.reportCount}개 저장`:'근거 확인 필요'}</strong></button></div><div className={styles.growthRows}>{growthRows.length?growthRows.map((item,index)=><button type="button" key={item.key||index} onClick={()=>openGrowthSource(item.destination)}><b>{item.source==='INSIGHT'?'◎':'↗'}</b><span><i>{item.sourceLabel||'판매 근거'}</i><strong>{item.name||'상품 확인'}</strong><small>{item.evidence||item.metricLabel||(item.growthRate==null?'성장 근거 확인':`이전 7일보다 +${item.growthRate}%`)}</small></span><em>{item.metricLabel||formatPlainWon(item.currentRevenue)}</em></button>):<div className={styles.emptyState}><strong>저장된 성장 근거를 확인하고 있어요.</strong><span>인사이트 보고서나 상품분석표가 저장되면 이곳에 연결합니다.</span></div>}</div></article>
     <article className={styles.forecastPanel}><header><div><span>다음 7일 전망</span><strong>{formatPlainWon(forecast?.expectedRevenue)}</strong></div><em>{forecast?.status==='PARTIAL'?'예상값':'확인 필요'}</em></header><div className={styles.forecastChart} aria-label="다음 7일 매출 전망">{days.length?days.map(item=><span key={item.date}><i style={{height:`${Math.max(12,(Number(item.revenue)||0)/maximum*100)}%`}}/><small>{formatDate(item.date).replace('요일','')}</small></span>):<div className={styles.emptyState}><strong>7일 전망을 계산할 근거가 부족해요.</strong><span>최근 판매 자료가 준비되면 예상값으로 표시합니다.</span></div>}</div><p>{forecast?.basis||'최근 판매 근거 확인 필요'}</p></article>
   </section>;
 }
@@ -147,7 +148,7 @@ export default function Phase28HomePage({model={},aiPanel=null,onNavigate=()=>{}
         <MainMetrics metrics={model.metrics||{}} onNavigate={onNavigate}/>
         <OperatingLine items={model.schedule||[]} onNavigate={onNavigate}/>
         <div className={styles.decisionDesk}><MainDecisionList items={model.decisions||[]} blocked={hero.status==='BLOCKED'} onNavigate={onNavigate}/><CashFlowSheet cashflow={model.cashflow||{}} onNavigate={onNavigate}/></div>
-        <GrowthHorizon growth={model.growth||[]} forecast={model.forecast||{}} onNavigate={onNavigate}/>
+        <GrowthHorizon growth={model.growth||[]} sources={model.growthSources||{}} forecast={model.forecast||{}} onNavigate={onNavigate}/>
       </div>
     </Phase28RightRailLayout>
   </section>;

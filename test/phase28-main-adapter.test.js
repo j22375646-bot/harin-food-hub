@@ -56,6 +56,35 @@ test('main adapter reuses server-owned schedules, decisions, channels, and growt
   assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system','notifications','diagnoses','changes','validation','experiments','knowledge']);
 });
 
+test('main growth horizon combines saved weekly insights and product analysis evidence',()=>{
+  const model=buildPhase28MainModel({
+    generatedAt:'2026-08-31T01:20:00.000Z',
+    salesCommandCenter:{products:{growth:[]}},
+    reports:[
+      {
+        id:'weekly-naver',platform:'NAVER',report_type:'WEEKLY',status:'FINAL',is_latest:true,
+        period_end:'2026-08-30',created_at:'2026-08-31T00:30:00.000Z',title:'네이버 주간 인사이트',
+        summary_json:{insights:[{level:'good',title:'브랜드 검색 유입 상승',body:'같은 채널의 저장 근거로 확인했습니다.'}]}
+      },
+      {
+        id:'analysis-p1',platform:'ALL',report_type:'PRODUCT_ANALYSIS_p1',status:'FINAL',is_latest:true,
+        period_end:'2026-08-30',created_at:'2026-08-31T00:20:00.000Z',title:'작두콩차 상품분석',
+        summary_json:{kind:'PRODUCT_ANALYSIS',product:{id:'p1',name:'작두콩차'},metrics:{revenue:1280000,search_demand:15330},signals:[
+          {tone:'good',title:'판매 실적 확인',body:'선택 기간 실제 매출이 확인됐습니다.'},
+          {tone:'hold',title:'경쟁 근거 연결 필요',body:'추정하지 않습니다.'}
+        ]}
+      }
+    ]
+  });
+
+  assert.equal(model.growthSources.insights.reportCount,1);
+  assert.equal(model.growthSources.productAnalysis.reportCount,1);
+  assert.deepEqual(new Set(model.growth.map(item=>item.source)),new Set(['INSIGHT','PRODUCT_ANALYSIS']));
+  assert.ok(model.growth.some(item=>item.name==='작두콩차'&&item.currentRevenue===1280000));
+  assert.ok(model.growth.some(item=>item.name==='브랜드 검색 유입 상승'&&item.destination==='insights'));
+  assert.equal(model.growth.some(item=>item.name==='경쟁 근거 연결 필요'),false);
+});
+
 test('main adapter supplies the complete V106 money, deadline, forecast, and payout evidence',()=>{
   const model=buildPhase28MainModel({
     generatedAt:'2026-08-29T05:42:00.000Z',

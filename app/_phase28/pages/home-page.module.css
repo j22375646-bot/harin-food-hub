@@ -106,11 +106,19 @@
 .cashRows>div>strong{font-size:14px;text-align:right;}
 
 .growthHorizon{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(350px,.92fr);gap:18px;}
+.growthNav{display:flex;gap:7px;}
+.growthNav>button{min-height:40px;padding:0 12px;border:1px solid var(--p28-line);border-radius:10px;background:var(--p28-surface);color:var(--p28-blue);font-size:13px;font-weight:850;cursor:pointer;}
+.growthNav>button:hover{background:var(--p28-blue-soft);}
+.growthSources{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:15px;}
+.growthSources>button{min-height:47px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 13px;border:1px solid var(--p28-line);border-radius:11px;background:var(--p28-soft);color:var(--p28-ink);text-align:left;cursor:pointer;}
+.growthSources span{color:var(--p28-muted);font-size:12px;font-weight:800;}
+.growthSources strong{font-size:13px;}
 .growthRows{display:grid;margin-top:14px;}
 .growthRows>button{min-height:74px;display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 0;border:0;border-bottom:1px solid var(--p28-line);background:transparent;color:var(--p28-ink);text-align:left;cursor:pointer;}
 .growthRows>button:last-child{border-bottom:0;}
 .growthRows>button>b{width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:var(--p28-mint-soft,#e8f4ef);color:var(--p28-mint);font-size:18px;font-weight:900;}
 .growthRows>button>span{min-width:0;display:grid;gap:4px;}
+.growthRows>button>span>i{width:max-content;padding:2px 6px;border-radius:6px;background:var(--p28-blue-soft);color:var(--p28-blue);font-size:12px;font-style:normal;font-weight:850;}
 .growthRows strong{font-size:16px;line-height:1.4;}
 .growthRows small{overflow:hidden;color:var(--p28-muted);font-size:13px;text-overflow:ellipsis;white-space:nowrap;}
 .growthRows em{color:var(--p28-muted);font-size:13px;font-style:normal;font-weight:850;}
@@ -211,6 +219,9 @@
   .operatingTrack{grid-template-columns:1fr;}
   .sectionHeader{display:grid;}
   .sectionHeader>button{width:100%;}
+  .growthNav{display:grid;grid-template-columns:1fr 1fr;}
+  .growthNav>button{width:100%;}
+  .growthSources{grid-template-columns:1fr;}
   .decisionRow{min-height:104px;padding:15px 12px;}
   .growthRows>button{grid-template-columns:40px minmax(0,1fr);}
   .growthRows em{grid-column:2;}
