@@ -174,7 +174,7 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/return buildInsightCausesDashboardData\(/);
   assert.match(page,/buildInsightCausesDashboardData[\s\S]*?loadedWorkspace:'causes'/);
   assert.match(page,/reportsResult\.count\?\?reportsResult\.data\?\.length\?\?0/);
-  assert.match(page,/view==='insight'&&state\?\.workspace==='overview'[\s\S]*?select\(reportFields,\{count:'exact'\}\)[\s\S]*?limit\(12\)/);
+  assert.match(page,/view==='insight'[\s\S]*?scopeInsightReportQuery\(db\.from\('reports'\)\.select\(reportFields,\{count:'exact'\}\)\)/);
   assert.match(page,/focusedEarlyReturn\?Promise\.resolve\(\{data:null,error:null\}\):db\.from\('sync_logs'\)/);
   assert.match(page,/cafe24Token:focusedEarlyReturn\|\|view==='collection' \? Promise\.allSettled/);
   assert.match(page,/cafe24Token:cafe24TokenSettled\.results\[0\]\.data\?\.token_data\|\|null/);

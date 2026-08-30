@@ -1428,8 +1428,8 @@ async function getDashboardData(state) {
     ? db.from('reports').select('id,platform,title,created_at').eq('is_latest',true).order('created_at',{ascending:false}).limit(12)
     : view==='main'
       ? db.from('reports').select(mainGrowthReportFields).eq('is_latest',true).or('report_type.eq.WEEKLY,report_type.ilike.PRODUCT_ANALYSIS_%').order('created_at',{ascending:false}).limit(12)
-    : view==='insight'&&['overview','causes','channels'].includes(state?.workspace)
-      ? db.from('reports').select(reportFields,{count:'exact'}).order('period_end',{ascending:false}).order('created_at',{ascending:false}).limit(12)
+    : view==='insight'
+      ? pageLoaderProfilesModule.scopeInsightReportQuery(db.from('reports').select(reportFields,{count:'exact'}))
       : db.from('reports').select(reportFields).order('period_end',{ascending:false}).order('created_at',{ascending:false}).limit(80);
   const rocketGrowthInventoryQuery=(view==='main'||view==='inventory'
     ? db.from('coupang_rg_inventory').select('vendor_item_id,external_sku_id,total_orderable_quantity,sales_last_30_days,average_daily_sales,days_of_stock,stock_status,snapshot_at').gt('total_orderable_quantity',0).gt('sales_last_30_days',0)

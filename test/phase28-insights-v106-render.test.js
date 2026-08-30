@@ -8,6 +8,29 @@ const {pathToFileURL}=require('node:url');
 
 const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
+const loaderProfiles=require('../lib/dashboard/page-loader-profiles.js');
+
+test('insight landing and saved workspaces query the same latest weekly channel reports before limiting',()=>{
+  const calls=[];
+  let query;
+  query=new Proxy({}, {
+    get(_target,key){
+      if(key==='then')return undefined;
+      return (...args)=>{calls.push([key,...args]);return query;};
+    }
+  });
+
+  assert.equal(typeof loaderProfiles.scopeInsightReportQuery,'function');
+  assert.equal(loaderProfiles.scopeInsightReportQuery(query),query);
+  assert.deepEqual(calls,[
+    ['eq','report_type','WEEKLY'],
+    ['eq','is_latest',true],
+    ['in','platform',['NAVER','CAFE24','COUPANG']],
+    ['order','period_end',{ascending:false}],
+    ['order','created_at',{ascending:false}],
+    ['limit',36]
+  ]);
+});
 
 test('V106 insights owns the canonical route and server adapter',()=>{
   const route=read('app/insights/[workspace]/page.js');
