@@ -69,14 +69,14 @@ test('23-2 scopes insight and product workspaces to the data they render',()=>{
     'coupang_sync_requests','coupang_operation_requests','worker_heartbeats'
   ]);
   assert.equal(collection.tables.some(table=>table.startsWith('coupang_ad_')),false);
-  assert.deepEqual(overview.tables,['reports','platform_events','alerts','cafe24_oauth_tokens','ai_analysis_results']);
-  assert.deepEqual(causes.tables,['reports','actions','platform_events','alerts','cafe24_oauth_tokens','ai_analysis_results']);
-  assert.deepEqual(channels.tables,['reports','actions','platform_events','alerts','cafe24_oauth_tokens','ai_analysis_results']);
+  assert.deepEqual(overview.tables,['reports','platform_events','alerts','automation_runs','cafe24_oauth_tokens','ai_analysis_results']);
+  assert.deepEqual(causes.tables,['reports','actions','platform_events','alerts','automation_runs','cafe24_oauth_tokens','ai_analysis_results']);
+  assert.deepEqual(channels.tables,['reports','actions','platform_events','alerts','automation_runs','cafe24_oauth_tokens','ai_analysis_results']);
   assert.deepEqual(history.tables,['financial_change_requests','cafe24_oauth_tokens','ai_analysis_results']);
   assert.deepEqual(profit.tables,[
     'master_products','channel_products','product_costs','channel_cost_settings','channel_shipping_rules','ai_analysis_results',
     'cafe24_products','cafe24_orders','cafe24_order_items','cafe24_oauth_tokens','naver_keywords','naver_keyword_stats',
-    'coupang_orders','coupang_order_items','coupang_product_items','coupang_rg_orders','coupang_rg_order_items','coupang_ad_keyword_daily','alerts'
+    'coupang_orders','coupang_order_items','coupang_product_items','coupang_rg_orders','coupang_rg_order_items','coupang_ad_keyword_daily','automation_runs','alerts'
   ]);
   assert.ok(profit.tables.includes('product_costs'));
   assert.equal(profit.tables.includes('coupang_settlements'),false);

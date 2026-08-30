@@ -4,11 +4,11 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const navigation=require('../lib/ui/phase28-navigation.js');
 
-test('V106 navigation exposes all 18 stable routes once',()=>{
+test('V106 navigation exposes all 17 primary routes once after diagnoses moved into insights',()=>{
   const model=navigation.buildPhase28Navigation({badges:{orders:2,cs:3}});
   assert.equal(model.groups.length,4);
-  assert.equal(model.items.length,18);
-  assert.equal(new Set(model.items.map(item=>item.href)).size,18);
+  assert.equal(model.items.length,17);
+  assert.equal(new Set(model.items.map(item=>item.href)).size,17);
   assert.deepEqual(model.mobilePrimary,['home','orders','cs','inventory']);
   assert.equal(model.items.find(item=>item.id==='orders').badge,2);
   assert.equal(model.items.find(item=>item.id==='home').badge,null);
@@ -17,7 +17,7 @@ test('V106 navigation exposes all 18 stable routes once',()=>{
 
 test('저빈도 기록 페이지는 메뉴 클릭 전 자동으로 받지 않는다',()=>{
   const model=navigation.buildPhase28Navigation();
-  const onDemandIds=['diagnoses','changes','validation','experiments','knowledge'];
+  const onDemandIds=['changes','validation','experiments','knowledge'];
   assert.deepEqual(
     model.items.filter(item=>item.prefetch===false).map(item=>item.id),
     onDemandIds

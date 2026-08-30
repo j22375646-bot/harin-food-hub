@@ -435,7 +435,7 @@ async function buildInventoryDashboardData({
 }
 
 async function buildInsightOverviewDashboardData({
-  loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,platform='all'
+  loaderSession,generatedAt,queryIssues,syncResult,reportsResult,automationResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,platform='all'
 }) {
   const shell=await buildFocusedShellData({
     queryIssues,syncResult,alertsResult,generatedAt,cafe24Token,
@@ -459,17 +459,17 @@ async function buildInsightOverviewDashboardData({
     aiPagePanels,aiFoundation:{},financialTrust:{},
     kpis:{sales:0,orders:0,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:0},
     products:[],syncs:shell.syncs,reports:reportsResult.data||[],reportCount:reportsResult.count??reportsResult.data?.length??0,actions:[],alerts:shell.alerts,
-    platformEvents:eventsResult.data||[],insightDecision,automationRuns:[],qualityChecks:[],metricSnapshots:[],
+    platformEvents:eventsResult.data||[],insightDecision,automationRuns:automationResult?.data||[],qualityChecks:[],metricSnapshots:[],
     unifiedProductPerformance:{summary:{},items:[]},
     naver:{},coupang:{}
   };
 }
 
 async function buildInsightCausesDashboardData({
-  loaderSession,generatedAt,queryIssues,syncResult,reportsResult,actionsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,platform='all'
+  loaderSession,generatedAt,queryIssues,syncResult,reportsResult,actionsResult,automationResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,platform='all'
 }) {
   const dashboard=await buildInsightOverviewDashboardData({
-    loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,platform
+    loaderSession,generatedAt,queryIssues,syncResult,reportsResult,automationResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,platform
   });
   return {
     ...dashboard,
@@ -670,7 +670,7 @@ async function buildProductPerformanceDashboardData({
   productsResult,ordersResult,itemsResult,syncResult,alertsResult,masterResult,channelsResult,costsResult,
   channelCostsResult,shippingRulesResult,coupangOrdersResult,coupangItemsResult,coupangProductItemsResult,
   coupangRgOrdersResult,coupangRgOrderItemsResult,productAdTargetRows,cafe24Token,latestAiPageResults,
-  reportsResult={data:[]},periodDays=7
+  reportsResult={data:[]},automationResult={data:[]},periodDays=7
 }) {
   const sourceProducts=productsResult.data||[];
   const sourceChannels=channelsResult.data||[];
@@ -778,7 +778,7 @@ async function buildProductPerformanceDashboardData({
     productOperations,productMapping:{summary:{},candidates:[],links:[]},productAdTargets,
     unifiedProductPerformance:trustedPerformance,costCalibration:{},shippingRuleEvidence:{},
     kpis:{sales:performance.summary?.revenue||0,orders:0,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:masterProducts.length},
-    syncs:shell.syncs,reports:reportsResult.data||[],actions:[],alerts:shell.alerts,automationRuns:[],qualityChecks:[],metricSnapshots:[],
+    syncs:shell.syncs,reports:reportsResult.data||[],actions:[],alerts:shell.alerts,automationRuns:automationResult.data||[],qualityChecks:[],metricSnapshots:[],
     naver:{},coupang:{}
   };
 }
@@ -1264,7 +1264,7 @@ async function getDashboardData(state) {
   const focusedSearchTerms=view==='keyword'&&state?.workspace==='search-terms'&&String(state?.platform||'naver').toLowerCase()==='naver';
   const focusedKeywordWorkspace=view==='keyword'&&['registered','diagnosis'].includes(state?.workspace)&&['naver','coupang'].includes(String(state?.platform||'').toLowerCase());
   const focusedKeywordPerformance=view==='keyword'&&state?.workspace==='performance'&&String(state?.platform||'naver').toLowerCase()==='naver';
-  const focusedInsightReport=view==='insight'&&['overview','causes','channels'].includes(state?.workspace);
+  const focusedInsightReport=view==='insight'&&['overview','saved','causes','channels','diagnostics'].includes(state?.workspace);
   const focusedKeywordHistory=view==='keyword'&&state?.workspace==='history'&&['naver','coupang'].includes(String(state?.platform||'').toLowerCase());
   const focusedProductWorkspace=view==='product'&&(['mappings','offers'].includes(state?.workspace)||(state?.workspace==='catalog'&&state?.platform!=='coupang'));
   const focusedProductPerformance=view==='product'&&['profit','ad-targets'].includes(state?.workspace);
@@ -1662,7 +1662,7 @@ async function getDashboardData(state) {
       coupangRgOrdersResult,coupangRgOrderItemsResult,productAdTargetRows:productTargetsSettled.results[0].data||[],
       cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,
       latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[]),
-      reportsResult,periodDays:focusedProductAnalysis?30:7
+      reportsResult,automationResult,periodDays:focusedProductAnalysis?30:7
     };
     return focusedInsightProfitability
       ? buildInsightProfitabilityDashboardData(performanceInput)
@@ -1696,14 +1696,14 @@ async function getDashboardData(state) {
       });
     }
     if(state?.workspace==='causes')return buildInsightCausesDashboardData({
-      loaderSession,generatedAt,queryIssues,syncResult,reportsResult,actionsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,
+      loaderSession,generatedAt,queryIssues,syncResult,reportsResult,actionsResult,automationResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,
       platform:state.platform
     });
     if(state?.workspace==='channels')return buildInsightChannelsDashboardData({
-      loaderSession,generatedAt,queryIssues,syncResult,reportsResult,actionsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,
+      loaderSession,generatedAt,queryIssues,syncResult,reportsResult,actionsResult,automationResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,
       platform:state.platform
     });
-    return buildInsightOverviewDashboardData({loaderSession,generatedAt,queryIssues,syncResult,reportsResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,platform:state.platform});
+    return buildInsightOverviewDashboardData({loaderSession,generatedAt,queryIssues,syncResult,reportsResult,automationResult,alertsResult,eventsResult,cafe24Token,latestAiPageResults,platform:state.platform});
   }
   if(focusedKeywordHistory){
     const [phase7Raw,aiResultsRaw,cafe24TokenRaw]=await Promise.all([

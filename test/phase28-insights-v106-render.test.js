@@ -45,7 +45,7 @@ test('V106 insights owns the canonical route and server adapter',()=>{
   assert.match(page,/reports:\[\]/,'V106 초기 클라이언트 페이로드는 원본 보고서 본문을 제거해야 합니다.');
 });
 
-test('V106 insights renders channel deck, four-stage signal track, saved reports, and decision desk',()=>{
+test('V106 insights renders channel deck, four-stage signal track, saved reports, accumulated diagnoses, and decision desk',()=>{
   const app=read('app/_phase28/phase28-app.js');
   const page=read('app/_phase28/pages/insights-page.js');
   assert.match(app,/Phase28InsightsPage/);
@@ -55,13 +55,14 @@ test('V106 insights renders channel deck, four-stage signal track, saved reports
   assert.doesNotMatch(page,/return <main className="p28Insights"/);
   assert.match(page,/이번 주 먼저 볼 인사이트/);
   assert.match(page,/\['변화','원인','이익','행동'\]/);
-  assert.match(page,/\['이번 주','저장 인사이트','채널 비교','수익성'\]/);
+  assert.match(page,/\['이번 주','저장 인사이트','채널 비교','수익성','누적 진단'\]/);
   assert.match(page,/WEEKLY INSIGHT DESK/);
   assert.match(page,/Phase28RightRailLayout/);
   assert.match(page,/Phase28ChannelLogo/);
-  assert.match(page,/useRouter/);
-  assert.match(page,/pushPhase28Route/);
+  assert.match(page,/window\.history\.pushState/);
+  assert.doesNotMatch(page,/useRouter|pushPhase28Route/);
   assert.match(page,/model\.initialWorkspace==='saved'/);
+  assert.match(page,/model\.initialWorkspace==='diagnostics'/);
 });
 
 test('saved report detail is authenticated, one-report-only, lazy, and cached in the browser',()=>{
@@ -73,7 +74,7 @@ test('saved report detail is authenticated, one-report-only, lazy, and cached in
   assert.match(api,/await params/);
   assert.match(api,/validateSession/);
   assert.match(api,/\.eq\('id',id\)/);
-  assert.match(api,/\.eq\('report_type','WEEKLY'\)/);
+  assert.match(api,/\.in\('report_type',\['WEEKLY','ADHOC','MONTHLY','PRODUCT_ANALYSIS'\]\)/);
   assert.match(api,/maybeSingle\(\)/);
   assert.match(api,/normalizeInsightReportDetail/);
   assert.doesNotMatch(api,/report_html|SUPABASE_SERVICE_ROLE_KEY|NEXT_PUBLIC_/);
@@ -93,7 +94,7 @@ test('saved report detail route rejects guests and returns one normalized channe
 
     auth.validateSession=async()=>({id:'owner-session',role:'OWNER'});
     const calls=[];
-    supabase.getSupabase=()=>({from(table){calls.push(['from',table]);const query={select(fields){calls.push(['select',fields]);return query;},eq(field,value){calls.push(['eq',field,value]);return query;},async maybeSingle(){calls.push(['maybeSingle']);return {data:{id:'nv-1',platform:'NAVER',report_type:'WEEKLY',period_start:'2026-08-24',period_end:'2026-08-30',status:'FINAL',summary_json:{naver:{revenue:1000,contribution_profit:300},insights:[{title:'브랜드 검색 증가'}],recommendations:[{title:'브랜드 입찰 유지'}]}},error:null};}};return query;}});
+    supabase.getSupabase=()=>({from(table){calls.push(['from',table]);const query={select(fields){calls.push(['select',fields]);return query;},eq(field,value){calls.push(['eq',field,value]);return query;},in(field,value){calls.push(['in',field,value]);return query;},async maybeSingle(){calls.push(['maybeSingle']);return {data:{id:'nv-1',platform:'NAVER',report_type:'WEEKLY',period_start:'2026-08-24',period_end:'2026-08-30',status:'FINAL',summary_json:{naver:{revenue:1000,contribution_profit:300},insights:[{title:'브랜드 검색 증가'}],recommendations:[{title:'브랜드 입찰 유지'}]}},error:null};}};return query;}});
     const response=await route.GET(new Request('https://hub.example/api/insights/reports/nv-1'),{params:Promise.resolve({id:'nv-1'})});
     const payload=await response.json();
     assert.equal(response.status,200);

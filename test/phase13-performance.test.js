@@ -21,6 +21,8 @@ test('13-1 canonical menu addresses are real App Router pages',()=>{
       assert.match(source,/Phase28ProductAnalysisPage/);
       assert.match(source,/loadPhase28ProductAnalysisSnapshot/);
       assert.doesNotMatch(source,/renderDashboardRoute/);
+    }else if(item.id==='reports'){
+      assert.match(source,/redirect\('\/insights\/diagnostics'\)/);
     }else{
       assert.match(source,new RegExp(`renderDashboardRoute\\('${item.id}'`));
     }

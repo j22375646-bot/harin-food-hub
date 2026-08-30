@@ -33,3 +33,17 @@ test('최신 진단 조회 실패는 빈 성공 목록으로 숨기지 않는다
   const db={from(){index+=1;return query(index===1?{data:null,error:{message:'latest failed'}}:{data:[],error:null},[]);}};
   await assert.rejects(()=>loadPhase28DiagnosisSnapshot({db}),/latest failed/);
 });
+
+test('인사이트 누적 진단은 경량 머리글을 최대 96건까지 요청할 수 있다',async()=>{
+  const calls=[];
+  const db={from(){return query({data:[],error:null},calls);}};
+  await loadPhase28DiagnosisSnapshot({db,latestLimit:96,versionLimit:120});
+  assert.deepEqual(calls.filter(call=>call.method==='limit').map(call=>call.value),[96,120]);
+});
+
+test('인사이트 목록은 쓰지 않는 버전 이력을 조회하지 않을 수 있다',async()=>{
+  const calls=[];
+  const db={from(){return query({data:[],error:null},calls);}};
+  await loadPhase28DiagnosisSnapshot({db,latestLimit:96,versionLimit:0});
+  assert.deepEqual(calls.filter(call=>call.method==='limit').map(call=>call.value),[96]);
+});

@@ -8,33 +8,22 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
-test('V106 진단은 전용 경량 로더와 공통 셸로 canonical route를 소유한다',()=>{
+test('기존 진단 주소는 인사이트 누적 진단으로 이동한다',()=>{
   const route=read('app/diagnoses/page.js');
-  const layout=read('app/diagnoses/layout.js');
-  assert.match(route,/loadPhase28DiagnosisSnapshot/);
-  assert.match(route,/buildPhase28DiagnosesModel/);
-  assert.match(route,/Phase28DiagnosesPage/);
-  assert.match(layout,/Phase28RouteShell/);
-  assert.match(layout,/routeId="diagnoses"/);
+  assert.match(route,/redirect\('\/insights\/diagnostics'\)/);
 });
 
-test('V106 진단은 결정 순환·필터·보고서 보존 기능을 연결한다',()=>{
-  const page=read('app/_phase28/pages/diagnoses-page.js');
-  for(const label of ['진단 근거','변경 기록','7·14일 결과','다음 실험'])assert.match(page,new RegExp(label));
-  for(const label of ['전체','분석 가능','판단 보류'])assert.match(page,new RegExp(label));
+test('인사이트 누적 진단은 플랫폼 분리·상세 지연 조회를 연결한다',()=>{
+  const page=read('app/_phase28/pages/insights-page.js');
+  for(const label of ['네이버','쿠팡','Cafe24','전체 채널'])assert.match(page,new RegExp(label));
+  for(const label of ['누적 진단','상세보기','자동화 실행 상태'])assert.match(page,new RegExp(label));
   assert.match(page,/Phase28RightRailLayout/);
-  assert.match(page,/\/api\/reports\/generate/);
-  assert.match(page,/\/api\/reports\/daily/);
-  assert.match(page,/\/api\/reports\/\$\{encodeURIComponent\(report\.id\)\}\/action/);
-  assert.match(page,/\/api\/notifications\/send/);
-  assert.match(page,/\/print/);
-  assert.match(page,/\/download/);
-  assert.match(page,/window\.confirm/);
-  assert.match(page,/dataUnavailable\?'확인 필요'/);
+  assert.match(page,/\/api\/insights\/diagnostics/);
+  assert.match(page,/\/api\/insights\/reports\/\$\{encodeURIComponent\(reportId\)\}/);
 });
 
-test('진단 CSS는 고정 읽기 크기·균형 선택·모바일·절제된 동작을 지킨다',()=>{
-  const css=read('app/_phase28/pages/diagnoses-page.css');
+test('통합 인사이트 진단 CSS는 고정 읽기 크기·균형 선택·모바일·절제된 동작을 지킨다',()=>{
+  const css=read('app/_phase28/pages/insights-page.css');
   assert.match(css,/max-width:\s*2300px/);
   assert.match(css,/min-height:\s*(?:44|46|48)px/);
   assert.match(css,/@media\s*\(max-width:\s*760px\)/);
