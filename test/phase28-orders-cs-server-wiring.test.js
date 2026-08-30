@@ -11,14 +11,16 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 test('server builds the orders model only for an active orders request',()=>{
   const page=read('app/dashboard-route.js');
   assert.match(page,/phase28Runtime\.activePages\.includes\('orders'\)&&initialState\.view==='orders'/);
-  assert.match(page,/phase28AdaptersModule\.buildPhase28OrdersModel\(dashboardData\)/);
+  assert.match(page,/await loadPhase28Adapter\('orders'\)/);
+  assert.match(page,/ordersAdapter\.buildPhase28OrdersModel\(dashboardData\)/);
   assert.match(page,/orders:null,adapter_status:'ERROR'/);
 });
 
 test('server builds the cs model only for an active cs request',()=>{
   const page=read('app/dashboard-route.js');
   assert.match(page,/phase28Runtime\.activePages\.includes\('cs'\)&&initialState\.view==='cs'/);
-  assert.match(page,/phase28AdaptersModule\.buildPhase28CsModel\(dashboardData\)/);
+  assert.match(page,/await loadPhase28Adapter\('cs'\)/);
+  assert.match(page,/csAdapter\.buildPhase28CsModel\(dashboardData\)/);
   assert.match(page,/cs:null,adapter_status:'ERROR'/);
 });
 

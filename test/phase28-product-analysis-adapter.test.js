@@ -49,6 +49,9 @@ test('product analysis adapter restores only saved product-analysis reports with
   assert.equal(model.history[0].id,'pa-1');
   assert.equal(model.history[0].product.name,'보리차 50티백');
   assert.equal(model.history[0].periodDays,30);
+  assert.equal(model.activeReportId,'pa-1');
+  assert.equal('activeReport' in model,false);
+  assert.equal('report' in model.history[0],false);
 });
 
 test('product analysis adapter builds selectable products from the lightweight catalog snapshot',()=>{

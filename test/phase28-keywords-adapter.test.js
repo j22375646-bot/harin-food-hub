@@ -31,6 +31,13 @@ test('keyword adapter keeps channel and write boundaries while exposing editable
   assert.equal(model.rows[0].snapshotToken,'signed-snapshot');
   assert.equal(model.rows[1].recommendedBid,null);
   assert.equal(model.rows[1].statusLabel,'판단 보류');
+  assert.equal(model.rows[1].snapshotToken,null);
+  assert.equal('impressions' in model.rows[0],false);
+  assert.equal('revenue' in model.rows[0],false);
+  assert.equal('product' in model.rows[0],false);
+  assert.equal('reasons' in model.rows[0],false);
+  assert.deepEqual(model.rows[0].reasonIds,[0]);
+  assert.deepEqual(model.reasonCatalog,['광고비를 사용했지만 주문이 없어요.']);
   assert.equal(model.summary.noOrderSpend,96400);
   assert.equal(model.visibleLimit,20);
   assert.equal(model.channels.find(item=>item.id==='coupang').writeMode,'WING_MANUAL');

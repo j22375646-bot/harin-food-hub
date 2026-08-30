@@ -57,7 +57,6 @@ import unifiedOrdersModule from '../lib/orders/unified-orders.js';
 import unifiedCustomerServiceModule from '../lib/customer-service/unified-center.js';
 import customerServiceStore from '../lib/customer-service/store.js';
 import featureFlagsModule from '../lib/ui/phase28-production-runtime.js';
-import phase28AdaptersModule from '../lib/ui/phase28-adapters/index.js';
 import calendarCenterModule from '../lib/calendar/calendar-center.js';
 import phase28ClientPayloadModule from '../lib/ui/phase28-client-payload.js';
 import operationSnapshotModule from '../lib/navigation/operation-snapshot.js';
@@ -65,6 +64,28 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
+
+async function loadPhase28Adapter(adapterId){
+  let loaded;
+  switch(adapterId){
+    case 'main':loaded=await import('../lib/ui/phase28-adapters/main.js');break;
+    case 'calendar':loaded=await import('../lib/ui/phase28-adapters/calendar.js');break;
+    case 'orders':loaded=await import('../lib/ui/phase28-adapters/orders.js');break;
+    case 'cs':loaded=await import('../lib/ui/phase28-adapters/cs.js');break;
+    case 'inventory':loaded=await import('../lib/ui/phase28-adapters/inventory.js');break;
+    case 'products':loaded=await import('../lib/ui/phase28-adapters/products.js');break;
+    case 'settlement':loaded=await import('../lib/ui/phase28-adapters/settlement.js');break;
+    case 'keywords':loaded=await import('../lib/ui/phase28-adapters/keywords.js');break;
+    case 'product-analysis':loaded=await import('../lib/ui/phase28-adapters/product-analysis.js');break;
+    case 'insights':loaded=await import('../lib/ui/phase28-adapters/insights.js');break;
+    case 'system':loaded=await import('../lib/ui/phase28-adapters/system.js');break;
+    case 'notifications':loaded=await import('../lib/ui/phase28-adapters/notifications.js');break;
+    case 'diagnoses':loaded=await import('../lib/ui/phase28-adapters/diagnoses.js');break;
+    case 'changes':loaded=await import('../lib/ui/phase28-adapters/changes.js');break;
+    default:throw new Error(`Unknown Phase 28 adapter: ${adapterId}`);
+  }
+  return loaded.default||loaded;
+}
 
 const number = value => Number(value || 0);
 const dateOnly = value => String(value || '').slice(0, 10);
@@ -2717,7 +2738,8 @@ async function renderDashboardState(initialState) {
     let clientDashboardData=dashboardData;
     if(phase28Runtime.activePages.includes('home')&&initialState.view==='main'){
       try{
-        phase28={main:phase28AdaptersModule.buildPhase28MainModel(dashboardData),adapter_status:'READY'};
+        const mainAdapter=await loadPhase28Adapter('main');
+        phase28={main:mainAdapter.buildPhase28MainModel(dashboardData),adapter_status:'READY'};
         clientDashboardData={...dashboardData,growthReports:[]};
       }catch{
         phase28={main:null,adapter_status:'ERROR'};
@@ -2725,63 +2747,72 @@ async function renderDashboardState(initialState) {
     }
     if(phase28Runtime.activePages.includes('calendar')&&initialState.view==='calendar'){
       try{
-        phase28={calendar:phase28AdaptersModule.buildPhase28CalendarModel(dashboardData),adapter_status:'READY'};
+        const calendarAdapter=await loadPhase28Adapter('calendar');
+        phase28={calendar:calendarAdapter.buildPhase28CalendarModel(dashboardData),adapter_status:'READY'};
       }catch{
         phase28={calendar:null,adapter_status:'ERROR'};
       }
     }
     if(phase28Runtime.activePages.includes('orders')&&initialState.view==='orders'){
       try{
-        phase28={orders:phase28AdaptersModule.buildPhase28OrdersModel(dashboardData),adapter_status:'READY'};
+        const ordersAdapter=await loadPhase28Adapter('orders');
+        phase28={orders:ordersAdapter.buildPhase28OrdersModel(dashboardData),adapter_status:'READY'};
       }catch{
         phase28={orders:null,adapter_status:'ERROR'};
       }
     }
     if(phase28Runtime.activePages.includes('cs')&&initialState.view==='cs'){
       try{
-        phase28={cs:phase28AdaptersModule.buildPhase28CsModel(dashboardData),adapter_status:'READY'};
+        const csAdapter=await loadPhase28Adapter('cs');
+        phase28={cs:csAdapter.buildPhase28CsModel(dashboardData),adapter_status:'READY'};
       }catch{
         phase28={cs:null,adapter_status:'ERROR'};
       }
     }
     if(phase28Runtime.activePages.includes('inventory')&&initialState.view==='inventory'){
       try{
-        phase28={inventory:phase28AdaptersModule.buildPhase28InventoryModel(dashboardData),adapter_status:'READY'};
+        const inventoryAdapter=await loadPhase28Adapter('inventory');
+        phase28={inventory:inventoryAdapter.buildPhase28InventoryModel(dashboardData),adapter_status:'READY'};
       }catch{
         phase28={inventory:null,adapter_status:'ERROR'};
       }
     }
     if(phase28Runtime.activePages.includes('products')&&initialState.view==='product'){
       try{
-        phase28={products:phase28AdaptersModule.buildPhase28ProductsModel(dashboardData),adapter_status:'READY'};
+        const productsAdapter=await loadPhase28Adapter('products');
+        phase28={products:productsAdapter.buildPhase28ProductsModel(dashboardData),adapter_status:'READY'};
       }catch{
         phase28={products:null,adapter_status:'ERROR'};
       }
     }
     if(phase28Runtime.activePages.includes('settlement')&&initialState.view==='settlement'){
       try{
-        phase28={settlement:phase28AdaptersModule.buildPhase28SettlementModel(dashboardData),adapter_status:'READY'};
+        const settlementAdapter=await loadPhase28Adapter('settlement');
+        phase28={settlement:settlementAdapter.buildPhase28SettlementModel(dashboardData),adapter_status:'READY'};
       }catch{
         phase28={settlement:null,adapter_status:'ERROR'};
       }
     }
     if(phase28Runtime.activePages.includes('keywords')&&initialState.view==='keyword'){
       try{
-        phase28={keywords:phase28AdaptersModule.buildPhase28KeywordsModel(dashboardData,{platform:initialState.platform,workspace:initialState.workspace}),adapter_status:'READY'};
+        const keywordsAdapter=await loadPhase28Adapter('keywords');
+        phase28={keywords:keywordsAdapter.buildPhase28KeywordsModel(dashboardData,{platform:initialState.platform,workspace:initialState.workspace}),adapter_status:'READY'};
       }catch{
         phase28={keywords:null,adapter_status:'ERROR'};
       }
     }
     if(phase28Runtime.activePages.includes('product-analysis')&&initialState.view==='product-analysis'){
       try{
-        phase28={productAnalysis:phase28AdaptersModule.buildPhase28ProductAnalysisModel(dashboardData),adapter_status:'READY'};
+        const productAnalysisAdapter=await loadPhase28Adapter('product-analysis');
+        phase28={productAnalysis:productAnalysisAdapter.buildPhase28ProductAnalysisModel(dashboardData),adapter_status:'READY'};
       }catch{
         phase28={productAnalysis:null,adapter_status:'ERROR'};
       }
     }
     if(phase28Runtime.activePages.includes('analysis')&&initialState.view==='insight'){
       try{
-        phase28={insights:phase28AdaptersModule.buildPhase28InsightsModel(dashboardData,{workspace:initialState.workspace,platform:initialState.platform}),adapter_status:'READY'};
+        const insightsAdapter=await loadPhase28Adapter('insights');
+        phase28={insights:insightsAdapter.buildPhase28InsightsModel(dashboardData,{workspace:initialState.workspace,platform:initialState.platform}),adapter_status:'READY'};
         clientDashboardData={...dashboardData,reports:[],insightDecision:null};
       }catch{
         phase28={insights:null,adapter_status:'ERROR'};
@@ -2789,14 +2820,16 @@ async function renderDashboardState(initialState) {
     }
     if(phase28Runtime.activePages.includes('system')&&initialState.view==='collection'){
       try{
-        phase28={system:phase28AdaptersModule.buildPhase28SystemModel(dashboardData,{workspace:initialState.workspace}),adapter_status:'READY'};
+        const systemAdapter=await loadPhase28Adapter('system');
+        phase28={system:systemAdapter.buildPhase28SystemModel(dashboardData,{workspace:initialState.workspace}),adapter_status:'READY'};
       }catch{
         phase28={system:null,adapter_status:'ERROR'};
       }
     }
     if(phase28Runtime.activePages.includes('notifications')&&initialState.view==='notifications'){
       try{
-        phase28={notifications:phase28AdaptersModule.buildPhase28NotificationsModel({generatedAt:dashboardData.generatedAt,alerts:dashboardData.alerts||[]}),adapter_status:'READY'};
+        const notificationsAdapter=await loadPhase28Adapter('notifications');
+        phase28={notifications:notificationsAdapter.buildPhase28NotificationsModel({generatedAt:dashboardData.generatedAt,alerts:dashboardData.alerts||[]}),adapter_status:'READY'};
         clientDashboardData={...dashboardData,reports:[]};
       }catch{
         phase28={notifications:null,adapter_status:'ERROR'};
@@ -2804,7 +2837,8 @@ async function renderDashboardState(initialState) {
     }
     if(phase28Runtime.activePages.includes('diagnoses')&&initialState.view==='reports'){
       try{
-        phase28={diagnoses:phase28AdaptersModule.buildPhase28DiagnosesModel({generatedAt:dashboardData.generatedAt,latestReports:(dashboardData.reports||[]).filter(item=>item.is_latest!==false),versionHeaders:dashboardData.reports||[]}),adapter_status:'READY'};
+        const diagnosesAdapter=await loadPhase28Adapter('diagnoses');
+        phase28={diagnoses:diagnosesAdapter.buildPhase28DiagnosesModel({generatedAt:dashboardData.generatedAt,latestReports:(dashboardData.reports||[]).filter(item=>item.is_latest!==false),versionHeaders:dashboardData.reports||[]}),adapter_status:'READY'};
         clientDashboardData={...dashboardData,reports:[],reportLearningHistory:null,actions:[],retentionValidation:null,experiments:[]};
       }catch{
         phase28={diagnoses:null,adapter_status:'ERROR'};
@@ -2817,7 +2851,8 @@ async function renderDashboardState(initialState) {
           created_at:item.created_at,executed_at:item.executed_at,verified_at:item.verified_at,rolled_back_at:item.rolled_back_at,
           impact_preview:{changes:item.changes||[]},rollback_value:{exists:item.reversible!==false}
         }));
-        phase28={changes:phase28AdaptersModule.buildPhase28ChangesModel({generatedAt:dashboardData.generatedAt,requests:compactChanges,audits:[],naverWriteEnabled:dashboardData.naverBidWorkbench?.execution_enabled===true}),adapter_status:'READY'};
+        const changesAdapter=await loadPhase28Adapter('changes');
+        phase28={changes:changesAdapter.buildPhase28ChangesModel({generatedAt:dashboardData.generatedAt,requests:compactChanges,audits:[],naverWriteEnabled:dashboardData.naverBidWorkbench?.execution_enabled===true}),adapter_status:'READY'};
         clientDashboardData={...dashboardData,reports:[],actions:[],retentionValidation:null,experiments:[],automationRuns:[],naverBidWorkbench:null,productAdTargets:null,financialTrust:null};
       }catch{
         phase28={changes:null,adapter_status:'ERROR'};

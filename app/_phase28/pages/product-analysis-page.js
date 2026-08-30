@@ -18,7 +18,7 @@ const time=value=>{if(!value)return '기준시각 확인 필요';const date=new 
 
 function normalizeReport(report){
   const summary=report?.summary_json||report?.report||{};
-  return {id:String(report?.id||''),title:report?.title||`${summary.product?.name||'상품'} 분석`,product:summary.product||report?.product||{},periodDays:Number(summary.period_days||report?.periodDays||30),periodStart:report?.period_start||summary.period_start,periodEnd:report?.period_end||summary.period_end,createdAt:report?.created_at||summary.generated_at,metrics:summary.metrics||report?.metrics||{},channels:summary.channels||report?.channels||{},keywords:summary.keywords||report?.keywords||[],sources:summary.sources||report?.sources||{},signals:summary.signals||report?.signals||[],report:summary};
+  return {id:String(report?.id||''),title:report?.title||`${summary.product?.name||'상품'} 분석`,product:summary.product||report?.product||{},periodDays:Number(summary.period_days||report?.periodDays||30),periodStart:report?.period_start||summary.period_start,periodEnd:report?.period_end||summary.period_end,createdAt:report?.created_at||summary.generated_at,metrics:summary.metrics||report?.metrics||{},channels:summary.channels||report?.channels||{},keywords:summary.keywords||report?.keywords||[],sources:summary.sources||report?.sources||{},signals:summary.signals||report?.signals||[]};
 }
 
 function AnalysisRunner({products,selectedId,setSelectedId,period,setPeriod,onRun,running}){
@@ -68,10 +68,12 @@ function EmptyReport(){return <section className="paEmpty"><div><i/><b>?</b></di
 
 export default function Phase28ProductAnalysisPage({model={}}){
   const products=model.products||[];
+  const savedReports=model.history||[];
+  const initialActiveReport=savedReports.find(item=>item.id===model.activeReportId)||savedReports[0]||null;
   const [selectedId,setSelectedId]=useState(products[0]?.id||'');
   const [period,setPeriod]=useState(model.defaultPeriod||30);
-  const [history,setHistory]=useState((model.history||[]).map(normalizeReport));
-  const [active,setActive]=useState(model.activeReport?normalizeReport(model.activeReport):null);
+  const [history,setHistory]=useState(savedReports.map(normalizeReport));
+  const [active,setActive]=useState(initialActiveReport?normalizeReport(initialActiveReport):null);
   const [running,setRunning]=useState(false);
   const [message,setMessage]=useState('');
   const selected=useMemo(()=>products.find(item=>item.id===selectedId)||null,[products,selectedId]);
