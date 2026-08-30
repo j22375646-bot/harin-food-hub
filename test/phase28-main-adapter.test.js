@@ -118,3 +118,28 @@ test('main adapter supplies the complete V106 money, deadline, forecast, and pay
   assert.equal(model.cashCalendar.length,1);
   assert.equal(model.cashCalendar[0].platform,'NAVER');
 });
+
+test('main cashflow uses the measured monthly sales and forecasts from the lightweight order history',()=>{
+  const model=buildPhase28MainModel({
+    generatedAt:'2026-08-31T12:00:00+09:00',
+    salesHistory:{
+      status:'READY',channels:['NAVER','COUPANG','CAFE24'],
+      daily:[
+        {date:'2026-08-25',orders:1,revenue:100_000},
+        {date:'2026-08-26',orders:2,revenue:200_000},
+        {date:'2026-08-27',orders:3,revenue:300_000}
+      ]
+    },
+    salesCommandCenter:{
+      metrics:{current:6_566_330},
+      cashflow:{status:'CHECK_REQUIRED',description:'비용 근거 확인 필요'},
+      daily:{total:0,exception_total:0,schedule:{items:[]}}
+    }
+  });
+
+  assert.equal(model.cashflow.rows[0].value,6_566_330);
+  assert.equal(model.cashflow.rows[1].value,null);
+  assert.equal(model.forecast.status,'PARTIAL');
+  assert.equal(model.forecast.expectedRevenue,1_400_000);
+  assert.match(model.forecast.basis,/네이버·쿠팡·Cafe24/);
+});

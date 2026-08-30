@@ -9,6 +9,7 @@ import metricSnapshotModule from '../lib/metrics/snapshot.js';
 import pacingService from '../lib/analytics/pacing-service.js';
 import pacingCalculatorModule from '../lib/analytics/pacing.js';
 import monthlyRevenueModule from '../lib/analytics/monthly-revenue.js';
+import mainSalesHistoryModule from '../lib/analytics/main-sales-history.js';
 import insightDecisionWorkbenchModule from '../lib/analytics/insight-decision-workbench.js';
 import cafe24AnalyticsModule from '../lib/cafe24/analytics.js';
 import mappingService from '../lib/products/mapping-service.js';
@@ -314,6 +315,13 @@ async function buildMainDashboardData({
     naverOrders:naverCommerceOrdersResult.data||[],naverOrderItems:naverCommerceItemsResult.data||[],
     channelConnections:shell.channelConnections.channels||[],asOf:generatedAt,refreshedAt:generatedAt
   });
+  const salesHistory=mainSalesHistoryModule.buildMainSalesHistory({
+    asOf:generatedAt,
+    cafe24Orders:ordersResult.data||[],
+    naverOrders:naverCommerceOrdersResult.data||[],
+    coupangOrders:coupangOrdersResult.data||[],
+    coupangRgOrders:coupangRgOrdersResult.data||[]
+  });
   const activeCs=(customerServiceRows||[]).filter(item=>!item.completed);
   const customerService={active:activeCs.map(item=>({id:item.source_key||item.id,platform:item.platform,kind:item.kind})),summary:{active:activeCs.length}};
   const unifiedInventory=coupangOperationalInventoryModule.buildOperationalInventoryCenter(rgInventory);
@@ -338,7 +346,7 @@ async function buildMainDashboardData({
     dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
     kpis:{sales:pacing.items.find(item=>item.platform==='ALL')?.revenueActual??null,orders:unifiedOrders.summary.total,visitors:null,pageviews:null,conversion:null,averageOrder:null,products:rgInventory.length},
     products:[],syncs:shell.syncs,reports:[],growthReports:reportsResult?.data||[],calendarEntries,actions:[],alerts:shell.alerts,automationRuns:[],qualityChecks:[],metricSnapshots:[],
-    priorityCenter,salesCommandCenter,unifiedOrders,customerService,unifiedInventory,pacing,financialTrust:{},
+    priorityCenter,salesCommandCenter,salesHistory,unifiedOrders,customerService,unifiedInventory,pacing,financialTrust:{},
     coupang:{
       rgInventory,rgInventoryCount:rgInventory.length,rgInventoryExcludedCount:excludedInventory.length,
       rgTotalOrderable:rgInventory.reduce((sum,item)=>sum+number(item.total_orderable_quantity),0),

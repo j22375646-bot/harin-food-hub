@@ -127,6 +127,7 @@
 .cashRows>div>em>i{display:block;height:100%;border-radius:inherit;background:#b6c3d8;transition:width 620ms cubic-bezier(.22,1,.36,1);}
 .cashRows>div[data-profit="true"]>em>i{background:var(--p28-mint);}
 .cashRows>div>strong{font-size:14px;text-align:right;}
+.cashBasis{margin:15px 0 0;padding-top:12px;border-top:1px solid var(--p28-line);color:var(--p28-muted);font-size:13px;line-height:1.5;}
 
 .growthHorizon{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(350px,.92fr);gap:18px;}
 .growthNav{display:flex;gap:7px;}
@@ -146,12 +147,14 @@
 .growthRows small{overflow:hidden;color:var(--p28-muted);font-size:13px;text-overflow:ellipsis;white-space:nowrap;}
 .growthRows em{color:var(--p28-muted);font-size:13px;font-style:normal;font-weight:850;}
 .forecastPanel>header{display:flex;align-items:start;justify-content:space-between;gap:15px;}
-.forecastPanel>header>div{display:grid;gap:5px;}
-.forecastPanel>header span{color:var(--p28-muted);font-size:14px;font-weight:800;}
-.forecastPanel>header strong{font-size:24px;letter-spacing:-.04em;}
+.forecastPanel>header>div{min-width:0;display:grid;flex:1;gap:5px;}
+.forecastPanel>header span{color:var(--p28-muted);font-size:14px;font-weight:800;white-space:nowrap;}
+.forecastPanel>header strong{font-size:24px;letter-spacing:-.04em;white-space:nowrap;}
 .forecastPanel>header>em{padding:5px 8px;border-radius:8px;background:var(--p28-blue-soft);color:var(--p28-blue);font-size:13px;font-style:normal;font-weight:850;}
 .forecastChart{height:150px;display:grid;grid-template-columns:repeat(7,1fr);align-items:end;gap:7px;margin-top:18px;padding-top:8px;border-bottom:1px solid var(--p28-line);}
-.forecastChart>.emptyState{grid-column:1/-1;width:100%;}
+.forecastEmpty{grid-column:1/-1;width:100%;min-height:76px;display:grid;align-content:center;gap:4px;padding:15px;color:var(--p28-muted);}
+.forecastEmpty strong{color:var(--p28-ink);font-size:15px;}
+.forecastEmpty span{font-size:13px;line-height:1.5;}
 .forecastChart>span{height:100%;display:grid;grid-template-rows:minmax(0,1fr) 25px;align-items:end;justify-items:center;gap:5px;}
 .forecastChart>span>i{width:min(27px,72%);min-height:10px;border-radius:7px 7px 2px 2px;background:#8fa6e4;animation:barRise 620ms cubic-bezier(.22,1,.36,1) both;transform-origin:bottom;}
 @keyframes barRise{from{transform:scaleY(.05);opacity:.3;}to{transform:scaleY(1);opacity:1;}}
