@@ -1,8 +1,8 @@
 'use strict';
 
-const crypto=require('node:crypto');
 const fs=require('node:fs');
 const path=require('node:path');
+const {fingerprintReference}=require('../lib/ui/phase28-reference-integrity');
 
 const args=process.argv.slice(2);
 const sourceIndex=args.indexOf('--source');
@@ -57,10 +57,11 @@ function copy(relativeSource,relativeTarget){
   fs.mkdirSync(path.dirname(to),{recursive:true});
   fs.copyFileSync(from,to);
   const buffer=fs.readFileSync(to);
+  const fingerprint=fingerprintReference(relativeTarget,buffer);
   copied.push({
     path:relativeTarget.replaceAll('\\','/'),
-    sha256:crypto.createHash('sha256').update(buffer).digest('hex'),
-    bytes:buffer.byteLength
+    sha256:fingerprint.sha256,
+    bytes:fingerprint.bytes
   });
 }
 
