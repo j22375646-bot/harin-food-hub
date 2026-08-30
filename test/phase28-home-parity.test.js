@@ -25,6 +25,8 @@ test('V106 Main CSS keeps the approved executive board and readable reflow',()=>
   assert.match(css,/min-height:44px/);
   assert.match(css,/font-size:17px/);
   assert.match(css,/@media \(max-width:430px\)/);
+  assert.match(css,/\.operatingTrack::before\{[^}]*left:12\.5%;right:12\.5%;top:16px/);
+  assert.match(css,/\.operatingTrack>button\{[^}]*grid-template-rows:34px auto;[^}]*justify-items:center/);
   assert.doesNotMatch(css,/border-left\s*:/);
   assert.doesNotMatch(css,/font-size:(?:[0-9]|1[01])px/);
 });
