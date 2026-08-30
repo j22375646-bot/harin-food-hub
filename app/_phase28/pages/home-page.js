@@ -171,12 +171,21 @@ function CashFlowSheet({cashflow,onNavigate}){
 
 function GrowthHorizon({growth,sources={},forecast,onNavigate}){
   const growthRows=(growth||[]).slice(0,3);
+  const actualDays=forecast?.actualDays||[];
   const days=forecast?.days||[];
-  const maximum=Math.max(1,...days.map(item=>Number(item.revenue)||0));
+  const maximum=Math.max(1,...actualDays.map(item=>Number(item.revenue)||0),...days.map(item=>Number(item.revenue)||0));
+  const salesChart=(items,label,emptyTitle,emptyCopy)=><div className={styles.forecastChart} aria-label={label}>{items.length?items.map(item=>{
+    const value=Number(item.revenue)||0;
+    const accessibleLabel=`${formatDate(item.date)} ${formatPlainWon(value)}`;
+    return <span key={item.date} aria-label={accessibleLabel} title={accessibleLabel}><i style={{height:`${Math.max(12,value/maximum*100)}%`}}/><small>{formatDate(item.date).replace('요일','')}</small></span>;
+  }):<div className={styles.forecastEmpty}><strong>{emptyTitle}</strong><span>{emptyCopy}</span></div>}</div>;
   const openGrowthSource=destination=>onNavigate(destination==='insights'?{view:'insight',workspace:'overview'}:'product-analysis');
   return <section className={styles.growthHorizon}>
     <article className={styles.growthPanel}><header className={styles.sectionHeader}><div><span>GROWTH HORIZON</span><h2>이번 주 성장 동력</h2><p>저장된 인사이트와 상품분석의 실제 근거만 연결해요.</p></div><nav className={styles.growthNav} aria-label="성장 동력 근거 페이지"><button type="button" onClick={()=>openGrowthSource('insights')}>인사이트</button><button type="button" onClick={()=>openGrowthSource('product-analysis')}>상품분석</button></nav></header><div className={styles.growthSources} aria-label="연결된 성장 근거"><button type="button" onClick={()=>openGrowthSource('insights')}><span>인사이트</span><strong>{sources.insights?.reportCount?`${sources.insights.reportCount}개 저장`:'근거 확인 필요'}</strong></button><button type="button" onClick={()=>openGrowthSource('product-analysis')}><span>상품분석</span><strong>{sources.productAnalysis?.reportCount?`${sources.productAnalysis.reportCount}개 저장`:'근거 확인 필요'}</strong></button></div><div className={styles.growthRows}>{growthRows.length?growthRows.map((item,index)=><button type="button" key={item.key||index} onClick={()=>openGrowthSource(item.destination)}><b>{item.source==='INSIGHT'?'◎':'↗'}</b><span><i>{item.sourceLabel||'판매 근거'}</i><strong>{item.name||'상품 확인'}</strong><small>{item.evidence||item.metricLabel||(item.growthRate==null?'성장 근거 확인':`이전 7일보다 +${item.growthRate}%`)}</small></span><em>{item.metricLabel||formatPlainWon(item.currentRevenue)}</em></button>):<div className={styles.emptyState}><strong>저장된 성장 근거를 확인하고 있어요.</strong><span>인사이트 보고서나 상품분석표가 저장되면 이곳에 연결합니다.</span></div>}</div></article>
-    <article className={styles.forecastPanel}><header><div><span>다음 7일 전망</span><strong>{formatPlainWon(forecast?.expectedRevenue)}</strong></div><em>{forecast?.status==='PARTIAL'?'예상값':'확인 필요'}</em></header><div className={styles.forecastChart} aria-label="다음 7일 매출 전망">{days.length?days.map(item=><span key={item.date}><i style={{height:`${Math.max(12,(Number(item.revenue)||0)/maximum*100)}%`}}/><small>{formatDate(item.date).replace('요일','')}</small></span>):<div className={styles.forecastEmpty}><strong>7일 전망을 계산할 근거가 부족해요.</strong><span>최근 판매 자료가 준비되면 예상값으로 표시합니다.</span></div>}</div><p>{forecast?.basis||'최근 판매 근거 확인 필요'}</p></article>
+    <article className={styles.forecastPanel} aria-label="실제 매출과 7일 전망">
+      <section className={styles.salesBand} data-kind="actual"><header><div><span>최근 7일 실제 매출</span><strong>{formatPlainWon(forecast?.actualRevenue)}</strong></div><em>{actualDays.length?'실제값':'확인 필요'}</em></header>{salesChart(actualDays,'최근 7일 실제 매출','실제 매출 근거가 부족해요.','채널별 결제 주문 수집 상태를 확인해주세요.')}<p>{forecast?.actualBasis||'최근 7일 실제 매출 근거 확인 필요'}</p></section>
+      <section className={styles.salesBand} data-kind="forecast"><header><div><span>다음 7일 전망</span><strong>{formatPlainWon(forecast?.expectedRevenue)}</strong></div><em>{forecast?.status==='PARTIAL'?'예상값':'확인 필요'}</em></header>{salesChart(days,'다음 7일 매출 전망','7일 전망을 계산할 근거가 부족해요.','최근 판매 자료가 준비되면 예상값으로 표시합니다.')}<p>{forecast?.basis||'최근 판매 근거 확인 필요'}</p></section>
+    </article>
   </section>;
 }
 

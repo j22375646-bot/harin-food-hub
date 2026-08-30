@@ -152,6 +152,8 @@ test('main cashflow uses the measured monthly sales and forecasts from the light
   assert.equal(model.cashflow.rows[0].value,6_566_330);
   assert.equal(model.cashflow.rows[1].value,null);
   assert.equal(model.forecast.status,'PARTIAL');
+  assert.equal(model.forecast.actualRevenue,600_000);
+  assert.deepEqual(model.forecast.actualDays.map(item=>item.revenue),[100_000,200_000,300_000]);
   assert.equal(model.forecast.expectedRevenue,1_400_000);
   assert.match(model.forecast.basis,/네이버·쿠팡·Cafe24/);
 });
