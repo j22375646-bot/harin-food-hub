@@ -39,7 +39,16 @@ test('V106 상품개발은 다섯 단계와 기존 기능 경로를 보존하고
 });
 
 test('V106 상품개발 스타일은 고정 UI와 균형 선택 규칙을 지킨다',()=>{
+  const view=read('app/_phase28/pages/development-page.js');
   const css=read('app/_phase28/pages/development-page.css');
+  assert.match(view,/return <section className="p28Development"/);
+  assert.doesNotMatch(view,/return <main className="p28Development"/);
+  for(const token of ['--ops-line-strong:var(--p28-line-strong)','--ops-blue-soft:var(--p28-blue-soft)','--ops-mint-soft:var(--p28-mint-soft)','--ops-apricot-soft:var(--p28-apricot-soft)'])assert.ok(css.includes(token));
+  assert.match(css,/\.pdIntro>header\{[^}]*padding:0/);
+  assert.match(css,/\.pdIntroStatus\{[^}]*width:360px;[^}]*height:112px/);
+  assert.match(css,/\.pdDecisionDesk\{[^}]*padding:20px/);
+  assert.match(css,/\.pdLedger>div>button\[data-selected="true"\]\{[^}]*background:var\(--ops-soft\)/);
+  assert.match(css,/@media\s*\(max-width:\s*1160px\)\{\.pdIntroStatus\{[^}]*flex-basis:auto/);
   assert.doesNotMatch(css,/gradient\(|backdrop-filter|filter:\s*blur/i);
   assert.doesNotMatch(css,/border-left|inset\s+\d/i);
   assert.doesNotMatch(css,/font-size:\s*(?:[0-9]|1[01])px/i);

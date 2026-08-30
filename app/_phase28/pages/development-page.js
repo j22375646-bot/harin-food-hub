@@ -140,11 +140,11 @@ export default function Phase28DevelopmentPage({model={}}){
   }
 
   const summary=model.summary||{};
-  return <main className="p28Development" data-phase28-root="true" data-phase28-page="development">
+  return <section className="p28Development" data-phase28-root="true" data-phase28-page="development">
     <div className="pdIntro"><Phase28PageHeading context={`판매상품 ${summary.productCount??products.length}개 · 진행 프로젝트 ${summary.projectCount??projects.length}개 · 상품별 근거 분리`} title="상품을 고르면 " accent="개발 근거" suffix="가 한 줄로 이어져요." summary="시장 근거, 경쟁과 구매 장벽, 실험과 실행 결과를 선택 상품의 프로젝트 안에서 계속 쌓아갑니다."/><div className="pdIntroStatus"><HarinIcon name="development" size={24}/><span><small>상품개발 기준</small><strong>{time(model.generatedAt)}</strong><em>상세 지연 로딩 · 서버 저장</em></span></div></div>
     <DevelopmentRunner products={products} selectedId={selectedId} onSelect={chooseProduct} onOpen={openSelected} busy={Boolean(busyId)}/>
     {message?<div className="pdMessage" role="status">{message}</div>:null}
     <ProjectLedger projects={projects} activeId={activeDetail?.project?.id} onOpen={openLedger} busyId={busyId}/>
     <Phase28RightRailLayout label="상품개발 판단 패널" rail={<DecisionDesk product={selected} detail={activeDetail} policy={model.policy}/>}>{activeDetail?<ProjectReport detail={activeDetail} product={selected} stages={stages} activeStage={activeStage} onStage={setActiveStage}/>:<EmptyReport/>}</Phase28RightRailLayout>
-  </main>;
+  </section>;
 }
