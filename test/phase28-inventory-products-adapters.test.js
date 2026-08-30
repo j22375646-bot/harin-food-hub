@@ -5,8 +5,15 @@ const assert=require('node:assert/strict');
 const {
   buildPhase28InventoryModel,
   buildPhase28ProductsModel,
+  inventoryMarkerLabel,
   PHASE28_AVAILABLE_ADAPTERS
 }=require('../lib/ui/phase28-adapters/index.js');
+
+test('inventory marker uses the product initial after removing the Harin brand prefix',()=>{
+  assert.equal(inventoryMarkerLabel('하린식품 쌀조청 1kg'),'쌀');
+  assert.equal(inventoryMarkerLabel('2026년 국내산 하린식품 소금 500g'),'소');
+  assert.equal(inventoryMarkerLabel('하린식품 국내산 구운 다시마 용융소금 · 1개 200g'),'소');
+});
 
 test('inventory adapter keeps observed zero stock distinct from missing holding evidence',()=>{
   const model=buildPhase28InventoryModel({

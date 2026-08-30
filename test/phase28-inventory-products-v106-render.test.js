@@ -25,6 +25,7 @@ test('Phase 28 app renders the V106 inventory-products workbench for both routes
   assert.match(page,/<i>01<\/i><span><strong>재고 운영/);
   assert.match(page,/<i>02<\/i><span><strong>상품 운영/);
   assert.match(page,/재고 보유일 레일/);
+  assert.match(page,/row\.markerLabel\|\|'재'/);
   assert.match(page,/판매 판단까지 네 개의 문/);
   assert.match(page,/Phase28RightRailLayout/);
 });
@@ -42,6 +43,9 @@ test('V106 inventory-products CSS preserves readable balanced fixed UI',()=>{
   const css=read('app/_phase28/pages/inventory-products-page.css');
   assert.match(css,/max-width:2300px/);
   assert.match(css,/min-height:104px/);
+  assert.match(css,/\.ipPriorityStock,\.ipHoldingFlow\{min-height:300px/);
+  assert.match(css,/\.ipFlowMarker>span\{width:46px;height:46px/);
+  assert.match(css,/\.ipFlowMarker>b\{min-width:58px/);
   assert.match(css,/font-size:17px/);
   assert.match(css,/min-height:44px/);
   assert.match(css,/box-shadow:inset 0 0 0 1px/);
