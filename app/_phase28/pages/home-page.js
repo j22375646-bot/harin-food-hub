@@ -142,6 +142,14 @@ function OperatingLine({items,onNavigate}){
   </section>;
 }
 
+function TodayCalendar({calendar,onNavigate}){
+  const items=(calendar?.items||[]).slice(0,4);
+  return <section className={styles.todayCalendar} aria-label="오늘 일정과 메모">
+    <header><div><span>TODAY CALENDAR</span><h2>오늘 일정과 메모</h2><p>캘린더에 저장한 오늘 항목만 가볍게 연결했어요.</p></div><button type="button" onClick={()=>onNavigate('calendar')}>캘린더 열기</button></header>
+    <div className={styles.todayCalendarList}>{items.length?items.map(item=><button type="button" key={item.id} data-type={item.type} data-done={item.status==='DONE'} onClick={()=>onNavigate('calendar')}><b>{item.type==='MEMO'?'메모':item.time||'종일'}</b><span><strong>{item.title}</strong><small>{item.body|| (item.type==='MEMO'?'오늘 기록':'오늘 일정')}</small></span><em>{item.status==='DONE'?'완료':'보기'}</em></button>):<button type="button" className={styles.todayCalendarEmpty} onClick={()=>onNavigate('calendar')}><span>오늘은 아직 비어 있어요.</span><strong>일정이나 메모 추가하기</strong></button>}</div>
+  </section>;
+}
+
 function MainDecisionList({items,blocked,onNavigate}){
   return <article className={styles.decisionSheet}>
     <header className={styles.sectionHeader}><div><span>DECISION DESK</span><h2>오늘 사장님이 결정할 일</h2><p>매출과 운영에 영향이 큰 순서대로 정리했어요.</p></div><button type="button" onClick={()=>onNavigate({view:'reports'})}>전체 업무 보기</button></header>
@@ -202,6 +210,7 @@ export default function Phase28HomePage({model={},aiPanel=null,onNavigate=()=>{}
         <MainMetrics metrics={model.metrics||{}} targetSettings={model.targetSettings||{}} onNavigate={onNavigate} onGoalSaved={message=>{setGoalMessage(message);onRefresh();}}/>
         {goalMessage?<p className={styles.goalSaved} role="status">{goalMessage}</p>:null}
         <OperatingLine items={model.schedule||[]} onNavigate={onNavigate}/>
+        <TodayCalendar calendar={model.calendar||{}} onNavigate={onNavigate}/>
         <div className={styles.decisionDesk}><MainDecisionList items={model.decisions||[]} blocked={hero.status==='BLOCKED'} onNavigate={onNavigate}/><CashFlowSheet cashflow={model.cashflow||{}} onNavigate={onNavigate}/></div>
         <GrowthHorizon growth={model.growth||[]} sources={model.growthSources||{}} forecast={model.forecast||{}} onNavigate={onNavigate}/>
       </div>

@@ -193,6 +193,17 @@
 .foldCard>div{display:grid;gap:10px;padding:0 16px 16px;border-top:1px solid var(--p28-line);}
 .foldCard>div>strong,.foldCard>div>p:first-child{padding-top:14px;}
 
+.todayCalendar{overflow:hidden;border:1px solid var(--p28-line);border-radius:18px;background:var(--p28-surface);}
+.todayCalendar>header{min-height:86px;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:17px 20px;border-bottom:1px solid var(--p28-line);}
+.todayCalendar>header span{color:var(--p28-blue);font-size:12px;font-weight:900;letter-spacing:.1em;}.todayCalendar>header h2{margin:4px 0 0;font-size:21px;letter-spacing:-.03em;}.todayCalendar>header p{margin:4px 0 0;color:var(--p28-muted);font-size:13px;}
+.todayCalendar>header button{min-height:44px;padding:0 14px;border:1px solid var(--p28-line);border-radius:10px;background:var(--p28-surface);color:var(--p28-blue);font-size:13px;font-weight:850;cursor:pointer;}
+.todayCalendarList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));}
+.todayCalendarList>button{min-width:0;min-height:82px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:11px;padding:13px 16px;border:0;border-right:1px solid var(--p28-line);border-bottom:1px solid var(--p28-line);background:var(--p28-surface);color:var(--p28-ink);text-align:left;cursor:pointer;}
+.todayCalendarList>button:nth-child(2n){border-right:0;}.todayCalendarList>button:nth-last-child(-n+2){border-bottom:0;}.todayCalendarList>button:hover{background:var(--p28-soft);}.todayCalendarList>button[data-done="true"]{opacity:.6;}
+.todayCalendarList>button>b{min-width:48px;padding:7px 8px;border:1px solid color-mix(in srgb,var(--p28-blue) 20%,var(--p28-line));border-radius:9px;background:color-mix(in srgb,var(--p28-blue) 6%,var(--p28-surface));color:var(--p28-blue);font-size:12px;text-align:center;}.todayCalendarList>button[data-type="MEMO"]>b{border-color:color-mix(in srgb,#d69a52 24%,var(--p28-line));background:color-mix(in srgb,#d69a52 8%,var(--p28-surface));color:#946022;}
+.todayCalendarList>button>span{min-width:0;}.todayCalendarList>button strong,.todayCalendarList>button small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}.todayCalendarList>button strong{font-size:15px;}.todayCalendarList>button small{margin-top:4px;color:var(--p28-muted);font-size:13px;}.todayCalendarList>button em{color:var(--p28-muted);font-size:12px;font-style:normal;font-weight:850;}
+.todayCalendarList>.todayCalendarEmpty{grid-column:1/-1;min-height:98px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-right:0;border-bottom:0;text-align:center;}.todayCalendarEmpty span{color:var(--p28-muted);font-size:13px;}.todayCalendarEmpty strong{margin-top:5px;color:var(--p28-blue);font-size:15px;}
+
 :global([data-theme="dark"]) .executiveBoard{background:#111a2d;}
 :global([data-theme="dark"]) .vitalityStage{background:#1a2742;}
 :global([data-theme="dark"]) .railBrief{background:#202d49;border-color:#334360;}
@@ -228,6 +239,7 @@
   .operatingLine{padding:20px 18px;}
   .operatingTrack{grid-template-columns:1fr 1fr;}
   .operatingTrack::before{display:none;}
+  .todayCalendar>header{align-items:flex-start;}.todayCalendar>header p{display:none;}.todayCalendarList{grid-template-columns:1fr;}.todayCalendarList>button,.todayCalendarList>button:nth-child(2n),.todayCalendarList>button:nth-last-child(-n+2){border-right:0;border-bottom:1px solid var(--p28-line);}.todayCalendarList>button:last-child{border-bottom:0;}
   .decisionSheet,.cashSheet,.growthPanel,.forecastPanel{padding:18px;}
   .decisionRow{grid-template-columns:34px minmax(0,1fr);}
   .decisionRow>em{grid-column:2;text-align:left;}
@@ -260,7 +272,7 @@
 }
 
 @media (prefers-reduced-motion:reduce){
-  .executiveBoard,.boardMetric>strong,.goalControl>button,.cashRows>div>em>i{transition:none;}
+  .executiveBoard,.boardMetric>strong,.goalControl>button,.cashRows>div>em>i,.todayCalendarList>button{transition:none;}
   .executiveBoard:hover{transform:none;}
   .vitalityTrack .pulsePath,.vitalityPoints>span[data-tone="warn"] i,.forecastChart>span>i,.goalDialogBackdrop,.goalDialog{animation:none;}
 }

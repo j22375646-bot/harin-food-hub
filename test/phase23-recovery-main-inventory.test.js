@@ -33,7 +33,7 @@ test('23-R1 gives Main a bounded dedicated loader instead of the generic dashboa
   assert.deepEqual(profile.tables,[
     'cafe24_orders','cafe24_order_items','cafe24_oauth_tokens','naver_commerce_orders','naver_commerce_order_items',
     'coupang_orders','coupang_rg_orders','coupang_returns',
-    'coupang_rg_inventory','business_targets','customer_service_items','reports'
+    'coupang_rg_inventory','business_targets','customer_service_items','reports','hub_work_items'
   ]);
   const page=read('app/page.js');
   assert.match(page,/focusedEarlyReturn=view==='main'/);

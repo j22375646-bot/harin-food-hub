@@ -5,6 +5,7 @@ import {useRouter} from 'next/navigation';
 import operationSnapshotModule from '../../lib/navigation/operation-snapshot.js';
 import routeRegistryModule from '../../lib/ui/phase28-route-registry.js';
 import Phase28HomePage from './pages/home-page.js';
+import Phase28CalendarPage from './pages/calendar-page.js';
 import Phase28OrdersPage from './pages/orders-page.js';
 import Phase28CsPage from './pages/cs-page.js';
 import Phase28InventoryProductsPage from './pages/inventory-products-page.js';
@@ -44,6 +45,7 @@ export default function Phase28App({initialData}) {
 
   let page;
   if(routeId==='home')page=<Phase28HomePage model={initialData.phase28?.main||{}} aiPanel={initialData.aiPagePanels?.main||null} onNavigate={navigate} onRefresh={()=>router.refresh()}/>;
+  else if(routeId==='calendar')page=<Phase28CalendarPage model={initialData.phase28?.calendar||{}}/>;
   else if(routeId==='orders')page=<Phase28OrdersPage model={initialData.phase28?.orders||{}}/>;
   else if(routeId==='cs')page=<Phase28CsPage model={initialData.phase28?.cs||{}}/>;
   else if(routeId==='inventory'||routeId==='products')page=<Phase28InventoryProductsPage mode={routeId} model={routeId==='inventory'?initialData.phase28?.inventory||{}:initialData.phase28?.products||{}}/>;

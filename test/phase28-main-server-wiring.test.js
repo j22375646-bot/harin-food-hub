@@ -21,4 +21,6 @@ test('Main route builds the new ViewModel only for an active home request',()=>{
   assert.match(page,/phase28Runtime\.activePages\.includes\('home'\)/);
   assert.match(page,/initialState\.view==='main'/);
   assert.match(page,/adapter_status:'ERROR'/);
+  assert.match(page,/calendarEntries/);
+  assert.match(page,/hub_calendar_entries/);
 });

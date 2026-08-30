@@ -21,6 +21,7 @@ const {
 
 const ICON_PATHS={
   home:<><path d="m3 11 9-8 9 8"/><path d="M5 10v10h14V10"/></>,
+  calendar:<><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></>,
   orders:<><path d="M4 7h16v11H4z"/><path d="M8 7V4h8v3"/><path d="M4 12h16"/></>,
   cs:<><path d="M5 5h14v11H8l-3 3z"/><path d="M8 9h8M8 12h5"/></>,
   inventory:<><path d="M4 9 12 4l8 5v11H4z"/><path d="M8 20v-7h8v7"/></>,

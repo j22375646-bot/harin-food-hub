@@ -7,8 +7,8 @@ const path=require('node:path');
 
 const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
-const pageFiles=['home-page.js','orders-page.js','cs-page.js','inventory-products-page.js','settlement-page.js','keywords-page.js','product-analysis-page.js','insights-page.js','development-page.js','system-page.js','notifications-page.js','diagnoses-page.js','changes-page.js','validation-page.js','experiments-page.js','knowledge-page.js'];
-const cssFiles=['orders-page.css','cs-page.css','inventory-products-page.css','settlement-page.css','keywords-page.css','product-analysis-page.css','insights-page.css','development-page.css','system-page.css','notifications-page.css','diagnoses-page.css','changes-page.css','validation-page.css','experiments-page.css','knowledge-page.css'];
+const pageFiles=['home-page.js','calendar-page.js','orders-page.js','cs-page.js','inventory-products-page.js','settlement-page.js','keywords-page.js','product-analysis-page.js','insights-page.js','development-page.js','system-page.js','notifications-page.js','diagnoses-page.js','changes-page.js','validation-page.js','experiments-page.js','knowledge-page.js'];
+const cssFiles=['calendar-page.css','orders-page.css','cs-page.css','inventory-products-page.css','settlement-page.css','keywords-page.css','product-analysis-page.css','insights-page.css','development-page.css','system-page.css','notifications-page.css','diagnoses-page.css','changes-page.css','validation-page.css','experiments-page.css','knowledge-page.css'];
 
 function finalInteractiveHeights(css){
   const values=new Map();

@@ -11,11 +11,12 @@ const {
   validatePhase28Registry
 }=require('../lib/ui/phase28-route-registry.js');
 
-test('Phase 28 registry maps all seventeen V106 screens to stable production addresses',()=>{
-  assert.equal(PHASE28_ROUTES.length,17);
-  assert.equal(new Set(PHASE28_ROUTE_IDS).size,17);
-  assert.equal(new Set(PHASE28_ROUTES.map(item=>item.href)).size,17);
+test('Phase 28 registry maps all eighteen V106 screens to stable production addresses',()=>{
+  assert.equal(PHASE28_ROUTES.length,18);
+  assert.equal(new Set(PHASE28_ROUTE_IDS).size,18);
+  assert.equal(new Set(PHASE28_ROUTES.map(item=>item.href)).size,18);
   assert.equal(phase28Route('home').href,'/');
+  assert.equal(phase28Route('calendar').href,'/calendar');
   assert.equal(phase28Route('keywords').href,'/keywords/registered');
   assert.equal(phase28Route('product-analysis').href,'/product-analysis');
   assert.equal(phase28Route('analysis').href,'/insights/overview');

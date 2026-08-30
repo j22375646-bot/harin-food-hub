@@ -57,6 +57,7 @@ import unifiedCustomerServiceModule from '../lib/customer-service/unified-center
 import customerServiceStore from '../lib/customer-service/store.js';
 import featureFlagsModule from '../lib/ui/phase28-production-runtime.js';
 import phase28AdaptersModule from '../lib/ui/phase28-adapters/index.js';
+import calendarCenterModule from '../lib/calendar/calendar-center.js';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
@@ -117,10 +118,11 @@ const MINIMAL_SHELL_TABLES = ['sync_logs','alerts'];
 const MAIN_OVERVIEW_TABLES = [
   'cafe24_orders','cafe24_order_items','cafe24_oauth_tokens','naver_commerce_orders','naver_commerce_order_items',
   'coupang_orders','coupang_rg_orders','coupang_returns',
-  'coupang_rg_inventory','business_targets','customer_service_items','reports'
+  'coupang_rg_inventory','business_targets','customer_service_items','reports','hub_work_items'
 ];
 const VIEW_TABLES = {
   main:MAIN_OVERVIEW_TABLES,
+  calendar:['hub_work_items'],
   orders:['cafe24_orders','cafe24_order_items','cafe24_products','channel_products','naver_commerce_orders','naver_commerce_order_items','coupang_products','coupang_product_items','coupang_orders','coupang_order_items','coupang_rg_orders','coupang_rg_order_items','coupang_returns','shipping_reference_snapshots'],
   cs:['cafe24_orders','cafe24_order_items','cafe24_oauth_tokens','coupang_orders','coupang_order_items','coupang_returns','coupang_exchanges','coupang_inquiries','coupang_operation_requests','customer_service_items','ai_analysis_results'],
   inventory:['master_products','channel_products','cafe24_products','coupang_products','coupang_rg_inventory','coupang_item_inventory','coupang_product_items','inventory_lots','ai_analysis_results'],
@@ -289,7 +291,7 @@ async function buildMainDashboardData({
   loaderSession,generatedAt,queryIssues,syncResult,alertsResult,
   ordersResult,itemsResult,coupangOrdersResult,coupangOrderTerminalsResult,coupangItemsResult,coupangReturnsResult,
   coupangInventoryResult,coupangRgOrdersResult,
-  naverCommerceOrdersResult,naverCommerceItemsResult,businessTargetsResult,monthlyRevenueResult,customerServiceRows,cafe24Token,reportsResult
+  naverCommerceOrdersResult,naverCommerceItemsResult,businessTargetsResult,monthlyRevenueResult,customerServiceRows,cafe24Token,reportsResult,calendarEntries=[]
 }) {
   const rawInventory=coupangInventoryResult.data||[];
   const {active:operationalInventory,excluded:excludedInventory}=coupangOperationalInventoryModule.splitOperationalInventory(rawInventory);
@@ -335,7 +337,7 @@ async function buildMainDashboardData({
     loadedView:'main',loadedWorkspace:null,loaderPerformance:loaderSession.snapshot(),generatedAt,
     dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
     kpis:{sales:pacing.items.find(item=>item.platform==='ALL')?.revenueActual??null,orders:unifiedOrders.summary.total,visitors:null,pageviews:null,conversion:null,averageOrder:null,products:rgInventory.length},
-    products:[],syncs:shell.syncs,reports:[],growthReports:reportsResult?.data||[],actions:[],alerts:shell.alerts,automationRuns:[],qualityChecks:[],metricSnapshots:[],
+    products:[],syncs:shell.syncs,reports:[],growthReports:reportsResult?.data||[],calendarEntries,actions:[],alerts:shell.alerts,automationRuns:[],qualityChecks:[],metricSnapshots:[],
     priorityCenter,salesCommandCenter,unifiedOrders,customerService,unifiedInventory,pacing,financialTrust:{},
     coupang:{
       rgInventory,rgInventoryCount:rgInventory.length,rgInventoryExcludedCount:excludedInventory.length,
@@ -1238,7 +1240,7 @@ async function getDashboardData(state) {
   const focusedInsightProfitability=view==='insight'&&state?.workspace==='profitability';
   const focusedProductAnalysis=view==='product-analysis';
   const focusedExecutionView=['validation','experiments'].includes(view);
-  const focusedEarlyReturn=view==='main'||view==='orders'||view==='cs'||view==='inventory'||view==='reports'||view==='changes'||focusedExecutionView||focusedInsightReport||focusedInsightProfitability||focusedProductAnalysis||focusedKeywordHistory||(view==='product'&&state?.workspace==='costs')||focusedProductWorkspace||focusedProductPerformance||focusedSearchTerms||focusedKeywordWorkspace||focusedKeywordPerformance;
+  const focusedEarlyReturn=view==='main'||view==='orders'||view==='cs'||view==='inventory'||view==='reports'||view==='changes'||view==='calendar'||focusedExecutionView||focusedInsightReport||focusedInsightProfitability||focusedProductAnalysis||focusedKeywordHistory||(view==='product'&&state?.workspace==='costs')||focusedProductWorkspace||focusedProductPerformance||focusedSearchTerms||focusedKeywordWorkspace||focusedKeywordPerformance;
   const needsPacing=new Set(['main','insight','keyword','product','reports','changes']).has(view)&&!focusedEarlyReturn;
   const pacingPromise = (needsPacing?pacingService.buildPacingDashboard({ db }):Promise.resolve({status:'NO_DATA',channels:[],reasons:[]})).catch(error => {
     console.error('[dashboard] pacing unavailable', error);
@@ -1254,6 +1256,9 @@ async function getDashboardData(state) {
   ].map(([platform,dataset])=>({platform,dataset}));
   // Start independent view queries together. Previously these waited for the large
   // base query one group at a time, which made every navigation inherit the full waterfall.
+  const calendarQueryRange=view==='main'
+    ?calendarCenterModule.dayRange(calendarCenterModule.seoulDateKey(generatedAt))
+    :calendarCenterModule.visibleMonthRange(calendarCenterModule.seoulDateKey(generatedAt).slice(0,7));
   const supplementalQueries={
     mainTargets:view==='main' ? Promise.allSettled([
       db.from('business_targets').select('id,target_month,platform,revenue_target,ad_budget,target_roas,notes,updated_at').eq('target_month',`${kstScheduleModule.kstDateKey(generatedAt).slice(0,7)}-01`)
@@ -1264,6 +1269,13 @@ async function getDashboardData(state) {
           issues:[{platform:'ALL',dataset:'monthly_revenue',code:'MONTHLY_QUERY_FAILED',message:String(error?.message||error||'월 매출 조회 실패')}]
         }))
       : Promise.resolve({status:'NO_DATA',totals:{ALL:null,NAVER:null,CAFE24:null,COUPANG:null},counts:{},issues:[]}),
+    calendarItems:['main','calendar'].includes(view) ? Promise.allSettled([
+      db.from('hub_work_items').select('id,item_type,title,body,status,priority,due_at,page_key,context_label,context_href,completed_at,created_at,updated_at')
+        .eq('context_href','/calendar').neq('status','ARCHIVED')
+        .gte('due_at',new Date(`${calendarQueryRange.start}T00:00:00+09:00`).toISOString())
+        .lt('due_at',new Date(`${calendarQueryRange.endExclusive}T00:00:00+09:00`).toISOString())
+        .order('due_at',{ascending:true}).limit(view==='main'?40:500)
+    ]) : Promise.resolve([{status:'fulfilled',value:{data:[],error:null}}]),
     cafe24Token:focusedEarlyReturn||view==='collection' ? Promise.allSettled([
       db.from('cafe24_oauth_tokens').select('token_data').eq('mall_id',process.env.CAFE24_MALL_ID).maybeSingle()
     ]) : Promise.resolve([{status:'fulfilled',value:{data:null,error:null}}]),
@@ -1452,8 +1464,8 @@ async function getDashboardData(state) {
   const queryIssues = [...settled.issues];
   const [ordersResult, itemsResult, trafficResult, refsResult, productsResult, syncResult, reportsResult, actionsResult, masterResult, channelsResult, naverCampaignResult, naverGroupResult, naverKeywordResult, naverSyncResult, naverStatsResult, automationResult, qaResult, evaluationsResult, alertsResult, eventsResult, costsResult, channelCostsResult, shippingRulesResult, coupangProductsResult, coupangOrdersResult, coupangOrderTerminalsResult, coupangItemsResult, coupangSettlementsResult, coupangInventoryResult, coupangRequestsResult, coupangRgOrdersResult, coupangReturnsResult, coupangExchangesResult, coupangInquiriesResult, coupangItemInventoryResult, coupangSettlementSummaryResult, coupangBudgetsResult, coupangCapabilitiesResult, coupangProductItemsResult, coupangRgOrderItemsResult, coupangCostsResult, coupangCostImportsResult, coupangAdDailyResult, coupangAdKeywordTopResult, coupangAdKeywordWasteResult, coupangAdCampaignResult, coupangAdBillingResult, coupangAdSettlementResult] = settled.results;
   if(view==='main'){
-    const [naverCommerceRaw,targetsRaw,monthlyRevenueResult,channelCsRaw,cafe24TokenRaw]=await Promise.all([
-      supplementalQueries.naverCommerce,supplementalQueries.mainTargets,supplementalQueries.mainRevenue,supplementalQueries.channelCs,supplementalQueries.cafe24Token
+    const [naverCommerceRaw,targetsRaw,monthlyRevenueResult,channelCsRaw,cafe24TokenRaw,calendarRaw]=await Promise.all([
+      supplementalQueries.naverCommerce,supplementalQueries.mainTargets,supplementalQueries.mainRevenue,supplementalQueries.channelCs,supplementalQueries.cafe24Token,supplementalQueries.calendarItems
     ]);
     const naverCommerceSettled=dataHealthModule.settleQueries(naverCommerceRaw,[
       {platform:'NAVER',dataset:'naver_commerce_orders'},
@@ -1469,12 +1481,29 @@ async function getDashboardData(state) {
     const cafe24TokenSettled=dataHealthModule.settleQueries(cafe24TokenRaw,[
       {platform:'CAFE24',dataset:'cafe24_oauth_tokens'}
     ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
-    queryIssues.push(...naverCommerceSettled.issues,...targetSettled.issues,...(monthlyRevenueResult.issues||[]),...channelCsSettled.issues,...cafe24TokenSettled.issues);
+    const calendarSettled=dataHealthModule.settleQueries(calendarRaw,[
+      {platform:'SHARED',dataset:'hub_calendar_entries'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    queryIssues.push(...naverCommerceSettled.issues,...targetSettled.issues,...(monthlyRevenueResult.issues||[]),...channelCsSettled.issues,...cafe24TokenSettled.issues,...calendarSettled.issues);
     return buildMainDashboardData({
       loaderSession,generatedAt,queryIssues,syncResult,alertsResult,ordersResult,itemsResult,coupangOrdersResult,coupangOrderTerminalsResult,coupangItemsResult,coupangReturnsResult,coupangInventoryResult,coupangRgOrdersResult,
       naverCommerceOrdersResult:naverCommerceSettled.results[0],naverCommerceItemsResult:naverCommerceSettled.results[1],businessTargetsResult:targetSettled.results[0],monthlyRevenueResult,
-      customerServiceRows:channelCsSettled.results[0].data||[],cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,reportsResult
+      customerServiceRows:channelCsSettled.results[0].data||[],cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,reportsResult,calendarEntries:calendarSettled.results[0].data||[]
     });
+  }
+  if(view==='calendar'){
+    const calendarRaw=await supplementalQueries.calendarItems;
+    const calendarSettled=dataHealthModule.settleQueries(calendarRaw,[
+      {platform:'SHARED',dataset:'hub_calendar_entries'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    queryIssues.push(...calendarSettled.issues);
+    const shell=await buildFocusedShellData({queryIssues,syncResult,alertsResult,generatedAt,cafe24Token:null});
+    return {
+      loadedView:'calendar',loadedWorkspace:null,loaderPerformance:loaderSession.snapshot(),generatedAt,
+      dataHealth:shell.dataHealth,channelConnections:shell.channelConnections,collectionCenter:shell.collectionCenter,
+      syncs:shell.syncs,alerts:shell.alerts,calendarEntries:calendarSettled.results[0].data||[],calendarRange:calendarQueryRange,
+      calendarError:calendarSettled.issues.length?'캘린더 저장 자료를 확인해주세요.':null
+    };
   }
   if(focusedSearchTerms){
     const [searchTermRowsRaw,searchTermSyncRaw,registeredKeywordsRaw,aiResultsRaw,cafe24TokenRaw]=await Promise.all([
@@ -2679,6 +2708,13 @@ async function renderDashboardState(initialState) {
         clientDashboardData={...dashboardData,growthReports:[]};
       }catch{
         phase28={main:null,adapter_status:'ERROR'};
+      }
+    }
+    if(phase28Runtime.activePages.includes('calendar')&&initialState.view==='calendar'){
+      try{
+        phase28={calendar:phase28AdaptersModule.buildPhase28CalendarModel(dashboardData),adapter_status:'READY'};
+      }catch{
+        phase28={calendar:null,adapter_status:'ERROR'};
       }
     }
     if(phase28Runtime.activePages.includes('orders')&&initialState.view==='orders'){

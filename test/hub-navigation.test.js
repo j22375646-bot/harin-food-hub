@@ -4,10 +4,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { HUB_NAV, HUB_NAV_GROUPS, HUB_WORKSPACES, HUB_LEGACY_ROUTES, normalizeHubState, buildHubHref, parseHubHref, primaryNavigationState, groupForView, navigationContext } = require('../lib/navigation/hub-routes.js');
 
-test('all seventeen hub functions have stable unique addresses', () => {
-  assert.equal(HUB_NAV.length,17);
-  assert.equal(new Set(HUB_NAV.map(item=>item.href)).size,17);
-  assert.deepEqual(HUB_NAV.map(item=>item.label),['메인','주문','CS','재고관리','정산·비용','데이터수집','인사이트','키워드','상품분석','상품개발','상품','AI 기준자료','진단목록','변경기록','실행검증','A/B 테스트','알림']);
+test('all eighteen hub functions have stable unique addresses', () => {
+  assert.equal(HUB_NAV.length,18);
+  assert.equal(new Set(HUB_NAV.map(item=>item.href)).size,18);
+  assert.deepEqual(HUB_NAV.map(item=>item.label),['메인','캘린더','주문','CS','재고관리','정산·비용','데이터수집','인사이트','키워드','상품분석','상품개발','상품','AI 기준자료','진단목록','변경기록','실행검증','A/B 테스트','알림']);
+  assert.equal(buildHubHref({view:'calendar'}),'/calendar');
   assert.equal(buildHubHref({view:'orders',platform:'naver'}),'/orders');
   assert.equal(buildHubHref({view:'cs'}),'/cs');
   assert.equal(buildHubHref({view:'inventory'}),'/inventory');
@@ -59,7 +60,7 @@ test('only insight, keyword, and product pages retain a channel selection', () =
   for (const view of ['insight','keyword','product']) {
     assert.equal(normalizeHubState({view,platform:'naver'}).platform,'naver');
   }
-  for (const view of ['market','collection','knowledge','reports','changes','validation','experiments','notifications']) {
+  for (const view of ['calendar','market','collection','knowledge','reports','changes','validation','experiments','notifications']) {
     const state=normalizeHubState({view,platform:'naver',period:'MONTH',product:'ignored'});
     assert.deepEqual({platform:state.platform,period:state.period,product:state.product},{platform:'all',period:'DAY',product:'ALL'});
     assert.doesNotMatch(buildHubHref({view,platform:'naver',period:'MONTH',product:'ignored'}),/[?&](platform|period|product)=/);

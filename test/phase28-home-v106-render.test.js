@@ -46,6 +46,7 @@ test('V106 Main renders the complete owner-approved executive desk',async()=>{
         target:{value:85000000,status:'READY'}
       },
       schedule:[{id:'shipping',time:'15:00',label:'출고 마감',status:'ACTIVE',view:'orders'}],
+      calendar:{items:[{id:'memo-1',type:'MEMO',title:'택배 상자 주문',body:'오후 확인',date:'2026-08-28',status:'OPEN'}]},
       decisions:[],growth:[],risks:[],channels:[],
       cashflow:{rows:[]},forecast:{days:[]},cashCalendar:[],changeEffects:[]
     }
@@ -54,6 +55,8 @@ test('V106 Main renders the complete owner-approved executive desk',async()=>{
   for(const label of [
     '오늘의 메모',
     '다음 운영 마감',
+    '오늘 일정과 메모',
+    '택배 상자 주문',
     '돈이 얼마나 남았나요?',
     '다음 7일 전망',
     '앞으로 7일 입출금',
