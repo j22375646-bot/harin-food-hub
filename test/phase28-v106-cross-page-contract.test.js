@@ -45,6 +45,7 @@ test('페이지 CSS는 V106 읽기 크기·대형 폭·모바일·감속 설정�
 
 test('공통 제목과 우측 패널은 승인된 V106 모션과 접힘 크기를 단일 구현으로 고정한다',()=>{
   const css=read('app/_phase28/primitives/primitives.module.css');
+  const shellCss=read('app/_phase28/phase28-shell.module.css');
   const rail=read('app/_phase28/primitives/right-rail-layout.js');
   assert.match(css,/--panel-motion-duration:440ms/);
   assert.match(css,/--panel-open-width:clamp\(370px,21vw,410px\)/);
@@ -52,6 +53,12 @@ test('공통 제목과 우측 패널은 승인된 V106 모션과 접힘 크기�
   assert.match(css,/--panel-closed-gap:16px/);
   assert.match(css,/\.heading h1\{[^}]*font-size:clamp\(34px,3vw,50px\)!important/);
   assert.match(css,/\.heading p\{[^}]*font-size:18px!important/);
+  assert.match(shellCss,/\.main>:global\(\[data-phase28-root="true"\]\)\{[^}]*width:100%;[^}]*min-width:0;[^}]*max-width:100%;[^}]*margin-inline:auto/);
+  assert.match(shellCss,/@media \(max-width:1480px\)\{[^}]*\.commandButton\{[^}]*width:46px/);
+  for(const file of ['orders-page.css','cs-page.css','keywords-page.css','insights-page.css','development-page.css']){
+    const pageCss=read(`app/_phase28/pages/${file}`);
+    assert.doesNotMatch(pageCss,/Intro>header\{[^}]*padding\s*:/,`${file} 메인 제목 여백 덮어쓰기`);
+  }
   assert.match(css,/headingAccent::after\{[^}]*transform:scaleX\(0\)[^}]*animation:headlineDraw/);
   assert.doesNotMatch(css,/scaleX\(\.92\)/);
   assert.match(rail,/aria-expanded=\{open\}/);

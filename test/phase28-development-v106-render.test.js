@@ -44,7 +44,8 @@ test('V106 상품개발 스타일은 고정 UI와 균형 선택 규칙을 지킨
   assert.match(view,/return <section className="p28Development"/);
   assert.doesNotMatch(view,/return <main className="p28Development"/);
   for(const token of ['--ops-line-strong:var(--p28-line-strong)','--ops-blue-soft:var(--p28-blue-soft)','--ops-mint-soft:var(--p28-mint-soft)','--ops-apricot-soft:var(--p28-apricot-soft)'])assert.ok(css.includes(token));
-  assert.match(css,/\.pdIntro>header\{[^}]*padding:0/);
+  assert.match(css,/\.pdIntro>header\{[^}]*min-width:0;[^}]*flex:1/);
+  assert.doesNotMatch(css,/\.pdIntro>header\{[^}]*padding:/);
   assert.match(css,/\.pdIntroStatus\{[^}]*width:360px;[^}]*height:112px/);
   assert.match(css,/\.pdDecisionDesk\{[^}]*padding:20px/);
   assert.match(css,/\.pdLedger>div>button\[data-selected="true"\]\{[^}]*background:var\(--ops-soft\)/);

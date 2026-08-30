@@ -5,7 +5,7 @@
 .p28CsPage button:disabled{cursor:not-allowed;opacity:.52;}
 .p28CsPage h1{font-size:clamp(34px,3vw,50px);}
 .csIntro{display:flex;align-items:flex-end;justify-content:space-between;gap:36px;margin-bottom:26px;}
-.csIntro>header{min-width:0;flex:1;padding:0;}
+.csIntro>header{min-width:0;flex:1;}
 .csResponseSignal{min-width:360px;display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;margin-bottom:8px;padding:10px 12px;border:1px solid var(--p28-line);border-radius:14px;background:var(--p28-surface);}
 .csResponseSignal>span:first-child{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:var(--p28-mint-soft);color:var(--p28-mint);}
 .csResponseSignal small,.csResponseSignal strong{display:block;}

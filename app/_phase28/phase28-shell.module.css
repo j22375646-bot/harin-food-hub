@@ -70,6 +70,7 @@
 .alertDot{width:8px;height:8px;border-radius:50%;background:var(--p28-rose);}
 .logoutButton{min-height:44px;padding:0 10px;border:0;background:transparent;color:var(--p28-muted);font-size:13px;font-weight:800;cursor:pointer;}
 .main{width:100%;max-width:var(--p28-canvas-max);min-height:calc(100vh - var(--p28-header));margin:0 auto;padding:34px var(--p28-gutter) 64px;}
+.main>:global([data-phase28-root="true"]){width:100%;min-width:0;max-width:100%;margin-inline:auto;}
 
 .routeProgress{position:fixed;z-index:39;top:calc(var(--p28-header) - 3px);right:0;left:var(--p28-sidebar);height:3px;overflow:visible;visibility:hidden;pointer-events:none;opacity:0;transition:left .2s ease;}
 .routeProgress::before{content:"";position:absolute;inset:0;background:var(--p28-blue-soft);}
@@ -135,7 +136,7 @@
 .mobileMoreRoutes b{min-width:22px;height:22px;display:grid;place-items:center;border-radius:999px;background:var(--p28-rose-soft);color:var(--p28-rose);font-size:12px;}
 .mobileLogout{width:calc(100% - 32px);min-height:46px;margin:0 16px 18px;border:1px solid var(--p28-line);border-radius:11px;background:var(--p28-soft);color:var(--p28-muted);font-weight:800;}
 
-@media (max-width:1380px){
+@media (max-width:1480px){
   .commandButton{width:46px;padding:0;justify-content:center;font-size:0;}
   .commandButton kbd{display:none;}
   .topAction{padding-inline:10px;font-size:13px;}
