@@ -38,6 +38,17 @@ test('keyword page uses the fixed Phase 28 section canvas without inheriting leg
   assert.match(css,/\.kpIntro\{/);
 });
 
+test('keyword channel mode card grows with its readable copy instead of clipping it',()=>{
+  const css=read('app/_phase28/pages/keywords-page.css');
+  const cardRule=css.match(/\.kpChannelMode\{([^}]+)\}/)?.[1]||'';
+  const copyRule=css.match(/(?:^|})\.kpChannelMode>span p\{([^}]+)\}/)?.[1]||'';
+  assert.match(cardRule,/(?:^|;)height:auto(?:;|$)/);
+  assert.doesNotMatch(cardRule,/(?:^|;)height:112px(?:;|$)/);
+  assert.doesNotMatch(cardRule,/overflow:hidden/);
+  assert.match(copyRule,/word-break:keep-all/);
+  assert.match(copyRule,/overflow-wrap:anywhere/);
+});
+
 test('keyword workbench progressively reveals large result sets like the orders page',()=>{
   const page=read('app/_phase28/pages/keywords-page.js');
   const css=read('app/_phase28/pages/keywords-page.css');
