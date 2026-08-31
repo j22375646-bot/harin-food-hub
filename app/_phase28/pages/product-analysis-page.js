@@ -1,6 +1,6 @@
 'use client';
 
-import {useMemo,useState} from 'react';
+import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
 import {useRouter} from 'next/navigation';
 import HarinIcon from '../../_design-system/harin-icon.js';
@@ -8,9 +8,11 @@ import {Phase28ChannelLogo} from '../primitives/channel-logo.js';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
 import {Phase28RightRailLayout} from '../primitives/right-rail-layout.js';
 import productAnalysisSaveFlow from '../../../lib/analytics/product-analysis-save-flow.js';
+import productAnalysisDeleteState from '../../../lib/analytics/product-analysis-delete-state.js';
 import './product-analysis-page.css';
 
-const {saveProductAnalysisReport}=productAnalysisSaveFlow;
+const {deleteProductAnalysisReport,saveProductAnalysisReport}=productAnalysisSaveFlow;
+const {removeDeletedAnalysis}=productAnalysisDeleteState;
 
 const SOURCE_LABEL={sales:'자사·채널 판매',profit:'원가·공헌이익',search:'네이버 검색광고',competition:'경쟁 상품 가격',audience:'고객 구성',reviews:'검증 리뷰'};
 const STATUS_LABEL={READY:'실제값',CALCULATED:'계산값',NO_DATA:'자료 없음',CHECK_REQUIRED:'확인 필요',SETUP_REQUIRED:'연결 필요',PARTIAL:'일부 준비'};
@@ -23,7 +25,7 @@ const time=value=>{if(!value)return '기준시각 확인 필요';const date=new 
 
 function normalizeReport(report){
   const summary=report?.summary_json||report?.report||{};
-  return {id:String(report?.id||''),title:report?.title||`${summary.product?.name||'상품'} 분석`,product:summary.product||report?.product||{},periodDays:Number(summary.period_days||report?.periodDays||30),periodStart:report?.period_start||summary.period_start,periodEnd:report?.period_end||summary.period_end,createdAt:report?.created_at||summary.generated_at,metrics:summary.metrics||report?.metrics||{},channels:summary.channels||report?.channels||{},keywords:summary.keywords||report?.keywords||[],sources:summary.sources||report?.sources||{},signals:summary.signals||report?.signals||[]};
+  return {id:String(report?.id||''),title:report?.title||`${summary.product?.name||'상품'} 분석`,product:summary.product||report?.product||{},periodDays:Number(summary.period_days||report?.periodDays||30),periodStart:report?.period_start||report?.periodStart||summary.period_start,periodEnd:report?.period_end||report?.periodEnd||summary.period_end,createdAt:report?.created_at||report?.createdAt||summary.generated_at,metrics:summary.metrics||report?.metrics||{},channels:summary.channels||report?.channels||{},keywords:summary.keywords||report?.keywords||[],sources:summary.sources||report?.sources||{},signals:summary.signals||report?.signals||[]};
 }
 
 function AnalysisRunner({products,selectedId,setSelectedId,period,setPeriod,onRun,running}){
@@ -40,8 +42,13 @@ function AnalysisRunner({products,selectedId,setSelectedId,period,setPeriod,onRu
   </section>;
 }
 
-function AnalysisHistory({history,activeId,onOpen}){
-  return <section className="paHistory" aria-labelledby="paHistoryTitle"><header><div><span>ANALYSIS LEDGER</span><h2 id="paHistoryTitle">저장된 분석</h2><p>분석 당시 상품·기간·데이터 기준시각·계산 버전을 그대로 다시 엽니다.</p></div><strong>{history.length}건</strong></header>{history.length?<div>{history.map(item=><button type="button" data-selected={item.id===activeId} onClick={()=>onOpen(item)} key={item.id}><span>{item.product?.name?.slice(0,1)||'분'}</span><div><strong>{item.product?.name||item.title}</strong><small>{PERIOD_LABEL[item.periodDays]||`${item.periodDays}일`} · {item.periodStart} ~ {item.periodEnd}</small></div><em>{item.id===activeId?'열어봄':'COMPLETED'}</em></button>)}</div>:<p className="paHistoryEmpty">아직 저장된 분석이 없어요. 첫 분석을 실행하면 여기에 기록됩니다.</p>}</section>;
+function AnalysisHistory({history,activeId,onOpen,onDelete,deletingId}){
+  return <section className="paHistory" aria-labelledby="paHistoryTitle"><header><div><span>ANALYSIS LEDGER</span><h2 id="paHistoryTitle">저장된 분석</h2><p>분석 당시 상품·기간·데이터 기준시각·계산 버전을 그대로 다시 엽니다.</p></div><strong>{history.length}건</strong></header>{history.length?<div>{history.map(item=><article className="paHistoryRow" data-selected={item.id===activeId} key={item.id}><button type="button" className="paHistoryOpen" onClick={()=>onOpen(item)}><span>{item.product?.name?.slice(0,1)||'분'}</span><div><strong>{item.product?.name||item.title}</strong><small>{PERIOD_LABEL[item.periodDays]||`${item.periodDays}일`} · {item.periodStart} ~ {item.periodEnd}</small></div><em>{item.id===activeId?'열어봄':'저장 완료'}</em></button><button type="button" className="paHistoryDelete" aria-label={`${item.product?.name||item.title} 저장 분석 삭제`} disabled={deletingId===item.id} onClick={()=>onDelete(item)}><HarinIcon name="close" size={17}/>{deletingId===item.id?'삭제 중':'삭제'}</button></article>)}</div>:<p className="paHistoryEmpty">아직 저장된 분석이 없어요. 첫 분석을 실행하면 여기에 기록됩니다.</p>}</section>;
+}
+
+function DeleteAnalysisDialog({report,deleting,error,onCancel,onConfirm}){
+  if(!report)return null;
+  return <div className="paDeleteBackdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget&&!deleting)onCancel();}}><section className="paDeleteDialog" role="alertdialog" aria-modal="true" aria-labelledby="paDeleteTitle" aria-describedby="paDeleteDescription"><div className="paDeleteIcon"><HarinIcon name="close" size={23}/></div><span>DELETE SAVED ANALYSIS</span><h2 id="paDeleteTitle">이 저장 분석을 삭제할까요?</h2><p id="paDeleteDescription"><strong>{report.product?.name||report.title}</strong><br/>서버 저장 목록과 DB에서 즉시 삭제됩니다. 상품·주문·광고 원본 자료는 바뀌지 않으며 삭제 기록은 복구 확인을 위해 별도로 남습니다.</p>{error?<div className="paDeleteError" role="alert">{error}</div>:null}<footer><button type="button" disabled={deleting} onClick={onCancel}>취소</button><button type="button" className="paDeleteConfirm" disabled={deleting} onClick={onConfirm}>{deleting?'삭제하는 중':'분석 삭제'}</button></footer></section></div>;
 }
 
 function EvidenceRadar({report}){
@@ -82,14 +89,22 @@ export default function Phase28ProductAnalysisPage({model={}}){
   const [active,setActive]=useState(initialActiveReport?normalizeReport(initialActiveReport):null);
   const [running,setRunning]=useState(false);
   const [message,setMessage]=useState('');
+  const [pendingDelete,setPendingDelete]=useState(null);
+  const [deletingId,setDeletingId]=useState('');
+  const [deleteError,setDeleteError]=useState('');
   const selected=useMemo(()=>products.find(item=>item.id===selectedId)||null,[products,selectedId]);
   async function run(){if(!selected||running)return;setRunning(true);setMessage('');try{const saved=await saveProductAnalysisReport({router,productId:selected.id,periodDays:period});const report=normalizeReport(saved);setActive(report);setHistory(current=>[report,...current.filter(item=>item.id!==report.id)]);setMessage('새 분석표를 계산하고 저장했습니다.');}catch(error){setMessage(error.message||'상품 분석을 만들지 못했습니다.');}finally{setRunning(false);}}
+  function requestDelete(report){if(deletingId)return;setDeleteError('');setPendingDelete(report);}
+  function cancelDelete(){if(deletingId)return;setDeleteError('');setPendingDelete(null);}
+  async function confirmDelete(){if(!pendingDelete||deletingId)return;setDeletingId(pendingDelete.id);setDeleteError('');try{const result=await deleteProductAnalysisReport({router,reportId:pendingDelete.id,expectedCreatedAt:pendingDelete.createdAt});const next=removeDeletedAnalysis({history,active,deletedId:result.deleted_id||pendingDelete.id});setHistory(next.history);setActive(next.active);setPendingDelete(null);setMessage('저장된 분석을 서버와 DB에서 삭제했습니다.');}catch(error){setDeleteError(error.message||'저장된 분석을 삭제하지 못했습니다.');}finally{setDeletingId('');}}
+  useEffect(()=>{if(!pendingDelete)return undefined;const onKeyDown=event=>{if(event.key==='Escape'&&!deletingId)cancelDelete();};window.addEventListener('keydown',onKeyDown);return()=>window.removeEventListener('keydown',onKeyDown);},[pendingDelete,deletingId]);
   const hero=model.hero||{};
   return <section className="p28ProductAnalysis" data-phase28-root="true" data-phase28-page="product-analysis">
-    <div className="paIntro"><Phase28PageHeading context={`판매상품 ${hero.productCount??products.length}개 · 저장 분석 ${hero.savedCount??history.length}건 · 실제 근거와 미연결 근거 분리`} title="상품과 기간을 고르면 " accent="분석표" suffix="를 만들어요." summary={hero.summary||'검색 수요, 고객층, 경쟁 가격과 실제 판매 실적을 같은 분석 시점으로 묶어 봅니다.'}/><div className="paIntroStatus"><HarinIcon name="analysis" size={23}/><span><small>분석 기준</small><strong>{time(model.generatedAt)}</strong><em>선택 실행 · 서버 저장</em></span></div></div>
+    <div className="paIntro"><Phase28PageHeading context={`판매상품 ${hero.productCount??products.length}개 · 저장 분석 ${history.length}건 · 실제 근거와 미연결 근거 분리`} title="상품과 기간을 고르면 " accent="분석표" suffix="를 만들어요." summary={hero.summary||'검색 수요, 고객층, 경쟁 가격과 실제 판매 실적을 같은 분석 시점으로 묶어 봅니다.'}/><div className="paIntroStatus"><HarinIcon name="analysis" size={23}/><span><small>분석 기준</small><strong>{time(model.generatedAt)}</strong><em>선택 실행 · 서버 저장</em></span></div></div>
     <AnalysisRunner products={products} selectedId={selectedId} setSelectedId={setSelectedId} period={period} setPeriod={setPeriod} onRun={run} running={running}/>
     {message?<div className="paMessage" role="status">{message}</div>:null}
-    <AnalysisHistory history={history} activeId={active?.id} onOpen={setActive}/>
+    <AnalysisHistory history={history} activeId={active?.id} onOpen={setActive} onDelete={requestDelete} deletingId={deletingId}/>
     <Phase28RightRailLayout label="상품 분석 판단 패널" rail={<DecisionDesk product={selected} report={active}/>}>{active?<div className="paReport"><header><div><span>상품 세부 분석</span><h2>숫자를 나열하지 않고, 팔린 근거를 하나의 이야기로 읽어요.</h2></div><em>{PERIOD_LABEL[active.periodDays]} · {active.periodEnd}</em></header><ReportHero report={active}/><Provenance sources={active.sources}/><section className="paMarketer"><header><span>NAVER MARKETER REPORT</span><h2>지금 꼭 봐야 할 판매·검색 근거부터 한 줄로 확인해요.</h2><small>보고서 기준일 {active.periodStart} ~ {active.periodEnd}</small></header><MetricBrief report={active}/><AnalysisChapters report={active}/></section></div>:<EmptyReport/>}</Phase28RightRailLayout>
+    <DeleteAnalysisDialog report={pendingDelete} deleting={Boolean(deletingId)} error={deleteError} onCancel={cancelDelete} onConfirm={confirmDelete}/>
   </section>;
 }

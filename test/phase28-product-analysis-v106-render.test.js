@@ -69,6 +69,25 @@ test('manual analysis uses one authenticated server route and keeps unavailable 
   assert.doesNotMatch(api,/st-[A-Za-z0-9_-]{20,}/);
 });
 
+test('saved analyses expose one owner-confirmed server deletion flow',()=>{
+  const page=read('app/_phase28/pages/product-analysis-page.js');
+  const api=read('app/api/product-analysis/route.js');
+  const css=read('app/_phase28/pages/product-analysis-page.css');
+  assert.match(page,/deleteProductAnalysisReport/);
+  assert.match(page,/removeDeletedAnalysis/);
+  assert.match(page,/role="alertdialog"/);
+  assert.match(page,/expectedCreatedAt/);
+  assert.match(page,/report\?\.createdAt/);
+  assert.match(page,/report\?\.periodStart/);
+  assert.match(page,/report\?\.periodEnd/);
+  assert.match(page,/className="paHistoryDelete"/);
+  assert.match(api,/export async function DELETE/);
+  assert.match(api,/roleAtLeast\(session,'OWNER'\)/);
+  assert.match(api,/deleteSavedProductAnalysisReport/);
+  assert.match(css,/\.paHistoryDelete/);
+  assert.match(css,/\.paDeleteDialog/);
+});
+
 test('manual analysis passes the loaded Cafe24 order rows into the performance calculator',()=>{
   const api=read('app/api/product-analysis/route.js');
   assert.match(api,/cafe24Orders:cafeOrders/);

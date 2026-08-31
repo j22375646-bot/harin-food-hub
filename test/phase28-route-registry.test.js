@@ -27,7 +27,7 @@ test('Phase 28 registry keeps workspaces and channel writes explicit',()=>{
   assert.equal(phase28Route('system').preserveWorkspaces,true);
   assert.equal(phase28Route('development').preserveWorkspaces,true);
   assert.equal(phase28Route('orders').writePolicy,'GUARDED');
-  assert.equal(phase28Route('product-analysis').writePolicy,'READ_ONLY');
+  assert.equal(phase28Route('product-analysis').writePolicy,'GUARDED');
   assert.equal(phase28Route('analysis').writePolicy,'READ_ONLY');
 });
 

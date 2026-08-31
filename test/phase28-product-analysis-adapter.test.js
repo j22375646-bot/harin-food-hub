@@ -23,7 +23,7 @@ test('product analysis adapter exposes real product evidence and keeps missing m
     reports:[]
   });
 
-  assert.equal(model.writePolicy,'READ_ONLY');
+  assert.equal(model.writePolicy,'GUARDED');
   assert.equal(model.defaultPeriod,30);
   assert.equal(model.products.length,1);
   assert.equal(model.products[0].name,'보리차 50티백');

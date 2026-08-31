@@ -3,6 +3,7 @@ import supabaseModule from '../../../lib/cafe24/supabase.js';
 import apiSafety from '../../../lib/api/safety.js';
 import productPerformance from '../../../lib/products/performance.js';
 import reportModule from '../../../lib/analytics/product-analysis-report.js';
+import deleteModule from '../../../lib/analytics/product-analysis-delete.js';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -22,6 +23,25 @@ function periodRange(days,now=new Date()){
 }
 
 async function optionalIn(query,field,items){return items.length?query.in(field,items):empty;}
+
+export async function DELETE(request){
+  const session=await authModule.validateSession(authModule.cookieValue(request)).catch(()=>null);
+  if(!session)return apiSafety.unauthorized();
+  if(!authModule.roleAtLeast(session,'OWNER'))return apiSafety.json({ok:false,error:'사장님 권한이 필요합니다.'},{status:403});
+  try{
+    const body=await apiSafety.readJson(request);
+    const result=await deleteModule.deleteSavedProductAnalysisReport({
+      db:supabaseModule.getSupabase(),
+      reportId:body.report_id,
+      expectedCreatedAt:body.expected_created_at,
+      actor:authModule.actor(session)
+    });
+    return apiSafety.json({ok:true,deleted:result.deleted,deleted_id:result.id,promoted_report_id:result.promotedReportId});
+  }catch(error){
+    console.error('[product analysis delete]',error);
+    return apiSafety.inputErrorResponse(error)||apiSafety.json({ok:false,error:error.message||'저장된 분석을 삭제하지 못했습니다.',code:error.code||'DELETE_FAILED'},{status:Number(error.status)||500});
+  }
+}
 
 export async function POST(request){
   const session=await authModule.validateSession(authModule.cookieValue(request)).catch(()=>null);
