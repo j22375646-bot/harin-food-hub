@@ -572,9 +572,9 @@ async function buildProductCostsDashboardData({
   });
   const sellableCafe24Ids=new Set(products.filter(product=>product.is_sellable).map(product=>String(product.id)));
   const sellableMasterIds=new Set(channelProducts
-    .filter(item=>item.platform==='CAFE24'&&item.is_active!==false&&sellableCafe24Ids.has(String(item.external_product_id)))
+    .filter(item=>item.platform==='CAFE24'&&item.is_active===true&&sellableCafe24Ids.has(String(item.external_product_id)))
     .map(item=>item.master_product_id));
-  const sellableMasterProducts=masterProducts.filter(item=>item.is_active!==false&&sellableMasterIds.has(item.id));
+  const sellableMasterProducts=masterProducts.filter(item=>item.is_active===true&&sellableMasterIds.has(item.id));
   const productOperations=productOperationsModule.buildUnifiedProductOperations({
     masterProducts:sellableMasterProducts,channelProducts,cafe24Products:sourceProducts,
     coupangProducts:coupangProductsResult.data||[],coupangProductItems:coupangProductItemsResult.data||[],coupangItemInventory:[]
@@ -635,9 +635,9 @@ async function buildProductCatalogDashboardData({
     .filter(product=>cafe24CatalogModule.classifyCafe24Product(product).is_sellable)
     .map(product=>String(product.external_product_no)));
   const sellableMasterIds=new Set(sourceChannels
-    .filter(item=>item.platform==='CAFE24'&&item.is_active!==false&&sellableCafe24Ids.has(String(item.external_product_id)))
+    .filter(item=>item.platform==='CAFE24'&&item.is_active===true&&sellableCafe24Ids.has(String(item.external_product_id)))
     .map(item=>item.master_product_id));
-  const sellableMasterProducts=(masterResult.data||[]).filter(item=>item.is_active!==false&&sellableMasterIds.has(item.id));
+  const sellableMasterProducts=(masterResult.data||[]).filter(item=>item.is_active===true&&sellableMasterIds.has(item.id));
   const productMapping=mappingService.buildMappingDashboard({
     masterProducts:sellableMasterProducts,
     channelProducts:sourceChannels,
@@ -688,10 +688,10 @@ async function buildProductPerformanceDashboardData({
   });
   const sellableCafe24Ids=new Set(products.filter(product=>product.is_sellable).map(product=>String(product.id)));
   const sellableMasterIds=new Set(sourceChannels
-    .filter(item=>item.platform==='CAFE24'&&item.is_active!==false&&sellableCafe24Ids.has(String(item.external_product_id)))
+    .filter(item=>item.platform==='CAFE24'&&item.is_active===true&&sellableCafe24Ids.has(String(item.external_product_id)))
     .map(item=>item.master_product_id));
-  const masterProducts=(masterResult.data||[]).filter(item=>item.is_active!==false&&sellableMasterIds.has(item.id));
-  const channelProducts=sourceChannels.filter(item=>item.is_active!==false&&(
+  const masterProducts=(masterResult.data||[]).filter(item=>item.is_active===true&&sellableMasterIds.has(item.id));
+  const channelProducts=sourceChannels.filter(item=>item.is_active===true&&(
     item.platform==='CAFE24'||item.platform==='COUPANG'||
     (item.platform==='NAVER'&&String(item.raw_data?.source_type||'').toUpperCase()==='NAVER_COMMERCE_PRODUCT')
   ));
@@ -2192,9 +2192,9 @@ async function getDashboardData(state) {
     .filter(product=>cafe24CatalogModule.classifyCafe24Product(product).is_sellable)
     .map(product=>String(product.external_product_no)));
   const sellableMasterIds = new Set((channelsResult.data || [])
-    .filter(item=>item.platform==='CAFE24'&&item.is_active!==false&&sellableCafe24Ids.has(String(item.external_product_id)))
+    .filter(item=>item.platform==='CAFE24'&&item.is_active===true&&sellableCafe24Ids.has(String(item.external_product_id)))
     .map(item=>item.master_product_id));
-  const sellableMasterProducts = (masterResult.data || []).filter(item=>item.is_active!==false&&sellableMasterIds.has(item.id));
+  const sellableMasterProducts = (masterResult.data || []).filter(item=>item.is_active===true&&sellableMasterIds.has(item.id));
   const productMapping = mappingService.buildMappingDashboard({
     masterProducts:sellableMasterProducts,
     channelProducts:channelsResult.data || [],

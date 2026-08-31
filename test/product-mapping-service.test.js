@@ -40,6 +40,37 @@ test('매핑 대시보드는 연결 현황과 고신뢰 후보를 함께 계산�
   assert.equal(dashboard.candidates[0].candidates[0].master_product_id, 'M1');
 });
 
+test('상품 연결 목록은 판매중 상품만 남기고 기준상품을 가나다순으로 정렬한다', () => {
+  const dashboard = service.buildMappingDashboard({
+    masterProducts:[
+      {id:'M3',name:'하린식품 작두콩차',selling_price:13000,is_active:true},
+      {id:'M1',name:'가시오가피차',selling_price:11000,is_active:true},
+      {id:'M2',name:'보리차',selling_price:9000,is_active:true},
+      {id:'STOPPED',name:'단종 상품',selling_price:1000,is_active:false},
+      {id:'UNKNOWN',name:'상태 미확인 상품',selling_price:1000,is_active:null}
+    ],
+    channelProducts:[
+      {platform:'NAVER',external_product_id:'N-SALE',external_product_name:'네이버 판매중',selling_price:11000,is_active:true,raw_data:{source_type:'NAVER_COMMERCE_PRODUCT'}},
+      {platform:'NAVER',external_product_id:'N-STOP',external_product_name:'네이버 판매중단',selling_price:11000,is_active:false,raw_data:{source_type:'NAVER_COMMERCE_PRODUCT'}},
+      {platform:'NAVER',external_product_id:'N-UNKNOWN',external_product_name:'네이버 상태 미확인',selling_price:11000,is_active:null,raw_data:{source_type:'NAVER_COMMERCE_PRODUCT'}}
+    ],
+    coupangProducts:[
+      {seller_product_id:'C-SALE',product_name:'쿠팡 판매중',status:'APPROVED'},
+      {seller_product_id:'C-STOP',product_name:'쿠팡 판매중단',status:'STOPPED'},
+      {seller_product_id:'C-UNKNOWN',product_name:'쿠팡 상태 미확인',status:''}
+    ],
+    coupangProductItems:[
+      {seller_product_id:'C-SALE',sale_price:12000,status:'APPROVED'},
+      {seller_product_id:'C-STOP',sale_price:12000,status:'STOPPED'},
+      {seller_product_id:'C-UNKNOWN',sale_price:12000,status:''}
+    ]
+  });
+
+  assert.deepEqual(dashboard.masterProducts.map(item=>item.name), ['가시오가피차','보리차','하린식품 작두콩차']);
+  assert.deepEqual(dashboard.candidates.map(item=>`${item.platform}:${item.external_product_id}`).sort(), ['COUPANG:C-SALE','NAVER:N-SALE']);
+  assert.equal(dashboard.summary.inactive_sources, 4);
+});
+
 test('기존 네이버 광고그룹 연결은 상품 연결 집계와 후보에서 제외한다', () => {
   const dashboard = service.buildMappingDashboard({
     masterProducts:[{id:'M1',name:'작두콩차 30티백',selling_price:11000,is_active:true}],
@@ -88,9 +119,9 @@ test('판매 중단 외부 상품은 매칭 후보와 연결 집계에서 제외
 test('일괄 자동연결은 선택한 플랫폼의 고신뢰 실상품만 계획한다', () => {
   const dashboard = {
     candidates:[
-      {platform:'NAVER',external_product_id:'N1',auto_eligible:true,candidates:[{master_product_id:'M1',score:0.98}]},
-      {platform:'NAVER',external_product_id:'N2',auto_eligible:false,candidates:[{master_product_id:'M2',score:0.72}]},
-      {platform:'COUPANG',external_product_id:'C1',auto_eligible:true,candidates:[{master_product_id:'M3',score:0.99}]}
+      {platform:'NAVER',external_product_id:'N1',is_active:true,auto_eligible:true,candidates:[{master_product_id:'M1',score:0.98}]},
+      {platform:'NAVER',external_product_id:'N2',is_active:true,auto_eligible:false,candidates:[{master_product_id:'M2',score:0.72}]},
+      {platform:'COUPANG',external_product_id:'C1',is_active:true,auto_eligible:true,candidates:[{master_product_id:'M3',score:0.99}]}
     ],
     links:[]
   };
@@ -104,8 +135,8 @@ test('일괄 연결해제도 플랫폼을 섞지 않고 선택한 연결만 계�
   const dashboard = {
     candidates:[],
     links:[
-      {platform:'NAVER',external_product_id:'SAME',external_product_name:'네이버 상품'},
-      {platform:'COUPANG',external_product_id:'SAME',external_product_name:'쿠팡 상품'}
+      {platform:'NAVER',external_product_id:'SAME',external_product_name:'네이버 상품',is_active:true},
+      {platform:'COUPANG',external_product_id:'SAME',external_product_name:'쿠팡 상품',is_active:true}
     ]
   };
   const plan = service.planBulkMappingOperations({ dashboard, action:'BULK_UNLINK', platform:'COUPANG', externalProductIds:['SAME'] });
@@ -121,9 +152,9 @@ test('다중 직접 연결은 각 채널 상품을 선택한 기준상품에 한
       {id:'M2',name:'우엉차 40티백',selling_price:14200,is_active:true}
     ],
     candidates:[
-      {platform:'NAVER',external_product_id:'N1',external_product_name:'네이버 작두콩차',selling_price:11000,candidates:[{master_product_id:'M1',score:0.98}]},
-      {platform:'NAVER',external_product_id:'N2',external_product_name:'네이버 우엉차',selling_price:14200,candidates:[{master_product_id:'M2',score:0.97}]},
-      {platform:'COUPANG',external_product_id:'C1',external_product_name:'쿠팡 작두콩차',selling_price:11000,candidates:[{master_product_id:'M1',score:0.96}]}
+      {platform:'NAVER',external_product_id:'N1',external_product_name:'네이버 작두콩차',selling_price:11000,is_active:true,candidates:[{master_product_id:'M1',score:0.98}]},
+      {platform:'NAVER',external_product_id:'N2',external_product_name:'네이버 우엉차',selling_price:14200,is_active:true,candidates:[{master_product_id:'M2',score:0.97}]},
+      {platform:'COUPANG',external_product_id:'C1',external_product_name:'쿠팡 작두콩차',selling_price:11000,is_active:true,candidates:[{master_product_id:'M1',score:0.96}]}
     ],
     links:[]
   };
@@ -146,8 +177,8 @@ test('다중 직접 연결은 선택 플랫폼의 실상품과 판매 중인 기
   const dashboard = {
     masterProducts:[{id:'M1',name:'작두콩차',selling_price:11000,is_active:true}],
     candidates:[
-      {platform:'NAVER',external_product_id:'N1',external_product_name:'네이버 작두콩차',selling_price:11000,candidates:[]},
-      {platform:'COUPANG',external_product_id:'C1',external_product_name:'쿠팡 작두콩차',selling_price:11000,candidates:[]}
+      {platform:'NAVER',external_product_id:'N1',external_product_name:'네이버 작두콩차',selling_price:11000,is_active:true,candidates:[]},
+      {platform:'COUPANG',external_product_id:'C1',external_product_name:'쿠팡 작두콩차',selling_price:11000,is_active:true,candidates:[]}
     ],
     links:[]
   };
@@ -161,4 +192,17 @@ test('다중 직접 연결은 선택 플랫폼의 실상품과 판매 중인 기
     platform:'NAVER',
     assignments:[{external_product_id:'N1',master_product_id:'MISSING'}]
   }),/기준상품/);
+});
+
+test('다중 직접 연결은 판매 상태가 명시적으로 확인되지 않은 기준상품을 거부한다', () => {
+  const dashboard = {
+    masterProducts:[{id:'UNKNOWN',name:'상태 미확인 상품',selling_price:11000,is_active:null}],
+    candidates:[{platform:'NAVER',external_product_id:'N1',external_product_name:'네이버 상품',selling_price:11000,is_active:true,candidates:[]}],
+    links:[]
+  };
+  assert.throws(()=>service.planBulkManualMappingOperations({
+    dashboard,
+    platform:'NAVER',
+    assignments:[{external_product_id:'N1',master_product_id:'UNKNOWN'}]
+  }),/판매 중인 Cafe24 기준상품/);
 });

@@ -76,10 +76,10 @@ test('products adapter exposes a sanitized platform-separated mapping workbench'
     productMapping:{
       summary:{source_naver:1,source_coupang:1,candidate_naver:1,candidate_coupang:1},
       candidates:[
-        {platform:'NAVER',external_product_id:'N1',external_product_name:'네이버 작두콩차',selling_price:11000,raw_data:{access_token:'secret'},auto_eligible:true,candidates:[{master_product_id:'M1',master_name:'작두콩차 30티백',score:.98,confidence:98,reasons:['상품명 일치']}]},
-        {platform:'COUPANG',external_product_id:'C1',external_product_name:'쿠팡 작두콩차',selling_price:12000,candidates:[]}
+        {platform:'NAVER',external_product_id:'N1',external_product_name:'네이버 작두콩차',selling_price:11000,is_active:true,raw_data:{access_token:'secret'},auto_eligible:true,candidates:[{master_product_id:'M1',master_name:'작두콩차 30티백',score:.98,confidence:98,reasons:['상품명 일치']}]},
+        {platform:'COUPANG',external_product_id:'C1',external_product_name:'쿠팡 작두콩차',selling_price:12000,is_active:true,candidates:[]}
       ],
-      links:[{platform:'NAVER',external_product_id:'N2',external_product_name:'연결된 상품',master_product_id:'M1',match_method:'MANUAL',match_confidence:.97,raw_data:{secret:'hide'}}]
+      links:[{platform:'NAVER',external_product_id:'N2',external_product_name:'연결된 상품',master_product_id:'M1',is_active:true,match_method:'MANUAL',match_confidence:.97,raw_data:{secret:'hide'}}]
     }
   });
   assert.equal(model.mapping.masterProducts[0].id,'M1');
@@ -88,6 +88,34 @@ test('products adapter exposes a sanitized platform-separated mapping workbench'
   assert.equal(model.mapping.links[0].masterProductId,'M1');
   assert.equal(JSON.stringify(model.mapping).includes('secret'),false);
   assert.equal(JSON.stringify(model.mapping).includes('access_token'),false);
+});
+
+test('products adapter keeps only explicitly selling mapping rows and sorts master products in Korean order',()=>{
+  const model=buildPhase28ProductsModel({
+    loadedWorkspace:'mappings',
+    productMapping:{
+      masterProducts:[
+        {id:'M3',name:'하린식품 작두콩차',selling_price:13000,is_active:true},
+        {id:'M1',name:'가시오가피차',selling_price:11000,is_active:true},
+        {id:'M2',name:'보리차',selling_price:9000,is_active:true},
+        {id:'STOPPED',name:'단종 상품',selling_price:1000,is_active:false},
+        {id:'UNKNOWN',name:'상태 미확인 상품',selling_price:1000,is_active:null}
+      ],
+      candidates:[
+        {platform:'NAVER',external_product_id:'N-SALE',external_product_name:'네이버 판매중',is_active:true,candidates:[{master_product_id:'M1',master_name:'가시오가피차'}]},
+        {platform:'NAVER',external_product_id:'N-STOP',external_product_name:'네이버 판매중단',is_active:false,candidates:[]},
+        {platform:'COUPANG',external_product_id:'C-UNKNOWN',external_product_name:'쿠팡 상태 미확인',is_active:null,candidates:[]}
+      ],
+      links:[
+        {platform:'NAVER',external_product_id:'N-LINKED',external_product_name:'연결 판매중',master_product_id:'M1',is_active:true},
+        {platform:'COUPANG',external_product_id:'C-STOPPED',external_product_name:'연결 판매중단',master_product_id:'M2',is_active:false}
+      ]
+    }
+  });
+
+  assert.deepEqual(model.mapping.masterProducts.map(item=>item.name), ['가시오가피차','보리차','하린식품 작두콩차']);
+  assert.deepEqual(model.mapping.candidates.map(item=>item.externalProductId), ['N-SALE']);
+  assert.deepEqual(model.mapping.links.map(item=>item.externalProductId), ['N-LINKED']);
 });
 
 test('inventory and products adapters join the implemented V106 set',()=>{
