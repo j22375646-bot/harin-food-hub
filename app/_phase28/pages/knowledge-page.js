@@ -1,6 +1,6 @@
 'use client';
 
-import {useMemo,useState,useTransition} from 'react';
+import {useEffect,useMemo,useState,useTransition} from 'react';
 import {useRouter} from 'next/navigation';
 import HarinIcon from '../../_design-system/harin-icon.js';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
@@ -13,6 +13,12 @@ const ACTION_COPY={REVIEW:['개인정보 제외 검수','원본에 고객 개인
 
 async function sha256(file){const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());return [...new Uint8Array(digest)].map(value=>value.toString(16).padStart(2,'0')).join('');}
 const date=value=>value?String(value).slice(0,10):'기록 없음';
+const ruleForm=item=>({
+  rule_key:item?.ruleKey||'insight',target_roas_percent:item?.metrics?.targetRoasPercent??250,
+  conversion_rate_warning_percent:item?.metrics?.conversionWarningPercent??2,change_warning_percent:item?.metrics?.changeWarningPercent??10,
+  minimum_cost_coverage_percent:item?.metrics?.minimumCostCoveragePercent??95,freshness_hours:item?.metrics?.freshnessHours??26,
+  enabled:item?.metrics?.enabled!==false,change_note:''
+});
 
 function TrustGates({model}){
   const totalScopes=model.items.reduce((sum,item)=>sum+item.scopePages.length,0);
@@ -68,8 +74,37 @@ function KnowledgeRail({item,file,setFile,working,onAction,onUpload,onDownload})
   </section>;
 }
 
+function OperatingRuleRail({item}){
+  if(!item)return <div className="knowledgeRailEmpty"><HarinIcon name="analysis" size={27}/><strong>운영 규칙을 선택해주세요.</strong><p>인사이트와 자동진단 판정식을 같은 화면에서 관리합니다.</p></div>;
+  return <section className="operatingRuleRail"><header><span>LIVE OPERATING RULE</span><h2>{item.title}</h2><p>{item.versionLabel} · {date(item.createdAt)} · {item.source==='DEFAULT'?'코드 기본값':'서버 저장값'}</p></header>
+    <section className="ruleLiveState"><i/><span><strong>{item.metrics.enabled?'자동 반영 사용 중':'자동 반영 중지'}</strong><small>저장한 최신 버전을 서버가 매번 다시 읽습니다.</small></span></section>
+    <ul><li><span>목표 ROAS</span><b>{item.metrics.targetRoasPercent}%</b></li><li><span>구매 전환율 경고</span><b>{item.metrics.conversionWarningPercent}% 미만</b></li><li><span>변화 감지율</span><b>±{item.metrics.changeWarningPercent}%</b></li><li><span>원가 반영률</span><b>{item.metrics.minimumCostCoveragePercent}% 이상</b></li><li><span>자료 최신성</span><b>{item.metrics.freshnessHours}시간</b></li></ul>
+    <section className="ruleAutomationNote"><span>NEXT AUTOMATION</span><strong>다음 자동진단부터 즉시 적용</strong><p>기존 보고서는 당시 버전을 유지하고 새 보고서만 최신 기준식으로 계산합니다.</p></section>
+  </section>;
+}
+
+function OperatingRulesPanel({items,activeKey,onSelect,form,setForm,working,onSave}){
+  const field=(key,value)=>setForm(current=>({...current,[key]:value}));
+  return <section className="operatingRulesPanel"><header><div><span>OPERATING FORMULA</span><h2>인사이트·자동진단 운영 규칙</h2><p>코드에 고정돼 있던 판단 기준을 수정하고 최신 버전을 자동 계산에 바로 연결합니다.</p></div><em>이전 버전 보존</em></header>
+    <div className="operatingRuleCards">{items.map(item=><button type="button" key={item.ruleKey} data-selected={activeKey===item.ruleKey} onClick={()=>onSelect(item.ruleKey)}><i><HarinIcon name={item.ruleKey==='insight'?'analysis':'checklist'} size={22}/></i><span><small>{item.ruleKey==='insight'?'INSIGHT RULE':'AUTO DIAGNOSIS'}</small><strong>{item.ruleKey==='insight'?'인사이트 판정식':'자동진단 판정식'}</strong><b>{item.versionLabel} · {item.metrics.enabled?'자동 반영':'중지'}</b></span><em>›</em></button>)}</div>
+    <form className="operatingRuleForm" onSubmit={onSave}>
+      <header><div><span>현재 선택</span><h3>{items.find(item=>item.ruleKey===activeKey)?.title||'운영 규칙'}</h3></div><label><input type="checkbox" checked={form.enabled} onChange={event=>field('enabled',event.target.checked)}/><span>자동 반영 사용</span></label></header>
+      <div className="ruleMetricGrid">
+        <label><span>목표 ROAS</span><div><input required type="number" min="50" max="3000" step="1" value={form.target_roas_percent} onChange={event=>field('target_roas_percent',event.target.value)}/><em>%</em></div><small>광고 효율 양호·개선 필요 판단선</small></label>
+        <label><span>구매 전환율 경고</span><div><input required type="number" min="0.1" max="100" step="0.1" value={form.conversion_rate_warning_percent} onChange={event=>field('conversion_rate_warning_percent',event.target.value)}/><em>%</em></div><small>이 값보다 낮을 때 전환 개선 표시</small></label>
+        <label><span>변화 감지율</span><div><input required type="number" min="0.1" max="1000" step="0.1" value={form.change_warning_percent} onChange={event=>field('change_warning_percent',event.target.value)}/><em>%</em></div><small>직전 기간 대비 유의미한 변화 기준</small></label>
+        <label><span>원가 반영률</span><div><input required type="number" min="1" max="100" step="0.1" value={form.minimum_cost_coverage_percent} onChange={event=>field('minimum_cost_coverage_percent',event.target.value)}/><em>%</em></div><small>이익 판단을 확정할 최소 원가 근거</small></label>
+        <label><span>자료 최신성</span><div><input required type="number" min="1" max="336" step="1" value={form.freshness_hours} onChange={event=>field('freshness_hours',event.target.value)}/><em>시간</em></div><small>이 시간이 지나면 오래된 자료로 표시</small></label>
+      </div>
+      <label className="ruleChangeNote"><span>변경 사유</span><input required maxLength="240" value={form.change_note} onChange={event=>field('change_note',event.target.value)} placeholder="예: 9월 광고 목표에 맞춰 ROAS 기준 조정"/></label>
+      <footer><span><i/>저장 즉시 서버 최신 버전으로 전환됩니다.</span><button type="submit" disabled={working}>{working?'규칙 저장 중…':'확인하고 규칙 적용'}</button></footer>
+    </form>
+  </section>;
+}
+
 export default function Phase28KnowledgePage({model}){
   const router=useRouter();
+  const [workspace,setWorkspace]=useState('references');
   const [filter,setFilter]=useState('current');
   const [query,setQuery]=useState('');
   const [activeId,setActiveId]=useState(model.items?.find(item=>item.status!=='ARCHIVED')?.id||model.items?.[0]?.id||null);
@@ -78,30 +113,36 @@ export default function Phase28KnowledgePage({model}){
   const [file,setFile]=useState(null);
   const [working,setWorking]=useState('');
   const [message,setMessage]=useState('');
+  const [activeRuleKey,setActiveRuleKey]=useState(model.operatingRules?.[0]?.ruleKey||'insight');
+  const activeRule=model.operatingRules?.find(item=>item.ruleKey===activeRuleKey)||model.operatingRules?.[0]||null;
+  const [operatingForm,setOperatingForm]=useState(()=>ruleForm(activeRule));
   const [pending,startTransition]=useTransition();
   const visible=useMemo(()=>{const term=query.trim().toLocaleLowerCase('ko');return model.items.filter(item=>(filter==='archive'?item.status==='ARCHIVED':item.status!=='ARCHIVED')&&(!term||`${item.title} ${item.versionLabel} ${item.categoryLabel} ${item.sourceName}`.toLocaleLowerCase('ko').includes(term)));},[model.items,filter,query]);
   const active=model.items.find(item=>item.id===activeId)||visible[0]||model.items[0]||null;
   const refresh=()=>startTransition(()=>router.refresh());
+  useEffect(()=>setOperatingForm(ruleForm(activeRule)),[activeRule?.ruleKey,activeRule?.version]);
 
   async function jsonRequest(url,options){const response=await fetch(url,options);const result=await response.json();if(!response.ok||!result.ok)throw new Error(result.error||'처리 실패');return result;}
   async function create(event){event.preventDefault();setWorking('CREATE');setMessage('기준자료 정보를 저장하는 중입니다.');try{await jsonRequest('/api/ai/knowledge',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(form)});setForm(emptyForm);setCreateOpen(false);setMessage('기준자료를 등록했습니다. 다음으로 원본을 비공개 보관해주세요.');refresh();}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setWorking('');}}
   async function action(nextAction){if(!active)return;const copy=ACTION_COPY[nextAction];if(copy&&!window.confirm(copy[1]))return;setWorking(nextAction);setMessage('자료 상태를 안전하게 변경하는 중입니다.');try{await jsonRequest('/api/ai/knowledge',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({id:active.id,action:nextAction})});setMessage(`${copy?.[0]||'상태 변경'}을 완료하고 서버 값을 다시 확인했습니다.`);refresh();}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setWorking('');}}
   async function upload(){if(!active||!file)return;if(!window.confirm(`${file.name} 원본을 비공개 저장소에 보관할까요? 원본 교체 시 기존 검수는 초기화됩니다.`))return;setWorking('UPLOAD');setMessage('원본 파일을 비공개 저장소에 보관하는 중입니다.');try{const metadata={file_name:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size};const prepared=await jsonRequest(`/api/ai/knowledge/${active.id}/source`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(metadata)});const checksum=await sha256(file);const uploadBody=new FormData();uploadBody.append('cacheControl','3600');uploadBody.append('',file);const uploaded=await fetch(prepared.upload.signed_url,{method:'PUT',headers:{'x-upsert':'false'},body:uploadBody});if(!uploaded.ok)throw new Error('비공개 저장소 업로드에 실패했습니다.');await jsonRequest(`/api/ai/knowledge/${active.id}/source`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({...metadata,storage_path:prepared.upload.storage_path,sha256:checksum})});setFile(null);setMessage('원본을 보관했습니다. 개인정보 제외 검수를 다시 진행해주세요.');refresh();}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setWorking('');}}
   async function download(){if(!active)return;setWorking('DOWNLOAD');try{const result=await jsonRequest(`/api/ai/knowledge/${active.id}/source`,{cache:'no-store'});window.location.assign(result.signed_url);}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setWorking('');}}
+  async function saveOperatingRule(event){event.preventDefault();if(!window.confirm('이 기준을 저장하면 다음 인사이트·자동진단부터 새 버전을 사용할까요?'))return;setWorking('RULE_SAVE');setMessage('운영 규칙 새 버전을 저장하고 자동진단에 연결하는 중입니다.');try{const result=await jsonRequest('/api/ai/operating-rules',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify(operatingForm)});setMessage(`${result.item.title} ${result.item.versionLabel||`v${result.item.version}`} 저장 완료 · ${result.automation}`);refresh();}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setWorking('');}}
   function recommended(item){setForm({...emptyForm,title:item.title,category:item.category,scope_pages:item.scopes,notes:item.reason});}
 
-  const context=model.dataStatus==='ERROR'?'기준자료 저장소 확인 필요':`사용 자료 ${model.summary.total}개 · 적용 대상 ${model.summary.active}개 · 개인정보 검수 ${model.summary.reviewRequired}개`;
-  const rail=<KnowledgeRail item={active} file={file} setFile={setFile} working={working||pending} onAction={action} onUpload={upload} onDownload={download}/>;
+  const context=model.dataStatus==='ERROR'?'기준자료 저장소 확인 필요':`사용 자료 ${model.summary.total}개 · 운영 규칙 ${model.summary.operatingRules??model.operatingRules.length}개 · 적용 대상 ${model.summary.active}개`;
+  const rail=workspace==='rules'?<OperatingRuleRail item={activeRule}/>:<KnowledgeRail item={active} file={file} setFile={setFile} working={working||pending} onAction={action} onUpload={upload} onDownload={download}/>;
   return <section className="knowledgePage" data-phase28-root="true" data-phase28-page="knowledge">
-    <Phase28PageHeading context={context} title="AI가 참고할 " accent="기준자료를 관리해요." summary="원본과 적용 범위, 개인정보 검수, 검색 준비 상태를 확인한 자료만 운영 설명에 사용해요."/>
+    <Phase28PageHeading context={context} title="AI가 참고할 " accent="기준과 운영식을 관리해요." summary="기준자료와 인사이트·자동진단의 판정식을 한곳에서 관리하고 최신 버전을 자동 계산에 연결해요."/>
     {model.error?<div className="knowledgeNotice" role="alert"><HarinIcon name="warning" size={20}/><span><strong>기준자료를 불러오지 못했습니다.</strong><small>{model.error} · 자료 수를 0개로 표시하지 않습니다.</small></span></div>:null}
     {message?<div className="knowledgeMessage" role="status">{message}</div>:null}
     <TrustGates model={model}/><Summary model={model}/>
-    <Phase28RightRailLayout label="기준자료 상세" rail={rail}>
-      <section className="knowledgeWorkbench"><header className="knowledgeToolbar"><div><button type="button" data-selected={filter==='current'} onClick={()=>setFilter('current')}>사용 자료 {model.items.filter(item=>item.status!=='ARCHIVED').length}</button><button type="button" data-selected={filter==='archive'} onClick={()=>setFilter('archive')}>보관함 {model.items.filter(item=>item.status==='ARCHIVED').length}</button></div><label><HarinIcon name="search" size={17}/><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="자료 이름·버전 찾기" aria-label="기준자료 검색"/></label><button className="newKnowledge" type="button" onClick={()=>setCreateOpen(value=>!value)} aria-expanded={createOpen}>기준자료 등록</button></header>
+    <nav className="knowledgeWorkspaceSwitch" aria-label="AI 기준 관리 영역"><button type="button" data-selected={workspace==='references'} onClick={()=>setWorkspace('references')}>기준자료</button><button type="button" data-selected={workspace==='rules'} onClick={()=>setWorkspace('rules')}>운영 규칙 <span>{model.operatingRules.length}</span></button></nav>
+    <Phase28RightRailLayout label={workspace==='rules'?'운영 규칙 상세':'기준자료 상세'} rail={rail}>
+      {workspace==='rules'?<OperatingRulesPanel items={model.operatingRules} activeKey={activeRuleKey} onSelect={setActiveRuleKey} form={operatingForm} setForm={setOperatingForm} working={working==='RULE_SAVE'||pending} onSave={saveOperatingRule}/>:<section className="knowledgeWorkbench"><header className="knowledgeToolbar"><div><button type="button" data-selected={filter==='current'} onClick={()=>setFilter('current')}>사용 자료 {model.items.filter(item=>item.status!=='ARCHIVED').length}</button><button type="button" data-selected={filter==='archive'} onClick={()=>setFilter('archive')}>보관함 {model.items.filter(item=>item.status==='ARCHIVED').length}</button></div><label><HarinIcon name="search" size={17}/><input type="search" value={query} onChange={event=>setQuery(event.target.value)} placeholder="자료 이름·버전 찾기" aria-label="기준자료 검색"/></label><button className="newKnowledge" type="button" onClick={()=>setCreateOpen(value=>!value)} aria-expanded={createOpen}>기준자료 등록</button></header>
         {createOpen?<CreateReference model={model} form={form} setForm={setForm} busy={working==='CREATE'} onClose={()=>setCreateOpen(false)} onSubmit={create} onRecommended={recommended}/>:null}
         <div className="knowledgeList">{visible.map(item=><KnowledgeRow item={item} selected={item.id===active?.id} onSelect={()=>{setActiveId(item.id);setFile(null);}} key={item.id}/>)}{visible.length?null:<div className="knowledgeEmpty"><HarinIcon name="document" size={26}/><strong>이 조건의 기준자료가 없어요.</strong><p>검색어나 보관함 조건을 바꾸거나 새 자료를 등록해주세요.</p></div>}</div>
-      </section>
+      </section>}
     </Phase28RightRailLayout>
   </section>;
 }
