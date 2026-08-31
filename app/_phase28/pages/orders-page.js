@@ -131,12 +131,16 @@ function FreshnessDock({channels=[],asOf,syncState,syncPlatforms=[],onSync}){
   </section>;
 }
 
-function OrderRow({order,selected,onSelect}){
+export function OrderRow({order,selected,previewed,onSelect,onPreview}){
   const selectable=order.selectionEligible===true;
   const receiver=order.receiver||{};
   const selectionReason=order.selectionBlockedReason||'현재 주문은 허브 출고 작업에서 선택할 수 없습니다.';
-  return <article className={`orderRow${selected?' selected':''}${order.cancellationRequested?' cancellation':''}`} data-selection-locked={selectable?undefined:'true'}>
-    <input type="checkbox" checked={selected} disabled={!selectable} title={selectable?'출고 주문 선택':selectionReason} onChange={event=>onSelect(order,event.target.checked)} aria-label={selectable?`${order.productName} 주문 선택`:`${order.productName} 선택 불가 · ${selectionReason}`}/>
+  function previewFromKeyboard(event){
+    if(event.target!==event.currentTarget||!['Enter',' '].includes(event.key))return;
+    event.preventDefault();onPreview(order);
+  }
+  return <article className={`orderRow${selected?' selected':''}${previewed?' previewed':''}${order.cancellationRequested?' cancellation':''}`} data-selection-locked={selectable?undefined:'true'} data-previewed={previewed?'true':undefined} tabIndex={0} aria-label={`${order.productName} 주문 상세 보기`} onClick={()=>onPreview(order)} onKeyDown={previewFromKeyboard}>
+    <input type="checkbox" checked={selected} disabled={!selectable} title={selectable?'출고 주문 선택':selectionReason} onClick={event=>event.stopPropagation()} onChange={event=>{onPreview(order);onSelect(order,event.target.checked);}} aria-label={selectable?`${order.productName} 주문 선택`:`${order.productName} 선택 불가 · ${selectionReason}`}/>
     <div className="orderProduct"><span className={`productPictogram ${String(order.platform||'').toLowerCase()}`}><HarinIcon name="product" size={22}/></span><span><span className="productMeta"><Phase28ChannelLogo brand={order.platform} size="compact"/>{order.channelLabel} · 판매자배송{order.platform==='NAVER'?<em className="selectionLock">네이버 송장 발급</em>:null}</span><strong>{order.productName}</strong><small>{productOption(order)}</small></span></div>
     <div className="shippingPerson"><strong>{receiver.name||'받는 분 확인 필요'} · {receiver.contact||'연락처 확인 필요'}</strong><span>{receiverAddress(receiver)} · {receiver.message||'배송메모 없음'}</span></div>
     <div className="orderTime"><strong>{dateTime(order.orderedAt)}</strong><span>{order.timingBadge?.detail||'출고 일정 확인'}</span></div>
@@ -145,7 +149,7 @@ function OrderRow({order,selected,onSelect}){
   </article>;
 }
 
-function OrdersWorkspace({orders,stage,selectedIds,onSelect,platform,setPlatform,delayOnly,onOpenActions,visibleLimit=20}){
+function OrdersWorkspace({orders,stage,selectedIds,previewOrderId,onSelect,onPreview,platform,setPlatform,delayOnly,onOpenActions,visibleLimit=20}){
   const [showCount,setShowCount]=useState(visibleLimit);
   useEffect(()=>setShowCount(visibleLimit),[stage,platform,delayOnly,visibleLimit]);
   const visible=useMemo(()=>orders.filter(order=>order.stageIds?.includes(stage)).filter(order=>platform==='ALL'||order.platform===platform).filter(order=>!delayOnly||order.timingBadge?.type==='DELAYED'),[orders,stage,platform,delayOnly]);
@@ -156,7 +160,7 @@ function OrdersWorkspace({orders,stage,selectedIds,onSelect,platform,setPlatform
   return <section className="ordersWorkspace">
     <header><div><h2>{stageLabel} 주문</h2><p>배송정보·연락처·메모를 누르지 않아도 바로 확인할 수 있어요.</p></div><div><select value={platform} onChange={event=>setPlatform(event.target.value)} aria-label="판매 채널 필터"><option value="ALL">전체 채널</option><option value="NAVER">네이버</option><option value="CAFE24">Cafe24</option><option value="COUPANG">쿠팡</option></select><span>{delayOnly?'배송지연만':'전체 일정'}</span></div></header>
     <div className="bulkBar"><input type="checkbox" checked={allSelected} disabled={!eligible.length} onChange={event=>toggleAll(event.target.checked)} aria-label="현재 출고 가능 주문 전체 선택"/><strong>{selectedIds.size.toLocaleString('ko-KR')}건 선택</strong><span>현재 화면의 출고 가능 주문만 선택돼요.</span><button type="button" onClick={onOpenActions} disabled={!selectedIds.size}>선택 주문 출고하기</button></div>
-    <div className="orderRows">{visible.length?visible.slice(0,showCount).map(order=><OrderRow order={order} selected={selectedIds.has(order.hubOrderId)} onSelect={onSelect} key={order.hubOrderId}/>):<div className="ordersEmpty"><strong>{stageLabel}에 표시할 주문이 없어요.</strong><span>{delayOnly?'배송지연 필터를 해제하거나 다른 단계를 확인하세요.':'다른 출고 단계를 확인하거나 전체 수집을 실행하세요.'}</span></div>}</div>
+    <div className="orderRows">{visible.length?visible.slice(0,showCount).map(order=><OrderRow order={order} selected={selectedIds.has(order.hubOrderId)} previewed={previewOrderId===order.hubOrderId} onSelect={onSelect} onPreview={onPreview} key={order.hubOrderId}/>):<div className="ordersEmpty"><strong>{stageLabel}에 표시할 주문이 없어요.</strong><span>{delayOnly?'배송지연 필터를 해제하거나 다른 단계를 확인하세요.':'다른 출고 단계를 확인하거나 전체 수집을 실행하세요.'}</span></div>}</div>
     {showCount<visible.length?<button type="button" className="ordersMore" onClick={()=>setShowCount(value=>value+visibleLimit)}>주문 {Math.min(visibleLimit,visible.length-showCount)}건 더 보기 · 남은 {(visible.length-showCount).toLocaleString('ko-KR')}건</button>:null}
   </section>;
 }
@@ -194,6 +198,7 @@ export default function Phase28OrdersPage({model={}}){
   const [activeStage,setActiveStage]=useState('ACTIVE');
   const [activeRailTab,setActiveRailTab]=useState('selected');
   const [selectedIds,setSelectedIds]=useState(()=>new Set());
+  const [previewOrderId,setPreviewOrderId]=useState(null);
   const [platform,setPlatform]=useState('ALL');
   const [delayOnly,setDelayOnly]=useState(false);
   const [busy,setBusy]=useState('');
@@ -204,7 +209,7 @@ export default function Phase28OrdersPage({model={}}){
   const cutoff=useCutoff(model.cutoff||{});
   const selectedOrders=useMemo(()=>orders.filter(order=>selectedIds.has(order.hubOrderId)),[orders,selectedIds]);
   const stageOrders=useMemo(()=>orders.filter(order=>order.stageIds?.includes(activeStage)),[orders,activeStage]);
-  const previewOrder=selectedOrders[0]||stageOrders[0]||null;
+  const previewOrder=orders.find(order=>order.hubOrderId===previewOrderId)||selectedOrders[0]||stageOrders[0]||null;
   useEffect(()=>{
     if(!statusMessage)return undefined;
     setToastVisible(true);
@@ -214,9 +219,11 @@ export default function Phase28OrdersPage({model={}}){
 
   function selectOrder(order,checked){
     if(checked&&order.selectionEligible!==true){setStatusMessage(order.selectionBlockedReason||'현재 주문은 허브 출고 작업에서 선택할 수 없어요.');return;}
+    setPreviewOrderId(order.hubOrderId);setActiveRailTab('selected');
     setSelectedIds(previous=>{const next=new Set(previous);if(checked)next.add(order.hubOrderId);else next.delete(order.hubOrderId);return next;});
   }
-  function changeStage(id){setActiveStage(id);setDelayOnly(false);setStatusMessage(`${STAGES.find(item=>item.id===id)?.label||'선택 단계'} 주문만 모았어요.`);}
+  function previewOrderInRail(order){setPreviewOrderId(order.hubOrderId);setActiveRailTab('selected');}
+  function changeStage(id){setActiveStage(id);setPreviewOrderId(null);setDelayOnly(false);setStatusMessage(`${STAGES.find(item=>item.id===id)?.label||'선택 단계'} 주문만 모았어요.`);}
   function openActions(){setActiveRailTab('actions');document.getElementById('phase28-orders-tab-actions')?.focus({preventScroll:true});}
 
   async function syncOrders(){
@@ -314,7 +321,7 @@ export default function Phase28OrdersPage({model={}}){
   return <section className="p28OrdersPage" data-phase28-root="true" data-phase28-page="orders">
     <div className="ordersIntro"><Phase28PageHeading context={`채널 ${channels.length||0}/3 최신 · 판매자배송만 표시`} title="오늘 출고할 주문은 " accent={workCount==null?'확인 필요':`${workCount.toLocaleString('ko-KR')}건`} suffix="이에요." summary="취소 주문과 로켓그로스는 작업목록에서 빼고, 직접 보낼 주문만 모았어요."/><div className="ordersSyncCluster"><span><i><HarinIcon name="sync" size={19}/></i><span><small>{syncState==='RUNNING'?(syncPlatforms.length?collectionProgressLabel(syncPlatforms):'완료 반영 중'):'마지막 전체 동기화'}</small><strong>{referenceTime(hero.asOf)}</strong></span></span><button type="button" onClick={syncOrders} disabled={syncState==='RUNNING'}><HarinIcon name="sync" size={17}/>{syncState==='RUNNING'?'수집 중':'지금 동기화'}</button></div></div>
     <Phase28RightRailLayout label="출고 보조석" rail={<OrdersRail activeTab={activeRailTab} setActiveTab={setActiveRailTab} selectedOrders={selectedOrders} previewOrder={previewOrder} channels={channels} activeStage={activeStage} busy={busy} delayedCount={hero.delayedCount} onPrimaryAction={primaryAction} onSync={syncOrders}/> }>
-      <div className="ordersCore"><Runway workspaces={model.workspaces||[]} activeStage={activeStage} onStageChange={changeStage} cutoff={cutoff} onOpenActions={openActions} delayOnly={delayOnly} onDelayToggle={()=>setDelayOnly(value=>!value)}/><FreshnessDock channels={channels} asOf={hero.asOf} syncState={syncState} syncPlatforms={syncPlatforms} onSync={syncOrders}/><OrdersWorkspace orders={orders} stage={activeStage} selectedIds={selectedIds} onSelect={selectOrder} platform={platform} setPlatform={setPlatform} delayOnly={delayOnly} onOpenActions={openActions} visibleLimit={model.visibleLimit||20}/>{selectedIds.size?<div className="mobileBatchAction"><span><strong>{selectedIds.size}건 선택</strong><small>판매자배송 출고 작업</small></span><button type="button" onClick={openActions}>우체국 발급</button></div>:null}</div>
+      <div className="ordersCore"><Runway workspaces={model.workspaces||[]} activeStage={activeStage} onStageChange={changeStage} cutoff={cutoff} onOpenActions={openActions} delayOnly={delayOnly} onDelayToggle={()=>setDelayOnly(value=>!value)}/><FreshnessDock channels={channels} asOf={hero.asOf} syncState={syncState} syncPlatforms={syncPlatforms} onSync={syncOrders}/><OrdersWorkspace orders={orders} stage={activeStage} selectedIds={selectedIds} previewOrderId={previewOrderId} onSelect={selectOrder} onPreview={previewOrderInRail} platform={platform} setPlatform={setPlatform} delayOnly={delayOnly} onOpenActions={openActions} visibleLimit={model.visibleLimit||20}/>{selectedIds.size?<div className="mobileBatchAction"><span><strong>{selectedIds.size}건 선택</strong><small>판매자배송 출고 작업</small></span><button type="button" onClick={openActions}>우체국 발급</button></div>:null}</div>
     </Phase28RightRailLayout>
     <div className={`ordersToast${toastVisible?' visible':''}`} role="status" aria-live="polite">{statusMessage}</div>
   </section>;
