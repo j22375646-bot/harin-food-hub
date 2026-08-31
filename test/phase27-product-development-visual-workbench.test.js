@@ -52,3 +52,17 @@ test('27-6 시각 작업대는 평면 V8 규칙과 모바일·동작 감소 설�
   assert.doesNotMatch(marketCss, /\.harinV8 \.marketFlowGrid|\.harinV8 \.marketProjectGrid/);
 }
 );
+
+test('상품개발 5단계는 와이드 작업영역과 균형 잡힌 공통 헤더를 사용한다', () => {
+  const workspace = read('app/market-intelligence/[projectId]/workspace-page.js');
+  const marketCss = read('app/_analysis/harin-market-intelligence.css');
+
+  assert.match(workspace, /className="marketWorkspaceHeader"/);
+  assert.match(workspace, /context:/);
+  assert.match(marketCss, /\.harinV8 \.marketProjectHome,\.harinV8 \.marketWorkspace\{[^}]*max-width:2300px/);
+  assert.doesNotMatch(marketCss, /\.harinV8 \.marketProjectHome,\.harinV8 \.marketWorkspace\{[^}]*max-width:1360px/);
+  assert.match(marketCss, /\.harinV8 \.marketWorkspaceHeader h1\{[^}]*font-size:clamp\(34px,3vw,50px\)/);
+  assert.doesNotMatch(marketCss, /\.harinV8 \.marketWorkspaceTabs>a\.active\{[^}]*inset/);
+  assert.match(marketCss, /@media\(max-width:1600px\)/);
+  assert.match(marketCss, /@media\(max-width:760px\)/);
+});

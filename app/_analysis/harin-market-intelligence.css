@@ -20,18 +20,113 @@
 /* Phase 17-1 · reusable product-selectable market and conversion workspace. */
 .harinV8 .marketHubMain{min-height:calc(100vh - var(--v8-topbar-height));padding-bottom:110px;background:transparent}
 .harinV8 .marketBreadcrumb{display:flex;align-items:center;gap:9px;margin-bottom:16px;color:var(--v8-muted);font-size:14px}.harinV8 .marketBreadcrumb i{color:#aaa1c8;font-style:normal}.harinV8 .marketBreadcrumb b{color:var(--v8-ink-soft)}
-.harinV8 .marketProjectHome,.harinV8 .marketWorkspace{max-width:1360px;margin:0 auto}
+.harinV8 .marketProjectHome,.harinV8 .marketWorkspace{width:100%;max-width:2300px;margin:0 auto}
 .harinV8 .marketProductPicker{display:grid;min-width:0;grid-template-columns:minmax(270px,.8fr) minmax(300px,1fr);gap:20px;border:1px solid var(--v8-line);border-radius:16px;background:#fff;padding:22px}.harinV8 .marketProductPicker>*{min-width:0}
 .harinV8 .marketProductPicker>div{display:flex;grid-row:1/3;align-items:flex-start;gap:14px}.harinV8 .marketProductPicker>div>span{min-width:0;overflow:hidden}.harinV8 .marketProductPicker>div small{color:var(--v8-lavender-strong);font-weight:900}.harinV8 .marketProductPicker h2{margin:5px 0 8px}.harinV8 .marketProductPicker p{margin:0;color:var(--v8-muted)}
 .harinV8 .marketProductPicker>label{display:flex;min-width:0;flex-direction:column;gap:7px}.harinV8 .marketProductPicker>label>span{color:var(--v8-ink-soft);font-weight:850}.harinV8 .marketProductPicker select{width:100%;min-width:0;max-width:100%;border:1px solid #dcd8e9;background:#fff;padding-inline:15px;color:var(--v8-ink);font-weight:800}
 .harinV8 .marketProductPicker>aside{display:flex;align-items:center;justify-content:space-between;gap:18px;border-top:1px solid var(--v8-line);padding:14px 0 0}.harinV8 .marketProductPicker>aside>span{display:flex;min-width:0;flex-direction:column}.harinV8 .marketProductPicker>aside small{color:var(--v8-muted)}.harinV8 .marketProductPicker>aside b{overflow:hidden;margin:2px 0;color:var(--v8-ink);text-overflow:ellipsis;white-space:nowrap}.harinV8 .marketProductPicker>aside em{color:var(--v8-ink-soft);font-style:normal}.harinV8 .marketProjectMessage{grid-column:2;margin:0!important;border-radius:12px;background:var(--v8-pink-soft);padding:11px 13px;color:var(--v8-pink-strong)!important;font-weight:800}
 .harinV8 .marketAiPreview{display:flex;align-items:flex-start;gap:13px}.harinV8 .marketAiPreview b{color:var(--v8-ink)}.harinV8 .marketAiPreview p{margin:4px 0 0;color:var(--v8-muted)}
-.harinV8 .marketWorkspaceTabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.harinV8 .marketWorkspaceTabs>a{display:grid;min-height:92px;grid-template-columns:auto auto minmax(0,1fr);align-items:center;gap:10px;border:1px solid var(--v8-line);border-radius:18px;background:rgba(255,255,255,.9);padding:14px;color:var(--v8-ink);text-decoration:none;transition:transform var(--ui-motion),border-color var(--ui-motion),box-shadow var(--ui-motion)}.harinV8 .marketWorkspaceTabs>a:hover{transform:translateY(-2px);border-color:#c8c0e3;box-shadow:0 12px 25px rgba(74,65,115,.08)}.harinV8 .marketWorkspaceTabs>a.active{border-color:#b8addc;background:linear-gradient(145deg,#fff,#f2effb);box-shadow:inset 0 -3px #8e80ca}.harinV8 .marketWorkspaceTabs>a>i{color:#aaa2c5;font-size:12px;font-style:normal;font-weight:950}.harinV8 .marketWorkspaceTabs>a>span{display:flex;min-width:0;flex-direction:column}.harinV8 .marketWorkspaceTabs b{font-size:16px}.harinV8 .marketWorkspaceTabs small{overflow:hidden;color:var(--v8-muted);text-overflow:ellipsis;white-space:nowrap}
+.harinV8 .marketWorkspaceTabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.harinV8 .marketWorkspaceTabs>a{display:grid;min-height:92px;grid-template-columns:auto auto minmax(0,1fr);align-items:center;gap:10px;border:1px solid var(--v8-line);border-radius:18px;background:rgba(255,255,255,.9);padding:14px;color:var(--v8-ink);text-decoration:none;transition:transform var(--ui-motion),border-color var(--ui-motion),box-shadow var(--ui-motion)}.harinV8 .marketWorkspaceTabs>a:hover{transform:translateY(-2px);border-color:#c8c0e3;box-shadow:0 12px 25px rgba(74,65,115,.08)}.harinV8 .marketWorkspaceTabs>a.active{border-color:#b8addc;background:var(--v8-lavender-soft);box-shadow:none}.harinV8 .marketWorkspaceTabs>a>i{color:#aaa2c5;font-size:12px;font-style:normal;font-weight:950}.harinV8 .marketWorkspaceTabs>a>span{display:flex;min-width:0;flex-direction:column}.harinV8 .marketWorkspaceTabs b{font-size:16px}.harinV8 .marketWorkspaceTabs small{overflow:hidden;color:var(--v8-muted);text-overflow:ellipsis;white-space:nowrap}
 .harinV8 .marketStageEmpty{display:flex;min-height:230px;align-items:center;justify-content:center;gap:18px;text-align:left}.harinV8 .marketStageEmpty>div{max-width:660px}.harinV8 .marketStageEmpty h2{margin:12px 0 7px}.harinV8 .marketStageEmpty p{margin:0;color:var(--v8-muted)}
 .harinV8 .marketProjectIdentity{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.harinV8 .marketProjectIdentity article{min-width:0;border:1px solid var(--v8-line);border-radius:18px;background:rgba(255,255,255,.9);padding:18px}.harinV8 .marketProjectIdentity small{color:var(--v8-muted)}.harinV8 .marketProjectIdentity b{display:block;overflow:hidden;margin:7px 0;color:var(--v8-ink);text-overflow:ellipsis;white-space:nowrap}.harinV8 .marketProjectIdentity p{margin:0;color:var(--v8-muted)}
 @media(max-width:1000px){.harinV8 .marketProductPicker{grid-template-columns:1fr}.harinV8 .marketProductPicker>div{grid-row:auto}.harinV8 .marketProjectMessage{grid-column:auto}.harinV8 .marketWorkspaceTabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.harinV8 .marketHubMain{padding-bottom:120px}.harinV8 .marketProductPicker{border-radius:16px;padding:18px}.harinV8 .marketProductPicker>div,.harinV8 .marketProductPicker>label,.harinV8 .marketProductPicker>aside{width:100%;min-width:0}.harinV8 .marketProductPicker>aside{align-items:stretch;flex-direction:column}.harinV8 .marketProductPicker>aside .v8Button{width:100%;max-width:100%}.harinV8 .marketWorkspaceTabs,.harinV8 .marketProjectIdentity{grid-template-columns:1fr}.harinV8 .marketWorkspaceTabs>a{min-height:82px}.harinV8 .marketStageEmpty{min-height:260px;align-items:flex-start;flex-direction:column;padding:24px}.harinV8 .marketProjectIdentity article{padding:16px}}
 @media(prefers-reduced-motion:reduce){.harinV8 .marketWorkspaceTabs>a{transition:none}.harinV8 .marketWorkspaceTabs>a:hover{transform:none}}
+
+/* Phase 28 · wide, ordered product-development workspace. */
+.harinV8 .marketWorkspace{
+  --market-stage-accent:var(--v8-lavender-strong);
+  --market-stage-soft:var(--v8-lavender-soft);
+  gap:20px;
+}
+.harinV8 .marketWorkspaceHeader{
+  grid-template-columns:minmax(420px,1.3fr) minmax(560px,.9fr) auto;
+  gap:28px;
+  border-radius:17px;
+  padding:30px 32px;
+  box-shadow:none;
+}
+.harinV8 .marketWorkspaceHeader .v8PageHeaderCopy{align-self:center}
+.harinV8 .marketWorkspaceHeader .v8PageHeaderEyebrow{display:flex;align-items:center;gap:9px;margin-bottom:8px;color:var(--v8-ink-soft);font-size:15px;font-weight:800;letter-spacing:-.01em}
+.harinV8 .marketWorkspaceHeader .v8PageHeaderEyebrow:before{content:"";width:8px;height:8px;flex:0 0 8px;border-radius:50%;background:var(--v8-mint-strong);box-shadow:0 0 0 5px var(--v8-mint-soft)}
+.harinV8 .marketWorkspaceHeader .v8PageHeaderCopy>div{align-items:center;gap:15px}
+.harinV8 .marketWorkspaceHeader h1{margin:0;font-size:clamp(34px,3vw,50px);font-weight:900;line-height:1.08;letter-spacing:-.052em;overflow-wrap:anywhere}
+.harinV8 .marketWorkspaceHeader .v8PageHeaderCopy p{max-width:820px;margin-top:14px;font-size:18px;line-height:1.55}
+.harinV8 .marketWorkspaceHeader .v8PageHeaderNote{margin-top:14px;font-size:14px;line-height:1.5}
+.harinV8 .marketWorkspaceHeader .v8PageHeaderMetrics{grid-template-columns:repeat(3,minmax(0,1fr));align-self:stretch;border-block:0;border:1px solid var(--v8-line);border-radius:14px;background:var(--v8-surface-soft);padding:0;overflow:hidden}
+.harinV8 .marketWorkspaceHeader .v8PageHeaderMetrics>span{min-height:108px;border-right:1px solid var(--v8-line);padding:16px 18px}
+.harinV8 .marketWorkspaceHeader .v8PageHeaderMetrics>span:nth-child(2n){border-right:1px solid var(--v8-line)}
+.harinV8 .marketWorkspaceHeader .v8PageHeaderMetrics>span:last-child{border-right:0}
+.harinV8 .marketWorkspaceHeader .v8PageHeaderMetrics small{font-size:12px}
+.harinV8 .marketWorkspaceHeader .v8PageHeaderMetrics b{margin-top:6px;font-size:18px;overflow-wrap:anywhere}
+.harinV8 .marketWorkspaceHeader .v8PageHeaderMetrics em{font-size:12px;line-height:1.45}
+.harinV8 .marketWorkspaceHeader .v8PageHeaderActions{grid-column:3;grid-row:1;align-self:end;justify-content:flex-end}
+.harinV8 .marketWorkspaceHeader .v8PageHeaderActions .v8Button{min-height:44px;white-space:nowrap}
+
+.harinV8 .marketWorkspaceTabs{gap:10px}
+.harinV8 .marketWorkspaceTabs>a{
+  --market-stage-accent:var(--v8-lavender-strong);
+  --market-stage-soft:var(--v8-lavender-soft);
+  min-height:98px;
+  gap:11px;
+  border-radius:14px;
+  background:var(--v8-surface);
+  padding:15px 16px;
+  box-shadow:none;
+}
+.harinV8 .marketWorkspaceTabs>a[data-tone="blue"]{--market-stage-accent:var(--v8-blue);--market-stage-soft:var(--v8-blue-soft)}
+.harinV8 .marketWorkspaceTabs>a[data-tone="pink"]{--market-stage-accent:var(--v8-pink-strong);--market-stage-soft:var(--v8-pink-soft)}
+.harinV8 .marketWorkspaceTabs>a[data-tone="mint"]{--market-stage-accent:var(--v8-mint-strong);--market-stage-soft:var(--v8-mint-soft)}
+.harinV8 .marketWorkspaceTabs>a[data-tone="amber"]{--market-stage-accent:var(--v8-amber-strong);--market-stage-soft:var(--v8-amber-soft)}
+.harinV8 .marketWorkspaceTabs>a:hover{border-color:color-mix(in srgb,var(--market-stage-accent) 38%,var(--v8-line));box-shadow:none}
+.harinV8 .marketWorkspaceTabs>a.active{border-color:color-mix(in srgb,var(--market-stage-accent) 46%,var(--v8-line));background:var(--market-stage-soft);box-shadow:none}
+.harinV8 .marketWorkspaceTabs>a>i{color:var(--market-stage-accent);font-size:12px}
+.harinV8 .marketWorkspaceTabs b{font-size:16px;line-height:1.35}
+.harinV8 .marketWorkspaceTabs small{margin-top:2px;font-size:12px;line-height:1.4;white-space:normal}
+
+.harinV8 .marketWorkspaceContent,.harinV8 .marketWorkspaceStage{display:flex;min-width:0;flex-direction:column;gap:20px}
+.harinV8 .marketWorkspaceContent>*{min-width:0}
+.harinV8 .marketWorkspaceStage>*{min-width:0;margin-block:0}
+.harinV8 .marketWorkspace .v8Card,.harinV8 .marketWorkspace .v8ProgressiveDetails,.harinV8 .marketWorkspace .marketEvidenceLibrary,.harinV8 .marketWorkspace .marketNaverEvidenceWorkbench{border-radius:16px;box-shadow:none}
+.harinV8 .marketWorkspace .v8SectionHeading{gap:16px}
+.harinV8 .marketWorkspace .v8SectionHeadingCopy{gap:12px}
+.harinV8 .marketWorkspace .v8SectionHeadingCopy small{color:var(--v8-muted);font-size:12px;letter-spacing:.04em}
+.harinV8 .marketWorkspace .v8SectionHeadingCopy h2{font-size:24px;line-height:1.25;letter-spacing:-.035em}
+.harinV8 .marketWorkspace .v8SectionHeadingCopy p{max-width:920px;font-size:14px;line-height:1.6}
+.harinV8 .marketWorkspace .v8StateCard{min-height:104px;border-radius:14px;box-shadow:none}
+.harinV8 .marketWorkspace .v8StateCard small{font-size:12px}
+.harinV8 .marketWorkspace .v8StateCard strong{font-size:20px}
+.harinV8 .marketWorkspace .marketDataMessage{border-radius:14px;background:var(--v8-lavender-soft);box-shadow:none}
+.harinV8 .marketWorkspace .marketProjectIdentity{padding-top:2px}
+.harinV8 .marketWorkspace .marketProjectIdentity article{border-radius:14px;background:var(--v8-surface-soft);box-shadow:none}
+
+@media(max-width:1600px){
+  .harinV8 .marketWorkspaceHeader{grid-template-columns:minmax(380px,1.1fr) minmax(500px,.9fr);gap:24px;padding:28px}
+  .harinV8 .marketWorkspaceHeader h1{font-size:clamp(34px,2.5vw,40px)}
+  .harinV8 .marketWorkspaceHeader .v8PageHeaderActions{grid-column:2;grid-row:2;align-self:start}
+}
+@media(max-width:1180px){
+  .harinV8 .marketWorkspaceHeader{grid-template-columns:1fr}
+  .harinV8 .marketWorkspaceHeader .v8PageHeaderActions{grid-column:1;grid-row:auto;justify-content:flex-start}
+  .harinV8 .marketWorkspaceTabs{display:flex!important;overflow-x:auto;grid-template-columns:none!important;padding-bottom:8px;scrollbar-width:none;scroll-snap-type:x proximity}
+  .harinV8 .marketWorkspaceTabs::-webkit-scrollbar{display:none}
+  .harinV8 .marketWorkspaceTabs>a{flex:0 0 230px;scroll-snap-align:start}
+}
+@media(max-width:760px){
+  .harinV8 .marketWorkspace{gap:16px}
+  .harinV8 .marketWorkspaceHeader{gap:20px;border-radius:14px;padding:22px 18px}
+  .harinV8 .marketWorkspaceHeader .v8PageHeaderCopy>div{align-items:flex-start;gap:11px}
+  .harinV8 .marketWorkspaceHeader h1{font-size:34px}
+  .harinV8 .marketWorkspaceHeader .v8PageHeaderCopy p{font-size:16px}
+  .harinV8 .marketWorkspaceHeader .v8PageHeaderMetrics{grid-template-columns:1fr}
+  .harinV8 .marketWorkspaceHeader .v8PageHeaderMetrics>span,.harinV8 .marketWorkspaceHeader .v8PageHeaderMetrics>span:nth-child(2n){min-height:74px;border-right:0;border-bottom:1px solid var(--v8-line);padding:12px 14px}
+  .harinV8 .marketWorkspaceHeader .v8PageHeaderMetrics>span:last-child{border-bottom:0}
+  .harinV8 .marketWorkspaceHeader .v8PageHeaderActions,.harinV8 .marketWorkspaceHeader .v8PageHeaderActions .v8Button{width:100%}
+  .harinV8 .marketWorkspaceTabs>a{flex-basis:220px;min-height:88px}
+  .harinV8 .marketWorkspaceContent,.harinV8 .marketWorkspaceStage{gap:16px}
+  .harinV8 .marketWorkspace .v8SectionHeadingCopy h2{font-size:22px}
+  .harinV8 .marketWorkspace .v8SectionHeadingCopy p{font-size:14px}
+}
 
 /* Phase 21-9 · product-isolated B2B and procurement readiness. */
 .harinV8 .b2bOpportunityWorkbench{display:flex;min-width:0;flex-direction:column;gap:18px}.harinV8 .b2bReadinessKpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
