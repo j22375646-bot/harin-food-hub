@@ -51,10 +51,15 @@ test('the V106 orders surface keeps the approved runway, stable rail, and real a
   assert.doesNotMatch(css,/border-left\s*:/);
 });
 
-test('orders rail panels share one grid cell so tab changes do not move the page',()=>{
+test('orders rail panels share one growing grid cell without clipping long order details',()=>{
+  const page=read('app/_phase28/pages/orders-page.js');
   const css=read('app/_phase28/pages/orders-page.css');
-  assert.match(css,/\.ordersRailPanels\{display:grid;grid-template-columns:minmax\(0,1fr\);grid-template-rows:minmax\(0,1fr\)/);
+  assert.match(css,/\.ordersRailPanels\{[^}]*grid-template-rows:auto;[^}]*min-height:482px;[^}]*height:auto/);
   assert.match(css,/grid-column:1;grid-row:1/);
+  assert.match(css,/\.ordersRailPanels>section\{[^}]*overflow:visible/);
+  assert.match(css,/\.ordersRailPrimary\{[^}]*position:static/);
+  assert.match(page,/className="ordersRailFooter"/);
+  assert.match(css,/\.ordersRailFooter\{margin-top:auto;padding-top:14px/);
   assert.match(css,/visibility:hidden/);
   assert.match(css,/pointer-events:none/);
 });
