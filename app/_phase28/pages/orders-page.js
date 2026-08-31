@@ -2,6 +2,7 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import {useRouter} from 'next/navigation';
+import Image from 'next/image';
 import HarinIcon from '../../_design-system/harin-icon.js';
 import {Phase28ChannelLogo} from '../primitives/channel-logo.js';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
@@ -25,6 +26,7 @@ const CHANNEL_NAMES={NAVER:'네이버',CAFE24:'Cafe24',COUPANG:'쿠팡'};
 const CHANNEL_STATUS={READY:'정상',RUNNING:'수집 중',FAILED:'수집 실패',SETUP_REQUIRED:'설정 필요',RECONNECT_REQUIRED:'재연결 필요'};
 const ACTIVE_STAGES=new Set(['PAID','PREPARING','READY_TO_SHIP']);
 const wait=milliseconds=>new Promise(resolve=>window.setTimeout(resolve,milliseconds));
+const productImageLoader=({src})=>src;
 
 function money(value){return `${Math.round(Number(value)||0).toLocaleString('ko-KR')}원`;}
 function dateTime(value){
@@ -131,6 +133,16 @@ function FreshnessDock({channels=[],asOf,syncState,syncPlatforms=[],onSync}){
   </section>;
 }
 
+function OrderProductThumbnail({order}){
+  const imageUrl=order.items?.[0]?.imageUrl||'';
+  const [failed,setFailed]=useState(false);
+  useEffect(()=>setFailed(false),[imageUrl]);
+  const visible=Boolean(imageUrl)&&!failed;
+  return <span className={`productPictogram ${String(order.platform||'').toLowerCase()}${visible?' hasImage':' fallback'}`} aria-label={visible?`${order.productName} 상품 이미지`:'상품 이미지 준비 중'}>
+    {visible?<Image loader={productImageLoader} unoptimized src={imageUrl} alt="" width={66} height={66} sizes="66px" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={()=>setFailed(true)}/>:<HarinIcon name="product" size={22}/>}
+  </span>;
+}
+
 export function OrderRow({order,selected,previewed,onSelect,onPreview}){
   const selectable=order.selectionEligible===true;
   const receiver=order.receiver||{};
@@ -141,7 +153,7 @@ export function OrderRow({order,selected,previewed,onSelect,onPreview}){
   }
   return <article className={`orderRow${selected?' selected':''}${previewed?' previewed':''}${order.cancellationRequested?' cancellation':''}`} data-selection-locked={selectable?undefined:'true'} data-previewed={previewed?'true':undefined} tabIndex={0} aria-label={`${order.productName} 주문 상세 보기`} onClick={()=>onPreview(order)} onKeyDown={previewFromKeyboard}>
     <input type="checkbox" checked={selected} disabled={!selectable} title={selectable?'출고 주문 선택':selectionReason} onClick={event=>event.stopPropagation()} onChange={event=>{onPreview(order);onSelect(order,event.target.checked);}} aria-label={selectable?`${order.productName} 주문 선택`:`${order.productName} 선택 불가 · ${selectionReason}`}/>
-    <div className="orderProduct"><span className={`productPictogram ${String(order.platform||'').toLowerCase()}`}><HarinIcon name="product" size={22}/></span><span><span className="productMeta"><Phase28ChannelLogo brand={order.platform} size="compact"/>{order.channelLabel} · 판매자배송{order.platform==='NAVER'?<em className="selectionLock">네이버 송장 발급</em>:null}</span><strong>{order.productName}</strong><small>{productOption(order)}</small></span></div>
+    <div className="orderProduct"><OrderProductThumbnail order={order}/><span><span className="productMeta"><Phase28ChannelLogo brand={order.platform} size="compact"/>{order.channelLabel} · 판매자배송{order.platform==='NAVER'?<em className="selectionLock">네이버 송장 발급</em>:null}</span><strong>{order.productName}</strong><small>{productOption(order)}</small></span></div>
     <div className="shippingPerson"><strong>{receiver.name||'받는 분 확인 필요'} · {receiver.contact||'연락처 확인 필요'}</strong><span>{receiverAddress(receiver)} · {receiver.message||'배송메모 없음'}</span></div>
     <div className="orderTime"><strong>{dateTime(order.orderedAt)}</strong><span>{order.timingBadge?.detail||'출고 일정 확인'}</span></div>
     <div className="orderBadges"><span data-tone={rowTone(order)}>{order.stageLabel}</span>{order.timingBadge?<span data-tone={order.timingBadge.type==='DELAYED'?'delay':'schedule'}>{order.timingBadge.label||'일정 확인'}</span>:null}</div>

@@ -394,14 +394,17 @@ test('주문 상품 이미지 URL은 안전하게 정규화되고 플랫폼 상�
     [
       {platform:'CAFE24',external_product_id:'10',master_product_id:'MASTER-1',raw_data:{}},
       {platform:'COUPANG',external_product_id:'CP-20',master_product_id:'MASTER-1',raw_data:{}},
+      {platform:'COUPANG',external_product_id:'VI-20',external_product_name:'작두콩차 옵션',raw_data:{sellerProductId:'CP-20',vendorItemId:'VI-20'}},
       {platform:'NAVER',external_product_id:'NV-30',external_product_name:'2026년 국내산 하린식품 작두콩차 36g',raw_data:{originProductNo:'ORIGIN-30',representativeImage:{url:'https://shop-phinf.pstatic.net/naver.jpg'}}}
     ]
   );
   const cafe=orders.attachOrderImages([{external_product_no:'10',product_name:'작두콩차'}],'CAFE24','external_product_no',catalog);
   const coupang=orders.attachOrderImages([{seller_product_id:'CP-20',product_name:'작두콩차'}],'COUPANG','seller_product_id',catalog);
+  const coupangVendor=orders.attachOrderImages([{vendor_item_id:'VI-20',product_name:'작두콩차 옵션'}],'COUPANG','seller_product_id',catalog);
   const naver=orders.attachOrderImages([{product_id:'NV-30',product_name:'작두콩차'}],'NAVER','product_id',catalog);
   assert.equal(cafe[0].image_url,'https://img.cafe24.com/tea.jpg');
   assert.equal(coupang[0].image_url,'https://img.cafe24.com/tea.jpg');
+  assert.equal(coupangVendor[0].image_url,'https://img.cafe24.com/tea.jpg');
   assert.equal(naver[0].image_url,'https://shop-phinf.pstatic.net/naver.jpg');
   const naverOrigin=orders.attachOrderImages([{product_id:'DIFFERENT-ID',original_product_id:'ORIGIN-30',product_name:'다른 이름'}],'NAVER','product_id',catalog);
   const naverName=orders.attachOrderImages([{product_id:'UNKNOWN',product_name:'2026년 국내산 하린식품 작두콩차 36g, 3개'}],'NAVER','product_id',catalog);

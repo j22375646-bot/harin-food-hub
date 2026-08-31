@@ -10,7 +10,8 @@ const {transformSync}=require('next/dist/build/swc');
 
 registerHooks({
   resolve(specifier,context,nextResolve){
-    return nextResolve(specifier==='next/navigation'?'next/navigation.js':specifier,context);
+    const mapped=specifier==='next/navigation'?'next/navigation.js':specifier==='next/image'?'next/image.js':specifier;
+    return nextResolve(mapped,context);
   },
   load(url,context,nextLoad){
     if(url.endsWith('.css'))return {format:'module',shortCircuit:true,source:'export default {};'};
