@@ -25,3 +25,14 @@ test('Main route builds the new ViewModel only for an active home request',()=>{
   assert.match(loader,/calendarEntries/);
   assert.match(loader,/hub_work_items/);
 });
+
+test('Main server loader builds an automated monthly cashflow snapshot from bounded evidence queries',()=>{
+  const loader=read('lib/dashboard/phase28-main-loader.js');
+  assert.match(loader,/mainCashflowModule\.buildMainCashflow/);
+  assert.match(loader,/includeSourceRows:true/);
+  assert.match(loader,/channel_cost_settings/);
+  assert.match(loader,/channel_shipping_rules/);
+  assert.match(loader,/coupang_ad_daily_summary/);
+  assert.match(loader,/naver_stats_daily/);
+  assert.match(loader,/mainCashflow/);
+});

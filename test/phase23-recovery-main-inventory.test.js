@@ -32,9 +32,11 @@ test('23-R1 gives Main a bounded dedicated loader instead of the generic dashboa
   assert.equal(profile.target_ms,2500);
   assert.deepEqual(profile.tables,[
     'cafe24_orders','cafe24_order_items','cafe24_oauth_tokens','naver_commerce_orders','naver_commerce_order_items',
-    'coupang_orders','coupang_rg_orders','coupang_returns',
-    'coupang_rg_inventory','business_targets','customer_service_items','reports','hub_work_items'
+    'coupang_orders','coupang_order_items','coupang_rg_orders','coupang_rg_order_items','coupang_product_items','coupang_returns',
+    'coupang_rg_inventory','business_targets','customer_service_items','reports','hub_work_items',
+    'channel_products','product_costs','channel_cost_settings','channel_shipping_rules','naver_stats_daily','coupang_ad_daily_summary'
   ]);
+  assert.doesNotMatch(profile.tables.join(','),/naver_keyword_stats|naver_search_terms|coupang_ad_keyword_daily/);
   const page=read('app/dashboard-route.js');
   assert.match(page,/focusedEarlyReturn=view==='main'/);
   assert.match(page,/if\(view==='main'\)\{[\s\S]*?return buildMainDashboardData/);

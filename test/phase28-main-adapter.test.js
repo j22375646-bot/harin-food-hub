@@ -157,3 +157,26 @@ test('main cashflow uses the measured monthly sales and forecasts from the light
   assert.equal(model.forecast.expectedRevenue,1_400_000);
   assert.match(model.forecast.basis,/네이버·쿠팡·Cafe24/);
 });
+
+test('main cashflow rows prefer the automated current-month financial snapshot',()=>{
+  const model=buildPhase28MainModel({
+    generatedAt:'2026-08-31T12:00:00+09:00',
+    mainCashflow:{
+      status:'READY',description:'이번 달 비용 자동 계산',sales:8_327_610,
+      operatingCost:3_100_000,feesAndAds:1_220_000,profit:4_007_610,
+      productCost:2_600_000,shippingCost:500_000,platformFees:720_000,adSpend:500_000,
+      costCoverageRate:98.4,itemEvidenceRate:99.1
+    },
+    salesCommandCenter:{
+      metrics:{current:8_327_610},cashflow:{status:'CHECK_REQUIRED'},
+      daily:{total:0,exception_total:0,schedule:{items:[]}}
+    }
+  });
+
+  assert.equal(model.cashflow.status,'READY');
+  assert.equal(model.cashflow.rows.find(item=>item.key==='operating').value,3_100_000);
+  assert.equal(model.cashflow.rows.find(item=>item.key==='fees').value,1_220_000);
+  assert.equal(model.cashflow.rows.find(item=>item.key==='profit').value,4_007_610);
+  assert.match(model.cashflow.description,/자동 계산/);
+  assert.equal(model.metrics.profit.value,4_007_610);
+});

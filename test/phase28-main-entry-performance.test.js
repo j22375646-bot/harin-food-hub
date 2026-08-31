@@ -41,5 +41,9 @@ test('Main data loader starts independent data sources together and exposes a qu
   assert.match(loader,/Promise\.all\(\[\s*Promise\.allSettled\(/);
   assert.match(loader,/MAIN_REMOTE_QUERY_BUDGET/);
   assert.match(loader,/monthlyRevenueModule\.fetchMonthlyRevenue/);
-  assert.doesNotMatch(loader,/naver_stats_daily|coupang_ad_daily_summary|product_costs|financial_change_requests/);
+  assert.match(loader,/const MAIN_REMOTE_QUERY_BUDGET=24/);
+  assert.match(loader,/naver_stats_daily/);
+  assert.match(loader,/coupang_ad_daily_summary/);
+  assert.match(loader,/product_costs/);
+  assert.doesNotMatch(loader,/naver_keyword_stats|coupang_ad_keyword_daily|financial_change_requests/);
 });

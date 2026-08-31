@@ -67,3 +67,22 @@ test('monthly revenue pages through more than the first 1000 orders', async () =
   assert.equal(result.totals.COUPANG,11050);
   assert.equal(result.totals.ALL,11050);
 });
+
+test('monthly revenue can retain the fetched source rows for the server-only cashflow calculation',async()=>{
+  const tables={
+    cafe24_orders:[{order_id:'C-1',paid_amount:1000,raw_data:{market_id:'self'}}],
+    naver_commerce_orders:[],coupang_orders:[],coupang_rg_orders:[]
+  };
+  const db={from(table){
+    const rows=tables[table]||[];
+    const query={
+      select(){return query;},gte(){return query;},lt(){return query;},order(){return query;},
+      range(from,to){return Promise.resolve({data:rows.slice(from,to+1),error:null,count:rows.length});}
+    };
+    return query;
+  }};
+
+  const result=await fetchMonthlyRevenue(db,'2026-08',{includeSourceRows:true});
+  assert.equal(result.sourceRows.CAFE24[0].order_id,'C-1');
+  assert.equal(result.sourceRows.NAVER.length,0);
+});
