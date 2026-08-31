@@ -16,7 +16,7 @@ test('orders adapter derives seller-delivery work without inventing retry totals
       orders:[
         {hubOrderId:'NV-1',externalOrderId:'20260829-1',platform:'NAVER',channelLabel:'네이버',stage:'PAID',fulfillment:'SELLER',shippingEligible:true,invoiceNumber:'',timingBadge:{type:'DELAYED',label:'배송지연'},productName:'작두콩차',orderedAt:'2026-08-29T01:18:00.000Z',amount:12000,quantity:1,receiver:{name:'김하린',contact:'010-0000-0000',address:'충남 천안시',message:'문 앞'},items:[{name:'작두콩차',option:'30티백',quantity:1}]},
         {hubOrderId:'CP-RG-1',platform:'COUPANG',stage:'PAID',fulfillment:'ROCKET_GROWTH',shippingEligible:false,invoiceNumber:''},
-        {hubOrderId:'C24-1',platform:'CAFE24',stage:'DELIVERED',fulfillment:'SELLER',shippingEligible:false,invoiceNumber:'1234567890123'}
+        {hubOrderId:'C24-1',platform:'CAFE24',stage:'DELIVERED',fulfillment:'SELLER',shippingEligible:false,invoiceNumber:'1234567890123',invoiceStatus:'REGISTERED'}
       ],
       channels:[{platform:'NAVER',status:'READY',label:'정상',message:'1건 표시'}],
       summary:{actionRequired:1,cancellations:0,windowDays:30,windowStart:'2026-07-31',windowEnd:'2026-08-29'}
@@ -42,6 +42,20 @@ test('orders adapter derives seller-delivery work without inventing retry totals
   assert.equal(model.cutoff.dayLabel,'화요일 오후 3시');
   assert.deepEqual(model.cutoff.holidayDates,['20260831']);
   assert.equal(model.cutoff.holidayReady,true);
+  const registered=model.orders.find(item=>item.hubOrderId==='C24-1');
+  assert.deepEqual(registered.invoice,{status:'REGISTERED',label:'플랫폼 등록',number:'1234567890123'});
+});
+
+test('orders adapter distinguishes issued invoices from platform-registered invoices',()=>{
+  const model=buildPhase28OrdersModel({
+    unifiedOrders:{
+      orders:[
+        {hubOrderId:'CP-ISSUED',platform:'COUPANG',stage:'PREPARING',fulfillment:'SELLER',shippingEligible:true,invoiceNumber:'',issuedInvoiceNumber:'9876543210987',invoiceStatus:'ISSUED'}
+      ],channels:[],summary:{cancellations:0,windowDays:30}
+    }
+  });
+
+  assert.deepEqual(model.orders[0].invoice,{status:'ISSUED',label:'발급 완료 · 등록 필요',number:'9876543210987'});
 });
 
 test('orders adapter distinguishes an observed zero from an unavailable client-only retry count',()=>{

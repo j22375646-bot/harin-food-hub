@@ -450,7 +450,25 @@ test('successful platform invoice registration immediately moves the order into 
     [hubOrderId]:{status:'SUCCESS',statusCode:'IN_TRANSIT',statusLabel:'배송중'}
   }});
   assert.equal(registered.orders[0].invoiceNumber,'1234567890123');
+  assert.equal(registered.orders[0].invoiceStatus,'REGISTERED');
   assert.equal(registered.orders[0].stage,'WAITING_FOR_CARRIER');
   assert.equal(registered.orders[0].shippingEligible,false);
   assert.equal(moving.orders[0].stage,'SHIPPING');
+});
+
+test('issued ePost invoices stay visible without pretending platform registration succeeded',()=>{
+  const hubOrderId=orders.hubOrderId('CAFE24','C-ISSUED-ONLY');
+  const successfulIssues=new Map([[hubOrderId,{
+    invoiceNumber:'1234567890123',requestId:'epost-issue-success'
+  }]]);
+  const center=orders.buildUnifiedOrders({
+    asOf:'2026-08-17T00:00:00Z',successfulIssues,
+    cafe24Orders:[{order_id:'C-ISSUED-ONLY',order_date:'2026-08-17T01:00:00Z',raw_data:{}}],
+    cafe24OrderItems:[{order_id:'C-ISSUED-ONLY',external_item_id:'I-1',product_name:'Tea',quantity:1,raw_data:{order_status:'N10'}}]
+  });
+
+  assert.equal(center.orders[0].invoiceNumber,'');
+  assert.equal(center.orders[0].issuedInvoiceNumber,'1234567890123');
+  assert.equal(center.orders[0].invoiceStatus,'ISSUED');
+  assert.equal(center.orders[0].stage,'PREPARING');
 });

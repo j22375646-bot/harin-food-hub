@@ -56,6 +56,7 @@ import channelCapabilitiesModule from '../lib/platforms/channel-capabilities.js'
 import unifiedOrdersModule from '../lib/orders/unified-orders.js';
 import channelTransferModule from '../lib/shipping/channel-transfer.js';
 import trackingQueueModule from '../lib/shipping/tracking-queue.js';
+import issueHistoryModule from '../lib/epost/issue-history.js';
 import unifiedCustomerServiceModule from '../lib/customer-service/unified-center.js';
 import customerServiceStore from '../lib/customer-service/store.js';
 import featureFlagsModule from '../lib/ui/phase28-production-runtime.js';
@@ -912,7 +913,7 @@ async function buildOrdersDashboardData({
   coupangRgOrdersResult, coupangRgOrderItemsResult, coupangReturnsResult,
   naverCommerceOrdersResult, naverCommerceItemsResult,
   shippingReferenceSnapshots, cafe24Token, latestAiPageResults,
-  successfulTransfers=new Map(), trackingStates={}
+  successfulTransfers=new Map(), successfulIssues=new Map(), trackingStates={}
 }) {
   const syncs=syncResult.data||[];
   const cafe24Orders=ordersResult.data||[];
@@ -971,7 +972,7 @@ async function buildOrdersDashboardData({
     coupangReturns:coupangReturnsResult.data||[],
     coupangRgOrders:rocketGrowthOrders,
     coupangRgOrderItems:coupangRgOrderItemsResult.data||[],
-    successfulTransfers,trackingStates,
+    successfulTransfers,successfulIssues,trackingStates,
     channelConnections:channelConnections.channels||[],
     unavailable:{
       CAFE24:Boolean(ordersResult.unavailable),
@@ -1470,7 +1471,7 @@ async function getDashboardData(state) {
     view==='orders'
       ?db.from('coupang_operation_requests')
         .select('id,operation_type,target_type,target_id,status,payload,result_json,error_message,created_at,executed_at')
-        .in('operation_type',['ORDER_DETAIL','UPLOAD_INVOICE',channelTransferModule.CAFE24_OPERATION,trackingQueueModule.OPERATION])
+        .in('operation_type',['ORDER_DETAIL','UPLOAD_INVOICE',channelTransferModule.CAFE24_OPERATION,trackingQueueModule.OPERATION,issueHistoryModule.OPERATION])
         .order('created_at',{ascending:false}).limit(5000)
       :db.from('coupang_operation_requests').select('operation_type,target_id,status,error_message,created_at')
         .eq('operation_type','ORDER_DETAIL').eq('target_type','ORDER').in('status',['CANCELLED','FAILED'])
@@ -1855,6 +1856,7 @@ async function getDashboardData(state) {
     const [naverCommerceOrdersResult,naverCommerceItemsResult]=naverCommerceSettled.results;
     const operationRows=coupangOrderTerminalsResult.data||[];
     const successfulTransfers=channelTransferModule.successfulTransferIndex(operationRows);
+    const successfulIssues=issueHistoryModule.successfulIssueIndex(operationRows);
     const trackingStates=trackingQueueModule.trackingStatesFromRows(operationRows);
     return buildOrdersDashboardData({
       loaderSession,generatedAt,queryIssues,
@@ -1865,7 +1867,7 @@ async function getDashboardData(state) {
       shippingReferenceSnapshots:shippingReferenceSettled.results[0].data||[],
       cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,
       latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[]),
-      successfulTransfers,trackingStates
+      successfulTransfers,successfulIssues,trackingStates
     });
   }
   if(view==='cs'){

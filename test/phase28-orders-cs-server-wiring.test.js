@@ -16,11 +16,12 @@ test('server builds the orders model only for an active orders request',()=>{
   assert.match(page,/orders:null,adapter_status:'ERROR'/);
 });
 
-test('the lightweight orders loader includes successful invoice transfers and tracking states',()=>{
+test('the lightweight orders loader includes issued invoices, successful transfers, and tracking states',()=>{
   const page=read('app/dashboard-route.js');
+  assert.match(page,/issueHistoryModule\.successfulIssueIndex/);
   assert.match(page,/channelTransferModule\.successfulTransferIndex/);
   assert.match(page,/trackingQueueModule\.trackingStatesFromRows/);
-  assert.match(page,/successfulTransfers,trackingStates/);
+  assert.match(page,/successfulTransfers,successfulIssues,trackingStates/);
 });
 
 test('server builds the cs model only for an active cs request',()=>{
