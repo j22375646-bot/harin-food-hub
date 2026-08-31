@@ -44,6 +44,14 @@ test('V106 Main mounts the monthly goal dialog inside the Phase 28 theme root',(
   assert.doesNotMatch(pageSource,/createPortal\(content,document\.body\)/);
 });
 
+test('V106 Main keeps the calendar memo divider straight inside the rounded card',()=>{
+  const css=fs.readFileSync(path.resolve(__dirname,'../app/_phase28/pages/home-page.module.css'),'utf8');
+  const rowRule=css.match(/\.todayCalendarList>button\{([^}]*)\}/)?.[1]||'';
+
+  assert.match(rowRule,/border-right:1px solid var\(--p28-line\)/);
+  assert.match(rowRule,/border-radius:0/);
+});
+
 test('V106 Main renders the complete owner-approved executive desk',async()=>{
   const {default:Phase28HomePage}=await import(pageUrl);
   const html=renderToStaticMarkup(React.createElement(Phase28HomePage,{
