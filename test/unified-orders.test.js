@@ -434,3 +434,23 @@ test('registered Cafe24 invoices wait for real ePost movement before entering sh
   assert.equal(before.orders[0].shippingEligible,false);
   assert.equal(moving.orders[0].stage,'SHIPPING');
 });
+
+test('successful platform invoice registration immediately moves the order into live tracking stages',()=>{
+  const hubOrderId=orders.hubOrderId('CAFE24','C-TRANSFERRED');
+  const successfulTransfers=new Map([[`CAFE24:${hubOrderId}`,{
+    platform:'CAFE24',invoiceNumber:'1234567890123',requestId:'transfer-success'
+  }]]);
+  const base={
+    asOf:'2026-08-17T00:00:00Z',successfulTransfers,
+    cafe24Orders:[{order_id:'C-TRANSFERRED',order_date:'2026-08-17T01:00:00Z',raw_data:{}}],
+    cafe24OrderItems:[{order_id:'C-TRANSFERRED',external_item_id:'I-1',product_name:'Tea',quantity:1,raw_data:{order_status:'N10'}}]
+  };
+  const registered=orders.buildUnifiedOrders(base);
+  const moving=orders.buildUnifiedOrders({...base,trackingStates:{
+    [hubOrderId]:{status:'SUCCESS',statusCode:'IN_TRANSIT',statusLabel:'배송중'}
+  }});
+  assert.equal(registered.orders[0].invoiceNumber,'1234567890123');
+  assert.equal(registered.orders[0].stage,'WAITING_FOR_CARRIER');
+  assert.equal(registered.orders[0].shippingEligible,false);
+  assert.equal(moving.orders[0].stage,'SHIPPING');
+});

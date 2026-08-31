@@ -1,6 +1,6 @@
 'use client';
 
-import {useEffect,useMemo,useState} from 'react';
+import {useCallback,useEffect,useMemo,useRef,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import Image from 'next/image';
 import HarinIcon from '../../_design-system/harin-icon.js';
@@ -125,7 +125,7 @@ function Runway({workspaces,activeStage,onStageChange,cutoff,onOpenActions,delay
 
 function FreshnessDock({channels=[],asOf,syncState,syncPlatforms=[],onSync}){
   const ready=channels.filter(item=>['READY','RUNNING'].includes(String(item.status||'').toUpperCase())).length;
-  const progressLabel=syncState==='RUNNING'?(syncPlatforms.length?collectionProgressLabel(syncPlatforms):'완료 반영 중'):'1시간 자동';
+  const progressLabel=syncState==='RUNNING'?(syncPlatforms.length?collectionProgressLabel(syncPlatforms):'완료 반영 중'):'주문 1시간 · 배송 1분 자동';
   return <section className="ordersFreshness" aria-label="채널별 주문 수집 상태" aria-live="polite">
     <div className="freshnessSummary"><i/><span><strong>{channels.length?`${ready}/${channels.length} ${ready===channels.length?'최신':'확인 필요'}`:'상태 확인 중'}</strong><small>주문 데이터</small></span></div>
     <div className="freshnessChannels">{['NAVER','CAFE24','COUPANG'].map(brand=>{const channel=channels.find(item=>String(item.platform||'').toUpperCase()===brand);return <span key={brand}><Phase28ChannelLogo brand={brand} size="compact"/><span>{CHANNEL_NAMES[brand]}<strong>{channel?.message||CHANNEL_STATUS[channel?.status]||'확인 필요'}</strong></span></span>;})}</div>
@@ -221,11 +221,60 @@ export default function Phase28OrdersPage({model={}}){
   const [syncPlatforms,setSyncPlatforms]=useState([]);
   const [statusMessage,setStatusMessage]=useState('');
   const [toastVisible,setToastVisible]=useState(false);
+  const trackingRunRef=useRef(false);
   const cutoff=useCutoff(model.cutoff||{});
   const orders=useMemo(()=>sourceOrders.map(order=>receiverHydration[order.hubOrderId]?{...order,receiver:receiverHydration[order.hubOrderId]}:order),[sourceOrders,receiverHydration]);
   const selectedOrders=useMemo(()=>orders.filter(order=>selectedIds.has(order.hubOrderId)),[orders,selectedIds]);
   const stageOrders=useMemo(()=>orders.filter(order=>order.stageIds?.includes(activeStage)),[orders,activeStage]);
+  const automaticTrackingIds=useMemo(()=>orders
+    .filter(order=>trackingNumber(order.invoiceNumber).length===13&&order.stageIds?.some(id=>id==='REGISTER'||id==='IN_TRANSIT'))
+    .map(order=>order.hubOrderId),[orders]);
+  const automaticTrackingKey=automaticTrackingIds.join('|');
   const previewOrder=orders.find(order=>order.hubOrderId===previewOrderId)||selectedOrders[0]||stageOrders[0]||null;
+  const queueAndPollTracking=useCallback(async (ids,{silent=false}={})=>{
+    const orderIds=[...new Set((ids||[]).map(value=>String(value||'').trim()).filter(Boolean))];
+    if(!orderIds.length)return {ok:false,error:'확인할 배송 주문이 없습니다.'};
+    if(trackingRunRef.current){
+      if(!silent)setStatusMessage('자동 배송상태 확인이 이미 진행 중이에요. 완료되면 레일에 반영됩니다.');
+      return {ok:false,error:'배송상태 확인이 이미 진행 중입니다.'};
+    }
+    trackingRunRef.current=true;
+    if(!silent){setBusy('우체국 배송조회 중…');setStatusMessage(`${orderIds.length}건의 우체국 배송상태를 확인하고 있어요.`);}
+    try{
+      const queuedRows=[];
+      for(let index=0;index<orderIds.length;index+=100){
+        const batch=orderIds.slice(index,index+100);
+        const response=await fetch('/api/shipping/tracking',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({orderIds:batch})});
+        const queued=await response.json();
+        if(!response.ok||!queued.ok)throw new Error(queued.error||'배송상태 확인 시작 실패');
+        queuedRows.push(...(queued.queued||[]));
+      }
+      const targetIds=new Set(queuedRows.flatMap(item=>item.hubOrderIds||[]));
+      let targetStates=[];
+      for(let attempt=0;attempt<35;attempt+=1){
+        if(attempt)await wait(1200);
+        const pollResponse=await fetch('/api/shipping/tracking',{cache:'no-store'});
+        const latest=await pollResponse.json();
+        if(!pollResponse.ok||!latest.ok)throw new Error(latest.error||'배송추적 결과 확인 실패');
+        targetStates=(latest.states||[]).filter(item=>targetIds.has(item.hubOrderId));
+        const settledIds=new Set(targetStates.filter(item=>item.status!=='QUEUED').map(item=>item.hubOrderId));
+        if([...targetIds].every(id=>settledIds.has(id)))break;
+      }
+      if(targetStates.some(item=>item.status==='QUEUED')||targetStates.length<targetIds.size)throw new Error('우체국 조회 응답이 늦습니다. 자동 확인은 계속 진행됩니다.');
+      const failures=targetStates.filter(item=>item.status==='FAILED').length;
+      const inTransit=targetStates.filter(item=>item.statusCode==='IN_TRANSIT').length;
+      const delivered=targetStates.filter(item=>item.statusCode==='DELIVERED').length;
+      router.refresh();
+      if(!silent)setStatusMessage(`배송상태 반영 완료 · 배송중 ${inTransit}건 · 배송완료 ${delivered}건${failures?` · 확인 필요 ${failures}건`:''}`);
+      return {ok:true,inTransit,delivered,failures};
+    }catch(error){
+      if(!silent)setStatusMessage(`배송추적 확인 필요 · ${error.message}`);
+      return {ok:false,error:error.message};
+    }finally{
+      trackingRunRef.current=false;
+      if(!silent)setBusy('');
+    }
+  },[router]);
   useEffect(()=>{
     let active=true;
     const current=sourceOrders.map(order=>receiverHydration[order.hubOrderId]?{...order,receiver:receiverHydration[order.hubOrderId]}:order);
@@ -243,6 +292,18 @@ export default function Phase28OrdersPage({model={}}){
     const timer=window.setTimeout(()=>setToastVisible(false),2600);
     return()=>window.clearTimeout(timer);
   },[statusMessage]);
+  useEffect(()=>{
+    if(!automaticTrackingKey)return undefined;
+    const ids=automaticTrackingKey.split('|').filter(Boolean);
+    let stopped=false;
+    const run=()=>{
+      if(stopped||document.visibilityState==='hidden')return;
+      queueAndPollTracking(ids,{silent:true});
+    };
+    const initial=window.setTimeout(run,5000);
+    const timer=window.setInterval(run,60000);
+    return()=>{stopped=true;window.clearTimeout(initial);window.clearInterval(timer);};
+  },[automaticTrackingKey,queueAndPollTracking]);
 
   function selectOrder(order,checked){
     if(checked&&order.selectionEligible!==true){setStatusMessage(order.selectionBlockedReason||'현재 주문은 허브 출고 작업에서 선택할 수 없어요.');return;}
@@ -318,9 +379,11 @@ export default function Phase28OrdersPage({model={}}){
       const transfer=await transferResponse.json();
       const immediate=(transfer.results||[]).map(item=>({...item,status:item.ok?(item.status||'SUCCESS'):'FAILED',error:item.error||''}));
       const settled=await Promise.all(immediate.map(async item=>{try{return await pollCoupangTransfer(item);}catch(error){return {...item,status:'FAILED',error:error.message};}}));
-      const completed=settled.filter(item=>item.status==='SUCCESS').length;
+      const completedIds=settled.filter(item=>item.status==='SUCCESS').map(item=>item.hubOrderId);
+      const completed=completedIds.length;
       const failed=issued.filter(item=>!item.ok).length+settled.filter(item=>item.status==='FAILED').length;
-      setStatusMessage(`자동 출고 처리 완료 · 송장발급 ${issued.filter(item=>item.ok).length}건 · 쇼핑몰 등록 ${completed}건${failed?` · 다시 확인 ${failed}건`:''}`);
+      const tracking=completedIds.length?await queueAndPollTracking(completedIds,{silent:true}):{ok:false};
+      setStatusMessage(`자동 출고 처리 완료 · 송장발급 ${issued.filter(item=>item.ok).length}건 · 쇼핑몰 등록 ${completed}건${tracking.ok?' · 배송상태 자동반영':' · 배송추적 확인 필요'}${failed?` · 다시 확인 ${failed}건`:''}`);
       setSelectedIds(new Set());router.refresh();
     }catch(error){setStatusMessage(`자동 출고 처리 중단 · ${error.message}`);}finally{setBusy('');}
   }
@@ -328,14 +391,7 @@ export default function Phase28OrdersPage({model={}}){
   async function refreshTracking(){
     const ids=stageOrders.filter(order=>trackingNumber(order.invoiceNumber).length===13).map(order=>order.hubOrderId);
     if(!ids.length){setStatusMessage('현재 단계에는 전송이 끝난 13자리 송장번호가 없어요.');return;}
-    setBusy('우체국 배송조회 중…');setStatusMessage(`${ids.length}건의 우체국 배송상태를 확인하고 있어요.`);
-    try{
-      const response=await fetch('/api/shipping/tracking',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({orderIds:ids})});
-      const result=await response.json();
-      if(!response.ok||!result.ok)throw new Error(result.error||'배송상태 확인 시작 실패');
-      setStatusMessage('배송상태 확인 요청을 보냈어요. 완료되면 단계가 자동으로 바뀝니다.');
-      router.refresh();
-    }catch(error){setStatusMessage(`배송추적 확인 필요 · ${error.message}`);}finally{setBusy('');}
+    await queueAndPollTracking(ids);
   }
 
   function primaryAction(){

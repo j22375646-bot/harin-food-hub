@@ -36,3 +36,12 @@ test('the orders page hydrates Cafe24 receiver details through the authenticated
   assert.match(page,/hydrateCafe24OrderReceivers/);
   assert.match(page,/setReceiverHydration/);
 });
+
+test('successful invoice registration starts tracking and live rail movement keeps refreshing',()=>{
+  const page=fs.readFileSync(path.join(root,'app','_phase28','pages','orders-page.js'),'utf8');
+  assert.match(page,/const completedIds=settled\.filter\(item=>item\.status==='SUCCESS'\)/);
+  assert.match(page,/queueAndPollTracking\(completedIds,\{silent:true\}\)/);
+  assert.match(page,/fetch\('\/api\/shipping\/tracking',\{method:'POST'/);
+  assert.match(page,/fetch\('\/api\/shipping\/tracking',\{cache:'no-store'\}\)/);
+  assert.match(page,/window\.setInterval\(run,60000\)/);
+});
