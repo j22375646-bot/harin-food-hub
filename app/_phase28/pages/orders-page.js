@@ -8,10 +8,12 @@ import {Phase28ChannelLogo} from '../primitives/channel-logo.js';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
 import {Phase28RightRailLayout} from '../primitives/right-rail-layout.js';
 import collectionProgress from '../../../lib/orders/collection-progress.js';
+import cafe24Delivery from '../../../lib/ui/phase28-orders-delivery.js';
 import businessCalendar from '../../../lib/shipping-reference/business-calendar.js';
 import './orders-page.css';
 
 const {activeCollectionPlatforms,collectionProgressLabel}=collectionProgress;
+const {hydrateCafe24OrderReceivers}=cafe24Delivery;
 const {calculateCutoffSchedule}=businessCalendar;
 
 const STAGES=[
@@ -205,8 +207,9 @@ function OrdersRail({activeTab,setActiveTab,selectedOrders,previewOrder,channels
 export default function Phase28OrdersPage({model={}}){
   const router=useRouter();
   const hero=model.hero||{};
-  const orders=model.orders||[];
+  const sourceOrders=model.orders||[];
   const channels=model.channels||[];
+  const [receiverHydration,setReceiverHydration]=useState({});
   const [activeStage,setActiveStage]=useState('ACTIVE');
   const [activeRailTab,setActiveRailTab]=useState('selected');
   const [selectedIds,setSelectedIds]=useState(()=>new Set());
@@ -219,9 +222,21 @@ export default function Phase28OrdersPage({model={}}){
   const [statusMessage,setStatusMessage]=useState('');
   const [toastVisible,setToastVisible]=useState(false);
   const cutoff=useCutoff(model.cutoff||{});
+  const orders=useMemo(()=>sourceOrders.map(order=>receiverHydration[order.hubOrderId]?{...order,receiver:receiverHydration[order.hubOrderId]}:order),[sourceOrders,receiverHydration]);
   const selectedOrders=useMemo(()=>orders.filter(order=>selectedIds.has(order.hubOrderId)),[orders,selectedIds]);
   const stageOrders=useMemo(()=>orders.filter(order=>order.stageIds?.includes(activeStage)),[orders,activeStage]);
   const previewOrder=orders.find(order=>order.hubOrderId===previewOrderId)||selectedOrders[0]||stageOrders[0]||null;
+  useEffect(()=>{
+    let active=true;
+    const current=sourceOrders.map(order=>receiverHydration[order.hubOrderId]?{...order,receiver:receiverHydration[order.hubOrderId]}:order);
+    hydrateCafe24OrderReceivers(current).then(hydrated=>{
+      if(!active)return;
+      const additions={};
+      hydrated.forEach((order,index)=>{if(order!==current[index]&&order.receiver)additions[order.hubOrderId]=order.receiver;});
+      if(Object.keys(additions).length)setReceiverHydration(previous=>({...previous,...additions}));
+    }).catch(()=>{});
+    return()=>{active=false;};
+  },[sourceOrders]);
   useEffect(()=>{
     if(!statusMessage)return undefined;
     setToastVisible(true);
@@ -333,7 +348,7 @@ export default function Phase28OrdersPage({model={}}){
   return <section className="p28OrdersPage" data-phase28-root="true" data-phase28-page="orders">
     <div className="ordersIntro"><Phase28PageHeading context={`채널 ${channels.length||0}/3 최신 · 판매자배송만 표시`} title="오늘 출고할 주문은 " accent={workCount==null?'확인 필요':`${workCount.toLocaleString('ko-KR')}건`} suffix="이에요." summary="취소 주문과 로켓그로스는 작업목록에서 빼고, 직접 보낼 주문만 모았어요."/><div className="ordersSyncCluster"><span><i><HarinIcon name="sync" size={19}/></i><span><small>{syncState==='RUNNING'?(syncPlatforms.length?collectionProgressLabel(syncPlatforms):'완료 반영 중'):'마지막 전체 동기화'}</small><strong>{referenceTime(hero.asOf)}</strong></span></span><button type="button" onClick={syncOrders} disabled={syncState==='RUNNING'}><HarinIcon name="sync" size={17}/>{syncState==='RUNNING'?'수집 중':'지금 동기화'}</button></div></div>
     <Phase28RightRailLayout label="출고 보조석" rail={<OrdersRail activeTab={activeRailTab} setActiveTab={setActiveRailTab} selectedOrders={selectedOrders} previewOrder={previewOrder} channels={channels} activeStage={activeStage} busy={busy} delayedCount={hero.delayedCount} onPrimaryAction={primaryAction} onSync={syncOrders}/> }>
-      <div className="ordersCore"><Runway workspaces={model.workspaces||[]} activeStage={activeStage} onStageChange={changeStage} cutoff={cutoff} onOpenActions={openActions} delayOnly={delayOnly} onDelayToggle={()=>setDelayOnly(value=>!value)}/><FreshnessDock channels={channels} asOf={hero.asOf} syncState={syncState} syncPlatforms={syncPlatforms} onSync={syncOrders}/><OrdersWorkspace orders={orders} stage={activeStage} selectedIds={selectedIds} previewOrderId={previewOrderId} onSelect={selectOrder} onPreview={previewOrderInRail} platform={platform} setPlatform={setPlatform} delayOnly={delayOnly} onOpenActions={openActions} visibleLimit={model.visibleLimit||20}/>{selectedIds.size?<div className="mobileBatchAction"><span><strong>{selectedIds.size}건 선택</strong><small>판매자배송 출고 작업</small></span><button type="button" onClick={openActions}>우체국 발급</button></div>:null}</div>
+      <div className="ordersCore"><Runway workspaces={model.workspaces||[]} activeStage={activeStage} onStageChange={changeStage} cutoff={cutoff} onOpenActions={openActions} delayOnly={delayOnly} onDelayToggle={()=>setDelayOnly(value=>!value)}/><FreshnessDock channels={channels} asOf={hero.asOf} syncState={syncState} syncPlatforms={syncPlatforms} onSync={syncOrders}/><OrdersWorkspace orders={orders} stage={activeStage} selectedIds={selectedIds} previewOrderId={previewOrderId} onSelect={selectOrder} onPreview={previewOrderInRail} platform={platform} setPlatform={setPlatform} delayOnly={delayOnly} onOpenActions={openActions} visibleLimit={model.visibleLimit||20}/>{selectedIds.size?<div className="mobileBatchAction"><span><strong>{selectedIds.size}건 선택</strong><small>판매자배송 출고 작업</small></span><button type="button" onClick={primaryAction}>우체국 발급</button></div>:null}</div>
     </Phase28RightRailLayout>
     <div className={`ordersToast${toastVisible?' visible':''}`} role="status" aria-live="polite">{statusMessage}</div>
   </section>;
