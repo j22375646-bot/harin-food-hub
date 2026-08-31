@@ -58,6 +58,13 @@ test('smart schedule uses the Seoul 15:00 shipping cutoff', () => {
   assert.equal(schedule.items.find(item=>item.id==='REGISTER').status,'UPCOMING');
 });
 
+test('smart schedule keeps the overnight operating line colored until the next 06:00 collection', () => {
+  const schedule=buildSmartSchedule('2026-08-30T19:30:00.000Z');
+  assert.equal(schedule.date,'2026-08-31');
+  assert.equal(schedule.cutoff_state,'BEFORE');
+  assert.deepEqual(schedule.items.map(item=>item.status),['DONE','DONE','DONE','NOW']);
+});
+
 test('product signals compare current seven days with the previous seven days', () => {
   const signals = buildProductSignals({
     asOf:'2026-08-14',
