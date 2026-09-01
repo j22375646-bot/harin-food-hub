@@ -43,3 +43,9 @@ test('원가와 광고비 귀속이 완료되면 모든 지표를 허용한다',
   assert.equal(result.status, 'READY');
   assert.equal(Object.values(result.allowed).every(Boolean), true);
 });
+
+test('저장된 운영 규칙의 원가 반영률을 재무 신뢰 게이트에 적용한다', () => {
+  const result = trust.evaluateFinancialTrust({ costCoverageRate:96, unassignedAdSpend:0, minimumCostCoverageRate:97 });
+  assert.equal(result.status, 'BLOCKED');
+  assert.equal(result.thresholds.minimum_cost_coverage_rate, 97);
+});

@@ -13,12 +13,16 @@ const ACTION_COPY={REVIEW:['개인정보 제외 검수','원본에 고객 개인
 
 async function sha256(file){const digest=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());return [...new Uint8Array(digest)].map(value=>value.toString(16).padStart(2,'0')).join('');}
 const date=value=>value?String(value).slice(0,10):'기록 없음';
-const ruleForm=item=>({
-  rule_key:item?.ruleKey||'insight',target_roas_percent:item?.metrics?.targetRoasPercent??250,
-  conversion_rate_warning_percent:item?.metrics?.conversionWarningPercent??2,change_warning_percent:item?.metrics?.changeWarningPercent??10,
-  minimum_cost_coverage_percent:item?.metrics?.minimumCostCoveragePercent??95,freshness_hours:item?.metrics?.freshnessHours??26,
-  enabled:item?.metrics?.enabled!==false,change_note:''
-});
+const ruleForm=item=>({rule_key:item?.ruleKey||'insight',...(item?.config||{}),enabled:item?.enabled!==false,change_note:''});
+const ruleValue=field=>{
+  const value=Number(field.value).toLocaleString('ko-KR',{maximumFractionDigits:field.decimals??1});
+  if(field.format==='signed_percent')return `±${value}%`;
+  if(field.format==='less_percent')return `${value}% 미만`;
+  if(field.format==='minimum_percent')return `${value}% 이상`;
+  if(field.format==='down_percent')return `-${value}%`;
+  if(field.format==='up_percent')return `+${value}%`;
+  return `${value}${field.unit||''}`;
+};
 
 function TrustGates({model}){
   const totalScopes=model.items.reduce((sum,item)=>sum+item.scopePages.length,0);
@@ -75,29 +79,27 @@ function KnowledgeRail({item,file,setFile,working,onAction,onUpload,onDownload})
 }
 
 function OperatingRuleRail({item}){
-  if(!item)return <div className="knowledgeRailEmpty"><HarinIcon name="analysis" size={27}/><strong>운영 규칙을 선택해주세요.</strong><p>인사이트와 자동진단 판정식을 같은 화면에서 관리합니다.</p></div>;
+  if(!item)return <div className="knowledgeRailEmpty"><HarinIcon name="analysis" size={27}/><strong>운영 규칙을 선택해주세요.</strong><p>인사이트와 자동진단의 실제 계산 기준을 같은 화면에서 관리합니다.</p></div>;
   return <section className="operatingRuleRail"><header><span>LIVE OPERATING RULE</span><h2>{item.title}</h2><p>{item.versionLabel} · {date(item.createdAt)} · {item.source==='DEFAULT'?'코드 기본값':'서버 저장값'}</p></header>
-    <section className="ruleLiveState"><i/><span><strong>{item.metrics.enabled?'자동 반영 사용 중':'자동 반영 중지'}</strong><small>저장한 최신 버전을 서버가 매번 다시 읽습니다.</small></span></section>
-    <ul><li><span>목표 ROAS</span><b>{item.metrics.targetRoasPercent}%</b></li><li><span>구매 전환율 경고</span><b>{item.metrics.conversionWarningPercent}% 미만</b></li><li><span>변화 감지율</span><b>±{item.metrics.changeWarningPercent}%</b></li><li><span>원가 반영률</span><b>{item.metrics.minimumCostCoveragePercent}% 이상</b></li><li><span>자료 최신성</span><b>{item.metrics.freshnessHours}시간</b></li></ul>
-    <section className="ruleAutomationNote"><span>NEXT AUTOMATION</span><strong>다음 자동진단부터 즉시 적용</strong><p>기존 보고서는 당시 버전을 유지하고 새 보고서만 최신 기준식으로 계산합니다.</p></section>
+    <section className="ruleLiveState"><i/><span><strong>{item.enabled?'자동 반영 사용 중':'자동 반영 중지'}</strong><small>저장한 최신 버전을 서버가 매번 다시 읽습니다.</small></span></section>
+    <section className="ruleAppliesTo"><span>실제 적용 위치</span><p>{item.appliesTo.map(target=><em key={target}>{target}</em>)}</p></section>
+    <ul>{item.fields.map(field=><li key={field.key}><span>{field.label}</span><b>{ruleValue(field)}</b></li>)}</ul>
+    <section className="ruleAutomationNote"><span>NEXT AUTOMATION</span><strong>다음 계산·진단부터 즉시 적용</strong><p>기존 보고서는 당시 버전을 유지하고 새 보고서와 알림만 최신 기준식으로 계산합니다.</p></section>
   </section>;
 }
 
 function OperatingRulesPanel({items,activeKey,onSelect,form,setForm,working,onSave}){
   const field=(key,value)=>setForm(current=>({...current,[key]:value}));
-  return <section className="operatingRulesPanel"><header><div><span>OPERATING FORMULA</span><h2>인사이트·자동진단 운영 규칙</h2><p>코드에 고정돼 있던 판단 기준을 수정하고 최신 버전을 자동 계산에 바로 연결합니다.</p></div><em>이전 버전 보존</em></header>
-    <div className="operatingRuleCards">{items.map(item=><button type="button" key={item.ruleKey} data-selected={activeKey===item.ruleKey} onClick={()=>onSelect(item.ruleKey)}><i><HarinIcon name={item.ruleKey==='insight'?'analysis':'checklist'} size={22}/></i><span><small>{item.ruleKey==='insight'?'INSIGHT RULE':'AUTO DIAGNOSIS'}</small><strong>{item.ruleKey==='insight'?'인사이트 판정식':'자동진단 판정식'}</strong><b>{item.versionLabel} · {item.metrics.enabled?'자동 반영':'중지'}</b></span><em>›</em></button>)}</div>
+  const active=items.find(item=>item.ruleKey===activeKey)||items[0];
+  return <section className="operatingRulesPanel"><header><div><span>OPERATING FORMULA</span><h2>인사이트·자동진단 운영 규칙</h2><p>광고·전환·이상징후·재무 신뢰·데이터 충족 기준을 역할별로 수정하고 실제 계산에 연결합니다.</p></div><em>이전 버전 보존</em></header>
+    <div className="operatingRuleCards">{items.map(item=><button type="button" key={item.ruleKey} data-selected={activeKey===item.ruleKey} onClick={()=>onSelect(item.ruleKey)}><i><HarinIcon name={item.icon} size={22}/></i><span><small>{item.kicker}</small><strong>{item.title}</strong><b>{item.versionLabel} · {item.enabled?'자동 반영':'중지'} · {item.fields.length}개 기준</b></span><em>›</em></button>)}</div>
     <form className="operatingRuleForm" onSubmit={onSave}>
-      <header><div><span>현재 선택</span><h3>{items.find(item=>item.ruleKey===activeKey)?.title||'운영 규칙'}</h3></div><label><input type="checkbox" checked={form.enabled} onChange={event=>field('enabled',event.target.checked)}/><span>자동 반영 사용</span></label></header>
+      <header><div><span>현재 선택</span><h3>{active?.title||'운영 규칙'}</h3><p>{active?.description}</p></div><label><input type="checkbox" checked={form.enabled} onChange={event=>field('enabled',event.target.checked)}/><span>자동 반영 사용</span></label></header>
       <div className="ruleMetricGrid">
-        <label><span>목표 ROAS</span><div><input required type="number" min="50" max="3000" step="1" value={form.target_roas_percent} onChange={event=>field('target_roas_percent',event.target.value)}/><em>%</em></div><small>광고 효율 양호·개선 필요 판단선</small></label>
-        <label><span>구매 전환율 경고</span><div><input required type="number" min="0.1" max="100" step="0.1" value={form.conversion_rate_warning_percent} onChange={event=>field('conversion_rate_warning_percent',event.target.value)}/><em>%</em></div><small>이 값보다 낮을 때 전환 개선 표시</small></label>
-        <label><span>변화 감지율</span><div><input required type="number" min="0.1" max="1000" step="0.1" value={form.change_warning_percent} onChange={event=>field('change_warning_percent',event.target.value)}/><em>%</em></div><small>직전 기간 대비 유의미한 변화 기준</small></label>
-        <label><span>원가 반영률</span><div><input required type="number" min="1" max="100" step="0.1" value={form.minimum_cost_coverage_percent} onChange={event=>field('minimum_cost_coverage_percent',event.target.value)}/><em>%</em></div><small>이익 판단을 확정할 최소 원가 근거</small></label>
-        <label><span>자료 최신성</span><div><input required type="number" min="1" max="336" step="1" value={form.freshness_hours} onChange={event=>field('freshness_hours',event.target.value)}/><em>시간</em></div><small>이 시간이 지나면 오래된 자료로 표시</small></label>
+        {(active?.fields||[]).map(metric=><label key={metric.key}><span>{metric.label}</span><div><input required type="number" min={metric.min} max={metric.max} step={metric.step} value={form[metric.key]??metric.value} onChange={event=>field(metric.key,event.target.value)}/><em>{metric.unit}</em></div><small>{metric.hint}</small></label>)}
       </div>
       <label className="ruleChangeNote"><span>변경 사유</span><input required maxLength="240" value={form.change_note} onChange={event=>field('change_note',event.target.value)} placeholder="예: 9월 광고 목표에 맞춰 ROAS 기준 조정"/></label>
-      <footer><span><i/>저장 즉시 서버 최신 버전으로 전환됩니다.</span><button type="submit" disabled={working}>{working?'규칙 저장 중…':'확인하고 규칙 적용'}</button></footer>
+      <footer><span><i/>저장 즉시 {active?.appliesToLabel||'연결 계산'}의 서버 최신 버전으로 전환됩니다.</span><button type="submit" disabled={working}>{working?'규칙 저장 중…':'확인하고 규칙 적용'}</button></footer>
     </form>
   </section>;
 }
@@ -127,7 +129,7 @@ export default function Phase28KnowledgePage({model}){
   async function action(nextAction){if(!active)return;const copy=ACTION_COPY[nextAction];if(copy&&!window.confirm(copy[1]))return;setWorking(nextAction);setMessage('자료 상태를 안전하게 변경하는 중입니다.');try{await jsonRequest('/api/ai/knowledge',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({id:active.id,action:nextAction})});setMessage(`${copy?.[0]||'상태 변경'}을 완료하고 서버 값을 다시 확인했습니다.`);refresh();}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setWorking('');}}
   async function upload(){if(!active||!file)return;if(!window.confirm(`${file.name} 원본을 비공개 저장소에 보관할까요? 원본 교체 시 기존 검수는 초기화됩니다.`))return;setWorking('UPLOAD');setMessage('원본 파일을 비공개 저장소에 보관하는 중입니다.');try{const metadata={file_name:file.name,mime_type:file.type||'application/octet-stream',size_bytes:file.size};const prepared=await jsonRequest(`/api/ai/knowledge/${active.id}/source`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(metadata)});const checksum=await sha256(file);const uploadBody=new FormData();uploadBody.append('cacheControl','3600');uploadBody.append('',file);const uploaded=await fetch(prepared.upload.signed_url,{method:'PUT',headers:{'x-upsert':'false'},body:uploadBody});if(!uploaded.ok)throw new Error('비공개 저장소 업로드에 실패했습니다.');await jsonRequest(`/api/ai/knowledge/${active.id}/source`,{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({...metadata,storage_path:prepared.upload.storage_path,sha256:checksum})});setFile(null);setMessage('원본을 보관했습니다. 개인정보 제외 검수를 다시 진행해주세요.');refresh();}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setWorking('');}}
   async function download(){if(!active)return;setWorking('DOWNLOAD');try{const result=await jsonRequest(`/api/ai/knowledge/${active.id}/source`,{cache:'no-store'});window.location.assign(result.signed_url);}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setWorking('');}}
-  async function saveOperatingRule(event){event.preventDefault();if(!window.confirm('이 기준을 저장하면 다음 인사이트·자동진단부터 새 버전을 사용할까요?'))return;setWorking('RULE_SAVE');setMessage('운영 규칙 새 버전을 저장하고 자동진단에 연결하는 중입니다.');try{const result=await jsonRequest('/api/ai/operating-rules',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify(operatingForm)});setMessage(`${result.item.title} ${result.item.versionLabel||`v${result.item.version}`} 저장 완료 · ${result.automation}`);refresh();}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setWorking('');}}
+  async function saveOperatingRule(event){event.preventDefault();if(!window.confirm('이 기준을 저장하면 연결된 다음 계산과 진단부터 새 버전을 사용할까요?'))return;setWorking('RULE_SAVE');setMessage('운영 규칙 새 버전을 저장하고 실제 계산 경로에 연결하는 중입니다.');try{const result=await jsonRequest('/api/ai/operating-rules',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify(operatingForm)});setMessage(`${result.item.title} ${result.item.versionLabel||`v${result.item.version}`} 저장 완료 · ${result.automation}`);refresh();}catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setWorking('');}}
   function recommended(item){setForm({...emptyForm,title:item.title,category:item.category,scope_pages:item.scopes,notes:item.reason});}
 
   const context=model.dataStatus==='ERROR'?'기준자료 저장소 확인 필요':`사용 자료 ${model.summary.total}개 · 운영 규칙 ${model.summary.operatingRules??model.operatingRules.length}개 · 적용 대상 ${model.summary.active}개`;

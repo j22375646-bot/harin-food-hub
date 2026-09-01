@@ -6,7 +6,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const rules=require('../lib/ai/operating-rules.js');
 
-test('운영 규칙은 인사이트와 자동진단 기준을 안전한 숫자로 검증한다',()=>{
+test('운영 규칙은 역할별 기준을 안전한 숫자로 검증한다',()=>{
   const saved=rules.validateRuleUpdate({
     rule_key:'auto_diagnosis',
     target_roas_percent:320,
@@ -28,6 +28,16 @@ test('운영 규칙은 인사이트와 자동진단 기준을 안전한 숫자�
   assert.throws(()=>rules.validateRuleUpdate({rule_key:'insight',freshness_hours:999}),/최신성/);
 });
 
+test('운영 규칙은 실제 계산 경로별 다섯 묶음을 제공한다',()=>{
+  assert.deepEqual(rules.RULE_KEYS,['insight','auto_diagnosis','anomaly_detection','financial_trust','data_coverage']);
+  assert.equal(rules.RULE_DEFINITIONS.anomaly_detection.fields.length,4);
+  assert.equal(rules.RULE_DEFINITIONS.financial_trust.appliesTo.includes('공헌이익 확정'),true);
+  assert.equal(rules.RULE_DEFINITIONS.data_coverage.appliesTo.includes('기간 데이터 충족률'),true);
+  const set=rules.buildOperatingRuleSet([]);
+  assert.equal(Object.keys(set.current).length,5);
+  assert.equal(set.current.anomaly_detection.config.decrease_warning_percent,20);
+});
+
 test('최신 버전만 자동진단에 적용하고 이전 버전은 기록으로 남긴다',()=>{
   const set=rules.buildOperatingRuleSet([
     {rule_key:'auto_diagnosis',version:1,config_json:{target_roas_percent:250}},
@@ -45,13 +55,17 @@ test('저장소가 비어도 코드 기본값을 사용하고 누락값을 0으�
   assert.equal(thresholds.target_roas_percent,250);
   assert.equal(thresholds.conversion_rate_warning_percent,2);
   assert.equal(thresholds.minimum_cost_coverage_percent,95);
+  assert.equal(thresholds.minimum_data_coverage_percent,90);
+  assert.equal(thresholds.anomaly_decrease_warning_percent,20);
+  assert.equal(thresholds.anomaly_increase_critical_percent,45);
 });
 
-test('한 규칙의 버전이 많이 쌓여도 두 규칙의 최신값을 각각 조회한다',async()=>{
+test('한 규칙의 버전이 많이 쌓여도 모든 규칙의 최신값을 각각 조회한다',async()=>{
   const keys=[];
   const rows={
     insight:[{rule_key:'insight',version:42,config_json:{change_warning_percent:17}}],
-    auto_diagnosis:[{rule_key:'auto_diagnosis',version:3,config_json:{target_roas_percent:330}}]
+    auto_diagnosis:[{rule_key:'auto_diagnosis',version:3,config_json:{target_roas_percent:330}}],
+    anomaly_detection:[],financial_trust:[],data_coverage:[]
   };
   const db={from(){
     let key='';
@@ -59,10 +73,23 @@ test('한 규칙의 버전이 많이 쌓여도 두 규칙의 최신값을 각각
     return chain;
   }};
   const set=await rules.loadOperatingRuleSet(db,{historyLimit:4});
-  assert.deepEqual(keys,['insight','auto_diagnosis']);
+  assert.deepEqual(keys,rules.RULE_KEYS);
   assert.equal(set.current.insight.version,42);
   assert.equal(set.current.auto_diagnosis.version,3);
   assert.equal(set.current.auto_diagnosis.config.target_roas_percent,330);
+});
+
+test('새 규칙의 최신값을 보고서와 이상징후 임계값으로 합성한다',()=>{
+  const set=rules.buildOperatingRuleSet([
+    {rule_key:'anomaly_detection',version:2,config_json:{decrease_warning_percent:18,decrease_critical_percent:31,increase_warning_percent:24,increase_critical_percent:41}},
+    {rule_key:'financial_trust',version:3,config_json:{minimum_cost_coverage_percent:97}},
+    {rule_key:'data_coverage',version:4,config_json:{minimum_data_coverage_percent:92}}
+  ]);
+  const thresholds=rules.effectiveReportThresholds(set);
+  assert.equal(thresholds.anomaly_decrease_warning_percent,18);
+  assert.equal(thresholds.minimum_cost_coverage_percent,97);
+  assert.equal(thresholds.minimum_data_coverage_percent,92);
+  assert.deepEqual(thresholds.versions,{insight:1,auto_diagnosis:1,anomaly_detection:2,financial_trust:3,data_coverage:4});
 });
 
 test('운영 규칙 마이그레이션은 버전 누적과 service role 전용 접근을 보장한다',()=>{
@@ -81,6 +108,8 @@ test('주간 인사이트와 자동진단은 저장된 최신 운영식을 계�
   assert.match(weekly,/loadOperatingRuleSet/);
   assert.match(weekly,/effectiveReportThresholds/);
   assert.match(weekly,/operating_rule/);
+  assert.match(weekly,/minimum_data_coverage_percent/);
+  assert.match(weekly,/thresholds,\s*platform/);
   assert.doesNotMatch(weekly,/naver\.roas\s*<\s*250/);
   assert.doesNotMatch(weekly,/conversion_rate\s*<\s*2/);
 });

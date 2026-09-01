@@ -34,6 +34,6 @@ export async function PATCH(request){
   try{
     const body=await apiSafety.readJson(request,{maxBytes:16*1024});
     const item=await operatingRules.saveRuleVersion({db:supabaseModule.getSupabase(),input:body,actor:authModule.actor(session),now:new Date()});
-    return apiSafety.json({ok:true,item,applied_at:item.createdAt,automation:'다음 자동진단부터 즉시 적용'});
+    return apiSafety.json({ok:true,item,applied_at:item.createdAt,automation:'연결된 다음 계산·진단부터 즉시 적용'});
   }catch(error){console.error('[ai operating rules PATCH]',error);return failure(error);}
 }

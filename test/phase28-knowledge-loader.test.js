@@ -3,6 +3,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {loadPhase28KnowledgeSnapshot}=require('../lib/ai/phase28-knowledge-snapshot.js');
+const {RULE_KEYS}=require('../lib/ai/operating-rules.js');
 
 function query(result,calls){
   const chain={
@@ -28,9 +29,9 @@ test('AI 기준자료 경량 로더는 공개 메타정보와 최신 운영식�
   });
 
   assert.equal(result.items.length,1);
-  assert.deepEqual(calls.filter(call=>call.method==='from').map(call=>call.value),['ai_knowledge_documents','ai_operating_rule_versions','ai_operating_rule_versions']);
-  assert.deepEqual(calls.filter(call=>call.method==='eq').map(call=>call.value),['insight','auto_diagnosis']);
-  assert.deepEqual(calls.filter(call=>call.method==='limit').map(call=>call.value),[120,20,20]);
+  assert.deepEqual(calls.filter(call=>call.method==='from').map(call=>call.value),['ai_knowledge_documents',...RULE_KEYS.map(()=>'ai_operating_rule_versions')]);
+  assert.deepEqual(calls.filter(call=>call.method==='eq').map(call=>call.value),RULE_KEYS);
+  assert.deepEqual(calls.filter(call=>call.method==='limit').map(call=>call.value),[120,...RULE_KEYS.map(()=>20)]);
   const selected=calls.filter(call=>call.method==='select')[0].value;
   assert.equal(selected.includes('*'),false);
   assert.equal(selected.includes('source_storage_path'),false);

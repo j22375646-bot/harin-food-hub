@@ -37,19 +37,22 @@ test('AI 기준자료 저장소 오류는 자료 0개나 적용 가능 상태로
   assert.equal(model.policy.openAiUploadsEnabled,false);
 });
 
-test('AI 기준자료 화면은 인사이트·자동진단의 최신 운영 규칙과 버전을 함께 표시한다',()=>{
+test('AI 기준자료 화면은 역할별 최신 운영 규칙과 적용 위치를 함께 표시한다',()=>{
   const model=buildPhase28KnowledgeModel({
     generatedAt:'2026-08-31T00:00:00Z',categories:{},pageLabels:{},items:[],
     operatingRules:{
       current:{
         insight:{ruleKey:'insight',title:'인사이트 판정식',version:3,config:{target_roas_percent:310,conversion_rate_warning_percent:2.5,change_warning_percent:12,minimum_cost_coverage_percent:95,freshness_hours:30,enabled:true},createdAt:'2026-08-31T00:00:00Z'},
-        auto_diagnosis:{ruleKey:'auto_diagnosis',title:'자동진단 판정식',version:4,config:{target_roas_percent:320,conversion_rate_warning_percent:2.2,change_warning_percent:10,minimum_cost_coverage_percent:96,freshness_hours:26,enabled:true},createdAt:'2026-08-31T00:00:00Z'}
+        auto_diagnosis:{ruleKey:'auto_diagnosis',title:'자동진단 판정식',version:4,config:{target_roas_percent:320,conversion_rate_warning_percent:2.2,enabled:true},createdAt:'2026-08-31T00:00:00Z'},
+        anomaly_detection:{ruleKey:'anomaly_detection',title:'이상징후 감지식',version:2,config:{decrease_warning_percent:20,decrease_critical_percent:35,increase_warning_percent:25,increase_critical_percent:45,enabled:true},createdAt:'2026-08-31T00:00:00Z'}
       },
-      history:{insight:[],auto_diagnosis:[]}
+      history:{insight:[],auto_diagnosis:[],anomaly_detection:[]}
     }
   });
-  assert.equal(model.operatingRules.length,2);
+  assert.equal(model.operatingRules.length,3);
   assert.equal(model.operatingRules[0].versionLabel,'v3');
-  assert.equal(model.operatingRules[1].metrics.targetRoasPercent,320);
-  assert.equal(model.summary.operatingRules,2);
+  assert.equal(model.operatingRules[1].fields[0].value,320);
+  assert.equal(model.operatingRules[2].fields[0].label,'하락 경고');
+  assert.match(model.operatingRules[2].appliesToLabel,/이상징후/);
+  assert.equal(model.summary.operatingRules,3);
 });

@@ -30,12 +30,14 @@ test('V106 AI 기준자료는 네 신뢰 게이트와 실제 등록·검수·승
   assert.match(page,/OpenAI 전송 없음/);
 });
 
-test('AI 기준자료 화면은 인사이트·자동진단 운영식을 수정하고 즉시 서버 반영한다',()=>{
+test('AI 기준자료 화면은 실제 계산 경로별 운영식을 수정하고 즉시 서버 반영한다',()=>{
   const page=read('app/_phase28/pages/knowledge-page.js');
   const route=read('app/api/ai/operating-rules/route.js');
-  for(const label of ['운영 규칙','인사이트 판정식','자동진단 판정식','목표 ROAS','구매 전환율 경고','변화 감지율','원가 반영률','자료 최신성'])assert.match(page,new RegExp(label));
+  const domain=read('lib/ai/operating-rules.js');
+  for(const label of ['인사이트 변화 판정식','광고·전환 진단식','이상징후 감지식','재무 신뢰 판정식','데이터 충족 판정식','목표 ROAS','구매 전환율 경고','변화 감지율','최소 원가 반영률','최소 기간 충족률'])assert.match(domain,new RegExp(label));
+  assert.match(page,/실제 적용 위치/);
   assert.match(page,/\/api\/ai\/operating-rules/);
-  assert.match(page,/다음 자동진단부터 즉시 적용/);
+  assert.match(page,/다음 계산·진단부터 즉시 적용/);
   assert.match(route,/saveRuleVersion/);
   assert.match(route,/roleAtLeast\(session,'OWNER'\)/);
 });
@@ -49,4 +51,6 @@ test('AI 기준자료 CSS는 고정 읽기 크기·균형 선택·모바일·절
   assert.doesNotMatch(css,/border-left\s*:/);
   assert.doesNotMatch(css,/linear-gradient|radial-gradient|backdrop-filter|filter:\s*blur/i);
   assert.doesNotMatch(css,/font-size:\s*(?:[0-9]|1[01])px/i);
+  assert.match(css,/\.operatingRuleRail\{[^}]*padding:\s*20px/);
+  assert.match(css,/overflow-wrap:\s*anywhere/);
 });
