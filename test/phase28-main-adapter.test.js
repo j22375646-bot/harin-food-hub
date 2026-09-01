@@ -146,6 +146,21 @@ test('main adapter supplies the complete V106 money, deadline, forecast, and pay
   assert.equal(model.cashCalendar[0].platform,'NAVER');
 });
 
+test('main payout calendar distinguishes no upcoming amount from missing settlement evidence',()=>{
+  const model=buildPhase28MainModel({
+    generatedAt:'2026-09-01T12:00:00+09:00',
+    unifiedSettlement:{schedules:[
+      {platform:'COUPANG',date:'2026-09-07',status:'SUBJECT',amount:0},
+      {platform:'COUPANG',date:'2026-09-18',status:'SUBJECT',amount:34_747}
+    ]},
+    salesCommandCenter:{daily:{total:0,exception_total:0,schedule:{items:[]}}}
+  });
+  assert.equal(model.cashCalendar.length,0);
+  assert.equal(model.cashCalendarMeta.status,'NO_SCHEDULE');
+  assert.equal(model.cashCalendarMeta.next.date,'2026-09-18');
+  assert.equal(model.cashCalendarMeta.next.amount,34_747);
+});
+
 test('main cashflow uses the measured monthly sales and forecasts from the lightweight order history',()=>{
   const model=buildPhase28MainModel({
     generatedAt:'2026-08-31T12:00:00+09:00',

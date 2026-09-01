@@ -41,7 +41,9 @@ test('Main data loader starts independent data sources together and exposes a qu
   assert.match(loader,/Promise\.all\(\[\s*Promise\.allSettled\(/);
   assert.match(loader,/MAIN_REMOTE_QUERY_BUDGET/);
   assert.match(loader,/monthlyRevenueModule\.fetchMonthlyRevenue/);
-  assert.match(loader,/const MAIN_REMOTE_QUERY_BUDGET=31/);
+  assert.match(loader,/const MAIN_REMOTE_QUERY_BUDGET=35/);
+  assert.match(loader,/historyMonthKeys/);
+  assert.match(loader,/historyMonthlyRevenueResults/);
   assert.match(loader,/naver_stats_daily/);
   assert.match(loader,/coupang_ad_daily_summary/);
   assert.match(loader,/product_costs/);
