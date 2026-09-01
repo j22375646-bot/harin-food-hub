@@ -37,7 +37,8 @@ function referenceTime(value){
   return new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(date);
 }
 function count(value,suffix='건'){return value==null?'확인 필요':`${Number(value).toLocaleString('ko-KR')}${suffix}`;}
-function platformLabel(platform){return platform==='NAVER'?'네이버':platform==='CAFE24'?'Cafe24':platform==='COUPANG_RG'?'쿠팡 로켓그로스':'쿠팡';}
+function platformLabel(platform){return platform==='NAVER'?'네이버':platform==='CAFE24'?'Cafe24':platform==='COUPANG_RG'?'쿠팡 로켓그로스':platform==='COUPANG_COMBINED'?'쿠팡 통합 지급':'쿠팡';}
+function platformBrand(platform){return platform==='COUPANG_COMBINED'?'COUPANG':platform;}
 
 function waterfallLayout(items){
   const values=Object.fromEntries(items.map(item=>[item.id,item.value]));
@@ -65,6 +66,20 @@ function waterfallLayout(items){
   }]));
 }
 
+function RocketGrowthFlow({flow}){
+  const gross=flow?.gross;
+  const net=flow?.net;
+  const netWidth=gross>0&&net!=null?Math.max(4,Math.min(100,net/gross*100)):0;
+  return <section className="spRocketGrowthFlow" data-ready={gross!=null} aria-labelledby="spRocketGrowthTitle">
+    <header><div><span>ROCKET GROWTH · SEPARATE LEDGER</span><h3 id="spRocketGrowthTitle">로켓그로스 매출 반영</h3></div><em>{flow?.includedInTotalGross?'총매출에 한 번만 포함':'매출 근거 확인 필요'}</em></header>
+    {flow?<><div className="spRocketBars" role="img" aria-label={`로켓그로스 판매매출 ${money(gross)}, 비용 차감 후 예상 정산 ${money(net)}`}>
+      <article><span>로켓그로스 판매매출</span><i className="spRocketGrossBar"><b/></i><strong>{money(gross)}</strong></article>
+      <article><span>비용 차감 후 예상 정산</span><i className="spRocketNetBar"><b style={{'--rocket-net-width':`${netWidth}%`}}/></i><strong>{money(net)}</strong></article>
+    </div><dl className="spRocketDeductions"><div><dt>취소·환불</dt><dd>{money(flow.refunds)}</dd></div><div><dt>판매 수수료</dt><dd>{money(flow.fees)}</dd></div><div><dt>배송·물류비</dt><dd>{money(flow.logistics)}</dd></div><div><dt>광고비</dt><dd>{money(flow.advertising)}</dd></div><div><dt>총 공제</dt><dd>{money(flow.deductions)}</dd></div></dl></>:<div className="spRocketEmpty"><strong>로켓그로스 정산 근거를 확인하고 있어요.</strong><span>판매자배송 매출과 합치지 않고 별도 수집 결과를 기다립니다.</span></div>}
+    <p>판매액은 총매출에 1회 포함하고, 수수료·배송/물류비·광고비를 차감한 순정산만 예상 지급액에 반영합니다.</p>
+  </section>;
+}
+
 function DecisionBoard({model,period,setPeriod,selectedId,onSelect}){
   const styles=useMemo(()=>waterfallLayout(model.waterfall||[]),[model]);
   const channels=model.channels||[];
@@ -79,11 +94,11 @@ function DecisionBoard({model,period,setPeriod,selectedId,onSelect}){
   return <section className="spDecisionBoard" aria-labelledby="spDecisionTitle">
     <header className="spBoardHeading"><div><span>최근 정산 대조</span><h2 id="spDecisionTitle">판매금이 실제 지급액이 되기까지 한 줄로 맞춰봐요.</h2><p>공제 흐름과 채널별 차이를 같은 기간으로 계산하고, 모르는 값은 확인 필요로 남겨요.</p></div><div className="spPeriod"><div role="group" aria-label="정산 조회 기간">{(model.periodOptions||[period]).map(days=><button type="button" aria-pressed={period===days} key={days} onClick={()=>setPeriod(days)}>{days}일</button>)}</div><span>최근 {period}일 · {referenceTime(model.end)} 기준</span></div></header>
     <div className="spLedger" aria-label="선택 기간 정산 요약"><article><span>예상 정산액</span><strong>{money(model.expected)}</strong><small>확인된 주문·공제 기준</small></article><article><span>실제 지급액</span><strong>{money(model.actual)}</strong><small>채널 정산서 기준</small></article><article data-attention="true"><span>예상 대비 차이</span><strong>{money(model.variance,{signed:true})}</strong><small>{varianceCount?`${varianceCount}개 채널 근거 확인 필요`:'대조 완료'}</small></article><article><span>다음 지급</span><strong>{next?dateLabel(next.date):'확인 필요'}</strong><small>{next?`${platformLabel(next.platform)} · ${money(next.amount)}`:'지급 일정 자료 없음'}</small></article></div>
-    <div className="spSpineGrid"><figure className="spWaterfall"><figcaption><div><span>정산 대조 스파인</span><strong>총매출에서 실제 지급까지</strong></div><div className="spLegend"><i data-tone="blue"/>지급액<i data-tone="expense"/>공제<i data-tone="actual"/>차이</div></figcaption><div className="spWaterfallChart" role="img" aria-label="총매출에서 취소 환불, 판매 수수료, 배송 물류비, 광고비를 거쳐 예상 정산액과 실제 지급액을 비교한 그래프">{(model.waterfall||[]).map(item=><article className="spWaterfallStep" data-tone={item.tone} data-known={item.value!=null} data-negative={Number(item.value)<0} key={item.id}><div className="spWaterfallTrack"><i className="spWaterfallBar" style={styles[item.id]}/></div><strong>{item.value==null?'확인 필요':money(['refunds','fees','logistics','advertising'].includes(item.id)?-Math.abs(item.value):item.value)}</strong><span>{item.label}</span></article>)}</div><p>채널별 원본은 섞지 않고, 같은 기간의 서버 계산 합계만 한 축에서 비교합니다.</p></figure>
+    <div className="spSpineGrid"><figure className="spWaterfall"><figcaption><div><span>정산 대조 스파인</span><strong>총매출에서 실제 지급까지</strong></div><div className="spLegend"><i data-tone="blue"/>지급액<i data-tone="expense"/>공제<i data-tone="actual"/>차이</div></figcaption><RocketGrowthFlow flow={model.rocketGrowthFlow}/><div className="spWaterfallChart" role="img" aria-label="로켓그로스 판매매출을 포함한 총매출에서 취소 환불, 판매 수수료, 배송 물류비, 광고비를 거쳐 예상 정산액과 실제 지급액을 비교한 그래프">{(model.waterfall||[]).map(item=><article className="spWaterfallStep" data-tone={item.tone} data-known={item.value!=null} data-negative={Number(item.value)<0} key={item.id}><div className="spWaterfallTrack"><i className="spWaterfallBar" style={styles[item.id]}/></div><strong>{item.value==null?'확인 필요':money(['refunds','fees','logistics','advertising'].includes(item.id)?-Math.abs(item.value):item.value)}</strong><span>{item.label}</span></article>)}</div><p>채널별 원본은 섞지 않고, 로켓그로스 판매액과 비용도 한 번씩만 반영한 서버 계산 합계입니다.</p></figure>
       <section className="spVarianceLens" aria-labelledby="spVarianceTitle"><header><div><span>채널별 차이</span><h3 id="spVarianceTitle">0원선에서 벗어난 금액</h3></div><strong>{money(model.variance,{signed:true})}</strong></header><div>{channels.map(channel=>{const width=channel.variance==null?0:Math.max(channel.variance===0?0:8,Math.abs(channel.variance)/maxVariance*46);return <button type="button" className="spVarianceRow" data-selected={selectedId===channel.id} data-tone={channel.tone} aria-pressed={selectedId===channel.id} key={channel.id} onClick={()=>onSelect(channel.id)}><Phase28ChannelLogo brand={channel.platform}/><span><strong>{channel.label}</strong><small>{channel.stateLabel}</small></span><i className="spVarianceTrack" style={{'--variance-width':`${width}%`}} aria-hidden="true"><b/></i><em>{money(channel.variance,{signed:true})}</em></button>;})}</div></section>
     </div>
     <div className="spDecisionBrief"><article><span>금액 변화</span><strong>{model.variance==null?'비교할 실제 지급액 확인 필요':model.variance===0?'예상과 실제 지급액 일치':`예상보다 ${Math.abs(model.variance).toLocaleString('ko-KR')}원 ${model.variance<0?'적게':'많게'} 지급`}</strong></article><article><span>확인된 근거</span><strong>{count(comparable.length,'개 채널')} 비교 가능</strong></article><article><span>다음 행동</span><strong>{channels.find(item=>item.variance!==0||item.actual==null)?.action||'다음 지급 일정을 확인하세요.'}</strong></article></div>
-    <section className="spPayoutTimeline" aria-labelledby="spPayoutTitle"><header><div><span>지급 예정 흐름</span><h3 id="spPayoutTitle">가까운 입금과 막힌 근거</h3></div><small>각 채널 정산서 기준</small></header><div className="spPayoutAxis" aria-hidden="true"/><div className="spPayoutEvents">{nextSchedules.length?nextSchedules.map((schedule,index)=>{const channel=channels.find(item=>item.platform===schedule.platform);return <button type="button" className="spPayoutEvent" data-selected={channel?.id===selectedId} key={`${schedule.platform}-${schedule.date}-${index}`} onClick={()=>channel&&onSelect(channel.id)}><i data-tone={channel?.tone||'warning'}/><Phase28ChannelLogo brand={schedule.platform}/><span><small>{dateLabel(schedule.date)} · {schedule.status}</small><strong>{money(schedule.amount)}</strong><em>{channel?.stateLabel||'근거 확인 필요'}</em></span></button>; }):<div className="spEmptyTimeline"><HarinIcon name="clock" size={22}/><strong>수집된 지급 일정이 없어요.</strong><span>채널 정산 수집 상태를 확인해주세요.</span></div>}</div></section>
+    <section className="spPayoutTimeline" aria-labelledby="spPayoutTitle"><header><div><span>지급 예정 흐름</span><h3 id="spPayoutTitle">가까운 입금과 막힌 근거</h3></div><small>각 채널 정산서 기준</small></header><div className="spPayoutAxis" aria-hidden="true"/><div className="spPayoutEvents">{nextSchedules.length?nextSchedules.map((schedule,index)=>{const channel=channels.find(item=>item.platform===schedule.platform);return <button type="button" className="spPayoutEvent" data-selected={channel?.id===selectedId} key={`${schedule.platform}-${schedule.date}-${index}`} onClick={()=>channel&&onSelect(channel.id)}><i data-tone={channel?.tone||'warning'}/><Phase28ChannelLogo brand={platformBrand(schedule.platform)}/><span><small>{dateLabel(schedule.date)} · {schedule.status}</small><strong>{money(schedule.amount)}</strong><em>{schedule.platform==='COUPANG_COMBINED'?'판매자배송·로켓그로스 미분리':channel?.stateLabel||'근거 확인 필요'}</em></span></button>; }):<div className="spEmptyTimeline"><HarinIcon name="clock" size={22}/><strong>수집된 지급 일정이 없어요.</strong><span>채널 정산 수집 상태를 확인해주세요.</span></div>}</div></section>
   </section>;
 }
 
@@ -108,7 +123,7 @@ function NaverAdvertisingWorkspace({channels}){
 }
 
 function HistoryWorkspace({schedules}){
-  return <div className="spHistory">{schedules.length?schedules.map((schedule,index)=><article key={`${schedule.platform}-${schedule.date}-${index}`}><time>{dateLabel(schedule.date)}</time><Phase28ChannelLogo brand={schedule.platform}/><div><strong>{schedule.type}</strong><p>{schedule.status} · {money(schedule.amount)}</p></div><em>조회 전용</em></article>):<div className="spEmptyState"><HarinIcon name="database" size={24}/><strong>대조 이력이 아직 없어요.</strong><span>채널별 정산 원본이 수집되면 날짜순으로 표시됩니다.</span></div>}</div>;
+  return <div className="spHistory">{schedules.length?schedules.map((schedule,index)=><article key={`${schedule.platform}-${schedule.date}-${index}`}><time>{dateLabel(schedule.date)}</time><Phase28ChannelLogo brand={platformBrand(schedule.platform)}/><div><strong>{schedule.type}</strong><p>{schedule.status} · {money(schedule.amount)}</p></div><em>조회 전용</em></article>):<div className="spEmptyState"><HarinIcon name="database" size={24}/><strong>대조 이력이 아직 없어요.</strong><span>채널별 정산 원본이 수집되면 날짜순으로 표시됩니다.</span></div>}</div>;
 }
 
 function SettlementWorkbench({model,workspace,setWorkspace,selectedId,onSelect}){

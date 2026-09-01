@@ -117,6 +117,29 @@ test('settlement adapter exposes Rocket Growth as its own cost evidence card',()
   assert.equal(rocket.evidence.settlementCoverage,50);
 });
 
+test('settlement adapter exposes Rocket Growth gross and net contribution without merging seller delivery',()=>{
+  const source=center(30,[
+    channel('COUPANG',{label:'쿠팡 판매자배송',gross_sales:80000,expected_payout:58000}),
+    channel('COUPANG_RG',{label:'쿠팡 로켓그로스',gross_sales:100000,refunds:0,fees:10000,logistics:9300,advertising:33000,expected_payout:47700,actual_payout:null,payout_variance:null})
+  ]);
+  source.waterfall={
+    ...source.waterfall,
+    gross_sales:180000,
+    expected_payout:105700,
+    revenue_breakdown:[
+      {platform:'COUPANG',label:'쿠팡 판매자배송',gross_sales:80000,expected_payout:58000},
+      {platform:'COUPANG_RG',label:'쿠팡 로켓그로스',gross_sales:100000,expected_payout:47700}
+    ],
+    rocket_growth:{gross_sales:100000,refunds:0,fees:10000,logistics:9300,advertising:33000,deductions:52300,expected_payout:47700,actual_payout:null,included_in_total_gross:true}
+  };
+  const model=buildPhase28SettlementModel({settlementPeriods:{30:source}}).periods['30'];
+  assert.deepEqual(model.revenueMix,[
+    {platform:'COUPANG',label:'쿠팡 판매자배송',gross:80000,net:58000},
+    {platform:'COUPANG_RG',label:'쿠팡 로켓그로스',gross:100000,net:47700}
+  ]);
+  assert.deepEqual(model.rocketGrowthFlow,{gross:100000,refunds:0,fees:10000,logistics:9300,advertising:33000,deductions:52300,net:47700,actual:null,includedInTotalGross:true});
+});
+
 test('settlement adapter preserves Cafe24 scope recovery state and reconnect route',()=>{
   const model=buildPhase28SettlementModel({settlementPeriods:{30:center(30,[channel('CAFE24',{
     status:'SCOPE_REQUIRED',

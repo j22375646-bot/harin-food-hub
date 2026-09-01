@@ -29,6 +29,11 @@ test('Phase 28 app renders the V106 settlement decision spine',()=>{
   assert.match(page,/data-phase28-page="settlement"/);
   assert.match(page,/판매금이 실제 지급액이 되기까지/);
   assert.match(page,/총매출에서 실제 지급까지/);
+  assert.match(page,/로켓그로스 매출 반영/);
+  assert.match(page,/총매출에 한 번만 포함/);
+  assert.match(page,/spRocketGrowthFlow/);
+  assert.match(page,/spRocketGrossBar/);
+  assert.match(page,/spRocketNetBar/);
   assert.match(page,/0원선에서 벗어난 금액/);
   assert.match(page,/가까운 입금과 막힌 근거/);
   assert.match(page,/정산 대조 작업공간/);
@@ -58,6 +63,9 @@ test('V106 settlement CSS keeps the fixed readable responsive UI',()=>{
   assert.match(css,/border-color:var\(--sp-blue\)/);
   assert.match(css,/@media \(max-width:760px\)/);
   assert.match(css,/@media \(prefers-reduced-motion:reduce\)/);
+  assert.match(css,/\.spRocketGrowthFlow/);
+  assert.match(css,/\.spRocketGrossBar/);
+  assert.match(css,/\.spRocketNetBar/);
   assert.doesNotMatch(css,/border-left\s*:/);
   assert.doesNotMatch(css,/linear-gradient|radial-gradient|backdrop-filter/);
   assert.doesNotMatch(css,/font-size:(?:[0-9]|1[01])px/);

@@ -139,7 +139,8 @@ test('쿠팡 판매자배송과 로켓그로스 정산·광고·물류비를 채
       {source_type:'SHIPPING',event_date:'2026-08-10',order_id:'SELLER-1',vendor_item_id:'SELLER-VI-1',cost_amount:3000,cost_vat:0,credit_amount:0},
       {source_type:'SALES_COMMISSION',event_date:'2026-08-10',order_id:'RG-1',vendor_item_id:'RG-VI-1',cost_amount:9000,cost_vat:1000,credit_amount:0},
       {source_type:'WAREHOUSING',event_date:'2026-08-10',order_id:'RG-1',vendor_item_id:'RG-VI-1',cost_amount:2000,cost_vat:200,credit_amount:0},
-      {source_type:'SHIPPING',event_date:'2026-08-10',order_id:'RG-1',vendor_item_id:'RG-VI-1',cost_amount:6000,cost_vat:600,credit_amount:0}
+      {source_type:'SHIPPING',event_date:'2026-08-10',order_id:'RG-1',vendor_item_id:'RG-VI-1',cost_amount:6000,cost_vat:600,credit_amount:0},
+      {source_type:'STORAGE',event_date:'2026-08-10',cost_amount:500,cost_vat:0,credit_amount:0,raw_data:{source_file:'STORAGE_FEE.xlsx'}}
     ],
     coupangAdSettlements:[
       {date:'2026-08-10',row_type:'DELIVERY_SUMMARY',delivery_type:'SELLER',billed_amount:11000},
@@ -157,15 +158,32 @@ test('쿠팡 판매자배송과 로켓그로스 정산·광고·물류비를 채
   assert.equal(rocket.label,'쿠팡 로켓그로스');
   assert.equal(rocket.gross_sales,100000);
   assert.equal(rocket.fees,10000);
-  assert.equal(rocket.logistics,8800);
+  assert.equal(rocket.logistics,9300);
   assert.equal(rocket.advertising,33000);
-  assert.equal(rocket.expected_payout,48200);
-  assert.equal(rocket.actual_payout,90000);
+  assert.equal(rocket.expected_payout,47700);
+  assert.equal(rocket.actual_payout,null);
+  assert.equal(rocket.status,'ESTIMATED');
   assert.equal(rocket.settlement_order_count,1);
   assert.equal(rocket.settlement_coverage,100);
-  assert.equal(center.waterfall.logistics,11800);
+  assert.equal(center.waterfall.gross_sales,180000);
+  assert.equal(center.waterfall.logistics,12300);
   assert.equal(center.waterfall.advertising,44000);
-  assert.equal(center.waterfall.expected_payout,106200);
+  assert.equal(center.waterfall.expected_payout,105700);
+  assert.deepEqual(center.waterfall.revenue_breakdown,[
+    {platform:'COUPANG',label:'쿠팡 판매자배송',gross_sales:80000,expected_payout:58000},
+    {platform:'COUPANG_RG',label:'쿠팡 로켓그로스',gross_sales:100000,expected_payout:47700}
+  ]);
+  assert.deepEqual(center.waterfall.rocket_growth,{
+    gross_sales:100000,
+    refunds:0,
+    fees:10000,
+    logistics:9300,
+    advertising:33000,
+    deductions:52300,
+    expected_payout:47700,
+    actual_payout:null,
+    included_in_total_gross:true
+  });
 });
 
 test('로켓그로스 주문보다 정산 연결 범위가 부족하면 확정 지급액과 예상액을 만들지 않는다', () => {
@@ -194,6 +212,17 @@ test('로켓그로스 주문보다 정산 연결 범위가 부족하면 확정 �
   assert.equal(rocket.status,'COST_REQUIRED');
   assert.match(rocket.basis,/정산 연결 1\/2건/);
   assert.equal(center.waterfall.expected_payout,null);
+});
+
+test('판매자배송과 로켓그로스가 함께 있으면 미분리 쿠팡 지급 일정을 한 채널에 귀속하지 않는다',()=>{
+  const center=buildUnifiedSettlementCenter({now,
+    coupangRgOrders:[{order_id:'RG-1',paid_at:'2026-08-10T10:00:00+09:00',total_amount:100000}],
+    coupangRgOrderItems:[{order_id:'RG-1',vendor_item_id:'RG-VI-1',quantity:1,amount:100000}],
+    coupangSettlementSummaries:[{recognition_month:'2026-08',settlement_type:'WEEKLY',settlement_date:'2026-08-13',status:'DONE',final_amount:90000}]
+  });
+  assert.equal(center.schedules[0].platform,'COUPANG_COMBINED');
+  assert.match(center.schedules[0].type,/판매자배송·로켓그로스 미분리/);
+  assert.equal(center.channels.find(item=>item.platform==='COUPANG_RG').actual_payout,null);
 });
 
 test('네이버 커머스 정산 자료가 없으면 0원이 아닌 자료 없음으로 표시한다', () => {
