@@ -40,8 +40,22 @@ const collectorId = String(
   process.env.COUPANG_COLLECTOR_ID || "FIXED_IP_WORKER",
 ).trim();
 const workerStartedAt = new Date().toISOString();
+const OPERATION_RECOVERY_INTERVAL_MS = 2 * 1000;
 let verifiedSourceIp = null;
 fs.mkdirSync(path.dirname(logPath), { recursive: true });
+
+function createSingleFlight(work) {
+  let active = null;
+  return (...args) => {
+    if (active) return active;
+    active = Promise.resolve()
+      .then(() => work(...args))
+      .finally(() => {
+        active = null;
+      });
+    return active;
+  };
+}
 
 function safeMessage(error) {
   const secrets = [
@@ -142,7 +156,11 @@ async function writeHeartbeat(db, values = {}) {
     last_seen_at: now,
     last_success_at: values.success ? now : undefined,
     last_error: values.error ? safeMessage(values.error) : null,
-    metadata: { watch_mode: watchMode, node: process.version },
+    metadata: {
+      watch_mode: watchMode,
+      node: process.version,
+      operation_recovery_interval_ms: OPERATION_RECOVERY_INTERVAL_MS,
+    },
     updated_at: now,
   };
   if (row.last_success_at === undefined) delete row.last_success_at;
@@ -495,12 +513,23 @@ async function runOnce(db = getSupabase()) {
 async function watch(db = getSupabase()) {
   await writeHeartbeat(db, { status: "ONLINE" });
   await processAllPending(db);
+  const drainOperations = createSingleFlight(() => processPendingOperations(db));
   // Realtime is the fast path. This quiet recovery pass only drains explicitly
   // queued requests if a WebSocket event was missed; it never starts a
   // collection unless a user or the daily scheduler already queued one.
   const keepAlive = setInterval(() => {
-    writeHeartbeat(db, { status: "ONLINE" }).then(() => processAllPending(db)).catch((error) => log(`RECOVERY_FAILED ${safeMessage(error)}`));
+    writeHeartbeat(db, { status: "ONLINE" })
+      .then(async () => {
+        await processPending(db);
+        await drainOperations();
+      })
+      .catch((error) => log(`RECOVERY_FAILED ${safeMessage(error)}`));
   }, 60 * 1000);
+  const operationRecovery = setInterval(() => {
+    drainOperations().catch((error) =>
+      log(`OPERATION_RECOVERY_FAILED ${safeMessage(error)}`),
+    );
+  }, OPERATION_RECOVERY_INTERVAL_MS);
   const channel = db
     .channel("harin-coupang-manual-requests")
     .on(
@@ -514,10 +543,13 @@ async function watch(db = getSupabase()) {
     )
     .subscribe((status, error) => {
       log(`REALTIME_${status}${error ? ` ${safeMessage(error)}` : ""}`);
-      if (status === "SUBSCRIBED")
-        processAllPending(db).catch((nextError) =>
-          log(`RECOVERY_FAILED ${safeMessage(nextError)}`),
-        );
+      if (status === "SUBSCRIBED") {
+        processPending(db)
+          .then(() => drainOperations())
+          .catch((nextError) =>
+            log(`RECOVERY_FAILED ${safeMessage(nextError)}`),
+          );
+      }
     });
   const operationChannel = db
     .channel("harin-coupang-operation-requests")
@@ -529,7 +561,7 @@ async function watch(db = getSupabase()) {
         table: "coupang_operation_requests",
       },
       () => {
-        processPendingOperations(db).catch((error) =>
+        drainOperations().catch((error) =>
           log(`OPERATION_EVENT_FAILED ${safeMessage(error)}`),
         );
       },
@@ -542,6 +574,7 @@ async function watch(db = getSupabase()) {
   const shutdown = async (signal) => {
     log(`STOP ${signal}`);
     clearInterval(keepAlive);
+    clearInterval(operationRecovery);
     await writeHeartbeat(db, { status: "STOPPING" });
     await db.removeChannel(channel).catch(() => {});
     await db.removeChannel(operationChannel).catch(() => {});
@@ -569,9 +602,11 @@ if (require.main === module)
   });
 
 module.exports = {
+  OPERATION_RECOVERY_INTERVAL_MS,
   assertAllowedSourceIp,
   claimNext,
   claimNextOperation,
+  createSingleFlight,
   dispatchOperation,
   expirePendingOperations,
   operationFailureDisposition,

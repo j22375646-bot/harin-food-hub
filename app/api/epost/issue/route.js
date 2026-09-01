@@ -6,6 +6,7 @@ import cafe24Config from '../../../../lib/cafe24/config.js';
 import operationQueue from '../../../../lib/coupang/operation-queue.js';
 import unifiedOrdersModule from '../../../../lib/orders/unified-orders.js';
 import shippingLabelModule from '../../../../lib/orders/shipping-label.js';
+import mapLimitModule from '../../../../lib/async/map-limit.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -60,8 +61,7 @@ export async function POST(request) {
     const db = supabaseModule.getSupabase();
     const center = await unifiedOrdersModule.loadUnifiedOrders({ db });
     const byId = new Map(center.orders.map(order=>[order.hubOrderId,order]));
-    const results = [];
-    for (const hubOrderId of orderIds) {
+    const results = await mapLimitModule.mapLimit(orderIds,4,async hubOrderId => {
       const order = byId.get(hubOrderId);
       try {
         if (!order) throw Object.assign(new Error('최신 주문 목록에서 찾지 못했습니다.'), { status:404 });
@@ -84,11 +84,11 @@ export async function POST(request) {
           operationType:'EPOST_LIVE_ISSUE', targetType:'HUB_ORDER', targetId:hubOrderId, payload,
           idempotencyKey:`epost-live:${hubOrderId}`
         });
-        results.push({ hubOrderId, ok:true, pending:!queued.completed, request:queued.request });
+        return { hubOrderId, ok:true, pending:!queued.completed, request:queued.request };
       } catch (error) {
-        results.push({ hubOrderId, ok:false, error:error.message });
+        return { hubOrderId, ok:false, error:error.message };
       }
-    }
+    });
     const succeeded = results.filter(item=>item.ok).length;
     return apiSafety.json({ ok:succeeded>0, succeeded, failed:results.length-succeeded, results }, { status:succeeded?202:409, headers:{'Cache-Control':'no-store'} });
   } catch (error) {

@@ -9,6 +9,33 @@ const worker = require('../scripts/coupang-local-worker.js');
 
 const secret = 'test-only-service-role-secret';
 
+test('우체국 발급 작업은 실시간 신호를 놓쳐도 2초 안에 다시 확인한다', () => {
+  assert.equal(worker.OPERATION_RECOVERY_INTERVAL_MS, 2 * 1000);
+});
+
+test('우체국 발급 복구 신호가 겹쳐도 작업 큐는 한 번만 비운다', async () => {
+  let finish;
+  let calls=0;
+  const gate=new Promise(resolve=>{ finish=resolve; });
+  const drain=worker.createSingleFlight(async () => {
+    calls += 1;
+    await gate;
+    return calls;
+  });
+
+  const first=drain();
+  const second=drain();
+  assert.equal(first,second);
+  assert.equal(calls,0);
+
+  await Promise.resolve();
+  assert.equal(calls,1);
+  finish();
+  assert.deepEqual(await Promise.all([first,second]),[1,1]);
+
+  assert.equal(await drain(),2);
+});
+
 function chain(terminal, calls) {
   const query = {};
   for (const method of ['select','eq','in','order','limit','lt']) query[method] = (...args) => { calls.push([method,...args]); return query; };
