@@ -10,7 +10,7 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 const loaderProfiles=require('../lib/dashboard/page-loader-profiles.js');
 
-test('insight landing and saved workspaces query the same latest weekly channel reports before limiting',()=>{
+test('insight landing and saved workspaces query the latest weekly and monthly channel reports before limiting',()=>{
   const calls=[];
   let query;
   query=new Proxy({}, {
@@ -23,7 +23,7 @@ test('insight landing and saved workspaces query the same latest weekly channel 
   assert.equal(typeof loaderProfiles.scopeInsightReportQuery,'function');
   assert.equal(loaderProfiles.scopeInsightReportQuery(query),query);
   assert.deepEqual(calls,[
-    ['eq','report_type','WEEKLY'],
+    ['in','report_type',['WEEKLY','MONTHLY']],
     ['eq','is_latest',true],
     ['in','platform',['NAVER','CAFE24','COUPANG']],
     ['order','period_end',{ascending:false}],
@@ -56,6 +56,8 @@ test('V106 insights renders channel deck, four-stage signal track, saved reports
   assert.match(page,/이번 주 먼저 볼 인사이트/);
   assert.match(page,/\['변화','원인','이익','행동'\]/);
   assert.match(page,/\['이번 주','저장 인사이트','채널 비교','수익성','누적 진단'\]/);
+  assert.match(page,/SAVED INSIGHTS/);
+  assert.match(page,/주간·월간 자동 생성/);
   assert.match(page,/WEEKLY INSIGHT DESK/);
   assert.match(page,/Phase28RightRailLayout/);
   assert.match(page,/Phase28ChannelLogo/);
@@ -126,12 +128,17 @@ test('insights CSS keeps fixed readable sizing, balanced selection, responsive l
   assert.doesNotMatch(css,/font-size:(?:[0-9]|1[01])px/);
 });
 
-test('weekly insights remain scheduled, channel separated, and idempotent on the server',()=>{
+test('weekly and monthly insights remain scheduled, channel separated, and use the shared scheduler',()=>{
   const weekly=read('lib/reports/weekly.js');
+  const scheduler=read('lib/automation/report-scheduler.js');
   const cron=read('app/api/cron/weekly-report/route.js');
   const vercel=read('vercel.json');
   assert.match(weekly,/\['ALL', 'NAVER', 'CAFE24', 'COUPANG'\]/);
+  assert.match(scheduler,/async function generateWeekly/);
+  assert.match(scheduler,/cleanupDuplicateDiagnosisReports/);
+  assert.match(cron,/scheduleModule\.generateWeekly/);
   assert.match(cron,/guardedRun|idempotency/i);
   assert.match(vercel,/\/api\/cron\/weekly-report/);
   assert.match(vercel,/30 22 \* \* 0/);
+  assert.match(vercel,/\/api\/cron\/monthly-reports/);
 });
