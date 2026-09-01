@@ -58,6 +58,7 @@ export async function proxy(request) {
   }
 
   const headers = new Headers(request.headers);
+  headers.set('x-harin-session-verified', '1');
   headers.set('x-harin-user-id', session.userId);
   headers.set('x-harin-username', session.username);
   headers.set('x-harin-role', session.role);

@@ -135,7 +135,21 @@ test('단일 OWNER Proxy는 다른 역할과 다른 출처 요청을 차단한�
   assert.match(proxy,/session\.role !== 'OWNER'/);
   assert.match(proxy,/CSRF_ORIGIN_MISMATCH/);
   assert.match(proxy,/x-harin-role/);
+  assert.match(proxy,/x-harin-session-verified/);
   assert.match(proxy,/validateSession/);
+});
+
+test('Proxy가 검증한 요청 헤더는 페이지에서 추가 DB 조회 없이 OWNER 세션으로 복원한다',()=>{
+  const headers=new Map([
+    ['x-harin-session-verified','1'],
+    ['x-harin-user-id','owner-user'],
+    ['x-harin-username','owner'],
+    ['x-harin-role','OWNER']
+  ]);
+  const session=auth.verifiedRequestSession({get:name=>headers.get(name)||null});
+  assert.deepEqual(session,{userId:'owner-user',username:'owner',role:'OWNER'});
+  assert.equal(auth.verifiedRequestSession({get:()=>null}),null);
+  assert.equal(auth.verifiedRequestSession({get:name=>name==='x-harin-session-verified'?'1':name==='x-harin-role'?'VIEWER':null}),null);
 });
 
 test('개발 로그인 우회는 쿠키가 없는 Proxy 요청에도 적용된다', () => {

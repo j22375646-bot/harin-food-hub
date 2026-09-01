@@ -13,15 +13,29 @@ test('first authenticated entry uses a dedicated lightweight Main server module'
   assert.match(entry,/loadPhase28MainDashboard/);
   assert.match(entry,/buildPhase28MainModel/);
   assert.match(entry,/phase28-home-app\.js/);
+  assert.match(entry,/verifiedRequestSession/);
+  assert.match(entry,/headers\(\)/);
   assert.doesNotMatch(entry,/dashboard-client/);
   assert.doesNotMatch(entry,/profitabilityModule|naverBidWorkbenchModule|buildPhase28OrdersModel|renderDashboardState/);
   assert.ok(entry.length<8000,'root page must stay small enough to avoid loading every route loader on login');
 });
 
+test('login redirect keeps the persistent Phase 28 shell while Main data streams inside it',()=>{
+  const entry=read('app/page.js');
+  assert.equal(fs.existsSync(path.join(root,'app/loading.js')),false);
+  assert.match(entry,/Suspense/);
+  assert.match(entry,/Phase28Shell/);
+  assert.match(entry,/routeId="home"/);
+  assert.match(entry,/fallback=\{<Phase28Loading\/>\}/);
+  const fallback=read('app/_phase28/phase28-loading.js');
+  assert.match(fallback,/HarinRouteSkeleton/);
+  assert.match(fallback,/오늘 운영 화면/);
+});
+
 test('Main client entry imports only the home page instead of the all-route client registry',()=>{
   const client=read('app/_phase28/phase28-home-app.js');
   assert.match(client,/from '\.\/pages\/home-page\.js'/);
-  assert.match(client,/Phase28Shell/);
+  assert.doesNotMatch(client,/Phase28Shell/);
   assert.doesNotMatch(client,/next\/dynamic|keywords-page|orders-page|insights-page/);
 });
 
