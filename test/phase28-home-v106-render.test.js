@@ -77,6 +77,8 @@ test('V106 Main renders the complete owner-approved executive desk',async()=>{
   }));
 
   for(const label of [
+    '오늘 운영 신호',
+    '이번 달 운영 흐름',
     '오늘의 메모',
     '다음 운영 마감',
     '오늘 일정과 판매 이벤트',
@@ -87,6 +89,7 @@ test('V106 Main renders the complete owner-approved executive desk',async()=>{
     '앞으로 7일 입출금',
     '변경 후 좋아진 것'
   ])assert.match(html,new RegExp(label));
+  assert.match(html,/data-main-layout="daily-desk"/);
   assert.match(html,/이번 달 실제 이익/);
   assert.match(html,/목표 85,000,000원/);
   assert.match(html,/월 목표 수정/);

@@ -13,7 +13,7 @@ test('V106 Main uses the shared heading, channel marks, and right rail',()=>{
   assert.match(page,/Phase28PageHeading/);
   assert.match(page,/Phase28ChannelLogo/);
   assert.match(page,/Phase28RightRailLayout/);
-  assert.match(page,/이번 달, 목표까지 얼마나 남았을까요\?/);
+  assert.match(page,/이번 달 운영 흐름/);
   assert.match(page,/오늘의 운영선/);
   assert.match(page,/오늘 사장님이 결정할 일/);
   assert.doesNotMatch(page,/Phase14MainCommandCenter|HarinAppShell/);

@@ -88,7 +88,7 @@ function GoalDialog({settings={},onClose,onSaved}){
   }
   const content=<div className={styles.goalDialogBackdrop} role="presentation" onMouseDown={event=>event.target===event.currentTarget&&onClose()}>
     <section className={styles.goalDialog} role="dialog" aria-modal="true" aria-labelledby="monthly-goal-title">
-      <header><div><span>MONTHLY GOAL</span><h2 id="monthly-goal-title">{month} 목표 설정</h2><p>한 번 확인하면 저장·검증 후 월 매출과 예상치를 자동으로 다시 계산해요.</p></div><button type="button" onClick={onClose} aria-label="목표 설정 닫기">×</button></header>
+      <header><div><span>월간 목표</span><h2 id="monthly-goal-title">{month} 목표 설정</h2><p>한 번 확인하면 저장·검증 후 월 매출과 예상치를 자동으로 다시 계산해요.</p></div><button type="button" onClick={onClose} aria-label="목표 설정 닫기">×</button></header>
       <form onSubmit={save}>
         <label><span>월 매출 목표</span><input name="revenueTarget" type="number" min="1" step="10000" required value={form.revenueTarget} onChange={update} placeholder="예: 10000000"/></label>
         <label><span>월 광고 예산</span><input name="adBudget" type="number" min="0" step="10000" required value={form.adBudget} onChange={update}/></label>
@@ -106,8 +106,9 @@ function GoalDialog({settings={},onClose,onSaved}){
 
 function CompanyStatus({hero,deadline}){
   const exceptionCount=Number(hero.exceptionCount)||0;
-  return <aside className={styles.companyStatus} aria-label="오늘 회사 상태">
-    <div className={styles.companyState}><span>오늘 회사 상태</span><strong>{hero.taskCount==null?'확인 필요':exceptionCount>0?'집중 운영':'순항 중'}</strong></div>
+  const operatingState=hero.taskCount==null?'확인 필요':exceptionCount>0?'집중 운영':'순항 중';
+  return <aside className={styles.companyStatus} aria-label="오늘 운영 신호" data-state={exceptionCount>0?'attention':'steady'}>
+    <div className={styles.companyState}><span><i aria-hidden="true"/>오늘 운영 신호</span><strong>{operatingState}</strong><small>{hero.taskCount==null?'운영 건수 확인 중':`${Number(hero.taskCount)||0}건을 우선순위대로 확인`}</small></div>
     <div className={styles.statusMatrix}>
       <span><i data-tone="good"/>매출 근거</span>
       <span><i data-tone={exceptionCount>0?'warn':'good'}/>운영 상태</span>
@@ -126,9 +127,9 @@ function MainMetrics({metrics,targetSettings,onNavigate,onGoalSaved}){
     {id:'profit',label:'이번 달 실제 이익',metric:metrics.profit}
   ];
   const progress=metricReady(metrics.current)&&metricReady(metrics.target)&&metrics.target.value>0?Math.max(0,Math.min(100,metrics.current.value/metrics.target.value*100)):0;
-  return <section className={styles.executiveBoard} aria-label="이번 달 경영 현황">
-    <header className={styles.boardHeader}><div><span>EXECUTIVE BOARD</span><h2>이번 달, 목표까지 얼마나 남았을까요?</h2><p>매출이 들어와 실제 이익으로 남는 흐름을 한눈에 봐요.</p></div><small>{formatAsOf(metrics.current?.asOf)}</small></header>
-    <div className={styles.boardMetrics}>{items.map(item=><button type="button" key={item.id} className={styles.boardMetric} onClick={()=>onNavigate({view:'settlement'})}><span>{item.label}</span><strong>{formatWon(item.metric)}</strong><small>{metricEvidence(item.metric)}</small></button>)}</div>
+  return <section className={styles.executiveBoard} aria-label="이번 달 운영 흐름">
+    <header className={styles.boardHeader}><div><span>월간 운영 맥박</span><h2>이번 달 운영 흐름</h2><p>매출이 들어와 실제 이익으로 남는 흐름을 한눈에 봐요.</p></div><small><i aria-hidden="true"/>{formatAsOf(metrics.current?.asOf)}</small></header>
+    <div className={styles.boardMetrics}>{items.map(item=><button type="button" key={item.id} data-metric={item.id} className={styles.boardMetric} onClick={()=>onNavigate({view:'settlement'})}><span>{item.label}</span><strong>{formatWon(item.metric)}</strong><small>{metricEvidence(item.metric)}</small></button>)}</div>
     <div className={styles.vitalityStage}>
       <div className={styles.vitalityHeader}><div><strong>하린식품 경영 활력선</strong><span>돈이 들어와 실제 이익으로 남는 흐름이에요.</span></div><b>{metricReady(metrics.current)?'실제 자료 기준':'근거 확인 필요'}</b></div>
       <div className={styles.vitalityTrack} aria-label="경영 지표 근거 상태">
@@ -141,8 +142,9 @@ function MainMetrics({metrics,targetSettings,onNavigate,onGoalSaved}){
         </div>
       </div>
     </div>
-    <div className={styles.goalControl}>
+    <div className={styles.goalControl} data-ready={metricReady(metrics.target)?'true':'false'}>
       <span><b>{metricReady(metrics.target)?`목표 ${formatWon(metrics.target)}`:'이번 달 목표가 아직 없어요.'}</b><small>{metricReady(metrics.target)?`현재 ${progress.toFixed(1)}% 도달 · 저장 시 자동 재계산`:'저장하면 월 매출과 예상치를 자동으로 다시 계산해요.'}</small></span>
+      <em aria-hidden="true"><i style={{width:`${progress}%`}}/></em>
       <button type="button" onClick={()=>setGoalOpen(true)}>{metricReady(metrics.target)?'월 목표 수정':'이번 달 목표 설정'}</button>
     </div>
     {goalOpen?<GoalDialog settings={targetSettings} onClose={()=>setGoalOpen(false)} onSaved={message=>{setGoalOpen(false);onGoalSaved(message);}}/>:null}
@@ -150,7 +152,7 @@ function MainMetrics({metrics,targetSettings,onNavigate,onGoalSaved}){
 }
 
 function OperatingLine({items,onNavigate}){
-  return <section className={styles.operatingLine} aria-label="오늘의 운영선">
+  return <section className={styles.operatingLine} aria-label="오늘의 운영선" data-count={items.length}>
     <div className={styles.operatingSummary}><span>지난 접속 이후</span><strong>{items.length?`확인할 운영 일정 ${items.length}개`:'새 운영 일정 확인 중'}</strong><small>실제 수집 일정과 운영 상태를 시간 순서로 확인해요.</small><button type="button" onClick={()=>onNavigate('changes')}>지난 접속과 비교</button></div>
     <div className={styles.operatingTrack} role="list">{items.length?items.map(item=><button type="button" role="listitem" key={item.id} data-state={String(item.status||'UPCOMING').toLowerCase()} onClick={()=>onNavigate({view:item.view||'main',workspace:item.workspace||null})}><i/><span><time>{item.time||'시간 확인'}</time><strong>{item.label||'운영 일정 확인'}</strong></span></button>):<div className={styles.emptyState}><strong>운영 일정을 확인하고 있어요.</strong><span>수집 근거가 준비되면 시간 순서로 표시합니다.</span></div>}</div>
   </section>;
@@ -162,14 +164,14 @@ function TodayCalendar({calendar,onNavigate}){
     ?`${item.date} ~ ${item.endDate} · ${item.giftTiers?.length?item.giftTiers.map(tier=>`${Number(tier.minimumAmount).toLocaleString('ko-KR')}원 이상 ${tier.giftName} ${tier.quantity}개`).join(' / '):'사은품 없음'}`
     :item.body|| (item.type==='MEMO'?'오늘 기록':'오늘 일정');
   return <section className={styles.todayCalendar} aria-label="오늘 일정, 메모와 이벤트">
-    <header><div><span>TODAY CALENDAR</span><h2>오늘 일정과 판매 이벤트</h2><p>캘린더에 저장한 오늘 항목과 진행 중인 이벤트를 자동으로 연결했어요.</p></div><button type="button" onClick={()=>onNavigate('calendar')}>캘린더 열기</button></header>
+    <header><div><span>오늘의 일정</span><h2>오늘 일정과 판매 이벤트</h2><p>캘린더에 저장한 오늘 항목과 진행 중인 이벤트를 자동으로 연결했어요.</p></div><button type="button" onClick={()=>onNavigate('calendar')}>캘린더 열기</button></header>
     <div className={styles.todayCalendarList}>{items.length?items.map(item=><button type="button" key={item.id} data-type={item.type} data-done={item.status==='DONE'} onClick={()=>onNavigate('calendar')}><b>{item.type==='MEMO'?'메모':item.type==='EVENT'?'이벤트':item.time||'종일'}</b><span><strong>{item.title}</strong><small>{detail(item)}</small></span><em>{item.status==='DONE'?'완료':item.type==='EVENT'&&item.eventState==='ACTIVE'?'진행 중':'보기'}</em></button>):<button type="button" className={styles.todayCalendarEmpty} onClick={()=>onNavigate('calendar')}><span>오늘은 아직 비어 있어요.</span><strong>일정·메모·이벤트 추가하기</strong></button>}</div>
   </section>;
 }
 
 function MainDecisionList({items,blocked,onNavigate}){
   return <article className={styles.decisionSheet}>
-    <header className={styles.sectionHeader}><div><span>DECISION DESK</span><h2>오늘 사장님이 결정할 일</h2><p>매출과 운영에 영향이 큰 순서대로 정리했어요.</p></div><button type="button" onClick={()=>onNavigate({view:'reports'})}>전체 업무 보기</button></header>
+    <header className={styles.sectionHeader}><div><span>오늘의 판단</span><h2>오늘 사장님이 결정할 일</h2><p>매출과 운영에 영향이 큰 순서대로 정리했어요.</p></div><button type="button" onClick={()=>onNavigate({view:'reports'})}>전체 업무 보기</button></header>
     <div className={styles.decisionList}>{items.length?items.map(item=><button type="button" className={styles.decisionRow} key={item.id} onClick={()=>onNavigate(item)}><b>{item.rank}</b><span><strong>{item.title}</strong><small>{item.reason}</small></span><em><small>{item.status==='READY'?'다음 행동':'선행 확인'}</small><strong>{item.nextStep||'내용 보기'}</strong></em></button>):<div className={styles.emptyState}><strong>{blocked?'운영 건수 근거를 확인해주세요.':'새로 결정할 일이 없어요.'}</strong><span>{blocked?'자료가 준비되면 우선순위대로 표시합니다.':'채널 상태와 매출 흐름만 확인하면 됩니다.'}</span></div>}</div>
   </article>;
 }
@@ -178,7 +180,7 @@ function CashFlowSheet({cashflow,onNavigate}){
   const rows=cashflow?.rows||[];
   const maximum=Math.max(1,...rows.map(item=>typeof item.value==='number'?Math.abs(item.value):0));
   return <article className={styles.cashSheet}>
-    <header className={styles.sectionHeader}><div><span>CASH FLOW</span><h2>돈이 얼마나 남았나요?</h2><p>결제 매출에서 비용과 실제 이익까지 같은 기준으로 봐요.</p></div><button type="button" onClick={()=>onNavigate({view:'settlement'})}>정산·비용 보기</button></header>
+    <header className={styles.sectionHeader}><div><span>현금 흐름</span><h2>돈이 얼마나 남았나요?</h2><p>결제 매출에서 비용과 실제 이익까지 같은 기준으로 봐요.</p></div><button type="button" onClick={()=>onNavigate({view:'settlement'})}>정산·비용 보기</button></header>
     <div className={styles.cashRows}>{rows.length?rows.map((item,index)=><div key={item.key||index} data-profit={item.key==='profit'?'true':'false'}><span>{item.label}</span><em><i style={{width:`${typeof item.value==='number'?Math.max(4,Math.abs(item.value)/maximum*100):0}%`}}/></em><strong>{formatPlainWon(item.value)}</strong></div>):<div className={styles.emptyState}><strong>현금 흐름 근거를 확인하고 있어요.</strong><span>자료가 준비되면 비용과 실제 이익을 분리해 표시합니다.</span></div>}</div>
     <p className={styles.cashBasis}>{cashflow?.description||'결제 매출은 실제값, 비용과 이익은 확인된 근거만 표시합니다.'}</p>
   </article>;
@@ -196,7 +198,7 @@ function GrowthHorizon({growth,sources={},forecast,onNavigate}){
   }):<div className={styles.forecastEmpty}><strong>{emptyTitle}</strong><span>{emptyCopy}</span></div>}</div>;
   const openGrowthSource=destination=>onNavigate(destination==='insights'?{view:'insight',workspace:'overview'}:'product-analysis');
   return <section className={styles.growthHorizon}>
-    <article className={styles.growthPanel}><header className={styles.sectionHeader}><div><span>GROWTH HORIZON</span><h2>이번 주 성장 동력</h2><p>저장된 인사이트와 상품분석의 실제 근거만 연결해요.</p></div><nav className={styles.growthNav} aria-label="성장 동력 근거 페이지"><button type="button" onClick={()=>openGrowthSource('insights')}>인사이트</button><button type="button" onClick={()=>openGrowthSource('product-analysis')}>상품분석</button></nav></header><div className={styles.growthSources} aria-label="연결된 성장 근거"><button type="button" onClick={()=>openGrowthSource('insights')}><span>인사이트</span><strong>{sources.insights?.reportCount?`${sources.insights.reportCount}개 저장`:'근거 확인 필요'}</strong></button><button type="button" onClick={()=>openGrowthSource('product-analysis')}><span>상품분석</span><strong>{sources.productAnalysis?.reportCount?`${sources.productAnalysis.reportCount}개 저장`:'근거 확인 필요'}</strong></button></div><div className={styles.growthRows}>{growthRows.length?growthRows.map((item,index)=><button type="button" key={item.key||index} onClick={()=>openGrowthSource(item.destination)}><b>{item.source==='INSIGHT'?'◎':'↗'}</b><span><i>{item.sourceLabel||'판매 근거'}</i><strong>{item.name||'상품 확인'}</strong><small>{item.evidence||item.metricLabel||(item.growthRate==null?'성장 근거 확인':`이전 7일보다 +${item.growthRate}%`)}</small></span><em>{item.metricLabel||formatPlainWon(item.currentRevenue)}</em></button>):<div className={styles.emptyState}><strong>저장된 성장 근거를 확인하고 있어요.</strong><span>인사이트 보고서나 상품분석표가 저장되면 이곳에 연결합니다.</span></div>}</div></article>
+    <article className={styles.growthPanel}><header className={styles.sectionHeader}><div><span>성장 근거</span><h2>이번 주 성장 동력</h2><p>저장된 인사이트와 상품분석의 실제 근거만 연결해요.</p></div><nav className={styles.growthNav} aria-label="성장 동력 근거 페이지"><button type="button" onClick={()=>openGrowthSource('insights')}>인사이트</button><button type="button" onClick={()=>openGrowthSource('product-analysis')}>상품분석</button></nav></header><div className={styles.growthSources} aria-label="연결된 성장 근거"><button type="button" onClick={()=>openGrowthSource('insights')}><span>인사이트</span><strong>{sources.insights?.reportCount?`${sources.insights.reportCount}개 저장`:'근거 확인 필요'}</strong></button><button type="button" onClick={()=>openGrowthSource('product-analysis')}><span>상품분석</span><strong>{sources.productAnalysis?.reportCount?`${sources.productAnalysis.reportCount}개 저장`:'근거 확인 필요'}</strong></button></div><div className={styles.growthRows}>{growthRows.length?growthRows.map((item,index)=><button type="button" key={item.key||index} onClick={()=>openGrowthSource(item.destination)}><b>{item.source==='INSIGHT'?'◎':'↗'}</b><span><i>{item.sourceLabel||'판매 근거'}</i><strong>{item.name||'상품 확인'}</strong><small>{item.evidence||item.metricLabel||(item.growthRate==null?'성장 근거 확인':`이전 7일보다 +${item.growthRate}%`)}</small></span><em>{item.metricLabel||formatPlainWon(item.currentRevenue)}</em></button>):<div className={styles.emptyState}><strong>저장된 성장 근거를 확인하고 있어요.</strong><span>인사이트 보고서나 상품분석표가 저장되면 이곳에 연결합니다.</span></div>}</div></article>
     <article className={styles.forecastPanel} aria-label="실제 매출과 7일 전망">
       <section className={styles.salesBand} data-kind="actual"><header><div><span>최근 7일 실제 매출</span><strong>{formatPlainWon(forecast?.actualRevenue)}</strong></div><em>{actualDays.length?'실제값':'확인 필요'}</em></header>{salesChart(actualDays,'최근 7일 실제 매출','실제 매출 근거가 부족해요.','채널별 결제 주문 수집 상태를 확인해주세요.')}<p>{forecast?.actualBasis||'최근 7일 실제 매출 근거 확인 필요'}</p></section>
       <section className={styles.salesBand} data-kind="forecast"><header><div><span>다음 7일 전망</span><strong>{formatPlainWon(forecast?.expectedRevenue)}</strong></div><em>{forecast?.status==='PARTIAL'?'예상값':'확인 필요'}</em></header>{salesChart(days,'다음 7일 매출 전망','7일 전망을 계산할 근거가 부족해요.','최근 판매 자료가 준비되면 예상값으로 표시합니다.')}<p>{forecast?.basis||'최근 판매 근거 확인 필요'}</p></section>
@@ -230,7 +232,7 @@ export default function Phase28HomePage({model={},aiPanel=null,onNavigate=()=>{}
   const hero=model.hero||{};
   const taskCount=typeof hero.taskCount==='number'?hero.taskCount:null;
   const [goalMessage,setGoalMessage]=useState('');
-  return <section className={styles.home} data-phase28-root="true" data-phase28-page="home">
+  return <section className={styles.home} data-phase28-root="true" data-phase28-page="home" data-main-layout="daily-desk">
     <div className={styles.intro}>
       <div className={styles.introCopy}><Phase28PageHeading context={`실제 운영 자료 · ${formatAsOf(hero.asOf)}`} title={taskCount===null?'오늘 운영 건수는 ':taskCount>0?'오늘 처리할 일은 ':'오늘 회사는 '} accent={taskCount===null?'확인 필요':taskCount>0?`${taskCount}건`:'순항 중'} suffix="이에요." summary={hero.summary||'운영 자료를 확인하고 있어요.'}/><div className={styles.todayNote}><span>오늘의 메모</span><strong>{hero.note||'등록된 메모 없음'}</strong></div></div>
       <CompanyStatus hero={hero} deadline={model.deadline||{}}/>
