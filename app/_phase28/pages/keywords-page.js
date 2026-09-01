@@ -64,6 +64,11 @@ function WorkspaceTabs({model,router}){
   return <nav className="kpTabs" role="tablist" aria-label="키워드 작업공간">{(model.workspaces||[]).map(item=><button type="button" role="tab" aria-selected={item.active} key={item.id} onClick={()=>pushPhase28Route(router,item.href)}><strong>{item.label}</strong><small>{item.description}</small></button>)}</nav>;
 }
 
+function KeywordCollectionBar({model,collecting,notice,onCollect}){
+  const isNaver=model.platform==='naver';
+  return <section className="kpCollectionBar" aria-label="키워드 자료 수집"><div><i><HarinIcon name="sync" size={21}/></i><span><small>KEYWORD DATA COLLECTION</small><strong>{isNaver?'매일 05:30 자동수집':'쿠팡 WING 광고 파일 수집'}</strong><p>{isNaver?'자동수집과 같은 기준으로 최근 7일·당일 ROAS를 지금 다시 받아요.':'쿠팡 광고 API 수집으로 표시하지 않고 WING에서 내려받은 원본 XLSX만 반영해요.'}</p></span></div>{isNaver?<button type="button" disabled={collecting} onClick={()=>onCollect()}><HarinIcon name="sync" size={17}/>{collecting?'키워드 수집 중…':'키워드 지금 수집'}</button>:<label aria-disabled={collecting}><input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple disabled={collecting} onChange={event=>{const files=[...(event.currentTarget.files||[])];event.currentTarget.value='';if(files.length)onCollect(files);}}/><HarinIcon name="upload" size={17}/>{collecting?'광고 파일 반영 중…':'쿠팡 광고 XLSX 가져오기'}</label>}{notice?<p role="status" data-tone={notice.tone}>{notice.message}</p>:null}</section>;
+}
+
 function KeywordTable({model,rows,selected,activeId,drafts,onToggle,onInspect,onDraft}){
   return <div className="kpTableScroll" role="region" aria-label="키워드 운영표" tabIndex="0"><div className="kpTable"><div className="kpTableHead" role="row"><span>선택</span><span>키워드·채널</span><span>캠페인</span><span>현재 입찰</span><span>추천 입찰</span><span>수정 입찰가</span><span>클릭</span><span>광고비</span><span>주문</span><span className="kpRoasHead"><small>최근 7일 ROAS</small><small>당일 ROAS</small></span><span>상태</span></div>{rows.length?<div className="kpRows">{rows.map(row=><article className="kpRow" data-selected={selected.has(row.id)} data-inspected={activeId===row.id} role="row" tabIndex="0" key={row.id} onClick={()=>onInspect(row.id)} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();onInspect(row.id);}}}><span><input type="checkbox" checked={selected.has(row.id)} aria-label={`${row.keyword} 선택`} onClick={event=>event.stopPropagation()} onChange={()=>onToggle(row.id)}/></span><span className="kpName"><Phase28ChannelLogo brand={row.channel} size="compact"/><i><strong>{row.keyword}</strong><small>{row.channel==='NAVER'?'네이버 검색광고':'쿠팡 상품광고'}</small></i></span><span className="kpCampaign"><strong>{row.campaign||'캠페인 확인 필요'}</strong></span><span data-missing={row.currentBid==null}>{row.channel==='COUPANG'?'WING 확인':money(row.currentBid)}</span><span data-missing={row.recommendedBid==null}>{row.channel==='COUPANG'?'수동 판단':money(row.recommendedBid)}</span><span className="kpDraft">{row.canDraft?<input type="number" inputMode="numeric" min={row.minimumBid} max={row.maximumBid} step="10" placeholder="직접 입력" value={drafts[row.id]??''} aria-label={`${row.keyword} 수정 입찰가`} onClick={event=>event.stopPropagation()} onFocus={()=>onInspect(row.id)} onChange={event=>onDraft(row,event.currentTarget.value,false)} onBlur={event=>onDraft(row,event.currentTarget.value,true)}/>:<em>{row.channel==='COUPANG'?'작업표 입력':'—'}</em>}</span><span>{count(row.clicks)}</span><span>{money(row.cost)}</span><span data-missing={row.orders==null}>{count(row.orders)}</span><RoasPair row={row}/><span><b className="kpStatus" data-tone={row.tone}>{row.statusLabel}</b></span></article>)}</div>:<div className="kpEmpty"><HarinIcon name="search" size={23}/><strong>조건에 맞는 키워드가 없어요.</strong><span>검색어나 빠른 보기를 바꿔보세요.</span></div>}</div></div>;
 }
@@ -91,6 +96,8 @@ export default function Phase28KeywordsPage({model,aiPanel}){
   const [previewOpen,setPreviewOpen]=useState(false);
   const [working,setWorking]=useState(false);
   const [result,setResult]=useState('');
+  const [collecting,setCollecting]=useState(false);
+  const [collectionNotice,setCollectionNotice]=useState(null);
   const visibleLimit=model.visibleLimit||20;
   const [showCount,setShowCount]=useState(visibleLimit);
 
@@ -98,7 +105,7 @@ export default function Phase28KeywordsPage({model,aiPanel}){
   const effectiveSort=sortOptions.some(item=>item.value===sort)?sort:(model.view?.sort||'COST_DESC');
   useEffect(()=>{if(campaignId!=='ALL'&&!(model.campaigns||[]).some(item=>item.id===campaignId))setCampaignId('ALL');},[campaignId,model.campaigns,setCampaignId]);
   useEffect(()=>{if(!sortOptions.some(item=>item.value===sort))setSort(model.view?.sort||'COST_DESC');},[sort,sortOptions,setSort,model.view?.sort]);
-  useEffect(()=>{setSelected(new Set());setActiveId(sourceRows[0]?.id||null);setDrafts({});setPreviewOpen(false);setResult('');},[model.platform,model.workspace,campaignId]);
+  useEffect(()=>{setSelected(new Set());setActiveId(sourceRows[0]?.id||null);setDrafts({});setPreviewOpen(false);setResult('');setCollectionNotice(null);},[model.platform,model.workspace,campaignId]);
   const visibleRows=useMemo(()=>{
     const campaignRows=campaignId==='ALL'?sourceRows:sourceRows.filter(row=>row.campaignId===campaignId);
     return keywordOperations.filterKeywordRows(campaignRows,{query,sort:effectiveSort}).filter(row=>filter==='all'||row.tone===filter);
@@ -145,12 +152,44 @@ export default function Phase28KeywordsPage({model,aiPanel}){
     if(failed.length)setResult(`완료 ${completed.length}건 · 확인 필요 ${failed.length}건 — ${failed.join(' / ')}`);
     else{setResult(`${completed.length.toLocaleString('ko-KR')}건 반영 완료 · 네이버 현재값 재검증까지 일치했습니다.`);router.refresh();}
   }
+  async function collectKeywordData(files=[]){
+    if(collecting)return;
+    setCollecting(true);
+    setCollectionNotice({tone:'working',message:model.platform==='naver'?'네이버 키워드의 최근 7일·당일 자료를 수집하고 있어요.':'쿠팡 광고 파일을 확인하고 있어요.'});
+    try{
+      if(model.platform==='naver'){
+        const response=await fetch('/api/naver/keyword-stats',{method:'POST'});
+        const body=await response.json();
+        if(!response.ok||!body.ok)throw new Error(body.error||'네이버 키워드 수집에 실패했습니다.');
+        if(body.running){setCollectionNotice({tone:'working',message:'이미 시작된 네이버 키워드 수집이 진행 중이에요. 잠시 뒤 다시 확인해주세요.'});return;}
+        if(body.deduplicated&&(!body.weekly||!body.today)){setCollectionNotice({tone:'success',message:'같은 시각에 완료된 네이버 키워드 수집 기록을 다시 사용했어요. 최신 목록을 새로고침합니다.'});router.refresh();return;}
+        const weekly=Number(body.weekly?.rows),today=Number(body.today?.rows);
+        if(!Number.isFinite(weekly)||!Number.isFinite(today))throw new Error('수집은 끝났지만 기간별 행 수를 확인하지 못했습니다.');
+        setCollectionNotice({tone:'success',message:`키워드 수집 완료 · 최근 7일 ${weekly.toLocaleString('ko-KR')}개 · 당일 ${today.toLocaleString('ko-KR')}개`});
+      }else{
+        if(!files.length)throw new Error('쿠팡 WING에서 내려받은 광고 XLSX 파일을 선택해주세요.');
+        const form=new FormData();
+        files.forEach(file=>form.append('files',file));
+        const response=await fetch('/api/coupang/ad-import',{method:'POST',body:form});
+        const body=await response.json();
+        if(!response.ok||!body.ok)throw new Error(body.error||'쿠팡 광고 파일을 가져오지 못했습니다.');
+        const stored=(body.results||[]).reduce((sum,item)=>sum+Number(item.stored_rows||0),0);
+        setCollectionNotice({tone:'success',message:`쿠팡 광고 파일 ${files.length.toLocaleString('ko-KR')}개 · ${stored.toLocaleString('ko-KR')}행 반영 완료`});
+      }
+      router.refresh();
+    }catch(error){
+      setCollectionNotice({tone:'error',message:`수집 확인 필요 · ${error.message}`});
+    }finally{
+      setCollecting(false);
+    }
+  }
 
   return <section className="p28Keywords" data-phase28-root="true" data-phase28-page="keywords">
     <div className="kpIntro"><Phase28PageHeading context="네이버·쿠팡 채널 분리 · 실제 운영" title="오늘 조정할 키워드 " accent={`${model.hero?.checkCount||0}건`} suffix="이 있어요." summary={model.hero?.summary}/><ChannelMode model={model}/></div>
     <ChannelDeck model={model} router={router}/>
     <PerformanceFlow model={model}/>
     <Phase28RightRailLayout label="키워드 판단 패널" rail={<DecisionDesk row={activeRow} draft={activeRow?drafts[activeRow.id]:''} onDraft={changeDraft} onPreview={openPreview} model={model}/>}>
+      <KeywordCollectionBar model={model} collecting={collecting} notice={collectionNotice} onCollect={collectKeywordData}/>
       <section className="kpWorkbench" aria-labelledby="kpWorkbenchTitle"><header><div><i><HarinIcon name="keyword" size={22}/></i><span><small>KEYWORD WORKBENCH</small><h2 id="kpWorkbenchTitle">{model.platform==='coupang'?'쿠팡 WING 작업표':'네이버 키워드 운영표'}</h2></span></div><em>{model.platform==='coupang'?'WING 입찰가 확인 필요':`네이버 검색광고 · ${referenceTime(model.generatedAt)}`}</em></header><WorkspaceTabs model={model} router={router}/><div className="kpScope"><label><span>현재 채널 키워드 찾기</span><input type="search" value={query} onChange={event=>setQuery(event.currentTarget.value)} placeholder="키워드·캠페인 검색"/></label><div className="kpListControls"><label><span>캠페인 선택</span><select value={campaignId} onChange={event=>setCampaignId(event.target.value)}><option value="ALL">전체 캠페인</option>{(model.campaigns||[]).map(item=><option value={item.id} key={item.id}>{item.name} · {count(item.count,'개')}</option>)}</select></label><label><span>정렬 기준</span><select value={effectiveSort} onChange={event=>setSort(event.target.value)}>{sortOptions.map(item=><option value={item.value} key={item.value}>{item.label}</option>)}</select></label></div><div className="kpQuickFilters">{FILTERS.map(([id,label])=><button type="button" aria-pressed={filter===id} key={id} onClick={()=>setFilter(id)}>{label}</button>)}</div><small>{model.platform==='naver'?'현재 입찰가·추천가 서버 기준':'입찰가는 WING 확인 필요'}</small></div>{selected.size?<div className="kpBulk"><strong>{selected.size.toLocaleString('ko-KR')}개 선택</strong><span>{model.platform==='naver'?`수정 입찰가 ${changedRows.length.toLocaleString('ko-KR')}건 입력 · 실제 반영 전 최신값 재조회`:'네이버 선택과 분리된 쿠팡 전용 작업표'}</span><button type="button" onClick={openPreview}>{model.platform==='naver'?'변경안 미리보기':'WING 작업 확인'}</button></div>:null}<KeywordTable model={model} rows={shownRows} selected={selected} activeId={activeId} drafts={drafts} onToggle={toggle} onInspect={inspect} onDraft={changeDraft}/><footer><span>검색 결과 <strong>{visibleRows.length.toLocaleString('ko-KR')}개</strong> · 현재 {shownRows.length.toLocaleString('ko-KR')}개 표시</span>{showCount<visibleRows.length?<button type="button" className="kpMore" onClick={()=>setShowCount(value=>value+visibleLimit)}>키워드 {Math.min(visibleLimit,visibleRows.length-showCount)}건 더 보기 · 남은 {(visibleRows.length-showCount).toLocaleString('ko-KR')}건</button>:<small>채널별 데이터·선택·실행 경로 분리</small>}</footer></section>
     </Phase28RightRailLayout>
     <section className="kpAi"><div><span>KEYWORD AI · PAGE ISOLATED</span><h2>선택 키워드의 비용·주문 근거만 설명해요.</h2><p>상품·정산 AI와 자료를 섞지 않고, 규칙 기반 계산이 먼저입니다.</p></div><strong>{aiPanel?.configuration?.enabled?'AI 준비 · 실행은 별도 확인':'사용 시작 전 · 비용 0원'}</strong><button type="button" onClick={()=>setResult('현재 화면은 서버 계산 근거만 사용하며 AI를 자동 호출하지 않습니다.')}>근거 설명 보기</button></section>

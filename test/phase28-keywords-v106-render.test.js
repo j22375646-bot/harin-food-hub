@@ -22,9 +22,27 @@ test('keyword automation stores and loads separate seven-day and same-day eviden
   const dashboard=read('app/dashboard-route.js');
   assert.match(sync,/async function syncKeywordPerformanceWindows/);
   assert.match(automation,/syncKeywordPerformanceWindows/);
-  assert.match(route,/syncKeywordPerformanceWindows/);
+  assert.match(route,/syncNaver\('MANUAL'/);
   assert.match(dashboard,/dailyKeywordStats/);
   assert.match(dashboard,/coupangAdKeywordDaily/);
+});
+
+test('keyword page exposes truthful channel-specific manual collection and keeps the daily Naver schedule',()=>{
+  const page=read('app/_phase28/pages/keywords-page.js');
+  const cron=read('app/api/cron/daily-sync/route.js');
+  const automation=read('lib/automation/sync-all.js');
+  const vercel=read('vercel.json');
+  assert.match(page,/키워드 지금 수집/);
+  assert.match(page,/\/api\/naver\/keyword-stats/);
+  assert.match(page,/쿠팡 광고 XLSX 가져오기/);
+  assert.match(page,/\/api\/coupang\/ad-import/);
+  assert.match(page,/매일 05:30 자동수집/);
+  assert.match(page,/같은 시각에 완료된 네이버 키워드 수집 기록을 다시 사용했어요/);
+  assert.doesNotMatch(page,/Number\(body\.weekly\?\.rows\|\|0\)/);
+  assert.match(cron,/syncAllPlatforms/);
+  assert.match(automation,/NAVER_ADS:[^\n]+syncNaver/);
+  assert.match(automation,/syncKeywordPerformanceWindows/);
+  assert.match(vercel,/"path": "\/api\/cron\/daily-sync"[\s\S]*"schedule": "30 20 \* \* \*"/);
 });
 
 test('Phase 28 app renders the V106 keyword flow, workbench, and decision desk',()=>{
