@@ -13,7 +13,7 @@ import businessCalendar from '../../../lib/shipping-reference/business-calendar.
 import './orders-page.css';
 
 const {activeCollectionPlatforms,collectionProgressLabel}=collectionProgress;
-const {hydrateOrderReceivers}=cafe24Delivery;
+const {hasReceiverDetails,hydrateOrderReceivers,needsReceiverHydration}=cafe24Delivery;
 const {calculateCutoffSchedule}=businessCalendar;
 
 const STAGES=[
@@ -45,6 +45,22 @@ function referenceTime(value){
 }
 function trackingNumber(value){return String(value||'').replace(/\D/g,'').slice(0,13);}
 function receiverAddress(receiver={}){return [receiver.postCode&&`(${receiver.postCode})`,receiver.address,receiver.addressDetail].filter(Boolean).join(' ')||'배송지 확인 필요';}
+function receiverCopy(order={}){
+  const receiver=order.receiver||{};
+  if(['LOADING','RETRYING'].includes(order.receiverHydrationStatus))return {
+    status:order.receiverHydrationStatus,
+    primary:'수취정보 자동 조회 중',
+    secondary:order.receiverHydrationStatus==='RETRYING'?'채널 응답이 늦어 안전하게 다시 조회하고 있어요.':'채널 주문 상세에서 받는 분·연락처·주소를 불러오고 있어요.'
+  };
+  if(order.receiverHydrationStatus==='ERROR')return {
+    status:'ERROR',primary:'수취정보 조회 지연',secondary:'자동 재시도 후에도 채널 응답이 늦습니다. 전체 수집으로 다시 확인해주세요.'
+  };
+  return {
+    status:hasReceiverDetails(receiver)?'READY':'UNAVAILABLE',
+    primary:`${receiver.name||'받는 분 확인 필요'} · ${receiver.contact||'연락처 확인 필요'}`,
+    secondary:`${receiverAddress(receiver)} · ${receiver.message||'배송메모 없음'}`
+  };
+}
 function productOption(order={}){
   const item=order.items?.[0];
   const option=item?.option||'기본 옵션';
@@ -169,7 +185,7 @@ function FulfillmentLiveStatus({feed={},error='',checkedAt,selectedOrders=[],pre
 
 export function OrderRow({order,selected,previewed,onSelect,onPreview}){
   const selectable=order.selectionEligible===true;
-  const receiver=order.receiver||{};
+  const receiverView=receiverCopy(order);
   const selectionReason=order.selectionBlockedReason||'현재 주문은 허브 출고 작업에서 선택할 수 없습니다.';
   function previewFromKeyboard(event){
     if(event.target!==event.currentTarget||!['Enter',' '].includes(event.key))return;
@@ -178,7 +194,7 @@ export function OrderRow({order,selected,previewed,onSelect,onPreview}){
   return <article className={`orderRow${selected?' selected':''}${previewed?' previewed':''}${order.cancellationRequested?' cancellation':''}`} data-selection-locked={selectable?undefined:'true'} data-previewed={previewed?'true':undefined} data-gift-required={order.giftRequired?'true':undefined} tabIndex={0} aria-label={`${order.productName} 주문 상세 보기${order.giftRequired?' · 사은품 증정 대상':''}`} onClick={()=>onPreview(order)} onKeyDown={previewFromKeyboard}>
     <input type="checkbox" checked={selected} disabled={!selectable} title={selectable?'출고 주문 선택':selectionReason} onClick={event=>event.stopPropagation()} onChange={event=>{onPreview(order);onSelect(order,event.target.checked);}} aria-label={selectable?`${order.productName} 주문 선택`:`${order.productName} 선택 불가 · ${selectionReason}`}/>
     <div className="orderProduct"><OrderProductThumbnail order={order}/><span><span className="productMeta"><Phase28ChannelLogo brand={order.platform} size="compact"/>{order.channelLabel} · 판매자배송{order.platform==='NAVER'?<em className="selectionLock">네이버 송장 발급</em>:null}</span><strong>{order.productName}</strong><small>{productOption(order)}</small>{order.invoice?<span className="orderInvoice" data-status={order.invoice.status} aria-label={`${order.invoice.label} 송장번호 ${order.invoice.number}`}><HarinIcon name="document" size={14}/><b>{order.invoice.label}</b><span>{order.invoice.number}</span></span>:null}{order.fulfillmentStatus&&!(order.epostTrackingBadge&&order.fulfillmentStatus.phase==='TRACKING')?<span className="orderFulfillmentStatus" data-active={order.fulfillmentStatus.active?'true':'false'} data-attention={order.fulfillmentStatus.needsAttention?'true':'false'}><i/><b>{order.fulfillmentStatus.label}</b></span>:null}{order.gifts?.length?<span className="orderEventGift"><HarinIcon name="sparkles" size={15}/><b>사은품 증정 대상</b><span>실결제 주문금액 {money(order.amount)} · {order.gifts.map(item=>`${money(item.minimumAmount)} 이상 → ${item.giftName} ${item.quantity}개`).join(' · ')}</span></span>:null}</span></div>
-    <div className="shippingPerson"><strong>{receiver.name||'받는 분 확인 필요'} · {receiver.contact||'연락처 확인 필요'}</strong><span>{receiverAddress(receiver)} · {receiver.message||'배송메모 없음'}</span></div>
+    <div className="shippingPerson" data-receiver-status={receiverView.status}><strong>{receiverView.primary}</strong><span>{receiverView.secondary}</span></div>
     <div className="orderTime"><strong>{dateTime(order.orderedAt)}</strong><span>{order.timingBadge?.detail||'출고 일정 확인'}</span></div>
     <div className="orderBadges">{order.giftRequired?<span className="orderGiftAttention"><HarinIcon name="sparkles" size={15}/>사은품 증정</span>:null}{order.epostTrackingBadge?<span className="epostTrackingBadge" data-status={order.epostTrackingBadge.status} title={`우체국 배송상태 · ${order.epostTrackingBadge.detail}`} aria-label={`우체국 배송상태 ${order.epostTrackingBadge.label}`}><i/>{order.epostTrackingBadge.label}</span>:<span data-tone={rowTone(order)}>{order.stageLabel}</span>}{order.timingBadge?<span data-tone={order.timingBadge.type==='DELAYED'?'delay':'schedule'}>{order.timingBadge.label||'일정 확인'}</span>:null}</div>
     <div className="orderAmount"><strong>{money(order.amount)}</strong><span>실결제 · {Number(order.quantity||0).toLocaleString('ko-KR')}개</span></div>
@@ -207,6 +223,7 @@ function OrdersRail({activeTab,setActiveTab,selectedOrders,previewOrder,channels
   const tabs=[{id:'selected',label:'선택 주문'},{id:'actions',label:'출고 작업'},{id:'sync',label:'수집 상태'}];
   const stage=STAGES.find(item=>item.id===activeStage)||STAGES[0];
   const receiver=previewOrder?.receiver||{};
+  const receiverView=receiverCopy(previewOrder||{});
   const primaryLabel=activeStage==='COMPLETED'?'최근 완료 주문 확인':activeStage==='IN_TRANSIT'||activeStage==='REGISTER'?'우체국 배송상태 새로고침':`선택 ${selectedOrders.length.toLocaleString('ko-KR')}건 송장 발급`;
   function onTabKey(event,index){
     if(!['ArrowRight','ArrowLeft','Home','End'].includes(event.key))return;
@@ -219,7 +236,7 @@ function OrdersRail({activeTab,setActiveTab,selectedOrders,previewOrder,channels
     <section className="ordersRailCard">
       <div className="ordersRailTabs" role="tablist" aria-label="주문 보조 작업">{tabs.map((tab,index)=><button type="button" role="tab" id={`phase28-orders-tab-${tab.id}`} aria-selected={activeTab===tab.id} aria-controls={`phase28-orders-panel-${tab.id}`} tabIndex={activeTab===tab.id?0:-1} onClick={()=>setActiveTab(tab.id)} onKeyDown={event=>onTabKey(event,index)} key={tab.id}>{tab.label}</button>)}</div>
       <div className="ordersRailPanels">
-        <section role="tabpanel" id="phase28-orders-panel-selected" aria-labelledby="phase28-orders-tab-selected" aria-hidden={activeTab!=='selected'} inert={activeTab==='selected'?undefined:true} data-active={activeTab==='selected'}><header><h3>선택한 주문을 확인하세요</h3><p>수취 정보와 배송메모, 사은품 조건을 항상 보여드려요.</p></header><div className="selectionCount"><span>작업 선택</span><strong>{selectedOrders.length.toLocaleString('ko-KR')}건</strong></div>{previewOrder?<><div className="orderDetail"><div><span>받는 분</span><strong>{receiver.name||'확인 필요'} · {receiver.contact||'연락처 확인 필요'}</strong></div><div><span>주소</span><strong>{receiverAddress(receiver)}</strong></div><div><span>상품·수량</span><strong>{previewOrder.productName} · {Number(previewOrder.quantity||0).toLocaleString('ko-KR')}개</strong></div></div><OrderGiftNotice order={previewOrder}/><div className="orderMemo"><strong>배송메모</strong><br/>{receiver.message||'배송메모 없음'}</div></>:<div className="ordersRailEmpty">현재 단계에 표시할 주문이 없어요.</div>}<div className="ordersRailFooter"><button type="button" className="ordersRailPrimary" onClick={()=>setActiveTab('actions')} disabled={!selectedOrders.length}>선택 주문 출고 작업 열기</button></div></section>
+        <section role="tabpanel" id="phase28-orders-panel-selected" aria-labelledby="phase28-orders-tab-selected" aria-hidden={activeTab!=='selected'} inert={activeTab==='selected'?undefined:true} data-active={activeTab==='selected'}><header><h3>선택한 주문을 확인하세요</h3><p>수취 정보와 배송메모, 사은품 조건을 항상 보여드려요.</p></header><div className="selectionCount"><span>작업 선택</span><strong>{selectedOrders.length.toLocaleString('ko-KR')}건</strong></div>{previewOrder?<><div className="orderDetail" data-receiver-status={receiverView.status}><div><span>받는 분</span><strong>{receiverView.primary}</strong></div><div><span>주소</span><strong>{['LOADING','RETRYING','ERROR'].includes(receiverView.status)?receiverView.secondary:receiverAddress(receiver)}</strong></div><div><span>상품·수량</span><strong>{previewOrder.productName} · {Number(previewOrder.quantity||0).toLocaleString('ko-KR')}개</strong></div></div><OrderGiftNotice order={previewOrder}/><div className="orderMemo"><strong>배송메모</strong><br/>{receiver.message||'배송메모 없음'}</div></>:<div className="ordersRailEmpty">현재 단계에 표시할 주문이 없어요.</div>}<div className="ordersRailFooter"><button type="button" className="ordersRailPrimary" onClick={()=>setActiveTab('actions')} disabled={!selectedOrders.length}>선택 주문 출고 작업 열기</button></div></section>
         <section role="tabpanel" id="phase28-orders-panel-actions" aria-labelledby="phase28-orders-tab-actions" aria-hidden={activeTab!=='actions'} inert={activeTab==='actions'?undefined:true} data-active={activeTab==='actions'}><header><h3>{stage.action}</h3><p>{stage.description}</p></header><FulfillmentLiveStatus feed={fulfillmentFeed} error={fulfillmentError} checkedAt={fulfillmentCheckedAt} selectedOrders={selectedOrders} previewOrder={previewOrder}/><div className="actionSteps"><div><i>1</i><span><strong>주문 확인</strong><small>{selectedOrders.length}건 선택됨</small></span></div><div><i>2</i><span><strong>우체국 송장 자동발급</strong><small>계약소포 번호를 받아와요.</small></span></div><div><i>3</i><span><strong>쇼핑몰 자동등록</strong><small>채널별 택배사 코드로 전송해요.</small></span></div></div><div className="ordersRailFooter"><button type="button" className="ordersRailPrimary" onClick={onPrimaryAction} disabled={Boolean(busy)||(!selectedOrders.length&&!['REGISTER','IN_TRANSIT','COMPLETED'].includes(activeStage))}>{busy||primaryLabel}</button></div></section>
         <section role="tabpanel" id="phase28-orders-panel-sync" aria-labelledby="phase28-orders-tab-sync" aria-hidden={activeTab!=='sync'} inert={activeTab==='sync'?undefined:true} data-active={activeTab==='sync'}><header><h3>판매 채널 최신 상태</h3><p>한 채널 오류가 다른 채널을 막지 않아요.</p></header><div className="channelHealth">{['NAVER','CAFE24','COUPANG'].map(brand=>{const channel=channels.find(item=>String(item.platform||'').toUpperCase()===brand);const ready=['READY','RUNNING'].includes(String(channel?.status||'').toUpperCase());return <div key={brand}><Phase28ChannelLogo brand={brand}/><span><strong>{CHANNEL_NAMES[brand]}</strong><small>{channel?.message||'최근 수집 상태 확인'}</small></span><em data-ready={ready}>{CHANNEL_STATUS[channel?.status]||channel?.label||'확인 필요'}</em></div>;})}</div><div className="ordersRailFooter"><button type="button" className="ordersRailPrimary" onClick={onSync} disabled={Boolean(busy)}>전체 플랫폼 다시 수집</button></div></section>
       </div>
@@ -234,6 +251,7 @@ export default function Phase28OrdersPage({model={}}){
   const sourceOrders=model.orders||[];
   const channels=model.channels||[];
   const [receiverHydration,setReceiverHydration]=useState({});
+  const [receiverHydrationStatus,setReceiverHydrationStatus]=useState({});
   const [activeStage,setActiveStage]=useState('ACTIVE');
   const [activeRailTab,setActiveRailTab]=useState('selected');
   const [selectedIds,setSelectedIds]=useState(()=>new Set());
@@ -255,8 +273,10 @@ export default function Phase28OrdersPage({model={}}){
   const fulfillmentByOrder=useMemo(()=>Object.fromEntries((fulfillmentFeed.items||[]).map(item=>[item.hubOrderId,item])),[fulfillmentFeed]);
   const orders=useMemo(()=>sourceOrders.map(order=>{
     const hydrated=receiverHydration[order.hubOrderId]?{...order,receiver:receiverHydration[order.hubOrderId]}:order;
-    return fulfillmentByOrder[order.hubOrderId]?{...hydrated,fulfillmentStatus:fulfillmentByOrder[order.hubOrderId]}:hydrated;
-  }),[sourceOrders,receiverHydration,fulfillmentByOrder]);
+    const receiverStatus=hasReceiverDetails(hydrated.receiver)?'READY':receiverHydrationStatus[order.hubOrderId]||(needsReceiverHydration(hydrated)?'LOADING':'UNAVAILABLE');
+    const decorated={...hydrated,receiverHydrationStatus:receiverStatus};
+    return fulfillmentByOrder[order.hubOrderId]?{...decorated,fulfillmentStatus:fulfillmentByOrder[order.hubOrderId]}:decorated;
+  }),[sourceOrders,receiverHydration,receiverHydrationStatus,fulfillmentByOrder]);
   const selectedOrders=useMemo(()=>orders.filter(order=>selectedIds.has(order.hubOrderId)),[orders,selectedIds]);
   const stageOrders=useMemo(()=>orders.filter(order=>order.stageIds?.includes(activeStage)),[orders,activeStage]);
   const automaticTrackingIds=useMemo(()=>orders
@@ -311,12 +331,24 @@ export default function Phase28OrdersPage({model={}}){
   useEffect(()=>{
     let active=true;
     const current=sourceOrders.map(order=>receiverHydration[order.hubOrderId]?{...order,receiver:receiverHydration[order.hubOrderId]}:order);
-    hydrateOrderReceivers(current).then(hydrated=>{
+    async function hydrate(){
+      const candidates=current.filter(needsReceiverHydration);
+      if(!candidates.length)return;
+      setReceiverHydrationStatus(previous=>({...previous,...Object.fromEntries(candidates.map(order=>[order.hubOrderId,'LOADING']))}));
+      const hydrated=await hydrateOrderReceivers(current);
       if(!active)return;
       const additions={};
-      hydrated.forEach((order,index)=>{if(order!==current[index]&&order.receiver)additions[order.hubOrderId]=order.receiver;});
+      hydrated.forEach((order,index)=>{if(order!==current[index]&&hasReceiverDetails(order.receiver))additions[order.hubOrderId]=order.receiver;});
       if(Object.keys(additions).length)setReceiverHydration(previous=>({...previous,...additions}));
-    }).catch(()=>{});
+      setReceiverHydrationStatus(previous=>({...previous,...Object.fromEntries(candidates.map(order=>[
+        order.hubOrderId,additions[order.hubOrderId]?'READY':'ERROR'
+      ]))}));
+    }
+    hydrate().catch(()=>{
+      if(!active)return;
+      const failed=current.filter(needsReceiverHydration);
+      if(failed.length)setReceiverHydrationStatus(previous=>({...previous,...Object.fromEntries(failed.map(order=>[order.hubOrderId,'ERROR']))}));
+    });
     return()=>{active=false;};
   },[sourceOrders]);
   useEffect(()=>{

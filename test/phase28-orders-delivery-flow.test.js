@@ -55,6 +55,49 @@ test('Coupang active orders queue and poll the fixed-IP detail before showing re
   });
 });
 
+test('receiver hydration covers every active order while limiting concurrent channel calls',async()=>{
+  const delivery=require('../lib/ui/phase28-orders-delivery.js');
+  const source=Array.from({length:24},(_,index)=>({
+    hubOrderId:`HR-C24-${index+1}`,
+    externalOrderId:`20260902-${index+1}`,
+    platform:'CAFE24',
+    selectionEligible:true,
+    receiver:{}
+  }));
+  let active=0;
+  let peak=0;
+  const hydrated=await delivery.hydrateOrderReceivers(source,async()=>{
+    active+=1;
+    peak=Math.max(peak,active);
+    await new Promise(resolve=>setImmediate(resolve));
+    active-=1;
+    return {ok:true,status:200,json:async()=>({ok:true,receiver:{
+      name:'수취인',contact:'01012345678',postCode:'12345',address:'서울시',addressDetail:'101호',message:''
+    }})};
+  },async()=>{});
+
+  assert.equal(hydrated.filter(order=>delivery.hasReceiverDetails(order.receiver)).length,24);
+  assert.ok(peak<=4,`expected at most four concurrent calls, saw ${peak}`);
+});
+
+test('receiver hydration retries a transient channel failure before leaving an order unresolved',async()=>{
+  const delivery=require('../lib/ui/phase28-orders-delivery.js');
+  const source=[{
+    hubOrderId:'HR-C24-RETRY',externalOrderId:'20260902-retry',platform:'CAFE24',selectionEligible:true,receiver:{}
+  }];
+  let attempts=0;
+  const hydrated=await delivery.hydrateOrderReceivers(source,async()=>{
+    attempts+=1;
+    if(attempts<3)return {ok:false,status:503,json:async()=>({ok:false,error:'temporary unavailable'})};
+    return {ok:true,status:200,json:async()=>({ok:true,receiver:{
+      name:'재시도 수취인',contact:'01099998888',postCode:'12345',address:'서울시',addressDetail:'202호',message:''
+    }})};
+  },async()=>{});
+
+  assert.equal(attempts,3);
+  assert.equal(hydrated[0].receiver.name,'재시도 수취인');
+});
+
 test('the mobile issue button starts the real shipment flow instead of opening a hidden rail tab',()=>{
   const page=fs.readFileSync(path.join(root,'app','_phase28','pages','orders-page.js'),'utf8');
   assert.match(page,/className="mobileBatchAction"[\s\S]*?onClick=\{primaryAction\}/);
@@ -65,6 +108,9 @@ test('the orders page hydrates Cafe24 and Coupang receiver details through authe
   const page=fs.readFileSync(path.join(root,'app','_phase28','pages','orders-page.js'),'utf8');
   assert.match(page,/hydrateOrderReceivers/);
   assert.match(page,/setReceiverHydration/);
+  assert.match(page,/receiverHydrationStatus/);
+  assert.match(page,/수취정보 자동 조회 중/);
+  assert.match(page,/수취정보 조회 지연/);
 });
 
 test('successful invoice registration starts tracking and live rail movement keeps refreshing',()=>{

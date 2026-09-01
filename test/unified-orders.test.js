@@ -5,6 +5,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const orders=require('../lib/orders/unified-orders.js');
+const operationQueue=require('../lib/coupang/operation-queue.js');
 
 test('maps Cafe24, Coupang and Naver statuses into the five common stages',()=>{
   assert.equal(orders.stageFor('CAFE24','N00'),'PAID');
@@ -48,6 +49,33 @@ test('builds deterministic hub order numbers and keeps both channel orders',()=>
   assert.match(center.orders[0].hubOrderId,/^HR-CP-[A-F0-9]{8}$/);
   assert.equal(center.orders.find(item=>item.platform==='CAFE24').productName,'작수차');
   assert.equal(center.channels.find(item=>item.platform==='NAVER').status,'SETUP_REQUIRED');
+});
+
+test('reuses the newest encrypted Coupang order detail instead of refetching receiver data on every page load',()=>{
+  const previousSecret=process.env.SUPABASE_SERVICE_ROLE_KEY;
+  process.env.SUPABASE_SERVICE_ROLE_KEY='test-only-coupang-order-detail-secret';
+  try{
+    const center=orders.buildUnifiedOrders({
+      coupangOrders:[{shipment_box_id:'S-DETAIL-1',order_id:'P-DETAIL-1',ordered_at:'2026-09-02T01:00:00Z',status:'ACCEPT',gross_amount:18000}],
+      coupangOrderItems:[{shipment_box_id:'S-DETAIL-1',order_id:'P-DETAIL-1',product_name:'작두콩차',quantity:1}],
+      coupangOrderDetailTerminals:[{
+        operation_type:'ORDER_DETAIL',target_type:'ORDER',target_id:'S-DETAIL-1',status:'SUCCESS',created_at:'2026-09-02T01:01:00Z',
+        result_json:operationQueue.seal({order:{receiver:{
+          name:'쿠팡 수취인',safeNumber:'050700000000',postCode:'12345',address:'서울시',addressDetail:'101호',message:'문 앞'
+        }}})
+      }]
+    });
+
+    assert.deepEqual(center.orders[0].receiver,{
+      name:'쿠팡 수취인',contact:'050700000000',postCode:'12345',address:'서울시',addressDetail:'101호',message:'문 앞'
+    });
+    const source=fs.readFileSync(path.join(__dirname,'..','lib','orders','unified-orders.js'),'utf8');
+    assert.match(source,/select\('operation_type,target_type,target_id,status,result_json,error_message,created_at'\)/);
+    assert.match(source,/\.in\('status',\['SUCCESS','CANCELLED','FAILED'\]\)/);
+  }finally{
+    if(previousSecret===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY=previousSecret;
+  }
 });
 
 test('flags cancellation requests before shipment and filters action rows',()=>{

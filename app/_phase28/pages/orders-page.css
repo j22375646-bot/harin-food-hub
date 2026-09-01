@@ -112,6 +112,9 @@
 .orderEventGift{max-width:100%;min-height:36px;display:flex;flex-wrap:wrap;align-items:center;gap:5px 8px;margin-top:9px;padding:7px 10px;border:1px solid color-mix(in srgb,#cf6a64 43%,var(--p28-line));border-radius:10px;background:color-mix(in srgb,#cf6a64 12%,var(--p28-surface));color:#913c3a;font-size:12px;line-height:1.4;}.orderEventGift b{font-size:13px;font-weight:950;}.orderEventGift>span:last-child{flex-basis:100%;color:var(--p28-ink);font-weight:750;}
 .shippingPerson strong,.orderTime strong{display:block;font-size:14px;line-height:1.4;}
 .shippingPerson span,.orderTime span{display:-webkit-box;margin-top:4px;overflow:hidden;color:var(--p28-muted);font-size:13px;line-height:1.4;-webkit-box-orient:vertical;-webkit-line-clamp:2;}
+.shippingPerson[data-receiver-status="LOADING"] strong,.shippingPerson[data-receiver-status="RETRYING"] strong,.orderDetail[data-receiver-status="LOADING"] strong,.orderDetail[data-receiver-status="RETRYING"] strong{color:var(--p28-blue);}
+.shippingPerson[data-receiver-status="LOADING"] span,.shippingPerson[data-receiver-status="RETRYING"] span{color:var(--p28-muted);}
+.shippingPerson[data-receiver-status="ERROR"] strong,.orderDetail[data-receiver-status="ERROR"] strong{color:var(--p28-apricot);}
 .orderBadges{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
 .orderBadges span{min-height:30px;display:inline-flex;align-items:center;padding:6px 10px;border:1px solid transparent;border-radius:8px;font-size:13px;font-weight:850;line-height:1;white-space:nowrap;}
 .orderBadges span[data-tone="paid"]{border-color:#c4dfd2;background:#e5f2eb;color:#2f7257;}
