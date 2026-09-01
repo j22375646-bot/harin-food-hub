@@ -20,6 +20,46 @@ test('일정은 시작일과 종료일을 함께 저장하고 다시 같은 범�
   assert.throws(()=>calendar.normalizeEntryInput({type:'SCHEDULE',title:'역순 일정',date:'2026-09-27',endDate:'2026-09-21'}),/종료일은 시작일보다 빠를 수 없/);
 });
 
+test('이벤트는 기간과 금액대별 사은품 규칙을 서버 저장 형식으로 왕복한다',()=>{
+  const entry=calendar.normalizeEntryInput({
+    type:'EVENT',title:'추석 감사 이벤트',body:'결제 금액에 맞춰 사은품을 동봉합니다.',
+    date:'2026-09-14',endDate:'2026-09-30',eventColor:'CORAL',
+    giftTiers:[
+      {minimumAmount:50000,giftName:'작두콩차 1봉',quantity:1},
+      {minimumAmount:30000,giftName:'보리차 티백',quantity:2}
+    ]
+  });
+  assert.equal(entry.contextLabel,'캘린더 이벤트 · 종료 2026-09-30');
+  assert.deepEqual(entry.giftTiers,[
+    {minimumAmount:30000,giftName:'보리차 티백',quantity:2},
+    {minimumAmount:50000,giftName:'작두콩차 1봉',quantity:1}
+  ]);
+  const storedBody=calendar.encodeEventBody(entry);
+  const restored=calendar.decorateEntry({
+    id:'event-1',item_type:'TASK',title:entry.title,body:storedBody,due_at:entry.dueAt,
+    context_label:entry.contextLabel,status:'OPEN',priority:'HIGH'
+  });
+  assert.equal(restored.type,'EVENT');
+  assert.equal(restored.body,'결제 금액에 맞춰 사은품을 동봉합니다.');
+  assert.equal(restored.eventColor,'CORAL');
+  assert.deepEqual(restored.giftTiers,entry.giftTiers);
+});
+
+test('이벤트 자동화는 행사 기간에 주문금액이 충족한 가장 높은 사은품 한 구간을 고른다',()=>{
+  const event={
+    id:'event-1',type:'EVENT',title:'추석 감사 이벤트',status:'OPEN',date:'2026-09-14',endDate:'2026-09-30',
+    giftTiers:[
+      {minimumAmount:30000,giftName:'보리차 티백',quantity:2},
+      {minimumAmount:50000,giftName:'작두콩차 1봉',quantity:1}
+    ]
+  };
+  assert.deepEqual(calendar.resolveEventGift(event,{orderAmount:54000,date:'2026-09-20'}),{
+    eventId:'event-1',eventTitle:'추석 감사 이벤트',minimumAmount:50000,giftName:'작두콩차 1봉',quantity:1
+  });
+  assert.equal(calendar.resolveEventGift(event,{orderAmount:54000,date:'2026-10-01'}),null);
+  assert.equal(calendar.resolveEventGift(event,{orderAmount:20000,date:'2026-09-20'}),null);
+});
+
 test('여러 날 일정은 월간 날짜마다 이어지는 띠 위치를 만든다',()=>{
   const entry={id:'range-1',type:'SCHEDULE',title:'기획전',date:'2026-09-04',endDate:'2026-09-08',time:'09:00',status:'OPEN'};
   const byDate=calendar.expandEntriesByDate([entry]);
@@ -61,7 +101,15 @@ test('월 화면은 앞뒤 주까지 포함하고 오늘 항목만 메인으로 
   ];
   const today=calendar.buildTodayCalendar(rows,'2026-08-31T10:00:00+09:00');
   assert.deepEqual(today.items.map(item=>item.title),['메모','일정']);
-  assert.deepEqual(today.summary,{total:2,schedules:1,memos:1,open:1,done:0});
+  assert.deepEqual(today.summary,{total:2,schedules:1,memos:1,events:0,open:1,done:0});
+});
+
+test('메인 오늘 캘린더에는 기간 중인 이벤트가 자동으로 포함된다',()=>{
+  const event=calendar.normalizeEntryInput({type:'EVENT',title:'가을 사은품',date:'2026-08-28',endDate:'2026-09-05',giftTiers:[{minimumAmount:30000,giftName:'티백',quantity:1}]});
+  const today=calendar.buildTodayCalendar([{id:'event-1',item_type:'TASK',title:event.title,body:calendar.encodeEventBody(event),due_at:event.dueAt,context_label:event.contextLabel,status:'OPEN'}],'2026-08-31T10:00:00+09:00');
+  assert.equal(today.items[0].type,'EVENT');
+  assert.equal(today.items[0].eventState,'ACTIVE');
+  assert.deepEqual(today.summary,{total:1,schedules:0,memos:0,events:1,open:0,done:0});
 });
 
 test('메인 오늘 항목은 중요도가 높은 메모를 대표로 먼저 표시한다',()=>{

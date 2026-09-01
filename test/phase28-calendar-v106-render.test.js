@@ -12,15 +12,19 @@ test('캘린더 화면은 실제 저장 CRUD와 메인 오늘 연동을 연결�
   const page=read('app/_phase28/pages/calendar-page.js');
   const api=read('app/api/calendar/entries/route.js');
   const home=read('app/_phase28/pages/home-page.js');
-  assert.match(page,/한 달의 일정과 메모/);
+  assert.match(page,/일정과 판매 이벤트/);
   assert.match(page,/CREATE_ENTRY/);
   assert.match(page,/UPDATE_ENTRY/);
   assert.match(page,/TOGGLE_ENTRY/);
   assert.match(page,/ARCHIVE_ENTRY/);
   assert.match(api,/hub_work_items/);
   assert.match(api,/context_href','\/calendar'/);
-  assert.match(home,/오늘 일정과 메모/);
+  assert.match(home,/오늘 일정과 판매 이벤트/);
   assert.match(home,/onNavigate\('calendar'\)/);
+  assert.match(page,/form\.type==='EVENT'/);
+  assert.match(page,/giftTiers/);
+  assert.match(page,/금액대별 사은품/);
+  assert.match(home,/item\.type==='EVENT'/);
 });
 
 test('캘린더는 선택 달만 지연 조회하고 고정 UI 규칙을 지킨다',()=>{

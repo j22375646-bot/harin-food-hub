@@ -104,6 +104,7 @@
 .orderInvoice b{font-weight:850;}
 .orderInvoice>span:last-child{font-weight:750;letter-spacing:.035em;white-space:nowrap;}
 .orderInvoice[data-status="ISSUED"]{border-color:#eed7b5;background:#fbf0df;color:#97602d;}
+.orderEventGift{max-width:100%;min-height:28px;display:inline-flex;flex-wrap:wrap;align-items:center;gap:5px 7px;margin:8px 0 0 6px;padding:4px 8px;border:1px solid color-mix(in srgb,#cf6a64 30%,var(--p28-line));border-radius:8px;background:color-mix(in srgb,#cf6a64 9%,var(--p28-surface));color:#9c4441;font-size:12px;line-height:1.3;}.orderEventGift b{font-weight:900;}.orderEventGift>span:last-child{font-weight:750;}
 .shippingPerson strong,.orderTime strong{display:block;font-size:14px;line-height:1.4;}
 .shippingPerson span,.orderTime span{display:-webkit-box;margin-top:4px;overflow:hidden;color:var(--p28-muted);font-size:13px;line-height:1.4;-webkit-box-orient:vertical;-webkit-line-clamp:2;}
 .orderBadges{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}

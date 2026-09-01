@@ -913,6 +913,7 @@ async function buildOrdersDashboardData({
   coupangRgOrdersResult, coupangRgOrderItemsResult, coupangReturnsResult,
   naverCommerceOrdersResult, naverCommerceItemsResult,
   shippingReferenceSnapshots, cafe24Token, latestAiPageResults,
+  calendarEntries=[],
   successfulTransfers=new Map(), successfulIssues=new Map(), trackingStates={}
 }) {
   const syncs=syncResult.data||[];
@@ -1034,6 +1035,7 @@ async function buildOrdersDashboardData({
     collectionCenter,
     shippingReferenceCenter,
     unifiedOrders,
+    calendarEntries,
     aiPagePanels,
     kpis:{sales:0,orders:cafe24Orders.length,visitors:0,pageviews:0,conversion:0,averageOrder:0,products:productsResult.data?.length||0},
     products:[],syncs,reports:[],actions:[],alerts:alertsResult.data||[],automationRuns:[],qualityChecks:[],metricSnapshots:[],
@@ -1306,7 +1308,7 @@ async function getDashboardData(state) {
           issues:[{platform:'ALL',dataset:'monthly_revenue',code:'MONTHLY_QUERY_FAILED',message:String(error?.message||error||'월 매출 조회 실패')}]
         }))
       : Promise.resolve({status:'NO_DATA',totals:{ALL:null,NAVER:null,CAFE24:null,COUPANG:null},counts:{},issues:[]}),
-    calendarItems:['main','calendar'].includes(view) ? Promise.allSettled([
+    calendarItems:['main','calendar','orders'].includes(view) ? Promise.allSettled([
       db.from('hub_work_items').select('id,item_type,title,body,status,priority,due_at,page_key,context_label,context_href,completed_at,created_at,updated_at')
         .eq('context_href','/calendar').neq('status','ARCHIVED')
         .gte('due_at',new Date(`${calendarCenterModule.addDays(calendarQueryRange.start,-366)}T00:00:00+09:00`).toISOString())
@@ -1835,11 +1837,12 @@ async function getDashboardData(state) {
     });
   }
   if(view==='orders'){
-    const [naverCommerceRaw,aiResultsRaw,shippingReferenceRaw,cafe24TokenRaw]=await Promise.all([
+    const [naverCommerceRaw,aiResultsRaw,shippingReferenceRaw,cafe24TokenRaw,calendarRaw]=await Promise.all([
       supplementalQueries.naverCommerce,
       supplementalQueries.aiResults,
       supplementalQueries.shippingReference,
-      supplementalQueries.cafe24Token
+      supplementalQueries.cafe24Token,
+      supplementalQueries.calendarItems
     ]);
     const naverCommerceSettled=dataHealthModule.settleQueries(naverCommerceRaw,[
       {platform:'NAVER',dataset:'naver_commerce_orders'},
@@ -1855,7 +1858,10 @@ async function getDashboardData(state) {
     const cafe24TokenSettled=dataHealthModule.settleQueries(cafe24TokenRaw,[
       {platform:'CAFE24',dataset:'cafe24_oauth_tokens'}
     ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
-    queryIssues.push(...naverCommerceSettled.issues,...aiResultsSettled.issues,...shippingReferenceSettled.issues,...cafe24TokenSettled.issues);
+    const calendarSettled=dataHealthModule.settleQueries(calendarRaw,[
+      {platform:'SHARED',dataset:'hub_calendar_events'}
+    ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+    queryIssues.push(...naverCommerceSettled.issues,...aiResultsSettled.issues,...shippingReferenceSettled.issues,...cafe24TokenSettled.issues,...calendarSettled.issues);
     const [naverCommerceOrdersResult,naverCommerceItemsResult]=naverCommerceSettled.results;
     const operationRows=coupangOrderTerminalsResult.data||[];
     const successfulTransfers=channelTransferModule.successfulTransferIndex(operationRows);
@@ -1869,6 +1875,7 @@ async function getDashboardData(state) {
       naverCommerceOrdersResult,naverCommerceItemsResult,
       shippingReferenceSnapshots:shippingReferenceSettled.results[0].data||[],
       cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,
+      calendarEntries:calendarSettled.results[0].data||[],
       latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[]),
       successfulTransfers,successfulIssues,trackingStates
     });

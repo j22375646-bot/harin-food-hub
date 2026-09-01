@@ -158,9 +158,12 @@ function OperatingLine({items,onNavigate}){
 
 function TodayCalendar({calendar,onNavigate}){
   const items=(calendar?.items||[]).slice(0,4);
-  return <section className={styles.todayCalendar} aria-label="오늘 일정과 메모">
-    <header><div><span>TODAY CALENDAR</span><h2>오늘 일정과 메모</h2><p>캘린더에 저장한 오늘 항목만 가볍게 연결했어요.</p></div><button type="button" onClick={()=>onNavigate('calendar')}>캘린더 열기</button></header>
-    <div className={styles.todayCalendarList}>{items.length?items.map(item=><button type="button" key={item.id} data-type={item.type} data-done={item.status==='DONE'} onClick={()=>onNavigate('calendar')}><b>{item.type==='MEMO'?'메모':item.time||'종일'}</b><span><strong>{item.title}</strong><small>{item.body|| (item.type==='MEMO'?'오늘 기록':'오늘 일정')}</small></span><em>{item.status==='DONE'?'완료':'보기'}</em></button>):<button type="button" className={styles.todayCalendarEmpty} onClick={()=>onNavigate('calendar')}><span>오늘은 아직 비어 있어요.</span><strong>일정이나 메모 추가하기</strong></button>}</div>
+  const detail=item=>item.type==='EVENT'
+    ?`${item.date} ~ ${item.endDate} · ${item.giftTiers?.length?item.giftTiers.map(tier=>`${Number(tier.minimumAmount).toLocaleString('ko-KR')}원 이상 ${tier.giftName} ${tier.quantity}개`).join(' / '):'사은품 없음'}`
+    :item.body|| (item.type==='MEMO'?'오늘 기록':'오늘 일정');
+  return <section className={styles.todayCalendar} aria-label="오늘 일정, 메모와 이벤트">
+    <header><div><span>TODAY CALENDAR</span><h2>오늘 일정과 판매 이벤트</h2><p>캘린더에 저장한 오늘 항목과 진행 중인 이벤트를 자동으로 연결했어요.</p></div><button type="button" onClick={()=>onNavigate('calendar')}>캘린더 열기</button></header>
+    <div className={styles.todayCalendarList}>{items.length?items.map(item=><button type="button" key={item.id} data-type={item.type} data-done={item.status==='DONE'} onClick={()=>onNavigate('calendar')}><b>{item.type==='MEMO'?'메모':item.type==='EVENT'?'이벤트':item.time||'종일'}</b><span><strong>{item.title}</strong><small>{detail(item)}</small></span><em>{item.status==='DONE'?'완료':item.type==='EVENT'&&item.eventState==='ACTIVE'?'진행 중':'보기'}</em></button>):<button type="button" className={styles.todayCalendarEmpty} onClick={()=>onNavigate('calendar')}><span>오늘은 아직 비어 있어요.</span><strong>일정·메모·이벤트 추가하기</strong></button>}</div>
   </section>;
 }
 

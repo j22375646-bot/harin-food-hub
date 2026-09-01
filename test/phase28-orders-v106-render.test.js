@@ -37,6 +37,8 @@ test('the V106 orders surface keeps the approved runway, stable rail, and real a
   assert.match(page,/order\.items\?\.\[0\]\?\.imageUrl/);
   assert.match(page,/onError=\{\(\)=>setFailed\(true\)\}/);
   assert.match(page,/className="orderInvoice"/);
+  assert.match(page,/className="orderEventGift"/);
+  assert.match(page,/사은품 자동/);
   assert.match(page,/order\.invoice\.label/);
   assert.match(page,/order\.invoice\.number/);
   assert.match(page,/<OrderProductThumbnail order=\{order\}\/>/);

@@ -79,7 +79,7 @@ test('V106 Main renders the complete owner-approved executive desk',async()=>{
   for(const label of [
     '오늘의 메모',
     '다음 운영 마감',
-    '오늘 일정과 메모',
+    '오늘 일정과 판매 이벤트',
     '택배 상자 주문',
     '돈이 얼마나 남았나요?',
     '최근 7일 실제 매출',

@@ -3,6 +3,7 @@ import apiSafety from '../../../../lib/api/safety.js';
 import supabaseModule from '../../../../lib/cafe24/supabase.js';
 import ownerWorkspace from '../../../../lib/owner-workspace.js';
 import calendarCenter from '../../../../lib/calendar/calendar-center.js';
+import {revalidatePath} from 'next/cache';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -61,14 +62,16 @@ export async function POST(request){
       if(action==='UPDATE_ENTRY')await calendarItem(db,body.id);
       result=await ownerWorkspace.mutateWorkspace(db,{
         action:action==='CREATE_ENTRY'?'CREATE_ITEM':'UPDATE_ITEM',id:body.id,
-        itemType:entry.type==='MEMO'?'NOTE':'TASK',title:entry.title,body:entry.body,priority:entry.priority,
+        itemType:entry.type==='MEMO'?'NOTE':'TASK',title:entry.title,body:entry.type==='EVENT'?calendarCenter.encodeEventBody(entry):entry.body,priority:entry.priority,
         pageKey:'main',contextLabel:entry.contextLabel,contextHref:'/calendar',dueAt:entry.dueAt
       });
     }else if(action==='TOGGLE_ENTRY'||action==='ARCHIVE_ENTRY'){
       await calendarItem(db,body.id);
       result=await ownerWorkspace.mutateWorkspace(db,{action:action==='TOGGLE_ENTRY'?'TOGGLE_ITEM':'ARCHIVE_ITEM',id:body.id,done:Boolean(body.done)});
     }else throw new calendarCenter.CalendarInputError('지원하지 않는 캘린더 요청입니다.');
-    return apiSafety.json({ok:true,entry:result.item?calendarCenter.decorateEntry(result.item):null,message:action==='ARCHIVE_ENTRY'?'캘린더에서 삭제했습니다.':'캘린더에 저장했습니다.'});
+    revalidatePath('/calendar');
+    revalidatePath('/');
+    return apiSafety.json({ok:true,entry:result.item?calendarCenter.decorateEntry(result.item):null,message:action==='ARCHIVE_ENTRY'?'캘린더에서 삭제했습니다.':'캘린더와 메인에 반영했습니다.'});
   }catch(error){
     const input=apiSafety.inputErrorResponse(error);if(input)return input;
     const status=error instanceof calendarCenter.CalendarInputError||error instanceof ownerWorkspace.OwnerWorkspaceInputError?error.status:500;
