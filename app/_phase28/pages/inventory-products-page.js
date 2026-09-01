@@ -13,6 +13,7 @@ const INVENTORY_TABS=[
   {id:'SELLING',label:'판매 상품'},
   {id:'RESTOCK',label:'재입고 점검'},
   {id:'INBOUND',label:'입고 작업표'},
+  {id:'SHIPMENTS',label:'입고 송장'},
   {id:'LOTS',label:'유통기한·LOT'},
   {id:'HISTORY',label:'수집 기록'}
 ];
@@ -193,6 +194,91 @@ function ProductCostWorkspace({model}){
   return <Phase28RightRailLayout label="원가 입력 보조석" rail={<ProductCostRail workbench={workbench} selectedIds={selectedIds} rows={rows}/> }><><ProductHero hero={model.hero||{}}/><section className="ipWorkbench ipCostWorkbench"><header className="ipWorkbenchHead"><div><span>MASTER PRODUCT COSTS</span><h2>빠른 원가 입력</h2><p>판매중 상품의 상품 원가·포장비·기타 단위비를 표에서 직접 입력하고 한 번에 저장합니다.</p></div><span className="ipMappingChannelBadge"><HarinIcon name="shield" size={18}/>서버 저장·재검증</span></header><div className="ipUtility"><label><HarinIcon name="search" size={18}/><input value={query} onChange={event=>{setQuery(event.target.value);setSelectedIds([]);}} placeholder="판매중 상품명·SKU 검색"/></label><span>입력 완료 {count(workbench.readyCount)} / {count(workbench.rows.length)}개</span></div><nav className="ipTabs" aria-label="상품 운영 보기">{PRODUCT_TABS.map(tab=><button type="button" aria-selected={(model.workspace||'catalog')===tab.id} key={tab.id} onClick={()=>pushPhase28Route(router,tab.href)}>{tab.label}</button>)}</nav><div className="ipCostFilters">{[['ALL','전체'],['PENDING','확인 필요'],['READY','입력 완료']].map(([id,label])=><button type="button" className={filter===id?'active':''} key={id} onClick={()=>{setFilter(id);setSelectedIds([]);}}>{label}</button>)}<span>현재 {count(visibleRows.length)}개 표시</span></div><section className="ipCostBulk"><header><label><input type="checkbox" checked={visibleRows.length>0&&selectedIds.length===Math.min(visibleRows.length,100)} onChange={event=>event.target.checked?selectVisible():setSelectedIds([])}/><strong>{selectedIds.length?`${count(selectedIds.length)}개 선택`:'현재 목록 선택'}</strong></label><span>선택 상품 일괄 입력</span></header><div>{COST_FIELDS.map(([field,label])=><label key={field}><span>{label}</span><input type="number" min="0" step="100" inputMode="numeric" placeholder="변경 안 함" value={bulk[field]} onChange={event=>setBulk(current=>({...current,[field]:event.target.value}))}/></label>)}<button type="button" onClick={applyBulk} disabled={!selectedIds.length}>선택값 적용</button><button type="button" className="primary" onClick={saveSelected} disabled={busy||!selectedIds.length}>{busy?'저장·검증 중…':`선택 ${count(selectedIds.length)}개 저장`}</button></div></section><div className="ipCostBoundary"><div className="ipCostColumns"><span>선택</span><span>판매중 상품</span>{COST_FIELDS.map(([,label])=><span key={label}>{label}</span>)}<span>합계·상태</span></div><div className="ipRows">{visibleRows.map(row=>{const values=rows[row.id]||{};const ready=costComplete(values);return <article className="ipCostRow" data-selected={selectedIds.includes(row.id)} key={row.id}><input type="checkbox" aria-label={`${row.name} 선택`} checked={selectedIds.includes(row.id)} onChange={event=>toggle(row.id,event.target.checked)}/><span className="ipProductIdentity"><strong>{row.name}</strong><small>SKU {row.sku} · 기준 판매가 {money(row.basePrice)}</small></span>{COST_FIELDS.map(([field,label])=><label key={field}><span>{label}</span><input aria-label={`${row.name} ${label}`} type="number" min="0" step="100" inputMode="numeric" placeholder="확인 필요" value={values[field]??''} onChange={event=>changeCost(row.id,field,event.target.value)}/></label>)}<span className="ipCostState"><strong>{money(costTotal(values))}</strong><small>{ready?'저장 가능':'빈칸 확인 필요'}</small></span></article>;})}{!visibleRows.length?<div className="ipEmpty"><HarinIcon name="price" size={24}/><strong>이 조건에 해당하는 판매중 상품이 없어요.</strong><span>검색어나 입력 상태 필터를 바꿔보세요.</span></div>:null}</div></div>{message?<p className="ipWorkbenchMessage" role="status">{message}</p>:null}<footer className="ipWorkbenchFoot"><div className="ipWorkbenchFootStatus"><i className="ipWorkbenchFootIcon"><HarinIcon name="price" size={19}/></i><span><small>입력 원칙</small><strong>모르는 비용은 빈칸·판단 보류 유지</strong></span></div><div className="ipWorkbenchFootSource"><i className="ipWorkbenchFootIcon"><HarinIcon name="database" size={19}/></i><span><small>저장 경로</small><strong>변경 기록 → DB 반영 → 실제값 재확인</strong></span></div></footer></section></></Phase28RightRailLayout>;
 }
 
+const INBOUND_STATUS_LABELS={QUEUED:'예약',ISSUING:'발급 중',ISSUED:'발급 완료',FAILED:'확인 필요'};
+const emptyDestination={centerCode:'',label:'',recipientName:'',contact:'',postCode:'',address:'',addressDetail:''};
+
+function RocketGrowthInboundWorkspace({rows}){
+  const [data,setData]=useState({destinations:[],products:[],history:[]});
+  const [selectedCenterCode,setSelectedCenterCode]=useState('');
+  const [destinationForm,setDestinationForm]=useState(emptyDestination);
+  const [showDestinationForm,setShowDestinationForm]=useState(false);
+  const [drafts,setDrafts]=useState({});
+  const [loading,setLoading]=useState(true);
+  const [busy,setBusy]=useState('');
+  const [message,setMessage]=useState('');
+  const shipmentRows=data.products.length?data.products:rows;
+  const selectedDestination=data.destinations.find(item=>item.centerCode===selectedCenterCode)||null;
+  const selectedDrafts=shipmentRows.filter(row=>drafts[row.id]?.selected).map(row=>({vendorItemId:row.vendorItemId,quantity:drafts[row.id].quantity,weight:drafts[row.id].weight,volume:drafts[row.id].volume}));
+
+  async function loadInbound(preserve=true){
+    try{
+      const response=await fetch('/api/inventory/rocket-growth/inbound',{cache:'no-store'});
+      const result=await response.json();
+      if(!response.ok||!result.ok)throw new Error(result.error||'입고 송장 자료 조회 실패');
+      setData({destinations:result.destinations||[],products:result.products||[],history:result.history||[]});
+      if(!preserve&&!selectedCenterCode&&result.destinations?.length){
+        const first=result.destinations[0];
+        setSelectedCenterCode(first.centerCode);
+        setDestinationForm({...emptyDestination,...first});
+      }
+    }catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setLoading(false);}
+  }
+  useEffect(()=>{loadInbound(false);},[]);
+  useEffect(()=>{
+    if(!data.history.some(item=>['QUEUED','ISSUING'].includes(item.status)))return undefined;
+    const timer=window.setInterval(()=>loadInbound(true),2000);
+    return ()=>window.clearInterval(timer);
+  },[data.history]);
+
+  function chooseCenter(code){
+    const found=data.destinations.find(item=>item.centerCode===code)||null;
+    setSelectedCenterCode(code);
+    setDestinationForm(found?{...emptyDestination,...found}:{...emptyDestination,centerCode:code,label:code});
+    setMessage(found&&!found.ready?'센터 주소를 한 번 등록하면 이후에는 목록에서 바로 선택할 수 있어요.':'');
+  }
+  function changeDestination(field,value){setDestinationForm(current=>({...current,[field]:value}));}
+  function changeDraft(id,field,value){setDrafts(current=>({...current,[id]:{selected:true,quantity:current[id]?.quantity||1,weight:current[id]?.weight||2,volume:current[id]?.volume||60,[field]:value}}));}
+  function toggleAll(checked){setDrafts(checked?Object.fromEntries(shipmentRows.slice(0,50).map(row=>[row.id,{selected:true,quantity:drafts[row.id]?.quantity||1,weight:drafts[row.id]?.weight||2,volume:drafts[row.id]?.volume||60}])):{});}
+  async function saveDestination(){
+    if(!window.confirm(`${destinationForm.centerCode||'새'} 물류센터의 주소·연락처를 암호화 저장할까요?`))return;
+    setBusy('destination');setMessage('물류센터 수취처를 저장하고 있어요…');
+    try{
+      const response=await fetch('/api/inventory/rocket-growth/inbound',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'SAVE_DESTINATION',confirm:true,destination:destinationForm})});
+      const result=await response.json();
+      if(!response.ok||!result.ok)throw new Error(result.error||'물류센터 저장 실패');
+      setSelectedCenterCode(result.destination.centerCode);setShowDestinationForm(false);setMessage('물류센터 주소를 저장했습니다. 이제 일괄 송장에 사용할 수 있어요.');await loadInbound(true);
+    }catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setBusy('');}
+  }
+  async function issueBatch(){
+    if(!selectedDestination?.ready){setMessage('우체국 필수 주소가 저장된 물류센터를 선택해주세요.');return;}
+    if(!selectedDrafts.length){setMessage('송장을 발급할 로켓그로스 상품을 선택하고 수량을 입력해주세요.');return;}
+    if(!window.confirm(`${selectedDestination.label}로 보내는 우체국 송장 ${selectedDrafts.length}건을 실제 발급할까요?\n상품별 수량·무게·크기를 다시 확인해주세요.`))return;
+    setBusy('issue');setMessage(`선택 ${count(selectedDrafts.length)}건의 우체국 송장 발급을 요청하고 있어요…`);
+    try{
+      const response=await fetch('/api/inventory/rocket-growth/inbound',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'ISSUE_BATCH',confirm:true,destinationId:selectedDestination.id,shipments:selectedDrafts})});
+      const result=await response.json();
+      if(!response.ok||!result.ok)throw new Error(result.error||'일괄 송장 발급 실패');
+      setMessage(`송장 ${count(result.succeeded)}건 발급 대기 · ${count(result.failed)}건 확인 필요`);setDrafts({});await loadInbound(true);
+    }catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setBusy('');}
+  }
+  const allSelected=shipmentRows.length>0&&shipmentRows.slice(0,50).every(row=>drafts[row.id]?.selected);
+  return <div className="ipInboundWorkbench">
+    <section className="ipInboundDestination">
+      <header><div><span>ROCKET GROWTH DESTINATION</span><h3>로켓그로스 물류센터 선택</h3><p>쿠팡 저장 자료의 센터 코드를 불러오고, 주소는 최초 한 번만 저장합니다.</p></div><button type="button" onClick={()=>setShowDestinationForm(value=>!value)}><HarinIcon name="edit" size={17}/>센터 주소 등록·수정</button></header>
+      <div className="ipInboundDestinationSelect"><label><span>받는 물류센터</span><select value={selectedCenterCode} onChange={event=>chooseCenter(event.target.value)} disabled={loading}><option value="">물류센터 선택</option>{data.destinations.map(item=><option value={item.centerCode} key={item.centerCode}>{item.label} · {item.centerCode} · {item.statusLabel}</option>)}</select></label><article data-ready={selectedDestination?.ready||false}><i><HarinIcon name={selectedDestination?.ready?'shield':'warning'} size={20}/></i><span><small>우체국 발급 상태</small><strong>{selectedDestination?.statusLabel||'센터 선택 필요'}</strong></span><em>{selectedDestination?.source==='COUPANG_API_HINT'?'쿠팡 코드 자동 발견':'암호화 저장'}</em></article></div>
+      {showDestinationForm?<div className="ipInboundDestinationForm"><label><span>센터 코드</span><input value={destinationForm.centerCode} onChange={event=>changeDestination('centerCode',event.target.value.toUpperCase())} placeholder="예: INC30"/></label><label><span>표시 이름</span><input value={destinationForm.label} onChange={event=>changeDestination('label',event.target.value)} placeholder="예: 인천30 센터"/></label><label><span>받는 분 이름</span><input value={destinationForm.recipientName} onChange={event=>changeDestination('recipientName',event.target.value)} placeholder="쿠팡 입고 담당"/></label><label><span>연락처</span><input inputMode="tel" value={destinationForm.contact} onChange={event=>changeDestination('contact',event.target.value)} placeholder="숫자 9~12자리"/></label><label><span>우편번호</span><input inputMode="numeric" value={destinationForm.postCode} onChange={event=>changeDestination('postCode',event.target.value)} placeholder="5자리"/></label><label className="wide"><span>기본 주소</span><input value={destinationForm.address} onChange={event=>changeDestination('address',event.target.value)} placeholder="도로명 주소"/></label><label className="wide"><span>상세 주소·입고장</span><input value={destinationForm.addressDetail} onChange={event=>changeDestination('addressDetail',event.target.value)} placeholder="동·층·도크·입고장"/></label><button type="button" onClick={saveDestination} disabled={busy==='destination'}>{busy==='destination'?'저장 중…':'주소 확인 후 저장'}</button></div>:null}
+    </section>
+    <section className="ipInboundProducts">
+      <header><div><span>EPOST BATCH</span><h3>보낼 상품과 포장 기준</h3><p>상품 한 행이 우체국 송장 한 건입니다. 최대 50건까지 한 번에 발급합니다.</p></div><label><input type="checkbox" checked={allSelected} onChange={event=>toggleAll(event.target.checked)}/><strong>{selectedDrafts.length?`${count(selectedDrafts.length)}개 선택`:'현재 상품 선택'}</strong></label></header>
+      <div className="ipInboundProductColumns"><span>선택</span><span>로켓그로스 상품</span><span>발송 수량</span><span>무게 kg</span><span>크기 cm</span></div>
+      <div>{shipmentRows.map(row=>{const draft=drafts[row.id]||{selected:false,quantity:1,weight:2,volume:60};return <article className="ipInboundProductRow" data-selected={draft.selected} key={row.id}><input type="checkbox" aria-label={`${row.name} 송장 선택`} checked={draft.selected} onChange={event=>changeDraft(row.id,'selected',event.target.checked)}/><span><strong>{row.name}</strong><small>SKU {row.sku} · Vendor item {row.vendorItemId} · 현재 재고 {count(row.orderableQuantity)}개</small></span><label><span>수량</span><input type="number" min="1" max="99999" value={draft.quantity} onChange={event=>changeDraft(row.id,'quantity',event.target.value)}/></label><label><span>무게</span><input type="number" min="1" max="30" value={draft.weight} onChange={event=>changeDraft(row.id,'weight',event.target.value)}/></label><label><span>크기</span><input type="number" min="1" max="160" value={draft.volume} onChange={event=>changeDraft(row.id,'volume',event.target.value)}/></label></article>;})}</div>
+      <footer><span><HarinIcon name="shield" size={18}/>주소·수량 확인 후 실제 접수</span><button type="button" disabled={busy==='issue'||!selectedDestination?.ready||!selectedDrafts.length} onClick={issueBatch}>{busy==='issue'?'우체국 발급 요청 중…':`선택 상품 우체국 송장 일괄 발급 (${count(selectedDrafts.length)}건)`}</button></footer>
+    </section>
+    <section className="ipInboundHistory"><header><div><span>ISSUE HISTORY</span><h3>최근 입고 송장</h3></div><button type="button" onClick={()=>loadInbound(true)} disabled={loading}><HarinIcon name="sync" size={17}/>상태 새로고침</button></header><div>{data.history.length?data.history.slice(0,30).map(item=><article data-status={item.status} key={item.id}><span><strong>{item.productName}</strong><small>{item.centerCode} · {count(item.quantity)}개 · {referenceTime(item.createdAt)}</small></span><em>{INBOUND_STATUS_LABELS[item.status]||item.status}</em><span className="ipInboundTracking"><small>발급 송장번호</small><strong>{item.trackingNo||item.error||'확인 중'}</strong></span></article>):<div className="ipEmpty"><HarinIcon name="truck" size={24}/><strong>아직 발급한 입고 송장이 없어요.</strong><span>센터와 상품을 선택하면 발급 이력이 여기에 쌓입니다.</span></div>}</div></section>
+    {message?<p className="ipWorkbenchMessage" role="status">{message}</p>:null}
+  </div>;
+}
+
 function InventoryWorkspace({model}){
   const router=useRouter();
   const rows=model.rows||[];
@@ -224,7 +310,7 @@ function InventoryWorkspace({model}){
     <InventoryHero hero={model.hero||{}} rows={rows}/>
     <section className="ipHoldingRail"><header><div><span>HOLDING DAY RAIL</span><h2>재고 보유일 레일</h2></div><button type="button" onClick={syncInventory} disabled={busy==='sync'}><HarinIcon name="sync" size={17}/>{busy==='sync'?'수집 요청 중':'수집 상태 확인'}</button></header><div>{rows.slice(0,12).map(row=><button type="button" key={row.id} data-tone={row.holdingTone} aria-pressed={selectedId===row.id} onClick={()=>setSelectedId(row.id)}><span>{row.name}</span><strong>{row.holdingLabel}</strong><i style={{'--holding-width':row.daysOfStock==null?'8%':`${Math.min(100,Math.max(4,row.daysOfStock/90*100))}%`}}/></button>)}</div></section>
     <section className="ipWorkbench"><header className="ipWorkbenchHead"><div><span>ROCKET GROWTH INVENTORY</span><h2>판매 상품</h2><p>판매 가능 SKU만 보며 쿠팡 재고에는 직접 쓰지 않아요.</p></div><span className="ipAiState"><HarinIcon name="ai" size={17}/>AI 비활성 · 비용 0원</span></header><div className="ipUtility"><label><HarinIcon name="search" size={18}/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="상품명·SKU 검색"/></label><span>{referenceTime(model.collection?.at||model.hero?.asOf)} 기준</span></div><nav className="ipTabs" aria-label="재고 운영 보기">{INVENTORY_TABS.map(tab=><button type="button" aria-selected={activeTab===tab.id} key={tab.id} onClick={()=>setActiveTab(tab.id)}>{tab.label}</button>)}</nav><div className="ipFilters">{[['ALL','전체'],['UNDER7','7일 미만'],['UNDER14','14일 미만'],['LONG','장기 보유'],['CHECK','수집 확인']].map(([id,label])=><button type="button" className={filter===id?'active':''} key={id} onClick={()=>setFilter(id)}>{label}</button>)}<span>현재 {visibleRows.length.toLocaleString('ko-KR')}개 표시</span></div>
-    {activeTab==='LOTS'?<LotTable rows={rows}/>:activeTab==='HISTORY'?<HistoryTable rows={rows}/>:<div className="ipTableBoundary"><div className="ipInventoryColumns"><span>선택</span><span>상품·SKU</span><span>재고 흐름</span><span>주문 가능</span><span>30일 판매</span><span>보유일</span><span/></div><div className="ipRows">{visibleRows.map(row=><article className="ipInventoryRow" data-selected={selectedId===row.id} key={row.id} onClick={()=>setSelectedId(row.id)}><input type="checkbox" aria-label={`${row.name} 선택`} checked={selectedIds.includes(row.id)} onChange={event=>toggleRow(row.id,event.target.checked)} onClick={event=>event.stopPropagation()}/><span className="ipProductMark" data-tone={row.holdingTone}><HarinIcon name="product" size={22}/></span><div className="ipProductIdentity"><strong>{row.name}</strong><small>SKU {row.sku} · 판매 가능</small></div><div className="ipStockAction"><span>{row.actionLabel}</span><small>{row.nextAction}</small></div><strong className="ipMetric">{count(row.orderableQuantity)}개</strong><strong className="ipMetric">{count(row.salesLast30Days)}개</strong><em className="ipHoldingBadge" data-tone={row.holdingTone}>{row.holdingLabel}</em><button type="button" aria-label={`${row.name} 상세 보기`}><HarinIcon name="chevron" size={18}/></button></article>)}{!visibleRows.length?<div className="ipEmpty"><HarinIcon name="filter" size={24}/><strong>이 조건에 해당하는 판매 상품이 없어요.</strong><span>필터를 바꾸거나 재고 수집 상태를 확인해주세요.</span></div>:null}</div></div>}
+    {activeTab==='SHIPMENTS'?<RocketGrowthInboundWorkspace rows={rows}/>:activeTab==='LOTS'?<LotTable rows={rows}/>:activeTab==='HISTORY'?<HistoryTable rows={rows}/>:<div className="ipTableBoundary"><div className="ipInventoryColumns"><span>선택</span><span>상품·SKU</span><span>재고 흐름</span><span>주문 가능</span><span>30일 판매</span><span>보유일</span><span/></div><div className="ipRows">{visibleRows.map(row=><article className="ipInventoryRow" data-selected={selectedId===row.id} key={row.id} onClick={()=>setSelectedId(row.id)}><input type="checkbox" aria-label={`${row.name} 선택`} checked={selectedIds.includes(row.id)} onChange={event=>toggleRow(row.id,event.target.checked)} onClick={event=>event.stopPropagation()}/><span className="ipProductMark" data-tone={row.holdingTone}><HarinIcon name="product" size={22}/></span><div className="ipProductIdentity"><strong>{row.name}</strong><small>SKU {row.sku} · 판매 가능</small></div><div className="ipStockAction"><span>{row.actionLabel}</span><small>{row.nextAction}</small></div><strong className="ipMetric">{count(row.orderableQuantity)}개</strong><strong className="ipMetric">{count(row.salesLast30Days)}개</strong><em className="ipHoldingBadge" data-tone={row.holdingTone}>{row.holdingLabel}</em><button type="button" aria-label={`${row.name} 상세 보기`}><HarinIcon name="chevron" size={18}/></button></article>)}{!visibleRows.length?<div className="ipEmpty"><HarinIcon name="filter" size={24}/><strong>이 조건에 해당하는 판매 상품이 없어요.</strong><span>필터를 바꾸거나 재고 수집 상태를 확인해주세요.</span></div>:null}</div></div>}
     {message?<p className="ipWorkbenchMessage">{message}</p>:null}<footer className="ipWorkbenchFoot"><div className="ipWorkbenchFootStatus"><i className="ipWorkbenchFootIcon"><HarinIcon name={selectedIds.length?'checklist':'product'} size={19}/></i><span><small>선택 상태</small><strong>{selectedIds.length?`${selectedIds.length}개 선택 · 조회 전용`:'선택된 상품 없음'}</strong></span></div><div className="ipWorkbenchFootSource"><i className="ipWorkbenchFootIcon"><HarinIcon name="database" size={19}/></i><span><small>자료 기준</small><strong>쿠팡 로켓그로스 API 저장 스냅샷</strong></span></div></footer></section>
   </></Phase28RightRailLayout>;
 }

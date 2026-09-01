@@ -39,6 +39,23 @@ test('V106 inventory keeps real collection and owner-confirmed LOT seams',()=>{
   assert.doesNotMatch(page,/fetch\([^\n]*inventory[^\n]*method:'DELETE'/);
 });
 
+test('inventory adds a Rocket Growth ePost inbound batch workbench',()=>{
+  const page=read('app/_phase28/pages/inventory-products-page.js');
+  const css=read('app/_phase28/pages/inventory-products-page.css');
+  assert.match(page,/\{id:'SHIPMENTS',label:'입고 송장'\}/);
+  assert.match(page,/function RocketGrowthInboundWorkspace/);
+  assert.match(page,/\/api\/inventory\/rocket-growth\/inbound/);
+  assert.match(page,/action:'SAVE_DESTINATION'/);
+  assert.match(page,/action:'ISSUE_BATCH'/);
+  assert.match(page,/data\.products/);
+  assert.match(page,/센터 주소 등록·수정/);
+  assert.match(page,/선택 상품 우체국 송장 일괄 발급/);
+  assert.match(page,/발급 송장번호/);
+  assert.match(css,/\.ipInboundDestination/);
+  assert.match(css,/\.ipInboundProductRow/);
+  assert.match(css,/\.ipInboundHistory/);
+});
+
 test('Phase 28 channel mapping supports platform-isolated multi-select manual linking',()=>{
   const page=read('app/_phase28/pages/inventory-products-page.js');
   assert.match(page,/function ProductMappingWorkspace/);
