@@ -120,6 +120,12 @@
 .orderBadges span[data-tone="shipping"]{border-color:#cad8f1;background:#e9effa;color:#3e5f9e;}
 .orderBadges span[data-tone="complete"]{border-color:#c4dcd9;background:#e6f1ef;color:#326d68;}
 .orderBadges span[data-tone="cancelled"]{border-color:#d9d2df;background:#f0edf3;color:#74647d;}
+.orderBadges .epostTrackingBadge{gap:7px;border-color:var(--p28-line);background:var(--p28-soft);color:var(--p28-ink);}
+.epostTrackingBadge>i{width:7px;height:7px;flex:0 0 auto;border-radius:50%;background:currentColor;}
+.epostTrackingBadge[data-status="RESERVED"]{border-color:#eed7b5;background:#fbf0df;color:#97602d;}
+.epostTrackingBadge[data-status="IN_TRANSIT"]{border-color:#cad8f1;background:#e9effa;color:#3e5f9e;}
+.epostTrackingBadge[data-status="DELIVERED"]{border-color:#c4dcd9;background:#e6f1ef;color:#326d68;}
+.epostTrackingBadge[data-status="CHECK_REQUIRED"]{border-color:#efcbd0;background:#fae9eb;color:#a14454;}
 .orderBadges .orderGiftAttention{min-height:38px;gap:6px;border-color:#c95752;background:#b84644;color:#fff;box-shadow:0 5px 14px color-mix(in srgb,#9d3430 25%,transparent);font-size:13px;font-weight:950;letter-spacing:-.02em;}
 .orderAmount{text-align:right;}
 .orderAmount strong{display:block;font-size:15px;}
@@ -195,6 +201,10 @@
 [data-theme="dark"] .orderBadges span[data-tone="paid"]{border-color:#315c49;background:#213a30;color:#9ed3b6;}
 [data-theme="dark"] .orderBadges span[data-tone="delay"]{border-color:#663945;background:#41262e;color:#f0a5af;}
 [data-theme="dark"] .orderBadges span[data-tone="preparing"],[data-theme="dark"] .orderBadges span[data-tone="schedule"]{border-color:#654a2e;background:#3b3023;color:#ebbc88;}
+[data-theme="dark"] .epostTrackingBadge[data-status="RESERVED"]{border-color:#654a2e;background:#3b3023;color:#ebbc88;}
+[data-theme="dark"] .epostTrackingBadge[data-status="IN_TRANSIT"]{border-color:#3e5276;background:#26344f;color:#a9bee8;}
+[data-theme="dark"] .epostTrackingBadge[data-status="DELIVERED"]{border-color:#315c49;background:#213a30;color:#9ed3b6;}
+[data-theme="dark"] .epostTrackingBadge[data-status="CHECK_REQUIRED"]{border-color:#663945;background:#41262e;color:#f0a5af;}
 [data-theme="dark"] .orderInvoice{border-color:#315c49;background:#213a30;color:#9ed3b6;}
 [data-theme="dark"] .orderInvoice[data-status="ISSUED"]{border-color:#654a2e;background:#3b3023;color:#ebbc88;}
 [data-theme="dark"] .orderEventGift,[data-theme="dark"] .orderGiftNotice{border-color:#70413f;background:#382728;color:#f1aaa6;}[data-theme="dark"] .orderBadges .orderGiftAttention{border-color:#9a5551;background:#873e3b;color:#fff;}
