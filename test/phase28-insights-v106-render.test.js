@@ -126,6 +126,11 @@ test('insights CSS keeps fixed readable sizing, balanced selection, responsive l
   assert.match(css,/font-size:16px/);
   assert.match(css,/@media \(max-width:760px\)/);
   assert.match(css,/@media \(prefers-reduced-motion:reduce\)/);
+  assert.match(
+    css,
+    /\.inOwnerBrief>\*\{min-width:0;max-width:100%\}/,
+    '모바일 사장님 브리프의 직접 자식이 넓은 내부 표 때문에 문서 폭을 늘리면 안 됩니다.'
+  );
   assert.doesNotMatch(css,/border-left\s*:/);
   assert.doesNotMatch(css,/linear-gradient|radial-gradient|backdrop-filter/);
   assert.doesNotMatch(css,/font-size:(?:[0-9]|1[01])px/);
