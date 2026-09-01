@@ -48,6 +48,10 @@ function calendarEntryTone(entry){
   const seed=String(entry.id||entry.title||'').split('').reduce((total,letter)=>total+letter.charCodeAt(0),0);
   return palette[seed%palette.length];
 }
+function giftRangeLabel(item){
+  const minimum=`${Number(item.minimumAmount).toLocaleString('ko-KR')}원 이상`;
+  return item.maximumAmount==null||item.maximumAmount===''?minimum:`${minimum} · ${Number(item.maximumAmount).toLocaleString('ko-KR')}원 이하`;
+}
 
 function CalendarRail({selectedDate,entries,editing,onEdit,onCancel,onSaved,onRemoved}){
   const [form,setForm]=useState({...EMPTY_FORM,date:selectedDate,endDate:selectedDate});
@@ -55,8 +59,8 @@ function CalendarRail({selectedDate,entries,editing,onEdit,onCancel,onSaved,onRe
   const [message,setMessage]=useState('');
   const [error,setError]=useState('');
   useEffect(()=>{
-    if(editing)setForm({type:editing.type,title:editing.title,body:editing.body||'',date:editing.date,endDate:editing.endDate||editing.date,time:editing.time||'',priority:editing.priority||'NORMAL',eventColor:editing.eventColor||'CORAL',giftTiers:(editing.giftTiers||[]).map(item=>({...item}))});
-    else setForm(current=>({...EMPTY_FORM,type:current.type,date:selectedDate,endDate:selectedDate}));
+    if(editing)setForm({type:editing.type,title:editing.title,body:editing.body||'',date:editing.date,endDate:editing.endDate||editing.date,time:editing.time||'',priority:editing.type==='EVENT'?'HIGH':editing.priority||'NORMAL',eventColor:editing.eventColor||'CORAL',giftTiers:(editing.giftTiers||[]).map(item=>({...item,maximumAmount:item.maximumAmount??''}))});
+    else setForm(current=>({...EMPTY_FORM,type:current.type,priority:current.type==='EVENT'?'HIGH':'NORMAL',date:selectedDate,endDate:selectedDate}));
     setError('');setMessage('');
   },[editing,selectedDate]);
   const update=event=>{const {name,value}=event.target;setForm(current=>{
@@ -64,12 +68,12 @@ function CalendarRail({selectedDate,entries,editing,onEdit,onCancel,onSaved,onRe
     if(name==='date'&&(current.type==='MEMO'||!current.endDate||current.endDate<value))next.endDate=value;
     return next;
   });};
-  const addGiftTier=()=>setForm(current=>({...current,giftTiers:[...current.giftTiers,{minimumAmount:'',giftName:'',quantity:1}]}));
+  const addGiftTier=()=>setForm(current=>({...current,giftTiers:[...current.giftTiers,{minimumAmount:'',maximumAmount:'',giftName:'',quantity:1}]}));
   const updateGiftTier=(index,key,value)=>setForm(current=>({...current,giftTiers:current.giftTiers.map((item,itemIndex)=>itemIndex===index?{...item,[key]:value}:item)}));
   const removeGiftTier=index=>setForm(current=>({...current,giftTiers:current.giftTiers.filter((_,itemIndex)=>itemIndex!==index)}));
   const giftPreview=useMemo(()=>form.giftTiers
-    .map(item=>({...item,minimumAmount:Number(item.minimumAmount),quantity:Number(item.quantity)}))
-    .filter(item=>item.minimumAmount>0&&item.giftName.trim()&&item.quantity>0)
+    .map(item=>({...item,minimumAmount:Number(item.minimumAmount),maximumAmount:item.maximumAmount==null||item.maximumAmount===''?null:Number(item.maximumAmount),quantity:Number(item.quantity)}))
+    .filter(item=>item.minimumAmount>0&&(item.maximumAmount==null||item.maximumAmount>=item.minimumAmount)&&item.giftName.trim()&&item.quantity>0)
     .sort((left,right)=>left.minimumAmount-right.minimumAmount),[form.giftTiers]);
   async function request(payload){
     const response=await fetch('/api/calendar/entries',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
@@ -81,9 +85,9 @@ function CalendarRail({selectedDate,entries,editing,onEdit,onCancel,onSaved,onRe
     event.preventDefault();if(working)return;
     setWorking('save');setError('');setMessage('');
     try{
-      const data=await request({...form,action:editing?'UPDATE_ENTRY':'CREATE_ENTRY',id:editing?.id});
+      const data=await request({...form,priority:form.type==='EVENT'?'HIGH':form.priority,action:editing?'UPDATE_ENTRY':'CREATE_ENTRY',id:editing?.id});
       onSaved(data.entry,Boolean(editing));setMessage(editing?'수정한 내용을 저장했어요.':'새 항목을 저장했어요.');
-      if(!editing)setForm(current=>({...EMPTY_FORM,type:current.type,date:form.date,endDate:form.date}));
+      if(!editing)setForm(current=>({...EMPTY_FORM,type:current.type,priority:current.type==='EVENT'?'HIGH':'NORMAL',date:form.date,endDate:form.date}));
     }catch(cause){setError(cause.message);}finally{setWorking('');}
   }
   async function remove(){
@@ -101,20 +105,20 @@ function CalendarRail({selectedDate,entries,editing,onEdit,onCancel,onSaved,onRe
     <form className="calendarComposer" onSubmit={save}>
       <header><div><span>{editing?'EDIT ENTRY':'QUICK ADD'}</span><h3>{editing?'선택한 항목 수정':'일정·메모·이벤트 입력'}</h3></div>{editing?<button type="button" onClick={onCancel}>수정 취소</button>:null}</header>
       <div className="calendarTypeSwitch" aria-label="항목 종류">
-        <button type="button" data-selected={form.type==='SCHEDULE'} onClick={()=>setForm(current=>({...current,type:'SCHEDULE',endDate:current.endDate||current.date}))}><HarinIcon name="clock" size={18}/>일정</button>
-        <button type="button" data-selected={form.type==='MEMO'} onClick={()=>setForm(current=>({...current,type:'MEMO',endDate:current.date,time:''}))}><HarinIcon name="note" size={18}/>메모</button>
-        <button type="button" data-selected={form.type==='EVENT'} onClick={()=>setForm(current=>({...current,type:'EVENT',endDate:current.endDate||current.date,time:''}))}><HarinIcon name="sparkles" size={18}/>이벤트</button>
+        <button type="button" data-selected={form.type==='SCHEDULE'} onClick={()=>setForm(current=>({...current,type:'SCHEDULE',priority:'NORMAL',endDate:current.endDate||current.date}))}><HarinIcon name="clock" size={18}/>일정</button>
+        <button type="button" data-selected={form.type==='MEMO'} onClick={()=>setForm(current=>({...current,type:'MEMO',priority:'NORMAL',endDate:current.date,time:''}))}><HarinIcon name="note" size={18}/>메모</button>
+        <button type="button" data-selected={form.type==='EVENT'} onClick={()=>setForm(current=>({...current,type:'EVENT',priority:'HIGH',endDate:current.endDate||current.date,time:''}))}><HarinIcon name="sparkles" size={18}/>이벤트</button>
       </div>
       <label><span>제목</span><input name="title" value={form.title} onChange={update} maxLength={160} placeholder={form.type==='MEMO'?'기억할 내용을 적어주세요':form.type==='EVENT'?'예: 추석 감사 사은품 이벤트':'일정 이름을 적어주세요'} required/></label>
       {['SCHEDULE','EVENT'].includes(form.type)?<div className="calendarFormDates"><label><span>시작일</span><input name="date" type="date" value={form.date} onChange={update} required/></label><label><span>종료일</span><input name="endDate" type="date" min={form.date} value={form.endDate} onChange={update} required/></label></div>:<label><span>날짜</span><input name="date" type="date" value={form.date} onChange={update} required/></label>}
       {form.type==='SCHEDULE'?<label><span>시작 시간 <small>선택</small></span><input name="time" type="time" value={form.time} onChange={update}/></label>:null}
       {form.type==='EVENT'?<label><span>캘린더 띠 색상</span><select name="eventColor" value={form.eventColor} onChange={update}>{Object.entries(EVENT_COLOR_LABEL).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>:null}
       {form.type==='EVENT'?<section className="eventGiftSection">
-        <header><div><strong>금액대별 사은품</strong><small>주문의 실결제 금액에 맞는 가장 높은 구간 하나를 자동 선택해요.</small></div><button type="button" onClick={addGiftTier}>구간 추가</button></header>
-        <div>{form.giftTiers.length?form.giftTiers.map((tier,index)=><fieldset key={index}><legend>{index+1}구간</legend><label><span>기준 금액</span><input type="number" min="1" max="100000000" step="100" value={tier.minimumAmount} onChange={event=>updateGiftTier(index,'minimumAmount',event.target.value)} placeholder="30000" required/></label><label><span>사은품</span><input value={tier.giftName} maxLength={120} onChange={event=>updateGiftTier(index,'giftName',event.target.value)} placeholder="예: 보리차 티백" required/></label><label><span>수량</span><input type="number" min="1" max="99" value={tier.quantity} onChange={event=>updateGiftTier(index,'quantity',event.target.value)} required/></label><button type="button" onClick={()=>removeGiftTier(index)} aria-label={`${index+1}구간 삭제`}>삭제</button></fieldset>):<p>사은품이 없는 안내 이벤트도 저장할 수 있어요. 사은품을 자동 판정하려면 구간을 추가하세요.</p>}</div>
-        {giftPreview.length?<div className="eventGiftPreview"><strong>자동 판정 미리보기</strong><small>여러 기준을 충족하면 가장 높은 구간 하나만 증정합니다.</small>{giftPreview.map(item=><span key={`${item.minimumAmount}-${item.giftName}`}><b>{item.minimumAmount.toLocaleString('ko-KR')}원 이상</b><em>→</em>{item.giftName} {item.quantity}개</span>)}</div>:null}
+        <header><div><strong>금액대별 사은품</strong><small>실결제 금액이 ‘이상·이하’ 범위에 들어오면 가장 높은 구간 하나를 자동 선택해요.</small></div><button className="eventGiftAdd" type="button" onClick={addGiftTier}>구간 추가</button></header>
+        <div>{form.giftTiers.length?form.giftTiers.map((tier,index)=><fieldset key={index}><legend>{index+1}구간</legend><div className="eventGiftRange"><label><span>이상 금액</span><input type="number" min="1" max="100000000" step="100" value={tier.minimumAmount} onChange={event=>updateGiftTier(index,'minimumAmount',event.target.value)} placeholder="30000" required/></label><i aria-hidden="true">~</i><label><span>이하 금액 <small>선택</small></span><input type="number" min={tier.minimumAmount||1} max="100000000" step="100" value={tier.maximumAmount??''} onChange={event=>updateGiftTier(index,'maximumAmount',event.target.value)} placeholder="상한 없음"/></label></div><label><span>사은품</span><input value={tier.giftName} maxLength={120} onChange={event=>updateGiftTier(index,'giftName',event.target.value)} placeholder="예: 보리차 티백" required/></label><label><span>수량</span><input type="number" min="1" max="99" value={tier.quantity} onChange={event=>updateGiftTier(index,'quantity',event.target.value)} required/></label><button type="button" onClick={()=>removeGiftTier(index)} aria-label={`${index+1}구간 삭제`}>삭제</button></fieldset>):<p>사은품이 없는 안내 이벤트도 저장할 수 있어요. 사은품을 자동 판정하려면 구간을 추가하세요.</p>}</div>
+        {giftPreview.length?<div className="eventGiftPreview"><strong>자동 판정 미리보기</strong><small>여러 기준을 충족하면 시작 금액이 가장 높은 구간 하나만 증정합니다.</small>{giftPreview.map(item=><span key={`${item.minimumAmount}-${item.maximumAmount||'open'}-${item.giftName}`}><b>{giftRangeLabel(item)}</b><em>→</em>{item.giftName} {item.quantity}개</span>)}</div>:null}
       </section>:null}
-      <label><span>중요도</span><select name="priority" value={form.priority} onChange={update}><option value="LOW">여유</option><option value="NORMAL">보통</option><option value="HIGH">중요</option></select></label>
+      {form.type==='EVENT'?<section className="calendarPriorityLocked" aria-label="중요도 중요"><span>중요도</span><strong><HarinIcon name="sparkles" size={16}/>중요</strong><small>판매 이벤트는 중요로 고정해요.</small></section>:<label><span>중요도</span><select name="priority" value={form.priority} onChange={update}><option value="LOW">여유</option><option value="NORMAL">보통</option><option value="HIGH">중요</option></select></label>}
       <label><span>{form.type==='EVENT'?'이벤트 안내':'상세 메모'} <small>선택</small></span><textarea name="body" value={form.body} onChange={update} maxLength={form.type==='EVENT'?2000:4000} rows={5} placeholder={form.type==='EVENT'?'고객 안내와 포장할 때 확인할 내용을 적어주세요.':'준비물, 연락처, 확인할 내용을 함께 적을 수 있어요.'}/></label>
       {error?<p className="calendarFormError" role="alert">{error}</p>:null}
       {message?<p className="calendarFormMessage" role="status">{message}</p>:null}
@@ -192,7 +196,7 @@ export default function Phase28CalendarPage({model={}}){
         <section className="calendarAgenda">
           <header><div><span>DAY AGENDA</span><h2>{fullDateLabel(selectedDate)}</h2></div><strong>{selectedEntries.length}개</strong></header>
           <div>{selectedEntries.length?selectedEntries.map(item=><article key={item.id} data-type={item.type} data-done={item.status==='DONE'}>
-            <button className="calendarAgendaMain" type="button" onClick={()=>setEditing(item)}><span>{item.type==='MEMO'?<HarinIcon name="note" size={20}/>:item.type==='EVENT'?<HarinIcon name="sparkles" size={20}/>:<HarinIcon name="clock" size={20}/>}</span><div><small>{item.type==='MEMO'?'메모':item.type==='EVENT'?`이벤트 · ${item.date} ~ ${item.endDate}`:`${item.time||'하루 종일'} · ${item.date}${item.endDate!==item.date?` ~ ${item.endDate}`:''}`} · {PRIORITY_LABEL[item.priority]||'보통'}</small><strong>{item.title}</strong>{item.type==='EVENT'&&item.giftTiers?.length?<p>{item.giftTiers.map(tier=>`${Number(tier.minimumAmount).toLocaleString('ko-KR')}원 이상 ${tier.giftName} ${tier.quantity}개`).join(' · ')}</p>:item.body?<p>{item.body}</p>:null}</div><em>수정</em></button>
+            <button className="calendarAgendaMain" type="button" onClick={()=>setEditing(item)}><span>{item.type==='MEMO'?<HarinIcon name="note" size={20}/>:item.type==='EVENT'?<HarinIcon name="sparkles" size={20}/>:<HarinIcon name="clock" size={20}/>}</span><div><small>{item.type==='MEMO'?'메모':item.type==='EVENT'?`이벤트 · ${item.date} ~ ${item.endDate}`:`${item.time||'하루 종일'} · ${item.date}${item.endDate!==item.date?` ~ ${item.endDate}`:''}`} · {item.type==='EVENT'?'중요':PRIORITY_LABEL[item.priority]||'보통'}</small><strong>{item.title}</strong>{item.type==='EVENT'&&item.giftTiers?.length?<p>{item.giftTiers.map(tier=>`${giftRangeLabel(tier)} ${tier.giftName} ${tier.quantity}개`).join(' · ')}</p>:item.body?<p>{item.body}</p>:null}</div><em>수정</em></button>
             {item.type==='SCHEDULE'?<button className="calendarDone" type="button" onClick={()=>toggle(item)}>{item.status==='DONE'?'완료 취소':'완료'}</button>:null}
           </article>):<div className="calendarEmpty"><HarinIcon name="note" size={28}/><strong>이 날짜는 아직 비어 있어요.</strong><p>오른쪽 입력석에서 일정이나 메모를 바로 추가할 수 있어요.</p></div>}</div>
         </section>

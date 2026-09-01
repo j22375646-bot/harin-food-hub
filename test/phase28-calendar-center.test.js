@@ -60,6 +60,30 @@ test('이벤트 자동화는 행사 기간에 주문금액이 충족한 가장 �
   assert.equal(calendar.resolveEventGift(event,{orderAmount:20000,date:'2026-09-20'}),null);
 });
 
+test('이벤트 사은품은 이상·이하 금액 구간을 저장하고 중요도를 중요으로 고정한다',()=>{
+  const entry=calendar.normalizeEntryInput({
+    type:'EVENT',title:'금액 구간 이벤트',date:'2026-09-01',endDate:'2026-09-30',priority:'LOW',
+    giftTiers:[
+      {minimumAmount:30000,maximumAmount:49999,giftName:'보리차',quantity:1},
+      {minimumAmount:50000,maximumAmount:70000,giftName:'작두콩차',quantity:1}
+    ]
+  });
+  assert.equal(entry.priority,'HIGH');
+  assert.deepEqual(entry.giftTiers[0],{minimumAmount:30000,maximumAmount:49999,giftName:'보리차',quantity:1});
+  const restored=calendar.decorateEntry({
+    id:'event-range',item_type:'TASK',title:entry.title,body:calendar.encodeEventBody(entry),due_at:entry.dueAt,
+    context_label:entry.contextLabel,status:'OPEN',priority:'NORMAL'
+  });
+  assert.equal(restored.priority,'HIGH');
+  const event={id:'event-range',title:entry.title,status:'OPEN',...entry};
+  assert.equal(calendar.resolveEventGift(event,{orderAmount:49999,date:'2026-09-20'}).giftName,'보리차');
+  assert.equal(calendar.resolveEventGift(event,{orderAmount:50000,date:'2026-09-20'}).giftName,'작두콩차');
+  assert.equal(calendar.resolveEventGift(event,{orderAmount:70001,date:'2026-09-20'}),null);
+  assert.throws(()=>calendar.normalizeEntryInput({
+    type:'EVENT',title:'잘못된 금액 구간',date:'2026-09-01',giftTiers:[{minimumAmount:50000,maximumAmount:30000,giftName:'보리차',quantity:1}]
+  }),/이하 금액은 이상 금액보다 작을 수 없/);
+});
+
 test('여러 날 일정은 월간 날짜마다 이어지는 띠 위치를 만든다',()=>{
   const entry={id:'range-1',type:'SCHEDULE',title:'기획전',date:'2026-09-04',endDate:'2026-09-08',time:'09:00',status:'OPEN'};
   const byDate=calendar.expandEntriesByDate([entry]);

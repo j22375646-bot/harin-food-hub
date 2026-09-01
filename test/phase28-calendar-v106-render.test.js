@@ -68,3 +68,16 @@ test('캘린더는 주말과 공식 공휴일, 시작일과 종료일을 잇는 
   assert.match(api,/shipping_reference_snapshots/);
   assert.match(api,/buildHolidayCalendar/);
 });
+
+test('이벤트 입력석은 이상·이하 금액 구간과 고정 중요도를 깨지지 않게 표시한다',()=>{
+  const page=read('app/_phase28/pages/calendar-page.js');
+  const css=read('app/_phase28/pages/calendar-page.css');
+  assert.match(page,/minimumAmount/);
+  assert.match(page,/maximumAmount/);
+  assert.match(page,/이상 금액/);
+  assert.match(page,/이하 금액/);
+  assert.match(page,/calendarPriorityLocked/);
+  assert.match(page,/판매 이벤트는 중요로 고정/);
+  assert.match(page,/className="eventGiftAdd"/);
+  assert.match(css,/\.eventGiftAdd\{[^}]*min-width:84px[^}]*white-space:nowrap/);
+});
