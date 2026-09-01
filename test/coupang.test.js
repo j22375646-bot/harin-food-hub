@@ -4,6 +4,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const client = require('../lib/coupang/client.js');
 const map = require('../lib/coupang/mappers.js');
+const sync = require('../lib/coupang/sync.js');
+const operations = require('../lib/coupang/operations.js');
 
 test('Coupang HMAC signature is deterministic and contains no secret', () => {
   const authorization = client.createAuthorization({
@@ -108,6 +110,31 @@ test('Coupang hybrid product mapper keeps both Rocket Growth and seller-delivery
   assert.deepEqual(rows.map(row=>row.sale_price),[14500,15500]);
   assert.equal(rows[0].raw_data.images[0].cdnPath,'vendor_inventory/10/tea.png');
   assert.equal(rows[1].raw_data.images[0].cdnPath,'vendor_inventory/10/tea.png');
+});
+
+test('쿠팡 최근 주문 정보는 상품 상세의 판매 상태와 가격을 덮어쓰지 않는다', () => {
+  const detailRows=[{
+    vendor_item_id:'20',seller_product_id:'10',item_name:'작두콩차 30티백',sale_price:14500,status:'승인완료',raw_data:{fulfillmentType:'MARKETPLACE'}
+  }];
+  const rows=sync.mergeProductItemRows(detailRows,[{
+    vendor_item_id:'20',seller_product_id:'10',product_name:'작두콩차 30티백',unit_price:13000,status:'FINAL_DELIVERY',raw_data:{invoiceNumber:'123'}
+  }]);
+  assert.equal(rows[0].status,'승인완료');
+  assert.equal(rows[0].sale_price,14500);
+  assert.equal(rows[0].raw_data.invoiceNumber,'123');
+});
+
+test('쿠팡 재고 수집 대상은 최근 주문 옵션이 아니라 전체 상품 상세 옵션이다', () => {
+  const ids=sync.inventoryVendorItemIds([
+    {vendor_item_id:'20'},{vendor_item_id:'30'},{vendor_item_id:'20'},{vendor_item_id:null}
+  ]);
+  assert.deepEqual(ids,['20','30']);
+});
+
+test('쿠팡 재고 수집은 300개 이상의 판매 옵션도 임의로 잘라내지 않는다', () => {
+  const ids=operations.uniqueInventoryIds(Array.from({length:350},(_,index)=>String(index+1)));
+  assert.equal(ids.length,350);
+  assert.equal(ids.at(-1),'350');
 });
 
 test('Coupang inquiry mapper never stores question or answer text', () => {

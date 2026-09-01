@@ -7,11 +7,12 @@ const service = require('../lib/products/mapping-service.js');
 test('쿠팡과 네이버 커머스 실상품만 매핑 원천으로 만들고 네이버 광고그룹은 제외한다', () => {
   const sources = service.createProductSources({
     channelProducts:[
-      {platform:'NAVER',external_product_id:'NP1',external_product_name:'작두콩차 30티백',selling_price:11000,is_active:true,raw_data:{source_type:'NAVER_COMMERCE_PRODUCT'}},
+      {platform:'NAVER',external_product_id:'NP1',external_product_name:'작두콩차 30티백',selling_price:11000,is_active:true,raw_data:{source_type:'NAVER_COMMERCE_PRODUCT',statusType:'SALE',channelProductDisplayStatusType:'ON',stockQuantity:20}},
       {platform:'NAVER',external_product_id:'AD1',external_product_name:'작두콩차 광고그룹',is_active:true,raw_data:{source_type:'NAVER_ADGROUP'}}
     ],
     coupangProducts:[{seller_product_id:'C1',product_name:'국화차',status:'APPROVED'}],
-    coupangProductItems:[{seller_product_id:'C1',sale_price:12000}]
+    coupangProductItems:[{vendor_item_id:'V1',seller_product_id:'C1',sale_price:12000,status:'APPROVED'}],
+    coupangItemInventory:[{vendor_item_id:'V1',quantity:5,raw_data:{onSale:true}}]
   });
   assert.deepEqual(sources.map(item=>item.platform).sort(), ['COUPANG','NAVER']);
   assert.equal(sources.find(item=>item.platform==='COUPANG').selling_price, 12000);
@@ -33,7 +34,8 @@ test('매핑 대시보드는 연결 현황과 고신뢰 후보를 함께 계산�
     masterProducts:[{id:'M1',name:'돼지감자차 36g(1.2gX30TB)',selling_price:11000,is_active:true}],
     channelProducts:[],
     coupangProducts:[{seller_product_id:'C1',product_name:'돼지감자차 (1.2gx30티백)',status:'APPROVED'}],
-    coupangProductItems:[{seller_product_id:'C1',sale_price:11000}]
+    coupangProductItems:[{vendor_item_id:'V1',seller_product_id:'C1',sale_price:11000,status:'APPROVED'}],
+    coupangItemInventory:[{vendor_item_id:'V1',quantity:5,raw_data:{onSale:true}}]
   });
   assert.equal(dashboard.summary.candidate_total, 1);
   assert.equal(dashboard.summary.auto_eligible, 1);
@@ -50,8 +52,8 @@ test('상품 연결 목록은 판매중 상품만 남기고 기준상품을 가�
       {id:'UNKNOWN',name:'상태 미확인 상품',selling_price:1000,is_active:null}
     ],
     channelProducts:[
-      {platform:'NAVER',external_product_id:'N-SALE',external_product_name:'네이버 판매중',selling_price:11000,is_active:true,raw_data:{source_type:'NAVER_COMMERCE_PRODUCT'}},
-      {platform:'NAVER',external_product_id:'N-STOP',external_product_name:'네이버 판매중단',selling_price:11000,is_active:false,raw_data:{source_type:'NAVER_COMMERCE_PRODUCT'}},
+      {platform:'NAVER',external_product_id:'N-SALE',external_product_name:'네이버 판매중',selling_price:11000,is_active:true,raw_data:{source_type:'NAVER_COMMERCE_PRODUCT',statusType:'SALE',channelProductDisplayStatusType:'ON',stockQuantity:3}},
+      {platform:'NAVER',external_product_id:'N-STOP',external_product_name:'네이버 판매중단',selling_price:11000,is_active:false,raw_data:{source_type:'NAVER_COMMERCE_PRODUCT',statusType:'SUSPENSION',channelProductDisplayStatusType:'SUSPENSION',stockQuantity:3}},
       {platform:'NAVER',external_product_id:'N-UNKNOWN',external_product_name:'네이버 상태 미확인',selling_price:11000,is_active:null,raw_data:{source_type:'NAVER_COMMERCE_PRODUCT'}}
     ],
     coupangProducts:[
@@ -60,10 +62,11 @@ test('상품 연결 목록은 판매중 상품만 남기고 기준상품을 가�
       {seller_product_id:'C-UNKNOWN',product_name:'쿠팡 상태 미확인',status:''}
     ],
     coupangProductItems:[
-      {seller_product_id:'C-SALE',sale_price:12000,status:'APPROVED'},
-      {seller_product_id:'C-STOP',sale_price:12000,status:'STOPPED'},
-      {seller_product_id:'C-UNKNOWN',sale_price:12000,status:''}
-    ]
+      {vendor_item_id:'VC-SALE',seller_product_id:'C-SALE',sale_price:12000,status:'APPROVED'},
+      {vendor_item_id:'VC-STOP',seller_product_id:'C-STOP',sale_price:12000,status:'STOPPED'},
+      {vendor_item_id:'VC-UNKNOWN',seller_product_id:'C-UNKNOWN',sale_price:12000,status:''}
+    ],
+    coupangItemInventory:[{vendor_item_id:'VC-SALE',quantity:4,raw_data:{onSale:true}}]
   });
 
   assert.deepEqual(dashboard.masterProducts.map(item=>item.name), ['가시오가피차','보리차','하린식품 작두콩차']);
@@ -87,9 +90,10 @@ test('기존 네이버 광고그룹 연결은 상품 연결 집계와 후보에�
 test('네이버 스마트스토어 실상품 후보와 쿠팡 후보를 플랫폼별로 분리 집계한다', () => {
   const dashboard = service.buildMappingDashboard({
     masterProducts:[{id:'M1',name:'작두콩차 30티백',selling_price:11000,is_active:true}],
-    channelProducts:[{platform:'NAVER',external_product_id:'NP1',external_product_name:'작두콩차 30티백',selling_price:11000,is_active:true,raw_data:{source_type:'NAVER_COMMERCE_PRODUCT'}}],
+    channelProducts:[{platform:'NAVER',external_product_id:'NP1',external_product_name:'작두콩차 30티백',selling_price:11000,is_active:true,raw_data:{source_type:'NAVER_COMMERCE_PRODUCT',statusType:'SALE',channelProductDisplayStatusType:'ON',stockQuantity:10}}],
     coupangProducts:[{seller_product_id:'CP1',product_name:'작두콩차 30티백',status:'APPROVED'}],
-    coupangProductItems:[{seller_product_id:'CP1',sale_price:11000}]
+    coupangProductItems:[{vendor_item_id:'VCP1',seller_product_id:'CP1',sale_price:11000,status:'APPROVED'}],
+    coupangItemInventory:[{vendor_item_id:'VCP1',quantity:10,raw_data:{onSale:true}}]
   });
   assert.equal(dashboard.summary.source_naver, 1);
   assert.equal(dashboard.summary.source_coupang, 1);
@@ -108,12 +112,43 @@ test('판매 중단 외부 상품은 매칭 후보와 연결 집계에서 제외
     coupangProducts:[
       {seller_product_id:'ACTIVE',product_name:'레드비트차 30티백',status:'APPROVED'},
       {seller_product_id:'STOPPED',product_name:'레드비트차 사은품',status:'STOPPED'}
-    ]
+    ],
+    coupangProductItems:[{vendor_item_id:'VA',seller_product_id:'ACTIVE',sale_price:11000,status:'APPROVED'}],
+    coupangItemInventory:[{vendor_item_id:'VA',quantity:8,raw_data:{onSale:true}}]
   });
   assert.equal(dashboard.summary.source_coupang, 1);
   assert.equal(dashboard.summary.linked_coupang, 1);
   assert.equal(dashboard.summary.inactive_sources, 1);
   assert.deepEqual(dashboard.links.map(item=>item.external_product_id), ['ACTIVE']);
+});
+
+test('네이버·쿠팡 품절 또는 노출 중단 상품은 연결 후보와 저장 대상에서 제외한다', () => {
+  const dashboard=service.buildMappingDashboard({
+    masterProducts:[{id:'M1',name:'작두콩차 30티백',selling_price:11000,is_active:true}],
+    channelProducts:[
+      {platform:'NAVER',external_product_id:'N-OK',external_product_name:'작두콩차 30티백',selling_price:11000,is_active:true,raw_data:{source_type:'NAVER_COMMERCE_PRODUCT',statusType:'SALE',channelProductDisplayStatusType:'ON',stockQuantity:2}},
+      {platform:'NAVER',external_product_id:'N-WAIT',external_product_name:'노출 대기',selling_price:11000,is_active:true,raw_data:{source_type:'NAVER_COMMERCE_PRODUCT',statusType:'SALE',channelProductDisplayStatusType:'WAIT',stockQuantity:2}},
+      {platform:'NAVER',external_product_id:'N-OOS',external_product_name:'재고 없음',selling_price:11000,is_active:true,raw_data:{source_type:'NAVER_COMMERCE_PRODUCT',statusType:'SALE',channelProductDisplayStatusType:'ON',stockQuantity:0}}
+    ],
+    coupangProducts:[
+      {seller_product_id:'C-OK',product_name:'작두콩차 30티백',status:'승인완료'},
+      {seller_product_id:'C-OOS',product_name:'품절 상품',status:'승인완료'},
+      {seller_product_id:'C-UNKNOWN',product_name:'재고 미수집',status:'승인완료'}
+    ],
+    coupangProductItems:[
+      {vendor_item_id:'V-OK',seller_product_id:'C-OK',sale_price:11000,status:'승인완료'},
+      {vendor_item_id:'V-OOS',seller_product_id:'C-OOS',sale_price:11000,status:'승인완료'},
+      {vendor_item_id:'V-UNKNOWN',seller_product_id:'C-UNKNOWN',sale_price:11000,status:'승인완료'}
+    ],
+    coupangItemInventory:[
+      {vendor_item_id:'V-OK',quantity:3,raw_data:{onSale:true}},
+      {vendor_item_id:'V-OOS',quantity:0,raw_data:{onSale:false}}
+    ]
+  });
+  assert.deepEqual(dashboard.candidates.map(item=>`${item.platform}:${item.external_product_id}`).sort(),['COUPANG:C-OK','NAVER:N-OK']);
+  assert.throws(()=>service.planBulkMappingDecisionOperations({
+    dashboard,platform:'COUPANG',assignments:[{external_product_id:'C-OOS',master_product_id:'M1'}]
+  }),/현재 판매·재고가 확인된/);
 });
 
 test('일괄 자동연결은 선택한 플랫폼의 고신뢰 실상품만 계획한다', () => {

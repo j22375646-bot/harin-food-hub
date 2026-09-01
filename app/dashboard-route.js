@@ -629,6 +629,7 @@ async function buildProductCatalogDashboardData({
   loaderSession,generatedAt,queryIssues,workspace='catalog',platform='all',
   productsResult,syncResult,alertsResult,masterResult,channelsResult,costsResult,
   channelCostsResult,shippingRulesResult,coupangProductsResult,coupangProductItemsResult,
+  coupangItemInventoryResult,
   mappingHistoryResult,cafe24Token,latestAiPageResults
 }) {
   const dashboard=await buildProductCostsDashboardData({
@@ -649,6 +650,7 @@ async function buildProductCatalogDashboardData({
     channelProducts:sourceChannels,
     coupangProducts:coupangProductsResult.data||[],
     coupangProductItems:coupangProductItemsResult.data||[],
+    coupangItemInventory:coupangItemInventoryResult.data||[],
     history:mappingHistoryResult?.data||[]
   });
   const commerceChannels=[
@@ -661,7 +663,7 @@ async function buildProductCatalogDashboardData({
     cafe24Products:sourceProducts,
     coupangProducts:coupangProductsResult.data||[],
     coupangProductItems:coupangProductItemsResult.data||[],
-    coupangItemInventory:[]
+    coupangItemInventory:coupangItemInventoryResult.data||[]
   });
   return {
     ...dashboard,
@@ -1677,6 +1679,7 @@ async function getDashboardData(state) {
       loaderSession,generatedAt,queryIssues,workspace:state.workspace,platform:state.platform,
       productsResult,syncResult,alertsResult,masterResult,channelsResult,costsResult,
       channelCostsResult,shippingRulesResult,coupangProductsResult,coupangProductItemsResult,
+      coupangItemInventoryResult,
       mappingHistoryResult:mappingHistorySettled.results[0],
       cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,
       latestAiPageResults:aiPageResultsModule.latestByPage(aiResultsSettled.results[0].data||[])
@@ -2236,6 +2239,7 @@ async function getDashboardData(state) {
     channelProducts:channelsResult.data || [],
     coupangProducts:coupangProductsResult.data || [],
     coupangProductItems:coupangProductItemsResult.data || [],
+    coupangItemInventory:coupangItemInventoryResult.data || [],
     naverAdgroups:naverGroupResult.data || [],
     naverCampaigns:naverCampaignResult.data || [],
     history:mappingHistoryResult.data || []

@@ -21,6 +21,22 @@ test('묶음 수량이 다른 상품은 자동 확정 점수를 받지 않는다
   assert.ok(result.score < 0.9, `bundle mismatch should not auto match: ${result.score}`);
 });
 
+test('채널 상품 끝의 묶음 수량은 걷어내고 기준상품 규격을 추천한다', () => {
+  const result=matcher.scoreProductMatch(
+    {name:'하린식품 해썹인증 작수차 36g(1.2gX30TB)',selling_price:12000},
+    {name:'2026년 국내산 하린식품 작두콩차 작수차 볶은 생분해 삼각티백 30개입 36g, 3개',selling_price:36000}
+  );
+  assert.ok(result.score>=0.38,`expected a visible recommendation, got ${result.score}`);
+});
+
+test('티백 TB EA 표기 차이는 같은 제품의 추천을 막지 않는다', () => {
+  const result=matcher.scoreProductMatch(
+    {name:'둥굴레차36g(1.2gX30TB)',selling_price:12000},
+    {name:'하린식품 둥굴레차(티백) 36g(1.2gx30EA)',selling_price:12000}
+  );
+  assert.ok(result.score>=0.38,`expected TB/EA equivalent recommendation, got ${result.score}`);
+});
+
 test('후보는 플랫폼 원천별로 가장 가까운 기준상품 순서로 정렬된다', () => {
   const masters = [
     { id:'M1', name:'국화차 18g(0.6gX30TB)', selling_price:12000 },

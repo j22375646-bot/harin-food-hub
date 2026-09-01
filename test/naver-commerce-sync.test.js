@@ -12,12 +12,28 @@ test('Naver settlement dates accept Date objects', () => {
 test('네이버 상품 응답을 상품센터의 커머스 상품으로 변환한다', () => {
   const rows = sync.flattenProducts({ contents:[{
     originProductNo:100,
-    channelProducts:[{ channelProductNo:200, name:'작두콩차', discountedPrice:12900, statusType:'SALE' }]
+    channelProducts:[{ channelProductNo:200, name:'작두콩차', discountedPrice:12900, statusType:'SALE', channelProductDisplayStatusType:'ON', stockQuantity:20 }]
   }] }, '2026-08-14T00:00:00.000Z');
   assert.equal(rows.length,1);
   assert.equal(rows[0].externalProductId,'200');
   assert.equal(rows[0].sellingPrice,12900);
+  assert.equal(rows[0].isActive,true);
   assert.equal(rows[0].rawData.source_type,'NAVER_COMMERCE_PRODUCT');
+});
+
+test('네이버 상품은 실제 판매중·노출중·재고 보유 조건을 모두 만족할 때만 활성화한다', () => {
+  const rows=sync.flattenProducts({contents:[{
+    originProductNo:100,
+    channelProducts:[
+      {channelProductNo:201,name:'정상 판매',discountedPrice:10000,statusType:'SALE',channelProductDisplayStatusType:'ON',stockQuantity:3},
+      {channelProductNo:202,name:'노출 대기',discountedPrice:10000,statusType:'SALE',channelProductDisplayStatusType:'WAIT',stockQuantity:3},
+      {channelProductNo:203,name:'재고 없음',discountedPrice:10000,statusType:'SALE',channelProductDisplayStatusType:'ON',stockQuantity:0},
+      {channelProductNo:204,name:'판매 대기',discountedPrice:10000,statusType:'WAIT',channelProductDisplayStatusType:'ON',stockQuantity:3}
+    ]
+  }]},'2026-09-02T00:00:00.000Z');
+  assert.deepEqual(rows.map(row=>[row.externalProductId,row.isActive]),[
+    ['201',true],['202',false],['203',false],['204',false]
+  ]);
 });
 
 test('네이버 원상품 대표 이미지를 판매상품에 보존한다', () => {
@@ -27,7 +43,7 @@ test('네이버 원상품 대표 이미지를 판매상품에 보존한다', () 
       name:'작두콩차 원상품',
       representativeImage:{url:'https://shop-phinf.pstatic.net/tea.jpg'}
     },
-    channelProducts:[{ channelProductNo:200, discountedPrice:12900, statusType:'SALE' }]
+    channelProducts:[{ channelProductNo:200, discountedPrice:12900, statusType:'SALE', channelProductDisplayStatusType:'ON', stockQuantity:20 }]
   }] }, '2026-08-17T00:00:00.000Z');
   assert.equal(rows[0].externalProductName,'작두콩차 원상품');
   assert.equal(rows[0].rawData.originProductNo,100);

@@ -84,7 +84,7 @@ test('23-2 scopes insight and product workspaces to the data they render',()=>{
   assert.equal(costs.tables.includes('coupang_orders'),false);
   assert.equal(costs.tables.includes('cafe24_oauth_tokens'),true);
   assert.equal(mappings.tables.includes('product_mapping_history'),true);
-  assert.equal(mappings.tables.includes('coupang_item_inventory'),false);
+  assert.equal(mappings.tables.includes('coupang_item_inventory'),true);
   assert.equal(mappings.tables.includes('coupang_orders'),false);
   assert.equal(mappings.tables.includes('cafe24_oauth_tokens'),true);
   assert.equal(catalog.tables.includes('cafe24_oauth_tokens'),true);

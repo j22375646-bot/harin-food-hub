@@ -64,9 +64,12 @@ test('Phase 28 channel mapping supports platform-isolated multi-select manual li
   assert.match(page,/assignments:/);
   assert.match(page,/fetch\('\/api\/products\/mappings'/);
   assert.match(page,/선택 .*\uAC1C 연결/);
-  assert.match(page,/선택한 플랫폼의 실상품만 표시/);
+  assert.match(page,/판매중·노출중·재고 보유가 확인된 상품만 표시/);
   assert.match(page,/연결할 기준상품/);
   assert.match(page,/연결제품 없음/);
+  assert.match(page,/추천값 .*개 채움/);
+  assert.match(page,/Object\.prototype\.hasOwnProperty\.call\(assignments,item\.externalProductId\)/);
+  assert.doesNotMatch(page,/return item\.noLink\?NO_LINK_VALUE:item\.suggestions\?\./);
 });
 
 test('Phase 28 costs route renders its own multi-select cost editor and preserves verified saves',()=>{
