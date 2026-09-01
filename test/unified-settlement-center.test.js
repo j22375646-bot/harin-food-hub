@@ -222,6 +222,43 @@ test('네이버 커머스 정산완료 자료를 매출·수수료·입금액으
   assert.equal(center.schedules.some(item=>item.platform==='NAVER'&&item.amount===94000),true);
 });
 
+test('네이버 비즈머니 충전과 실제 차감 광고비를 분리해 정산 대조한다',()=>{
+  const center=buildUnifiedSettlementCenter({now,
+    naverOrders:[{order_id:'N1',payment_date:'2026-08-10T10:00:00+09:00'}],
+    naverSettlements:[{
+      settle_basis_end_date:'2026-08-10',settle_expect_date:'2026-08-12',settle_complete_date:'2026-08-13',
+      pay_settle_amount:100000,commission_settle_amount:6000,settle_amount:94000
+    }],
+    naverAdStats:[{date:'2026-08-10',entity_type:'CAMPAIGN',cost:24000}],
+    naverBizmoneyDaily:[{
+      date:'2026-08-10',charged_purchased:110000,charged_free:5000,
+      used_purchased:22000,used_free:3000,closing_balance:90000,current_balance:90000,
+      charge_events:2,deduction_events:1,updated_at:'2026-08-11T00:00:00Z'
+    }]
+  });
+  const naver=center.channels.find(item=>item.platform==='NAVER');
+  assert.equal(naver.advertising,25000);
+  assert.equal(naver.advertising_stats,24000);
+  assert.equal(naver.advertising_charged,115000);
+  assert.equal(naver.advertising_balance,90000);
+  assert.equal(naver.advertising_variance,1000);
+  assert.equal(naver.advertising_source,'BIZMONEY_EXHAUST');
+  assert.equal(center.waterfall.advertising,25000);
+  assert.equal(center.waterfall.advertising_charged,115000);
+});
+
+test('네이버 충전만 있을 때 충전액을 광고비로 차감하지 않는다',()=>{
+  const center=buildUnifiedSettlementCenter({now,
+    naverOrders:[{order_id:'N1',payment_date:'2026-08-10T10:00:00+09:00'}],
+    naverSettlements:[{settle_basis_end_date:'2026-08-10',settle_expect_date:'2026-08-12',pay_settle_amount:100000,commission_settle_amount:6000,settle_amount:94000}],
+    naverBizmoneyDaily:[{date:'2026-08-10',charged_purchased:330000,charged_free:0,used_purchased:null,used_free:null}]
+  });
+  const naver=center.channels.find(item=>item.platform==='NAVER');
+  assert.equal(naver.advertising,null);
+  assert.equal(naver.advertising_charged,330000);
+  assert.equal(center.waterfall.advertising,null);
+});
+
 test('채널 조회 실패는 저장된 0원 대신 자료 확인 필요로 격리한다', () => {
   const center=buildUnifiedSettlementCenter({now,unavailable:{CAFE24:true,COUPANG:true,NAVER:true}});
   assert.equal(center.summary.actual_payout,null);

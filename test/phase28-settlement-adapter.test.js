@@ -70,6 +70,26 @@ test('settlement adapter exposes payout, variance, cost, and history evidence wi
   assert.equal(model.writePolicy,'READ_ONLY');
 });
 
+test('settlement adapter keeps Naver ad charge and spend reconciliation separate',()=>{
+  const model=buildPhase28SettlementModel({settlementPeriods:{30:center(30,[channel('NAVER',{
+    advertising:25000,
+    advertising_stats:24000,
+    advertising_charged:115000,
+    advertising_balance:90000,
+    advertising_variance:1000,
+    advertising_source:'BIZMONEY_EXHAUST',
+    advertising_history:[{date:'2026-08-10',charged:115000,used:25000,balance:90000}]
+  })])}});
+  const naver=model.periods['30'].channels[0];
+  assert.equal(naver.advertising,25000);
+  assert.equal(naver.advertisingStats,24000);
+  assert.equal(naver.advertisingCharged,115000);
+  assert.equal(naver.advertisingBalance,90000);
+  assert.equal(naver.advertisingVariance,1000);
+  assert.equal(naver.advertisingSource,'BIZMONEY_EXHAUST');
+  assert.deepEqual(naver.advertisingHistory,[{date:'2026-08-10',charged:115000,used:25000,balance:90000}]);
+});
+
 test('settlement adapter exposes Rocket Growth as its own cost evidence card',()=>{
   const model=buildPhase28SettlementModel({settlementPeriods:{30:center(30,[channel('COUPANG_RG',{
     label:'쿠팡 로켓그로스',

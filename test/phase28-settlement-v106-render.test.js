@@ -32,6 +32,9 @@ test('Phase 28 app renders the V106 settlement decision spine',()=>{
   assert.match(page,/0원선에서 벗어난 금액/);
   assert.match(page,/가까운 입금과 막힌 근거/);
   assert.match(page,/정산 대조 작업공간/);
+  assert.match(page,/네이버 광고비/);
+  assert.match(page,/비즈머니 충전/);
+  assert.match(page,/실제 사용 광고비/);
   assert.match(page,/Phase28RightRailLayout/);
   assert.match(page,/COUPANG_RG/);
 });
