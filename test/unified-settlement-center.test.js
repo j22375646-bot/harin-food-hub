@@ -84,6 +84,16 @@ test('쿠팡 매출·환불·수수료와 확정 지급액을 분리한다', () 
   assert.equal(center.summary.actual_payout,71200);
 });
 
+test('쿠팡 예정 정산은 아직 0인 최종 지급액 대신 예정 지급액을 사용한다', () => {
+  const center=buildUnifiedSettlementCenter({now,coupangSettlementSummaries:[
+    {recognition_month:'2026-08',settlement_type:'WEEKLY',settlement_date:'2026-08-18',status:'SUBJECT',settlement_target_amount:138392,settlement_amount:96876,final_amount:0},
+    {recognition_month:'2026-08',settlement_type:'RESERVE',settlement_date:'2026-09-01',status:'SUBJECT',settlement_target_amount:714187,settlement_amount:499931,final_amount:0}
+  ]});
+
+  assert.equal(center.schedules.find(item=>item.date==='2026-08-18').amount,96_876);
+  assert.equal(center.schedules.find(item=>item.date==='2026-09-01').amount,499_931);
+});
+
 test('쿠팡 광고 정산 요약을 광고비로 분리하고 예상 정산액에서 한 번만 차감한다', () => {
   const center=buildUnifiedSettlementCenter({now,coupangSettlements:[
     {order_id:'O1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:9000,service_fee_vat:1000,settlement_amount:90000}

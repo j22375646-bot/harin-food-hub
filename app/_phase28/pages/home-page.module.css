@@ -109,6 +109,7 @@
 .sectionHeader h2{margin:0;font-size:21px;line-height:1.35;letter-spacing:-.035em;}
 .sectionHeader p{margin:5px 0 0;color:var(--p28-muted);font-size:15px;line-height:1.5;}
 .sectionHeader>button,.railCard>button,.foldCard button{min-height:44px;padding:0 14px;border:1px solid var(--p28-line);border-radius:11px;background:var(--p28-surface);color:var(--p28-blue);font-size:14px;font-weight:850;cursor:pointer;}
+.sectionHeader>button{flex:0 0 auto;white-space:nowrap;}
 .sectionHeader>button:hover,.railCard>button:hover,.foldCard button:hover{background:var(--p28-blue-soft);}
 .decisionList{display:grid;margin-top:17px;border:1px solid var(--p28-line);border-radius:14px;overflow:hidden;}
 .decisionRow{min-height:94px;display:grid;grid-template-columns:36px minmax(0,1fr) minmax(120px,.32fr);gap:15px;align-items:center;padding:15px 17px;border:0;border-bottom:1px solid var(--p28-line);background:var(--p28-surface);color:var(--p28-ink);text-align:left;cursor:pointer;}
@@ -194,6 +195,10 @@
 .riskList em,.channelList em,.cashCalendar em{color:var(--p28-blue);font-size:13px;font-style:normal;font-weight:850;}
 .channelList em[data-ready="true"]{color:var(--p28-mint);}
 .cashCalendar em{color:var(--p28-ink);text-align:right;}
+.cashCalendar em[data-direction="OUTFLOW"]{color:var(--p28-rose);}
+.cashCalendar>.emptyState{grid-template-columns:minmax(0,1fr);align-items:start;}
+.cashCalendar>.emptyState>strong,.cashCalendar>.emptyState>span{grid-column:1;}
+.cashCalendar>.emptyState>span{overflow:visible;text-overflow:clip;white-space:normal;}
 .foldCard{padding:0;overflow:hidden;}
 .foldCard summary{min-height:54px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px;cursor:pointer;list-style:none;}
 .foldCard summary::-webkit-details-marker{display:none;}
@@ -272,7 +277,8 @@
   .growthRows>button{grid-template-columns:40px minmax(0,1fr);}
   .growthRows em{grid-column:2;}
   .forecastChart{gap:4px;}
-  .forecastChart small{font-size:12px;}
+  .forecastChart>span{grid-template-rows:minmax(0,1fr) 38px;}
+  .forecastChart small{font-size:12px;line-height:1.2;text-align:center;white-space:normal;}
   .goalControl{display:grid;}
   .goalControl>button{width:100%;}
   .goalDialogBackdrop{padding:12px;}

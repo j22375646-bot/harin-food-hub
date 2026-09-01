@@ -82,6 +82,20 @@ test('main cashflow never turns an unavailable ad source into a zero expense',()
   assert.equal(result.status,'CHECK_REQUIRED');
 });
 
+test('main cashflow never turns an empty current-month ad dataset into a zero expense',()=>{
+  const input=baseInput();
+  input.naverAdRows=[];
+  input.coupangAdRows=[];
+  const result=buildMainCashflow(input);
+
+  assert.equal(result.adSpend,null);
+  assert.deepEqual(result.adSpendByPlatform,{ALL:null,NAVER:null,CAFE24:null,COUPANG:null});
+  assert.equal(result.feesAndAds,19_200);
+  assert.equal(result.feesAndAdsStatus,'PARTIAL');
+  assert.equal(result.feesAndAdsLabel,'확인된 수수료');
+  assert.match(result.description,/광고비 수집/);
+});
+
 test('main cashflow treats a zero-only product cost row as missing evidence',()=>{
   const input=baseInput();
   input.productCosts=input.productCosts.map(row=>row.master_product_id==='M-C'

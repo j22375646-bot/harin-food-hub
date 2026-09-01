@@ -46,6 +46,12 @@ function metricEvidence(metric){
   if(metric?.status==='PARTIAL')return '현재 근거의 예상값 · 계산 보기';
   return statusLabels[metric?.status]||'근거 자료 확인 필요';
 }
+function cashStatusLabel(value){
+  const status=String(value||'').toUpperCase();
+  if(status==='SUBJECT')return '정산 예정';
+  if(['DONE','COMPLETED','COMPLETE','PAID'].includes(status))return '정산 완료';
+  return value||'상태 확인';
+}
 
 function GoalDialog({settings={},onClose,onSaved}){
   const [form,setForm]=useState({
@@ -198,7 +204,8 @@ function GrowthHorizon({growth,sources={},forecast,onNavigate}){
 function CashCalendar({items,meta={}}){
   const noSchedule=meta.status==='NO_SCHEDULE';
   const next=meta.next;
-  return <section className={styles.railCard}><header><h2>앞으로 7일 입출금</h2><span>{items?.length?`${items.length}건`:noSchedule?'7일 내 없음':'확인 중'}</span></header><div className={styles.cashCalendar}>{items?.length?items.map((item,index)=><div key={`${item.date}-${item.platform}-${index}`}><Phase28ChannelLogo brand={item.platform} compact/><span><strong>{channelNames[item.platform]||item.platform||'공통'}</strong><small>{formatDate(item.date)} · {item.status}</small></span><em>{formatPlainWon(item.amount)}</em></div>):<div className={styles.emptyState}><strong>{noSchedule?'앞으로 7일 예정된 입출금이 없어요.':'예정된 입출금 근거가 없어요.'}</strong><span>{noSchedule?(next?`다음 확인 일정은 ${formatDate(next.date)} ${channelNames[next.platform]||next.platform} ${formatPlainWon(next.amount)}입니다.`:'현재 저장된 정산 일정 기준입니다.'):'정산 일정이 준비되면 날짜별로 표시합니다.'}</span></div>}</div></section>;
+  const directionLabel=item=>item?.direction==='OUTFLOW'?'출금':'입금';
+  return <section className={styles.railCard}><header><h2>앞으로 7일 입출금</h2><span>{items?.length?`${items.length}건`:noSchedule?'7일 내 없음':'확인 중'}</span></header><div className={styles.cashCalendar}>{items?.length?items.map((item,index)=><div key={`${item.date}-${item.platform}-${index}`}><Phase28ChannelLogo brand={item.platform} compact/><span><strong>{channelNames[item.platform]||item.platform||'공통'} · {directionLabel(item)}</strong><small>{formatDate(item.date)} · {cashStatusLabel(item.status)}</small></span><em data-direction={item.direction}>{formatPlainWon(item.amount)}</em></div>):<div className={styles.emptyState}><strong>{noSchedule?'앞으로 7일 예정된 입출금이 없어요.':'예정된 입출금 근거가 없어요.'}</strong><span>{noSchedule?(next?`다음 확인 일정은 ${formatDate(next.date)} ${channelNames[next.platform]||next.platform} ${directionLabel(next)} ${formatPlainWon(Math.abs(next.amount))}입니다.`:'현재 저장된 정산 일정 기준입니다.'):'정산 일정이 준비되면 날짜별로 표시합니다.'}</span></div>}</div></section>;
 }
 
 function MainDecisionRail({model,aiPanel,onNavigate}){

@@ -161,6 +161,23 @@ test('main payout calendar distinguishes no upcoming amount from missing settlem
   assert.equal(model.cashCalendarMeta.next.amount,34_747);
 });
 
+test('main cash calendar aggregates equal payout dates and labels cash direction',()=>{
+  const model=buildPhase28MainModel({
+    generatedAt:'2026-09-01T12:00:00+09:00',
+    unifiedSettlement:{schedules:[
+      {platform:'COUPANG',date:'2026-09-07',status:'SUBJECT',type:'WEEKLY',amount:96_876},
+      {platform:'COUPANG',date:'2026-09-07',status:'SUBJECT',type:'WEEKLY',amount:40_000},
+      {platform:'COUPANG',date:'2026-09-18',status:'SUBJECT',type:'RESERVE',amount:-41_364}
+    ]},
+    salesCommandCenter:{daily:{total:0,exception_total:0,schedule:{items:[]}}}
+  });
+
+  assert.equal(model.cashCalendar.length,1);
+  assert.equal(model.cashCalendar[0].amount,136_876);
+  assert.equal(model.cashCalendar[0].direction,'INFLOW');
+  assert.equal(model.cashCalendarMeta.next.direction,'OUTFLOW');
+});
+
 test('main cashflow uses the measured monthly sales and forecasts from the lightweight order history',()=>{
   const model=buildPhase28MainModel({
     generatedAt:'2026-08-31T12:00:00+09:00',

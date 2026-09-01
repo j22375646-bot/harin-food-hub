@@ -29,6 +29,10 @@ test('Phase 28 Main keeps the fixed readable scale and balanced selection langua
   assert.match(css,/\.mainColumn>\*\{min-width:0;max-width:100%;/);
   assert.match(css,/\.decisionDesk,\.growthHorizon\{grid-template-columns:minmax\(0,1fr\);\}/);
   assert.match(css,/\.forecastChart\{[^}]*grid-template-columns:repeat\(7,minmax\(0,1fr\)\)/);
+  assert.match(css,/\.sectionHeader>button[^}]*white-space:nowrap/);
+  assert.match(css,/\.cashCalendar>\.emptyState\{[^}]*grid-template-columns:minmax\(0,1fr\)/);
+  assert.match(css,/@media \(max-width:430px\)\{[\s\S]*?\.forecastChart>span\{[^}]*grid-template-rows:minmax\(0,1fr\) 38px/);
+  assert.match(css,/@media \(max-width:430px\)\{[\s\S]*?\.forecastChart small\{[^}]*white-space:normal/);
   assert.match(css,/min-height:44px/);
   assert.match(css,/440ms cubic-bezier\(\.22,1,\.36,1\)/);
   assert.match(css,/@media \(max-width:430px\)/);
