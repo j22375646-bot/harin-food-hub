@@ -27,6 +27,7 @@ test('keyword adapter keeps channel and write boundaries while exposing editable
   assert.equal(model.writePolicy,'GUARDED');
   assert.equal(model.rows.length,2);
   assert.equal(model.rows[0].channel,'NAVER');
+  assert.equal(model.rows[0].campaignId,'camp-1');
   assert.equal(model.rows[0].canDraft,true);
   assert.equal(model.rows[0].snapshotToken,'signed-snapshot');
   assert.equal(model.rows[1].recommendedBid,null);
@@ -41,6 +42,10 @@ test('keyword adapter keeps channel and write boundaries while exposing editable
   assert.equal(model.summary.noOrderSpend,96400);
   assert.equal(model.visibleLimit,20);
   assert.equal(model.channels.find(item=>item.id==='coupang').writeMode,'WING_MANUAL');
+  assert.deepEqual(model.campaigns,[{id:'camp-1',name:'작두콩 쇼핑검색',count:2}]);
+  assert.equal(model.view.sort,'COST_DESC');
+  assert.equal(model.view.sortOptions.some(item=>item.value==='KEYWORD_ASC'),true);
+  assert.equal(model.view.sortOptions.some(item=>item.value==='CURRENT_BID_ASC'),true);
 });
 
 test('keyword adapter keeps missing Coupang bid evidence explicit and never enables API writes',()=>{
@@ -51,11 +56,14 @@ test('keyword adapter keeps missing Coupang bid evidence explicit and never enab
 
   assert.equal(model.rows.length,1);
   assert.equal(model.rows[0].channel,'COUPANG');
+  assert.equal(model.rows[0].campaignId,'cp-1');
   assert.equal(model.rows[0].currentBid,null);
   assert.equal(model.rows[0].recommendedBid,null);
   assert.equal(model.rows[0].canDraft,false);
   assert.equal(model.rows[0].applicationMode,'WING_MANUAL');
   assert.equal(model.summary.noOrderSpend,41000);
+  assert.deepEqual(model.campaigns,[{id:'cp-1',name:'쿠팡 상품광고',count:1}]);
+  assert.equal(model.view.sortOptions.some(item=>item.value==='CURRENT_BID_ASC'),false);
 });
 
 test('keywords joins the implemented V106 adapter set',()=>{

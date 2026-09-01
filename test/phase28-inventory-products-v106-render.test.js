@@ -43,12 +43,24 @@ test('Phase 28 channel mapping supports platform-isolated multi-select manual li
   const page=read('app/_phase28/pages/inventory-products-page.js');
   assert.match(page,/function ProductMappingWorkspace/);
   assert.match(page,/\['NAVER','COUPANG'\]/);
-  assert.match(page,/action:'BULK_MANUAL_LINK'/);
+  assert.match(page,/action:'BULK_ASSIGN'/);
   assert.match(page,/assignments:/);
   assert.match(page,/fetch\('\/api\/products\/mappings'/);
   assert.match(page,/선택 .*\uAC1C 연결/);
   assert.match(page,/선택한 플랫폼의 실상품만 표시/);
   assert.match(page,/연결할 기준상품/);
+  assert.match(page,/연결제품 없음/);
+});
+
+test('Phase 28 costs route renders its own multi-select cost editor and preserves verified saves',()=>{
+  const page=read('app/_phase28/pages/inventory-products-page.js');
+  assert.match(page,/function ProductCostWorkspace/);
+  assert.match(page,/model\.workspace==='costs'\?<ProductCostWorkspace/);
+  assert.match(page,/빠른 원가 입력/);
+  assert.match(page,/선택 상품 일괄 입력/);
+  assert.match(page,/fetch\('\/api\/costs'/);
+  assert.match(page,/CONFIRM_EXECUTE/);
+  assert.match(page,/실제 저장값 재확인/);
 });
 
 test('V106 inventory-products CSS preserves readable balanced fixed UI',()=>{

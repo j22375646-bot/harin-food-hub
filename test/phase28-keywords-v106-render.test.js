@@ -67,6 +67,16 @@ test('keyword workbench keeps the campaign column focused and omits product-link
   assert.doesNotMatch(page,/row\.adgroup\?/);
 });
 
+test('keyword workbench exposes campaign-id filtering and persistent ascending or descending sort state',()=>{
+  const page=read('app/_phase28/pages/keywords-page.js');
+  assert.match(page,/row\.campaignId===campaignId/);
+  assert.match(page,/전체 캠페인/);
+  assert.match(page,/정렬 기준/);
+  assert.match(page,/keywordOperations\.filterKeywordRows/);
+  assert.match(page,/useStoredState\(`phase28-keywords-sort-\$\{model\.platform\}`/);
+  assert.match(page,/useStoredState\(`phase28-keywords-campaign-\$\{model\.platform\}`/);
+});
+
 test('keyword table and decision desk keep their own layout boundaries',()=>{
   const css=read('app/_phase28/pages/keywords-page.css');
   assert.match(css,/\.kpCampaign/);

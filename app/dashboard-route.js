@@ -1348,7 +1348,7 @@ async function getDashboardData(state) {
       db.from('naver_keyword_product_links').select('ncc_keyword_id,master_product_id,updated_at').limit(5000)
     ]),
     productMappingHistory:view==='product'&&state?.workspace==='mappings' ? Promise.allSettled([
-      db.from('product_mapping_history').select('id,platform,external_product_id,external_product_name,previous_master_product_id,new_master_product_id,action,match_method,match_confidence,actor,created_at').order('created_at',{ascending:false}).limit(1000)
+      db.from('product_mapping_history').select('id,platform,external_product_id,external_product_name,previous_master_product_id,new_master_product_id,action,match_method,match_confidence,actor,metadata,created_at').order('created_at',{ascending:false}).limit(1000)
     ]) : Promise.resolve([{status:'fulfilled',value:{data:[],error:null}}]),
     inventoryLots:view==='inventory' ? Promise.allSettled([
       db.from('inventory_lots').select('id,platform,vendor_item_id,lot_code,received_on,manufactured_on,expires_on,quantity,status,notes,created_at,updated_at').order('expires_on',{ascending:true}).order('updated_at',{ascending:false}).limit(500)
@@ -2184,7 +2184,7 @@ async function getDashboardData(state) {
   }));
   const sellerActionRequired=sellerOperationalOrders.filter(order=>['ACCEPT','INSTRUCT'].includes(order.status)).length;
   const mappingHistorySettled = dataHealthModule.settleQueries(await Promise.allSettled([
-    db.from('product_mapping_history').select('id,platform,external_product_id,external_product_name,previous_master_product_id,new_master_product_id,action,match_method,match_confidence,actor,created_at').order('created_at',{ascending:false}).limit(1000)
+    db.from('product_mapping_history').select('id,platform,external_product_id,external_product_name,previous_master_product_id,new_master_product_id,action,match_method,match_confidence,actor,metadata,created_at').order('created_at',{ascending:false}).limit(1000)
   ]), [{platform:'SHARED',dataset:'product_mapping_history'}], (error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
   queryIssues.push(...mappingHistorySettled.issues);
   const mappingHistoryResult = mappingHistorySettled.results[0];

@@ -206,3 +206,39 @@ test('다중 직접 연결은 판매 상태가 명시적으로 확인되지 않�
     assignments:[{external_product_id:'N1',master_product_id:'UNKNOWN'}]
   }),/판매 중인 Cafe24 기준상품/);
 });
+
+test('다중 연결 결정은 선택 플랫폼 안에서 기준상품 연결과 연결제품 없음 결정을 함께 계획한다', () => {
+  const dashboard = {
+    masterProducts:[{id:'M1',name:'작두콩차',selling_price:11000,is_active:true}],
+    candidates:[
+      {platform:'NAVER',external_product_id:'N1',external_product_name:'네이버 작두콩차',selling_price:11000,is_active:true,candidates:[{master_product_id:'M1',score:0.98}]},
+      {platform:'NAVER',external_product_id:'N2',external_product_name:'네이버 단독상품',selling_price:18000,is_active:true,candidates:[]},
+      {platform:'COUPANG',external_product_id:'C1',external_product_name:'쿠팡 상품',selling_price:12000,is_active:true,candidates:[]}
+    ]
+  };
+  const plan=service.planBulkMappingDecisionOperations({
+    dashboard,
+    platform:'NAVER',
+    assignments:[
+      {external_product_id:'N1',master_product_id:'M1'},
+      {external_product_id:'N2',master_product_id:'NO_LINK'}
+    ]
+  });
+  assert.equal(plan.requested,2);
+  assert.deepEqual(plan.operations.map(item=>[item.source.external_product_id,item.rpcAction,item.masterProductId]),[
+    ['N1','LINK','M1'],
+    ['N2','NO_LINK',null]
+  ]);
+  assert.throws(()=>service.planBulkMappingDecisionOperations({
+    dashboard,platform:'NAVER',assignments:[{external_product_id:'C1',master_product_id:'NO_LINK'}]
+  }),/선택한 플랫폼/);
+});
+
+test('최근 연결제품 없음 결정은 해당 채널 상품에만 표시되고 이후 연결 결정으로 해제된다', () => {
+  const keys=service.noLinkDecisionKeys([
+    {platform:'NAVER',external_product_id:'N1',action:'REJECTED',new_master_product_id:null,metadata:{decision:'NO_LINK'}},
+    {platform:'COUPANG',external_product_id:'C1',action:'LINKED',new_master_product_id:'M1'},
+    {platform:'COUPANG',external_product_id:'C1',action:'REJECTED',new_master_product_id:null,metadata:{decision:'NO_LINK'}}
+  ]);
+  assert.deepEqual(keys,['NAVER:N1']);
+});

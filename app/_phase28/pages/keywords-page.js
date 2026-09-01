@@ -2,6 +2,8 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import {useRouter} from 'next/navigation';
+import keywordOperations from '../../../lib/marketing/keyword-operations.js';
+import {useStoredState} from '../../use-hub-preference.js';
 import HarinIcon from '../../_design-system/harin-icon.js';
 import {Phase28ChannelLogo} from '../primitives/channel-logo.js';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
@@ -77,6 +79,8 @@ export default function Phase28KeywordsPage({model,aiPanel}){
   const sourceRows=model.rows||[];
   const [query,setQuery]=useState('');
   const [filter,setFilter]=useState('all');
+  const [sort,setSort]=useStoredState(`phase28-keywords-sort-${model.platform}`,model.view?.sort||'COST_DESC');
+  const [campaignId,setCampaignId]=useStoredState(`phase28-keywords-campaign-${model.platform}`,'ALL');
   const [selected,setSelected]=useState(()=>new Set());
   const [activeId,setActiveId]=useState(sourceRows[0]?.id||null);
   const [drafts,setDrafts]=useState({});
@@ -86,16 +90,18 @@ export default function Phase28KeywordsPage({model,aiPanel}){
   const visibleLimit=model.visibleLimit||20;
   const [showCount,setShowCount]=useState(visibleLimit);
 
-  useEffect(()=>{setSelected(new Set());setActiveId(sourceRows[0]?.id||null);setDrafts({});setPreviewOpen(false);setResult('');},[model.platform,model.workspace]);
-  const visibleRows=useMemo(()=>sourceRows.filter(row=>{
-    const needle=query.trim().toLocaleLowerCase('ko');
-    const matchesQuery=!needle||`${row.keyword} ${row.campaign}`.toLocaleLowerCase('ko').includes(needle);
-    const matchesFilter=filter==='all'||row.tone===filter;
-    return matchesQuery&&matchesFilter;
-  }),[sourceRows,query,filter]);
-  useEffect(()=>setShowCount(visibleLimit),[model.platform,model.workspace,query,filter,visibleLimit]);
+  const sortOptions=model.view?.sortOptions||[];
+  const effectiveSort=sortOptions.some(item=>item.value===sort)?sort:(model.view?.sort||'COST_DESC');
+  useEffect(()=>{if(campaignId!=='ALL'&&!(model.campaigns||[]).some(item=>item.id===campaignId))setCampaignId('ALL');},[campaignId,model.campaigns,setCampaignId]);
+  useEffect(()=>{if(!sortOptions.some(item=>item.value===sort))setSort(model.view?.sort||'COST_DESC');},[sort,sortOptions,setSort,model.view?.sort]);
+  useEffect(()=>{setSelected(new Set());setActiveId(sourceRows[0]?.id||null);setDrafts({});setPreviewOpen(false);setResult('');},[model.platform,model.workspace,campaignId]);
+  const visibleRows=useMemo(()=>{
+    const campaignRows=campaignId==='ALL'?sourceRows:sourceRows.filter(row=>row.campaignId===campaignId);
+    return keywordOperations.filterKeywordRows(campaignRows,{query,sort:effectiveSort}).filter(row=>filter==='all'||row.tone===filter);
+  },[sourceRows,query,filter,campaignId,effectiveSort]);
+  useEffect(()=>setShowCount(visibleLimit),[model.platform,model.workspace,query,filter,campaignId,effectiveSort,visibleLimit]);
   const shownRows=visibleRows.slice(0,showCount);
-  const activeRow=sourceRows.find(row=>row.id===activeId)||sourceRows[0]||null;
+  const activeRow=visibleRows.find(row=>row.id===activeId)||visibleRows[0]||sourceRows[0]||null;
   const changedRows=sourceRows.filter(row=>selected.has(row.id)&&row.canDraft&&drafts[row.id]!=null&&drafts[row.id]!==''&&Number(drafts[row.id])!==Number(row.currentBid));
 
   function toggle(id){setSelected(current=>{const next=new Set(current);next.has(id)?next.delete(id):next.add(id);return next;});}
@@ -141,7 +147,7 @@ export default function Phase28KeywordsPage({model,aiPanel}){
     <ChannelDeck model={model} router={router}/>
     <PerformanceFlow model={model}/>
     <Phase28RightRailLayout label="키워드 판단 패널" rail={<DecisionDesk row={activeRow} draft={activeRow?drafts[activeRow.id]:''} onDraft={changeDraft} onPreview={openPreview} model={model}/>}>
-      <section className="kpWorkbench" aria-labelledby="kpWorkbenchTitle"><header><div><i><HarinIcon name="keyword" size={22}/></i><span><small>KEYWORD WORKBENCH</small><h2 id="kpWorkbenchTitle">{model.platform==='coupang'?'쿠팡 WING 작업표':'네이버 키워드 운영표'}</h2></span></div><em>{model.platform==='coupang'?'WING 입찰가 확인 필요':`네이버 검색광고 · ${referenceTime(model.generatedAt)}`}</em></header><WorkspaceTabs model={model} router={router}/><div className="kpScope"><label><span>현재 채널 키워드 찾기</span><input type="search" value={query} onChange={event=>setQuery(event.currentTarget.value)} placeholder="키워드·캠페인 검색"/></label><div>{FILTERS.map(([id,label])=><button type="button" aria-pressed={filter===id} key={id} onClick={()=>setFilter(id)}>{label}</button>)}</div><small>{model.platform==='naver'?'현재 입찰가·추천가 서버 기준':'입찰가는 WING 확인 필요'}</small></div>{selected.size?<div className="kpBulk"><strong>{selected.size.toLocaleString('ko-KR')}개 선택</strong><span>{model.platform==='naver'?`수정 입찰가 ${changedRows.length.toLocaleString('ko-KR')}건 입력 · 실제 반영 전 최신값 재조회`:'네이버 선택과 분리된 쿠팡 전용 작업표'}</span><button type="button" onClick={openPreview}>{model.platform==='naver'?'변경안 미리보기':'WING 작업 확인'}</button></div>:null}<KeywordTable model={model} rows={shownRows} selected={selected} activeId={activeId} drafts={drafts} onToggle={toggle} onInspect={inspect} onDraft={changeDraft}/><footer><span>검색 결과 <strong>{visibleRows.length.toLocaleString('ko-KR')}개</strong> · 현재 {shownRows.length.toLocaleString('ko-KR')}개 표시</span>{showCount<visibleRows.length?<button type="button" className="kpMore" onClick={()=>setShowCount(value=>value+visibleLimit)}>키워드 {Math.min(visibleLimit,visibleRows.length-showCount)}건 더 보기 · 남은 {(visibleRows.length-showCount).toLocaleString('ko-KR')}건</button>:<small>채널별 데이터·선택·실행 경로 분리</small>}</footer></section>
+      <section className="kpWorkbench" aria-labelledby="kpWorkbenchTitle"><header><div><i><HarinIcon name="keyword" size={22}/></i><span><small>KEYWORD WORKBENCH</small><h2 id="kpWorkbenchTitle">{model.platform==='coupang'?'쿠팡 WING 작업표':'네이버 키워드 운영표'}</h2></span></div><em>{model.platform==='coupang'?'WING 입찰가 확인 필요':`네이버 검색광고 · ${referenceTime(model.generatedAt)}`}</em></header><WorkspaceTabs model={model} router={router}/><div className="kpScope"><label><span>현재 채널 키워드 찾기</span><input type="search" value={query} onChange={event=>setQuery(event.currentTarget.value)} placeholder="키워드·캠페인 검색"/></label><div className="kpListControls"><label><span>캠페인 선택</span><select value={campaignId} onChange={event=>setCampaignId(event.target.value)}><option value="ALL">전체 캠페인</option>{(model.campaigns||[]).map(item=><option value={item.id} key={item.id}>{item.name} · {count(item.count,'개')}</option>)}</select></label><label><span>정렬 기준</span><select value={effectiveSort} onChange={event=>setSort(event.target.value)}>{sortOptions.map(item=><option value={item.value} key={item.value}>{item.label}</option>)}</select></label></div><div className="kpQuickFilters">{FILTERS.map(([id,label])=><button type="button" aria-pressed={filter===id} key={id} onClick={()=>setFilter(id)}>{label}</button>)}</div><small>{model.platform==='naver'?'현재 입찰가·추천가 서버 기준':'입찰가는 WING 확인 필요'}</small></div>{selected.size?<div className="kpBulk"><strong>{selected.size.toLocaleString('ko-KR')}개 선택</strong><span>{model.platform==='naver'?`수정 입찰가 ${changedRows.length.toLocaleString('ko-KR')}건 입력 · 실제 반영 전 최신값 재조회`:'네이버 선택과 분리된 쿠팡 전용 작업표'}</span><button type="button" onClick={openPreview}>{model.platform==='naver'?'변경안 미리보기':'WING 작업 확인'}</button></div>:null}<KeywordTable model={model} rows={shownRows} selected={selected} activeId={activeId} drafts={drafts} onToggle={toggle} onInspect={inspect} onDraft={changeDraft}/><footer><span>검색 결과 <strong>{visibleRows.length.toLocaleString('ko-KR')}개</strong> · 현재 {shownRows.length.toLocaleString('ko-KR')}개 표시</span>{showCount<visibleRows.length?<button type="button" className="kpMore" onClick={()=>setShowCount(value=>value+visibleLimit)}>키워드 {Math.min(visibleLimit,visibleRows.length-showCount)}건 더 보기 · 남은 {(visibleRows.length-showCount).toLocaleString('ko-KR')}건</button>:<small>채널별 데이터·선택·실행 경로 분리</small>}</footer></section>
     </Phase28RightRailLayout>
     <section className="kpAi"><div><span>KEYWORD AI · PAGE ISOLATED</span><h2>선택 키워드의 비용·주문 근거만 설명해요.</h2><p>상품·정산 AI와 자료를 섞지 않고, 규칙 기반 계산이 먼저입니다.</p></div><strong>{aiPanel?.configuration?.enabled?'AI 준비 · 실행은 별도 확인':'사용 시작 전 · 비용 0원'}</strong><button type="button" onClick={()=>setResult('현재 화면은 서버 계산 근거만 사용하며 AI를 자동 호출하지 않습니다.')}>근거 설명 보기</button></section>
     {result&&!previewOpen?<p className="kpPageMessage" role="status">{result}</p>:null}

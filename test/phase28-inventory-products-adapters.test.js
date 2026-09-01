@@ -118,6 +118,31 @@ test('products adapter keeps only explicitly selling mapping rows and sorts mast
   assert.deepEqual(model.mapping.links.map(item=>item.externalProductId), ['N-LINKED']);
 });
 
+test('products adapter exposes saved no-link decisions and a dedicated editable cost workbench',()=>{
+  const model=buildPhase28ProductsModel({
+    loadedWorkspace:'costs',
+    masterProducts:[
+      {id:'M1',name:'가시오가피차',sku:'SKU-1',selling_price:11000,is_active:true},
+      {id:'M2',name:'보리차',sku:'SKU-2',selling_price:9000,is_active:true}
+    ],
+    productOperations:{items:[
+      {master_product_id:'M1',name:'가시오가피차',base_price:11000,channels:{}},
+      {master_product_id:'M2',name:'보리차',base_price:9000,channels:{}}
+    ]},
+    productCosts:[{master_product_id:'M1',unit_cost:4200,packaging_cost:300,other_unit_cost:100}],
+    productMapping:{masterProducts:[],candidates:[{platform:'NAVER',external_product_id:'N1',external_product_name:'네이버 단독상품',is_active:true,no_link:true,candidates:[]}],links:[]}
+  });
+  assert.equal(model.mapping.candidates[0].noLink,true);
+  assert.equal(model.costWorkbench.rows.length,2);
+  assert.deepEqual(model.costWorkbench.rows[0],{
+    id:'M1',name:'가시오가피차',sku:'SKU-1',basePrice:11000,
+    unitCost:4200,packagingCost:300,otherUnitCost:100,total:4600,ready:true
+  });
+  assert.equal(model.costWorkbench.rows[1].unitCost,null);
+  assert.equal(model.costWorkbench.readyCount,1);
+  assert.equal(model.costWorkbench.pendingCount,1);
+});
+
 test('inventory and products adapters join the implemented V106 set',()=>{
   assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','calendar','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system','notifications','diagnoses','changes','validation','experiments','knowledge']);
 });
