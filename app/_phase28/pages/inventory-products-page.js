@@ -3,6 +3,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import HarinIcon from '../../_design-system/harin-icon.js';
+import {Phase28ChartDatum} from '../primitives/chart-datum.js';
 import {Phase28ChannelLogo} from '../primitives/channel-logo.js';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
 import {Phase28RightRailLayout} from '../primitives/right-rail-layout.js';
@@ -79,7 +80,7 @@ function InventoryHero({hero,rows}){
       <div className="ipFlowTrack" aria-label="상품별 재고 보유일">
         <span className="ipFlowLine" aria-hidden="true"/>
         {[7,14,30,60].map(day=><i className="ipFlowTick" style={{'--tick':`${Math.min(100,day/maxDays*100)}%`}} key={day}><b>{day}일</b></i>)}
-        {markers.map((row,index)=>{const position=Math.min(98,Math.max(2,(row.daysOfStock||0)/maxDays*100));const edge=position>=82?'end':position<=12?'start':'middle';return <button type="button" className="ipFlowMarker" style={{'--marker':`${position}%`,'--marker-row':index%2}} data-tone={row.holdingTone} data-edge={edge} key={row.id} title={`${row.name} ${row.holdingLabel}`} aria-label={`${row.name} 재고 보유일 ${row.holdingLabel}`}><span aria-hidden="true">{row.markerLabel||'재'}</span><b>{row.holdingLabel}</b></button>;})}
+        {markers.map((row,index)=>{const position=Math.min(98,Math.max(2,(row.daysOfStock||0)/maxDays*100));const edge=position>=82?'end':position<=12?'start':'middle';return <Phase28ChartDatum as="button" className="ipFlowMarker" style={{'--marker':`${position}%`,'--marker-row':index%2}} data-tone={row.holdingTone} data-edge={edge} edge={edge} key={row.id} label={row.name} value={`재고 보유일 ${row.holdingLabel}`} aria-label={`${row.name} 재고 보유일 ${row.holdingLabel}`}><span aria-hidden="true">{row.markerLabel||'재'}</span><b>{row.holdingLabel}</b></Phase28ChartDatum>;})}
         {!markers.length?<p>보유일 계산 근거가 아직 없어요.</p>:null}
       </div>
       <footer><span><i data-tone="danger"/>7일 미만 · 입고 우선</span><span><i data-tone="warning"/>14일 미만 · 점검</span><span><i data-tone="good"/>안정 재고</span><span><i data-tone="purple"/>장기 보유</span></footer>

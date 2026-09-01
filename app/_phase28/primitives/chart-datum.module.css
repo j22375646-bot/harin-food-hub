@@ -1,0 +1,9 @@
+.datum{--chart-tooltip-x:-50%;position:relative;outline:none;touch-action:manipulation;}
+.tooltip{position:absolute;z-index:30;left:50%;bottom:calc(100% + 8px);width:max-content;min-width:0;max-width:min(220px,calc(100vw - 32px));display:flex;align-items:center;gap:7px;padding:7px 9px;border:1px solid color-mix(in srgb,var(--p28-mint) 38%,var(--p28-line));border-radius:9px;background:var(--p28-ink);color:var(--p28-surface);font-size:12px;font-style:normal;line-height:1.25;opacity:0;visibility:hidden;pointer-events:none;transform:translateX(var(--chart-tooltip-x)) translateY(4px);transition:opacity 80ms ease,transform 80ms ease,visibility 0s linear 80ms;transition-delay:0ms;}
+.tooltipLabel{max-width:154px;font-weight:750;opacity:.78;}.tooltipValue{flex:0 0 auto;font-size:13px;font-weight:900;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.datum[data-tooltip-placement="chart"]>.tooltip{top:2px;bottom:auto;}
+.datum[data-tooltip-edge="start"]{--chart-tooltip-x:0;}.datum[data-tooltip-edge="start"]>.tooltip{left:0;}
+.datum[data-tooltip-edge="end"]{--chart-tooltip-x:0;}.datum[data-tooltip-edge="end"]>.tooltip{right:0;left:auto;}
+.datum:hover>.tooltip,.datum:focus>.tooltip,.datum:focus-visible>.tooltip{opacity:1;visibility:visible;transform:translateX(var(--chart-tooltip-x)) translateY(0);transition-delay:0ms;}
+.datum:focus-visible{outline:2px solid color-mix(in srgb,var(--p28-blue) 60%,transparent);outline-offset:3px;border-radius:8px;}
+@media (prefers-reduced-motion:reduce){.tooltip{transition:none;}}

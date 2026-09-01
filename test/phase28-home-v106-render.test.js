@@ -93,7 +93,22 @@ test('V106 Main renders the complete owner-approved executive desk',async()=>{
   assert.match(html,/이번 달 실제 이익/);
   assert.match(html,/목표 85,000,000원/);
   assert.match(html,/월 목표 수정/);
+  assert.match(html,/data-chart-datum="true"/);
+  assert.match(html,/role="tooltip"/);
+  assert.match(html,/aria-label="8\. 22\. \(토\) 120,000원"/);
+  assert.doesNotMatch(html,/title="8\. 22\. \(토\) 120,000원"/);
   assert.doesNotMatch(html,/role="progressbar"/);
+});
+
+test('V106 chart values use an immediate pointer, focus, and touch tooltip',()=>{
+  const tooltipCss=fs.readFileSync(path.resolve(__dirname,'../app/_phase28/primitives/chart-datum.module.css'),'utf8');
+  const tooltipSource=fs.readFileSync(path.resolve(__dirname,'../app/_phase28/primitives/chart-datum.js'),'utf8');
+
+  assert.match(tooltipCss,/\.datum:hover>\.tooltip/);
+  assert.match(tooltipCss,/\.datum:focus-visible>\.tooltip/);
+  assert.match(tooltipCss,/transition-delay:0ms/);
+  assert.match(tooltipSource,/pointerType==='touch'/);
+  assert.match(tooltipSource,/currentTarget\.focus/);
 });
 
 test('V106 Main gives a direct goal-setting action when the monthly target is missing',async()=>{

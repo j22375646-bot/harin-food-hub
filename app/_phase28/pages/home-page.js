@@ -3,6 +3,7 @@
 import {useState} from 'react';
 import {createPortal} from 'react-dom';
 import {Phase28ChannelLogo} from '../primitives/channel-logo.js';
+import {Phase28ChartDatum} from '../primitives/chart-datum.js';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
 import {Phase28RightRailLayout} from '../primitives/right-rail-layout.js';
 import styles from './home-page.module.css';
@@ -191,10 +192,11 @@ function GrowthHorizon({growth,sources={},forecast,onNavigate}){
   const actualDays=forecast?.actualDays||[];
   const days=forecast?.days||[];
   const maximum=Math.max(1,...actualDays.map(item=>Number(item.revenue)||0),...days.map(item=>Number(item.revenue)||0));
-  const salesChart=(items,label,emptyTitle,emptyCopy)=><div className={styles.forecastChart} aria-label={label}>{items.length?items.map(item=>{
+  const salesChart=(items,label,emptyTitle,emptyCopy)=><div className={styles.forecastChart} aria-label={label}>{items.length?items.map((item,index)=>{
     const value=Number(item.revenue)||0;
-    const accessibleLabel=`${formatDate(item.date)} ${formatPlainWon(value)}`;
-    return <span key={item.date} aria-label={accessibleLabel} title={accessibleLabel}><i style={{height:`${Math.max(12,value/maximum*100)}%`}}/><small>{formatDate(item.date).replace('요일','')}</small></span>;
+    const dateLabel=formatDate(item.date);
+    const edge=index<2?'start':index>=items.length-2?'end':'middle';
+    return <Phase28ChartDatum key={item.date} label={dateLabel} value={formatPlainWon(value)} placement="chart" edge={edge}><i style={{height:`${Math.max(12,value/maximum*100)}%`}}/><small>{dateLabel.replace('요일','')}</small></Phase28ChartDatum>;
   }):<div className={styles.forecastEmpty}><strong>{emptyTitle}</strong><span>{emptyCopy}</span></div>}</div>;
   const openGrowthSource=destination=>onNavigate(destination==='insights'?{view:'insight',workspace:'overview'}:'product-analysis');
   return <section className={styles.growthHorizon}>

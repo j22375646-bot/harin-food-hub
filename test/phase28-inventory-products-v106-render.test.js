@@ -26,6 +26,8 @@ test('Phase 28 app renders the V106 inventory-products workbench for both routes
   assert.match(page,/<i>02<\/i><span><strong>상품 운영/);
   assert.match(page,/재고 보유일 레일/);
   assert.match(page,/row\.markerLabel\|\|'재'/);
+  assert.match(page,/Phase28ChartDatum/);
+  assert.doesNotMatch(page,/title=\{`\$\{row\.name\}/);
   assert.match(page,/판매 판단까지 네 개의 문/);
   assert.match(page,/Phase28RightRailLayout/);
 });
