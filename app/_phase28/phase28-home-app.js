@@ -1,5 +1,6 @@
 'use client';
 
+import {useEffect} from 'react';
 import {useRouter} from 'next/navigation';
 import operationSnapshotModule from '../../lib/navigation/operation-snapshot.js';
 import routeRegistryModule from '../../lib/ui/phase28-route-registry.js';
@@ -13,6 +14,18 @@ export default function Phase28HomeApp({initialData}){
   const router=useRouter();
   const navigationSnapshot=initialData.navigationSnapshot||operationSnapshotModule.buildNavigationOperationSnapshot(initialData);
   const generatedAt=navigationSnapshot?.generatedAt||initialData.generatedAt||null;
+
+  useEffect(()=>{
+    const refreshIfVisible=()=>{
+      if(document.visibilityState==='visible')router.refresh();
+    };
+    const intervalId=window.setInterval(refreshIfVisible,5*60*1000);
+    document.addEventListener('visibilitychange',refreshIfVisible);
+    return()=>{
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange',refreshIfVisible);
+    };
+  },[router]);
 
   function navigate(target){
     const route=typeof target==='string'

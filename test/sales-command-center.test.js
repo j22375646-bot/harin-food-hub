@@ -58,6 +58,23 @@ test('smart schedule uses the Seoul 15:00 shipping cutoff', () => {
   assert.equal(schedule.items.find(item=>item.id==='REGISTER').status,'UPCOMING');
 });
 
+test('a measured zero month keeps actual sales at zero but does not invent a zero forecast', () => {
+  const result = buildSalesCommandCenter({
+    pacing:{
+      status:'READY',month:'2026-09',asOf:'2026-09-01',
+      items:[{
+        platform:'ALL',status:'READY',revenueActual:0,revenueForecast:null,
+        sampleSize:0,forecastStatus:'SAMPLE_REQUIRED',elapsedDays:1
+      }]
+    }
+  });
+  assert.equal(result.metrics.current,0);
+  assert.equal(result.metrics.currentSampleSize,0);
+  assert.equal(result.metrics.forecast,null);
+  assert.equal(result.metrics.forecastStatus,'SAMPLE_REQUIRED');
+  assert.equal(result.likelihood.code,'CHECK_REQUIRED');
+});
+
 test('smart schedule keeps the overnight operating line colored until the next 06:00 collection', () => {
   const schedule=buildSmartSchedule('2026-08-30T19:30:00.000Z');
   assert.equal(schedule.date,'2026-08-31');

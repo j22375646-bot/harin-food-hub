@@ -60,6 +60,16 @@ test('Cafe24 매출통계 권한이 없으면 주문 추정값과 API 정산을 
   assert.equal(center.summary.estimated_payout,null);
 });
 
+test('Cafe24 주문이 없는 달에도 매출통계 권한 오류를 정상 무매출로 숨기지 않는다', () => {
+  const center=buildUnifiedSettlementCenter({now,
+    syncs:[{platform:'CAFE24',job_type:'FETCH_ALL',status:'PARTIAL',finished_at:'2026-08-14T02:00:00Z',metadata:{capabilities:{settlement:'SETUP_REQUIRED'}}}]
+  });
+  const cafe=center.channels.find(item=>item.platform==='CAFE24');
+  assert.equal(cafe.status,'SCOPE_REQUIRED');
+  assert.equal(cafe.gross_sales,null);
+  assert.equal(cafe.action_href,'/oauth/cafe24/start');
+});
+
 test('쿠팡 매출·환불·수수료와 확정 지급액을 분리한다', () => {
   const center=buildUnifiedSettlementCenter({now,coupangSettlements:[
     {order_id:'O1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:10000,service_fee_vat:1000,settlement_amount:89000},

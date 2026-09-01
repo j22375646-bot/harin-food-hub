@@ -12,6 +12,7 @@ const statusLabels={READY:'정상',PARTIAL:'일부 확인',BLOCKED:'확인 필�
 
 function metricReady(metric){return Boolean(metric&&['READY','PARTIAL'].includes(metric.status)&&typeof metric.value==='number');}
 function formatWon(metric){
+  if(metric?.reasons?.includes('SAMPLE_REQUIRED'))return '계산 대기';
   if(!metricReady(metric))return metric?.status==='SETUP_REQUIRED'?'설정 필요':'확인 필요';
   return `${Math.round(metric.value).toLocaleString('ko-KR')}원`;
 }
@@ -36,6 +37,11 @@ function formatDeadline(deadline={}){
   return hours?`${hours}시간 ${minutes}분 남음`:`${minutes}분 남음`;
 }
 function metricEvidence(metric){
+  if(metric?.status==='READY'&&metric?.metricKind==='actual'&&metric?.value===0&&metric?.sampleSize===0){
+    const month=/^\d{4}-\d{2}$/.test(metric.period||'')?`${Number(metric.period.slice(5))}월 `:'';
+    return `${month}결제 주문 0건 · 최신 수집 확인`;
+  }
+  if(metric?.reasons?.includes('SAMPLE_REQUIRED'))return '결제 주문 발생 후 자동 계산';
   if(metric?.status==='READY')return '실제 운영 근거 · 자세히 보기';
   if(metric?.status==='PARTIAL')return '현재 근거의 예상값 · 계산 보기';
   return statusLabels[metric?.status]||'근거 자료 확인 필요';

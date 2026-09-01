@@ -34,7 +34,9 @@ test('23-R1 gives Main a bounded dedicated loader instead of the generic dashboa
     'cafe24_orders','cafe24_order_items','cafe24_oauth_tokens','naver_commerce_orders','naver_commerce_order_items',
     'coupang_orders','coupang_order_items','coupang_rg_orders','coupang_rg_order_items','coupang_product_items','coupang_returns',
     'coupang_rg_inventory','business_targets','customer_service_items','reports','hub_work_items',
-    'channel_products','product_costs','channel_cost_settings','channel_shipping_rules','naver_stats_daily','coupang_ad_daily_summary'
+    'channel_products','product_costs','channel_cost_settings','channel_shipping_rules','channel_cost_calibrations',
+    'naver_stats_daily','coupang_ad_daily_summary','cafe24_sales_daily','naver_commerce_settlements',
+    'coupang_settlements','coupang_cost_transactions','coupang_ad_settlement_daily','coupang_settlement_summaries'
   ]);
   assert.doesNotMatch(profile.tables.join(','),/naver_keyword_stats|naver_search_terms|coupang_ad_keyword_daily/);
   const page=read('app/dashboard-route.js');

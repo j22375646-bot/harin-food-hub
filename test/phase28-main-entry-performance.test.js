@@ -41,9 +41,24 @@ test('Main data loader starts independent data sources together and exposes a qu
   assert.match(loader,/Promise\.all\(\[\s*Promise\.allSettled\(/);
   assert.match(loader,/MAIN_REMOTE_QUERY_BUDGET/);
   assert.match(loader,/monthlyRevenueModule\.fetchMonthlyRevenue/);
-  assert.match(loader,/const MAIN_REMOTE_QUERY_BUDGET=24/);
+  assert.match(loader,/const MAIN_REMOTE_QUERY_BUDGET=31/);
   assert.match(loader,/naver_stats_daily/);
   assert.match(loader,/coupang_ad_daily_summary/);
   assert.match(loader,/product_costs/);
+  assert.match(loader,/naver_commerce_settlements/);
+  assert.match(loader,/coupang_settlements/);
+  assert.match(loader,/coupang_cost_transactions/);
+  assert.match(loader,/cafe24_sales_daily/);
+  assert.match(loader,/channel_cost_calibrations/);
+  assert.match(loader,/buildUnifiedSettlementCenter/);
+  assert.match(loader,/withEffectiveChannelSettings/);
   assert.doesNotMatch(loader,/naver_keyword_stats|coupang_ad_keyword_daily|financial_change_requests/);
+});
+
+test('Main refreshes fresh server evidence while the page remains open',()=>{
+  const client=read('app/_phase28/phase28-home-app.js');
+  assert.match(client,/useEffect/);
+  assert.match(client,/visibilitychange/);
+  assert.match(client,/setInterval/);
+  assert.match(client,/router\.refresh\(\)/);
 });

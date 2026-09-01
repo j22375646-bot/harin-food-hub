@@ -32,6 +32,21 @@ test('measured zero Main counts remain ready evidence',()=>{
   assert.equal(model.hero.status,'READY');
 });
 
+test('main adapter labels an empty-month forecast as sample required instead of zero won',()=>{
+  const model=buildPhase28MainModel({
+    generatedAt:'2026-09-01T00:55:00+09:00',
+    salesCommandCenter:{
+      month:'2026-09',
+      metrics:{current:0,currentSampleSize:0,forecast:null,forecastStatus:'SAMPLE_REQUIRED'}
+    }
+  });
+  assert.equal(model.metrics.current.value,0);
+  assert.equal(model.metrics.current.sampleSize,0);
+  assert.equal(model.metrics.current.period,'2026-09');
+  assert.equal(model.metrics.forecast.value,null);
+  assert.ok(model.metrics.forecast.reasons.includes('SAMPLE_REQUIRED'));
+});
+
 test('main hero chooses the highest-priority memo when today has several memos',()=>{
   const model=buildPhase28MainModel({
     generatedAt:'2026-08-31T10:00:00+09:00',
