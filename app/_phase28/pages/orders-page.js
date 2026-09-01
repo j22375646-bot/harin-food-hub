@@ -154,6 +154,19 @@ function OrderGiftNotice({order}){
   </section>;
 }
 
+function FulfillmentLiveStatus({feed={},error='',checkedAt,selectedOrders=[],previewOrder}){
+  const items=feed.items||[];
+  const preferredIds=new Set([...selectedOrders.map(order=>order.hubOrderId),previewOrder?.hubOrderId].filter(Boolean));
+  const priority=items.filter(item=>item.active||item.needsAttention||preferredIds.has(item.hubOrderId));
+  const visible=(priority.length?priority:items).slice(0,5);
+  const activeCount=Number(feed.summary?.active||0);
+  const attentionCount=Number(feed.summary?.needsAttention||0);
+  return <section className="fulfillmentLiveStatus" aria-live="polite">
+    <header><span className="fulfillmentStateDot" data-active={activeCount?'true':'false'} data-error={error?'true':'false'}><i/></span><div><strong>현재 작업 상태</strong><small>{error||`${activeCount?'2초':'30초'}마다 서버 상태 자동 확인 · ${checkedAt?dateTime(checkedAt):'첫 확인 중'}`}</small></div><em data-attention={attentionCount?'true':'false'}>{activeCount?`${activeCount}건 처리 중`:attentionCount?`${attentionCount}건 확인 필요`:'대기 중'}</em></header>
+    {visible.length?<ol>{visible.map(item=><li data-status={item.status} data-attention={item.needsAttention?'true':'false'} key={item.hubOrderId}><span><i style={{'--fulfillment-progress':`${Math.max(1,Math.min(4,Number(item.progress)||1))*25}%`}}/><b>{item.label}</b><small>{item.hubOrderId} · {item.detail}</small></span>{item.trackingNo?<code>{item.trackingNo}</code>:null}</li>)}</ol>:<p>진행 중인 우체국 출고 작업이 없어요. 송장 발급을 시작하면 대기·발급·쇼핑몰 등록·배송조회 상태가 여기에 이어서 표시됩니다.</p>}
+  </section>;
+}
+
 export function OrderRow({order,selected,previewed,onSelect,onPreview}){
   const selectable=order.selectionEligible===true;
   const receiver=order.receiver||{};
@@ -164,7 +177,7 @@ export function OrderRow({order,selected,previewed,onSelect,onPreview}){
   }
   return <article className={`orderRow${selected?' selected':''}${previewed?' previewed':''}${order.cancellationRequested?' cancellation':''}`} data-selection-locked={selectable?undefined:'true'} data-previewed={previewed?'true':undefined} data-gift-required={order.giftRequired?'true':undefined} tabIndex={0} aria-label={`${order.productName} 주문 상세 보기${order.giftRequired?' · 사은품 증정 대상':''}`} onClick={()=>onPreview(order)} onKeyDown={previewFromKeyboard}>
     <input type="checkbox" checked={selected} disabled={!selectable} title={selectable?'출고 주문 선택':selectionReason} onClick={event=>event.stopPropagation()} onChange={event=>{onPreview(order);onSelect(order,event.target.checked);}} aria-label={selectable?`${order.productName} 주문 선택`:`${order.productName} 선택 불가 · ${selectionReason}`}/>
-    <div className="orderProduct"><OrderProductThumbnail order={order}/><span><span className="productMeta"><Phase28ChannelLogo brand={order.platform} size="compact"/>{order.channelLabel} · 판매자배송{order.platform==='NAVER'?<em className="selectionLock">네이버 송장 발급</em>:null}</span><strong>{order.productName}</strong><small>{productOption(order)}</small>{order.invoice?<span className="orderInvoice" data-status={order.invoice.status} aria-label={`${order.invoice.label} 송장번호 ${order.invoice.number}`}><HarinIcon name="document" size={14}/><b>{order.invoice.label}</b><span>{order.invoice.number}</span></span>:null}{order.gifts?.length?<span className="orderEventGift"><HarinIcon name="sparkles" size={15}/><b>사은품 증정 대상</b><span>실결제 주문금액 {money(order.amount)} · {order.gifts.map(item=>`${money(item.minimumAmount)} 이상 → ${item.giftName} ${item.quantity}개`).join(' · ')}</span></span>:null}</span></div>
+    <div className="orderProduct"><OrderProductThumbnail order={order}/><span><span className="productMeta"><Phase28ChannelLogo brand={order.platform} size="compact"/>{order.channelLabel} · 판매자배송{order.platform==='NAVER'?<em className="selectionLock">네이버 송장 발급</em>:null}</span><strong>{order.productName}</strong><small>{productOption(order)}</small>{order.invoice?<span className="orderInvoice" data-status={order.invoice.status} aria-label={`${order.invoice.label} 송장번호 ${order.invoice.number}`}><HarinIcon name="document" size={14}/><b>{order.invoice.label}</b><span>{order.invoice.number}</span></span>:null}{order.fulfillmentStatus?<span className="orderFulfillmentStatus" data-active={order.fulfillmentStatus.active?'true':'false'} data-attention={order.fulfillmentStatus.needsAttention?'true':'false'}><i/><b>{order.fulfillmentStatus.label}</b></span>:null}{order.gifts?.length?<span className="orderEventGift"><HarinIcon name="sparkles" size={15}/><b>사은품 증정 대상</b><span>실결제 주문금액 {money(order.amount)} · {order.gifts.map(item=>`${money(item.minimumAmount)} 이상 → ${item.giftName} ${item.quantity}개`).join(' · ')}</span></span>:null}</span></div>
     <div className="shippingPerson"><strong>{receiver.name||'받는 분 확인 필요'} · {receiver.contact||'연락처 확인 필요'}</strong><span>{receiverAddress(receiver)} · {receiver.message||'배송메모 없음'}</span></div>
     <div className="orderTime"><strong>{dateTime(order.orderedAt)}</strong><span>{order.timingBadge?.detail||'출고 일정 확인'}</span></div>
     <div className="orderBadges">{order.giftRequired?<span className="orderGiftAttention"><HarinIcon name="sparkles" size={15}/>사은품 증정</span>:null}<span data-tone={rowTone(order)}>{order.stageLabel}</span>{order.timingBadge?<span data-tone={order.timingBadge.type==='DELAYED'?'delay':'schedule'}>{order.timingBadge.label||'일정 확인'}</span>:null}</div>
@@ -190,7 +203,7 @@ function OrdersWorkspace({orders,stage,selectedIds,previewOrderId,onSelect,onPre
   </section>;
 }
 
-function OrdersRail({activeTab,setActiveTab,selectedOrders,previewOrder,channels,activeStage,busy,delayedCount,giftOrderCount,onPrimaryAction,onSync}){
+function OrdersRail({activeTab,setActiveTab,selectedOrders,previewOrder,channels,activeStage,busy,delayedCount,giftOrderCount,fulfillmentFeed,fulfillmentError,fulfillmentCheckedAt,onPrimaryAction,onSync}){
   const tabs=[{id:'selected',label:'선택 주문'},{id:'actions',label:'출고 작업'},{id:'sync',label:'수집 상태'}];
   const stage=STAGES.find(item=>item.id===activeStage)||STAGES[0];
   const receiver=previewOrder?.receiver||{};
@@ -207,7 +220,7 @@ function OrdersRail({activeTab,setActiveTab,selectedOrders,previewOrder,channels
       <div className="ordersRailTabs" role="tablist" aria-label="주문 보조 작업">{tabs.map((tab,index)=><button type="button" role="tab" id={`phase28-orders-tab-${tab.id}`} aria-selected={activeTab===tab.id} aria-controls={`phase28-orders-panel-${tab.id}`} tabIndex={activeTab===tab.id?0:-1} onClick={()=>setActiveTab(tab.id)} onKeyDown={event=>onTabKey(event,index)} key={tab.id}>{tab.label}</button>)}</div>
       <div className="ordersRailPanels">
         <section role="tabpanel" id="phase28-orders-panel-selected" aria-labelledby="phase28-orders-tab-selected" aria-hidden={activeTab!=='selected'} inert={activeTab==='selected'?undefined:true} data-active={activeTab==='selected'}><header><h3>선택한 주문을 확인하세요</h3><p>수취 정보와 배송메모, 사은품 조건을 항상 보여드려요.</p></header><div className="selectionCount"><span>작업 선택</span><strong>{selectedOrders.length.toLocaleString('ko-KR')}건</strong></div>{previewOrder?<><div className="orderDetail"><div><span>받는 분</span><strong>{receiver.name||'확인 필요'} · {receiver.contact||'연락처 확인 필요'}</strong></div><div><span>주소</span><strong>{receiverAddress(receiver)}</strong></div><div><span>상품·수량</span><strong>{previewOrder.productName} · {Number(previewOrder.quantity||0).toLocaleString('ko-KR')}개</strong></div></div><OrderGiftNotice order={previewOrder}/><div className="orderMemo"><strong>배송메모</strong><br/>{receiver.message||'배송메모 없음'}</div></>:<div className="ordersRailEmpty">현재 단계에 표시할 주문이 없어요.</div>}<div className="ordersRailFooter"><button type="button" className="ordersRailPrimary" onClick={()=>setActiveTab('actions')} disabled={!selectedOrders.length}>선택 주문 출고 작업 열기</button></div></section>
-        <section role="tabpanel" id="phase28-orders-panel-actions" aria-labelledby="phase28-orders-tab-actions" aria-hidden={activeTab!=='actions'} inert={activeTab==='actions'?undefined:true} data-active={activeTab==='actions'}><header><h3>{stage.action}</h3><p>{stage.description}</p></header><div className="actionSteps"><div><i>1</i><span><strong>주문 확인</strong><small>{selectedOrders.length}건 선택됨</small></span></div><div><i>2</i><span><strong>우체국 송장 자동발급</strong><small>계약소포 번호를 받아와요.</small></span></div><div><i>3</i><span><strong>쇼핑몰 자동등록</strong><small>채널별 택배사 코드로 전송해요.</small></span></div></div><div className="ordersRailFooter"><button type="button" className="ordersRailPrimary" onClick={onPrimaryAction} disabled={Boolean(busy)||(!selectedOrders.length&&!['REGISTER','IN_TRANSIT','COMPLETED'].includes(activeStage))}>{busy||primaryLabel}</button></div></section>
+        <section role="tabpanel" id="phase28-orders-panel-actions" aria-labelledby="phase28-orders-tab-actions" aria-hidden={activeTab!=='actions'} inert={activeTab==='actions'?undefined:true} data-active={activeTab==='actions'}><header><h3>{stage.action}</h3><p>{stage.description}</p></header><FulfillmentLiveStatus feed={fulfillmentFeed} error={fulfillmentError} checkedAt={fulfillmentCheckedAt} selectedOrders={selectedOrders} previewOrder={previewOrder}/><div className="actionSteps"><div><i>1</i><span><strong>주문 확인</strong><small>{selectedOrders.length}건 선택됨</small></span></div><div><i>2</i><span><strong>우체국 송장 자동발급</strong><small>계약소포 번호를 받아와요.</small></span></div><div><i>3</i><span><strong>쇼핑몰 자동등록</strong><small>채널별 택배사 코드로 전송해요.</small></span></div></div><div className="ordersRailFooter"><button type="button" className="ordersRailPrimary" onClick={onPrimaryAction} disabled={Boolean(busy)||(!selectedOrders.length&&!['REGISTER','IN_TRANSIT','COMPLETED'].includes(activeStage))}>{busy||primaryLabel}</button></div></section>
         <section role="tabpanel" id="phase28-orders-panel-sync" aria-labelledby="phase28-orders-tab-sync" aria-hidden={activeTab!=='sync'} inert={activeTab==='sync'?undefined:true} data-active={activeTab==='sync'}><header><h3>판매 채널 최신 상태</h3><p>한 채널 오류가 다른 채널을 막지 않아요.</p></header><div className="channelHealth">{['NAVER','CAFE24','COUPANG'].map(brand=>{const channel=channels.find(item=>String(item.platform||'').toUpperCase()===brand);const ready=['READY','RUNNING'].includes(String(channel?.status||'').toUpperCase());return <div key={brand}><Phase28ChannelLogo brand={brand}/><span><strong>{CHANNEL_NAMES[brand]}</strong><small>{channel?.message||'최근 수집 상태 확인'}</small></span><em data-ready={ready}>{CHANNEL_STATUS[channel?.status]||channel?.label||'확인 필요'}</em></div>;})}</div><div className="ordersRailFooter"><button type="button" className="ordersRailPrimary" onClick={onSync} disabled={Boolean(busy)}>전체 플랫폼 다시 수집</button></div></section>
       </div>
     </section>
@@ -233,9 +246,17 @@ export default function Phase28OrdersPage({model={}}){
   const [syncPlatforms,setSyncPlatforms]=useState([]);
   const [statusMessage,setStatusMessage]=useState('');
   const [toastVisible,setToastVisible]=useState(false);
+  const [fulfillmentFeed,setFulfillmentFeed]=useState({items:[],summary:{active:0,needsAttention:0}});
+  const [fulfillmentError,setFulfillmentError]=useState('');
+  const [fulfillmentCheckedAt,setFulfillmentCheckedAt]=useState(null);
   const trackingRunRef=useRef(false);
+  const fulfillmentSignatureRef=useRef('');
   const cutoff=useCutoff(model.cutoff||{});
-  const orders=useMemo(()=>sourceOrders.map(order=>receiverHydration[order.hubOrderId]?{...order,receiver:receiverHydration[order.hubOrderId]}:order),[sourceOrders,receiverHydration]);
+  const fulfillmentByOrder=useMemo(()=>Object.fromEntries((fulfillmentFeed.items||[]).map(item=>[item.hubOrderId,item])),[fulfillmentFeed]);
+  const orders=useMemo(()=>sourceOrders.map(order=>{
+    const hydrated=receiverHydration[order.hubOrderId]?{...order,receiver:receiverHydration[order.hubOrderId]}:order;
+    return fulfillmentByOrder[order.hubOrderId]?{...hydrated,fulfillmentStatus:fulfillmentByOrder[order.hubOrderId]}:hydrated;
+  }),[sourceOrders,receiverHydration,fulfillmentByOrder]);
   const selectedOrders=useMemo(()=>orders.filter(order=>selectedIds.has(order.hubOrderId)),[orders,selectedIds]);
   const stageOrders=useMemo(()=>orders.filter(order=>order.stageIds?.includes(activeStage)),[orders,activeStage]);
   const automaticTrackingIds=useMemo(()=>orders
@@ -316,6 +337,41 @@ export default function Phase28OrdersPage({model={}}){
     const timer=window.setInterval(run,60000);
     return()=>{stopped=true;window.clearTimeout(initial);window.clearInterval(timer);};
   },[automaticTrackingKey,queueAndPollTracking]);
+  useEffect(()=>{
+    let stopped=false;
+    let timer=null;
+    let running=false;
+    async function run(){
+      if(stopped||running)return;
+      if(document.visibilityState==='hidden'){timer=window.setTimeout(run,30000);return;}
+      running=true;
+      let delay=busy?2000:30000;
+      try{
+        const response=await fetch('/api/shipping/fulfillment-status',{cache:'no-store'});
+        const result=await response.json();
+        if(!response.ok||!result.ok)throw new Error(result.error||'우체국 출고 상태 확인 실패');
+        const signature=(result.items||[]).map(item=>`${item.hubOrderId}:${item.status}:${item.trackingNo||''}`).join('|');
+        const previous=fulfillmentSignatureRef.current;
+        fulfillmentSignatureRef.current=signature;
+        setFulfillmentFeed({items:result.items||[],summary:result.summary||{active:0,needsAttention:0}});
+        setFulfillmentCheckedAt(result.summary?.updatedAt||new Date().toISOString());
+        setFulfillmentError('');
+        if(previous&&previous!==signature&&!result.summary?.active)router.refresh();
+        const serverDelay=result.summary?.active?2000:30000;
+        delay=busy?2000:serverDelay;
+      }catch(error){
+        setFulfillmentError(error.message||'우체국 출고 상태 확인 필요');
+        delay=busy?5000:30000;
+      }finally{
+        running=false;
+        if(!stopped)timer=window.setTimeout(run,delay);
+      }
+    }
+    function resume(){if(document.visibilityState!=='hidden'){if(timer)window.clearTimeout(timer);run();}}
+    run();
+    document.addEventListener('visibilitychange',resume);
+    return()=>{stopped=true;if(timer)window.clearTimeout(timer);document.removeEventListener('visibilitychange',resume);};
+  },[busy,router]);
 
   function selectOrder(order,checked){
     if(checked&&order.selectionEligible!==true){setStatusMessage(order.selectionBlockedReason||'현재 주문은 허브 출고 작업에서 선택할 수 없어요.');return;}
@@ -415,7 +471,7 @@ export default function Phase28OrdersPage({model={}}){
   const workCount=typeof hero.workCount==='number'?hero.workCount:null;
   return <section className="p28OrdersPage" data-phase28-root="true" data-phase28-page="orders">
     <div className="ordersIntro"><Phase28PageHeading context={`채널 ${channels.length||0}/3 최신 · 판매자배송만 표시`} title="오늘 출고할 주문은 " accent={workCount==null?'확인 필요':`${workCount.toLocaleString('ko-KR')}건`} suffix="이에요." summary="취소 주문과 로켓그로스는 작업목록에서 빼고, 직접 보낼 주문만 모았어요."/><div className="ordersSyncCluster"><span><i><HarinIcon name="sync" size={19}/></i><span><small>{syncState==='RUNNING'?(syncPlatforms.length?collectionProgressLabel(syncPlatforms):'완료 반영 중'):'마지막 전체 동기화'}</small><strong>{referenceTime(hero.asOf)}</strong></span></span><button type="button" onClick={syncOrders} disabled={syncState==='RUNNING'}><HarinIcon name="sync" size={17}/>{syncState==='RUNNING'?'수집 중':'지금 동기화'}</button></div></div>
-    <Phase28RightRailLayout label="출고 보조석" rail={<OrdersRail activeTab={activeRailTab} setActiveTab={setActiveRailTab} selectedOrders={selectedOrders} previewOrder={previewOrder} channels={channels} activeStage={activeStage} busy={busy} delayedCount={hero.delayedCount} giftOrderCount={hero.giftOrderCount} onPrimaryAction={primaryAction} onSync={syncOrders}/> }>
+    <Phase28RightRailLayout label="출고 보조석" rail={<OrdersRail activeTab={activeRailTab} setActiveTab={setActiveRailTab} selectedOrders={selectedOrders} previewOrder={previewOrder} channels={channels} activeStage={activeStage} busy={busy} delayedCount={hero.delayedCount} giftOrderCount={hero.giftOrderCount} fulfillmentFeed={fulfillmentFeed} fulfillmentError={fulfillmentError} fulfillmentCheckedAt={fulfillmentCheckedAt} onPrimaryAction={primaryAction} onSync={syncOrders}/> }>
       <div className="ordersCore"><Runway workspaces={model.workspaces||[]} activeStage={activeStage} onStageChange={changeStage} cutoff={cutoff} onOpenActions={openActions} delayOnly={delayOnly} onDelayToggle={()=>setDelayOnly(value=>!value)}/><FreshnessDock channels={channels} asOf={hero.asOf} syncState={syncState} syncPlatforms={syncPlatforms} onSync={syncOrders}/><OrdersWorkspace orders={orders} stage={activeStage} selectedIds={selectedIds} previewOrderId={previewOrderId} onSelect={selectOrder} onPreview={previewOrderInRail} platform={platform} setPlatform={setPlatform} delayOnly={delayOnly} giftOnly={giftOnly} setGiftOnly={setGiftOnly} onOpenActions={openActions} visibleLimit={model.visibleLimit||20}/>{selectedIds.size?<div className="mobileBatchAction"><span><strong>{selectedIds.size}건 선택</strong><small>판매자배송 출고 작업</small></span><button type="button" onClick={primaryAction}>우체국 발급</button></div>:null}</div>
     </Phase28RightRailLayout>
     <div className={`ordersToast${toastVisible?' visible':''}`} role="status" aria-live="polite">{statusMessage}</div>

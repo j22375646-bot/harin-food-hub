@@ -75,3 +75,19 @@ test('successful invoice registration starts tracking and live rail movement kee
   assert.match(page,/fetch\('\/api\/shipping\/tracking',\{cache:'no-store'\}\)/);
   assert.match(page,/window\.setInterval\(run,60000\)/);
 });
+
+test('the postal workbench reads durable server progress and polls faster only while work is active',()=>{
+  const page=fs.readFileSync(path.join(root,'app','_phase28','pages','orders-page.js'),'utf8');
+  const css=fs.readFileSync(path.join(root,'app','_phase28','pages','orders-page.css'),'utf8');
+  const route=fs.readFileSync(path.join(root,'app','api','shipping','fulfillment-status','route.js'),'utf8');
+
+  assert.match(page,/fetch\('\/api\/shipping\/fulfillment-status',\{cache:'no-store'\}\)/);
+  assert.match(page,/result\.summary\?\.active\?2000:30000/);
+  assert.match(page,/className="fulfillmentLiveStatus"/);
+  assert.match(page,/aria-live="polite"/);
+  assert.match(page,/현재 작업 상태/);
+  assert.match(css,/\.fulfillmentLiveStatus\{/);
+  assert.match(css,/\.fulfillmentStateDot\[data-active="true"\]/);
+  assert.match(route,/buildFulfillmentStatuses/);
+  assert.match(route,/Cache-Control':'no-store'/);
+});
