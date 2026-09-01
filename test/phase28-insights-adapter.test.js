@@ -27,7 +27,7 @@ function monthly(id,platform,end,revenue){
   };
 }
 
-test('insights adapter keeps Naver, Coupang, and Cafe24 weekly evidence separate',()=>{
+test('insights adapter exposes only Naver weekly evidence during the first automation stage',()=>{
   const model=buildPhase28InsightsModel({
     generatedAt:'2026-08-31T00:10:00.000Z',loadedWorkspace:'overview',
     dataHealth:{channels:[
@@ -49,36 +49,42 @@ test('insights adapter keeps Naver, Coupang, and Cafe24 weekly evidence separate
   });
 
   assert.equal(model.writePolicy,'READ_ONLY');
-  assert.deepEqual(model.channels.map(item=>item.platform),['NAVER','COUPANG','CAFE24']);
+  assert.deepEqual(model.channels.map(item=>item.platform),['NAVER']);
   assert.equal(model.channels[0].currentReportId,'nv-now');
   assert.equal(model.channels[0].revenue,1078000);
   assert.equal(model.channels[0].changeRate,7.8);
-  assert.equal(model.channels[1].currentReportId,'cp-now');
-  assert.equal(model.channels[1].changeRate,-2.4);
-  assert.equal(model.channels[1].profit,null,'전 채널 공헌이익을 쿠팡 값으로 재사용하면 안 됩니다.');
-  assert.equal(model.channels[1].profitState,'CHECK_REQUIRED');
-  assert.equal(model.channels[1].trust.status,'CHECK_REQUIRED');
-  assert.equal(model.channels[2].changeRate,null,'같은 Cafe24 이전 보고서가 없으면 증감을 만들면 안 됩니다.');
-  assert.equal(model.savedReports.NAVER.length,3);
-  assert.equal(model.savedReports.COUPANG.length,3);
-  assert.equal(model.savedReports.CAFE24.length,1);
-  assert.equal(model.savedReports.NAVER[0].reportType,'MONTHLY');
-  assert.equal(model.savedReports.NAVER[0].reportTypeLabel,'월간');
+  assert.deepEqual(Object.keys(model.savedReports),['NAVER']);
+  assert.equal(model.savedReports.NAVER.length,2);
+  assert.ok(model.savedReports.NAVER.every(item=>item.reportType==='WEEKLY'));
   assert.equal(model.channels[0].reportCount,2,'이번 주 비교 카드에는 월간 보고서를 섞으면 안 됩니다.');
   assert.match(model.schedule.label,/주간/);
-  assert.match(model.schedule.label,/월간/);
+  assert.doesNotMatch(model.schedule.label,/월간/);
+  assert.deepEqual(model.automation.items.map(item=>item.id),['weekly']);
   assert.equal('summary_json' in model.savedReports.NAVER[0],false);
   assert.equal('report' in model.savedReports.NAVER[0],false);
   assert.equal(JSON.stringify(model).includes('99999999'),false,'ALL 보고서를 채널 카드에 섞으면 안 됩니다.');
+  assert.equal(JSON.stringify(model).includes('976000'),false,'쿠팡 보고서를 네이버 파일럿 화면에 싣지 않습니다.');
 });
 
-test('saved insight detail exposes only the decision flow and provenance, not the raw report',()=>{
-  const detail=normalizeInsightReportDetail(weekly('nv-now','NAVER','2026-08-30',1078000,{profit:596000}));
+test('saved Naver weekly detail exposes the owner brief and provenance, not the raw report',()=>{
+  const report=weekly('nv-now','NAVER','2026-08-30',1078000,{profit:596000});
+  report.summary_json.naver={
+    connected:true,revenue:1078000,ad_spend:300000,roas:359.3,clicks:1200,purchase_count:44,contribution_profit:596000,
+    confidence:{level:'HIGH',label:'높음'},top_campaigns:[]
+  };
+  report.summary_json.keywords={growth:[],waste:[],waste_cost:0};
+  report.summary_json.operating_rule={source:'SAVED',thresholds:{target_roas_percent:300,change_warning_percent:10}};
+  report.summary_json.data_coverage={naver_ads:{status:'OK',actual_days:7,expected_days:7}};
+  report.summary_json.comparison_guard={safe:true};
+  const detail=normalizeInsightReportDetail(report);
   assert.equal(detail.id,'nv-now');
   assert.equal(detail.platform,'NAVER');
   assert.equal(detail.flow.cause,'NAVER 실제 원인');
   assert.equal(detail.flow.profit.value,596000);
   assert.equal(detail.flow.action,'NAVER 다음 행동');
+  assert.equal(detail.ownerBrief.decision.label,'효율 유지·확대 검토');
+  assert.equal(detail.ownerBrief.scorecard.find(item=>item.id==='paidRoas').value,359.3);
+  assert.equal(detail.ownerBrief.actions.guardrail.includes('자동 변경하지'),true);
   assert.equal(detail.provenance.channelSeparated,true);
   assert.equal('summary_json' in detail,false);
   assert.equal('raw' in detail,false);
@@ -87,7 +93,7 @@ test('saved insight detail exposes only the decision flow and provenance, not th
 test('insights adapter preserves the selected workspace and channel after refresh',()=>{
   const model=buildPhase28InsightsModel({reports:[]},{workspace:'saved',platform:'coupang'});
   assert.equal(model.initialWorkspace,'saved');
-  assert.equal(model.initialChannel,'coupang');
+  assert.equal(model.initialChannel,'naver');
 });
 
 test('insights joins the implemented V106 adapter set',()=>{

@@ -10,7 +10,7 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 const insightsAdapter=require('../lib/ui/phase28-adapters/insights.js');
 
-test('insights exposes the latest daily weekly and monthly automation runs without inventing success',()=>{
+test('insights exposes only the latest weekly automation run without inventing success',()=>{
   const model=insightsAdapter.buildPhase28InsightsModel({
     generatedAt:'2026-08-31T04:40:00.000Z',
     reports:[],
@@ -20,13 +20,9 @@ test('insights exposes the latest daily weekly and monthly automation runs witho
     ]
   });
 
-  assert.deepEqual(model.automation.items.map(item=>item.id),['daily','weekly','monthly']);
-  assert.equal(model.automation.items[0].state,'READY');
-  assert.equal(model.automation.items[0].lastRunId,'daily-ok');
-  assert.equal(model.automation.items[1].state,'FAILED');
-  assert.equal(model.automation.items[1].lastRunId,'weekly-failed');
-  assert.equal(model.automation.items[2].state,'CHECK_REQUIRED');
-  assert.equal(model.automation.items[2].lastRunAt,null);
+  assert.deepEqual(model.automation.items.map(item=>item.id),['weekly']);
+  assert.equal(model.automation.items[0].state,'FAILED');
+  assert.equal(model.automation.items[0].lastRunId,'weekly-failed');
 });
 
 test('insights keeps workspace and channel changes in the mounted page and lazy loads accumulated diagnoses',()=>{
@@ -34,8 +30,8 @@ test('insights keeps workspace and channel changes in the mounted page and lazy 
   const route=read('app/insights/[workspace]/page.js');
   const hubRoutes=read('lib/navigation/hub-routes.js');
 
-  assert.match(page,/\['week','saved','compare','profit','diagnostics'\]/);
-  assert.match(page,/누적 진단/);
+  assert.match(page,/\['week','saved','diagnostics'\]/);
+  assert.match(page,/누적 주간 진단/);
   assert.match(page,/fetch\('\/api\/insights\/diagnostics'/);
   assert.match(page,/window\.history\.pushState/);
   assert.doesNotMatch(page,/router\.push\(/);
@@ -70,9 +66,11 @@ test('insight diagnostics API is authenticated and returns compact accumulated r
     snapshot.loadPhase28DiagnosisSnapshot=async options=>{
       assert.equal(options.latestLimit,96);
       assert.equal(options.versionLimit,0);
+      assert.equal(options.platform,'NAVER');
+      assert.deepEqual(options.reportTypes,['WEEKLY']);
       return {
         generatedAt:'2026-08-31T04:40:00.000Z',versionHeaders:[],latestReports:[{
-          id:'daily-naver',platform:'NAVER',report_type:'ADHOC',period_start:'2026-08-24',period_end:'2026-08-30',
+          id:'weekly-naver',platform:'NAVER',report_type:'WEEKLY',period_start:'2026-08-24',period_end:'2026-08-30',
           title:'네이버 자동진단',status:'FINAL',version:1,is_latest:true,created_at:'2026-08-30T22:11:00.000Z',
           summary_json:{score:82,data_coverage:{naver:'READY'},insights:[{title:'매출 흐름 확인'}],recommendations:[]}
         }]
@@ -94,7 +92,7 @@ test('insight diagnostics API is authenticated and returns compact accumulated r
   }
 });
 
-test('saved detail API accepts only supported accumulated diagnosis types',()=>{
+test('saved detail API keeps legacy report compatibility while the page exposes only Naver weekly reports',()=>{
   const route=read('app/api/insights/reports/[id]/route.js');
   assert.match(route,/\.in\('report_type',\['WEEKLY','ADHOC','MONTHLY','PRODUCT_ANALYSIS'\]\)/);
   assert.doesNotMatch(route,/\.eq\('report_type','WEEKLY'\)/);

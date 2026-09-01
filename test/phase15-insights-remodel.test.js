@@ -8,10 +8,13 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
-test('phase 15-3 exposes four real insight workspaces',()=>{
+test('the current Naver pilot exposes weekly owner, saved, and accumulated workspaces while redirecting old addresses',()=>{
   const routes=read('lib/navigation/hub-routes.js');
-  for(const route of ['/insights/overview','/insights/causes','/insights/channels','/insights/profitability'])assert.match(routes,new RegExp(route.replaceAll('/','\\/')));
-  assert.match(routes,/id:'profitability'.*수익성 분석/);
+  const page=read('app/insights/[workspace]/page.js');
+  for(const route of ['/insights/overview','/insights/causes','/insights/saved','/insights/diagnostics'])assert.match(routes,new RegExp(route.replaceAll('/','\\/')));
+  assert.doesNotMatch(routes,/id:'profitability'|id:'channels'/);
+  assert.match(page,/workspace==='channels'\|\|workspace==='profitability'/);
+  assert.match(page,/redirect\('\/insights\/overview'\)/);
 });
 
 test('phase 15-3 gives each insight route a dedicated decision desk',()=>{

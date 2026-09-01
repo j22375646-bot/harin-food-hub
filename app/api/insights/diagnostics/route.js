@@ -12,10 +12,11 @@ export async function GET(request){
   if(!session)return apiSafety.unauthorized();
   try{
     const snapshot=await diagnosisSnapshotModule.loadPhase28DiagnosisSnapshot({
-      db:supabaseModule.getSupabase(),now:new Date(),latestLimit:96,versionLimit:0
+      db:supabaseModule.getSupabase(),now:new Date(),latestLimit:96,versionLimit:0,platform:'NAVER',reportTypes:['WEEKLY']
     });
     const model=diagnosesAdapter.buildPhase28DiagnosesModel(snapshot);
-    const items=model.items.map(item=>({
+    const naverWeeklyItems=model.items.filter(item=>item.platform==='NAVER'&&item.reportType==='WEEKLY');
+    const items=naverWeeklyItems.map(item=>({
       id:item.id,platform:item.platform,reportType:item.reportType,reportTypeLabel:item.reportTypeLabel,
       title:item.title,periodLabel:item.periodLabel,state:item.state,stateLabel:item.stateLabel,
       lastCalculatedLabel:item.lastCalculatedLabel
@@ -25,7 +26,7 @@ export async function GET(request){
       diagnostics:{
         generatedAt:model.generatedAt,
         dataStatus:model.dataStatus,
-        summary:model.summary,
+        summary:{stored:items.length,ready:naverWeeklyItems.filter(item=>item.state==='READY').length,blocked:naverWeeklyItems.filter(item=>item.state!=='READY').length,versions:null},
         items,
         schedule:model.schedule,
         policy:model.policy

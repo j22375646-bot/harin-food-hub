@@ -13,10 +13,10 @@ test('기존 진단 주소는 인사이트 누적 진단으로 이동한다',()=
   assert.match(route,/redirect\('\/insights\/diagnostics'\)/);
 });
 
-test('인사이트 누적 진단은 플랫폼 분리·상세 지연 조회를 연결한다',()=>{
+test('인사이트 누적 진단은 네이버 주간만 노출하고 상세 지연 조회를 연결한다',()=>{
   const page=read('app/_phase28/pages/insights-page.js');
-  for(const label of ['네이버','쿠팡','Cafe24','전체 채널'])assert.match(page,new RegExp(label));
-  for(const label of ['누적 진단','상세보기','자동화 실행 상태'])assert.match(page,new RegExp(label));
+  for(const label of ['네이버','누적 주간 진단','상세보기','주간 자동화 상태'])assert.match(page,new RegExp(label));
+  assert.doesNotMatch(page,/쿠팡|Cafe24|전체 채널/);
   assert.match(page,/Phase28RightRailLayout/);
   assert.match(page,/\/api\/insights\/diagnostics/);
   assert.match(page,/\/api\/insights\/reports\/\$\{encodeURIComponent\(reportId\)\}/);

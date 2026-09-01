@@ -10,7 +10,7 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 const loaderProfiles=require('../lib/dashboard/page-loader-profiles.js');
 
-test('insight landing and saved workspaces query the latest weekly and monthly channel reports before limiting',()=>{
+test('insight landing queries only the latest Naver weekly reports before limiting',()=>{
   const calls=[];
   let query;
   query=new Proxy({}, {
@@ -23,12 +23,12 @@ test('insight landing and saved workspaces query the latest weekly and monthly c
   assert.equal(typeof loaderProfiles.scopeInsightReportQuery,'function');
   assert.equal(loaderProfiles.scopeInsightReportQuery(query),query);
   assert.deepEqual(calls,[
-    ['in','report_type',['WEEKLY','MONTHLY']],
+    ['eq','report_type','WEEKLY'],
     ['eq','is_latest',true],
-    ['in','platform',['NAVER','CAFE24','COUPANG']],
+    ['eq','platform','NAVER'],
     ['order','period_end',{ascending:false}],
     ['order','created_at',{ascending:false}],
-    ['limit',36]
+    ['limit',24]
   ]);
 });
 
@@ -45,7 +45,7 @@ test('V106 insights owns the canonical route and server adapter',()=>{
   assert.match(page,/reports:\[\]/,'V106 초기 클라이언트 페이로드는 원본 보고서 본문을 제거해야 합니다.');
 });
 
-test('V106 insights renders channel deck, four-stage signal track, saved reports, accumulated diagnoses, and decision desk',()=>{
+test('V106 insights renders a Naver-only owner weekly brief, saved weekly reports, and accumulated weekly diagnoses',()=>{
   const app=read('app/_phase28/phase28-app.js');
   const page=read('app/_phase28/pages/insights-page.js');
   assert.match(app,/Phase28InsightsPage/);
@@ -53,14 +53,17 @@ test('V106 insights renders channel deck, four-stage signal track, saved reports
   assert.match(page,/data-phase28-page="insights"/);
   assert.match(page,/return <section className="p28Insights"/,'공통 셸 안에 중첩 main을 만들면 구형 전역 여백이 다시 적용됩니다.');
   assert.doesNotMatch(page,/return <main className="p28Insights"/);
-  assert.match(page,/이번 주 먼저 볼 인사이트/);
-  assert.match(page,/\['변화','원인','이익','행동'\]/);
-  assert.match(page,/\['이번 주','저장 인사이트','채널 비교','수익성','누적 진단'\]/);
-  assert.match(page,/SAVED INSIGHTS/);
-  assert.match(page,/주간·월간 자동 생성/);
-  assert.match(page,/WEEKLY INSIGHT DESK/);
+  assert.match(page,/네이버 주간 인사이트/);
+  assert.match(page,/사장님 주간 판단/);
+  assert.match(page,/\['사장님 브리프','저장 주간 진단','누적 주간 진단'\]/);
+  assert.match(page,/이번 주 결정/);
+  assert.match(page,/광고 효율/);
+  assert.match(page,/위험 신호/);
+  assert.match(page,/7일 확인/);
+  assert.match(page,/NAVER OWNER DESK/);
   assert.match(page,/Phase28RightRailLayout/);
   assert.match(page,/Phase28ChannelLogo/);
+  assert.doesNotMatch(page,/채널 비교|주간·월간 자동 생성/);
   assert.match(page,/window\.history\.pushState/);
   assert.doesNotMatch(page,/useRouter|pushPhase28Route/);
   assert.match(page,/model\.initialWorkspace==='saved'/);
@@ -128,7 +131,7 @@ test('insights CSS keeps fixed readable sizing, balanced selection, responsive l
   assert.doesNotMatch(css,/font-size:(?:[0-9]|1[01])px/);
 });
 
-test('weekly and monthly insights remain scheduled, channel separated, and use the shared scheduler',()=>{
+test('weekly insight automation remains scheduled and uses the shared scheduler',()=>{
   const weekly=read('lib/reports/weekly.js');
   const scheduler=read('lib/automation/report-scheduler.js');
   const cron=read('app/api/cron/weekly-report/route.js');
@@ -140,5 +143,4 @@ test('weekly and monthly insights remain scheduled, channel separated, and use t
   assert.match(cron,/guardedRun|idempotency/i);
   assert.match(vercel,/\/api\/cron\/weekly-report/);
   assert.match(vercel,/30 22 \* \* 0/);
-  assert.match(vercel,/\/api\/cron\/monthly-reports/);
 });
