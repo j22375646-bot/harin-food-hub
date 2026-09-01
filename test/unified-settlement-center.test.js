@@ -119,7 +119,81 @@ test('금액이 비어 있는 쿠팡 광고 정산 행은 광고비 0원으로 �
   ]});
   const coupang=center.channels.find(item=>item.platform==='COUPANG');
   assert.equal(coupang.advertising,null);
+  assert.equal(coupang.expected_payout,null);
   assert.equal(center.summary.known_advertising,null);
+});
+
+test('쿠팡 판매자배송과 로켓그로스 정산·광고·물류비를 채널별로 분리한다', () => {
+  const center=buildUnifiedSettlementCenter({now,
+    coupangRgOrders:[
+      {order_id:'RG-1',paid_at:'2026-08-10T10:00:00+09:00',total_amount:100000}
+    ],
+    coupangRgOrderItems:[
+      {order_id:'RG-1',vendor_item_id:'RG-VI-1',quantity:1,amount:100000}
+    ],
+    coupangSettlements:[
+      {order_id:'SELLER-1',vendor_item_id:'SELLER-VI-1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:80000,service_fee:7000,service_fee_vat:1000,settlement_amount:72000},
+      {order_id:'RG-1',vendor_item_id:'RG-VI-1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:9000,service_fee_vat:1000,settlement_amount:90000}
+    ],
+    coupangCostTransactions:[
+      {source_type:'SHIPPING',event_date:'2026-08-10',order_id:'SELLER-1',vendor_item_id:'SELLER-VI-1',cost_amount:3000,cost_vat:0,credit_amount:0},
+      {source_type:'SALES_COMMISSION',event_date:'2026-08-10',order_id:'RG-1',vendor_item_id:'RG-VI-1',cost_amount:9000,cost_vat:1000,credit_amount:0},
+      {source_type:'WAREHOUSING',event_date:'2026-08-10',order_id:'RG-1',vendor_item_id:'RG-VI-1',cost_amount:2000,cost_vat:200,credit_amount:0},
+      {source_type:'SHIPPING',event_date:'2026-08-10',order_id:'RG-1',vendor_item_id:'RG-VI-1',cost_amount:6000,cost_vat:600,credit_amount:0}
+    ],
+    coupangAdSettlements:[
+      {date:'2026-08-10',row_type:'DELIVERY_SUMMARY',delivery_type:'SELLER',billed_amount:11000},
+      {date:'2026-08-10',row_type:'DELIVERY_SUMMARY',delivery_type:'ROCKETGROWTH',billed_amount:33000}
+    ]
+  });
+
+  const seller=center.channels.find(item=>item.platform==='COUPANG');
+  const rocket=center.channels.find(item=>item.platform==='COUPANG_RG');
+  assert.equal(seller.label,'쿠팡 판매자배송');
+  assert.equal(seller.gross_sales,80000);
+  assert.equal(seller.logistics,3000);
+  assert.equal(seller.advertising,11000);
+  assert.equal(seller.expected_payout,58000);
+  assert.equal(rocket.label,'쿠팡 로켓그로스');
+  assert.equal(rocket.gross_sales,100000);
+  assert.equal(rocket.fees,10000);
+  assert.equal(rocket.logistics,8800);
+  assert.equal(rocket.advertising,33000);
+  assert.equal(rocket.expected_payout,48200);
+  assert.equal(rocket.actual_payout,90000);
+  assert.equal(rocket.settlement_order_count,1);
+  assert.equal(rocket.settlement_coverage,100);
+  assert.equal(center.waterfall.logistics,11800);
+  assert.equal(center.waterfall.advertising,44000);
+  assert.equal(center.waterfall.expected_payout,106200);
+});
+
+test('로켓그로스 주문보다 정산 연결 범위가 부족하면 확정 지급액과 예상액을 만들지 않는다', () => {
+  const center=buildUnifiedSettlementCenter({now,
+    coupangRgOrders:[
+      {order_id:'RG-1',paid_at:'2026-08-10T10:00:00+09:00',total_amount:100000},
+      {order_id:'RG-2',paid_at:'2026-08-11T10:00:00+09:00',total_amount:50000}
+    ],
+    coupangRgOrderItems:[
+      {order_id:'RG-1',vendor_item_id:'RG-VI-1',quantity:1,amount:100000},
+      {order_id:'RG-2',vendor_item_id:'RG-VI-2',quantity:1,amount:50000}
+    ],
+    coupangSettlements:[
+      {order_id:'RG-1',vendor_item_id:'RG-VI-1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:9000,service_fee_vat:1000,settlement_amount:90000}
+    ],
+    coupangAdSettlements:[
+      {date:'2026-08-10',row_type:'DELIVERY_SUMMARY',delivery_type:'ROCKETGROWTH',billed_amount:33000}
+    ]
+  });
+  const rocket=center.channels.find(item=>item.platform==='COUPANG_RG');
+  assert.equal(rocket.gross_sales,150000);
+  assert.equal(rocket.settlement_order_count,1);
+  assert.equal(rocket.settlement_coverage,50);
+  assert.equal(rocket.actual_payout,null);
+  assert.equal(rocket.expected_payout,null);
+  assert.equal(rocket.status,'COST_REQUIRED');
+  assert.match(rocket.basis,/정산 연결 1\/2건/);
+  assert.equal(center.waterfall.expected_payout,null);
 });
 
 test('네이버 커머스 정산 자료가 없으면 0원이 아닌 자료 없음으로 표시한다', () => {

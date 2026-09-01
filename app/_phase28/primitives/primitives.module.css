@@ -34,9 +34,11 @@
 .channelLogo[data-brand="naver"]{color:#179b5b;}
 .channelLogo[data-brand="cafe24"]{color:#315bd5;}
 .channelLogo[data-brand="coupang"]{color:#e25437;}
+.channelLogo[data-brand="coupang_rg"]{color:#e25437;font-size:12px;letter-spacing:-.04em;}
 :global([data-theme="dark"]) .channelLogo[data-brand="naver"]{color:#8ed0ae;}
 :global([data-theme="dark"]) .channelLogo[data-brand="cafe24"]{color:#a9bbed;}
 :global([data-theme="dark"]) .channelLogo[data-brand="coupang"]{color:#e6ae83;}
+:global([data-theme="dark"]) .channelLogo[data-brand="coupang_rg"]{color:#e6ae83;}
 
 .workspace{
   --panel-motion-duration:440ms;

@@ -17,6 +17,8 @@ test('server owns three settlement periods and the settlement adapter on its rea
   assert.match(page,/settlement:null,adapter_status:'ERROR'/);
   assert.match(page,/coupang_ad_settlement_daily/);
   assert.match(page,/coupangAdSettlements:coupangAdSettlementResult\.data \|\| \[\]/);
+  assert.match(page,/coupangRgOrders:coupangRgOrdersResult\.data \|\| \[\]/);
+  assert.match(page,/coupangRgOrderItems:coupangRgOrderItemsResult\.data \|\| \[\]/);
 });
 
 test('Phase 28 app renders the V106 settlement decision spine',()=>{
@@ -31,6 +33,7 @@ test('Phase 28 app renders the V106 settlement decision spine',()=>{
   assert.match(page,/가까운 입금과 막힌 근거/);
   assert.match(page,/정산 대조 작업공간/);
   assert.match(page,/Phase28RightRailLayout/);
+  assert.match(page,/COUPANG_RG/);
 });
 
 test('settlement page remains read-only and exposes the server-provided recovery route',()=>{

@@ -70,6 +70,33 @@ test('settlement adapter exposes payout, variance, cost, and history evidence wi
   assert.equal(model.writePolicy,'READ_ONLY');
 });
 
+test('settlement adapter exposes Rocket Growth as its own cost evidence card',()=>{
+  const model=buildPhase28SettlementModel({settlementPeriods:{30:center(30,[channel('COUPANG_RG',{
+    label:'쿠팡 로켓그로스',
+    gross_sales:150000,
+    refunds:null,
+    fees:10000,
+    logistics:8800,
+    advertising:33000,
+    expected_payout:null,
+    actual_payout:null,
+    payout_variance:null,
+    order_count:2,
+    settlement_order_count:1,
+    settlement_coverage:50,
+    status:'COST_REQUIRED',
+    basis:'로켓그로스 주문 API · 정산 연결 1/2건'
+  })])}});
+  const rocket=model.periods['30'].channels[0];
+  assert.equal(rocket.platform,'COUPANG_RG');
+  assert.equal(rocket.label,'쿠팡 로켓그로스');
+  assert.equal(rocket.logistics,8800);
+  assert.equal(rocket.advertising,33000);
+  assert.equal(rocket.evidence.orderCount,2);
+  assert.equal(rocket.evidence.settlementOrderCount,1);
+  assert.equal(rocket.evidence.settlementCoverage,50);
+});
+
 test('settlement adapter preserves Cafe24 scope recovery state and reconnect route',()=>{
   const model=buildPhase28SettlementModel({settlementPeriods:{30:center(30,[channel('CAFE24',{
     status:'SCOPE_REQUIRED',

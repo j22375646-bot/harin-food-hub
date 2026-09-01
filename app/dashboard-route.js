@@ -2235,12 +2235,15 @@ async function getDashboardData(state) {
     coupangCostTransactions:coupangCostsResult.data || [],
     coupangAdSettlements:coupangAdSettlementResult.data || [],
     coupangSettlementSummaries:coupangSettlementSummaryResult.data || [],
+    coupangRgOrders:coupangRgOrdersResult.data || [],
+    coupangRgOrderItems:coupangRgOrderItemsResult.data || [],
     channelCostSettings:effectiveChannelCostSettings,
     syncs:syncResult.data || [],
     unavailable:{
       CAFE24:Boolean(ordersResult.unavailable),
       NAVER:Boolean(naverCommerceSettlementsResult.unavailable),
-      COUPANG:Boolean(coupangSettlementsResult.unavailable && coupangSettlementSummaryResult.unavailable)
+      COUPANG:Boolean(coupangSettlementsResult.unavailable && coupangSettlementSummaryResult.unavailable),
+      COUPANG_RG:Boolean(coupangRgOrdersResult.unavailable && coupangRgOrderItemsResult.unavailable)
     },
     now:new Date(generatedAt)
   };
