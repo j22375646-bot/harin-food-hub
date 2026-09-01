@@ -30,6 +30,8 @@ test('keyword adapter keeps channel and write boundaries while exposing editable
   assert.equal(model.rows[0].campaignId,'camp-1');
   assert.equal(model.rows[0].canDraft,true);
   assert.equal(model.rows[0].snapshotToken,'signed-snapshot');
+  assert.equal(model.rows[0].roas7d,0);
+  assert.equal(model.rows[0].roasToday,null);
   assert.equal(model.rows[1].recommendedBid,null);
   assert.equal(model.rows[1].statusLabel,'판단 보류');
   assert.equal(model.rows[1].snapshotToken,null);
@@ -48,6 +50,18 @@ test('keyword adapter keeps channel and write boundaries while exposing editable
   assert.equal(model.view.sortOptions.some(item=>item.value==='CURRENT_BID_ASC'),true);
 });
 
+test('keyword adapter keeps seven-day and today ROAS as separate client-safe values',()=>{
+  const model=buildPhase28KeywordsModel({
+    generatedAt:'2026-08-29T01:42:00.000Z',loadedWorkspace:'registered',
+    naverBidWorkbench:{candidates:[candidate({metrics:{impressions:1200,clicks:43,cost:48200,conversions:2,conversion_revenue:144600,roas:300,roas_7d:300,roas_today:425}})]},
+    coupang:{adKeywordTop:[],adKeywordWaste:[]},financialChanges:[]
+  },{platform:'naver',workspace:'registered'});
+
+  assert.equal(model.rows[0].roas,300);
+  assert.equal(model.rows[0].roas7d,300);
+  assert.equal(model.rows[0].roasToday,425);
+});
+
 test('keyword adapter keeps missing Coupang bid evidence explicit and never enables API writes',()=>{
   const model=buildPhase28KeywordsModel({
     generatedAt:'2026-08-29T01:42:00.000Z',loadedWorkspace:'registered',naverBidWorkbench:{candidates:[]},
@@ -64,6 +78,23 @@ test('keyword adapter keeps missing Coupang bid evidence explicit and never enab
   assert.equal(model.summary.noOrderSpend,41000);
   assert.deepEqual(model.campaigns,[{id:'cp-1',name:'쿠팡 상품광고',count:1}]);
   assert.equal(model.view.sortOptions.some(item=>item.value==='CURRENT_BID_ASC'),false);
+});
+
+test('Coupang keyword rows calculate seven-day and same-day ROAS from daily evidence',()=>{
+  const base={campaign_id:'cp-1',advertised_option_id:'op-1',keyword:'작두콩차',campaign_name:'쿠팡 상품광고',advertised_product_name:'작두콩수세미차 30티백',clicks:28,ad_spend:41000,orders_14d:1,revenue_14d:50000,date:'2026-08-29'};
+  const model=buildPhase28KeywordsModel({
+    generatedAt:'2026-08-29T01:42:00.000Z',loadedWorkspace:'registered',naverBidWorkbench:{candidates:[]},
+    coupang:{
+      adKeywordTop:[base],adKeywordWaste:[],keywordToday:'2026-08-29',
+      adKeywordDaily:[
+        {...base,date:'2026-08-28',ad_spend:10000,revenue_1d:35000},
+        {...base,date:'2026-08-29',ad_spend:10000,revenue_1d:5000}
+      ]
+    },financialChanges:[]
+  },{platform:'coupang',workspace:'registered'});
+
+  assert.equal(model.rows[0].roas7d,200);
+  assert.equal(model.rows[0].roasToday,50);
 });
 
 test('keywords joins the implemented V106 adapter set',()=>{

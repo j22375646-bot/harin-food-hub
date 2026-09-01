@@ -15,6 +15,18 @@ test('server owns the keywords adapter only on the real keyword route',()=>{
   assert.match(page,/keywords:null,adapter_status:'ERROR'/);
 });
 
+test('keyword automation stores and loads separate seven-day and same-day evidence',()=>{
+  const sync=read('lib/naver/sync.js');
+  const automation=read('lib/automation/sync-all.js');
+  const route=read('app/api/naver/keyword-stats/route.js');
+  const dashboard=read('app/dashboard-route.js');
+  assert.match(sync,/async function syncKeywordPerformanceWindows/);
+  assert.match(automation,/syncKeywordPerformanceWindows/);
+  assert.match(route,/syncKeywordPerformanceWindows/);
+  assert.match(dashboard,/dailyKeywordStats/);
+  assert.match(dashboard,/coupangAdKeywordDaily/);
+});
+
 test('Phase 28 app renders the V106 keyword flow, workbench, and decision desk',()=>{
   const app=read('app/_phase28/phase28-app.js');
   const page=read('app/_phase28/pages/keywords-page.js');
@@ -25,6 +37,9 @@ test('Phase 28 app renders the V106 keyword flow, workbench, and decision desk',
   assert.match(page,/주문 없이 쓴 광고비/);
   assert.match(page,/키워드 운영표/);
   assert.match(page,/수정 입찰가/);
+  assert.match(page,/최근 7일 ROAS/);
+  assert.match(page,/당일 ROAS/);
+  assert.match(page,/className="kpRoasPair"/);
   assert.match(page,/KEYWORD DECISION DESK/);
   assert.match(page,/Phase28RightRailLayout/);
 });

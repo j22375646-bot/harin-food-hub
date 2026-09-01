@@ -42,6 +42,20 @@ test('safe bid reductions are capped at fifteen percent per approval', () => {
   assert.equal(result.candidates[0].can_request_approval,true);
 });
 
+test('keyword candidates expose recent seven-day and same-day ROAS without mixing their periods', () => {
+  const todayStats={
+    ncc_keyword_id:keyword.ncc_keyword_id,
+    period_start:'2026-08-13',period_end:'2026-08-13',
+    clicks:4,cost:5000,conversions:1,conversion_revenue:15000
+  };
+  const result=bidWorkbench.buildNaverBidWorkbench({
+    keywords:[keyword],stats:[stats],dailyStats:[todayStats],
+    financialTrust:{allowed_cpc:false}
+  });
+  assert.equal(result.candidates[0].metrics.roas_7d,333.3);
+  assert.equal(result.candidates[0].metrics.roas_today,300);
+});
+
 test('safe bid increases are capped at ten percent and require financial action readiness', () => {
   const lowBid={...keyword,bid_amount:500};
   const highTarget={...target,allowable_cpc:1000};

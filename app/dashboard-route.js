@@ -814,7 +814,8 @@ async function buildRegisteredKeywordDashboardData({
   naverCampaignResult,naverGroupResult,naverKeywordResult,
   coupangProductsResult,coupangProductItemsResult,coupangInventoryResult,coupangItemInventoryResult,
   coupangAdDailyResult,coupangAdKeywordTopResult,coupangAdKeywordWasteResult,coupangAdCampaignResult,coupangAdBillingResult,
-  keywordPeriod,marketingKeywordStats,marketingKeywordCatalog,marketingDetailChecklists,productAdTargetRows,naverKeywordProductLinks,
+  keywordPeriod,marketingKeywordStats,dailyKeywordStats,marketingKeywordCatalog,marketingDetailChecklists,productAdTargetRows,naverKeywordProductLinks,
+  coupangAdKeywordDaily,keywordToday,
   cafe24Token,latestAiPageResults
 }) {
   const isNaver=platform==='naver';
@@ -843,6 +844,7 @@ async function buildRegisteredKeywordDashboardData({
   const naverBidWorkbenchRaw=naverBidWorkbenchModule.buildNaverBidWorkbench({
     keywords:isNaver?marketingKeywordCatalog:[],
     stats:isNaver?marketingKeywordStats:[],
+    dailyStats:isNaver?dailyKeywordStats:[],
     adgroups:isNaver?(naverGroupResult.data||[]):[],
     campaigns:isNaver?(naverCampaignResult.data||[]):[],
     productTargets:productAdTargets.items||[],
@@ -906,6 +908,7 @@ async function buildRegisteredKeywordDashboardData({
       products:isCoupang?(coupangProductsResult.data||[]):[],
       adDaily:isCoupang?(coupangAdDailyResult.data||[]):[],
       adKeywordTop:coupangTop,adKeywordWaste:coupangWaste,
+      adKeywordDaily:isCoupang?(coupangAdKeywordDaily||[]):[],keywordToday:isCoupang?keywordToday:null,
       adCampaigns:isCoupang?(coupangAdCampaignResult.data||[]):[],
       adBilling:isCoupang?(coupangAdBillingResult.data||[]):[]
     }
@@ -1347,7 +1350,7 @@ async function getDashboardData(state) {
         .order('occurred_at',{ascending:false}).limit(1000)
     ]),
     keywordPeriod:Promise.allSettled([
-      db.from('naver_keyword_stats').select('period_start,period_end').order('period_end',{ascending:false}).limit(1).maybeSingle()
+      db.from('naver_keyword_stats').select('period_start,period_end').order('period_end',{ascending:false}).order('period_start',{ascending:true}).limit(1).maybeSingle()
     ]),
     aiResults:Promise.allSettled([
       db.from('ai_analysis_results').select('id,analysis_type,page_key,status,result_mode,data_status,period_label,formula_version,result,created_at,model,knowledge_versions')
@@ -1593,6 +1596,10 @@ async function getDashboardData(state) {
   }
   if(focusedKeywordWorkspace||focusedKeywordPerformance){
     const selectedPlatform=String(state.platform).toLowerCase();
+    const keywordToday=kstScheduleModule.kstDateKey(generatedAt);
+    const keywordWeekStartDate=new Date(`${keywordToday}T00:00:00+09:00`);
+    keywordWeekStartDate.setUTCDate(keywordWeekStartDate.getUTCDate()-6);
+    const keywordWeekStart=kstScheduleModule.kstDateKey(keywordWeekStartDate);
     const [keywordPeriodRaw,productTargetsRaw,bidLinksRaw,aiResultsRaw,cafe24TokenRaw,detailChecklistsRaw]=await Promise.all([
       supplementalQueries.keywordPeriod,supplementalQueries.productTargets,supplementalQueries.bidLinks,supplementalQueries.aiResults,supplementalQueries.cafe24Token,
       state.workspace==='diagnosis'?Promise.allSettled([db.from('product_detail_checklists').select('master_product_id,items,notes')]):Promise.resolve([{status:'fulfilled',value:{data:[],error:null}}])
@@ -1605,7 +1612,7 @@ async function getDashboardData(state) {
     const detailChecklistsSettled=dataHealthModule.settleQueries(detailChecklistsRaw,[{platform:'SHARED',dataset:'product_detail_checklists'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
     queryIssues.push(...keywordPeriodSettled.issues,...productTargetsSettled.issues,...bidLinksSettled.issues,...aiResultsSettled.issues,...cafe24TokenSettled.issues,...detailChecklistsSettled.issues);
     const keywordPeriod=selectedPlatform==='naver'?keywordPeriodSettled.results[0].data:null;
-    let marketingKeywordStats=[],marketingKeywordCatalog=[];
+    let marketingKeywordStats=[],dailyKeywordStats=[],marketingKeywordCatalog=[],coupangAdKeywordDaily=[];
     if(selectedPlatform==='naver'){
       const activeNaverAdgroupIds=naverBidWorkbenchModule.activeAdgroupIds({
         campaigns:naverCampaignResult.data||[],
@@ -1614,18 +1621,28 @@ async function getDashboardData(state) {
       const naverRegisteredSettled=dataHealthModule.settleQueries(await Promise.allSettled([
         keywordPeriod?db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,period_start,period_end,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordPeriod.period_start).eq('period_end',keywordPeriod.period_end).order('cost',{ascending:false}).limit(5000):Promise.resolve({data:[],error:null}),
         activeNaverAdgroupIds.length?db.from('naver_keywords').select('ncc_keyword_id,ncc_adgroup_id,keyword,bid_amount,status,user_lock,updated_at').in('ncc_adgroup_id',activeNaverAdgroupIds).limit(1000):Promise.resolve({data:[],error:null}),
-        db.from('naver_keywords').select('ncc_keyword_id,ncc_adgroup_id,keyword,bid_amount,status,user_lock,updated_at').limit(5000)
+        db.from('naver_keywords').select('ncc_keyword_id,ncc_adgroup_id,keyword,bid_amount,status,user_lock,updated_at').limit(5000),
+        db.from('naver_keyword_stats').select('ncc_keyword_id,keyword,campaign_type,period_start,period_end,impressions,clicks,cost,conversions,conversion_revenue,roas,ctr').eq('period_start',keywordToday).eq('period_end',keywordToday).order('cost',{ascending:false}).limit(5000)
       ]),[
         {platform:'NAVER',dataset:'registered_keyword_performance'},
         {platform:'NAVER',dataset:'active_registered_keyword_catalog'},
-        {platform:'NAVER',dataset:'registered_keyword_catalog'}
+        {platform:'NAVER',dataset:'registered_keyword_catalog'},
+        {platform:'NAVER',dataset:'registered_keyword_performance_today'}
       ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
       queryIssues.push(...naverRegisteredSettled.issues);
       marketingKeywordStats=naverRegisteredSettled.results[0].data||[];
+      dailyKeywordStats=naverRegisteredSettled.results[3].data||[];
       marketingKeywordCatalog=naverBidWorkbenchModule.mergeKeywordCatalog({
         activeKeywords:naverRegisteredSettled.results[1].data||[],
         fallbackKeywords:naverRegisteredSettled.results[2].data||[]
       });
+    }
+    if(selectedPlatform==='coupang'){
+      const coupangDailySettled=dataHealthModule.settleQueries(await Promise.allSettled([
+        db.from('coupang_ad_keyword_daily').select('date,campaign_id,campaign_name,advertised_option_id,keyword,ad_spend,revenue_1d').gte('date',keywordWeekStart).lte('date',keywordToday).order('date',{ascending:false}).limit(10000)
+      ]),[{platform:'COUPANG',dataset:'coupang_ad_keyword_daily_week'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+      queryIssues.push(...coupangDailySettled.issues);
+      coupangAdKeywordDaily=coupangDailySettled.results[0].data||[];
     }
     return buildRegisteredKeywordDashboardData({
       loaderSession,generatedAt,queryIssues,platform:selectedPlatform,workspace:state.workspace,
@@ -1633,7 +1650,8 @@ async function getDashboardData(state) {
       naverCampaignResult,naverGroupResult,naverKeywordResult,
       coupangProductsResult,coupangProductItemsResult,coupangInventoryResult,coupangItemInventoryResult,
       coupangAdDailyResult,coupangAdKeywordTopResult,coupangAdKeywordWasteResult,coupangAdCampaignResult,coupangAdBillingResult,
-      keywordPeriod,marketingKeywordStats,marketingKeywordCatalog,
+      keywordPeriod,marketingKeywordStats,dailyKeywordStats,marketingKeywordCatalog,
+      coupangAdKeywordDaily,keywordToday,
       marketingDetailChecklists:detailChecklistsSettled.results[0].data||[],
       productAdTargetRows:productTargetsSettled.results[0].data||[],
       naverKeywordProductLinks:bidLinksSettled.results[0].data||[],
