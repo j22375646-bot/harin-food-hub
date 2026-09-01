@@ -19,13 +19,13 @@ function DateValue({value}){
   return value?<time dateTime={value}>{DATE_TIME.format(new Date(value))}</time>:<span>기록 없음</span>;
 }
 function Count({label,value}){
-  return <span><small>{label}</small><b>{Number(value||0).toLocaleString('ko-KR')}</b></span>;
+  return <span><small>{label}</small><b>{value==null?'확인 필요':Number(value).toLocaleString('ko-KR')}</b></span>;
 }
 function ChannelCard({channel,working,onProbe}){
   const naver=channel.platform==='NAVER';
-  const counts=naver
+  const counts=channel.metrics || (naver
     ? [['캠페인',channel.counts.campaigns],['광고그룹',channel.counts.adgroups],['키워드',channel.counts.keywords],['성과 일수',channel.counts.performance_days]]
-    : [['성과 일수',channel.counts.performance_days],['캠페인',channel.counts.campaigns],['표시 키워드',channel.counts.visible_keywords],['과금 일수',channel.counts.billing_days]];
+    : [['성과 일수',channel.counts.performance_days],['캠페인',channel.counts.campaigns],['표시 키워드',channel.counts.visible_keywords],['과금 일수',channel.counts.billing_days]]);
   return <article className={`advertisingChannelCard ${channel.tone}`}>
     <header>
       <span className="advertisingChannelIcon"><HarinIcon name={channel.icon} size={28}/></span>
@@ -58,6 +58,12 @@ export default function AdvertisingChannelCenter({center={}}){
       if(!response.ok)throw new Error(result.error||'읽기 확인 요청이 실패했습니다.');
       const probeResult=result.result||result;
       const verifiedAt=probeResult.verifiedAt||new Date().toISOString();
+      if(channel.primaryAction.refreshAfterSuccess){
+        if(!result.channel)throw new Error('최신 카페24 광고 자료를 다시 읽지 못했습니다.');
+        updateChannel(channel.platform,result.channel);
+        setMessage(`${channel.label} 수집이 끝났어요. 이 카드에 최신 저장 자료를 반영했습니다.`);
+        return;
+      }
       updateChannel(channel.platform,{
         readStatus:'READY',
         writeStatus:probeResult.writeEnabled?'OWNER_APPROVAL':'LOCKED',
@@ -76,12 +82,12 @@ export default function AdvertisingChannelCenter({center={}}){
   return <section className="naverApiCenter advertisingChannelCenter">
     <header className="naverApiHero advertisingChannelHero">
       <div className="naverApiHeroIcon"><HarinIcon name="target" size={30}/></div>
-      <div><span>PHASE {center.phase||'19-7'} · OPERATED CHANNELS ONLY</span><h1>광고 API 운영센터</h1><p>네이버와 쿠팡을 섞지 않고, 실제 운영 중인 광고 채널의 읽기·변경 가능 범위를 각각 보여드려요.</p></div>
+      <div><span>PHASE {center.phase||'19-7'} · OPERATED CHANNELS ONLY</span><h1>광고 API 운영센터</h1><p>네이버·카페24·쿠팡 데이터를 섞지 않고, 운영 중인 광고 채널의 읽기·변경 가능 범위를 각각 보여드려요.</p></div>
       <aside><span><b>{channels.length}</b>개 운영</span><span><b>{ready}</b>개 최신</span></aside>
     </header>
     {message?<div className="naverApiToast" role="status" aria-live="polite"><HarinIcon name={working?'sync':'note'} size={20}/><span>{message}</span></div>:null}
-    <section className="naverApiRules"><HarinIcon name="shield" size={23}/><div><b>채널별 데이터와 변경 경로를 완전히 분리했어요</b><p>네이버 읽기가 최신이어야 승인형 입찰 변경을 시작할 수 있고, 쿠팡은 WING에서 직접 반영한 뒤 파일을 다시 가져와 검증합니다.</p></div></section>
-    {channels.length?<div className="advertisingChannelGrid">{channels.map(channel=><ChannelCard key={channel.platform} channel={channel} working={working===channel.platform} onProbe={probe}/>)}</div>:<div className="advertisingEmpty"><HarinIcon name="target" size={30}/><b>운영 중인 광고 채널 자료가 아직 없어요</b><p>네이버 읽기 연결 또는 쿠팡 광고보고서 가져오기를 완료하면 해당 채널만 나타납니다.</p></div>}
+    <section className="naverApiRules"><HarinIcon name="shield" size={23}/><div><b>채널별 데이터와 변경 경로를 완전히 분리했어요</b><p>네이버는 승인형 입찰 변경, 카페24는 광고 귀속 읽기, 쿠팡은 WING에서 직접 반영한 뒤 다시 가져와 검증합니다.</p></div></section>
+    {channels.length?<div className="advertisingChannelGrid">{channels.map(channel=><ChannelCard key={channel.platform} channel={channel} working={working===channel.platform} onProbe={probe}/>)}</div>:<div className="advertisingEmpty"><HarinIcon name="target" size={30}/><b>운영 중인 광고 채널 자료가 아직 없어요</b><p>네이버·카페24 읽기 연결 또는 쿠팡 광고보고서 가져오기를 완료하면 해당 채널만 나타납니다.</p></div>}
     {center.excluded?.length?<details className="naverApiHelp"><summary><span><HarinIcon name="filter" size={20}/><b>화면에서 제외한 채널 {center.excluded.length}개</b></span><em>열기</em></summary><ol>{center.excluded.map(item=><li key={item.platform}><b>{item.label}</b> · {item.reason}</li>)}</ol></details>:null}
     <details className="naverApiHelp"><summary><span><HarinIcon name="note" size={20}/><b>이 화면의 운영 원칙</b></span><em>열기</em></summary><ol>{(center.rules||[]).map(rule=><li key={rule}>{rule}</li>)}</ol></details>
   </section>;

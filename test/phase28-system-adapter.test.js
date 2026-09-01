@@ -40,6 +40,9 @@ test('Phase 28 시스템 어댑터는 핵심 6개 연결만 고정 순서로 노
   assert.equal(model.policy.missingAsZero,false);
   assert.equal(model.policy.rawCredentialsExposed,false);
   assert.equal('detail' in model.services[0],false);
+  const finance=model.datasets.find(item=>item.id==='finance');
+  assert.ok(finance.sources.includes('Cafe24'));
+  assert.ok(finance.contents.includes('광고 유입·주문·매출'));
 });
 
 test('Phase 28 시스템 어댑터는 URL 작업공간을 검증해 새로고침 상태로 보존한다',()=>{
@@ -56,6 +59,12 @@ test('Phase 28 시스템 상세는 다섯 상태 축과 해당 제공처 자료�
   assert.equal(JSON.stringify(detail).includes('SUPABASE_SERVICE_ROLE_KEY'),false);
   assert.equal(JSON.stringify(detail).includes('access_token'),false);
   assert.throws(()=>buildPhase28SystemProviderDetail(snapshot,'sometrend'),/지원하지 않는 핵심 연결/);
+});
+
+test('Cafe24 시스템 상세는 정산 매출과 광고 귀속 수집 범위를 함께 알린다',()=>{
+  const detail=buildPhase28SystemProviderDetail(snapshot,'cafe24');
+  assert.ok(detail.datasets.includes('일별 결제·환불 매출'));
+  assert.ok(detail.datasets.includes('광고 매체·키워드 귀속'));
 });
 
 test('system joins the implemented V106 adapter set',()=>{

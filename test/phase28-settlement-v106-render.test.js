@@ -33,11 +33,13 @@ test('Phase 28 app renders the V106 settlement decision spine',()=>{
   assert.match(page,/Phase28RightRailLayout/);
 });
 
-test('settlement page remains read-only and hands cost evidence to the existing product route',()=>{
+test('settlement page remains read-only and exposes the server-provided recovery route',()=>{
   const page=read('app/_phase28/pages/settlement-page.js');
   assert.doesNotMatch(page,/fetch\(/);
   assert.doesNotMatch(page,/method:\s*['"](?:POST|PUT|PATCH|DELETE)/);
-  assert.match(page,/pushPhase28Route\(router,'\/products\/costs'\)/);
+  assert.match(page,/channel\.actionHref\|\|'\/products\/costs'/);
+  assert.match(page,/Cafe24 권한 다시 연결/);
+  assert.match(page,/pushPhase28Route\(router,actionTarget\)/);
   assert.match(page,/확인 필요/);
 });
 

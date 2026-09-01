@@ -29,6 +29,37 @@ test('비용 설정이 없으면 Cafe24 예상 정산액을 0원으로 만들지
   assert.equal(center.summary.estimated_payout,null);
 });
 
+test('Cafe24 매출통계 API가 있으면 주문 추정 대신 결제·환불 원문을 사용한다', () => {
+  const center=buildUnifiedSettlementCenter({now,
+    cafe24Orders:[{order_id:'C1',order_date:'2026-08-10',paid_amount:999999}],
+    cafe24SalesDaily:[
+      {date:'2026-08-10',payment_amount:150000,refund_amount:12000,sales_count:4,source_status:'OK'}
+    ],
+    channelCostSettings:[{platform:'CAFE24',commission_rate:.05,payment_fee_rate:.03,default_shipping_cost:3000}]
+  });
+  const cafe=center.channels.find(item=>item.platform==='CAFE24');
+  assert.equal(cafe.status,'ESTIMATED');
+  assert.equal(cafe.gross_sales,150000);
+  assert.equal(cafe.refunds,12000);
+  assert.equal(cafe.order_count,4);
+  assert.equal(cafe.actual_payout,null);
+  assert.match(cafe.basis,/매출통계 API/);
+});
+
+test('Cafe24 매출통계 권한이 없으면 주문 추정값과 API 정산을 구분한다', () => {
+  const center=buildUnifiedSettlementCenter({now,
+    cafe24Orders:[{order_id:'C1',order_date:'2026-08-10',paid_amount:100000,cancel_amount:0}],
+    channelCostSettings:[{platform:'CAFE24',commission_rate:.05,payment_fee_rate:.03,default_shipping_cost:3000}],
+    syncs:[{platform:'CAFE24',job_type:'FETCH_ALL',status:'PARTIAL',finished_at:'2026-08-14T02:00:00Z',metadata:{capabilities:{settlement:'SETUP_REQUIRED'}}}]
+  });
+  const cafe=center.channels.find(item=>item.platform==='CAFE24');
+  assert.equal(cafe.status,'SCOPE_REQUIRED');
+  assert.equal(cafe.expected_payout,92000);
+  assert.equal(cafe.action_href,'/oauth/cafe24/start');
+  assert.match(cafe.basis,/권한 필요/);
+  assert.equal(center.summary.estimated_payout,null);
+});
+
 test('쿠팡 매출·환불·수수료와 확정 지급액을 분리한다', () => {
   const center=buildUnifiedSettlementCenter({now,coupangSettlements:[
     {order_id:'O1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:10000,service_fee_vat:1000,settlement_amount:89000},

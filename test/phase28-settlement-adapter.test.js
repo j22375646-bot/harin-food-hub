@@ -70,6 +70,23 @@ test('settlement adapter exposes payout, variance, cost, and history evidence wi
   assert.equal(model.writePolicy,'READ_ONLY');
 });
 
+test('settlement adapter preserves Cafe24 scope recovery state and reconnect route',()=>{
+  const model=buildPhase28SettlementModel({settlementPeriods:{30:center(30,[channel('CAFE24',{
+    status:'SCOPE_REQUIRED',
+    basis:'주문 기반 추정 · 매출통계 권한 필요',
+    gross_sales:1000000,
+    expected_payout:1000000,
+    actual_payout:null,
+    payout_variance:null,
+    action:'Cafe24를 다시 연결해 매출통계 권한을 승인하세요.',
+    action_href:'/oauth/cafe24/start'
+  })])}});
+  const cafe24=model.periods['30'].channels[0];
+  assert.equal(cafe24.stateLabel,'API 권한 필요');
+  assert.equal(cafe24.actionHref,'/oauth/cafe24/start');
+  assert.match(cafe24.basis,/매출통계 권한 필요/);
+});
+
 test('settlement joins the implemented V106 adapter set',()=>{
   assert.deepEqual(PHASE28_AVAILABLE_ADAPTERS,['main','calendar','orders','cs','inventory','products','settlement','keywords','product-analysis','insights','development','system','notifications','diagnoses','changes','validation','experiments','knowledge']);
 });
