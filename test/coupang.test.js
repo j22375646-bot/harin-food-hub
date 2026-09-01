@@ -91,6 +91,25 @@ test('Coupang product detail mapper preserves both seller-delivery and Rocket Gr
   assert.equal(rows[1].raw_data.images[0].cdnPath,'//image.coupangcdn.com/seller.jpg');
 });
 
+test('Coupang hybrid product mapper keeps both Rocket Growth and seller-delivery vendor item IDs', () => {
+  const rows = map.mapProductDetailItems({ data: {
+    sellerProductId: 10,
+    sellerProductName: '하린식품 차',
+    statusName: '승인완료',
+    items: [{
+      itemName: '3개',
+      images:[{cdnPath:'vendor_inventory/10/tea.png'}],
+      rocketGrowthItemData:{vendorItemId:20,priceData:{salePrice:14500}},
+      marketplaceItemData:{vendorItemId:30,priceData:{salePrice:15500}}
+    }]
+  } });
+
+  assert.deepEqual(rows.map(row=>row.vendor_item_id),['20','30']);
+  assert.deepEqual(rows.map(row=>row.sale_price),[14500,15500]);
+  assert.equal(rows[0].raw_data.images[0].cdnPath,'vendor_inventory/10/tea.png');
+  assert.equal(rows[1].raw_data.images[0].cdnPath,'vendor_inventory/10/tea.png');
+});
+
 test('Coupang inquiry mapper never stores question or answer text', () => {
   const inquiry = map.mapInquiry({ inquiryId: 1, question: 'private question', answer: 'private answer', answered: false }, 'ONLINE');
   assert.equal(inquiry.inquiry_key, 'ONLINE:1');

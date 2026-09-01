@@ -25,15 +25,45 @@ test('Cafe24 active orders load authenticated receiver details without changing 
   assert.equal(hydrated[1],orders[1]);
 });
 
+test('Coupang active orders queue and poll the fixed-IP detail before showing receiver details',async()=>{
+  const delivery=require('../lib/ui/phase28-orders-delivery.js');
+  const calls=[];
+  const source=[{
+    hubOrderId:'HR-CP-ONE',externalOrderId:'9001',shipmentId:'853138000000000001',
+    platform:'COUPANG',selectionEligible:true,receiver:{}
+  }];
+  const hydrated=await delivery.hydrateOrderReceivers(source,async url=>{
+    calls.push(url);
+    if(url.startsWith('/api/coupang/orders/detail'))return {
+      ok:true,status:202,json:async()=>({ok:true,request:{id:'detail-1'}})
+    };
+    if(calls.filter(value=>value==='/api/coupang/operations/detail-1').length===1)return {
+      ok:true,status:202,json:async()=>({ok:true,pending:true})
+    };
+    return {ok:true,status:200,json:async()=>({ok:true,order:{receiver:{
+      name:'쿠팡 수취인',safeNumber:'050700000000',postCode:'12345',address:'서울시',addressDetail:'101호',message:'문 앞'
+    }}})};
+  },async()=>{});
+
+  assert.deepEqual(calls,[
+    '/api/coupang/orders/detail?shipmentBoxId=853138000000000001',
+    '/api/coupang/operations/detail-1',
+    '/api/coupang/operations/detail-1'
+  ]);
+  assert.deepEqual(hydrated[0].receiver,{
+    name:'쿠팡 수취인',contact:'050700000000',postCode:'12345',address:'서울시',addressDetail:'101호',message:'문 앞'
+  });
+});
+
 test('the mobile issue button starts the real shipment flow instead of opening a hidden rail tab',()=>{
   const page=fs.readFileSync(path.join(root,'app','_phase28','pages','orders-page.js'),'utf8');
   assert.match(page,/className="mobileBatchAction"[\s\S]*?onClick=\{primaryAction\}/);
   assert.doesNotMatch(page,/className="mobileBatchAction"[\s\S]*?onClick=\{openActions\}/);
 });
 
-test('the orders page hydrates Cafe24 receiver details through the authenticated delivery endpoint',()=>{
+test('the orders page hydrates Cafe24 and Coupang receiver details through authenticated delivery endpoints',()=>{
   const page=fs.readFileSync(path.join(root,'app','_phase28','pages','orders-page.js'),'utf8');
-  assert.match(page,/hydrateCafe24OrderReceivers/);
+  assert.match(page,/hydrateOrderReceivers/);
   assert.match(page,/setReceiverHydration/);
 });
 

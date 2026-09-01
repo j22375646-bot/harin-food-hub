@@ -417,6 +417,10 @@ test('주문 상품 이미지 URL은 안전하게 정규화되고 플랫폼 상�
   assert.equal(center.orders[0].items[0].imageUrl,'https://img.cafe24.com/tea.jpg');
   assert.equal(orders.safeProductImage('javascript:alert(1)'),'');
   assert.equal(orders.productImageFromRaw({images:[{cdnPath:'//image10.coupangcdn.com/tea.jpg'}]}),'https://image10.coupangcdn.com/tea.jpg');
+  assert.equal(
+    orders.productImageFromRaw({images:[{cdnPath:'vendor_inventory/7489/tea.png'}]}),
+    'https://image10.coupangcdn.com/image/vendor_inventory/7489/tea.png'
+  );
 });
 
 test('registered Cafe24 invoices wait for real ePost movement before entering shipping',()=>{

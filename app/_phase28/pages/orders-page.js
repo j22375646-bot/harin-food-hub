@@ -13,7 +13,7 @@ import businessCalendar from '../../../lib/shipping-reference/business-calendar.
 import './orders-page.css';
 
 const {activeCollectionPlatforms,collectionProgressLabel}=collectionProgress;
-const {hydrateCafe24OrderReceivers}=cafe24Delivery;
+const {hydrateOrderReceivers}=cafe24Delivery;
 const {calculateCutoffSchedule}=businessCalendar;
 
 const STAGES=[
@@ -278,7 +278,7 @@ export default function Phase28OrdersPage({model={}}){
   useEffect(()=>{
     let active=true;
     const current=sourceOrders.map(order=>receiverHydration[order.hubOrderId]?{...order,receiver:receiverHydration[order.hubOrderId]}:order);
-    hydrateCafe24OrderReceivers(current).then(hydrated=>{
+    hydrateOrderReceivers(current).then(hydrated=>{
       if(!active)return;
       const additions={};
       hydrated.forEach((order,index)=>{if(order!==current[index]&&order.receiver)additions[order.hubOrderId]=order.receiver;});
