@@ -67,6 +67,10 @@ function CalendarRail({selectedDate,entries,editing,onEdit,onCancel,onSaved,onRe
   const addGiftTier=()=>setForm(current=>({...current,giftTiers:[...current.giftTiers,{minimumAmount:'',giftName:'',quantity:1}]}));
   const updateGiftTier=(index,key,value)=>setForm(current=>({...current,giftTiers:current.giftTiers.map((item,itemIndex)=>itemIndex===index?{...item,[key]:value}:item)}));
   const removeGiftTier=index=>setForm(current=>({...current,giftTiers:current.giftTiers.filter((_,itemIndex)=>itemIndex!==index)}));
+  const giftPreview=useMemo(()=>form.giftTiers
+    .map(item=>({...item,minimumAmount:Number(item.minimumAmount),quantity:Number(item.quantity)}))
+    .filter(item=>item.minimumAmount>0&&item.giftName.trim()&&item.quantity>0)
+    .sort((left,right)=>left.minimumAmount-right.minimumAmount),[form.giftTiers]);
   async function request(payload){
     const response=await fetch('/api/calendar/entries',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});
     const data=await response.json().catch(()=>({}));
@@ -106,8 +110,9 @@ function CalendarRail({selectedDate,entries,editing,onEdit,onCancel,onSaved,onRe
       {form.type==='SCHEDULE'?<label><span>시작 시간 <small>선택</small></span><input name="time" type="time" value={form.time} onChange={update}/></label>:null}
       {form.type==='EVENT'?<label><span>캘린더 띠 색상</span><select name="eventColor" value={form.eventColor} onChange={update}>{Object.entries(EVENT_COLOR_LABEL).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>:null}
       {form.type==='EVENT'?<section className="eventGiftSection">
-        <header><div><strong>금액대별 사은품</strong><small>결제금액에 맞는 가장 높은 한 구간을 자동 선택해요.</small></div><button type="button" onClick={addGiftTier}>구간 추가</button></header>
+        <header><div><strong>금액대별 사은품</strong><small>주문의 실결제 금액에 맞는 가장 높은 구간 하나를 자동 선택해요.</small></div><button type="button" onClick={addGiftTier}>구간 추가</button></header>
         <div>{form.giftTiers.length?form.giftTiers.map((tier,index)=><fieldset key={index}><legend>{index+1}구간</legend><label><span>기준 금액</span><input type="number" min="1" max="100000000" step="100" value={tier.minimumAmount} onChange={event=>updateGiftTier(index,'minimumAmount',event.target.value)} placeholder="30000" required/></label><label><span>사은품</span><input value={tier.giftName} maxLength={120} onChange={event=>updateGiftTier(index,'giftName',event.target.value)} placeholder="예: 보리차 티백" required/></label><label><span>수량</span><input type="number" min="1" max="99" value={tier.quantity} onChange={event=>updateGiftTier(index,'quantity',event.target.value)} required/></label><button type="button" onClick={()=>removeGiftTier(index)} aria-label={`${index+1}구간 삭제`}>삭제</button></fieldset>):<p>사은품이 없는 안내 이벤트도 저장할 수 있어요. 사은품을 자동 판정하려면 구간을 추가하세요.</p>}</div>
+        {giftPreview.length?<div className="eventGiftPreview"><strong>자동 판정 미리보기</strong><small>여러 기준을 충족하면 가장 높은 구간 하나만 증정합니다.</small>{giftPreview.map(item=><span key={`${item.minimumAmount}-${item.giftName}`}><b>{item.minimumAmount.toLocaleString('ko-KR')}원 이상</b><em>→</em>{item.giftName} {item.quantity}개</span>)}</div>:null}
       </section>:null}
       <label><span>중요도</span><select name="priority" value={form.priority} onChange={update}><option value="LOW">여유</option><option value="NORMAL">보통</option><option value="HIGH">중요</option></select></label>
       <label><span>{form.type==='EVENT'?'이벤트 안내':'상세 메모'} <small>선택</small></span><textarea name="body" value={form.body} onChange={update} maxLength={form.type==='EVENT'?2000:4000} rows={5} placeholder={form.type==='EVENT'?'고객 안내와 포장할 때 확인할 내용을 적어주세요.':'준비물, 연락처, 확인할 내용을 함께 적을 수 있어요.'}/></label>

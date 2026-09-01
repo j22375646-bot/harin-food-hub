@@ -24,6 +24,8 @@ test('캘린더 화면은 실제 저장 CRUD와 메인 오늘 연동을 연결�
   assert.match(page,/form\.type==='EVENT'/);
   assert.match(page,/giftTiers/);
   assert.match(page,/금액대별 사은품/);
+  assert.match(page,/자동 판정 미리보기/);
+  assert.match(page,/가장 높은 구간 하나/);
   assert.match(home,/item\.type==='EVENT'/);
 });
 

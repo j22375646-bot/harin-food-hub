@@ -63,9 +63,18 @@ test('orders adapter applies the active calendar event gift tier to matching pai
   const event=calendar.normalizeEntryInput({type:'EVENT',title:'가을 사은품',date:'2026-08-20',endDate:'2026-08-31',giftTiers:[{minimumAmount:30000,giftName:'보리차 티백',quantity:2},{minimumAmount:50000,giftName:'작두콩차',quantity:1}]});
   const model=buildPhase28OrdersModel({
     calendarEntries:[{id:'event-1',item_type:'TASK',title:event.title,body:calendar.encodeEventBody(event),due_at:event.dueAt,context_label:event.contextLabel,status:'OPEN'}],
-    unifiedOrders:{orders:[{hubOrderId:'C24-GIFT',platform:'CAFE24',stage:'PAID',fulfillment:'SELLER',shippingEligible:true,orderedAt:'2026-08-29T01:18:00.000Z',amount:55000,productName:'작두콩차',items:[]}],channels:[],summary:{cancellations:0,windowDays:30}}
+    unifiedOrders:{orders:[
+      {hubOrderId:'C24-GIFT',platform:'CAFE24',stage:'PAID',fulfillment:'SELLER',shippingEligible:true,orderedAt:'2026-08-29T01:18:00.000Z',amount:55000,productName:'작두콩차',items:[]},
+      {hubOrderId:'C24-CANCELLED',platform:'CAFE24',stage:'CANCELLED',cancelled:true,fulfillment:'SELLER',shippingEligible:false,orderedAt:'2026-08-29T01:18:00.000Z',amount:55000,productName:'작두콩차',items:[]}
+    ],channels:[],summary:{cancellations:0,windowDays:30}}
   });
-  assert.deepEqual(model.orders[0].gifts,[{eventId:'event-1',eventTitle:'가을 사은품',minimumAmount:50000,giftName:'작두콩차',quantity:1}]);
+  assert.deepEqual(model.orders[0].gifts,[{
+    eventId:'event-1',eventTitle:'가을 사은품',eventStartDate:'2026-08-20',eventEndDate:'2026-08-31',
+    minimumAmount:50000,giftName:'작두콩차',quantity:1,paidAmount:55000,amountBasis:'PAID_ORDER_AMOUNT'
+  }]);
+  assert.equal(model.orders[0].giftRequired,true);
+  assert.equal(model.orders.find(item=>item.hubOrderId==='C24-CANCELLED').giftRequired,false);
+  assert.equal(model.hero.giftOrderCount,1);
 });
 
 test('orders adapter distinguishes an observed zero from an unavailable client-only retry count',()=>{

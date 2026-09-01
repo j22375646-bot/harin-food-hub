@@ -38,7 +38,10 @@ test('the V106 orders surface keeps the approved runway, stable rail, and real a
   assert.match(page,/onError=\{\(\)=>setFailed\(true\)\}/);
   assert.match(page,/className="orderInvoice"/);
   assert.match(page,/className="orderEventGift"/);
-  assert.match(page,/사은품 자동/);
+  assert.match(page,/사은품 증정 대상/);
+  assert.match(page,/실결제 주문금액/);
+  assert.match(page,/사은품 대상만 보기/);
+  assert.match(page,/data-gift-required=/);
   assert.match(page,/order\.invoice\.label/);
   assert.match(page,/order\.invoice\.number/);
   assert.match(page,/<OrderProductThumbnail order=\{order\}\/>/);
@@ -49,6 +52,8 @@ test('the V106 orders surface keeps the approved runway, stable rail, and real a
   assert.match(css,/\.p28OrdersPage \.orderProduct\{min-width:0;display:flex;flex-direction:row;align-items:center;/);
   assert.match(css,/\.productPictogram img\{width:100%;height:100%;object-fit:cover;/);
   assert.match(css,/\.orderInvoice\{[^}]*font-variant-numeric:tabular-nums/);
+  assert.match(css,/\.orderGiftAttention\{/);
+  assert.match(css,/\.orderGiftNotice\{/);
   assert.match(css,/@media \(max-width:1300px\)\{[\s\S]*?\.p28OrdersPage \.orderRow\{grid-template-columns:28px minmax\(0,1fr\)/);
   assert.match(css,/@media \(max-width:760px\)/);
   assert.match(css,/\.freshnessChannels>span>span:last-child\{display:none;\}/);

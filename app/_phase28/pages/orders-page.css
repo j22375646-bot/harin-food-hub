@@ -75,7 +75,7 @@
 .ordersWorkspace>header h2{margin:0;font-size:24px;line-height:1.18;letter-spacing:-.035em;}
 .ordersWorkspace>header p{margin:6px 0 0;color:var(--p28-muted);font-size:15px!important;line-height:1.55!important;}
 .ordersWorkspace>header>div:last-child{display:flex;align-items:center;gap:8px;}
-.ordersWorkspace select,.ordersWorkspace>header>div:last-child>span{min-height:44px;display:flex;align-items:center;padding:0 12px;border:1px solid var(--p28-line);border-radius:9px;background:var(--p28-soft);color:var(--p28-ink);font-size:14px;font-weight:750;}
+.ordersWorkspace select,.ordersWorkspace>header>div:last-child>span,.ordersWorkspace>header>div:last-child>button{min-height:44px;display:flex;align-items:center;padding:0 12px;border:1px solid var(--p28-line);border-radius:9px;background:var(--p28-soft);color:var(--p28-ink);font-size:14px;font-weight:750;}.ordersWorkspace>header>div:last-child>button{cursor:pointer;}.ordersWorkspace>header>div:last-child>button[data-active="true"]{border-color:color-mix(in srgb,#cf6a64 42%,var(--p28-line));background:color-mix(in srgb,#cf6a64 12%,var(--p28-surface));color:#933f3c;font-weight:900;}
 .bulkBar{min-height:58px;display:flex;align-items:center;gap:12px;padding:8px 20px;background:var(--p28-blue-soft);}
 .bulkBar input,.orderRow>input{width:20px;height:20px;accent-color:var(--p28-blue);}
 .orderRow>input:disabled{opacity:.42;accent-color:var(--p28-muted);}
@@ -87,6 +87,7 @@
 .orderRow:last-child{border-bottom:0;}
 .orderRow:hover{background:var(--p28-soft);}
 .orderRow.selected,.orderRow.previewed{background:var(--p28-soft);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--p28-blue) 24%,var(--p28-line));}
+.orderRow[data-gift-required="true"]{background:color-mix(in srgb,#cf6a64 4%,var(--p28-surface));box-shadow:inset 0 0 0 2px color-mix(in srgb,#cf6a64 31%,var(--p28-line));}.orderRow[data-gift-required="true"].selected,.orderRow[data-gift-required="true"].previewed{background:color-mix(in srgb,#cf6a64 7%,var(--p28-surface));box-shadow:inset 0 0 0 2px color-mix(in srgb,#cf6a64 45%,var(--p28-line));}
 .orderRow:focus-visible{outline:2px solid color-mix(in srgb,var(--p28-blue) 58%,transparent);outline-offset:-3px;}
 .orderRow.cancellation{background:var(--p28-rose-soft);}
 .selectionLock{display:inline-flex;align-items:center;min-height:24px;margin-left:6px;padding:0 7px;border:1px solid color-mix(in srgb,var(--p28-mint) 42%,var(--p28-line));border-radius:999px;background:var(--p28-mint-soft);color:var(--p28-mint);font-size:12px;font-style:normal;font-weight:850;letter-spacing:-.02em;white-space:nowrap;}
@@ -104,7 +105,7 @@
 .orderInvoice b{font-weight:850;}
 .orderInvoice>span:last-child{font-weight:750;letter-spacing:.035em;white-space:nowrap;}
 .orderInvoice[data-status="ISSUED"]{border-color:#eed7b5;background:#fbf0df;color:#97602d;}
-.orderEventGift{max-width:100%;min-height:28px;display:inline-flex;flex-wrap:wrap;align-items:center;gap:5px 7px;margin:8px 0 0 6px;padding:4px 8px;border:1px solid color-mix(in srgb,#cf6a64 30%,var(--p28-line));border-radius:8px;background:color-mix(in srgb,#cf6a64 9%,var(--p28-surface));color:#9c4441;font-size:12px;line-height:1.3;}.orderEventGift b{font-weight:900;}.orderEventGift>span:last-child{font-weight:750;}
+.orderEventGift{max-width:100%;min-height:36px;display:flex;flex-wrap:wrap;align-items:center;gap:5px 8px;margin-top:9px;padding:7px 10px;border:1px solid color-mix(in srgb,#cf6a64 43%,var(--p28-line));border-radius:10px;background:color-mix(in srgb,#cf6a64 12%,var(--p28-surface));color:#913c3a;font-size:12px;line-height:1.4;}.orderEventGift b{font-size:13px;font-weight:950;}.orderEventGift>span:last-child{flex-basis:100%;color:var(--p28-ink);font-weight:750;}
 .shippingPerson strong,.orderTime strong{display:block;font-size:14px;line-height:1.4;}
 .shippingPerson span,.orderTime span{display:-webkit-box;margin-top:4px;overflow:hidden;color:var(--p28-muted);font-size:13px;line-height:1.4;-webkit-box-orient:vertical;-webkit-line-clamp:2;}
 .orderBadges{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
@@ -115,6 +116,7 @@
 .orderBadges span[data-tone="shipping"]{border-color:#cad8f1;background:#e9effa;color:#3e5f9e;}
 .orderBadges span[data-tone="complete"]{border-color:#c4dcd9;background:#e6f1ef;color:#326d68;}
 .orderBadges span[data-tone="cancelled"]{border-color:#d9d2df;background:#f0edf3;color:#74647d;}
+.orderBadges .orderGiftAttention{min-height:38px;gap:6px;border-color:#c95752;background:#b84644;color:#fff;box-shadow:0 5px 14px color-mix(in srgb,#9d3430 25%,transparent);font-size:13px;font-weight:950;letter-spacing:-.02em;}
 .orderAmount{text-align:right;}
 .orderAmount strong{display:block;font-size:15px;}
 .orderAmount span{display:block;margin-top:3px;color:var(--p28-muted);font-size:12px;}
@@ -139,6 +141,7 @@
 .orderDetail>div{padding:12px 0;border-bottom:1px solid var(--p28-line);}
 .orderDetail span{display:block;margin-bottom:3px;color:var(--p28-muted);font-size:12px;}
 .orderDetail strong{display:block;font-size:14px;line-height:1.45;}
+.orderGiftNotice{display:grid;gap:9px;margin-top:13px;padding:13px;border:1px solid color-mix(in srgb,#cf6a64 42%,var(--p28-line));border-radius:12px;background:color-mix(in srgb,#cf6a64 9%,var(--p28-surface));}.orderGiftNotice>header{display:flex;align-items:center;gap:9px;padding:0;border:0;}.orderGiftNotice>header>span{width:36px;height:36px;display:grid;place-items:center;border-radius:10px;background:#b84644;color:#fff;}.orderGiftNotice>header strong,.orderGiftNotice>header small{display:block;}.orderGiftNotice>header strong{color:#8f3937;font-size:15px;}.orderGiftNotice>header small{margin-top:2px;color:var(--p28-muted);font-size:12px;line-height:1.4;}.orderGiftAmount{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 10px;border-radius:9px;background:var(--p28-surface);}.orderGiftAmount span{color:var(--p28-muted);font-size:12px;font-weight:750;}.orderGiftAmount strong{color:var(--p28-ink);font-size:14px;}.orderGiftNotice article{display:grid;gap:8px;padding-top:9px;border-top:1px solid color-mix(in srgb,#cf6a64 25%,var(--p28-line));}.orderGiftNotice article>div span,.orderGiftNotice article>div small{display:block;}.orderGiftNotice article>div span{font-size:13px;font-weight:850;}.orderGiftNotice article>div small{margin-top:2px;color:var(--p28-muted);font-size:12px;}.orderGiftNotice article p{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0;}.orderGiftNotice article p b{color:#9c4441;font-size:12px;}.orderGiftNotice article p strong{color:var(--p28-ink);font-size:13px;text-align:right;}
 .orderMemo{margin-top:12px;padding:12px;border-radius:10px;background:var(--p28-apricot-soft);color:var(--p28-ink);font-size:13px;line-height:1.5;}
 .ordersRailFooter{margin-top:auto;padding-top:14px;}
 .ordersRailPrimary{position:static;width:100%;min-height:48px;padding:0 12px;border:0;border-radius:10px;background:var(--p28-ink);color:var(--p28-surface);font-size:14px;font-weight:850;}
@@ -169,6 +172,7 @@
 [data-theme="dark"] .orderBadges span[data-tone="preparing"],[data-theme="dark"] .orderBadges span[data-tone="schedule"]{border-color:#654a2e;background:#3b3023;color:#ebbc88;}
 [data-theme="dark"] .orderInvoice{border-color:#315c49;background:#213a30;color:#9ed3b6;}
 [data-theme="dark"] .orderInvoice[data-status="ISSUED"]{border-color:#654a2e;background:#3b3023;color:#ebbc88;}
+[data-theme="dark"] .orderEventGift,[data-theme="dark"] .orderGiftNotice{border-color:#70413f;background:#382728;color:#f1aaa6;}[data-theme="dark"] .orderBadges .orderGiftAttention{border-color:#9a5551;background:#873e3b;color:#fff;}
 
 @keyframes runwayReveal{from{opacity:.72;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
 @keyframes cutoffTick{0%,100%{opacity:.55}50%{opacity:1}}
@@ -217,8 +221,9 @@
   .autoCycle{grid-column:1;margin-left:0;padding-left:3px;}
   .freshnessAsOf{bottom:-18px;}
   .ordersWorkspace>header{align-items:flex-start;flex-direction:column;}
-  .ordersWorkspace>header>div:last-child{width:100%;}
-  .ordersWorkspace select,.ordersWorkspace>header>div:last-child>span{flex:1;}
+  .ordersWorkspace>header>div:last-child{width:100%;flex-wrap:wrap;}
+  .ordersWorkspace select,.ordersWorkspace>header>div:last-child>span,.ordersWorkspace>header>div:last-child>button{flex:1;justify-content:center;}
+  .ordersWorkspace>header>div:last-child>.giftOnlyToggle{flex-basis:100%;}
   .bulkBar{flex-wrap:wrap;}
   .bulkBar button{width:100%;margin-left:0;}
   .orderRow{grid-template-columns:28px minmax(0,1fr);gap:10px 12px;padding:17px 16px;}
