@@ -58,7 +58,7 @@ test('orders adapter distinguishes issued invoices from platform-registered invo
   assert.deepEqual(model.orders[0].invoice,{status:'ISSUED',label:'발급 완료 · 등록 필요',number:'9876543210987'});
 });
 
-test('orders adapter compresses ePost API tracking into three readable delivery badges and keeps failures visible',()=>{
+test('orders adapter keeps ePost and channel-derived shipping badges visually consistent while preserving their source',()=>{
   const order=(hubOrderId,tracking,stage='WAITING_FOR_CARRIER',invoiceNumber='1234567890123')=>({
     hubOrderId,platform:'CAFE24',stage,fulfillment:'SELLER',shippingEligible:true,invoiceNumber,tracking,
     productName:'작두콩차',items:[]
@@ -68,6 +68,7 @@ test('orders adapter compresses ePost API tracking into three readable delivery 
       order('C24-RESERVED',{status:'SUCCESS',statusCode:'ACCEPTED',statusLabel:'우체국 접수중'}),
       order('C24-RESERVED-BEFORE-ACCEPTANCE',{status:'SUCCESS',statusCode:'NOT_FOUND',statusLabel:'우체국 접수 확인 전'}),
       order('C24-IN-TRANSIT',{status:'SUCCESS',statusCode:'IN_TRANSIT',statusLabel:'배송중'},'SHIPPING'),
+      order('C24-CHANNEL-SHIPPING',null,'SHIPPING'),
       order('C24-DELIVERED',{status:'SUCCESS',statusCode:'DELIVERED',statusLabel:'배달완료'},'DELIVERED'),
       order('C24-CHECK',{status:'FAILED',statusCode:'',statusLabel:'추적 실패'}),
       order('C24-NO-TRACKING',null,'PAID','')
@@ -78,6 +79,8 @@ test('orders adapter compresses ePost API tracking into three readable delivery 
   assert.deepEqual(byId['C24-RESERVED'].epostTrackingBadge,{status:'RESERVED',label:'예약',detail:'우체국 접수중'});
   assert.deepEqual(byId['C24-RESERVED-BEFORE-ACCEPTANCE'].epostTrackingBadge,{status:'RESERVED',label:'예약',detail:'우체국 접수 확인 전'});
   assert.deepEqual(byId['C24-IN-TRANSIT'].epostTrackingBadge,{status:'IN_TRANSIT',label:'배송중',detail:'배송중'});
+  assert.deepEqual(byId['C24-IN-TRANSIT'].listDeliveryBadge,{status:'IN_TRANSIT',label:'배송중',detail:'배송중',source:'EPOST'});
+  assert.deepEqual(byId['C24-CHANNEL-SHIPPING'].listDeliveryBadge,{status:'IN_TRANSIT',label:'배송중',detail:'쇼핑몰 배송중 상태',source:'CHANNEL'});
   assert.deepEqual(byId['C24-DELIVERED'].epostTrackingBadge,{status:'DELIVERED',label:'배송완료',detail:'배달완료'});
   assert.deepEqual(byId['C24-CHECK'].epostTrackingBadge,{status:'CHECK_REQUIRED',label:'확인 필요',detail:'추적 실패'});
   assert.equal(byId['C24-NO-TRACKING'].epostTrackingBadge,null);
