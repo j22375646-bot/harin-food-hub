@@ -98,6 +98,33 @@ test('receiver hydration retries a transient channel failure before leaving an o
   assert.equal(hydrated[0].receiver.name,'재시도 수취인');
 });
 
+test('receiver hydration keeps delivery details visible after an invoice locks order selection',async()=>{
+  const delivery=require('../lib/ui/phase28-orders-delivery.js');
+  const source=[{
+    hubOrderId:'HR-C24-WAITING',externalOrderId:'20260902-waiting',platform:'CAFE24',
+    stage:'WAITING_FOR_CARRIER',selectionEligible:false,receiver:{}
+  }];
+  const hydrated=await delivery.hydrateOrderReceivers(source,async()=>({
+    ok:true,status:200,json:async()=>({ok:true,receiver:{
+      name:'배송대기 수취인',contact:'01011112222',postCode:'12345',address:'서울시',addressDetail:'303호',message:''
+    }})
+  }),async()=>{});
+
+  assert.equal(hydrated[0].receiver.name,'배송대기 수취인');
+  assert.equal(delivery.needsReceiverHydration(source[0]),true);
+});
+
+test('receiver hydration targets the visible shipping stage without refetching hidden history',()=>{
+  const delivery=require('../lib/ui/phase28-orders-delivery.js');
+  const source=[
+    {hubOrderId:'WAITING',externalOrderId:'order-waiting',platform:'CAFE24',stageIds:['REGISTER'],selectionEligible:false,receiver:{}},
+    {hubOrderId:'COMPLETE',externalOrderId:'order-complete',platform:'CAFE24',stageIds:['COMPLETED'],selectionEligible:false,receiver:{}},
+    {hubOrderId:'READY',externalOrderId:'order-ready',platform:'CAFE24',stageIds:['REGISTER'],selectionEligible:false,receiver:{name:'수취인',contact:'01011112222',address:'서울시'}}
+  ];
+
+  assert.deepEqual(delivery.receiverHydrationCandidates(source,'REGISTER').map(order=>order.hubOrderId),['WAITING']);
+});
+
 test('the mobile issue button starts the real shipment flow instead of opening a hidden rail tab',()=>{
   const page=fs.readFileSync(path.join(root,'app','_phase28','pages','orders-page.js'),'utf8');
   assert.match(page,/className="mobileBatchAction"[\s\S]*?onClick=\{primaryAction\}/);

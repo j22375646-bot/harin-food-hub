@@ -14,7 +14,7 @@ import cafe24OrderRefreshPolicy from '../../../lib/cafe24/order-refresh-policy.j
 import './orders-page.css';
 
 const {activeCollectionPlatforms,collectionProgressLabel}=collectionProgress;
-const {hasReceiverDetails,hydrateOrderReceivers,needsReceiverHydration}=cafe24Delivery;
+const {hasReceiverDetails,hydrateOrderReceivers,needsReceiverHydration,receiverHydrationCandidates}=cafe24Delivery;
 const {calculateCutoffSchedule}=businessCalendar;
 const {CAFE24_ORDER_REFRESH_INTERVAL_MS}=cafe24OrderRefreshPolicy;
 
@@ -335,13 +335,13 @@ export default function Phase28OrdersPage({model={}}){
     let active=true;
     const current=sourceOrders.map(order=>receiverHydration[order.hubOrderId]?{...order,receiver:receiverHydration[order.hubOrderId]}:order);
     async function hydrate(){
-      const candidates=current.filter(needsReceiverHydration);
+      const candidates=receiverHydrationCandidates(current,activeStage);
       if(!candidates.length)return;
       setReceiverHydrationStatus(previous=>({...previous,...Object.fromEntries(candidates.map(order=>[order.hubOrderId,'LOADING']))}));
-      const hydrated=await hydrateOrderReceivers(current);
+      const hydrated=await hydrateOrderReceivers(candidates);
       if(!active)return;
       const additions={};
-      hydrated.forEach((order,index)=>{if(order!==current[index]&&hasReceiverDetails(order.receiver))additions[order.hubOrderId]=order.receiver;});
+      hydrated.forEach((order,index)=>{if(order!==candidates[index]&&hasReceiverDetails(order.receiver))additions[order.hubOrderId]=order.receiver;});
       if(Object.keys(additions).length)setReceiverHydration(previous=>({...previous,...additions}));
       setReceiverHydrationStatus(previous=>({...previous,...Object.fromEntries(candidates.map(order=>[
         order.hubOrderId,additions[order.hubOrderId]?'READY':'ERROR'
@@ -349,11 +349,11 @@ export default function Phase28OrdersPage({model={}}){
     }
     hydrate().catch(()=>{
       if(!active)return;
-      const failed=current.filter(needsReceiverHydration);
+      const failed=receiverHydrationCandidates(current,activeStage);
       if(failed.length)setReceiverHydrationStatus(previous=>({...previous,...Object.fromEntries(failed.map(order=>[order.hubOrderId,'ERROR']))}));
     });
     return()=>{active=false;};
-  },[sourceOrders]);
+  },[sourceOrders,activeStage]);
   useEffect(()=>{
     if(!statusMessage)return undefined;
     setToastVisible(true);
