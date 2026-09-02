@@ -30,5 +30,9 @@ test('23-1 gives immediate compact feedback and a content-only skeleton',()=>{
   assert.match(sharedLoading,/export function HarinRouteSkeleton/);
   assert.match(marketLoading,/<HarinRouteSkeleton/);
   assert.match(entryCss,/\.harinV8 \.routePartialSkeleton/);
+  assert.match(entryCss,/\.routePartialSkeleton\{[^}]*border:1px solid var\(--p28-line,var\(--v8-line\)\)[^}]*background:var\(--p28-surface,var\(--harin-color-surface\)\)[^}]*color:var\(--p28-ink,var\(--harin-color-ink\)\)/);
+  assert.match(entryCss,/\.routePartialSkeleton>header>span\{[^}]*background:var\(--p28-blue-soft,var\(--harin-color-action-soft\)\)[^}]*color:var\(--p28-blue,var\(--harin-color-action-strong\)\)/);
+  assert.match(entryCss,/\.routePartialSkeleton>header small\{[^}]*color:var\(--p28-muted,var\(--v8-muted\)\)/);
+  assert.match(entryCss,/\.routePartialSkeletonMetrics i,\.harinV8 \.routePartialSkeletonBody i\{[^}]*background:var\(--p28-soft,var\(--harin-color-neutral-soft\)\)/);
   assert.match(entryCss,/@media\(prefers-reduced-motion:reduce\)/);
 });
