@@ -124,6 +124,20 @@ test('쿠팡 최근 주문 정보는 상품 상세의 판매 상태와 가격을
   assert.equal(rows[0].raw_data.invoiceNumber,'123');
 });
 
+test('쿠팡 실시간 주문 수집은 이미지가 없는 주문 상품만 상세 재수집 대상으로 고른다', () => {
+  const targets=sync.orderImageProductsToRefresh([
+    {seller_product_id:'10',vendor_item_id:'20'},
+    {seller_product_id:'10',vendor_item_id:'21'},
+    {seller_product_id:'11',vendor_item_id:'30'},
+    {seller_product_id:null,vendor_item_id:'40'}
+  ],[
+    {seller_product_id:'10',vendor_item_id:'20',raw_data:{images:[{cdnPath:'vendor_inventory/10/20.png'}]}},
+    {seller_product_id:'10',vendor_item_id:'21',raw_data:{images:null}},
+    {seller_product_id:'11',vendor_item_id:'30',raw_data:{images:[{cdnPath:'//image10.coupangcdn.com/30.png'}]}}
+  ]);
+  assert.deepEqual(targets,[{sellerProductId:'10'}]);
+});
+
 test('쿠팡 재고 수집 대상은 최근 주문 옵션이 아니라 전체 상품 상세 옵션이다', () => {
   const ids=sync.inventoryVendorItemIds([
     {vendor_item_id:'20'},{vendor_item_id:'30'},{vendor_item_id:'20'},{vendor_item_id:null}

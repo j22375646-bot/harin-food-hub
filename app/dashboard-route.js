@@ -918,7 +918,7 @@ async function buildRegisteredKeywordDashboardData({
 }
 
 async function buildOrdersDashboardData({
-  loaderSession, generatedAt, queryIssues,
+  db, loaderSession, generatedAt, queryIssues,
   ordersResult, itemsResult, productsResult, syncResult, alertsResult, channelsResult,
   coupangProductsResult, coupangProductItemsResult, coupangOrdersResult, coupangOrderTerminalsResult, coupangItemsResult,
   coupangRgOrdersResult, coupangRgOrderItemsResult, coupangReturnsResult,
@@ -962,7 +962,7 @@ async function buildOrdersDashboardData({
     snapshots:shippingReferenceSnapshots,
     now:generatedAt
   });
-  const orderImageCatalog=unifiedOrdersModule.buildOrderImageCatalog(productsResult.data||[],[
+  const baseImageRows=[
     ...(channelsResult.data||[]),
     ...(coupangProductsResult.data||[]).map(product=>({
       platform:'COUPANG',external_product_id:product.seller_product_id,external_product_name:product.product_name,
@@ -972,7 +972,16 @@ async function buildOrdersDashboardData({
       platform:'COUPANG',external_product_id:item.vendor_item_id,external_product_name:item.item_name,
       raw_data:{...(item.raw_data||{}),vendorItemId:item.vendor_item_id,sellerProductId:item.seller_product_id}
     }))
-  ]);
+  ];
+  let orderImageCatalog=unifiedOrdersModule.buildOrderImageCatalog(productsResult.data||[],baseImageRows);
+  const coupangImageFallbackRows=await unifiedOrdersModule.coupangImageFallbackRows({
+    db,orderItems:coupangItemsResult.data||[],imageCatalog:orderImageCatalog
+  });
+  if(coupangImageFallbackRows.length){
+    orderImageCatalog=unifiedOrdersModule.buildOrderImageCatalog(productsResult.data||[],[
+      ...baseImageRows,...coupangImageFallbackRows
+    ]);
+  }
   const unifiedOrders=unifiedOrdersModule.buildUnifiedOrders({
     cafe24Orders,
     cafe24OrderItems:unifiedOrdersModule.attachOrderImages(itemsResult.data||[],'CAFE24','external_product_no',orderImageCatalog),
@@ -1902,7 +1911,7 @@ async function getDashboardData(state) {
     const successfulIssues=issueHistoryModule.successfulIssueIndex(operationRows);
     const trackingStates=trackingQueueModule.trackingStatesFromRows(operationRows);
     return buildOrdersDashboardData({
-      loaderSession,generatedAt,queryIssues,
+      db,loaderSession,generatedAt,queryIssues,
       ordersResult,itemsResult,productsResult,syncResult,alertsResult,channelsResult,
       coupangProductsResult,coupangProductItemsResult,coupangOrdersResult,coupangOrderTerminalsResult,coupangItemsResult,
       coupangRgOrdersResult,coupangRgOrderItemsResult,coupangReturnsResult,

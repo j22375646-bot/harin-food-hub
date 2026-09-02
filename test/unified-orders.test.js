@@ -466,6 +466,44 @@ test('주문 상품 이미지 URL은 안전하게 정규화되고 플랫폼 상�
     orders.productImageFromRaw({images:[{cdnPath:'vendor_inventory/7489/tea.png'}]}),
     'https://image10.coupangcdn.com/image/vendor_inventory/7489/tea.png'
   );
+  assert.equal(
+    orders.productImageFromRaw({images:[
+      {imageType:'DETAIL',cdnPath:'vendor_inventory/7489/detail-top.png'},
+      {imageType:'REPRESENTATION',cdnPath:'vendor_inventory/7489/representative-top.png'}
+    ]}),
+    'https://image10.coupangcdn.com/image/vendor_inventory/7489/representative-top.png'
+  );
+  assert.equal(
+    orders.productImageFromRaw({items:[{images:[
+      {imageType:'DETAIL',cdnPath:'vendor_inventory/7489/detail.png'},
+      {imageType:'REPRESENTATION',cdnPath:'vendor_inventory/7489/representative.png'}
+    ]}]}),
+    'https://image10.coupangcdn.com/image/vendor_inventory/7489/representative.png'
+  );
+});
+
+test('쿠팡 상세 원본 응답으로 누락된 주문 옵션 이미지 카탈로그를 복구한다',()=>{
+  const detailRows=orders.coupangProductDetailCatalogRows([{
+    endpoint:'/v2/providers/seller_api/apis/api/v1/marketplace/seller-products/12918003534',
+    response_json:{data:{sellerProductId:12918003534,sellerProductName:'하린식품 작두콩차',items:[
+      {
+        itemName:'30티백',
+        images:[{imageType:'REPRESENTATION',cdnPath:'vendor_inventory/12918003534/tea.png'}],
+        marketplaceItemData:{vendorItemId:79191530605}
+      },
+      {
+        itemName:'60티백',
+        images:[{imageType:'REPRESENTATION',cdnPath:'vendor_inventory/12918003534/tea-60.png'}],
+        marketplaceItemData:{vendorItemId:79191530606}
+      }
+    ]}}
+  }]);
+  const catalog=orders.buildOrderImageCatalog([],detailRows);
+  const attached=orders.attachOrderImages([{
+    seller_product_id:'12918003534',vendor_item_id:'79191530605',product_name:'하린식품 작두콩차 30티백'
+  }],'COUPANG','seller_product_id',catalog);
+  assert.equal(detailRows.length,2);
+  assert.equal(attached[0].image_url,'https://image10.coupangcdn.com/image/vendor_inventory/12918003534/tea.png');
 });
 
 test('registered Cafe24 invoices wait for real ePost movement before entering shipping',()=>{
