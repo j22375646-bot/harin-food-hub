@@ -94,3 +94,10 @@ test('이벤트 입력석은 이상·이하 금액 구간과 고정 중요도를
   assert.match(page,/className="eventGiftAdd"/);
   assert.match(css,/\.eventGiftAdd\{[^}]*min-width:84px[^}]*white-space:nowrap/);
 });
+
+test('사은품 금액 구간은 30000 같은 원 단위 기준값을 그대로 허용한다',()=>{
+  const page=read('app/_phase28/pages/calendar-page.js');
+  assert.match(page,/step="1" value=\{tier\.minimumAmount\}/);
+  assert.match(page,/step="1" value=\{tier\.maximumAmount\?\?''\}/);
+  assert.doesNotMatch(page,/step="100" value=\{tier\.(?:minimumAmount|maximumAmount)/);
+});
