@@ -71,6 +71,9 @@ test('shared shell refreshes the operation snapshot without requiring a Main vis
   const shell=read('app/_phase28/phase28-shell.js');
   assert.match(shell,/\/api\/navigation\/operation-snapshot/);
   assert.match(shell,/REFRESH_AFTER_MS/);
+  assert.match(shell,/SNAPSHOT_RECHECK_MS/);
+  assert.match(shell,/isNavigationOperationSnapshotComplete\(current\)/);
+  assert.match(shell,/window\.setInterval\(\(\)=>\{[\s\S]*refreshNavigationSnapshot\(\)[\s\S]*\},SNAPSHOT_RECHECK_MS\)/);
   assert.match(shell,/visibilitychange/);
   assert.match(shell,/refreshNavigationSnapshot\(\{force:true\}\)/);
   assert.match(shell,/cache:'no-store'/);

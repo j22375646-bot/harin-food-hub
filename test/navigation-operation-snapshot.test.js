@@ -55,12 +55,28 @@ test('navigation snapshot keeps the newest authoritative value without turning a
   assert.equal(snapshotModule.parseNavigationOperationSnapshot(JSON.stringify(newer),Date.parse('2026-08-24T04:00:00.000Z')),null);
 });
 
-test('a partial refresh keeps the last complete snapshot instead of replacing known counts with zero or unknown',()=>{
+test('an incomplete refresh keeps the last complete snapshot instead of replacing known counts with zero or unknown',()=>{
   const now=Date.parse('2026-09-02T07:40:00.000Z');
   const complete={version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:30:00.000Z',badges:{orders:2,cs:1,inventory:3,notifications:4},connection:{ready:3,total:3}};
   const partial={version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:39:00.000Z',badges:{orders:null,cs:0,inventory:0,notifications:2},connection:{ready:3,total:3}};
   assert.equal(snapshotModule.selectFetchedNavigationOperationSnapshot(complete,partial,{partial:true,now}),complete);
-  assert.equal(snapshotModule.selectFetchedNavigationOperationSnapshot(complete,partial,{partial:false,now}),partial);
+  assert.equal(snapshotModule.selectFetchedNavigationOperationSnapshot(complete,partial,{partial:false,now}),complete);
+});
+
+test('an incomplete fresh snapshot is retried and can recover from a better partial refresh',()=>{
+  const now=Date.parse('2026-09-02T07:40:00.000Z');
+  const incomplete={version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:39:30.000Z',badges:{orders:null,cs:null,inventory:0,notifications:null},connection:{ready:null,total:null}};
+  const recovering={version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:39:50.000Z',badges:{orders:2,cs:0,inventory:0,notifications:3},connection:{ready:null,total:null}};
+  assert.equal(snapshotModule.navigationOperationSnapshotFreshness(incomplete,now).stale,false);
+  assert.equal(snapshotModule.isNavigationOperationSnapshotComplete(incomplete),false);
+  assert.equal(snapshotModule.isNavigationOperationSnapshotComplete(recovering),true);
+  assert.equal(snapshotModule.selectFetchedNavigationOperationSnapshot(incomplete,recovering,{partial:true,now}),recovering);
+});
+
+test('route hydration never lets a newer incomplete snapshot hide an existing complete sidebar',()=>{
+  const complete={version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:30:00.000Z',badges:{orders:2,cs:0,inventory:0,notifications:3},connection:{ready:3,total:3}};
+  const newerIncomplete={version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:39:00.000Z',badges:{orders:null,cs:0,inventory:0,notifications:null},connection:{ready:null,total:null}};
+  assert.equal(snapshotModule.selectNavigationOperationSnapshot(complete,newerIncomplete),complete);
 });
 
 test('dashboard never replaces sidebar badges with route-scoped page arrays',()=>{

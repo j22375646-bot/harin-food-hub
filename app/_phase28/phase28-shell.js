@@ -17,6 +17,8 @@ const {
   NAVIGATION_SNAPSHOT_COOKIE,
   DISPLAY_MAX_AGE_MS,
   REFRESH_AFTER_MS,
+  SNAPSHOT_RECHECK_MS,
+  isNavigationOperationSnapshotComplete,
   navigationOperationSnapshotFreshness,
   parseNavigationOperationSnapshot,
   selectFetchedNavigationOperationSnapshot,
@@ -156,7 +158,7 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
   },[incomingSnapshot]);
   const refreshNavigationSnapshot=useCallback(async({force=false}={})=>{
     const current=activeNavigationSnapshotRef.current;
-    if(!force&&current&&!navigationOperationSnapshotFreshness(current).stale)return current;
+    if(!force&&current&&isNavigationOperationSnapshotComplete(current)&&!navigationOperationSnapshotFreshness(current).stale)return current;
     if(navigationSnapshotRequestRef.current)return navigationSnapshotRequestRef.current;
     const request=(async()=>{
       try{
@@ -234,8 +236,8 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
   useEffect(()=>{
     void refreshNavigationSnapshot();
     const intervalId=window.setInterval(()=>{
-      if(document.visibilityState==='visible')void refreshNavigationSnapshot({force:true});
-    },REFRESH_AFTER_MS);
+      if(document.visibilityState==='visible')void refreshNavigationSnapshot();
+    },SNAPSHOT_RECHECK_MS);
     const onVisibilityChange=()=>{
       if(document.visibilityState==='visible')void refreshNavigationSnapshot();
     };
