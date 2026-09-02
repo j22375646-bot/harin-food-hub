@@ -16,7 +16,8 @@ test('캘린더 화면은 실제 저장 CRUD와 메인 오늘 연동을 연결�
   assert.match(page,/CREATE_ENTRY/);
   assert.match(page,/UPDATE_ENTRY/);
   assert.match(page,/TOGGLE_ENTRY/);
-  assert.match(page,/ARCHIVE_ENTRY/);
+  assert.match(page,/method:'DELETE'/);
+  assert.match(api,/ARCHIVE_ENTRY/);
   assert.match(api,/hub_work_items/);
   assert.match(api,/context_href','\/calendar'/);
   assert.match(api,/revalidatePath\('\/orders'\)/);
@@ -100,4 +101,16 @@ test('사은품 금액 구간은 30000 같은 원 단위 기준값을 그대로 
   assert.match(page,/step="1" value=\{tier\.minimumAmount\}/);
   assert.match(page,/step="1" value=\{tier\.maximumAmount\?\?''\}/);
   assert.doesNotMatch(page,/step="100" value=\{tier\.(?:minimumAmount|maximumAmount)/);
+});
+
+test('메모와 이벤트는 목록에서 바로 삭제하고 서버 실패 때 즉시 복원한다',()=>{
+  const page=read('app/_phase28/pages/calendar-page.js');
+  const api=read('app/api/calendar/entries/route.js');
+  assert.match(page,/beginCalendarEntryRemoval/);
+  assert.match(page,/rollbackCalendarEntryRemoval/);
+  assert.match(page,/method:'DELETE'/);
+  assert.match(page,/className="calendarAgendaDelete"/);
+  assert.match(page,/삭제하지 못해 다시 표시했어요/);
+  assert.match(api,/export async function DELETE\(request\)/);
+  assert.match(api,/contextHref:'\/calendar'/);
 });

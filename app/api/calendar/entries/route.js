@@ -10,6 +10,16 @@ export const dynamic='force-dynamic';
 
 const ENTRY_FIELDS='id,item_type,title,body,status,priority,due_at,page_key,context_label,context_href,completed_at,created_at,updated_at';
 
+function refreshCalendarViews(){
+  revalidatePath('/calendar');
+  revalidatePath('/');
+  revalidatePath('/orders');
+}
+
+async function archiveCalendarEntry(db,id){
+  return ownerWorkspace.mutateWorkspace(db,{action:'ARCHIVE_ITEM',id,contextHref:'/calendar'});
+}
+
 async function calendarItem(db,id){
   const result=await db.from('hub_work_items').select(ENTRY_FIELDS).eq('id',String(id||'')).eq('context_href','/calendar').maybeSingle();
   if(result.error)throw result.error;
@@ -65,18 +75,34 @@ export async function POST(request){
         itemType:entry.type==='MEMO'?'NOTE':'TASK',title:entry.title,body:entry.type==='EVENT'?calendarCenter.encodeEventBody(entry):entry.body,priority:entry.priority,
         pageKey:'main',contextLabel:entry.contextLabel,contextHref:'/calendar',dueAt:entry.dueAt
       });
-    }else if(action==='TOGGLE_ENTRY'||action==='ARCHIVE_ENTRY'){
+    }else if(action==='TOGGLE_ENTRY'){
       await calendarItem(db,body.id);
-      result=await ownerWorkspace.mutateWorkspace(db,{action:action==='TOGGLE_ENTRY'?'TOGGLE_ITEM':'ARCHIVE_ITEM',id:body.id,done:Boolean(body.done)});
+      result=await ownerWorkspace.mutateWorkspace(db,{action:'TOGGLE_ITEM',id:body.id,done:Boolean(body.done)});
+    }else if(action==='ARCHIVE_ENTRY'){
+      result=await archiveCalendarEntry(db,body.id);
     }else throw new calendarCenter.CalendarInputError('지원하지 않는 캘린더 요청입니다.');
-    revalidatePath('/calendar');
-    revalidatePath('/');
-    revalidatePath('/orders');
+    refreshCalendarViews();
     return apiSafety.json({ok:true,entry:result.item?calendarCenter.decorateEntry(result.item):null,message:action==='ARCHIVE_ENTRY'?'캘린더에서 삭제했습니다.':'캘린더·메인·주문에 반영했습니다.'});
   }catch(error){
     const input=apiSafety.inputErrorResponse(error);if(input)return input;
     const status=error instanceof calendarCenter.CalendarInputError||error instanceof ownerWorkspace.OwnerWorkspaceInputError?error.status:500;
     if(status===500)console.error('[calendar write]',error);
     return apiSafety.json({ok:false,error:status===500?'캘린더에 저장하지 못했습니다.':error.message},{status});
+  }
+}
+
+export async function DELETE(request){
+  if(!apiSafety.isAuthorized(request,authModule))return apiSafety.unauthorized();
+  try{
+    const body=await apiSafety.readJson(request,{maxBytes:4*1024});
+    const db=supabaseModule.getSupabase();
+    const result=await archiveCalendarEntry(db,body.id);
+    refreshCalendarViews();
+    return apiSafety.json({ok:true,deletedId:String(result.item?.id||body.id),message:'캘린더·메인·주문에서 삭제했습니다.'});
+  }catch(error){
+    const input=apiSafety.inputErrorResponse(error);if(input)return input;
+    const status=error instanceof calendarCenter.CalendarInputError||error instanceof ownerWorkspace.OwnerWorkspaceInputError?error.status:500;
+    if(status===500)console.error('[calendar delete]',error);
+    return apiSafety.json({ok:false,error:status===500?'캘린더 항목을 삭제하지 못했습니다.':error.message},{status});
   }
 }

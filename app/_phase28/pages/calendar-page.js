@@ -1,10 +1,14 @@
 'use client';
 
 import {useEffect,useMemo,useRef,useState} from 'react';
+import {useRouter} from 'next/navigation';
 import HarinIcon from '../../_design-system/harin-icon.js';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
 import {Phase28RightRailLayout} from '../primitives/right-rail-layout.js';
+import calendarEntryRemoval from '../../../lib/calendar/calendar-entry-removal.js';
 import './calendar-page.css';
+
+const {beginCalendarEntryRemoval,rollbackCalendarEntryRemoval}=calendarEntryRemoval;
 
 const WEEKDAYS=['일','월','화','수','목','금','토'];
 const EMPTY_FORM={type:'SCHEDULE',title:'',body:'',date:'',endDate:'',time:'',priority:'NORMAL',eventColor:'CORAL',giftTiers:[]};
@@ -53,7 +57,7 @@ function giftRangeLabel(item){
   return item.maximumAmount==null||item.maximumAmount===''?minimum:`${minimum} · ${Number(item.maximumAmount).toLocaleString('ko-KR')}원 이하`;
 }
 
-function CalendarRail({selectedDate,entries,editing,onEdit,onCancel,onSaved,onRemoved}){
+function CalendarRail({selectedDate,entries,editing,onCancel,onSaved,onRemove}){
   const [form,setForm]=useState({...EMPTY_FORM,date:selectedDate,endDate:selectedDate});
   const [working,setWorking]=useState('');
   const [message,setMessage]=useState('');
@@ -91,9 +95,9 @@ function CalendarRail({selectedDate,entries,editing,onEdit,onCancel,onSaved,onRe
     }catch(cause){setError(cause.message);}finally{setWorking('');}
   }
   async function remove(){
-    if(!editing||working||!window.confirm(`“${editing.title}” 항목을 캘린더에서 삭제할까요?`))return;
+    if(!editing||working)return;
     setWorking('delete');setError('');
-    try{await request({action:'ARCHIVE_ENTRY',id:editing.id});onRemoved(editing.id);setMessage('캘린더에서 삭제했어요.');}
+    try{if(await onRemove(editing))setMessage('캘린더에서 삭제했어요.');}
     catch(cause){setError(cause.message);}finally{setWorking('');}
   }
   return <div className="calendarRail">
@@ -130,6 +134,7 @@ function CalendarRail({selectedDate,entries,editing,onEdit,onCancel,onSaved,onRe
 }
 
 export default function Phase28CalendarPage({model={}}){
+  const router=useRouter();
   const today=model.today||new Date().toISOString().slice(0,10);
   const [month,setMonth]=useState(model.range?.month||today.slice(0,7));
   const [selectedDate,setSelectedDate]=useState(today);
@@ -137,6 +142,8 @@ export default function Phase28CalendarPage({model={}}){
   const [editing,setEditing]=useState(null);
   const [loading,setLoading]=useState(false);
   const [loadError,setLoadError]=useState(model.error||'');
+  const [actionMessage,setActionMessage]=useState('');
+  const [removingIds,setRemovingIds]=useState(()=>new Set());
   const [holidayCalendars,setHolidayCalendars]=useState({});
   const loadedMonths=useRef(new Set());
   const range=useMemo(()=>monthRange(month),[month]);
@@ -169,7 +176,35 @@ export default function Phase28CalendarPage({model={}}){
     setEntries(current=>sortEntries(current.map(item=>item.id===data.entry.id?data.entry:item)));
   }
 
-  const rail=<CalendarRail selectedDate={selectedDate} entries={selectedEntries} editing={editing} onEdit={setEditing} onCancel={()=>setEditing(null)} onSaved={saved} onRemoved={id=>{setEntries(current=>current.filter(item=>item.id!==id));setEditing(null);}}/>;
+  async function removeEntry(entry){
+    if(!entry?.id||removingIds.has(entry.id)||!window.confirm(`“${entry.title}” 항목을 캘린더에서 삭제할까요?`))return false;
+    const transition=beginCalendarEntryRemoval(entries,entry.id);
+    if(!transition.removed)return false;
+    setLoadError('');
+    setActionMessage(`“${entry.title}” 항목을 목록에서 먼저 숨겼어요. 서버 반영 중…`);
+    setRemovingIds(current=>new Set([...current,entry.id]));
+    setEntries(current=>beginCalendarEntryRemoval(current,entry.id).entries);
+    setEditing(current=>current?.id===entry.id?null:current);
+    try{
+      const response=await fetch('/api/calendar/entries',{method:'DELETE',headers:{'content-type':'application/json'},body:JSON.stringify({id:entry.id})});
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok||!data.ok)throw new Error(data.error||'캘린더 항목을 삭제하지 못했습니다.');
+      setActionMessage(`“${entry.title}” 항목을 서버와 연결 화면에서 삭제했어요.`);
+      try{window.localStorage.setItem('harin:calendar-updated',`${Date.now()}:${entry.id}`);}catch{}
+      router.refresh();
+      return true;
+    }catch(cause){
+      setEntries(current=>sortEntries(rollbackCalendarEntryRemoval(current,transition.removed)));
+      setEditing(entry);
+      setActionMessage('');
+      setLoadError(`삭제하지 못해 다시 표시했어요. ${cause.message}`);
+      return false;
+    }finally{
+      setRemovingIds(current=>{const next=new Set(current);next.delete(entry.id);return next;});
+    }
+  }
+
+  const rail=<CalendarRail selectedDate={selectedDate} entries={selectedEntries} editing={editing} onCancel={()=>setEditing(null)} onSaved={saved} onRemove={removeEntry}/>;
   return <section className="calendarPage" data-phase28-root="true" data-phase28-page="calendar">
     <Phase28PageHeading context={`서버 저장 · ${model.generatedAt?'최신 자료 연결':'연결 확인 필요'}`} title="일정과 판매 이벤트를 " accent="한눈에" suffix=" 관리해요." summary="기간과 금액대별 사은품을 저장하면 진행 중인 이벤트가 메인 화면에 자동 반영됩니다."/>
     <div className="calendarPulse" aria-label="캘린더 요약">
@@ -180,6 +215,7 @@ export default function Phase28CalendarPage({model={}}){
       <article><span>휴일 기준</span><strong>{holidayCalendar.ready?'연결':loading?'확인 중':'확인 필요'}</strong><small>{holidayCalendar.ready?`공식 공휴일 ${holidayCalendar.holidays.length}일 · 주말 표시`:'주말 표시 · 공휴일 자료 확인'}</small></article>
     </div>
     {loadError?<div className="calendarError" role="alert"><HarinIcon name="note" size={20}/><span><strong>캘린더 자료를 확인해주세요.</strong><small>{loadError}</small></span></div>:null}
+    {actionMessage?<div className="calendarActionMessage" role="status"><HarinIcon name="checklist" size={20}/><span>{actionMessage}</span></div>:null}
     <Phase28RightRailLayout label="일정·메모 입력석" rail={rail}>
       <div className="calendarWorkspace">
         <header className="calendarToolbar"><div><button type="button" onClick={()=>changeMonth(moveMonth(month,-1))} aria-label="이전 달">‹</button><h2>{monthLabel(month)}</h2><button type="button" onClick={()=>changeMonth(moveMonth(month,1))} aria-label="다음 달">›</button></div><button type="button" onClick={()=>{setMonth(today.slice(0,7));setSelectedDate(today);setEditing(null);}}>오늘로 이동</button><span aria-live="polite">{loading?'일정과 공휴일 불러오는 중…':holidayCalendar.ready?'공식 공휴일과 주말을 반영했어요.':'주말은 표시했고, 공휴일 자료는 확인이 필요해요.'}</span></header>
@@ -198,6 +234,7 @@ export default function Phase28CalendarPage({model={}}){
           <div>{selectedEntries.length?selectedEntries.map(item=><article key={item.id} data-type={item.type} data-done={item.status==='DONE'}>
             <button className="calendarAgendaMain" type="button" onClick={()=>setEditing(item)}><span>{item.type==='MEMO'?<HarinIcon name="note" size={20}/>:item.type==='EVENT'?<HarinIcon name="sparkles" size={20}/>:<HarinIcon name="clock" size={20}/>}</span><div><small>{item.type==='MEMO'?'메모':item.type==='EVENT'?`이벤트 · ${item.date} ~ ${item.endDate}`:`${item.time||'하루 종일'} · ${item.date}${item.endDate!==item.date?` ~ ${item.endDate}`:''}`} · {item.type==='EVENT'?'중요':PRIORITY_LABEL[item.priority]||'보통'}</small><strong>{item.title}</strong>{item.type==='EVENT'&&item.giftTiers?.length?<p>{item.giftTiers.map(tier=>`${giftRangeLabel(tier)} ${tier.giftName} ${tier.quantity}개`).join(' · ')}</p>:item.body?<p>{item.body}</p>:null}</div><em>수정</em></button>
             {item.type==='SCHEDULE'?<button className="calendarDone" type="button" onClick={()=>toggle(item)}>{item.status==='DONE'?'완료 취소':'완료'}</button>:null}
+            {item.type!=='SCHEDULE'?<button className="calendarAgendaDelete" type="button" disabled={removingIds.has(item.id)} aria-label={`${item.title} 삭제`} onClick={()=>removeEntry(item)}><HarinIcon name="close" size={16}/>삭제</button>:null}
           </article>):<div className="calendarEmpty"><HarinIcon name="note" size={28}/><strong>이 날짜는 아직 비어 있어요.</strong><p>오른쪽 입력석에서 일정이나 메모를 바로 추가할 수 있어요.</p></div>}</div>
         </section>
       </div>

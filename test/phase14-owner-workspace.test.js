@@ -56,3 +56,27 @@ test('14-9 keeps order scan usable without a camera and opens it from global com
   assert.match(orders,/USB·블루투스 바코드 리더/);
   assert.match(orders,/inputMode="search"/);
 });
+
+test('캘린더 보관 삭제는 대상 화면과 미삭제 상태를 한 번의 변경 요청에서 확인한다',async()=>{
+  const filters=[];
+  let fromCount=0;
+  const item={id:'123e4567-e89b-42d3-a456-426614174000',status:'ARCHIVED'};
+  const chain={
+    update(value){assert.equal(value.status,'ARCHIVED');return this;},
+    eq(key,value){filters.push(['eq',key,value]);return this;},
+    neq(key,value){filters.push(['neq',key,value]);return this;},
+    select(){return this;},
+    single(){return Promise.resolve({data:item,error:null});},
+    maybeSingle(){return Promise.resolve({data:item,error:null});}
+  };
+  const result=await workspace.mutateWorkspace({from(table){fromCount+=1;assert.equal(table,'hub_work_items');return chain;}},{
+    action:'ARCHIVE_ITEM',id:item.id,contextHref:'/calendar'
+  });
+  assert.equal(fromCount,1);
+  assert.deepEqual(filters,[
+    ['eq','id',item.id],
+    ['eq','context_href','/calendar'],
+    ['neq','status','ARCHIVED']
+  ]);
+  assert.equal(result.item.status,'ARCHIVED');
+});
