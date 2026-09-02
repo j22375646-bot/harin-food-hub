@@ -8,24 +8,41 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
-test('23-8 loads the isolated entry stylesheet only on entry surfaces',()=>{
+test('23-8 keeps route loading isolated while login owns its Phase 28 stylesheet',()=>{
   const layout=read('app/layout.js');
   const login=read('app/login/page.js');
   const loading=read('app/_design-system/harin-loading-screen.js');
   assert.doesNotMatch(layout,/harin-entry-v8\.css/);
-  assert.match(login,/harin-entry-v8\.css/);
+  assert.match(login,/login\.module\.css/);
+  assert.doesNotMatch(login,/harin-entry-v8\.css/);
   assert.match(loading,/harin-entry-v8\.css/);
 });
 
-test('16-2 keeps password-only owner login while adding the pastel welcome layout',()=>{
+test('16-2 keeps password-only owner login inside the split welcome layout',()=>{
   const login=read('app/login/page.js');
   const form=read('app/login/login-form.js');
-  assert.match(login,/className="loginWelcome"/);
-  assert.match(login,/className="loginAccess"/);
+  assert.match(login,/className=\{styles\.loginHero\}/);
+  assert.match(login,/className=\{styles\.loginAccess\}/);
   assert.match(form,/action="\/api\/dashboard\/login" method="post"/);
   assert.match(form,/name="password"[\s\S]*type="password"[\s\S]*inputMode="numeric"[\s\S]*pattern="\[0-9\]\{6\}"/);
   assert.match(login,/nextPath\.startsWith\('\/'\)&&!nextPath\.startsWith\('\/\/'\)/);
   assert.doesNotMatch(`${login}\n${form}`,/name="(?:account|username|email)"/);
+});
+
+test('Phase 28 login opens with the Harin Daily Desk operating line and responsive accessible motion',()=>{
+  const login=read('app/login/page.js');
+  const css=read('app/login/login.module.css');
+  assert.match(login,/HARIN DAILY DESK/);
+  assert.match(login,/오늘의 운영선/);
+  for(const time of ['06:00','09:00','15:00','18:00'])assert.match(login,new RegExp(time.replace(':','\\:')));
+  assert.doesNotMatch(login,/loginHighlights/);
+  assert.match(css,/\.headlineAccent::after\{[\s\S]*animation:headlineDraw/);
+  assert.match(css,/@keyframes headlineDraw/);
+  assert.match(css,/\.loginPasswordField input\{[^}]*min-height:56px/);
+  assert.match(css,/@media \(max-width:960px\)/);
+  assert.match(css,/@media \(max-width:620px\)/);
+  assert.match(css,/@media \(prefers-reduced-motion:reduce\)/);
+  assert.doesNotMatch(css,/(?:radial|linear)-gradient\(/);
 });
 
 test('23-1 supersedes full route and hydration loading with the persistent shell',()=>{

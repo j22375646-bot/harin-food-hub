@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { HarinIcon } from '../_design-system/harin-icon.js';
+import styles from './login.module.css';
 
 export function LoginForm({ nextPath = '/' }) {
   const submittingRef = useRef(false);
@@ -16,10 +17,10 @@ export function LoginForm({ nextPath = '/' }) {
     setPending(true);
   }
 
-  return <form action="/api/dashboard/login" method="post" onSubmit={handleSubmit} aria-busy={pending}>
+  return <form className={styles.loginForm} action="/api/dashboard/login" method="post" onSubmit={handleSubmit} aria-busy={pending}>
     <input type="hidden" name="next" value={nextPath} />
     <label htmlFor="password">사장님 비밀번호</label>
-    <div className="loginPasswordField">
+    <div className={styles.loginPasswordField}>
       <HarinIcon name="shield"/>
       <input
         id="password"
@@ -36,14 +37,16 @@ export function LoginForm({ nextPath = '/' }) {
         // 재입력만 막고 비밀번호 값은 반드시 서버에 제출되도록 readOnly를 사용한다.
         readOnly={pending}
         aria-disabled={pending}
+        aria-describedby="password-help"
         placeholder="6자리 숫자"
       />
     </div>
-    <button type="submit" disabled={pending}>
+    <p id="password-help" className={styles.fieldHint}>숫자 6자리를 입력하면 바로 허브로 이동합니다.</p>
+    <button className={styles.submitButton} type="submit" disabled={pending}>
       <span>{pending ? '안전하게 확인 중…' : '허브 시작하기'}</span>
       <HarinIcon name={pending ? 'sync' : 'chevron'}/>
     </button>
-    <p className="loginSubmitStatus" aria-live="polite">
+    <p className={styles.loginSubmitStatus} aria-live="polite">
       {pending ? '한 번만 전송했어요. 로그인 확인이 끝나면 바로 열립니다.' : ''}
     </p>
   </form>;

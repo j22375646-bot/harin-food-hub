@@ -1,9 +1,9 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import '../_shell/harin-entry-v8.css';
 import authModule from '../../lib/dashboard-auth.js';
 import { HarinIcon } from '../_design-system/harin-icon.js';
 import { LoginForm } from './login-form.js';
+import styles from './login.module.css';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,24 +22,55 @@ export default async function LoginPage({ searchParams }) {
       ? '비밀번호를 다시 확인해주세요.'
       : null;
   const nextPath = String(params?.next || '/');
-  return <main className="loginPage">
-    <section className="loginCard">
-      <div className="loginWelcome">
-        <span className="loginBrandPill"><HarinIcon name="sparkles"/>하린식품 운영 허브</span>
-        <div className="loginBrand"><div className="loginLogo">H</div><span><b>하린식품</b><small>오늘의 운영을 한곳에서</small></span></div>
-        <h1>오늘도 차근차근,<br/>중요한 일부터 시작해볼까요?</h1>
-        <p>주문·재고·매출 상태를 보기 좋게 정리해두었어요.<br/>사장님 비밀번호만 입력하면 바로 이어서 볼 수 있습니다.</p>
-        <div className="loginHighlights" aria-label="허브 주요 기능">
-          <span><i><HarinIcon name="orders"/></i><b>주문·배송</b><small>오늘 출고할 일</small></span>
-          <span><i><HarinIcon name="inventory"/></i><b>재고·상품</b><small>위험 상품 확인</small></span>
-          <span><i><HarinIcon name="analysis"/></i><b>성과 분석</b><small>변화와 다음 행동</small></span>
+  return <main className={styles.loginPage}>
+    <section className={styles.loginFrame} aria-labelledby="login-title">
+      <header className={styles.loginTopbar}>
+        <div className={styles.loginBrand}>
+          <span className={styles.loginLogo} aria-hidden="true">H</span>
+          <span><b>하린식품</b><small>성장 운영 허브</small></span>
         </div>
-      </div>
-      <div className="loginAccess">
-        <header><span><HarinIcon name="shield"/>사장님 전용</span><h2>허브에 들어갈까요?</h2><p>계정 이름 없이 6자리 비밀번호만 입력해주세요.</p></header>
-        {error && <div className="loginError" role="alert"><HarinIcon name="alerts"/><span>{error}</span></div>}
+        <span className={styles.ownerAccess}><HarinIcon name="shield"/>사장님 전용</span>
+      </header>
+
+      <section className={styles.loginHero}>
+        <div className={styles.heroCopy}>
+          <span className={styles.heroLabel}>HARIN DAILY DESK</span>
+          <h1 id="login-title">오늘의 운영을<br/><span className={styles.headlineAccent}>한 자리에서 시작해요.</span></h1>
+          <p>주문부터 재고, 매출과 다음 행동까지<br/>사장님이 먼저 볼 일을 차분하게 모았습니다.</p>
+        </div>
+
+        <section className={styles.operatingLine} aria-labelledby="operating-line-title">
+          <header>
+            <span>TODAY FLOW</span>
+            <strong id="operating-line-title">오늘의 운영선</strong>
+            <small>하루의 중요한 흐름을 놓치지 않도록 이어드려요.</small>
+          </header>
+          <ol>
+            <li><time>06:00</time><strong>채널 자료 수집</strong></li>
+            <li><time>09:00</time><strong>출고 주문 처리</strong></li>
+            <li><time>15:00</time><strong>당일출고 마감</strong></li>
+            <li><time>18:00</time><strong>예외·재시도 정리</strong></li>
+          </ol>
+        </section>
+      </section>
+
+      <section className={styles.loginAccess} aria-labelledby="access-title">
+        <header className={styles.accessHeader}>
+          <span><HarinIcon name="shield"/>OWNER ACCESS</span>
+          <h2 id="access-title">운영을 시작할까요?</h2>
+          <p>계정 이름 없이 사장님 비밀번호만 입력해주세요.</p>
+        </header>
+        {error && <div className={styles.loginError} role="alert"><HarinIcon name="alerts"/><span>{error}</span></div>}
         <LoginForm nextPath={nextPath.startsWith('/')&&!nextPath.startsWith('//')?nextPath:'/'} />
-        <footer><HarinIcon name="shield"/><span><b>이 기기에서 12시간 유지</b><small>비밀번호와 운영 자료는 화면에 공개되지 않습니다.</small></span></footer>
+        <div className={styles.sessionNote}>
+          <HarinIcon name="clock"/>
+          <span><b>이 기기에서 12시간 유지</b><small>비밀번호와 운영 자료는 화면에 공개되지 않습니다.</small></span>
+        </div>
+      </section>
+
+      <div className={styles.frameFooter}>
+        <span><i aria-hidden="true"/>보안 세션</span>
+        <p>로그인 후 요청한 화면으로 바로 이동합니다.</p>
       </div>
     </section>
   </main>;
