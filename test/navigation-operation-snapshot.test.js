@@ -55,6 +55,14 @@ test('navigation snapshot keeps the newest authoritative value without turning a
   assert.equal(snapshotModule.parseNavigationOperationSnapshot(JSON.stringify(newer),Date.parse('2026-08-24T04:00:00.000Z')),null);
 });
 
+test('a partial refresh keeps the last complete snapshot instead of replacing known counts with zero or unknown',()=>{
+  const now=Date.parse('2026-09-02T07:40:00.000Z');
+  const complete={version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:30:00.000Z',badges:{orders:2,cs:1,inventory:3,notifications:4},connection:{ready:3,total:3}};
+  const partial={version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:39:00.000Z',badges:{orders:null,cs:0,inventory:0,notifications:2},connection:{ready:3,total:3}};
+  assert.equal(snapshotModule.selectFetchedNavigationOperationSnapshot(complete,partial,{partial:true,now}),complete);
+  assert.equal(snapshotModule.selectFetchedNavigationOperationSnapshot(complete,partial,{partial:false,now}),partial);
+});
+
 test('dashboard never replaces sidebar badges with route-scoped page arrays',()=>{
   const client=fs.readFileSync(path.join(root,'app','legacy-dashboard-client.js'),'utf8');
   assert.match(client,/buildNavigationOperationSnapshot\(initialData\)/);

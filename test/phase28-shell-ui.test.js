@@ -58,13 +58,24 @@ test('V106 shell reuses the newest authoritative Main snapshot across routes',()
   assert.match(shell,/NAVIGATION_SNAPSHOT_KEY/);
   assert.match(shell,/parseNavigationOperationSnapshot\(window\.localStorage\.getItem\(NAVIGATION_SNAPSHOT_KEY\)\)/);
   assert.match(shell,/NAVIGATION_SNAPSHOT_COOKIE/);
-  assert.match(shell,/serializeNavigationOperationSnapshotCookie\(incomingSnapshot\)/);
+  assert.match(shell,/serializeNavigationOperationSnapshotCookie\(parsed\)/);
   assert.match(shell,/document\.cookie=/);
   assert.match(shell,/selectNavigationOperationSnapshot/);
   assert.match(page,/parseNavigationOperationSnapshotCookie\(\s*cookieStore\.get\(operationSnapshotModule\.NAVIGATION_SNAPSHOT_COOKIE\)\?\.value\s*\)/);
   assert.match(page,/fallbackNavigationSnapshot/);
   assert.match(app,/navigationSnapshot=\{navigationSnapshot\}/);
   assert.doesNotMatch(app,/navigationSnapshot\?\.badges\|\|\{\}/);
+});
+
+test('shared shell refreshes the operation snapshot without requiring a Main visit',()=>{
+  const shell=read('app/_phase28/phase28-shell.js');
+  assert.match(shell,/\/api\/navigation\/operation-snapshot/);
+  assert.match(shell,/REFRESH_AFTER_MS/);
+  assert.match(shell,/visibilitychange/);
+  assert.match(shell,/refreshNavigationSnapshot\(\{force:true\}\)/);
+  assert.match(shell,/cache:'no-store'/);
+  assert.match(shell,/selectFetchedNavigationOperationSnapshot\(activeNavigationSnapshotRef\.current,payload\.snapshot,\{partial:payload\.partial\}\)/);
+  assert.match(shell,/aria-live="polite"/);
 });
 
 test('standalone lightweight routes receive the same verified navigation snapshot',()=>{

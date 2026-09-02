@@ -16,8 +16,10 @@ const {
   NAVIGATION_SNAPSHOT_KEY,
   NAVIGATION_SNAPSHOT_COOKIE,
   DISPLAY_MAX_AGE_MS,
+  REFRESH_AFTER_MS,
   navigationOperationSnapshotFreshness,
   parseNavigationOperationSnapshot,
+  selectFetchedNavigationOperationSnapshot,
   selectNavigationOperationSnapshot,
   serializeNavigationOperationSnapshotCookie
 }=operationSnapshotModule;
@@ -78,9 +80,12 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
   const moreTriggerRef=useRef(null);
   const routePendingTimerRef=useRef(null);
   const routePendingFrameRef=useRef(null);
+  const navigationSnapshotRequestRef=useRef(null);
   const incomingSnapshot=useMemo(()=>parseNavigationOperationSnapshot(incomingNavigationSnapshot),[incomingNavigationSnapshot]);
   const [storedNavigationSnapshot,setStoredNavigationSnapshot]=useState(incomingSnapshot);
   const activeNavigationSnapshot=selectNavigationOperationSnapshot(incomingSnapshot,storedNavigationSnapshot);
+  const activeNavigationSnapshotRef=useRef(activeNavigationSnapshot);
+  activeNavigationSnapshotRef.current=activeNavigationSnapshot;
   const effectiveBadges=activeNavigationSnapshot?.badges||badges;
   const snapshotFreshness=activeNavigationSnapshot?navigationOperationSnapshotFreshness(activeNavigationSnapshot):null;
   const navigation=useMemo(()=>buildPhase28Navigation({badges:effectiveBadges}),[effectiveBadges]);
@@ -134,6 +139,40 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
     };
     setSidebarScrollState(current=>current.up===next.up&&current.down===next.down?current:next);
   },[]);
+  const persistNavigationSnapshot=useCallback(snapshot=>{
+    const parsed=parseNavigationOperationSnapshot(snapshot);
+    if(!parsed)return null;
+    activeNavigationSnapshotRef.current=selectNavigationOperationSnapshot(activeNavigationSnapshotRef.current,parsed);
+    setStoredNavigationSnapshot(current=>selectNavigationOperationSnapshot(incomingSnapshot,current,parsed));
+    try{
+      window.localStorage.setItem(NAVIGATION_SNAPSHOT_KEY,JSON.stringify(parsed));
+      const encoded=serializeNavigationOperationSnapshotCookie(parsed);
+      if(encoded){
+        const secure=window.location.protocol==='https:'?'; Secure':'';
+        document.cookie=`${NAVIGATION_SNAPSHOT_COOKIE}=${encoded}; Path=/; Max-Age=${Math.floor(DISPLAY_MAX_AGE_MS/1000)}; SameSite=Lax${secure}`;
+      }
+    }catch{}
+    return parsed;
+  },[incomingSnapshot]);
+  const refreshNavigationSnapshot=useCallback(async({force=false}={})=>{
+    const current=activeNavigationSnapshotRef.current;
+    if(!force&&current&&!navigationOperationSnapshotFreshness(current).stale)return current;
+    if(navigationSnapshotRequestRef.current)return navigationSnapshotRequestRef.current;
+    const request=(async()=>{
+      try{
+        const response=await fetch('/api/navigation/operation-snapshot',{cache:'no-store',headers:{accept:'application/json'}});
+        if(!response.ok)return null;
+        const payload=await response.json();
+        if(!payload?.ok)return null;
+        const selected=selectFetchedNavigationOperationSnapshot(activeNavigationSnapshotRef.current,payload.snapshot,{partial:payload.partial});
+        if(selected===activeNavigationSnapshotRef.current)return selected;
+        return persistNavigationSnapshot(selected);
+      }catch{return null;}
+      finally{navigationSnapshotRequestRef.current=null;}
+    })();
+    navigationSnapshotRequestRef.current=request;
+    return request;
+  },[persistNavigationSnapshot]);
 
   useLayoutEffect(()=>{
     try{
@@ -186,18 +225,26 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
     try{
       storedSnapshot=parseNavigationOperationSnapshot(window.localStorage.getItem(NAVIGATION_SNAPSHOT_KEY));
     }catch{}
-    setStoredNavigationSnapshot(current=>selectNavigationOperationSnapshot(incomingSnapshot,storedSnapshot,current));
-    if(incomingSnapshot){
-      try{
-        window.localStorage.setItem(NAVIGATION_SNAPSHOT_KEY,JSON.stringify(incomingSnapshot));
-        const encoded=serializeNavigationOperationSnapshotCookie(incomingSnapshot);
-        if(encoded){
-          const secure=window.location.protocol==='https:'?'; Secure':'';
-          document.cookie=`${NAVIGATION_SNAPSHOT_COOKIE}=${encoded}; Path=/; Max-Age=${Math.floor(DISPLAY_MAX_AGE_MS/1000)}; SameSite=Lax${secure}`;
-        }
-      }catch{}
-    }
-  },[incomingSnapshot]);
+    const selected=selectNavigationOperationSnapshot(incomingSnapshot,storedSnapshot,activeNavigationSnapshotRef.current);
+    activeNavigationSnapshotRef.current=selected;
+    setStoredNavigationSnapshot(selected);
+    if(incomingSnapshot)persistNavigationSnapshot(incomingSnapshot);
+  },[incomingSnapshot,persistNavigationSnapshot]);
+
+  useEffect(()=>{
+    void refreshNavigationSnapshot();
+    const intervalId=window.setInterval(()=>{
+      if(document.visibilityState==='visible')void refreshNavigationSnapshot({force:true});
+    },REFRESH_AFTER_MS);
+    const onVisibilityChange=()=>{
+      if(document.visibilityState==='visible')void refreshNavigationSnapshot();
+    };
+    document.addEventListener('visibilitychange',onVisibilityChange);
+    return ()=>{
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange',onVisibilityChange);
+    };
+  },[refreshNavigationSnapshot]);
 
   useEffect(()=>{
     const frame=requestAnimationFrame(syncSidebarScrollState);
@@ -246,7 +293,10 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
   }
 
   function refreshStatus() {
-    startRefresh(()=>router.refresh());
+    startRefresh(async()=>{
+      await refreshNavigationSnapshot({force:true});
+      router.refresh();
+    });
   }
 
   return (
@@ -255,7 +305,7 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
         <div className={styles.sidebarScrollArea} ref={sidebarScrollRef} onScroll={syncSidebarScrollState}>
           <Phase28IntentLink href="/" className={styles.brand} aria-label="하린식품 홈(오늘)으로 이동"><span className={styles.brandMark}>H</span><span className={styles.brandCopy}><strong>하린식품</strong><small>성장 운영 허브</small></span></Phase28IntentLink>
           <button className={styles.sideSearch} type="button" onClick={()=>setCommandOpen(true)} aria-label="메뉴와 업무 찾기"><span aria-hidden="true">⌕</span><span>메뉴·업무 찾기</span></button>
-          <section className={styles.sideCompanyStatus} aria-label={vitality.known?`오늘 회사 활력 ${vitality.score}점, ${vitality.label}`:'오늘 회사 활력 확인 필요'}>
+          <section className={styles.sideCompanyStatus} aria-live="polite" aria-label={vitality.known?`오늘 회사 활력 ${vitality.score}점, ${vitality.label}`:'오늘 회사 활력 확인 필요'}>
             <header><span>오늘 회사 활력</span><b>{vitality.label}</b></header>
             <div><strong>{vitality.known?vitality.score:'—'}</strong>{vitality.known?<p><b>{vitality.attention}건</b> 확인하면<br/>운영 흐름이 가벼워져요.</p>:<p><b>확인 필요</b><br/>운영 집계를 불러오지 않았어요.</p>}</div>
             <em><i style={{width:vitality.known?`${vitality.score}%`:'0%'}}/></em>
