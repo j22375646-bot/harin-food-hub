@@ -21,6 +21,22 @@ test("fixed-IP sync retries rejoin the same single-flight recovery loop", () => 
   assert.match(source, /createSingleFlight\(\(\) => processPending\(db\)\)/);
 });
 
+test("watch worker executes full sync directly while one-shot helper stays queued", () => {
+  const workerSource = fs.readFileSync(
+    path.join(__dirname, "..", "scripts", "coupang-local-worker.js"),
+    "utf8",
+  );
+  const oneShotSource = fs.readFileSync(
+    path.join(__dirname, "..", "scripts", "coupang-local-sync.js"),
+    "utf8",
+  );
+
+  assert.doesNotMatch(workerSource, /automation\/sync-all\.js/);
+  assert.match(workerSource, /await syncAll\(\)/);
+  assert.match(oneShotSource, /automation\/sync-all\.js/);
+  assert.match(oneShotSource, /await syncCoupang\(['"]MANUAL['"]\)/);
+});
+
 function chain(terminal, calls) {
   const query = {};
   for (const method of ["select", "eq", "in", "order", "limit", "lt"])

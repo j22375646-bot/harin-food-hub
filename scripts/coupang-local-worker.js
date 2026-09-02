@@ -17,8 +17,8 @@ require("dotenv").config({
 });
 
 const { getSupabase } = require("../lib/cafe24/supabase.js");
-const { syncCoupang } = require("../lib/automation/sync-all.js");
 const {
+  syncAll,
   syncRocketGrowthInventoryOnly,
   syncRocketGrowthRealtime,
   syncSellerOrdersRealtime,
@@ -215,7 +215,7 @@ async function processRequest(db, request) {
             ? await syncSellerOrdersRealtime()
             : request.request_type === "CS_REALTIME"
               ? await syncCustomerServiceRealtime()
-              : await syncCoupang("MANUAL");
+              : await syncAll();
     const saved = await db
       .from("coupang_sync_requests")
       .update({
