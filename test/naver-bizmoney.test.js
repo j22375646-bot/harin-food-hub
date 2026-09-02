@@ -53,6 +53,20 @@ test('period rows backfill official daily use when exhaust detail is absent',()=
   assert.equal(bizmoney.advertisingUsed(row),10000);
 });
 
+test('Naver exhaust history debit signs become positive advertising expense evidence',()=>{
+  const [row]=bizmoney.normalizeBizmoneyDaily({
+    exhausts:[
+      {settleDt:'2026-09-02',useRefundableAmt:-22000,useNonrefundableAmt:0},
+      {settleDt:'2026-09-02',useRefundableAmt:-3000,useNonrefundableAmt:0}
+    ],
+    periods:[{settleDt:'2026-09-02',useRefundableAmt:25000,useNonRefundableAmt:0,refundableAmt:-1200,nonRefundableAmt:0}]
+  });
+  assert.equal(row.used_purchased,25000);
+  assert.equal(row.used_free,0);
+  assert.equal(row.closing_balance,-1200);
+  assert.equal(bizmoney.advertisingUsed(row),25000);
+});
+
 test('latest successful server-only raw snapshots rebuild Bizmoney evidence without exposing the raw payload',()=>{
   const rows=bizmoney.normalizeBizmoneyRawSnapshots([
     {endpoint:'/billing/bizmoney/histories/charge',http_status:200,created_at:'2026-09-02T01:00:00Z',response_json:[{statDt:'2026-09-02',newRefundableAmt:110000,newNonRefundableAmt:0}]},
