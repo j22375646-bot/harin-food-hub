@@ -19,6 +19,9 @@ test('server owns three settlement periods and the settlement adapter on its rea
   assert.match(page,/coupangAdSettlements:coupangAdSettlementResult\.data \|\| \[\]/);
   assert.match(page,/coupangRgOrders:coupangRgOrdersResult\.data \|\| \[\]/);
   assert.match(page,/coupangRgOrderItems:coupangRgOrderItemsResult\.data \|\| \[\]/);
+  assert.match(page,/cafe24FinanceSync:/);
+  assert.match(page,/\.eq\('platform','CAFE24'\)\.eq\('job_type','FETCH_ALL'\)/);
+  assert.match(page,/syncs:\[\.\.\.cafe24FinanceSyncRows,\.\.\.\(syncResult\.data \|\| \[\]\)\]/);
 });
 
 test('Phase 28 app renders the V106 settlement decision spine',()=>{

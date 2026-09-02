@@ -1329,6 +1329,11 @@ async function getDashboardData(state) {
     cafe24Token:focusedEarlyReturn||view==='collection'||view==='settlement' ? Promise.allSettled([
       db.from('cafe24_oauth_tokens').select('token_data').eq('mall_id',process.env.CAFE24_MALL_ID).maybeSingle()
     ]) : Promise.resolve([{status:'fulfilled',value:{data:null,error:null}}]),
+    cafe24FinanceSync:view==='settlement' ? Promise.allSettled([
+      db.from('sync_logs').select('platform,job_type,status,started_at,finished_at,metadata')
+        .eq('platform','CAFE24').eq('job_type','FETCH_ALL')
+        .order('started_at',{ascending:false}).limit(1).maybeSingle()
+    ]) : Promise.resolve([{status:'fulfilled',value:{data:null,error:null}}]),
     productTargets:Promise.allSettled([
       db.from('product_ad_targets').select('master_product_id,target_profit_margin_rate,notes,formula_version,updated_at').limit(500)
     ]),
@@ -1972,6 +1977,13 @@ async function getDashboardData(state) {
   queryIssues.push(...collectionCafe24TokenSettled.issues);
   const resolvedCafe24Token=collectionCafe24TokenSettled.results[0].data?.token_data||null;
   const collectionCafe24Token=view==='collection'?resolvedCafe24Token:undefined;
+  const cafe24FinanceSyncSettled=dataHealthModule.settleQueries(await supplementalQueries.cafe24FinanceSync,[
+    {platform:'CAFE24',dataset:'sync_logs_finance'}
+  ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
+  queryIssues.push(...cafe24FinanceSyncSettled.issues);
+  const cafe24FinanceSyncRows=cafe24FinanceSyncSettled.results[0].data
+    ?[cafe24FinanceSyncSettled.results[0].data]
+    :[];
   const bidLinksSettled=dataHealthModule.settleQueries(await supplementalQueries.bidLinks,[{platform:'NAVER',dataset:'naver_keyword_product_links'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
   queryIssues.push(...bidLinksSettled.issues);
   const naverKeywordProductLinks=bidLinksSettled.results[0].data||[];
@@ -2272,7 +2284,7 @@ async function getDashboardData(state) {
     coupangRgOrders:coupangRgOrdersResult.data || [],
     coupangRgOrderItems:coupangRgOrderItemsResult.data || [],
     channelCostSettings:effectiveChannelCostSettings,
-    syncs:syncResult.data || [],
+    syncs:[...cafe24FinanceSyncRows,...(syncResult.data || [])],
     unavailable:{
       CAFE24:Boolean(ordersResult.unavailable),
       NAVER:Boolean(naverCommerceSettlementsResult.unavailable),

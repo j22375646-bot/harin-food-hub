@@ -323,6 +323,36 @@ test('채널 조회 실패는 저장된 0원 대신 자료 확인 필요로 격�
   assert.ok(center.channels.every(item=>item.status==='UNAVAILABLE'));
 });
 
+test('Cafe24 토큰 범위가 연결되어도 최근 매출통계 호출이 403이면 개발자 승인 필요로 표시한다',()=>{
+  const center=buildUnifiedSettlementCenter({now,
+    cafe24Token:{access_token:'token',scope:'mall.read_order mall.read_salesreport'},
+    cafe24Orders:[{order_id:'C1',order_date:'2026-08-10',paid_amount:100000}],
+    channelCostSettings:[{platform:'CAFE24',commission_rate:0.03,payment_fee_rate:0.02,default_shipping_cost:3000}],
+    syncs:[{
+      platform:'CAFE24',job_type:'FETCH_ALL',status:'PARTIAL',finished_at:'2026-08-11T00:00:00Z',
+      metadata:{capabilities:{settlement:'SETUP_REQUIRED'},errors:[{dataset:'salesDaily',status:403,code:'SETUP_REQUIRED'}]}
+    }]
+  });
+  const cafe24=center.channels.find(item=>item.platform==='CAFE24');
+  assert.equal(cafe24.status,'APPROVAL_REQUIRED');
+  assert.match(cafe24.basis,/개발자 승인 필요/);
+  assert.match(cafe24.action,/개발자센터/);
+});
+
+test('Cafe24 기본 0원 비용 행은 실제 비용 설정으로 인정하지 않는다',()=>{
+  const center=buildUnifiedSettlementCenter({now,
+    cafe24Token:{access_token:'token',scope:'mall.read_order mall.read_salesreport'},
+    cafe24Orders:[{order_id:'C1',order_date:'2026-08-10',paid_amount:100000}],
+    channelCostSettings:[{platform:'CAFE24',commission_rate:0,payment_fee_rate:0,default_shipping_cost:0,notes:null}]
+  });
+  const cafe24=center.channels.find(item=>item.platform==='CAFE24');
+  assert.equal(cafe24.status,'COST_REQUIRED');
+  assert.equal(cafe24.fees,null);
+  assert.equal(cafe24.logistics,null);
+  assert.equal(cafe24.expected_payout,null);
+  assert.match(cafe24.basis,/비용 설정 필요/);
+});
+
 test('예상 정산액과 실제 지급액 차이 및 정산 흐름을 계산한다', () => {
   const center=buildUnifiedSettlementCenter({now,coupangSettlements:[
     {order_id:'O1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:10000,settlement_amount:90000}
