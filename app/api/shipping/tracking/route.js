@@ -40,7 +40,7 @@ export async function POST(request) {
     const center=await unifiedOrdersModule.loadUnifiedOrders({db});
     const candidates=center.orders.filter(order=>/^\d{13}$/.test(String(order.invoiceNumber||''))&&order.fulfillment!=='ROCKET_GROWTH'&&(!requested.size||requested.has(order.hubOrderId)));
     if(!candidates.length)return apiSafety.json({ok:false,error:requested.size?'선택 주문에 확인할 우체국 송장이 없습니다.':'배송상태를 확인할 진행중 우체국 송장이 없습니다.'},{status:409});
-    const queued=await trackingQueue.queueTrackingForOrders(db,candidates,{kind:'manual'});
+    const queued=await trackingQueue.queueTrackingForOrders(db,candidates,{kind:trackingQueue.requestKind(body)});
     return apiSafety.json({ok:true,pending:queued.some(item=>['PENDING','RUNNING'].includes(item.status)),queued},{status:queued.some(item=>['PENDING','RUNNING'].includes(item.status))?202:200,headers:{'Cache-Control':'no-store'}});
   }catch(error){
     console.error('[epost tracking queue]',{message:error.message});

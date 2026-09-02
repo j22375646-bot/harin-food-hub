@@ -230,6 +230,30 @@ test('실패한 송장 전송은 같은 기록을 PENDING으로 되돌려 채널
   }
 });
 
+test('자동 배송조회 실패는 같은 시간 구간에서 재실행하지 않는다', async () => {
+  const previous=process.env.SUPABASE_SERVICE_ROLE_KEY;
+  process.env.SUPABASE_SERVICE_ROLE_KEY=secret;
+  try {
+    const calls=[];
+    let tableCalls=0;
+    const failed={id:'failed-tracking',operation_type:'EPOST_TRACKING',target_type:'TRACKING',target_id:'1234567890123',status:'FAILED'};
+    const retried={...failed,status:'PENDING'};
+    const responses=[{data:null,error:null},{data:failed,error:null},{data:retried,error:null}];
+    const db={from:()=>chain(responses[tableCalls++],calls)};
+    const result=await queue.queueOperation(db,{
+      operationType:'EPOST_TRACKING',targetType:'TRACKING',targetId:'1234567890123',
+      idempotencyKey:'epost:tracking:automatic:1234567890123:2026-09-03T10:00',
+      retryFailed:false
+    });
+    assert.equal(result.reusedTerminal,true);
+    assert.equal(result.request.status,'FAILED');
+    assert.equal(calls.some(([method])=>method==='update'),false);
+    assert.equal(calls.some(([method])=>method==='insert'),false);
+  } finally {
+    if(previous===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=previous;
+  }
+});
+
 test('고정 IP 워커가 조회·주문·문의·반품교환 작업을 올바른 실행기로 보낸다', async () => {
   const calls=[];
   const handlers={

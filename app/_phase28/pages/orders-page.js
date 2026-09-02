@@ -290,7 +290,7 @@ export default function Phase28OrdersPage({model={}}){
     .map(order=>order.hubOrderId),[orders]);
   const automaticTrackingKey=automaticTrackingIds.join('|');
   const previewOrder=orders.find(order=>order.hubOrderId===previewOrderId)||selectedOrders[0]||stageOrders[0]||null;
-  const queueAndPollTracking=useCallback(async (ids,{silent=false}={})=>{
+  const queueAndPollTracking=useCallback(async (ids,{silent=false,automatic=false}={})=>{
     const orderIds=[...new Set((ids||[]).map(value=>String(value||'').trim()).filter(Boolean))];
     if(!orderIds.length)return {ok:false,error:'확인할 배송 주문이 없습니다.'};
     if(trackingRunRef.current){
@@ -303,7 +303,7 @@ export default function Phase28OrdersPage({model={}}){
       const queuedRows=[];
       for(let index=0;index<orderIds.length;index+=100){
         const batch=orderIds.slice(index,index+100);
-        const response=await fetch('/api/shipping/tracking',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({orderIds:batch})});
+        const response=await fetch('/api/shipping/tracking',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({orderIds:batch,mode:automatic?'automatic':'manual'})});
         const queued=await response.json();
         if(!response.ok||!queued.ok)throw new Error(queued.error||'배송상태 확인 시작 실패');
         queuedRows.push(...(queued.queued||[]));
@@ -426,7 +426,7 @@ export default function Phase28OrdersPage({model={}}){
     let stopped=false;
     const run=()=>{
       if(stopped||document.visibilityState==='hidden')return;
-      queueAndPollTracking(ids,{silent:true});
+      queueAndPollTracking(ids,{silent:true,automatic:true});
     };
     const initial=window.setTimeout(run,5000);
     const timer=window.setInterval(run,60000);

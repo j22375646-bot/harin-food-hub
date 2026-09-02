@@ -5,6 +5,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const tracking=require('../lib/epost/tracking.js');
+const trackingQueue=require('../lib/shipping/tracking-queue.js');
 const label=require('../lib/shipping/label.js');
 
 const xml=`<?xml version="1.0" encoding="UTF-8"?><response><regiNo>1234567890123</regiNo><item><eventhms>20260814101500</eventhms><eventnm>접수</eventnm><eventregiponm>승주우체국</eventregiponm></item><item><eventhms>20260815143000</eventhms><eventnm>배달완료</eventnm><eventregiponm>서울중앙우체국</eventregiponm><delivrsltNm>배달완료</delivrsltNm></item></response>`;
@@ -47,6 +48,31 @@ test('tracking client requires the dedicated server key and uses the official tr
   assert.equal(result.statusCode,'DELIVERED');
   assert.match(called,/target=trace/);
   assert.match(called,/query=1234567890123/);
+});
+
+test('coalesces automatic tracking refreshes into five-minute windows while keeping manual refresh explicit',()=>{
+  assert.equal(trackingQueue.requestKind?.({mode:'automatic'}),'automatic');
+  assert.equal(trackingQueue.requestKind?.({mode:'manual'}),'manual');
+  assert.equal(trackingQueue.requestKind?.({mode:'unexpected'}),'manual');
+  assert.equal(trackingQueue.bucketKey('automatic',new Date('2026-09-03T10:00:01.000Z')),'2026-09-03T10:00');
+  assert.equal(trackingQueue.bucketKey('automatic',new Date('2026-09-03T10:04:59.999Z')),'2026-09-03T10:00');
+  assert.equal(trackingQueue.bucketKey('automatic',new Date('2026-09-03T10:05:00.000Z')),'2026-09-03T10:05');
+  assert.equal(
+    trackingQueue.idempotencyKey?.('automatic','1234567890123',new Date('2026-09-03T10:00:01.000Z')),
+    'epost:tracking:automatic:1234567890123:2026-09-03T10:00'
+  );
+  assert.equal(
+    trackingQueue.idempotencyKey?.('manual','1234567890123',new Date('2026-09-03T10:00:01.000Z')),
+    'epost:tracking:manual:1234567890123:2026-09-03T10:00'
+  );
+  assert.notEqual(
+    trackingQueue.idempotencyKey?.('automatic','1234567890123',new Date('2026-09-03T10:00:01.000Z')),
+    trackingQueue.idempotencyKey?.('manual','1234567890123',new Date('2026-09-03T10:00:01.000Z'))
+  );
+  assert.notEqual(
+    trackingQueue.bucketKey('manual',new Date('2026-09-03T10:00:01.000Z')),
+    trackingQueue.bucketKey('manual',new Date('2026-09-03T10:01:01.000Z'))
+  );
 });
 
 test('creates a scannable Code 128 label barcode for a 13 digit postal number',()=>{
