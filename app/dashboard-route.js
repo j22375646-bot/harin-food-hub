@@ -1318,6 +1318,7 @@ async function getDashboardData(state) {
   const calendarQueryRange=view==='main'
     ?calendarCenterModule.dayRange(calendarCenterModule.seoulDateKey(generatedAt))
     :calendarCenterModule.visibleMonthRange(calendarCenterModule.seoulDateKey(generatedAt).slice(0,7));
+  const supplementalNeeds=pageLoaderProfilesModule.supplementalQueryNeedsForState(state);
   const supplementalQueries={
     mainTargets:view==='main' ? Promise.allSettled([
       db.from('business_targets').select('id,target_month,platform,revenue_target,ad_budget,target_roas,notes,updated_at').eq('target_month',`${kstScheduleModule.kstDateKey(generatedAt).slice(0,7)}-01`)
@@ -1356,18 +1357,18 @@ async function getDashboardData(state) {
       db.from('financial_change_audit_logs').select('id,change_request_id,event_type,from_status,to_status,created_at').order('created_at',{ascending:true}).limit(1000),
       db.from('ab_tests').select('id,name,platform,hypothesis,start_date,end_date,status,evaluation_status,winner_variant_id,result_summary,created_at,ab_test_variants(id,name,is_control,entity_id,impressions,clicks,conversions,orders,revenue)').order('created_at',{ascending:false}).limit(100)
     ]),
-    csAudits:Promise.allSettled([
+    csAudits:supplementalNeeds.csAudits ? Promise.allSettled([
       db.from('coupang_operation_requests').select('id,operation_type,target_type,target_id,status,created_at,executed_at,error_message').in('target_type',['INQUIRY','RETURN','EXCHANGE']).order('created_at',{ascending:false}).limit(300)
-    ]),
+    ]) : Promise.resolve([{status:'fulfilled',value:{data:[],error:null}}]),
     channelCs:Promise.allSettled([
       (view==='main'
         ? db.from('customer_service_items').select('id,source_key,platform,kind,completed').or('completed.eq.false,completed.is.null')
         : db.from('customer_service_items').select('id,source_key,platform,kind,source_id,source_subtype,status,completed,answered,order_id,product_id,occurred_at,title_envelope,content_envelope,raw_summary,source_updated_at,collected_at'))
         .order('occurred_at',{ascending:false}).limit(1000)
     ]),
-    keywordPeriod:Promise.allSettled([
+    keywordPeriod:supplementalNeeds.keywordPeriod ? Promise.allSettled([
       db.from('naver_keyword_stats').select('period_start,period_end').order('period_end',{ascending:false}).order('period_start',{ascending:true}).limit(1).maybeSingle()
-    ]),
+    ]) : Promise.resolve([{status:'fulfilled',value:{data:null,error:null}}]),
     aiResults:Promise.allSettled([
       db.from('ai_analysis_results').select('id,analysis_type,page_key,status,result_mode,data_status,period_label,formula_version,result,created_at,model,knowledge_versions')
         .not('page_key','is',null).order('created_at',{ascending:false}).limit(30)
@@ -1381,10 +1382,10 @@ async function getDashboardData(state) {
     inventoryLots:view==='inventory' ? Promise.allSettled([
       db.from('inventory_lots').select('id,platform,vendor_item_id,lot_code,received_on,manufactured_on,expires_on,quantity,status,notes,created_at,updated_at').order('expires_on',{ascending:true}).order('updated_at',{ascending:false}).limit(500)
     ]) : Promise.resolve([{status:'fulfilled',value:{data:[],error:null}}]),
-    reliability:Promise.allSettled([
+    reliability:supplementalNeeds.reliability ? Promise.allSettled([
       db.from('worker_heartbeats').select('worker_id,service_name,collector,status,source_ip,current_job_type,current_job_id,started_at,last_seen_at,last_success_at,last_error,updated_at').order('last_seen_at',{ascending:false}).limit(20),
       db.from('coupang_operation_requests').select('id,operation_type,target_type,target_id,status,error_message,attempt_count,manual_retry_count,dead_lettered_at,executed_at,created_at').eq('status','FAILED').order('created_at',{ascending:false}).limit(50)
-    ]),
+    ]) : Promise.resolve(Array.from({length:2},()=>({status:'fulfilled',value:{data:[],error:null}}))),
     naverApiReadiness:view==='collection' ? Promise.allSettled([
       db.from('sync_logs').select('id,platform,job_type,status,started_at,finished_at,rows_received,error_message,metadata')
         .eq('platform','NAVER')
@@ -1483,7 +1484,9 @@ async function getDashboardData(state) {
       .order('updated_at',{ascending:false}).limit(view==='orders'?100:500),
     view==='changes'?Promise.resolve({data:[],error:null}):db.from('naver_campaigns').select('ncc_campaign_id,name,campaign_type,status,user_lock'),
     view==='changes'?Promise.resolve({data:[],error:null}):db.from('naver_adgroups').select('ncc_adgroup_id,ncc_campaign_id,name,status,user_lock',{count:'exact'}).limit(1000),
-    db.from('naver_keywords').select('*',{count:'exact',head:true}),
+    supplementalNeeds.keywordCount
+      ? db.from('naver_keywords').select('*',{count:'exact',head:true})
+      : Promise.resolve({data:null,error:null,count:0}),
     focusedEarlyReturn?Promise.resolve({data:null,error:null}):db.from('sync_logs').select('status,finished_at,error_message,metadata').eq('platform','NAVER').eq('job_type','FETCH_ALL').order('started_at',{ascending:false}).limit(1).maybeSingle(),
     db.from('naver_stats_daily').select('date,entity_id,entity_type,impressions,clicks,cost,conversions,conversion_revenue').order('date',{ascending:false}).limit(1200),
     optionalTableQuery(db.from('naver_bizmoney_daily').select('date,charged_purchased,charged_free,used_purchased,used_free,refunded_purchased,refunded_free,returned_purchased,closing_balance,current_balance,charge_events,deduction_events,updated_at').order('date',{ascending:false}).limit(366)),
@@ -1498,14 +1501,16 @@ async function getDashboardData(state) {
     db.from('channel_shipping_rules').select('platform,return_shipping_cost,return_rate,remote_area_surcharge,remote_area_rate,notes,updated_at'),
     db.from('coupang_products').select('seller_product_id,product_name,status,raw_data').order('updated_at',{ascending:false}).limit(100),
     db.from('coupang_orders').select('shipment_box_id,order_id,ordered_at,paid_at,status,gross_amount,raw_data').order('ordered_at',{ascending:false}).limit(rowLimit('orders',2000)),
-    view==='orders'
-      ?db.from('coupang_operation_requests')
-        .select('id,operation_type,target_type,target_id,status,payload,result_json,error_message,created_at,executed_at')
-        .in('operation_type',['ORDER_DETAIL','UPLOAD_INVOICE',channelTransferModule.CAFE24_OPERATION,trackingQueueModule.OPERATION,issueHistoryModule.OPERATION])
-        .order('created_at',{ascending:false}).limit(5000)
-      :db.from('coupang_operation_requests').select('operation_type,target_id,status,error_message,created_at')
-        .eq('operation_type','ORDER_DETAIL').eq('target_type','ORDER').in('status',['CANCELLED','FAILED'])
-        .order('created_at',{ascending:false}).limit(5000),
+    supplementalNeeds.coupangOrderTerminals
+      ? view==='orders'
+        ?db.from('coupang_operation_requests')
+          .select('id,operation_type,target_type,target_id,status,payload,result_json,error_message,created_at,executed_at')
+          .in('operation_type',['ORDER_DETAIL','UPLOAD_INVOICE',channelTransferModule.CAFE24_OPERATION,trackingQueueModule.OPERATION,issueHistoryModule.OPERATION])
+          .order('created_at',{ascending:false}).limit(5000)
+        :db.from('coupang_operation_requests').select('operation_type,target_id,status,error_message,created_at')
+          .eq('operation_type','ORDER_DETAIL').eq('target_type','ORDER').in('status',['CANCELLED','FAILED'])
+          .order('created_at',{ascending:false}).limit(5000)
+      :Promise.resolve({data:[],error:null}),
     db.from('coupang_order_items').select('external_item_key,shipment_box_id,order_id,vendor_item_id,seller_product_id,product_name,quantity,unit_price,paid_amount,status,raw_data').limit(rowLimit('items',5000)),
     db.from('coupang_settlements').select('order_id,vendor_item_id,recognition_date,sale_type,sale_amount,service_fee,service_fee_vat,settlement_amount,quantity').order('recognition_date',{ascending:false}).limit(5000),
     rocketGrowthInventoryQuery,

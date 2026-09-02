@@ -53,6 +53,40 @@ test('23-2 never mixes Naver and Coupang keyword provider queries',()=>{
   assert.equal(naver.target_ms,4000);
 });
 
+test('23-2 keeps Naver keyword workspaces on the tables they actually render',()=>{
+  const registered=loaders.profileForState({view:'keyword',workspace:'registered',platform:'naver'});
+  const diagnosis=loaders.profileForState({view:'keyword',workspace:'diagnosis',platform:'naver'});
+  const performance=loaders.profileForState({view:'keyword',workspace:'performance',platform:'naver'});
+  const required=[
+    'master_products','channel_products','product_costs','ai_analysis_results',
+    'product_ad_targets','cafe24_oauth_tokens','naver_campaigns','naver_adgroups',
+    'naver_keywords','naver_keyword_stats','naver_keyword_product_links'
+  ];
+  for(const profile of [registered,diagnosis,performance]){
+    for(const table of required)assert.equal(profile.tables.includes(table),true,`${profile.workspace} requires ${table}`);
+    assert.equal(profile.tables.includes('naver_stats_daily'),false);
+    assert.equal(profile.tables.includes('channel_cost_settings'),false);
+    assert.equal(profile.tables.includes('channel_shipping_rules'),false);
+  }
+  assert.equal(registered.tables.includes('product_detail_checklists'),false);
+  assert.equal(diagnosis.tables.includes('product_detail_checklists'),true);
+});
+
+test('23-2 schedules supplemental reads only for pages that consume them',()=>{
+  const main=loaders.supplementalQueryNeedsForState({view:'main'});
+  const inventory=loaders.supplementalQueryNeedsForState({view:'inventory'});
+  const registered=loaders.supplementalQueryNeedsForState({view:'keyword',workspace:'registered'});
+  const changes=loaders.supplementalQueryNeedsForState({view:'changes'});
+  const cs=loaders.supplementalQueryNeedsForState({view:'cs'});
+  const collection=loaders.supplementalQueryNeedsForState({view:'collection',workspace:'overview'});
+  assert.deepEqual(main,{csAudits:false,keywordPeriod:false,keywordCount:false,coupangOrderTerminals:true,reliability:false});
+  assert.deepEqual(inventory,{csAudits:false,keywordPeriod:false,keywordCount:false,coupangOrderTerminals:false,reliability:false});
+  assert.deepEqual(registered,{csAudits:false,keywordPeriod:true,keywordCount:true,coupangOrderTerminals:false,reliability:false});
+  assert.deepEqual(changes,{csAudits:false,keywordPeriod:true,keywordCount:false,coupangOrderTerminals:false,reliability:false});
+  assert.deepEqual(cs,{csAudits:true,keywordPeriod:false,keywordCount:false,coupangOrderTerminals:false,reliability:false});
+  assert.deepEqual(collection,{csAudits:false,keywordPeriod:false,keywordCount:false,coupangOrderTerminals:false,reliability:true});
+});
+
 test('23-2 scopes insight and product workspaces to the data they render',()=>{
   const collection=loaders.profileForState({view:'collection',workspace:'overview',platform:'all'});
   const overview=loaders.profileForState({view:'insight',workspace:'overview',platform:'all'});
