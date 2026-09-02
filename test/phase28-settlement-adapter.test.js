@@ -70,6 +70,26 @@ test('settlement adapter exposes payout, variance, cost, and history evidence wi
   assert.equal(model.writePolicy,'READ_ONLY');
 });
 
+test('settlement adapter marks a partial actual payout as confirmed-only and breaks unknown deduction links',()=>{
+  const source=center(30,[channel('NAVER'),channel('CAFE24',{status:'COST_REQUIRED',fees:null,logistics:null,expected_payout:null,actual_payout:null,payout_variance:null})]);
+  source.waterfall={
+    gross_sales:2000000,refunds:null,fees:null,logistics:null,advertising:20000,
+    expected_payout:null,actual_payout:820000,actual_payout_complete:false,
+    actual_channel_count:1,revenue_channel_count:2,actual_payout_coverage:50,
+    variance:null,comparable_channels:1
+  };
+  const period=buildPhase28SettlementModel({settlementPeriods:{30:source}}).periods['30'];
+  const advertising=period.waterfall.find(item=>item.id==='advertising');
+  const actual=period.waterfall.find(item=>item.id==='actual');
+  assert.equal(period.actualComplete,false);
+  assert.equal(period.actualCoverage,50);
+  assert.equal(period.automation.state,'COLLECTING');
+  assert.equal(period.automation.knownPoints,3);
+  assert.equal(advertising.chainConnected,false);
+  assert.equal(actual.label,'확인된 지급');
+  assert.equal(actual.partial,true);
+});
+
 test('settlement adapter names payout variance direction instead of collapsing it into generic review',()=>{
   const model=buildPhase28SettlementModel({settlementPeriods:{30:center(30,[
     channel('COUPANG',{payout_variance:8812,actual_payout:858812}),

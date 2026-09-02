@@ -10,6 +10,7 @@ import {pushPhase28Route} from '../phase28-navigation-feedback.js';
 import './settlement-page.css';
 
 const CHANNEL_ORDER=['NAVER','CAFE24','COUPANG','COUPANG_RG'];
+const AUTO_REFRESH_MS=5*60*1000;
 const WORKSPACES=[
   {id:'payouts',label:'지급 내역'},
   {id:'variance',label:'차이'},
@@ -41,24 +42,21 @@ function platformLabel(platform){return platform==='NAVER'?'네이버':platform=
 function platformBrand(platform){return platform==='COUPANG_COMBINED'?'COUPANG':platform;}
 
 function waterfallLayout(items){
-  const values=Object.fromEntries(items.map(item=>[item.id,item.value]));
-  const gross=Math.max(0,Number(values.gross)||0);
-  const refunds=Math.max(0,Number(values.refunds)||0);
-  const fees=Math.max(0,Number(values.fees)||0);
-  const logistics=Math.max(0,Number(values.logistics)||0);
-  const advertising=Math.max(0,Number(values.advertising)||0);
-  const expected=Number(values.expected)||0;
-  const actual=Number(values.actual)||0;
-  const max=Math.max(gross,Math.abs(expected),Math.abs(actual),refunds,fees,logistics,advertising,1);
-  const layout={
-    gross:{height:gross,bottom:0,connector:gross},
-    refunds:{height:refunds,bottom:Math.max(0,gross-refunds),connector:Math.max(0,gross-refunds)},
-    fees:{height:fees,bottom:Math.max(0,gross-refunds-fees),connector:Math.max(0,gross-refunds-fees)},
-    logistics:{height:logistics,bottom:Math.max(0,gross-refunds-fees-logistics),connector:Math.max(0,gross-refunds-fees-logistics)},
-    advertising:{height:advertising,bottom:Math.max(0,gross-refunds-fees-logistics-advertising),connector:Math.max(0,gross-refunds-fees-logistics-advertising)},
-    expected:{height:Math.abs(expected),bottom:0,connector:Math.max(0,expected)},
-    actual:{height:Math.abs(actual),bottom:0,connector:Math.max(0,actual)}
-  };
+  const safeValue=value=>value==null||!Number.isFinite(Number(value))?null:Math.max(0,Math.abs(Number(value)));
+  const values=Object.fromEntries(items.map(item=>[item.id,safeValue(item.value)]));
+  const max=Math.max(1,...Object.values(values).filter(value=>value!=null));
+  const layout={gross:{height:values.gross||0,bottom:0,connector:values.gross||0}};
+  let running=values.gross||0;
+  let chainKnown=values.gross!=null;
+  for(const id of ['refunds','fees','logistics','advertising']){
+    const value=values[id];
+    const connected=chainKnown&&value!=null;
+    if(connected)running=Math.max(0,running-value);
+    layout[id]={height:value||0,bottom:connected?running:0,connector:connected?running:0};
+    chainKnown=connected;
+  }
+  layout.expected={height:values.expected||0,bottom:0,connector:values.expected||0};
+  layout.actual={height:values.actual||0,bottom:0,connector:values.actual||0};
   return Object.fromEntries(Object.entries(layout).map(([id,item])=>[id,{
     '--bar-height':`${Math.max(item.height?5:0,item.height/max*100)}%`,
     '--bar-bottom':`${Math.max(0,item.bottom/max*100)}%`,
@@ -93,8 +91,8 @@ function DecisionBoard({model,period,setPeriod,selectedId,onSelect}){
   const varianceCount=channels.filter(item=>item.needsAttention).length;
   return <section className="spDecisionBoard" aria-labelledby="spDecisionTitle">
     <header className="spBoardHeading"><div><span>최근 정산 대조</span><h2 id="spDecisionTitle">판매금이 실제 지급액이 되기까지 한 줄로 맞춰봐요.</h2><p>공제 흐름과 채널별 차이를 같은 기간으로 계산하고, 모르는 값은 확인 필요로 남겨요.</p></div><div className="spPeriod"><div role="group" aria-label="정산 조회 기간">{(model.periodOptions||[period]).map(days=><button type="button" aria-pressed={period===days} key={days} onClick={()=>setPeriod(days)}>{days}일</button>)}</div><span>최근 {period}일 · {referenceTime(model.end)} 기준</span></div></header>
-    <div className="spLedger" aria-label="선택 기간 정산 요약"><article><span>예상 정산액</span><strong>{money(model.expected)}</strong><small>확인된 주문·공제 기준</small></article><article><span>실제 지급액</span><strong>{money(model.actual)}</strong><small>채널 정산서 기준</small></article><article data-attention="true"><span>예상 대비 차이</span><strong>{money(model.variance,{signed:true})}</strong><small>{varianceCount?`${varianceCount}개 채널 근거 확인 필요`:'대조 완료'}</small></article><article><span>다음 지급</span><strong>{next?dateLabel(next.date):'확인 필요'}</strong><small>{next?`${platformLabel(next.platform)} · ${money(next.amount)}`:'지급 일정 자료 없음'}</small></article></div>
-    <div className="spSpineGrid"><figure className="spWaterfall"><figcaption><div><span>정산 대조 스파인</span><strong>총매출에서 실제 지급까지</strong></div><div className="spLegend"><i data-tone="blue"/>지급액<i data-tone="expense"/>공제<i data-tone="actual"/>차이</div></figcaption><RocketGrowthFlow flow={model.rocketGrowthFlow}/><div className="spWaterfallChart" role="img" aria-label="로켓그로스 판매매출을 포함한 총매출에서 취소 환불, 판매 수수료, 배송 물류비, 광고비를 거쳐 예상 정산액과 실제 지급액을 비교한 그래프">{(model.waterfall||[]).map(item=><article className="spWaterfallStep" data-tone={item.tone} data-known={item.value!=null} data-negative={Number(item.value)<0} key={item.id}><div className="spWaterfallTrack"><i className="spWaterfallBar" style={styles[item.id]}/></div><strong>{item.value==null?'확인 필요':money(['refunds','fees','logistics','advertising'].includes(item.id)?-Math.abs(item.value):item.value)}</strong><span>{item.label}</span></article>)}</div><p>채널별 원본은 섞지 않고, 로켓그로스 판매액과 비용도 한 번씩만 반영한 서버 계산 합계입니다.</p></figure>
+    <div className="spLedger" aria-label="선택 기간 정산 요약"><article><span>예상 정산액</span><strong>{money(model.expected)}</strong><small>확인된 주문·공제 기준</small></article><article><span>{model.actualComplete?'실제 지급액':'확인된 지급액'}</span><strong>{money(model.actual)}</strong><small>{model.actualComplete?'모든 매출 채널 정산서 기준':`${count(model.actualChannelCount,'개')}/${count(model.revenueChannelCount,'개')} 채널만 지급 확인`}</small></article><article data-attention="true"><span>예상 대비 차이</span><strong>{money(model.variance,{signed:true})}</strong><small>{varianceCount?`${varianceCount}개 채널 근거 확인 필요`:'대조 완료'}</small></article><article><span>다음 지급</span><strong>{next?dateLabel(next.date):'확인 필요'}</strong><small>{next?`${platformLabel(next.platform)} · ${money(next.amount)}`:'지급 일정 자료 없음'}</small></article></div>
+    <div className="spSpineGrid"><figure className="spWaterfall"><figcaption><div><span>정산 대조 스파인</span><strong>총매출에서 실제 지급까지</strong></div><div className="spChartMeta"><div className="spLegend"><i data-tone="blue"/>지급액<i data-tone="expense"/>공제<i data-tone="actual"/>실제/확인 지급</div><em data-state={model.automation?.state}>{model.automation?.state==='READY'?'자동 대조 완료':`자동 대조 ${model.automation?.knownPoints||0}/${model.automation?.totalPoints||7} · 근거 수집 중`}</em></div></figcaption><RocketGrowthFlow flow={model.rocketGrowthFlow}/><div className="spWaterfallChart" role="img" aria-label="로켓그로스 판매매출을 포함한 총매출에서 취소 환불, 판매 수수료, 배송 물류비, 광고비를 거쳐 예상 정산액과 실제 지급액을 비교한 그래프">{(model.waterfall||[]).map(item=><article className="spWaterfallStep" data-tone={item.tone} data-known={item.value!=null} data-chain-connected={item.chainConnected} data-connects-next={item.connectsNext} data-partial={item.partial===true} data-negative={Number(item.value)<0} key={item.id}><div className="spWaterfallTrack"><i className="spWaterfallBar" style={styles[item.id]}/></div><strong>{item.value==null?'확인 필요':money(['refunds','fees','logistics','advertising'].includes(item.id)?-Math.abs(item.value):item.value)}</strong><span>{item.label}</span></article>)}</div><p>{model.automation?.state==='READY'?'모든 공제와 지급 근거를 같은 기간으로 자동 대조했습니다.':'확인된 값만 표시했습니다. 비어 있는 공제와 지급 근거가 수집되면 연결선과 합계가 자동으로 완성됩니다.'}</p></figure>
       <section className="spVarianceLens" aria-labelledby="spVarianceTitle"><header><div><span>채널별 차이</span><h3 id="spVarianceTitle">0원선에서 벗어난 금액</h3></div><strong>{money(model.variance,{signed:true})}</strong></header><div>{channels.map(channel=>{const width=channel.variance==null?0:Math.max(channel.variance===0?0:8,Math.abs(channel.variance)/maxVariance*46);return <button type="button" className="spVarianceRow" data-selected={selectedId===channel.id} data-tone={channel.tone} aria-pressed={selectedId===channel.id} key={channel.id} onClick={()=>onSelect(channel.id)}><Phase28ChannelLogo brand={channel.platform}/><span><strong>{channel.label}</strong><small>{channel.stateLabel}</small></span><i className="spVarianceTrack" style={{'--variance-width':`${width}%`}} aria-hidden="true"><b/></i><em>{money(channel.variance,{signed:true})}</em></button>;})}</div></section>
     </div>
     <div className="spDecisionBrief"><article><span>금액 변화</span><strong>{model.variance==null?'비교할 실제 지급액 확인 필요':model.variance===0?'예상과 실제 지급액 일치':`예상보다 ${Math.abs(model.variance).toLocaleString('ko-KR')}원 ${model.variance<0?'적게':'많게'} 지급`}</strong></article><article><span>확인된 근거</span><strong>{count(comparable.length,'개 채널')} 비교 가능</strong></article><article><span>다음 행동</span><strong>{channels.find(item=>item.needsAttention)?.action||'다음 지급 일정을 확인하세요.'}</strong></article></div>
@@ -154,6 +152,14 @@ export default function Phase28SettlementPage({model={},aiPanel=null}){
   const [selectedId,setSelectedId]=useState(channels[0]?.id||'');
   const [workspace,setWorkspace]=useState('payouts');
   useEffect(()=>{if(channels.length&&!channels.some(item=>item.id===selectedId))setSelectedId(channels[0].id);},[channels,selectedId]);
+  useEffect(()=>{
+    let lastRefresh=Date.now();
+    const refresh=()=>{if(document.visibilityState==='visible'){lastRefresh=Date.now();router.refresh();}};
+    const timer=window.setInterval(refresh,AUTO_REFRESH_MS);
+    const onVisibility=()=>{if(document.visibilityState==='visible'&&Date.now()-lastRefresh>=AUTO_REFRESH_MS)refresh();};
+    document.addEventListener('visibilitychange',onVisibility);
+    return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',onVisibility);};
+  },[router]);
   const selected=channels.find(item=>item.id===selectedId)||channels[0]||null;
   const hero=model.hero||{};
   return <section className="p28Settlement" data-phase28-root="true" data-phase28-page="settlement">

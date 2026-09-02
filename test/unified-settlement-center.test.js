@@ -365,3 +365,19 @@ test('예상 정산액과 실제 지급액 차이 및 정산 흐름을 계산한
   assert.equal(center.waterfall.expected_payout,90000);
   assert.equal(center.waterfall.variance,-2000);
 });
+
+test('일부 채널만 지급 확인되면 전체 실제 지급으로 확정하지 않고 범위를 남긴다',()=>{
+  const center=buildUnifiedSettlementCenter({now,
+    naverSettlements:[{
+      settle_basis_end_date:'2026-08-10',settle_complete_date:'2026-08-11',
+      pay_settle_amount:100000,commission_settle_amount:10000,settle_amount:90000
+    }],
+    cafe24Orders:[{order_id:'C1',order_date:'2026-08-10',paid_amount:120000}],
+    channelCostSettings:[{platform:'CAFE24',commission_rate:0,payment_fee_rate:0,default_shipping_cost:0}]
+  });
+  assert.equal(center.waterfall.actual_payout,90000);
+  assert.equal(center.waterfall.actual_payout_complete,false);
+  assert.equal(center.waterfall.actual_channel_count,1);
+  assert.equal(center.waterfall.revenue_channel_count,2);
+  assert.equal(center.waterfall.actual_payout_coverage,50);
+});
