@@ -60,6 +60,12 @@ test('V106 insights renders a Naver-only owner weekly brief, saved weekly report
   assert.match(page,/광고 효율/);
   assert.match(page,/위험 신호/);
   assert.match(page,/7일 확인/);
+  assert.match(page,/세 가지 지렛대/);
+  assert.match(page,/병목 진단/);
+  assert.match(page,/매출과 이익을 섞지 않습니다/);
+  assert.match(page,/판단 근거 체크/);
+  assert.match(page,/role="group" aria-label="7단계 매출 병목 흐름" tabIndex=\{0\}/);
+  assert.match(page,/role="region" aria-label="캠페인별 주간 판단 표" tabIndex=\{0\}/);
   assert.match(page,/NAVER OWNER DESK/);
   assert.match(page,/Phase28RightRailLayout/);
   assert.match(page,/Phase28ChannelLogo/);

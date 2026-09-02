@@ -5,6 +5,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {buildNaverOwnerInsight}=require('../lib/reports/naver-owner-insight.js');
+const insightsAdapter=require('../lib/ui/phase28-adapters/insights.js');
 
 function summary(overrides={}){
   return {
@@ -44,7 +45,7 @@ function summary(overrides={}){
 test('Naver weekly snapshot is expanded into an owner decision brief with evidence and safe actions',()=>{
   const brief=buildNaverOwnerInsight(summary());
 
-  assert.equal(brief.snapshotVersion,'NAVER_WEEKLY_OWNER_V1');
+  assert.equal(brief.snapshotVersion,'NAVER_WEEKLY_OWNER_V2');
   assert.equal(brief.decision.label,'효율 유지·확대 검토');
   assert.equal(brief.decision.automaticWrite,false);
   assert.equal(brief.scorecard.find(item=>item.id==='paidRoas').value,400);
@@ -81,4 +82,67 @@ test('Naver owner brief never turns missing business evidence into zero or a con
 test('the weekly report pipeline persists the owner brief only for Naver weekly snapshots',()=>{
   const source=fs.readFileSync(path.join(__dirname,'../lib/reports/weekly.js'),'utf8');
   assert.match(source,/platform==='NAVER'&&reportType==='WEEKLY'.*summary\.owner_brief=naverOwnerInsightModule\.buildNaverOwnerInsight\(summary\)/);
+});
+
+test('owner V2 translates the ROAS 700 standard into three levers, a seven-stage bottleneck, and separated money evidence',()=>{
+  const input=summary({
+    naver:{
+      connected:true,impressions:100000,clicks:2000,ad_spend:600000,purchase_count:40,
+      revenue:1200000,roas:200,ctr:2,cpc:300,cvr:2,cpa:15000,average_order_value:30000,
+      confidence:{level:'HIGH',label:'높음'},top_campaigns:[]
+    },
+    comparison:{
+      naver_average_order_value:{current:30000,previous:28000,change_rate:7.1},
+      naver_cvr:{current:2,previous:2.5,change_rate:-20},
+      naver_cpc:{current:300,previous:250,change_rate:20},
+      naver_impressions:{current:100000,previous:95000,change_rate:5.3},
+      naver_clicks:{current:2000,previous:2100,change_rate:-4.8},
+      naver_ctr:{current:2,previous:2.21,change_rate:-9.5}
+    },
+    operating_rule:{source:'SAVED',versions:{insight:5},thresholds:{target_roas_percent:700,change_warning_percent:10}},
+    business_context:{
+      store:{netRevenue:2100000,orders:70,averageOrderValue:30000,customers:{status:'PARTIAL',returningRate:18}},
+      profitability:{contributionProfit:420000,costCoverageRate:96},
+      attribution:{settlementRevenue:null,orderLinkStatus:'CHECK_REQUIRED'}
+    },
+    financial_trust:{status:'READY'}
+  });
+  const brief=buildNaverOwnerInsight(input);
+
+  assert.equal(brief.snapshotVersion,'NAVER_WEEKLY_OWNER_V2');
+  assert.equal(brief.evidence.standardVersion,'HARIN-NAVER-ROAS-700-V1.0');
+  assert.deepEqual(brief.levers.map(item=>item.id),['aov','cvr','cpc']);
+  assert.equal(Math.round(brief.levers.find(item=>item.id==='cpc').target),86);
+  assert.equal(brief.levers.find(item=>item.id==='cvr').target,7);
+  assert.equal(brief.bottleneck.length,7);
+  assert.deepEqual(brief.bottleneck.map(item=>item.id),['exposure','click','intent','detail','purchase','profit','repeat']);
+  assert.equal(brief.economics.find(item=>item.id==='attributedRevenue').value,1200000);
+  assert.equal(brief.economics.find(item=>item.id==='storeNetRevenue').value,2100000);
+  assert.equal(brief.economics.find(item=>item.id==='settlementRoas').value,null);
+  assert.equal(brief.economics.find(item=>item.id==='contributionProfit').value,420000);
+  assert.ok(brief.verification.some(item=>item.id==='orderAttribution'&&item.state==='CHECK_REQUIRED'));
+  assert.ok(brief.actions.now.every(item=>item.successMetric&&item.reviewWindow));
+});
+
+test('legacy saved owner briefs are rebuilt as V2 while missing financial evidence still blocks expansion',()=>{
+  const reportSummary=summary({
+    owner_brief:{snapshotVersion:'NAVER_WEEKLY_OWNER_V1',headline:'old snapshot'},
+    financial_trust:{status:'CHECK_REQUIRED'}
+  });
+  const model=insightsAdapter.buildPhase28InsightsModel({
+    generatedAt:'2026-09-03T00:00:00.000Z',
+    reports:[{id:'weekly-1',platform:'NAVER',report_type:'WEEKLY',period_start:'2026-08-24',period_end:'2026-08-30',created_at:'2026-08-31T00:00:00.000Z',summary_json:reportSummary}],
+    dataHealth:{channels:[{platform:'NAVER',status:'READY'}]}
+  });
+
+  assert.equal(model.channels[0].ownerBrief.snapshotVersion,'NAVER_WEEKLY_OWNER_V2');
+  assert.match(model.channels[0].ownerBrief.decision.label,/증액 보류|판단 보류/);
+});
+
+test('weekly automation stores the owner standard metadata and the comparison inputs required by V2',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'../lib/reports/weekly.js'),'utf8');
+  assert.match(source,/naver_average_order_value/);
+  assert.match(source,/naver_impressions/);
+  assert.match(source,/business_context/);
+  assert.match(source,/HARIN-NAVER-ROAS-700-V1\.0/);
 });
