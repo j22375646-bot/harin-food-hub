@@ -159,7 +159,7 @@ const VIEW_TABLES = {
   orders:['cafe24_orders','cafe24_order_items','cafe24_products','channel_products','naver_commerce_orders','naver_commerce_order_items','coupang_products','coupang_product_items','coupang_orders','coupang_order_items','coupang_rg_orders','coupang_rg_order_items','coupang_returns','shipping_reference_snapshots'],
   cs:['cafe24_orders','cafe24_order_items','cafe24_oauth_tokens','coupang_orders','coupang_order_items','coupang_returns','coupang_exchanges','coupang_inquiries','coupang_operation_requests','customer_service_items','ai_analysis_results'],
   inventory:['master_products','channel_products','cafe24_products','coupang_products','coupang_rg_inventory','coupang_item_inventory','coupang_product_items','inventory_lots','ai_analysis_results'],
-  settlement:['cafe24_orders','cafe24_sales_daily','naver_commerce_orders','naver_commerce_settlements','naver_stats_daily','naver_bizmoney_daily','raw_api_responses','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_orders','coupang_rg_order_items','coupang_settlement_summaries','coupang_promotion_budgets','coupang_product_items','coupang_cost_transactions','coupang_cost_imports','coupang_ad_settlement_daily','channel_cost_settings','channel_shipping_rules','ai_analysis_results'],
+  settlement:['cafe24_orders','cafe24_sales_daily','cafe24_oauth_tokens','naver_commerce_orders','naver_commerce_settlements','naver_stats_daily','naver_bizmoney_daily','raw_api_responses','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_orders','coupang_rg_order_items','coupang_settlement_summaries','coupang_promotion_budgets','coupang_product_items','coupang_cost_transactions','coupang_cost_imports','coupang_ad_settlement_daily','channel_cost_settings','channel_shipping_rules','ai_analysis_results'],
   collection:['cafe24_products','cafe24_ad_attribution','automation_runs','data_quality_checks','coupang_sync_requests','coupang_operation_requests','worker_heartbeats','execution_path_controls','coupang_products','coupang_api_capabilities','owned_site_api_snapshots','shipping_reference_snapshots','operations_health_snapshots','optional_provider_snapshots','naver_campaigns','naver_adgroups','naver_keywords','naver_stats_daily','coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily'],
   insight:['cafe24_orders','cafe24_order_items','cafe24_traffic_daily','cafe24_referrers_daily','cafe24_ad_attribution','reports','actions','platform_events','master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_stats_daily','naver_keyword_stats','naver_search_terms','naver_commerce_orders','naver_commerce_order_items','naver_commerce_settlements','product_costs','product_ad_targets','channel_cost_settings','channel_shipping_rules','product_detail_checklists','coupang_orders','coupang_order_items','coupang_settlements','coupang_rg_inventory','coupang_rg_orders','coupang_product_items','coupang_rg_order_items','coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily','coupang_ad_keyword_daily','ai_analysis_results'],
   keyword:['master_products','channel_products','naver_campaigns','naver_adgroups','naver_keywords','naver_stats_daily','naver_keyword_stats','naver_search_terms','product_detail_checklists','product_costs','channel_cost_settings','channel_shipping_rules','coupang_products','coupang_rg_inventory','coupang_item_inventory','coupang_product_items','coupang_ad_daily_summary','coupang_ad_keyword_summary','coupang_ad_campaign_summary','coupang_ad_billing_daily','coupang_ad_keyword_daily','ai_analysis_results'],
@@ -1326,7 +1326,7 @@ async function getDashboardData(state) {
         .lt('due_at',new Date(`${calendarQueryRange.endExclusive}T00:00:00+09:00`).toISOString())
         .order('due_at',{ascending:true}).limit(view==='main'?200:500)
     ]) : Promise.resolve([{status:'fulfilled',value:{data:[],error:null}}]),
-    cafe24Token:focusedEarlyReturn||view==='collection' ? Promise.allSettled([
+    cafe24Token:focusedEarlyReturn||view==='collection'||view==='settlement' ? Promise.allSettled([
       db.from('cafe24_oauth_tokens').select('token_data').eq('mall_id',process.env.CAFE24_MALL_ID).maybeSingle()
     ]) : Promise.resolve([{status:'fulfilled',value:{data:null,error:null}}]),
     productTargets:Promise.allSettled([
@@ -1970,7 +1970,8 @@ async function getDashboardData(state) {
     {platform:'CAFE24',dataset:'cafe24_oauth_tokens'}
   ],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
   queryIssues.push(...collectionCafe24TokenSettled.issues);
-  const collectionCafe24Token=view==='collection'?collectionCafe24TokenSettled.results[0].data?.token_data||null:undefined;
+  const resolvedCafe24Token=collectionCafe24TokenSettled.results[0].data?.token_data||null;
+  const collectionCafe24Token=view==='collection'?resolvedCafe24Token:undefined;
   const bidLinksSettled=dataHealthModule.settleQueries(await supplementalQueries.bidLinks,[{platform:'NAVER',dataset:'naver_keyword_product_links'}],(error,issue)=>console.error(`[dashboard] ${issue.platform}/${issue.dataset} unavailable`,error));
   queryIssues.push(...bidLinksSettled.issues);
   const naverKeywordProductLinks=bidLinksSettled.results[0].data||[];
@@ -2259,6 +2260,7 @@ async function getDashboardData(state) {
   const settlementCenterInput = {
     cafe24Orders:ordersResult.data || [],
     cafe24SalesDaily:cafe24SalesDailyResult.data || [],
+    cafe24Token:view==='settlement'?resolvedCafe24Token:undefined,
     naverOrders:naverCommerceOrdersResult.data || [],
     naverSettlements:naverCommerceSettlementsResult.data || [],
     naverAdStats:naverStatsResult.data || [],

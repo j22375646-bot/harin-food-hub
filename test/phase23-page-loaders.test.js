@@ -176,7 +176,9 @@ test('23-2 dashboard uses the focused profile and exposes loader timing',()=>{
   assert.match(page,/reportsResult\.count\?\?reportsResult\.data\?\.length\?\?0/);
   assert.match(page,/view==='insight'[\s\S]*?scopeInsightReportQuery\(db\.from\('reports'\)\.select\(reportFields,\{count:'exact'\}\)\)/);
   assert.match(page,/focusedEarlyReturn\?Promise\.resolve\(\{data:null,error:null\}\):db\.from\('sync_logs'\)/);
-  assert.match(page,/cafe24Token:focusedEarlyReturn\|\|view==='collection' \? Promise\.allSettled/);
+  assert.match(page,/cafe24Token:focusedEarlyReturn\|\|view==='collection'\|\|view==='settlement' \? Promise\.allSettled/);
+  assert.match(page,/settlement:\['cafe24_orders','cafe24_sales_daily','cafe24_oauth_tokens'/);
+  assert.equal(loaders.profileForState({view:'settlement'},[]).tables.includes('cafe24_oauth_tokens'),true);
   assert.match(page,/cafe24Token:cafe24TokenSettled\.results\[0\]\.data\?\.token_data\|\|null/);
   assert.match(analysis,/loadedReportCount=\(data\.reports\|\|\[\]\)\.filter\(report=>scopeReportPlatform\(report\.platform,platform\)\)\.length/);
   assert.match(dashboard,/data-loader-profile=\{initialData\.loaderPerformance\?\.profile/);

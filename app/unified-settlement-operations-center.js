@@ -9,7 +9,7 @@ import { HarinDonutChart, HarinEmptyState, HarinPageAiRegion, HarinPageFrame, Ha
 const statusMeta = {
   ACTUAL:{label:'확정 자료',tone:'actual'}, ESTIMATED:{label:'예상 자료',tone:'estimated'},
   COST_REQUIRED:{label:'비용 설정 필요',tone:'warning'}, COLLECTOR_REQUIRED:{label:'수집기 연결 필요',tone:'warning'},
-  SCOPE_REQUIRED:{label:'API 권한 필요',tone:'warning'},
+  APPROVAL_REQUIRED:{label:'Cafe24 승인 필요',tone:'warning'}, SCOPE_REQUIRED:{label:'API 권한 필요',tone:'warning'},
   UNAVAILABLE:{label:'자료 확인 필요',tone:'danger'}, NO_DATA:{label:'자료 없음',tone:'neutral'}
 };
 
@@ -54,7 +54,7 @@ function ChannelCard({ channel }) {
       <div><dt>수수료</dt><dd>{wonOrCheck(channel.fees)}</dd></div><div><dt>물류비</dt><dd>{wonOrCheck(channel.logistics)}</dd></div>
     </dl>
     <div className={`settlementVariance ${channel.payout_variance==null?'pending':channel.payout_variance<0?'negative':'positive'}`}><small>예상 대비 실제 차이</small><b>{signedWon(channel.payout_variance)}</b></div>
-    <p>{channel.action}{channel.action_href?<><br/><Link href={channel.action_href}>Cafe24 권한 다시 연결</Link></>:null}</p>
+    <p>{channel.action}{channel.action_href?<><br/><Link href={channel.action_href}>{channel.status==='APPROVAL_REQUIRED'?'Cafe24 승인 안내 보기':'Cafe24 권한 다시 연결'}</Link></>:null}</p>
     <footer><span>{channel.order_count == null ? '주문 건수 확인 필요' : `${count(channel.order_count)}건 반영`}</span><span>갱신 {dateTimeOrCheck(channel.last_updated_at)}</span></footer>
   </article>;
 }
@@ -99,7 +99,7 @@ export default function UnifiedSettlementOperationsCenter({ center = {}, childre
   const summary = center.summary || {};
   const channels = Array.isArray(center.channels) ? center.channels : [];
   const schedules = Array.isArray(center.schedules) ? center.schedules : [];
-  const costRequired=channels.filter(channel=>['COST_REQUIRED','SCOPE_REQUIRED','UNAVAILABLE','NO_DATA'].includes(channel.status)).length;
+  const costRequired=channels.filter(channel=>['COST_REQUIRED','APPROVAL_REQUIRED','SCOPE_REQUIRED','UNAVAILABLE','NO_DATA'].includes(channel.status)).length;
   const negativeVariance=channels.filter(channel=>channel.payout_variance!=null&&channel.payout_variance<0);
   const reconciliation=useMemo(()=>[...channels].sort((a,b)=>{
     const aCheck=!['ACTUAL','ESTIMATED'].includes(a.status)?1:0;
@@ -133,7 +133,7 @@ export default function UnifiedSettlementOperationsCenter({ center = {}, childre
     {workspace==='RECONCILIATION'?<section className="settlementReconciliationWorkbench"><header><div className="settlementSectionTitle"><i><HarinIcon name="checklist" size={22}/></i><span><small>RECONCILIATION</small><h2>차이가 큰 채널부터 확인해요</h2><p>자료 확인이 필요하거나 실제 지급액이 예상보다 적은 채널을 앞에 배치했습니다.</p></span></div><aside><small>비교 가능한 채널</small><b>{count(center.waterfall?.comparable_channels)}개</b></aside></header>{channelShare.length>1?<HarinDonutChart className="settlementChannelShare" title="채널별 정산액 비중" description="확정 지급액이 있으면 확정값을, 없으면 예상 정산액을 사용합니다." items={channelShare}/>:null}<div className="settlementOpsChannels" aria-label="채널별 정산 상태">{reconciliation.length?reconciliation.map(channel=><ChannelCard channel={channel} key={channel.platform}/>):<HarinEmptyState state="uncollected" title="대조할 채널 정산 자료가 없어요" description="정산 수집이 끝나면 채널별 예상액과 실제 지급액을 분리해 비교합니다."/>}</div></section>:null}
 
     {workspace==='COSTS'?<>
-      <section className="settlementCostGuide"><div className="settlementSectionTitle"><i><HarinIcon name="price" size={22}/></i><span><small>COST SETTINGS</small><h2>비용 누락부터 채워주세요</h2><p>상품 원가와 채널 수수료·배송비는 상품 화면에서 한 번만 관리합니다. 이 화면은 정산 자료와 비용 설정이 맞는지 대조하는 곳이에요.</p></span></div><a href="/products"><HarinIcon name="product" size={17}/>상품·원가 설정 열기</a><ul>{channels.map(channel=><li key={channel.platform}><i><HarinIcon name={platformIcon(channel.platform)} size={16}/></i><b>{channel.label}</b><span>{channel.status==='COST_REQUIRED'?'수수료·결제수수료·배송비 입력 필요':channel.status==='SCOPE_REQUIRED'?'Cafe24 매출통계 권한 다시 연결 필요':channel.status==='UNAVAILABLE'?'수집 연결 확인 필요':channel.status==='NO_DATA'?'정산 자료 수집 대기':'비용 계산 가능'}</span></li>)}</ul></section>
+      <section className="settlementCostGuide"><div className="settlementSectionTitle"><i><HarinIcon name="price" size={22}/></i><span><small>COST SETTINGS</small><h2>비용 누락부터 채워주세요</h2><p>상품 원가와 채널 수수료·배송비는 상품 화면에서 한 번만 관리합니다. 이 화면은 정산 자료와 비용 설정이 맞는지 대조하는 곳이에요.</p></span></div><a href="/products"><HarinIcon name="product" size={17}/>상품·원가 설정 열기</a><ul>{channels.map(channel=><li key={channel.platform}><i><HarinIcon name={platformIcon(channel.platform)} size={16}/></i><b>{channel.label}</b><span>{channel.status==='COST_REQUIRED'?'수수료·결제수수료·배송비 입력 필요':channel.status==='APPROVAL_REQUIRED'?'Cafe24 매출통계 개발자 승인 필요':channel.status==='SCOPE_REQUIRED'?'Cafe24 매출통계 권한 다시 연결 필요':channel.status==='UNAVAILABLE'?'수집 연결 확인 필요':channel.status==='NO_DATA'?'정산 자료 수집 대기':'비용 계산 가능'}</span></li>)}</ul></section>
       <details className="settlementOpsCoupangDetail"><summary><span><b>쿠팡 정산·비용 상세 운영표</b><small>프로모션, 저장, 물류비와 API 수집 범위를 자세히 볼 때만 사용하세요.</small></span><em>상세 열기</em></summary><div>{children}</div></details>
     </>:null}
     {workspace==='SUMMARY'?<HarinPageAiRegion className="operationsAiSlot settlementAiSlot" id="page-ai-analysis" title="정산·비용 AI 분석">{aiPanel}</HarinPageAiRegion>:null}

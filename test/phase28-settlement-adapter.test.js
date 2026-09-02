@@ -140,21 +140,21 @@ test('settlement adapter exposes Rocket Growth gross and net contribution withou
   assert.deepEqual(model.rocketGrowthFlow,{gross:100000,refunds:0,fees:10000,logistics:9300,advertising:33000,deductions:52300,net:47700,actual:null,includedInTotalGross:true});
 });
 
-test('settlement adapter preserves Cafe24 scope recovery state and reconnect route',()=>{
+test('settlement adapter exposes Cafe24 restricted API approval state without promising a reconnect fix',()=>{
   const model=buildPhase28SettlementModel({settlementPeriods:{30:center(30,[channel('CAFE24',{
-    status:'SCOPE_REQUIRED',
-    basis:'주문 기반 추정 · 매출통계 권한 필요',
+    status:'APPROVAL_REQUIRED',
+    basis:'주문 기반 추정 · 매출통계 개발자 승인 필요',
     gross_sales:1000000,
     expected_payout:1000000,
     actual_payout:null,
     payout_variance:null,
-    action:'Cafe24를 다시 연결해 매출통계 권한을 승인하세요.',
-    action_href:'/oauth/cafe24/start'
+    action:'Cafe24 개발자센터에서 매출통계 API 사용 승인을 받은 뒤 다시 연결하세요.',
+    action_href:'https://developers.cafe24.com/'
   })])}});
   const cafe24=model.periods['30'].channels[0];
-  assert.equal(cafe24.stateLabel,'API 권한 필요');
-  assert.equal(cafe24.actionHref,'/oauth/cafe24/start');
-  assert.match(cafe24.basis,/매출통계 권한 필요/);
+  assert.equal(cafe24.stateLabel,'카페24 승인 필요');
+  assert.equal(cafe24.actionHref,'https://developers.cafe24.com/');
+  assert.match(cafe24.basis,/개발자 승인 필요/);
 });
 
 test('settlement joins the implemented V106 adapter set',()=>{

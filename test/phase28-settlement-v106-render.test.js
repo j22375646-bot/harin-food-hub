@@ -49,7 +49,8 @@ test('settlement page remains read-only and exposes the server-provided recovery
   assert.doesNotMatch(page,/fetch\(/);
   assert.doesNotMatch(page,/method:\s*['"](?:POST|PUT|PATCH|DELETE)/);
   assert.match(page,/channel\.actionHref\|\|'\/products\/costs'/);
-  assert.match(page,/Cafe24 권한 다시 연결/);
+  assert.match(page,/카페24 승인 안내 보기/);
+  assert.match(page,/target="_blank" rel="noreferrer"/);
   assert.match(page,/pushPhase28Route\(router,actionTarget\)/);
   assert.match(page,/확인 필요/);
 });

@@ -72,7 +72,8 @@ test('Cafe24 OAuth가 매출통계 읽기 권한을 요청하고 광고는 기�
   })) { previous[key]=process.env[key]; process.env[key]=value; }
   try {
     const config=configModule.getConfig();
-    assert.ok(config.requiredScopes.includes('mall.read_salesreport'));
+    assert.ok(config.restrictedScopes.includes('mall.read_salesreport'));
+    assert.ok(config.scopes.includes('mall.read_salesreport'));
     assert.ok(config.requiredScopes.includes('mall.read_analytics'));
     assert.equal(config.analyticsPaths.adDetails,'/adeffect/addetails');
     assert.equal(config.analyticsPaths.adSales,'/visitpaths/adsales');

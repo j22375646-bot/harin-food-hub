@@ -2,6 +2,7 @@ import configModule from '../../../../lib/cafe24/config.js';
 import tokenModule from '../../../../lib/cafe24/token-store.js';
 import authModule from '../../../../lib/dashboard-auth.js';
 import apiSafety from '../../../../lib/api/safety.js';
+import financeCapabilityModule from '../../../../lib/cafe24/finance-capability.js';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export async function GET(request) {
@@ -11,6 +12,8 @@ export async function GET(request) {
     const token = await tokenModule.readToken();
     const grantedScopes = new Set(Array.isArray(token?.scopes) ? token.scopes : String(token?.scope || '').split(/[\s,]+/).filter(Boolean));
     const missingScopes = config.requiredScopes.filter(scope => !grantedScopes.has(scope));
+    const missingRestrictedScopes = config.restrictedScopes.filter(scope => !grantedScopes.has(scope));
+    const finance = financeCapabilityModule.assessFinanceCapability(token);
     return apiSafety.json({
       configured:true,
       connected:Boolean(token?.access_token),
@@ -19,7 +22,10 @@ export async function GET(request) {
       grantedScopes:[...grantedScopes],
       requestedScopes:config.scopes,
       missingScopes,
-      reconnectRequired:Boolean(token?.access_token && missingScopes.length)
+      missingRestrictedScopes,
+      reconnectRequired:Boolean(token?.access_token && missingScopes.length),
+      approvalRequired:finance.status === 'APPROVAL_REQUIRED',
+      finance
     });
   } catch (error) { return apiSafety.json({ configured: false, connected: false, error: error.message }, { status: 500 }); }
 }
