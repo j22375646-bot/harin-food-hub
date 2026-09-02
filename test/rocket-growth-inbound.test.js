@@ -22,6 +22,7 @@ test('로켓그로스 물류센터 수취처는 우체국 필수값을 정규화
 
 test('쿠팡 비용 원본의 물류센터 코드를 저장 수취처와 합쳐 선택 목록으로 만든다',()=>{
   const directory=inbound.buildDestinationDirectory({
+    referenceDestinations:[],
     costTransactions:[
       {raw_data:{fulfillment_center:'INC30'}},
       {raw_data:{fulfillment_center:'SAN3'}},
@@ -41,6 +42,61 @@ test('쿠팡 비용 원본의 물류센터 코드를 저장 수취처와 합쳐 
   ]);
   assert.equal(directory[0].contact,'0321234567');
   assert.match(directory[1].statusLabel,/주소 등록 필요/);
+});
+
+test('쿠팡 Wing 기준의 국내 물류센터 47곳을 우체국 입고 주소록으로 제공한다',()=>{
+  const directory=inbound.buildDestinationDirectory();
+  assert.equal(directory.length,47);
+  assert.equal(directory.every(item=>item.ready),true);
+  assert.equal(directory.some(item=>item.centerCode==='XRG1'),false);
+  const inc30=directory.find(item=>item.centerCode==='INC30');
+  assert.deepEqual({
+    label:inc30.label,
+    postCode:inc30.postCode,
+    contact:inc30.contact,
+    supportedSizes:inc30.supportedSizes,
+    source:inc30.source,
+    referenceUpdatedOn:inc30.referenceUpdatedOn
+  },{
+    label:'인천30 센터',
+    postCode:'22793',
+    contact:'07051590578',
+    supportedSizes:['S'],
+    source:'COUPANG_WING_GUIDE',
+    referenceUpdatedOn:'2026-08-19'
+  });
+  assert.match(inc30.address,/인천광역시 서해구 거북로 13/);
+  assert.match(inc30.addressDetail,/10층 13번 Dock/);
+});
+
+test('저장된 물류센터 정보는 Wing 기준 주소보다 우선하며 기준 크기 정보는 유지한다',()=>{
+  const directory=inbound.buildDestinationDirectory({
+    savedDestinations:[{
+      id:'dest-inc30',center_code:'INC30',label:'인천30 수정 센터',recipient_encrypted:{v:1},is_active:true,
+      last_verified_at:'2026-09-03T00:00:00Z'
+    }],
+    openReceiver:()=>({
+      recipientName:'수정 수취인',contact:'01012345678',postCode:'22793',
+      address:'인천광역시 서해구 수정로 1',addressDetail:'수정 입고장'
+    })
+  });
+  const inc30=directory.find(item=>item.centerCode==='INC30');
+  assert.equal(inc30.id,'dest-inc30');
+  assert.equal(inc30.recipientName,'수정 수취인');
+  assert.equal(inc30.address,'인천광역시 서해구 수정로 1');
+  assert.deepEqual(inc30.supportedSizes,['S']);
+  assert.equal(inc30.source,'SAVED_AND_REFERENCE');
+});
+
+test('복호화하지 못한 저장 주소를 Wing 기준값으로 정상처럼 숨기지 않는다',()=>{
+  const directory=inbound.buildDestinationDirectory({
+    savedDestinations:[{id:'broken',center_code:'INC30',label:'인천30 센터',recipient_encrypted:{v:1},is_active:true}],
+    openReceiver:()=>{throw new Error('decrypt failed');}
+  });
+  const inc30=directory.find(item=>item.centerCode==='INC30');
+  assert.equal(inc30.ready,false);
+  assert.equal(inc30.statusLabel,'주소 등록 필요');
+  assert.equal(inc30.address,'');
 });
 
 test('선택한 로켓그로스 상품을 최대 50개 우체국 입고 송장 작업으로 검증한다',()=>{
@@ -94,6 +150,9 @@ test('로켓그로스 입고 송장 API는 센터 저장과 최대 50건 고정 
   assert.match(source,/apiSafety\.isAuthorized/);
   assert.match(source,/SAVE_DESTINATION/);
   assert.match(source,/ISSUE_BATCH/);
+  assert.match(source,/destinationCode/);
+  assert.match(source,/resolveDestinationForIssue/);
+  assert.match(source,/getReferenceDestination/);
   assert.match(source,/buildDestinationDirectory/);
   assert.match(source,/loadRocketGrowthProducts/);
   assert.match(source,/products/);

@@ -97,19 +97,53 @@ async function saveDestination(db,body){
   return apiSafety.json({ok:true,destination:{id:saved.data.id,centerCode:saved.data.center_code,label:saved.data.label,lastVerifiedAt:saved.data.last_verified_at}},{headers:{'Cache-Control':'no-store'}});
 }
 
+function openDestination(row){
+  const receiver=operationQueue.open(row.receiver_encrypted);
+  const destination=inboundModule.normalizeDestination({centerCode:row.center_code,label:row.label,...receiver});
+  const validation=inboundModule.validateDestination(destination);
+  if(!validation.ok)throw Object.assign(new Error(`물류센터 주소 확인 필요 · ${validation.errors.join(' ')}`),{status:409});
+  return destination;
+}
+
+async function resolveDestinationForIssue(db,body){
+  const requestedId=text(body.destinationId);
+  if(UUID.test(requestedId)){
+    const found=await db.from('rocket_growth_destinations').select(destinationFields).eq('id',requestedId).eq('is_active',true).maybeSingle();
+    if(found.error)throw found.error;
+    if(!found.data)throw Object.assign(new Error('저장된 물류센터를 찾지 못했습니다.'),{status:404});
+    return {id:found.data.id,destination:openDestination(found.data)};
+  }
+
+  const destinationCode=text(body.destinationCode).toUpperCase();
+  const reference=inboundModule.getReferenceDestination(destinationCode);
+  if(!reference)throw Object.assign(new Error('첨부 Wing 기준 주소록의 로켓그로스 물류센터를 선택하세요.'),{status:400});
+
+  const existing=await db.from('rocket_growth_destinations').select(destinationFields).eq('center_code',destinationCode).eq('is_active',true).maybeSingle();
+  if(existing.error)throw existing.error;
+  if(existing.data)return {id:existing.data.id,destination:openDestination(existing.data)};
+
+  const normalized=inboundModule.normalizeDestination(reference);
+  const validation=inboundModule.validateDestination(normalized);
+  if(!validation.ok)throw Object.assign(new Error(`Wing 주소록 확인 필요 · ${validation.errors.join(' ')}`),{status:409});
+  const saved=await db.from('rocket_growth_destinations').upsert({
+    center_code:normalized.centerCode,label:normalized.label,
+    receiver_encrypted:operationQueue.seal({
+      recipientName:normalized.recipientName,contact:normalized.contact,postCode:normalized.postCode,
+      address:normalized.address,addressDetail:normalized.addressDetail
+    }),
+    source:'MANUAL',is_active:true,last_verified_at:`${reference.referenceUpdatedOn}T00:00:00.000Z`
+  },{onConflict:'center_code'}).select(destinationFields).single();
+  if(saved.error)throw saved.error;
+  return {id:saved.data.id,destination:openDestination(saved.data)};
+}
+
 async function issueBatch(db,body){
   if(body.confirm!==true)return apiSafety.json({ok:false,error:'실제 우체국 송장 일괄 발급 확인이 필요합니다.'},{status:400});
-  const destinationId=text(body.destinationId);
-  if(!UUID.test(destinationId))return apiSafety.json({ok:false,error:'저장된 로켓그로스 물류센터를 선택하세요.'},{status:400});
   const drafts=(Array.isArray(body.shipments)?body.shipments:[]).slice(0,50);
   if(!drafts.length)return apiSafety.json({ok:false,error:'송장을 발급할 로켓그로스 상품을 선택하세요.'},{status:400});
-  const destinationResult=await db.from('rocket_growth_destinations').select(destinationFields).eq('id',destinationId).eq('is_active',true).maybeSingle();
-  if(destinationResult.error)throw destinationResult.error;
-  if(!destinationResult.data)return apiSafety.json({ok:false,error:'저장된 물류센터를 찾지 못했습니다.'},{status:404});
-  const receiverRaw=operationQueue.open(destinationResult.data.receiver_encrypted);
-  const destination=inboundModule.normalizeDestination({centerCode:destinationResult.data.center_code,label:destinationResult.data.label,...receiverRaw});
-  const destinationValidation=inboundModule.validateDestination(destination);
-  if(!destinationValidation.ok)return apiSafety.json({ok:false,error:`물류센터 주소 확인 필요 · ${destinationValidation.errors.join(' ')}`},{status:409});
+  const resolvedDestination=await resolveDestinationForIssue(db,body);
+  const destinationId=resolvedDestination.id;
+  const destination=resolvedDestination.destination;
 
   const vendorIds=[...new Set(drafts.map(row=>text(row.vendorItemId)).filter(Boolean))];
   const [inventoryResult,productResult]=await Promise.all([

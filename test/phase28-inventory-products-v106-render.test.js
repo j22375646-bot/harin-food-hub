@@ -58,6 +58,22 @@ test('inventory adds a Rocket Growth ePost inbound batch workbench',()=>{
   assert.match(css,/\.ipInboundHistory/);
 });
 
+test('selected inventory item opens a right-rail inbound invoice composer backed by the Wing address book',()=>{
+  const page=read('app/_phase28/pages/inventory-products-page.js');
+  const css=read('app/_phase28/pages/inventory-products-page.css');
+  assert.match(page,/function InventoryInboundRailComposer/);
+  assert.match(page,/입고 송장 만들기/);
+  assert.match(page,/첨부 Wing 기준/);
+  assert.match(page,/data\.destinations\.filter\(item=>item\.ready\)/);
+  assert.match(page,/destinationCode:selectedDestination\.centerCode/);
+  assert.match(page,/vendorItemId:row\.vendorItemId/);
+  assert.match(page,/\/api\/inventory\/rocket-growth\/inbound/);
+  assert.match(page,/window\.confirm/);
+  assert.match(page,/INBOUND_STATUS_LABELS/);
+  assert.match(css,/\.ipRailInboundComposer/);
+  assert.match(css,/\.ipRailInboundDestination/);
+});
+
 test('Phase 28 channel mapping supports platform-isolated multi-select manual linking',()=>{
   const page=read('app/_phase28/pages/inventory-products-page.js');
   assert.match(page,/function ProductMappingWorkspace/);
