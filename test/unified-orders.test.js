@@ -260,6 +260,23 @@ test('Cafe24 open-market mirrors are excluded from the Cafe24 storefront lane',(
   assert.equal(center.stageCounts.PREPARING,1);
 });
 
+test('Cafe24 Naver Pay checkout is shown as Cafe24 seller shipping, not Naver SmartStore',()=>{
+  const center=orders.buildUnifiedOrders({
+    cafe24Orders:[
+      {order_id:'20260902-0000013',order_date:'2026-09-02T04:16:10Z',paid_amount:39000,raw_data:{market_id:'NCHECKOUT',order_place_id:'NCHECKOUT',order_place_name:'네이버 페이'}}
+    ],
+    cafe24OrderItems:[
+      {order_id:'20260902-0000013',external_item_id:'I-1',product_name:'생강차 30g',quantity:1,raw_data:{order_status:'N20'}}
+    ]
+  });
+  const order=center.orders[0];
+  assert.equal(order.platform,'CAFE24');
+  assert.equal(order.channelLabel,'Cafe24 · 네이버페이');
+  assert.equal(order.stage,'READY_TO_SHIP');
+  assert.equal(order.shippingEligible,true);
+  assert.equal(order.externalOrderId,'20260902-0000013');
+});
+
 test('hourly order collection is scheduled and the manual button is explicit',()=>{
   const vercel=JSON.parse(fs.readFileSync(path.join(__dirname,'..','vercel.json'),'utf8'));
   const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');

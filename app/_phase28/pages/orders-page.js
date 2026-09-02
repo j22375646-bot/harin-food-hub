@@ -10,11 +10,13 @@ import {Phase28RightRailLayout} from '../primitives/right-rail-layout.js';
 import collectionProgress from '../../../lib/orders/collection-progress.js';
 import cafe24Delivery from '../../../lib/ui/phase28-orders-delivery.js';
 import businessCalendar from '../../../lib/shipping-reference/business-calendar.js';
+import cafe24OrderRefreshPolicy from '../../../lib/cafe24/order-refresh-policy.js';
 import './orders-page.css';
 
 const {activeCollectionPlatforms,collectionProgressLabel}=collectionProgress;
 const {hasReceiverDetails,hydrateOrderReceivers,needsReceiverHydration}=cafe24Delivery;
 const {calculateCutoffSchedule}=businessCalendar;
+const {CAFE24_ORDER_REFRESH_INTERVAL_MS}=cafe24OrderRefreshPolicy;
 
 const STAGES=[
   {id:'ACTIVE',label:'송장 발급 전',icon:'orders',progress:0,description:'수취정보를 확인한 뒤 송장을 발급하세요.',action:'선택 주문 송장 발급'},
@@ -141,7 +143,7 @@ function Runway({workspaces,activeStage,onStageChange,cutoff,onOpenActions,delay
 
 function FreshnessDock({channels=[],asOf,syncState,syncPlatforms=[],onSync}){
   const ready=channels.filter(item=>['READY','RUNNING'].includes(String(item.status||'').toUpperCase())).length;
-  const progressLabel=syncState==='RUNNING'?(syncPlatforms.length?collectionProgressLabel(syncPlatforms):'완료 반영 중'):'주문 1시간 · 배송 1분 자동';
+  const progressLabel=syncState==='RUNNING'?(syncPlatforms.length?collectionProgressLabel(syncPlatforms):'완료 반영 중'):'Cafe24 2분 · 전체 주문 1시간 · 배송 1분 자동';
   return <section className="ordersFreshness" aria-label="채널별 주문 수집 상태" aria-live="polite">
     <div className="freshnessSummary"><i/><span><strong>{channels.length?`${ready}/${channels.length} ${ready===channels.length?'최신':'확인 필요'}`:'상태 확인 중'}</strong><small>주문 데이터</small></span></div>
     <div className="freshnessChannels">{['NAVER','CAFE24','COUPANG'].map(brand=>{const channel=channels.find(item=>String(item.platform||'').toUpperCase()===brand);return <span key={brand}><Phase28ChannelLogo brand={brand} size="compact"/><span>{CHANNEL_NAMES[brand]}<strong>{channel?.message||CHANNEL_STATUS[channel?.status]||'확인 필요'}</strong></span></span>;})}</div>
@@ -268,6 +270,7 @@ export default function Phase28OrdersPage({model={}}){
   const [fulfillmentError,setFulfillmentError]=useState('');
   const [fulfillmentCheckedAt,setFulfillmentCheckedAt]=useState(null);
   const trackingRunRef=useRef(false);
+  const cafe24OrderRefreshRunRef=useRef(false);
   const fulfillmentSignatureRef=useRef('');
   const cutoff=useCutoff(model.cutoff||{});
   const fulfillmentByOrder=useMemo(()=>Object.fromEntries((fulfillmentFeed.items||[]).map(item=>[item.hubOrderId,item])),[fulfillmentFeed]);
@@ -357,6 +360,33 @@ export default function Phase28OrdersPage({model={}}){
     const timer=window.setTimeout(()=>setToastVisible(false),2600);
     return()=>window.clearTimeout(timer);
   },[statusMessage]);
+  useEffect(()=>{
+    let stopped=false;
+    async function refreshCafe24Orders(){
+      if(stopped||cafe24OrderRefreshRunRef.current||document.visibilityState==='hidden')return;
+      cafe24OrderRefreshRunRef.current=true;
+      try{
+        const response=await fetch('/api/cafe24/orders/refresh',{method:'POST',headers:{'Content-Type':'application/json'}});
+        const result=await response.json();
+        if(response.ok&&result.ok&&result.refreshed)router.refresh();
+      }catch{
+        // Automatic refresh stays quiet; the channel health surface keeps the
+        // last verified collection state instead of replacing it with zero.
+      }finally{
+        cafe24OrderRefreshRunRef.current=false;
+      }
+    }
+    const initial=window.setTimeout(refreshCafe24Orders,800);
+    const timer=window.setInterval(refreshCafe24Orders,CAFE24_ORDER_REFRESH_INTERVAL_MS);
+    function resume(){if(document.visibilityState!=='hidden')refreshCafe24Orders();}
+    document.addEventListener('visibilitychange',resume);
+    return()=>{
+      stopped=true;
+      window.clearTimeout(initial);
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange',resume);
+    };
+  },[router]);
   useEffect(()=>{
     if(!automaticTrackingKey)return undefined;
     const ids=automaticTrackingKey.split('|').filter(Boolean);

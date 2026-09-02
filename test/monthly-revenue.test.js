@@ -8,6 +8,7 @@ test('monthly revenue uses every channel, removes marketplace mirrors, cancellat
   const result = calculateMonthlyRevenue({
     cafe24Orders:[
       { order_id:'cafe', paid_amount:100_000, raw_data:{ market_id:'self' } },
+      { order_id:'cafe-naver-pay', paid_amount:39_000, raw_data:{ market_id:'NCHECKOUT', order_place_id:'NCHECKOUT' } },
       { order_id:'mirror', paid_amount:900_000, raw_data:{ market_id:'naver' } },
       { order_id:'cancelled', paid_amount:50_000, payment_status:'CANCELLED', raw_data:{ market_id:'self' } }
     ],
@@ -26,10 +27,10 @@ test('monthly revenue uses every channel, removes marketplace mirrors, cancellat
   });
 
   assert.deepEqual(result.totals, {
-    CAFE24:100_000,
+    CAFE24:139_000,
     NAVER:70_000,
     COUPANG:100_000,
-    ALL:270_000
+    ALL:309_000
   });
   assert.equal(result.status, 'READY');
 });

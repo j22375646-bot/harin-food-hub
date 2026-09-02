@@ -14,7 +14,8 @@ test('main sales history combines channel orders without double-counting Rocket 
     asOf:'2026-08-31T12:00:00+09:00',
     cafe24Orders:[
       {order_id:'c1',order_date:'2026-08-29T08:00:00+09:00',paid_amount:10_000},
-      {order_id:'c2',order_date:'2026-08-30T08:00:00+09:00',paid_amount:0,raw_data:{payment_amount:20_000}}
+      {order_id:'c2',order_date:'2026-08-30T08:00:00+09:00',paid_amount:0,raw_data:{payment_amount:20_000}},
+      {order_id:'c3',order_date:'2026-08-30T09:00:00+09:00',paid_amount:39_000,raw_data:{market_id:'NCHECKOUT',order_place_id:'NCHECKOUT'}}
     ],
     naverOrders:[
       {order_id:'n1',payment_date:'2026-08-30T10:00:00+09:00',paid_amount:30_000,status:'PAYED'}
@@ -30,8 +31,8 @@ test('main sales history combines channel orders without double-counting Rocket 
   });
 
   assert.equal(history.status,'READY');
-  assert.equal(history.totalOrders,5);
-  assert.equal(history.totalRevenue,150_000);
+  assert.equal(history.totalOrders,6);
+  assert.equal(history.totalRevenue,189_000);
   assert.deepEqual(history.channels,['CAFE24','COUPANG','NAVER']);
   assert.equal(history.daily.find(item=>item.date==='2026-08-31').revenue,90_000);
 });

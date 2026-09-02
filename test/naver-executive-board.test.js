@@ -11,6 +11,7 @@ function build(overrides = {}) {
     previousAdRows:previousAds,
     cafe24Orders:[
       { order_id:'C1', order_date:'2026-08-10T00:00:00Z', customer_id:'owner-1', paid_amount:100000, raw_data:{ market_id:'SELF' } },
+      { order_id:'C-NPAY', order_date:'2026-08-12T00:00:00Z', customer_id:null, paid_amount:39000, raw_data:{ market_id:'NCHECKOUT', order_place_id:'NCHECKOUT' } },
       { order_id:'MIRROR', order_date:'2026-08-10T00:00:00Z', customer_id:null, paid_amount:999999, raw_data:{ market_id:'NAVER' } }
     ],
     naverOrders:[{ order_id:'N1', payment_date:'2026-08-11T00:00:00Z', paid_amount:200000 }],
@@ -28,9 +29,9 @@ test('광고 ROAS와 실제 주문 기반 MER를 분리하고 오픈마켓 미�
   const adRoas = board.metrics.find(item => item.key === 'AD_ROAS');
   const mer = board.metrics.find(item => item.key === 'MER');
   assert.equal(adRoas.value, 200);
-  assert.equal(mer.value, 300);
-  assert.equal(board.actuals.confirmed_net_sales, 300000);
-  assert.equal(board.actuals.direct_cafe24_orders, 1);
+  assert.equal(mer.value, 339);
+  assert.equal(board.actuals.confirmed_net_sales, 339000);
+  assert.equal(board.actuals.direct_cafe24_orders, 2);
 });
 
 test('광고 주문과 정산의 연결키가 없으면 정산 ROAS를 계산하지 않는다', () => {
