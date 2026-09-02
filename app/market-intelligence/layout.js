@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import '../_analysis/harin-market-intelligence.css';
 import authModule from '../../lib/dashboard-auth.js';
@@ -9,8 +9,8 @@ import MarketIntelligenceShell from '../_shell/market-intelligence-shell.js';
 export const dynamic='force-dynamic';
 
 export default async function Layout({children}){
-  const cookieStore=await cookies();
-  const session=await authModule.validateSession(cookieStore.get(authModule.COOKIE_NAME)?.value).catch(()=>null);
+  const [cookieStore,requestHeaders]=await Promise.all([cookies(),headers()]);
+  const session=await authModule.resolveRequestSession({headers:requestHeaders,token:cookieStore.get(authModule.COOKIE_NAME)?.value});
   if(!session)redirect('/login?next=%2Fmarket-intelligence');
   const phase28Runtime=featureFlagsModule.phase28RuntimeConfig(process.env,{routeId:'development'});
   if(phase28Runtime.activePages.includes('development'))return <Phase28RouteShell routeId="development">{children}</Phase28RouteShell>;

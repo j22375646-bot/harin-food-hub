@@ -13,7 +13,7 @@ test('first authenticated entry uses a dedicated lightweight Main server module'
   assert.match(entry,/loadPhase28MainDashboard/);
   assert.match(entry,/buildPhase28MainModel/);
   assert.match(entry,/phase28-home-app\.js/);
-  assert.match(entry,/verifiedRequestSession/);
+  assert.match(entry,/resolveRequestSession/);
   assert.match(entry,/headers\(\)/);
   assert.doesNotMatch(entry,/dashboard-client/);
   assert.doesNotMatch(entry,/profitabilityModule|naverBidWorkbenchModule|buildPhase28OrdersModel|renderDashboardState/);

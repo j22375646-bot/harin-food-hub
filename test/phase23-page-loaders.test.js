@@ -20,6 +20,7 @@ test('23-2 gives orders and Rocket Growth inventory independent table profiles',
   assert.equal(orders.tables.includes('shipping_reference_snapshots'),true);
   assert.equal(orders.tables.includes('cafe24_oauth_tokens'),true);
   assert.equal(inventory.tables.includes('coupang_rg_inventory'),true);
+  assert.equal(inventory.tables.includes('coupang_item_inventory'),false);
   assert.equal(inventory.tables.includes('cafe24_products'),false);
   assert.equal(inventory.tables.includes('naver_commerce_orders'),false);
   assert.equal(inventory.tables.includes('cafe24_oauth_tokens'),true);

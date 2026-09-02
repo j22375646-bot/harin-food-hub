@@ -1,4 +1,4 @@
-import {cookies} from 'next/headers';
+import {cookies,headers} from 'next/headers';
 import {redirect} from 'next/navigation';
 import authModule from '../../lib/dashboard-auth.js';
 import featureFlagsModule from '../../lib/ui/phase28-production-runtime.js';
@@ -7,8 +7,8 @@ import Phase28RouteShell from '../_phase28/phase28-route-shell.js';
 export const dynamic='force-dynamic';
 
 export default async function Layout({children}){
-  const cookieStore=await cookies();
-  const session=await authModule.validateSession(cookieStore.get(authModule.COOKIE_NAME)?.value).catch(()=>null);
+  const [cookieStore,requestHeaders]=await Promise.all([cookies(),headers()]);
+  const session=await authModule.resolveRequestSession({headers:requestHeaders,token:cookieStore.get(authModule.COOKIE_NAME)?.value});
   if(!session)redirect('/login?next=%2Fdata-collection');
   const phase28Runtime=featureFlagsModule.phase28RuntimeConfig(process.env,{routeId:'system'});
   if(phase28Runtime.activePages.includes('system'))return <Phase28RouteShell routeId="system">{children}</Phase28RouteShell>;

@@ -152,6 +152,38 @@ test('Proxy가 검증한 요청 헤더는 페이지에서 추가 DB 조회 없�
   assert.equal(auth.verifiedRequestSession({get:name=>name==='x-harin-session-verified'?'1':name==='x-harin-role'?'VIEWER':null}),null);
 });
 
+test('보호 페이지는 Proxy가 검증한 OWNER 세션을 재사용해 세션 DB 조회를 생략한다',async()=>{
+  const requestHeaders=new Map([
+    ['x-harin-session-verified','1'],
+    ['x-harin-user-id','owner-user'],
+    ['x-harin-username','owner'],
+    ['x-harin-role','OWNER']
+  ]);
+  let databaseReads=0;
+  const db={from(){databaseReads+=1;throw new Error('verified request must not query dashboard_sessions');}};
+  const session=await auth.resolveRequestSession({
+    headers:{get:name=>requestHeaders.get(name)||null},
+    token:'ignored-after-proxy-verification',
+    db
+  });
+  assert.deepEqual(session,{userId:'owner-user',username:'owner',role:'OWNER'});
+  assert.equal(databaseReads,0);
+});
+
+test('모든 보호 페이지 진입점은 Proxy 검증 세션을 우선 재사용한다',()=>{
+  const files=[
+    'app/page.js','app/dashboard-route.js','app/ab-tests/layout.js','app/ai-knowledge/layout.js',
+    'app/approvals/layout.js','app/data-collection/layout.js','app/diagnoses/layout.js',
+    'app/execution-validation/layout.js','app/market-intelligence/layout.js',
+    'app/notifications/layout.js','app/product-analysis/layout.js'
+  ];
+  for(const file of files){
+    const source=fs.readFileSync(path.resolve(__dirname,'..',file),'utf8');
+    assert.match(source,/resolveRequestSession/,`${file} must reuse Proxy verification`);
+    assert.match(source,/headers\(\)/,`${file} must read the verified request headers`);
+  }
+});
+
 test('개발 로그인 우회는 쿠키가 없는 Proxy 요청에도 적용된다', () => {
   const proxy=fs.readFileSync(path.resolve(__dirname,'../proxy.js'),'utf8');
   assert.match(proxy,/developmentAuthBypassEnabled/);

@@ -64,7 +64,7 @@ import featureFlagsModule from '../lib/ui/phase28-production-runtime.js';
 import calendarCenterModule from '../lib/calendar/calendar-center.js';
 import phase28ClientPayloadModule from '../lib/ui/phase28-client-payload.js';
 import operationSnapshotModule from '../lib/navigation/operation-snapshot.js';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
@@ -2812,8 +2812,11 @@ async function getDashboardData(state) {
 }
 
 async function renderDashboardState(initialState) {
-  const cookieStore = await cookies();
-  const currentUser = await authModule.validateSession(cookieStore.get(authModule.COOKIE_NAME)?.value).catch(()=>null);
+  const [cookieStore,requestHeaders] = await Promise.all([cookies(),headers()]);
+  const currentUser = await authModule.resolveRequestSession({
+    headers:requestHeaders,
+    token:cookieStore.get(authModule.COOKIE_NAME)?.value
+  });
   if (!currentUser) redirect('/login');
   const fallbackNavigationSnapshot=operationSnapshotModule.parseNavigationOperationSnapshotCookie(
     cookieStore.get(operationSnapshotModule.NAVIGATION_SNAPSHOT_COOKIE)?.value

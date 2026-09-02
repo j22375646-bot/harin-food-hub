@@ -32,8 +32,10 @@ export default async function Home({searchParams}){
   const initialState=hubRoutesModule.normalizeHubState(await searchParams);
   if(initialState.view!=='main')redirect(hubRoutesModule.buildHubHref(initialState));
   const [cookieStore,requestHeaders]=await Promise.all([cookies(),headers()]);
-  const currentUser=authModule.verifiedRequestSession(requestHeaders)
-    ||await authModule.validateSession(cookieStore.get(authModule.COOKIE_NAME)?.value).catch(()=>null);
+  const currentUser=await authModule.resolveRequestSession({
+    headers:requestHeaders,
+    token:cookieStore.get(authModule.COOKIE_NAME)?.value
+  });
   if(!currentUser)redirect('/login');
   const phase28Runtime=featureFlagsModule.phase28RuntimeForState(process.env,initialState);
   if(!phase28Runtime.activePages.includes('home'))redirect('/dashboard');
