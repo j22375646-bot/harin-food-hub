@@ -205,6 +205,34 @@ test('Coupang full operation datasets overlap independent read jobs', async () =
   }
 });
 
+test('Coupang item inventory collection overlaps response and raw-save I/O', async () => {
+  const originalRequest = client.request;
+  let active = 0;
+  let maxActive = 0;
+  client.request = async (_method, path) => {
+    active += 1;
+    maxActive = Math.max(maxActive, active);
+    await wait(20);
+    active -= 1;
+    const vendorItemId = path.split('/').at(-2);
+    return {
+      status: 200,
+      data: [{ vendorItemId, amountInStock: 3, salesInProgress: 1 }]
+    };
+  };
+  try {
+    const result = await operations.syncItemInventory(
+      Array.from({ length: 6 }, (_, index) => String(index + 1)),
+      rawInsertDb()
+    );
+    assert.equal(result.itemInventory, 6);
+    assert.ok(maxActive >= 2, `expected overlapped inventory I/O, max active was ${maxActive}`);
+    assert.ok(maxActive <= 4, `inventory concurrency exceeded the safety bound: ${maxActive}`);
+  } finally {
+    client.request = originalRequest;
+  }
+});
+
 test('Coupang HMAC signature is deterministic and contains no secret', () => {
   const authorization = client.createAuthorization({
     method: 'GET',
