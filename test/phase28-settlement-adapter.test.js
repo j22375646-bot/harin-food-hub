@@ -176,6 +176,20 @@ test('settlement adapter exposes Cafe24 restricted API approval state without pr
   assert.match(cafe24.basis,/개발자 승인 필요/);
 });
 
+test('settlement adapter sends Cafe24 token scope gaps to OAuth reconnect instead of generic approval docs',()=>{
+  const model=buildPhase28SettlementModel({settlementPeriods:{30:center(30,[channel('CAFE24',{
+    status:'RECONNECT_REQUIRED',
+    gross_sales:100000,
+    expected_payout:92000,
+    actual_payout:null,
+    payout_variance:null,
+    action_href:'/oauth/cafe24/start'
+  })])}});
+  const cafe24=model.periods['30'].channels[0];
+  assert.equal(cafe24.stateLabel,'OAuth 재연결 필요');
+  assert.deepEqual(cafe24.recovery,{kind:'route',label:'Cafe24 권한 다시 연결',href:'/oauth/cafe24/start',workspace:null});
+});
+
 test('settlement adapter routes each channel to its own evidence recovery surface',()=>{
   const model=buildPhase28SettlementModel({settlementPeriods:{30:center(30,[
     channel('NAVER',{status:'UNAVAILABLE',gross_sales:null,expected_payout:null,actual_payout:null,payout_variance:null}),

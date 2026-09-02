@@ -46,7 +46,7 @@ test('Cafe24 매출통계 API가 있으면 주문 추정 대신 결제·환불 �
   assert.match(cafe.basis,/매출통계 API/);
 });
 
-test('Cafe24 매출통계 권한이 없으면 주문 추정값과 API 정산을 구분한다', () => {
+test('Cafe24 매출통계 권한이 저장 토큰에 없으면 OAuth 재연결을 안내한다', () => {
   const center=buildUnifiedSettlementCenter({now,
     cafe24Token:{access_token:'stored',scopes:['mall.read_order','mall.read_analytics']},
     cafe24Orders:[{order_id:'C1',order_date:'2026-08-10',paid_amount:100000,cancel_amount:0}],
@@ -54,34 +54,45 @@ test('Cafe24 매출통계 권한이 없으면 주문 추정값과 API 정산을 
     syncs:[{platform:'CAFE24',job_type:'FETCH_ALL',status:'PARTIAL',finished_at:'2026-08-14T02:00:00Z',metadata:{capabilities:{settlement:'SETUP_REQUIRED'}}}]
   });
   const cafe=center.channels.find(item=>item.platform==='CAFE24');
-  assert.equal(cafe.status,'APPROVAL_REQUIRED');
+  assert.equal(cafe.status,'RECONNECT_REQUIRED');
   assert.equal(cafe.expected_payout,92000);
   assert.equal(cafe.actual_payout,null);
-  assert.match(cafe.action_href,/^https:\/\/developers\.cafe24\.com\//);
-  assert.match(cafe.basis,/개발자 승인 필요/);
+  assert.equal(cafe.action_href,'/oauth/cafe24/start');
+  assert.match(cafe.basis,/OAuth 재연결 필요/);
   assert.equal(center.summary.estimated_payout,null);
 });
 
-test('Cafe24 주문이 없는 달에도 매출통계 권한 오류를 정상 무매출로 숨기지 않는다', () => {
+test('Cafe24 주문이 없는 달에도 매출통계 재연결 필요를 정상 무매출로 숨기지 않는다', () => {
   const center=buildUnifiedSettlementCenter({now,
     cafe24Token:{access_token:'stored',scopes:['mall.read_order','mall.read_analytics']},
     syncs:[{platform:'CAFE24',job_type:'FETCH_ALL',status:'PARTIAL',finished_at:'2026-08-14T02:00:00Z',metadata:{capabilities:{settlement:'SETUP_REQUIRED'}}}]
   });
   const cafe=center.channels.find(item=>item.platform==='CAFE24');
-  assert.equal(cafe.status,'APPROVAL_REQUIRED');
+  assert.equal(cafe.status,'RECONNECT_REQUIRED');
   assert.equal(cafe.gross_sales,null);
-  assert.match(cafe.action_href,/^https:\/\/developers\.cafe24\.com\//);
+  assert.equal(cafe.action_href,'/oauth/cafe24/start');
 });
 
-test('Cafe24 이전 매출통계가 남아도 현재 승인 누락을 정상 수집으로 오인하지 않는다', () => {
+test('Cafe24 이전 매출통계가 남아도 현재 토큰 범위 누락을 정상 수집으로 오인하지 않는다', () => {
   const center=buildUnifiedSettlementCenter({now,
     cafe24Token:{access_token:'stored',scopes:['mall.read_order','mall.read_analytics']},
     cafe24SalesDaily:[{date:'2026-08-10',payment_amount:100000,refund_amount:0,sales_count:1}]
   });
   const cafe=center.channels.find(item=>item.platform==='CAFE24');
-  assert.equal(cafe.status,'APPROVAL_REQUIRED');
-  assert.match(cafe.basis,/새 수집.*승인 필요/);
+  assert.equal(cafe.status,'RECONNECT_REQUIRED');
+  assert.match(cafe.basis,/새 수집.*OAuth 재연결 필요/);
   assert.equal(cafe.actual_payout,null);
+});
+
+test('Cafe24 토큰 범위가 있어도 실제 매출통계 API가 403이면 개발자 승인을 계속 표시한다', () => {
+  const center=buildUnifiedSettlementCenter({now,
+    cafe24Token:{access_token:'stored',scopes:['mall.read_order','mall.read_salesreport']},
+    cafe24Orders:[{order_id:'C1',order_date:'2026-08-10',paid_amount:100000,cancel_amount:0}],
+    syncs:[{platform:'CAFE24',job_type:'FETCH_ALL',status:'PARTIAL',finished_at:'2026-08-14T02:00:00Z',metadata:{capabilities:{settlement:'APPROVAL_REQUIRED'}}}]
+  });
+  const cafe=center.channels.find(item=>item.platform==='CAFE24');
+  assert.equal(cafe.status,'APPROVAL_REQUIRED');
+  assert.match(cafe.action_href,/^https:\/\/developers\.cafe24\.com\//);
 });
 
 test('쿠팡 매출·환불·수수료와 확정 지급액을 분리한다', () => {
