@@ -1503,10 +1503,7 @@ async function getDashboardData(state) {
     db.from('coupang_orders').select('shipment_box_id,order_id,ordered_at,paid_at,status,gross_amount,raw_data').order('ordered_at',{ascending:false}).limit(rowLimit('orders',2000)),
     supplementalNeeds.coupangOrderTerminals
       ? view==='orders'
-        ?db.from('coupang_operation_requests')
-          .select('id,operation_type,target_type,target_id,status,payload,result_json,error_message,created_at,executed_at')
-          .in('operation_type',['ORDER_DETAIL','UPLOAD_INVOICE',channelTransferModule.CAFE24_OPERATION,trackingQueueModule.OPERATION,issueHistoryModule.OPERATION])
-          .order('created_at',{ascending:false}).limit(5000)
+        ?trackingQueueModule.loadOrderOperationRows(db)
         :db.from('coupang_operation_requests').select('operation_type,target_id,status,error_message,created_at')
           .eq('operation_type','ORDER_DETAIL').eq('target_type','ORDER').in('status',['CANCELLED','FAILED'])
           .order('created_at',{ascending:false}).limit(5000)

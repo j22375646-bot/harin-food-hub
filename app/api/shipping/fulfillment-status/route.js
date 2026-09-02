@@ -28,11 +28,8 @@ export async function GET(request){
   if(!apiSafety.isAuthorized(request,authModule))return apiSafety.unauthorized();
   try{
     const db=supabaseModule.getSupabase();
-    const since=new Date(Date.now()-35*24*60*60*1000).toISOString();
     const [operationsResult,activeOperationsResult,coupangResult]=await Promise.all([
-      db.from('coupang_operation_requests')
-        .select('id,operation_type,target_type,target_id,status,payload,result_json,error_message,created_at,started_at,executed_at,next_attempt_at')
-        .in('operation_type',OPERATIONS).gte('created_at',since).order('created_at',{ascending:false}).limit(1500),
+      trackingQueue.loadOrderOperationRows(db,{includeOrderDetails:false}),
       db.from('coupang_operation_requests')
         .select('id,operation_type,target_type,target_id,status,payload,result_json,error_message,created_at,started_at,executed_at,next_attempt_at')
         .in('operation_type',OPERATIONS).in('status',['PENDING','RUNNING','EXECUTING']).order('created_at',{ascending:false}).limit(500),
