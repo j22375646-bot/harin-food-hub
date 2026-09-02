@@ -19,6 +19,7 @@ test('캘린더 화면은 실제 저장 CRUD와 메인 오늘 연동을 연결�
   assert.match(page,/ARCHIVE_ENTRY/);
   assert.match(api,/hub_work_items/);
   assert.match(api,/context_href','\/calendar'/);
+  assert.match(api,/revalidatePath\('\/orders'\)/);
   assert.match(home,/오늘 일정과 판매 이벤트/);
   assert.match(home,/onNavigate\('calendar'\)/);
   assert.match(page,/form\.type==='EVENT'/);
@@ -27,6 +28,18 @@ test('캘린더 화면은 실제 저장 CRUD와 메인 오늘 연동을 연결�
   assert.match(page,/자동 판정 미리보기/);
   assert.match(page,/가장 높은 구간 하나/);
   assert.match(home,/item\.type==='EVENT'/);
+});
+
+test('주문 화면은 캘린더 이벤트 개정값을 가볍게 확인해 열린 화면도 자동 갱신한다',()=>{
+  const revisionApi=read('app/api/calendar/events/revision/route.js');
+  const orders=read('app/_phase28/pages/orders-page.js');
+  assert.match(revisionApi,/isAuthorized/);
+  assert.match(revisionApi,/context_label','캘린더 이벤트%'/);
+  assert.match(revisionApi,/updated_at/);
+  assert.match(revisionApi,/force-dynamic/);
+  assert.match(orders,/CALENDAR_EVENT_REFRESH_INTERVAL_MS/);
+  assert.match(orders,/\/api\/calendar\/events\/revision/);
+  assert.match(orders,/router\.refresh\(\)/);
 });
 
 test('캘린더는 선택 달만 지연 조회하고 고정 UI 규칙을 지킨다',()=>{

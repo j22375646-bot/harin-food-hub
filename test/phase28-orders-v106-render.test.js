@@ -43,6 +43,9 @@ test('the V106 orders surface keeps the approved runway, stable rail, and real a
   assert.match(page,/사은품 증정 대상/);
   assert.match(page,/실결제 주문금액/);
   assert.match(page,/사은품 대상만 보기/);
+  assert.match(page,/\/api\/calendar\/events\/revision/);
+  assert.match(page,/giftAutomation/);
+  assert.match(page,/캘린더 조건 없음/);
   assert.match(page,/data-gift-required=/);
   assert.match(page,/order\.invoice\.label/);
   assert.match(page,/order\.invoice\.number/);

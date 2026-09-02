@@ -71,7 +71,8 @@ export async function POST(request){
     }else throw new calendarCenter.CalendarInputError('지원하지 않는 캘린더 요청입니다.');
     revalidatePath('/calendar');
     revalidatePath('/');
-    return apiSafety.json({ok:true,entry:result.item?calendarCenter.decorateEntry(result.item):null,message:action==='ARCHIVE_ENTRY'?'캘린더에서 삭제했습니다.':'캘린더와 메인에 반영했습니다.'});
+    revalidatePath('/orders');
+    return apiSafety.json({ok:true,entry:result.item?calendarCenter.decorateEntry(result.item):null,message:action==='ARCHIVE_ENTRY'?'캘린더에서 삭제했습니다.':'캘린더·메인·주문에 반영했습니다.'});
   }catch(error){
     const input=apiSafety.inputErrorResponse(error);if(input)return input;
     const status=error instanceof calendarCenter.CalendarInputError||error instanceof ownerWorkspace.OwnerWorkspaceInputError?error.status:500;

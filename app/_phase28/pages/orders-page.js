@@ -29,6 +29,7 @@ const COURIER={COUPANG:'EPOST',NAVER:'EPOST',CAFE24:'0012'};
 const CHANNEL_NAMES={NAVER:'네이버',CAFE24:'Cafe24',COUPANG:'쿠팡'};
 const CHANNEL_STATUS={READY:'정상',RUNNING:'수집 중',FAILED:'수집 실패',SETUP_REQUIRED:'설정 필요',RECONNECT_REQUIRED:'재연결 필요'};
 const ACTIVE_STAGES=new Set(['PAID','PREPARING','READY_TO_SHIP']);
+const CALENDAR_EVENT_REFRESH_INTERVAL_MS=15000;
 const wait=milliseconds=>new Promise(resolve=>window.setTimeout(resolve,milliseconds));
 const productImageLoader=({src})=>src;
 
@@ -221,7 +222,7 @@ function OrdersWorkspace({orders,stage,selectedIds,previewOrderId,onSelect,onPre
   </section>;
 }
 
-function OrdersRail({activeTab,setActiveTab,selectedOrders,previewOrder,channels,activeStage,busy,delayedCount,giftOrderCount,fulfillmentFeed,fulfillmentError,fulfillmentCheckedAt,onPrimaryAction,onSync}){
+function OrdersRail({activeTab,setActiveTab,selectedOrders,previewOrder,channels,activeStage,busy,delayedCount,giftOrderCount,giftAutomation,fulfillmentFeed,fulfillmentError,fulfillmentCheckedAt,onPrimaryAction,onSync}){
   const tabs=[{id:'selected',label:'선택 주문'},{id:'actions',label:'출고 작업'},{id:'sync',label:'수집 상태'}];
   const stage=STAGES.find(item=>item.id===activeStage)||STAGES[0];
   const receiver=previewOrder?.receiver||{};
@@ -243,13 +244,14 @@ function OrdersRail({activeTab,setActiveTab,selectedOrders,previewOrder,channels
         <section role="tabpanel" id="phase28-orders-panel-sync" aria-labelledby="phase28-orders-tab-sync" aria-hidden={activeTab!=='sync'} inert={activeTab==='sync'?undefined:true} data-active={activeTab==='sync'}><header><h3>판매 채널 최신 상태</h3><p>한 채널 오류가 다른 채널을 막지 않아요.</p></header><div className="channelHealth">{['NAVER','CAFE24','COUPANG'].map(brand=>{const channel=channels.find(item=>String(item.platform||'').toUpperCase()===brand);const ready=['READY','RUNNING'].includes(String(channel?.status||'').toUpperCase());return <div key={brand}><Phase28ChannelLogo brand={brand}/><span><strong>{CHANNEL_NAMES[brand]}</strong><small>{channel?.message||'최근 수집 상태 확인'}</small></span><em data-ready={ready}>{CHANNEL_STATUS[channel?.status]||channel?.label||'확인 필요'}</em></div>;})}</div><div className="ordersRailFooter"><button type="button" className="ordersRailPrimary" onClick={onSync} disabled={Boolean(busy)}>전체 플랫폼 다시 수집</button></div></section>
       </div>
     </section>
-    <section className="ordersRailSummary"><h3>오늘 출고 기준</h3><div><span>당일출고 마감</span><strong>오후 3시</strong></div><div><span>사은품 증정</span><strong>{Number(giftOrderCount||0).toLocaleString('ko-KR')}건 확인</strong></div><div><span>배송지연</span><strong>{Number(delayedCount||0).toLocaleString('ko-KR')}건 확인</strong></div><div><span>로켓그로스</span><strong>자동처리 · 제외</strong></div></section>
+    <section className="ordersRailSummary"><h3>오늘 출고 기준</h3><div><span>당일출고 마감</span><strong>오후 3시</strong></div><div><span>사은품 자동화</span><strong data-status={giftAutomation?.status||'SETUP_REQUIRED'}>{giftAutomation?.status==='READY'?`조건 ${Number(giftAutomation.ruleCount||0).toLocaleString('ko-KR')}개 · 대상 ${Number(giftOrderCount||0).toLocaleString('ko-KR')}건`:'캘린더 조건 없음'}</strong></div><div><span>배송지연</span><strong>{Number(delayedCount||0).toLocaleString('ko-KR')}건 확인</strong></div><div><span>로켓그로스</span><strong>자동처리 · 제외</strong></div></section>
   </div>;
 }
 
 export default function Phase28OrdersPage({model={}}){
   const router=useRouter();
   const hero=model.hero||{};
+  const giftAutomation=model.giftAutomation||{status:'SETUP_REQUIRED',eventCount:0,ruleCount:0,revision:null};
   const sourceOrders=model.orders||[];
   const channels=model.channels||[];
   const [receiverHydration,setReceiverHydration]=useState({});
@@ -272,6 +274,7 @@ export default function Phase28OrdersPage({model={}}){
   const trackingRunRef=useRef(false);
   const cafe24OrderRefreshRunRef=useRef(false);
   const fulfillmentSignatureRef=useRef('');
+  const calendarEventRevisionRef=useRef(String(giftAutomation.revision||''));
   const cutoff=useCutoff(model.cutoff||{});
   const fulfillmentByOrder=useMemo(()=>Object.fromEntries((fulfillmentFeed.items||[]).map(item=>[item.hubOrderId,item])),[fulfillmentFeed]);
   const orders=useMemo(()=>sourceOrders.map(order=>{
@@ -330,6 +333,36 @@ export default function Phase28OrdersPage({model={}}){
       trackingRunRef.current=false;
       if(!silent)setBusy('');
     }
+  },[router]);
+  useEffect(()=>{
+    calendarEventRevisionRef.current=String(giftAutomation.revision||'');
+  },[giftAutomation.revision]);
+  useEffect(()=>{
+    let stopped=false;
+    let running=false;
+    async function checkCalendarEvents(){
+      if(stopped||running||document.visibilityState==='hidden')return;
+      running=true;
+      try{
+        const response=await fetch('/api/calendar/events/revision',{cache:'no-store'});
+        const result=await response.json();
+        if(!response.ok||!result.ok)return;
+        const nextRevision=String(result.revision||'');
+        if(nextRevision!==calendarEventRevisionRef.current){
+          calendarEventRevisionRef.current=nextRevision;
+          router.refresh();
+        }
+      }catch{
+        // The server-rendered setup state remains visible while the next check retries.
+      }finally{
+        running=false;
+      }
+    }
+    const initial=window.setTimeout(checkCalendarEvents,1500);
+    const timer=window.setInterval(checkCalendarEvents,CALENDAR_EVENT_REFRESH_INTERVAL_MS);
+    function resume(){if(document.visibilityState!=='hidden')checkCalendarEvents();}
+    document.addEventListener('visibilitychange',resume);
+    return()=>{stopped=true;window.clearTimeout(initial);window.clearInterval(timer);document.removeEventListener('visibilitychange',resume);};
   },[router]);
   useEffect(()=>{
     let active=true;
@@ -533,7 +566,7 @@ export default function Phase28OrdersPage({model={}}){
   const workCount=typeof hero.workCount==='number'?hero.workCount:null;
   return <section className="p28OrdersPage" data-phase28-root="true" data-phase28-page="orders">
     <div className="ordersIntro"><Phase28PageHeading context={`채널 ${channels.length||0}/3 최신 · 판매자배송만 표시`} title="오늘 출고할 주문은 " accent={workCount==null?'확인 필요':`${workCount.toLocaleString('ko-KR')}건`} suffix="이에요." summary="취소 주문과 로켓그로스는 작업목록에서 빼고, 직접 보낼 주문만 모았어요."/><div className="ordersSyncCluster"><span><i><HarinIcon name="sync" size={19}/></i><span><small>{syncState==='RUNNING'?(syncPlatforms.length?collectionProgressLabel(syncPlatforms):'완료 반영 중'):'마지막 전체 동기화'}</small><strong>{referenceTime(hero.asOf)}</strong></span></span><button type="button" onClick={syncOrders} disabled={syncState==='RUNNING'}><HarinIcon name="sync" size={17}/>{syncState==='RUNNING'?'수집 중':'지금 동기화'}</button></div></div>
-    <Phase28RightRailLayout label="출고 보조석" rail={<OrdersRail activeTab={activeRailTab} setActiveTab={setActiveRailTab} selectedOrders={selectedOrders} previewOrder={previewOrder} channels={channels} activeStage={activeStage} busy={busy} delayedCount={hero.delayedCount} giftOrderCount={hero.giftOrderCount} fulfillmentFeed={fulfillmentFeed} fulfillmentError={fulfillmentError} fulfillmentCheckedAt={fulfillmentCheckedAt} onPrimaryAction={primaryAction} onSync={syncOrders}/> }>
+    <Phase28RightRailLayout label="출고 보조석" rail={<OrdersRail activeTab={activeRailTab} setActiveTab={setActiveRailTab} selectedOrders={selectedOrders} previewOrder={previewOrder} channels={channels} activeStage={activeStage} busy={busy} delayedCount={hero.delayedCount} giftOrderCount={hero.giftOrderCount} giftAutomation={giftAutomation} fulfillmentFeed={fulfillmentFeed} fulfillmentError={fulfillmentError} fulfillmentCheckedAt={fulfillmentCheckedAt} onPrimaryAction={primaryAction} onSync={syncOrders}/> }>
       <div className="ordersCore"><Runway workspaces={model.workspaces||[]} activeStage={activeStage} onStageChange={changeStage} cutoff={cutoff} onOpenActions={openActions} delayOnly={delayOnly} onDelayToggle={()=>setDelayOnly(value=>!value)}/><FreshnessDock channels={channels} asOf={hero.asOf} syncState={syncState} syncPlatforms={syncPlatforms} onSync={syncOrders}/><OrdersWorkspace orders={orders} stage={activeStage} selectedIds={selectedIds} previewOrderId={previewOrderId} onSelect={selectOrder} onPreview={previewOrderInRail} platform={platform} setPlatform={setPlatform} delayOnly={delayOnly} giftOnly={giftOnly} setGiftOnly={setGiftOnly} onOpenActions={openActions} visibleLimit={model.visibleLimit||20}/>{selectedIds.size?<div className="mobileBatchAction"><span><strong>{selectedIds.size}건 선택</strong><small>판매자배송 출고 작업</small></span><button type="button" onClick={primaryAction}>우체국 발급</button></div>:null}</div>
     </Phase28RightRailLayout>
     <div className={`ordersToast${toastVisible?' visible':''}`} role="status" aria-live="polite">{statusMessage}</div>
