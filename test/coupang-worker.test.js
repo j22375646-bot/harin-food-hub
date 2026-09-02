@@ -8,6 +8,19 @@ const queue = require("../lib/coupang/request-queue.js");
 const worker = require("../scripts/coupang-local-worker.js");
 const actions = require("../lib/coupang/actions.js");
 
+test("fixed-IP sync queue recovery does not add a one-minute polling delay", () => {
+  assert.ok(worker.SYNC_RECOVERY_INTERVAL_MS <= 2_000);
+});
+
+test("fixed-IP sync retries rejoin the same single-flight recovery loop", () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, "..", "scripts", "coupang-local-worker.js"),
+    "utf8",
+  );
+  assert.doesNotMatch(source, /function scheduleRetry|scheduleRetry\(/);
+  assert.match(source, /createSingleFlight\(\(\) => processPending\(db\)\)/);
+});
+
 function chain(terminal, calls) {
   const query = {};
   for (const method of ["select", "eq", "in", "order", "limit", "lt"])

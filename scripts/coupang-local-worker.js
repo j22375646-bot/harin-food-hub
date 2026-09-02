@@ -41,6 +41,7 @@ const collectorId = String(
 ).trim();
 const workerStartedAt = new Date().toISOString();
 const OPERATION_RECOVERY_INTERVAL_MS = 2 * 1000;
+const SYNC_RECOVERY_INTERVAL_MS = 2 * 1000;
 let verifiedSourceIp = null;
 fs.mkdirSync(path.dirname(logPath), { recursive: true });
 
@@ -160,6 +161,7 @@ async function writeHeartbeat(db, values = {}) {
       watch_mode: watchMode,
       node: process.version,
       operation_recovery_interval_ms: OPERATION_RECOVERY_INTERVAL_MS,
+      sync_recovery_interval_ms: SYNC_RECOVERY_INTERVAL_MS,
     },
     updated_at: now,
   };
@@ -170,16 +172,6 @@ async function writeHeartbeat(db, values = {}) {
   } catch (error) {
     log(`HEARTBEAT_FAILED ${safeMessage(error)}`);
   }
-}
-
-function scheduleRetry(db, retryAt) {
-  const delay = Math.max(0, new Date(retryAt).getTime() - Date.now());
-  const timer = setTimeout(() => {
-    processPending(db).catch((error) =>
-      log(`RETRY_FAILED ${safeMessage(error)}`),
-    );
-  }, delay);
-  timer.unref?.();
 }
 
 async function claimNext(db) {
@@ -261,7 +253,6 @@ async function processRequest(db, request) {
       .eq("id", request.id);
     if (retryable) {
       await writeHeartbeat(db, { status: "ONLINE", error: message });
-      scheduleRetry(db, retryAt);
       return log(`RETRY ${request.request_type} ${request.id} at=${retryAt}`);
     }
     await writeHeartbeat(db, { status: "ERROR", error: message });
@@ -513,6 +504,7 @@ async function runOnce(db = getSupabase()) {
 async function watch(db = getSupabase()) {
   await writeHeartbeat(db, { status: "ONLINE" });
   await processAllPending(db);
+  const drainSyncRequests = createSingleFlight(() => processPending(db));
   const drainOperations = createSingleFlight(() => processPendingOperations(db));
   // Realtime is the fast path. This quiet recovery pass only drains explicitly
   // queued requests if a WebSocket event was missed; it never starts a
@@ -520,11 +512,16 @@ async function watch(db = getSupabase()) {
   const keepAlive = setInterval(() => {
     writeHeartbeat(db, { status: "ONLINE" })
       .then(async () => {
-        await processPending(db);
+        await drainSyncRequests();
         await drainOperations();
       })
       .catch((error) => log(`RECOVERY_FAILED ${safeMessage(error)}`));
   }, 60 * 1000);
+  const syncRecovery = setInterval(() => {
+    drainSyncRequests().catch((error) =>
+      log(`SYNC_RECOVERY_FAILED ${safeMessage(error)}`),
+    );
+  }, SYNC_RECOVERY_INTERVAL_MS);
   const operationRecovery = setInterval(() => {
     drainOperations().catch((error) =>
       log(`OPERATION_RECOVERY_FAILED ${safeMessage(error)}`),
@@ -536,7 +533,7 @@ async function watch(db = getSupabase()) {
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "coupang_sync_requests" },
       () => {
-        processPending(db).catch((error) =>
+        drainSyncRequests().catch((error) =>
           log(`EVENT_FAILED ${safeMessage(error)}`),
         );
       },
@@ -544,7 +541,7 @@ async function watch(db = getSupabase()) {
     .subscribe((status, error) => {
       log(`REALTIME_${status}${error ? ` ${safeMessage(error)}` : ""}`);
       if (status === "SUBSCRIBED") {
-        processPending(db)
+        drainSyncRequests()
           .then(() => drainOperations())
           .catch((nextError) =>
             log(`RECOVERY_FAILED ${safeMessage(nextError)}`),
@@ -574,6 +571,7 @@ async function watch(db = getSupabase()) {
   const shutdown = async (signal) => {
     log(`STOP ${signal}`);
     clearInterval(keepAlive);
+    clearInterval(syncRecovery);
     clearInterval(operationRecovery);
     await writeHeartbeat(db, { status: "STOPPING" });
     await db.removeChannel(channel).catch(() => {});
@@ -603,6 +601,7 @@ if (require.main === module)
 
 module.exports = {
   OPERATION_RECOVERY_INTERVAL_MS,
+  SYNC_RECOVERY_INTERVAL_MS,
   assertAllowedSourceIp,
   claimNext,
   claimNextOperation,
@@ -617,7 +616,6 @@ module.exports = {
   processAllPending,
   publicIp,
   runOnce,
-  scheduleRetry,
   watch,
   writeHeartbeat,
 };

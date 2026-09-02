@@ -6,6 +6,204 @@ const client = require('../lib/coupang/client.js');
 const map = require('../lib/coupang/mappers.js');
 const sync = require('../lib/coupang/sync.js');
 const operations = require('../lib/coupang/operations.js');
+const supabaseModule = require('../lib/cafe24/supabase.js');
+
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+function rawInsertDb() {
+  return {
+    from() {
+      return {
+        insert: async () => ({ error: null }),
+        upsert: async () => ({ error: null })
+      };
+    }
+  };
+}
+
+test('Coupang concurrent requests preserve the configured global start interval', async () => {
+  const originalFetch = global.fetch;
+  const originalEnv = {
+    vendorId: process.env.COUPANG_VENDOR_ID,
+    accessKey: process.env.COUPANG_ACCESS_KEY,
+    secretKey: process.env.COUPANG_SECRET_KEY
+  };
+  const starts = [];
+  process.env.COUPANG_VENDOR_ID = 'test-vendor';
+  process.env.COUPANG_ACCESS_KEY = 'test-access';
+  process.env.COUPANG_SECRET_KEY = 'test-secret';
+  global.fetch = async () => {
+    starts.push(Date.now());
+    await wait(5);
+    return new Response('{}', { status: 200 });
+  };
+  try {
+    await Promise.all(Array.from({ length: 4 }, (_, index) =>
+      client.request('GET', `/test/${index}`, {}, { minInterval: 30 })
+    ));
+    const gaps = starts.slice(1).map((value, index) => value - starts[index]);
+    assert.equal(starts.length, 4);
+    assert.ok(gaps.every(gap => gap >= 20), `request start gaps: ${gaps.join(',')}`);
+  } finally {
+    global.fetch = originalFetch;
+    for (const [key, value] of Object.entries(originalEnv)) {
+      const envKey = key === 'vendorId' ? 'COUPANG_VENDOR_ID' : key === 'accessKey' ? 'COUPANG_ACCESS_KEY' : 'COUPANG_SECRET_KEY';
+      if (value === undefined) delete process.env[envKey];
+      else process.env[envKey] = value;
+    }
+  }
+});
+
+test('Coupang default request pacing remains below the official five-per-second threshold', async () => {
+  const originalFetch = global.fetch;
+  const originalEnv = {
+    vendorId: process.env.COUPANG_VENDOR_ID,
+    accessKey: process.env.COUPANG_ACCESS_KEY,
+    secretKey: process.env.COUPANG_SECRET_KEY
+  };
+  const starts = [];
+  process.env.COUPANG_VENDOR_ID = 'test-vendor';
+  process.env.COUPANG_ACCESS_KEY = 'test-access';
+  process.env.COUPANG_SECRET_KEY = 'test-secret';
+  global.fetch = async () => {
+    starts.push(Date.now());
+    return new Response('{}', { status: 200 });
+  };
+  try {
+    await Promise.all(Array.from({ length: 3 }, (_, index) =>
+      client.request('GET', `/default-pacing/${index}`)
+    ));
+    const gaps = starts.slice(1).map((value, index) => value - starts[index]);
+    assert.ok(gaps.every(gap => gap >= 200), `default request start gaps: ${gaps.join(',')}`);
+  } finally {
+    global.fetch = originalFetch;
+    for (const [key, value] of Object.entries(originalEnv)) {
+      const envKey = key === 'vendorId' ? 'COUPANG_VENDOR_ID' : key === 'accessKey' ? 'COUPANG_ACCESS_KEY' : 'COUPANG_SECRET_KEY';
+      if (value === undefined) delete process.env[envKey];
+      else process.env[envKey] = value;
+    }
+  }
+});
+
+test('Coupang product detail collection overlaps I/O without dropping products', async () => {
+  const originalRequest = client.request;
+  let active = 0;
+  let maxActive = 0;
+  client.request = async (_method, path) => {
+    active += 1;
+    maxActive = Math.max(maxActive, active);
+    await wait(20);
+    active -= 1;
+    const sellerProductId = path.split('/').at(-1);
+    return {
+      status: 200,
+      data: { data: { sellerProductId, sellerProductName: `상품 ${sellerProductId}`, items: [
+        { itemName: '기본', marketplaceItemData: { vendorItemId: `${sellerProductId}0` } }
+      ] } }
+    };
+  };
+  try {
+    const result = await sync.syncProductDetails(
+      Array.from({ length: 6 }, (_, index) => ({ sellerProductId: index + 1 })),
+      rawInsertDb()
+    );
+    assert.equal(result.productRows.length, 6);
+    assert.equal(result.rows.length, 6);
+    assert.ok(maxActive >= 2, `expected overlapped detail I/O, max active was ${maxActive}`);
+    assert.ok(maxActive <= 4, `detail concurrency exceeded the safety bound: ${maxActive}`);
+  } finally {
+    client.request = originalRequest;
+  }
+});
+
+test('Coupang order status collection overlaps independent status requests', async () => {
+  const originalRequest = client.request;
+  const originalGetSupabase = supabaseModule.getSupabase;
+  let active = 0;
+  let maxActive = 0;
+  supabaseModule.getSupabase = () => rawInsertDb();
+  client.request = async (_method, _path, params) => {
+    active += 1;
+    maxActive = Math.max(maxActive, active);
+    await wait(20);
+    active -= 1;
+    return { status: 200, data: [{ shipmentBoxId: params.status, orderId: params.status }] };
+  };
+  try {
+    const result = await sync.syncOrders(
+      { vendorId: 'vendor' },
+      { start: '2026-09-01', end: '2026-09-02' }
+    );
+    assert.equal(result.length, 6);
+    assert.ok(maxActive >= 2, `expected overlapped order status I/O, max active was ${maxActive}`);
+    assert.ok(maxActive <= 3, `order status concurrency exceeded the safety bound: ${maxActive}`);
+  } finally {
+    client.request = originalRequest;
+    supabaseModule.getSupabase = originalGetSupabase;
+  }
+});
+
+test('Coupang concurrent order collection waits for started workers before returning a failure', async () => {
+  const originalRequest = client.request;
+  const originalGetSupabase = supabaseModule.getSupabase;
+  let active = 0;
+  let started = 0;
+  supabaseModule.getSupabase = () => rawInsertDb();
+  client.request = async (_method, _path, params) => {
+    active += 1;
+    started += 1;
+    if (params.status === 'ACCEPT') {
+      await wait(5);
+      active -= 1;
+      throw new Error('injected order status failure');
+    }
+    await wait(35);
+    active -= 1;
+    return { status: 200, data: [] };
+  };
+  try {
+    await assert.rejects(
+      () => sync.syncOrders(
+        { vendorId: 'vendor' },
+        { start: '2026-09-01', end: '2026-09-02' }
+      ),
+      /injected order status failure/
+    );
+    assert.equal(active, 0);
+    assert.equal(started, 6);
+  } finally {
+    client.request = originalRequest;
+    supabaseModule.getSupabase = originalGetSupabase;
+  }
+});
+
+test('Coupang full operation datasets overlap independent read jobs', async () => {
+  const originalRequest = client.request;
+  const originalGetSupabase = supabaseModule.getSupabase;
+  let active = 0;
+  let maxActive = 0;
+  supabaseModule.getSupabase = () => rawInsertDb();
+  client.request = async () => {
+    active += 1;
+    maxActive = Math.max(maxActive, active);
+    await wait(20);
+    active -= 1;
+    return { status: 200, data: [] };
+  };
+  try {
+    const result = await operations.syncOperations({
+      config: { vendorId: 'vendor' },
+      period: { start: '2026-09-01', end: '2026-09-02' },
+      vendorItemIds: []
+    });
+    assert.deepEqual(result.errors, []);
+    assert.ok(maxActive >= 2, `expected overlapped operation I/O, max active was ${maxActive}`);
+    assert.ok(maxActive <= 3, `operation concurrency exceeded the safety bound: ${maxActive}`);
+  } finally {
+    client.request = originalRequest;
+    supabaseModule.getSupabase = originalGetSupabase;
+  }
+});
 
 test('Coupang HMAC signature is deterministic and contains no secret', () => {
   const authorization = client.createAuthorization({
