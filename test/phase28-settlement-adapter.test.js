@@ -70,6 +70,21 @@ test('settlement adapter exposes payout, variance, cost, and history evidence wi
   assert.equal(model.writePolicy,'READ_ONLY');
 });
 
+test('settlement adapter names payout variance direction instead of collapsing it into generic review',()=>{
+  const model=buildPhase28SettlementModel({settlementPeriods:{30:center(30,[
+    channel('COUPANG',{payout_variance:8812,actual_payout:858812}),
+    channel('NAVER',{payout_variance:-12000,actual_payout:838000})
+  ])}}).periods['30'];
+  assert.equal(model.channels[0].stateCode,'OVERPAID');
+  assert.equal(model.channels[0].stateLabel,'예상 초과 지급');
+  assert.equal(model.channels[0].tone,'review');
+  assert.equal(model.channels[0].recovery.kind,'workspace');
+  assert.equal(model.channels[0].recovery.workspace,'variance');
+  assert.equal(model.channels[1].stateCode,'UNDERPAID');
+  assert.equal(model.channels[1].stateLabel,'예상 미달 지급');
+  assert.equal(model.channels[1].tone,'attention');
+});
+
 test('settlement adapter keeps Naver ad charge and spend reconciliation separate',()=>{
   const model=buildPhase28SettlementModel({settlementPeriods:{30:center(30,[channel('NAVER',{
     advertising:25000,
@@ -115,6 +130,9 @@ test('settlement adapter exposes Rocket Growth as its own cost evidence card',()
   assert.equal(rocket.evidence.orderCount,2);
   assert.equal(rocket.evidence.settlementOrderCount,1);
   assert.equal(rocket.evidence.settlementCoverage,50);
+  assert.equal(rocket.stateCode,'SETTLEMENT_INCOMPLETE');
+  assert.equal(rocket.stateLabel,'정산 연결 50%');
+  assert.deepEqual(rocket.recovery,{kind:'route',label:'쿠팡 수집 상태 보기',href:'/data-collection',workspace:null});
 });
 
 test('settlement adapter exposes Rocket Growth gross and net contribution without merging seller delivery',()=>{
@@ -154,7 +172,19 @@ test('settlement adapter exposes Cafe24 restricted API approval state without pr
   const cafe24=model.periods['30'].channels[0];
   assert.equal(cafe24.stateLabel,'카페24 승인 필요');
   assert.equal(cafe24.actionHref,'https://developers.cafe24.com/');
+  assert.deepEqual(cafe24.recovery,{kind:'external',label:'카페24 승인 안내 보기',href:'https://developers.cafe24.com/',workspace:null});
   assert.match(cafe24.basis,/개발자 승인 필요/);
+});
+
+test('settlement adapter routes each channel to its own evidence recovery surface',()=>{
+  const model=buildPhase28SettlementModel({settlementPeriods:{30:center(30,[
+    channel('NAVER',{status:'UNAVAILABLE',gross_sales:null,expected_payout:null,actual_payout:null,payout_variance:null}),
+    channel('CAFE24',{status:'COST_REQUIRED',expected_payout:null,actual_payout:null,payout_variance:null}),
+    channel('COUPANG',{status:'NO_DATA',gross_sales:null,expected_payout:null,actual_payout:null,payout_variance:null})
+  ])}}).periods['30'];
+  assert.deepEqual(model.channels[0].recovery,{kind:'route',label:'네이버 수집 상태 보기',href:'/data-collection/naver-api',workspace:null});
+  assert.deepEqual(model.channels[1].recovery,{kind:'route',label:'비용 기준 입력하기',href:'/products/costs',workspace:null});
+  assert.deepEqual(model.channels[2].recovery,{kind:'route',label:'쿠팡 수집 상태 보기',href:'/data-collection',workspace:null});
 });
 
 test('settlement joins the implemented V106 adapter set',()=>{

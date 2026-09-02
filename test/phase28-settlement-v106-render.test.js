@@ -48,8 +48,9 @@ test('settlement page remains read-only and exposes the server-provided recovery
   const page=read('app/_phase28/pages/settlement-page.js');
   assert.doesNotMatch(page,/fetch\(/);
   assert.doesNotMatch(page,/method:\s*['"](?:POST|PUT|PATCH|DELETE)/);
-  assert.match(page,/channel\.actionHref\|\|'\/products\/costs'/);
-  assert.match(page,/카페24 승인 안내 보기/);
+  assert.match(page,/channel\.recovery/);
+  assert.match(page,/recovery\.kind==='workspace'/);
+  assert.match(page,/recovery\.kind==='external'/);
   assert.match(page,/target="_blank" rel="noreferrer"/);
   assert.match(page,/pushPhase28Route\(router,actionTarget\)/);
   assert.match(page,/확인 필요/);
@@ -67,6 +68,7 @@ test('V106 settlement CSS keeps the fixed readable responsive UI',()=>{
   assert.match(css,/\.spRocketGrowthFlow/);
   assert.match(css,/\.spRocketGrossBar/);
   assert.match(css,/\.spRocketNetBar/);
+  assert.match(css,/data-tone="review"/);
   assert.doesNotMatch(css,/border-left\s*:/);
   assert.doesNotMatch(css,/linear-gradient|radial-gradient|backdrop-filter/);
   assert.doesNotMatch(css,/font-size:(?:[0-9]|1[01])px/);

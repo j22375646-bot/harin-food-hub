@@ -225,6 +225,8 @@ test('로켓그로스 주문보다 정산 연결 범위가 부족하면 확정 �
   assert.equal(rocket.expected_payout,null);
   assert.equal(rocket.status,'COST_REQUIRED');
   assert.match(rocket.basis,/정산 연결 1\/2건/);
+  assert.match(rocket.action,/정산 연결 50%/);
+  assert.match(rocket.action,/WING 정산 원문/);
   assert.equal(center.waterfall.expected_payout,null);
 });
 
