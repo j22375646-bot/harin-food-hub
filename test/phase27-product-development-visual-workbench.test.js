@@ -61,8 +61,27 @@ test('상품개발 5단계는 와이드 작업영역과 균형 잡힌 공통 헤
   assert.match(workspace, /context:/);
   assert.match(marketCss, /\.harinV8 \.marketProjectHome,\.harinV8 \.marketWorkspace\{[^}]*max-width:2300px/);
   assert.doesNotMatch(marketCss, /\.harinV8 \.marketProjectHome,\.harinV8 \.marketWorkspace\{[^}]*max-width:1360px/);
-  assert.match(marketCss, /\.harinV8 \.marketWorkspaceHeader h1\{[^}]*font-size:clamp\(34px,3vw,50px\)/);
+  assert.match(marketCss, /\.harinV8 \.marketWorkspaceHeader h1\{[^}]*font-size:clamp\(30px,2\.4vw,40px\)/);
   assert.doesNotMatch(marketCss, /\.harinV8 \.marketWorkspaceTabs>a\.active\{[^}]*inset/);
   assert.match(marketCss, /@media\(max-width:1600px\)/);
   assert.match(marketCss, /@media\(max-width:760px\)/);
+});
+
+test('상품개발 경쟁 분석은 다크 모드와 빈 화면 단순화 규칙을 지킨다', () => {
+  const workspace = read('app/market-intelligence/[projectId]/workspace-page.js');
+  const competition = read('app/market-intelligence/[projectId]/competition/competition-client.js');
+  const marketCss = read('app/_analysis/harin-market-intelligence.css');
+
+  assert.doesNotMatch(workspace, /<small>\{item\.next\}<\/small>/);
+  assert.match(workspace, /<details className="marketProjectIdentity"/);
+  assert.match(competition, /const hasCompetitionData=/);
+  assert.match(competition, /marketCompetitionEmptyStart/);
+  assert.match(marketCss, /\[data-phase28-root="true"\]\[data-theme="dark"\] \.marketWorkspace\{[^}]*--v8-surface:#18233a/);
+  assert.match(marketCss, /\.marketCompetitorList article\{[^}]*background:var\(--v8-surface-soft\)/);
+  assert.match(marketCss, /\.marketCompetitorReviewList article\{[^}]*background:var\(--v8-surface\)/);
+  assert.match(marketCss, /\.marketCompetitionEmptyStart\{/);
+  assert.match(marketCss, /\.marketPageAi\{[^}]*background:var\(--v8-surface\)/);
+  assert.match(marketCss, /\[data-phase28-root="true"\]\[data-theme="dark"\] \.marketWorkspace \.v8Button-secondary\{/);
+  assert.match(marketCss, /\.b2bFlowRail>article\{[^}]*background:var\(--v8-surface-soft\)/);
+  assert.match(marketCss, /\.marketNaverEvidenceControl label\.query>input\{[^}]*background:var\(--v8-surface\)/);
 });
