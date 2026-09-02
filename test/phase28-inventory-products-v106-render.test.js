@@ -51,7 +51,7 @@ test('inventory adds a Rocket Growth ePost inbound batch workbench',()=>{
   assert.match(page,/action:'ISSUE_BATCH'/);
   assert.match(page,/data\.products/);
   assert.match(page,/센터 주소 등록·수정/);
-  assert.match(page,/선택 상품 우체국 송장 일괄 발급/);
+  assert.match(page,/개별 송장 일괄 발급/);
   assert.match(page,/발급 송장번호/);
   assert.match(css,/\.ipInboundDestination/);
   assert.match(css,/\.ipInboundProductRow/);
@@ -72,6 +72,18 @@ test('selected inventory item opens a right-rail inbound invoice composer backed
   assert.match(page,/INBOUND_STATUS_LABELS/);
   assert.match(css,/\.ipRailInboundComposer/);
   assert.match(css,/\.ipRailInboundDestination/);
+});
+
+test('right-rail inbound composer creates multiple independent boxes for the same product',()=>{
+  const page=read('app/_phase28/pages/inventory-products-page.js');
+  const css=read('app/_phase28/pages/inventory-products-page.css');
+  assert.match(page,/같은 구성 박스 추가/);
+  assert.match(page,/packages\.map/);
+  assert.match(page,/shipments:packages\.map/);
+  assert.match(page,/박스별 수량/);
+  assert.match(page,/최대 50박스/);
+  assert.match(css,/\.ipRailInboundBox/);
+  assert.match(css,/\.ipRailInboundAddBox/);
 });
 
 test('Phase 28 channel mapping supports platform-isolated multi-select manual linking',()=>{

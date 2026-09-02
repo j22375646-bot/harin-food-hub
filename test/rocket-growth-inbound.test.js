@@ -118,6 +118,22 @@ test('선택한 로켓그로스 상품을 최대 50개 우체국 입고 송장 �
   assert.deepEqual(invalidPackage.invalid.map(item=>item.error),['포장 무게는 1~30kg 범위여야 합니다.']);
 });
 
+test('같은 상품을 같은 센터로 보내는 개별 박스는 각각 별도 송장 후보로 유지한다',()=>{
+  const inventory=[
+    {vendor_item_id:'111',external_sku_id:'RG-A',productItem:{item_name:'작두콩차 30티백'}}
+  ];
+  const result=inbound.prepareShipmentDrafts({inventory,drafts:[
+    {vendorItemId:'111',packageKey:'box-a',quantity:50,weight:8,volume:120},
+    {vendorItemId:'111',packageKey:'box-b',quantity:50,weight:8,volume:120}
+  ]});
+  assert.equal(result.invalid.length,0);
+  assert.equal(result.valid.length,2);
+  assert.deepEqual(result.valid.map(item=>({packageKey:item.packageKey,quantity:item.quantity})),[
+    {packageKey:'box-a',quantity:50},
+    {packageKey:'box-b',quantity:50}
+  ]);
+});
+
 test('입고 송장 상품 목록은 품절 상품을 포함한 저장 로켓그로스 SKU 전체를 가나다순으로 만든다',()=>{
   const products=inbound.buildRocketGrowthProductDirectory({
     inventory:[
@@ -162,5 +178,6 @@ test('로켓그로스 입고 송장 API는 센터 저장과 최대 50건 고정 
   assert.match(source,/targetType:'CHANNEL'/);
   assert.match(source,/platform:'COUPANG_RG_INBOUND'/);
   assert.match(source,/mapLimit\([^,]+,4,/);
-  assert.match(source,/slice\(0,50\)/);
+  assert.match(source,/drafts\.length>50/);
+  assert.match(source,/최대 50박스/);
 });

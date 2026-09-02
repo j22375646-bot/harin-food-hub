@@ -31,6 +31,7 @@ const NO_LINK_VALUE='NO_LINK';
 const COST_FIELDS=[['unitCost','상품 원가'],['packagingCost','포장비'],['otherUnitCost','기타 단위비']];
 const INBOUND_STATUS_LABELS={QUEUED:'예약',ISSUING:'발급 중',ISSUED:'발급 완료',FAILED:'확인 필요'};
 const emptyDestination={centerCode:'',label:'',recipientName:'',contact:'',postCode:'',address:'',addressDetail:''};
+const initialInboundPackages=()=>[{id:1,quantity:1,weight:2,volume:60}];
 
 function count(value){return value==null?'확인 필요':Number(value).toLocaleString('ko-KR');}
 function money(value){return value==null?'확인 필요':`${Math.round(Number(value)).toLocaleString('ko-KR')}원`;}
@@ -57,6 +58,7 @@ function referenceTime(value){
   return new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'long',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(date);
 }
 function todayKey(){return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());}
+function inboundBoxCount(value){const parsed=Number(value);return Number.isInteger(parsed)&&parsed>0?Math.min(51,parsed):0;}
 
 function OperationSwitch({mode,onChange}){
   return <nav className="ipOperationSwitch" aria-label="재고 상품 운영 단계">
@@ -113,13 +115,15 @@ function ReadinessFlow({hero}){
 function InventoryInboundRailComposer({row,onOpenShipments}){
   const [data,setData]=useState({destinations:[],history:[]});
   const [selectedCenterCode,setSelectedCenterCode]=useState('');
-  const [draft,setDraft]=useState({quantity:1,weight:2,volume:60});
+  const [packages,setPackages]=useState(initialInboundPackages);
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('');
   const availableDestinations=useMemo(()=>data.destinations.filter(item=>item.ready).sort((a,b)=>a.label.localeCompare(b.label,'ko')),[data.destinations]);
   const selectedDestination=data.destinations.find(item=>item.centerCode===selectedCenterCode)||null;
   const latest=data.history.find(item=>item.vendorItemId===row.vendorItemId)||null;
+  const recentShipments=latest?data.history.filter(item=>item.vendorItemId===row.vendorItemId&&item.batchId===latest.batchId):[];
+  const pendingHistoryKey=recentShipments.filter(item=>['QUEUED','ISSUING'].includes(item.status)).map(item=>`${item.id}:${item.status}`).join('|');
 
   async function loadInbound(){
     try{
@@ -130,28 +134,38 @@ function InventoryInboundRailComposer({row,onOpenShipments}){
     }catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setLoading(false);}
   }
   useEffect(()=>{loadInbound();},[]);
-  useEffect(()=>{setMessage('');},[row.vendorItemId]);
+  useEffect(()=>{setMessage('');setPackages(initialInboundPackages());},[row.vendorItemId]);
   useEffect(()=>{
-    if(!latest||!['QUEUED','ISSUING'].includes(latest.status))return undefined;
+    if(!pendingHistoryKey)return undefined;
     const timer=window.setInterval(loadInbound,2000);
     return ()=>window.clearInterval(timer);
-  },[latest?.id,latest?.status]);
+  },[pendingHistoryKey]);
 
-  function updateDraft(field,value){setDraft(current=>({...current,[field]:value}));}
+  function updatePackage(id,field,value){setPackages(current=>current.map(item=>item.id===id?{...item,[field]:value}:item));}
+  function addPackage(){setPackages(current=>{if(current.length>=50)return current;const source=current.at(-1)||initialInboundPackages()[0];const id=Math.max(0,...current.map(item=>item.id))+1;return [...current,{...source,id}];});}
+  function removePackage(id){setPackages(current=>current.length===1?current:current.filter(item=>item.id!==id));}
   async function issueInboundInvoice(){
     if(!selectedDestination?.ready){setMessage('Wing 주소록에서 받을 물류센터를 선택해주세요.');return;}
     if(!row.vendorItemId){setMessage('이 상품의 쿠팡 Vendor item ID를 확인해주세요.');return;}
-    const shipment={vendorItemId:row.vendorItemId,quantity:draft.quantity,weight:draft.weight,volume:draft.volume};
-    if(!window.confirm(`${row.name}\n→ ${selectedDestination.label} (${selectedDestination.centerCode})\n수량 ${draft.quantity}개 · ${draft.weight}kg · ${draft.volume}cm\n\n이 내용으로 실제 우체국 입고 송장을 발급할까요?`))return;
+    const invalid=packages.find(item=>!Number.isInteger(Number(item.quantity))||Number(item.quantity)<1||Number(item.quantity)>99999||!Number.isInteger(Number(item.weight))||Number(item.weight)<1||Number(item.weight)>30||!Number.isInteger(Number(item.volume))||Number(item.volume)<1||Number(item.volume)>160);
+    if(invalid){setMessage('각 박스의 수량·무게·크기를 허용 범위의 정수로 입력해주세요.');return;}
+    const totalQuantity=packages.reduce((sum,item)=>sum+Number(item.quantity),0);
+    const packageSummary=packages.slice(0,8).map((item,index)=>`${index+1}번 ${item.quantity}개 · ${item.weight}kg · ${item.volume}cm`).join('\n');
+    const more=packages.length>8?`\n외 ${packages.length-8}박스`:'';
+    if(!window.confirm(`${row.name}\n→ ${selectedDestination.label} (${selectedDestination.centerCode})\n개별 포장 ${packages.length}박스 · 총 ${totalQuantity.toLocaleString('ko-KR')}개\n\n${packageSummary}${more}\n\n박스마다 별도 우체국 송장을 발급할까요?`))return;
     setBusy(true);setMessage('우체국 송장 발급을 고정 IP 작업 큐에 접수하고 있어요…');
     try{
       const response=await fetch('/api/inventory/rocket-growth/inbound',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
         action:'ISSUE_BATCH',confirm:true,destinationId:selectedDestination.id||undefined,
-        destinationCode:selectedDestination.centerCode,shipments:[shipment]
+        destinationCode:selectedDestination.centerCode,shipments:packages.map(item=>({
+          vendorItemId:row.vendorItemId,packageKey:`${row.vendorItemId}-box-${item.id}`,
+          quantity:item.quantity,weight:item.weight,volume:item.volume
+        }))
       })});
       const result=await response.json();
       if(!response.ok||!result.ok)throw new Error(result.error||result.invalid?.[0]?.error||'입고 송장 발급 실패');
-      setMessage(result.results?.[0]?.pending?'발급 예약 완료 · 우체국 처리 상태를 자동 확인합니다.':'우체국 송장 발급 완료 · 송장번호를 확인해주세요.');
+      setMessage(`개별 송장 ${count(result.succeeded)}건 접수 · ${count(result.failed)}건 확인 필요 · 상태를 자동 확인합니다.`);
+      setPackages(initialInboundPackages());
       await loadInbound();
     }catch(error){setMessage(`확인 필요 · ${error.message}`);}finally{setBusy(false);}
   }
@@ -161,10 +175,10 @@ function InventoryInboundRailComposer({row,onOpenShipments}){
     <p>첨부 Wing 기준 2026-08-19 · 택배 주소와 송장용 연락처를 자동 입력합니다.</p>
     <label><span>받는 물류센터</span><select value={selectedCenterCode} onChange={event=>{setSelectedCenterCode(event.target.value);setMessage('');}} disabled={loading}><option value="">{loading?'주소록 불러오는 중':'물류센터 선택'}</option>{availableDestinations.map(item=><option value={item.centerCode} key={item.centerCode}>{item.label} · {item.centerCode}</option>)}</select></label>
     {selectedDestination?<article className="ipRailInboundDestination" data-ready={selectedDestination.ready}><i><HarinIcon name={selectedDestination.ready?'truck':'warning'} size={19}/></i><span><strong>{selectedDestination.label}</strong><small>({selectedDestination.postCode}) {selectedDestination.address} {selectedDestination.addressDetail}</small><em>{selectedDestination.contact} · 입고 가능 {selectedDestination.supportedSizes?.join('·')||'확인 필요'}</em></span></article>:null}
-    <div className="ipRailInboundPackage"><label><span>수량</span><input type="number" min="1" max="99999" value={draft.quantity} onChange={event=>updateDraft('quantity',event.target.value)}/></label><label><span>무게 kg</span><input type="number" min="1" max="30" value={draft.weight} onChange={event=>updateDraft('weight',event.target.value)}/></label><label><span>크기 cm</span><input type="number" min="1" max="160" value={draft.volume} onChange={event=>updateDraft('volume',event.target.value)}/></label></div>
-    {latest?<div className="ipRailInboundStatus" data-status={latest.status}><span><small>최근 발급 상태</small><strong>{INBOUND_STATUS_LABELS[latest.status]||latest.status}</strong></span><em>{latest.trackingNo||latest.error||'송장번호 확인 중'}</em></div>:null}
-    <button type="button" className="ipPrimaryAction" disabled={busy||loading||!selectedDestination?.ready} onClick={issueInboundInvoice}>{busy?'우체국 발급 요청 중…':'확인 후 우체국 송장 발급'}</button>
-    <small>실제 발급은 한 번 확인한 뒤 실행하며, 센터 수취처는 서버에 암호화 저장됩니다.</small>
+    <div className="ipRailInboundBoxes"><header><span>개별 포장 · {packages.length}박스</span><button type="button" className="ipRailInboundAddBox" disabled={packages.length>=50} onClick={addPackage}>같은 구성 박스 추가</button></header>{packages.map((item,index)=><article className="ipRailInboundBox" key={item.id}><header><strong>{index+1}번 박스</strong>{packages.length>1?<button type="button" aria-label={`${index+1}번 박스 삭제`} onClick={()=>removePackage(item.id)}>삭제</button>:null}</header><div className="ipRailInboundPackage"><label><span>박스별 수량</span><input aria-label={`${index+1}번 박스 수량`} type="number" min="1" max="99999" value={item.quantity} onChange={event=>updatePackage(item.id,'quantity',event.target.value)}/></label><label><span>무게 kg</span><input aria-label={`${index+1}번 박스 무게`} type="number" min="1" max="30" value={item.weight} onChange={event=>updatePackage(item.id,'weight',event.target.value)}/></label><label><span>크기 cm</span><input aria-label={`${index+1}번 박스 크기`} type="number" min="1" max="160" value={item.volume} onChange={event=>updatePackage(item.id,'volume',event.target.value)}/></label></div></article>)}</div>
+    {recentShipments.length?<div className="ipRailInboundStatuses"><strong>최근 배치 · 개별 송장 {recentShipments.length}건</strong>{recentShipments.slice(0,8).map((item,index)=><div className="ipRailInboundStatus" data-status={item.status} key={item.id}><span><small>{index+1}번 송장</small><strong>{INBOUND_STATUS_LABELS[item.status]||item.status}</strong></span><em>{item.trackingNo||item.error||'송장번호 확인 중'}</em></div>)}</div>:null}
+    <button type="button" className="ipPrimaryAction" disabled={busy||loading||!selectedDestination?.ready||!packages.length} onClick={issueInboundInvoice}>{busy?'우체국 발급 요청 중…':`${packages.length}박스 개별 송장 발급`}</button>
+    <small>최대 50박스까지 한 번에 접수합니다. 실제 발급은 한 번 확인한 뒤 실행하며, 모든 박스는 합포장하지 않고 별도 송장을 받습니다.</small>
     {message?<p className="ipRailMessage" role="status">{message}</p>:null}
   </section>;
 }
@@ -269,7 +283,7 @@ function RocketGrowthInboundWorkspace({rows}){
   const [message,setMessage]=useState('');
   const shipmentRows=data.products.length?data.products:rows;
   const selectedDestination=data.destinations.find(item=>item.centerCode===selectedCenterCode)||null;
-  const selectedDrafts=shipmentRows.filter(row=>drafts[row.id]?.selected).map(row=>({vendorItemId:row.vendorItemId,quantity:drafts[row.id].quantity,weight:drafts[row.id].weight,volume:drafts[row.id].volume}));
+  const selectedDrafts=shipmentRows.flatMap(row=>{const draft=drafts[row.id];if(!draft?.selected)return [];return Array.from({length:inboundBoxCount(draft.boxes)},(_,index)=>({vendorItemId:row.vendorItemId,packageKey:`${row.vendorItemId}-box-${index+1}`,quantity:draft.quantity,weight:draft.weight,volume:draft.volume}));});
 
   async function loadInbound(preserve=true){
     try{
@@ -298,8 +312,8 @@ function RocketGrowthInboundWorkspace({rows}){
     setMessage(found&&!found.ready?'센터 주소를 한 번 등록하면 이후에는 목록에서 바로 선택할 수 있어요.':'');
   }
   function changeDestination(field,value){setDestinationForm(current=>({...current,[field]:value}));}
-  function changeDraft(id,field,value){setDrafts(current=>({...current,[id]:{selected:true,quantity:current[id]?.quantity||1,weight:current[id]?.weight||2,volume:current[id]?.volume||60,[field]:value}}));}
-  function toggleAll(checked){setDrafts(checked?Object.fromEntries(shipmentRows.slice(0,50).map(row=>[row.id,{selected:true,quantity:drafts[row.id]?.quantity||1,weight:drafts[row.id]?.weight||2,volume:drafts[row.id]?.volume||60}])):{});}
+  function changeDraft(id,field,value){setDrafts(current=>({...current,[id]:{selected:true,boxes:current[id]?.boxes||1,quantity:current[id]?.quantity||1,weight:current[id]?.weight||2,volume:current[id]?.volume||60,[field]:value}}));}
+  function toggleAll(checked){setDrafts(checked?Object.fromEntries(shipmentRows.slice(0,50).map(row=>[row.id,{selected:true,boxes:drafts[row.id]?.boxes||1,quantity:drafts[row.id]?.quantity||1,weight:drafts[row.id]?.weight||2,volume:drafts[row.id]?.volume||60}])):{});}
   async function saveDestination(){
     if(!window.confirm(`${destinationForm.centerCode||'새'} 물류센터의 주소·연락처를 암호화 저장할까요?`))return;
     setBusy('destination');setMessage('물류센터 수취처를 저장하고 있어요…');
@@ -313,6 +327,7 @@ function RocketGrowthInboundWorkspace({rows}){
   async function issueBatch(){
     if(!selectedDestination?.ready){setMessage('우체국 필수 주소가 저장된 물류센터를 선택해주세요.');return;}
     if(!selectedDrafts.length){setMessage('송장을 발급할 로켓그로스 상품을 선택하고 수량을 입력해주세요.');return;}
+    if(selectedDrafts.length>50){setMessage('한 번에 발급할 수 있는 개별 송장은 최대 50박스입니다. 박스 수를 줄여주세요.');return;}
     if(!window.confirm(`${selectedDestination.label}로 보내는 우체국 송장 ${selectedDrafts.length}건을 실제 발급할까요?\n상품별 수량·무게·크기를 다시 확인해주세요.`))return;
     setBusy('issue');setMessage(`선택 ${count(selectedDrafts.length)}건의 우체국 송장 발급을 요청하고 있어요…`);
     try{
@@ -330,10 +345,10 @@ function RocketGrowthInboundWorkspace({rows}){
       {showDestinationForm?<div className="ipInboundDestinationForm"><label><span>센터 코드</span><input value={destinationForm.centerCode} onChange={event=>changeDestination('centerCode',event.target.value.toUpperCase())} placeholder="예: INC30"/></label><label><span>표시 이름</span><input value={destinationForm.label} onChange={event=>changeDestination('label',event.target.value)} placeholder="예: 인천30 센터"/></label><label><span>받는 분 이름</span><input value={destinationForm.recipientName} onChange={event=>changeDestination('recipientName',event.target.value)} placeholder="쿠팡 입고 담당"/></label><label><span>연락처</span><input inputMode="tel" value={destinationForm.contact} onChange={event=>changeDestination('contact',event.target.value)} placeholder="숫자 9~12자리"/></label><label><span>우편번호</span><input inputMode="numeric" value={destinationForm.postCode} onChange={event=>changeDestination('postCode',event.target.value)} placeholder="5자리"/></label><label className="wide"><span>기본 주소</span><input value={destinationForm.address} onChange={event=>changeDestination('address',event.target.value)} placeholder="도로명 주소"/></label><label className="wide"><span>상세 주소·입고장</span><input value={destinationForm.addressDetail} onChange={event=>changeDestination('addressDetail',event.target.value)} placeholder="동·층·도크·입고장"/></label><button type="button" onClick={saveDestination} disabled={busy==='destination'}>{busy==='destination'?'저장 중…':'주소 확인 후 저장'}</button></div>:null}
     </section>
     <section className="ipInboundProducts">
-      <header><div><span>EPOST BATCH</span><h3>보낼 상품과 포장 기준</h3><p>상품 한 행이 우체국 송장 한 건입니다. 최대 50건까지 한 번에 발급합니다.</p></div><label><input type="checkbox" checked={allSelected} onChange={event=>toggleAll(event.target.checked)}/><strong>{selectedDrafts.length?`${count(selectedDrafts.length)}개 선택`:'현재 상품 선택'}</strong></label></header>
-      <div className="ipInboundProductColumns"><span>선택</span><span>로켓그로스 상품</span><span>발송 수량</span><span>무게 kg</span><span>크기 cm</span></div>
-      <div>{shipmentRows.map(row=>{const draft=drafts[row.id]||{selected:false,quantity:1,weight:2,volume:60};return <article className="ipInboundProductRow" data-selected={draft.selected} key={row.id}><input type="checkbox" aria-label={`${row.name} 송장 선택`} checked={draft.selected} onChange={event=>changeDraft(row.id,'selected',event.target.checked)}/><span><strong>{row.name}</strong><small>SKU {row.sku} · Vendor item {row.vendorItemId} · 현재 재고 {count(row.orderableQuantity)}개</small></span><label><span>수량</span><input type="number" min="1" max="99999" value={draft.quantity} onChange={event=>changeDraft(row.id,'quantity',event.target.value)}/></label><label><span>무게</span><input type="number" min="1" max="30" value={draft.weight} onChange={event=>changeDraft(row.id,'weight',event.target.value)}/></label><label><span>크기</span><input type="number" min="1" max="160" value={draft.volume} onChange={event=>changeDraft(row.id,'volume',event.target.value)}/></label></article>;})}</div>
-      <footer><span><HarinIcon name="shield" size={18}/>주소·수량 확인 후 실제 접수</span><button type="button" disabled={busy==='issue'||!selectedDestination?.ready||!selectedDrafts.length} onClick={issueBatch}>{busy==='issue'?'우체국 발급 요청 중…':`선택 상품 우체국 송장 일괄 발급 (${count(selectedDrafts.length)}건)`}</button></footer>
+      <header><div><span>EPOST BATCH</span><h3>보낼 상품과 포장 기준</h3><p>상품별 박스 수만큼 개별 우체국 송장을 만듭니다. 최대 50박스까지 한 번에 발급합니다.</p></div><label><input type="checkbox" checked={allSelected} onChange={event=>toggleAll(event.target.checked)}/><strong>{selectedDrafts.length?`개별 송장 ${count(selectedDrafts.length)}건`:'현재 상품 선택'}</strong></label></header>
+      <div className="ipInboundProductColumns"><span>선택</span><span>로켓그로스 상품</span><span>박스 수</span><span>박스별 수량</span><span>무게 kg</span><span>크기 cm</span></div>
+      <div>{shipmentRows.map(row=>{const draft=drafts[row.id]||{selected:false,boxes:1,quantity:1,weight:2,volume:60};return <article className="ipInboundProductRow" data-selected={draft.selected} key={row.id}><input type="checkbox" aria-label={`${row.name} 송장 선택`} checked={draft.selected} onChange={event=>changeDraft(row.id,'selected',event.target.checked)}/><span><strong>{row.name}</strong><small>SKU {row.sku} · Vendor item {row.vendorItemId} · 현재 재고 {count(row.orderableQuantity)}개</small></span><label><span>박스</span><input type="number" min="1" max="50" value={draft.boxes} onChange={event=>changeDraft(row.id,'boxes',event.target.value)}/></label><label><span>박스별 수량</span><input type="number" min="1" max="99999" value={draft.quantity} onChange={event=>changeDraft(row.id,'quantity',event.target.value)}/></label><label><span>무게</span><input type="number" min="1" max="30" value={draft.weight} onChange={event=>changeDraft(row.id,'weight',event.target.value)}/></label><label><span>크기</span><input type="number" min="1" max="160" value={draft.volume} onChange={event=>changeDraft(row.id,'volume',event.target.value)}/></label></article>;})}</div>
+      <footer><span><HarinIcon name="shield" size={18}/>박스마다 별도 송장 · 최대 50건</span><button type="button" disabled={busy==='issue'||!selectedDestination?.ready||!selectedDrafts.length||selectedDrafts.length>50} onClick={issueBatch}>{busy==='issue'?'우체국 발급 요청 중…':`개별 송장 일괄 발급 (${count(selectedDrafts.length)}건)`}</button></footer>
     </section>
     <section className="ipInboundHistory"><header><div><span>ISSUE HISTORY</span><h3>최근 입고 송장</h3></div><button type="button" onClick={()=>loadInbound(true)} disabled={loading}><HarinIcon name="sync" size={17}/>상태 새로고침</button></header><div>{data.history.length?data.history.slice(0,30).map(item=><article data-status={item.status} key={item.id}><span><strong>{item.productName}</strong><small>{item.centerCode} · {count(item.quantity)}개 · {referenceTime(item.createdAt)}</small></span><em>{INBOUND_STATUS_LABELS[item.status]||item.status}</em><span className="ipInboundTracking"><small>발급 송장번호</small><strong>{item.trackingNo||item.error||'확인 중'}</strong></span></article>):<div className="ipEmpty"><HarinIcon name="truck" size={24}/><strong>아직 발급한 입고 송장이 없어요.</strong><span>센터와 상품을 선택하면 발급 이력이 여기에 쌓입니다.</span></div>}</div></section>
     {message?<p className="ipWorkbenchMessage" role="status">{message}</p>:null}

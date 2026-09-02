@@ -139,8 +139,9 @@ async function resolveDestinationForIssue(db,body){
 
 async function issueBatch(db,body){
   if(body.confirm!==true)return apiSafety.json({ok:false,error:'실제 우체국 송장 일괄 발급 확인이 필요합니다.'},{status:400});
-  const drafts=(Array.isArray(body.shipments)?body.shipments:[]).slice(0,50);
+  const drafts=Array.isArray(body.shipments)?body.shipments:[];
   if(!drafts.length)return apiSafety.json({ok:false,error:'송장을 발급할 로켓그로스 상품을 선택하세요.'},{status:400});
+  if(drafts.length>50)return apiSafety.json({ok:false,error:'우체국 송장은 한 번에 최대 50박스까지 발급할 수 있습니다.'},{status:400});
   const resolvedDestination=await resolveDestinationForIssue(db,body);
   const destinationId=resolvedDestination.id;
   const destination=resolvedDestination.destination;
@@ -179,10 +180,10 @@ async function issueBatch(db,body){
       });
       const updated=await db.from('rocket_growth_inbound_shipments').update({operation_request_id:queued.request.id,status:queued.completed?'ISSUED':'QUEUED'}).eq('id',shipmentId);
       if(updated.error)throw updated.error;
-      return {shipmentId,shipmentReference,vendorItemId:item.vendorItemId,ok:true,pending:!queued.completed,requestId:queued.request.id};
+      return {shipmentId,shipmentReference,vendorItemId:item.vendorItemId,packageKey:item.packageKey||'',ok:true,pending:!queued.completed,requestId:queued.request.id};
     }catch(error){
       await db.from('rocket_growth_inbound_shipments').update({status:'FAILED',error_message:text(error.message).slice(0,500)}).eq('id',shipmentId);
-      return {shipmentId,shipmentReference,vendorItemId:item.vendorItemId,ok:false,error:error.message};
+      return {shipmentId,shipmentReference,vendorItemId:item.vendorItemId,packageKey:item.packageKey||'',ok:false,error:error.message};
     }
   });
   const succeeded=results.filter(row=>row.ok).length;
