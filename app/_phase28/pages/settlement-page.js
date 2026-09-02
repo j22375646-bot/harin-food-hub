@@ -41,6 +41,15 @@ function count(value,suffix='건'){return value==null?'확인 필요':`${Number(
 function platformLabel(platform){return platform==='NAVER'?'네이버':platform==='CAFE24'?'Cafe24':platform==='COUPANG_RG'?'쿠팡 로켓그로스':platform==='COUPANG_COMBINED'?'쿠팡 통합 지급':'쿠팡';}
 function platformBrand(platform){return platform==='COUPANG_COMBINED'?'COUPANG':platform;}
 
+function collectionSummary(result={}){
+  const jobs=Array.isArray(result.jobs)?result.jobs:[];
+  const queued=jobs.filter(job=>job.status==='RUNNING').length;
+  const attention=jobs.filter(job=>job.degraded||!job.ok||['PARTIAL','FAILED','SETUP_REQUIRED','APPROVAL_REQUIRED'].includes(job.status)).length;
+  if(queued)return `${queued}개 고정 IP 수집을 시작했습니다.${attention?` ${attention}개 경로는 확인이 필요합니다.`:''}`;
+  if(attention)return `${attention}개 수집 경로는 확인이 필요하고, 나머지는 최신 자료로 갱신했습니다.`;
+  return '연결된 채널의 정산 자료를 최신 상태로 갱신했습니다.';
+}
+
 function waterfallLayout(items){
   const safeValue=value=>value==null||!Number.isFinite(Number(value))?null:Math.max(0,Math.abs(Number(value)));
   const values=Object.fromEntries(items.map(item=>[item.id,safeValue(item.value)]));
@@ -134,7 +143,7 @@ function EvidenceRail({channel,router,onWorkspace}){
   if(!channel)return <div className="spRailEmpty"><HarinIcon name="settlement" size={24}/><strong>선택된 정산 근거가 없어요.</strong><span>채널 자료가 수집되면 예상액과 실제 지급액을 나란히 표시합니다.</span></div>;
   const recovery=channel.recovery||{kind:'route',label:'수집 상태 확인하기',href:'/data-collection',workspace:null};
   const actionTarget=recovery.href;
-  return <div className="spRailBody"><header><span>SELECTED DIFFERENCE</span><h2>{channel.label} 정산 근거</h2><p>예상 {money(channel.expected)} · 실제 {money(channel.actual)} · 차이 {money(channel.variance,{signed:true})}</p></header><div className="spRailStatus" data-tone={channel.tone}><i/><strong>{channel.stateLabel}</strong></div><dl><div><dt>주문 원본</dt><dd>{count(channel.evidence.orderCount)}</dd></div>{channel.platform==='COUPANG_RG'?<div><dt>정산 연결</dt><dd>{channel.evidence.settlementOrderCount==null?'확인 필요':`${count(channel.evidence.settlementOrderCount)} · ${channel.evidence.settlementCoverage}%`}</dd></div>:null}<div><dt>정산 기준</dt><dd>{channel.basis}</dd></div><div><dt>수수료</dt><dd>{money(channel.fees)}</dd></div><div><dt>물류비</dt><dd>{money(channel.logistics)}</dd></div><div><dt>광고비</dt><dd>{money(channel.advertising)}</dd></div>{channel.platform==='NAVER'?<><div><dt>광고비 충전</dt><dd>{money(channel.advertisingCharged)}</dd></div><div><dt>비즈머니 잔액</dt><dd>{money(channel.advertisingBalance)}</dd></div></>:null}<div><dt>근거 수집률</dt><dd>{channel.evidence.coverage}%</dd></div><div><dt>기준 시각</dt><dd>{referenceTime(channel.asOf)}</dd></div></dl><section><span>NEXT CHECK</span><strong>{channel.action}</strong>{recovery.kind==='external'?<a href={actionTarget} target="_blank" rel="noreferrer">{recovery.label} <i>↗</i></a>:recovery.kind==='workspace'?<button type="button" onClick={()=>onWorkspace(recovery.workspace)}>{recovery.label} <i>↓</i></button>:<button type="button" onClick={()=>pushPhase28Route(router,actionTarget)}>{recovery.label} <i>→</i></button>}</section><p>조회 전용 · 채널별 원본과 수정 경로를 섞지 않아요.</p></div>;
+  return <div className="spRailBody"><header><span>SELECTED DIFFERENCE</span><h2>{channel.label} 정산 근거</h2><p>예상 {money(channel.expected)} · 실제 {money(channel.actual)} · 차이 {money(channel.variance,{signed:true})}</p></header><div className="spRailStatus" data-tone={channel.tone}><i/><strong>{channel.stateLabel}</strong></div><dl><div><dt>주문 원본</dt><dd>{count(channel.evidence.orderCount)}</dd></div>{channel.platform==='COUPANG_RG'?<div><dt>정산 원본</dt><dd>{channel.evidence.settlementSourceStatus==='SEPARATE_SOURCE_REQUIRED'?'WING 별도 원장 필요':channel.evidence.settlementOrderCount==null?'확인 필요':`${count(channel.evidence.settlementOrderCount)} · ${channel.evidence.settlementCoverage}%`}</dd></div>:null}<div><dt>정산 기준</dt><dd>{channel.basis}</dd></div><div><dt>수수료</dt><dd>{money(channel.fees)}</dd></div><div><dt>물류비</dt><dd>{money(channel.logistics)}</dd></div><div><dt>광고비</dt><dd>{money(channel.advertising)}</dd></div>{channel.platform==='NAVER'?<><div><dt>광고비 충전</dt><dd>{money(channel.advertisingCharged)}</dd></div><div><dt>비즈머니 잔액</dt><dd>{money(channel.advertisingBalance)}</dd></div></>:null}<div><dt>근거 수집률</dt><dd>{channel.evidence.coverage}%</dd></div><div><dt>기준 시각</dt><dd>{referenceTime(channel.asOf)}</dd></div></dl><section><span>NEXT CHECK</span><strong>{channel.action}</strong>{recovery.kind==='external'?<a href={actionTarget} target="_blank" rel="noreferrer">{recovery.label} <i>↗</i></a>:recovery.kind==='workspace'?<button type="button" onClick={()=>onWorkspace(recovery.workspace)}>{recovery.label} <i>↓</i></button>:<button type="button" onClick={()=>pushPhase28Route(router,actionTarget)}>{recovery.label} <i>→</i></button>}</section><p>조회 전용 · 채널별 원본과 수정 경로를 섞지 않아요.</p></div>;
 }
 
 function SettlementAi({panel}){
@@ -151,6 +160,8 @@ export default function Phase28SettlementPage({model={},aiPanel=null}){
   const channels=current.channels||[];
   const [selectedId,setSelectedId]=useState(channels[0]?.id||'');
   const [workspace,setWorkspace]=useState('payouts');
+  const [syncing,setSyncing]=useState(false);
+  const [syncMessage,setSyncMessage]=useState('');
   useEffect(()=>{if(channels.length&&!channels.some(item=>item.id===selectedId))setSelectedId(channels[0].id);},[channels,selectedId]);
   useEffect(()=>{
     let lastRefresh=Date.now();
@@ -160,10 +171,25 @@ export default function Phase28SettlementPage({model={},aiPanel=null}){
     document.addEventListener('visibilitychange',onVisibility);
     return()=>{window.clearInterval(timer);document.removeEventListener('visibilitychange',onVisibility);};
   },[router]);
+  const syncSettlement=async()=>{
+    if(syncing)return;
+    setSyncing(true);setSyncMessage('Cafe24·네이버·쿠팡 정산 원본 수집을 요청하고 있어요.');
+    try{
+      const response=await fetch('/api/sync/all',{method:'POST',credentials:'same-origin',headers:{accept:'application/json'}});
+      const result=await response.json().catch(()=>({}));
+      if(response.status===401){window.location.assign('/login?next=%2Fsettlement-costs');return;}
+      if(!response.ok&&response.status!==207)throw new Error(result.error||'정산 자료 수집을 시작하지 못했습니다.');
+      setSyncMessage(collectionSummary(result));
+      router.refresh();
+      window.setTimeout(()=>router.refresh(),8000);
+    }catch(error){setSyncMessage(error?.message||'정산 자료 수집 상태를 확인해주세요.');}
+    finally{setSyncing(false);}
+  };
   const selected=channels.find(item=>item.id===selectedId)||channels[0]||null;
   const hero=model.hero||{};
+  const collection=model.collectionAutomation||{};
   return <section className="p28Settlement" data-phase28-root="true" data-phase28-page="settlement">
-    <div className="spIntro"><Phase28PageHeading context={`${hero.channelCount??0}개 판매 채널 대조 · 근거 없는 비용은 확인 필요`} title="오늘 확인할 " accent={`정산 차이 ${hero.checkCount??0}건`} suffix="이 있어요." summary={hero.summary||'받을 돈과 실제 지급액을 맞춰 보고, 근거가 없는 비용은 0원으로 만들지 않아요.'}/><div className="spDataStatus"><i><HarinIcon name="settlement" size={22}/></i><span><small>정산 데이터 기준</small><strong>{referenceTime(hero.asOf)}</strong><em>채널별 계산 경로 분리</em></span></div></div>
+    <div className="spIntro"><Phase28PageHeading context={`${hero.channelCount??0}개 판매 채널 대조 · 근거 없는 비용은 확인 필요`} title="오늘 확인할 " accent={`정산 차이 ${hero.checkCount??0}건`} suffix="이 있어요." summary={hero.summary||'받을 돈과 실제 지급액을 맞춰 보고, 근거가 없는 비용은 0원으로 만들지 않아요.'}/><div className="spAutomationPanel"><div className="spDataStatus" data-state={collection.state}><i><HarinIcon name="settlement" size={22}/></i><span><small>최근 정산 자동 수집</small><strong>{referenceTime(collection.latestAt||hero.asOf)}</strong><em>{collection.summary||'채널별 계산 경로 분리'}</em></span></div><button type="button" className="spSyncButton" disabled={syncing} aria-busy={syncing} onClick={syncSettlement}><HarinIcon name="sync" size={17}/>{syncing?'수집 요청 중':'정산 전체 동기화'}</button><p className="spSyncMessage" aria-live="polite">{syncMessage}</p></div></div>
     <DecisionBoard model={periodModel} period={period} setPeriod={setPeriod} selectedId={selectedId} onSelect={setSelectedId}/>
     <Phase28RightRailLayout label="정산 근거 패널" rail={<EvidenceRail channel={selected} router={router} onWorkspace={setWorkspace}/> }><SettlementWorkbench model={current} workspace={workspace} setWorkspace={setWorkspace} selectedId={selectedId} onSelect={setSelectedId}/></Phase28RightRailLayout>
     <SettlementAi panel={aiPanel}/>

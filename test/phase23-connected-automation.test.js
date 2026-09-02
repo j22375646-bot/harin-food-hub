@@ -38,6 +38,19 @@ test('23-6 fixed IP worker evidence enables only its own provider queue',()=>{
   assert.equal(plan.find(item=>item.name==='NAVER_ADS').runnable,false);
 });
 
+test('connected collection keeps a provider partial result visible at the top level',async()=>{
+  const env={CAFE24_MALL_ID:'mall',CAFE24_CLIENT_ID:'id',CAFE24_CLIENT_SECRET:'secret',CAFE24_REDIRECT_URI:'https://hub/callback'};
+  const result=await syncModule.syncConnectedPlatforms({
+    env,cafe24Token:{access_token:'token'},evidence:{naverCommerceWorkerReady:false,coupangWorkerReady:false},db:{},
+    syncFunctions:{CAFE24:async()=>({status:'PARTIAL',errors:[{dataset:'salesDaily',code:'APPROVAL_REQUIRED'}]})}
+  });
+  const cafe24=result.jobs.find(item=>item.name==='CAFE24');
+  assert.equal(result.status,'PARTIAL');
+  assert.equal(cafe24.ok,true);
+  assert.equal(cafe24.degraded,true);
+  assert.equal(result.channel_updates.find(item=>item.platform==='CAFE24').health_status,'PARTIAL');
+});
+
 function deliveryDb(){
   const rows=[];
   return {rows,from(table){assert.equal(table,'notification_deliveries');let mode='select',inserted=null,updated=null,filters=[];

@@ -155,6 +155,41 @@ test('settlement adapter exposes Rocket Growth as its own cost evidence card',()
   assert.deepEqual(rocket.recovery,{kind:'route',label:'쿠팡 수집 상태 보기',href:'/data-collection',workspace:null});
 });
 
+test('settlement adapter explains a separate Rocket Growth ledger instead of a false zero-percent link',()=>{
+  const model=buildPhase28SettlementModel({settlementPeriods:{30:center(30,[channel('COUPANG_RG',{
+    label:'쿠팡 로켓그로스',status:'COST_REQUIRED',gross_sales:150000,refunds:null,fees:null,logistics:null,advertising:null,
+    expected_payout:null,actual_payout:null,payout_variance:null,order_count:307,
+    settlement_order_count:null,settlement_coverage:null,settlement_source_status:'SEPARATE_SOURCE_REQUIRED',
+    basis:'로켓그로스 주문 API · WING 정산·비용·광고 원장 별도 대조'
+  })])}}).periods['30'].channels[0];
+  assert.equal(model.stateCode,'SEPARATE_SOURCE_REQUIRED');
+  assert.equal(model.stateLabel,'로켓그로스 원장 필요');
+  assert.equal(model.evidence.settlementOrderCount,null);
+  assert.equal(model.evidence.settlementCoverage,null);
+  assert.equal(model.evidence.settlementSourceStatus,'SEPARATE_SOURCE_REQUIRED');
+});
+
+test('settlement adapter exposes the latest all-channel collection run and queued fixed-IP work',()=>{
+  const model=buildPhase28SettlementModel({
+    generatedAt:'2026-09-03T05:10:00.000Z',
+    settlementPeriods:{30:center(30,[channel('NAVER')])},
+    automationRuns:[{
+      job_name:'ALL_PLATFORM_SYNC',status:'PARTIAL',started_at:'2026-09-03T05:04:00.000Z',finished_at:'2026-09-03T05:05:00.000Z',
+      result_json:{jobs:[
+        {name:'CAFE24',status:'PARTIAL',degraded:true},
+        {name:'NAVER_ADS',status:'SUCCESS'},
+        {name:'NAVER_COMMERCE',status:'RUNNING'},
+        {name:'COUPANG',status:'RUNNING'}
+      ]}
+    }]
+  });
+  assert.equal(model.collectionAutomation.state,'COLLECTING');
+  assert.equal(model.collectionAutomation.queuedCount,2);
+  assert.equal(model.collectionAutomation.attentionCount,1);
+  assert.equal(model.collectionAutomation.latestAt,'2026-09-03T05:05:00.000Z');
+  assert.match(model.collectionAutomation.summary,/2개 고정 IP 작업 진행/);
+});
+
 test('settlement adapter exposes Rocket Growth gross and net contribution without merging seller delivery',()=>{
   const source=center(30,[
     channel('COUPANG',{label:'쿠팡 판매자배송',gross_sales:80000,expected_payout:58000}),

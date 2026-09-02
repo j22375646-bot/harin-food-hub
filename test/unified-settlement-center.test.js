@@ -158,7 +158,7 @@ test('쿠팡 판매자배송과 로켓그로스 정산·광고·물류비를 채
     ],
     coupangSettlements:[
       {order_id:'SELLER-1',vendor_item_id:'SELLER-VI-1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:80000,service_fee:7000,service_fee_vat:1000,settlement_amount:72000},
-      {order_id:'RG-1',vendor_item_id:'RG-VI-1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:9000,service_fee_vat:1000,settlement_amount:90000}
+      {order_id:'RG-1',vendor_item_id:'RG-VI-1',delivery_type:'ROCKETGROWTH',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:9000,service_fee_vat:1000,settlement_amount:90000}
     ],
     coupangCostTransactions:[
       {source_type:'SHIPPING',event_date:'2026-08-10',order_id:'SELLER-1',vendor_item_id:'SELLER-VI-1',cost_amount:3000,cost_vat:0,credit_amount:0},
@@ -222,7 +222,7 @@ test('로켓그로스 주문보다 정산 연결 범위가 부족하면 확정 �
       {order_id:'RG-2',vendor_item_id:'RG-VI-2',quantity:1,amount:50000}
     ],
     coupangSettlements:[
-      {order_id:'RG-1',vendor_item_id:'RG-VI-1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:9000,service_fee_vat:1000,settlement_amount:90000}
+      {order_id:'RG-1',vendor_item_id:'RG-VI-1',delivery_type:'ROCKETGROWTH',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:9000,service_fee_vat:1000,settlement_amount:90000}
     ],
     coupangAdSettlements:[
       {date:'2026-08-10',row_type:'DELIVERY_SUMMARY',delivery_type:'ROCKETGROWTH',billed_amount:33000}
@@ -239,6 +239,31 @@ test('로켓그로스 주문보다 정산 연결 범위가 부족하면 확정 �
   assert.match(rocket.action,/정산 연결 50%/);
   assert.match(rocket.action,/WING 정산 원문/);
   assert.equal(center.waterfall.expected_payout,null);
+});
+
+test('판매자배송 정산 주문번호가 로켓그로스 주문과 겹쳐도 배송유형 근거 없이는 로켓그로스 정산으로 합치지 않는다',()=>{
+  const center=buildUnifiedSettlementCenter({now,
+    coupangRgOrders:[
+      {order_id:'OVERLAP-1',paid_at:'2026-08-10T10:00:00+09:00',total_amount:100000},
+      {order_id:'RG-2',paid_at:'2026-08-11T10:00:00+09:00',total_amount:50000}
+    ],
+    coupangRgOrderItems:[
+      {order_id:'OVERLAP-1',vendor_item_id:'RG-VI-1',quantity:1,amount:100000},
+      {order_id:'RG-2',vendor_item_id:'RG-VI-2',quantity:1,amount:50000}
+    ],
+    coupangSettlements:[
+      {order_id:'OVERLAP-1',vendor_item_id:'RG-VI-1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:80000,service_fee:7000,service_fee_vat:1000,settlement_amount:72000}
+    ]
+  });
+  const seller=center.channels.find(item=>item.platform==='COUPANG');
+  const rocket=center.channels.find(item=>item.platform==='COUPANG_RG');
+  assert.equal(seller.gross_sales,80000);
+  assert.equal(rocket.gross_sales,150000);
+  assert.equal(rocket.settlement_order_count,null);
+  assert.equal(rocket.settlement_coverage,null);
+  assert.equal(rocket.settlement_source_status,'SEPARATE_SOURCE_REQUIRED');
+  assert.doesNotMatch(rocket.basis,/정산 연결 0\/2건/);
+  assert.match(rocket.basis,/WING 정산·비용·광고 원장/);
 });
 
 test('판매자배송과 로켓그로스가 함께 있으면 미분리 쿠팡 지급 일정을 한 채널에 귀속하지 않는다',()=>{

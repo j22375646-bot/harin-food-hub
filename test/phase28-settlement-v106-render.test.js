@@ -10,12 +10,15 @@ const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 test('server owns three settlement periods and the settlement adapter on its real route',()=>{
   const page=read('app/dashboard-route.js');
+  const profiles=read('lib/dashboard/page-loader-profiles.js');
   assert.match(page,/const settlementPeriods=Object\.fromEntries\(\[7,30,90\]/);
   assert.match(page,/periodDays/);
   assert.match(page,/phase28Runtime\.activePages\.includes\('settlement'\)&&initialState\.view==='settlement'/);
   assert.match(page,/buildPhase28SettlementModel\(dashboardData\)/);
   assert.match(page,/settlement:null,adapter_status:'ERROR'/);
   assert.match(page,/coupang_ad_settlement_daily/);
+  assert.match(page,/settlement:\[[^\n]*'automation_runs'/);
+  assert.match(profiles,/settlement:\[[^\n]*'automation_runs'/);
   assert.match(page,/coupangAdSettlements:coupangAdSettlementResult\.data \|\| \[\]/);
   assert.match(page,/coupangRgOrders:coupangRgOrdersResult\.data \|\| \[\]/);
   assert.match(page,/coupangRgOrderItems:coupangRgOrderItemsResult\.data \|\| \[\]/);
@@ -51,10 +54,13 @@ test('Phase 28 app renders the V106 settlement decision spine',()=>{
   assert.match(page,/data-partial/);
 });
 
-test('settlement page remains read-only and exposes the server-provided recovery route',()=>{
+test('settlement page keeps money read-only while allowing authenticated source collection',()=>{
   const page=read('app/_phase28/pages/settlement-page.js');
-  assert.doesNotMatch(page,/fetch\(/);
-  assert.doesNotMatch(page,/method:\s*['"](?:POST|PUT|PATCH|DELETE)/);
+  assert.match(page,/fetch\('\/api\/sync\/all'/);
+  assert.match(page,/method:'POST'/);
+  assert.match(page,/credentials:'same-origin'/);
+  assert.match(page,/정산 전체 동기화/);
+  assert.doesNotMatch(page,/지급\s*(?:실행|요청)|정산\s*수정/);
   assert.match(page,/channel\.recovery/);
   assert.match(page,/recovery\.kind==='workspace'/);
   assert.match(page,/recovery\.kind==='external'/);
