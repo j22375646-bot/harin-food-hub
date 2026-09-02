@@ -10,8 +10,19 @@ const loginRequest = require('../lib/dashboard-login-request.js');
 function withSecret(run) {
   const previous = process.env.DASHBOARD_SESSION_SECRET;
   process.env.DASHBOARD_SESSION_SECRET = 'test-only-session-secret-with-enough-entropy';
-  try { return run(); }
-  finally { if(previous===undefined)delete process.env.DASHBOARD_SESSION_SECRET;else process.env.DASHBOARD_SESSION_SECRET=previous; }
+  const restore = () => {
+    if(previous===undefined)delete process.env.DASHBOARD_SESSION_SECRET;
+    else process.env.DASHBOARD_SESSION_SECRET=previous;
+  };
+  try {
+    const result = run();
+    if(result && typeof result.finally === 'function') return result.finally(restore);
+    restore();
+    return result;
+  } catch(error) {
+    restore();
+    throw error;
+  }
 }
 
 test('재무 신뢰 토큰은 서버 서명·만료·허용 상태를 검증한다', () => withSecret(() => {
@@ -129,6 +140,68 @@ test('비밀번호 검증은 제한 시간 안에 끝나며 성공 후 불필요
     error=>error?.code==='LOGIN_AUTH_TIMEOUT'
   );
 });
+
+test('로그인 준비 조회와 성공 후 세션 저장은 독립 작업을 병렬로 끝낸다', async () => withSecret(async () => {
+  const deferred = () => {
+    let resolve;
+    const promise = new Promise(done => { resolve = done; });
+    return { promise, resolve };
+  };
+  const attemptRead = deferred();
+  const profileRead = deferred();
+  const attemptDelete = deferred();
+  const sessionInsert = deferred();
+  const expiredSessionCleanup = deferred();
+  const events = [];
+  const chain = terminal => ({
+    select(){ return this; }, delete(){ return this; }, update(){ return this; },
+    eq(){ return terminal === attemptDelete ? terminal.promise : this; },
+    is(){ return this; }, lt(){ events.push('expired-session-cleanup'); return terminal.promise; },
+    maybeSingle(){
+      events.push(terminal === attemptRead ? 'attempt-read' : 'profile-read');
+      return terminal.promise;
+    },
+    insert(){ events.push('session-insert'); return terminal.promise; }
+  });
+  const db = {
+    from(table){
+      if(table === 'dashboard_users') return chain(profileRead);
+      if(table === 'dashboard_sessions') {
+        return {
+          insert(){ events.push('session-insert'); return sessionInsert.promise; },
+          update(){ return chain(expiredSessionCleanup); }
+        };
+      }
+      return {
+        select(){ return chain(attemptRead); },
+        delete(){ events.push('attempt-delete'); return chain(attemptDelete); }
+      };
+    }
+  };
+  const authClient = { auth:{
+    signInWithPassword:async()=>({ data:{ user:{ id:'owner-user' } }, error:null })
+  } };
+  const pending = auth.authenticateAccount({
+    account:'owner', password:'123456', ip:'127.0.0.1', userAgent:'test'
+  }, db, { authClient });
+
+  assert.deepEqual(events.slice(0, 2).sort(), ['attempt-read', 'profile-read']);
+  attemptRead.resolve({ data:null, error:null });
+  profileRead.resolve({
+    data:{ user_id:'owner-user', email:'owner@example.com', username:'owner', display_name:'운영 OWNER', role:'OWNER', active:true },
+    error:null
+  });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.ok(events.includes('attempt-delete'));
+  assert.ok(events.includes('session-insert'));
+  assert.ok(events.includes('expired-session-cleanup'));
+
+  attemptDelete.resolve({ error:null });
+  sessionInsert.resolve({ error:null });
+  expiredSessionCleanup.resolve({ error:null });
+  const result = await pending;
+  assert.equal(result.session.userId, 'owner-user');
+}));
 
 test('단일 OWNER Proxy는 다른 역할과 다른 출처 요청을 차단한다', () => {
   const proxy=fs.readFileSync(path.resolve(__dirname,'../proxy.js'),'utf8');
