@@ -119,7 +119,7 @@ test('products adapter keeps only explicitly selling mapping rows and sorts mast
 });
 
 test('products adapter exposes saved no-link decisions and a dedicated editable cost workbench',()=>{
-  const model=buildPhase28ProductsModel({
+  const source={
     loadedWorkspace:'costs',
     masterProducts:[
       {id:'M1',name:'가시오가피차',sku:'SKU-1',selling_price:11000,is_active:true},
@@ -131,8 +131,8 @@ test('products adapter exposes saved no-link decisions and a dedicated editable 
     ]},
     productCosts:[{master_product_id:'M1',unit_cost:4200,packaging_cost:300,other_unit_cost:100}],
     productMapping:{masterProducts:[],candidates:[{platform:'NAVER',external_product_id:'N1',external_product_name:'네이버 단독상품',is_active:true,no_link:true,candidates:[]}],links:[]}
-  });
-  assert.equal(model.mapping.candidates[0].noLink,true);
+  };
+  const model=buildPhase28ProductsModel(source);
   assert.equal(model.costWorkbench.rows.length,2);
   assert.deepEqual(model.costWorkbench.rows[0],{
     id:'M1',name:'가시오가피차',sku:'SKU-1',basePrice:11000,
@@ -141,6 +141,21 @@ test('products adapter exposes saved no-link decisions and a dedicated editable 
   assert.equal(model.costWorkbench.rows[1].unitCost,null);
   assert.equal(model.costWorkbench.readyCount,1);
   assert.equal(model.costWorkbench.pendingCount,1);
+
+  assert.deepEqual(model.rows,[]);
+  assert.deepEqual(model.mapping.masterProducts,[]);
+  assert.deepEqual(model.mapping.candidates,[]);
+  assert.deepEqual(model.mapping.links,[]);
+
+  const mappingModel=buildPhase28ProductsModel({...source,loadedWorkspace:'mappings'});
+  assert.equal(mappingModel.mapping.candidates[0].noLink,true);
+  assert.deepEqual(mappingModel.rows,[]);
+  assert.deepEqual(mappingModel.costWorkbench.rows,[]);
+
+  const catalogModel=buildPhase28ProductsModel({...source,loadedWorkspace:'catalog'});
+  assert.equal(catalogModel.rows.length,2);
+  assert.deepEqual(catalogModel.mapping.candidates,[]);
+  assert.deepEqual(catalogModel.costWorkbench.rows,[]);
 });
 
 test('inventory and products adapters join the implemented V106 set',()=>{
