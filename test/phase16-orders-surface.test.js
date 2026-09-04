@@ -72,12 +72,15 @@ test('16-15 loads platform image catalogs and attaches them before building the 
   assert.match(page,/coupangOrderItems:unifiedOrdersModule\.attachOrderImages\([^\n]*'COUPANG'/);
 });
 
-test('manual order refresh fails fast when the fixed-IP worker is offline',()=>{
+test('manual order refresh isolates a fixed-IP outage from Cafe24 collection',()=>{
   const center=read('app/unified-orders-center.js');
   const route=read('app/api/orders/live-refresh/route.js');
   assert.match(route,/loadLiveRefreshWorkerReadiness/);
   assert.match(route,/FIXED_IP_WORKER_OFFLINE/);
   assert.match(route,/staleAfterMs/);
+  assert.match(route,/unavailablePlatforms/);
+  assert.match(route,/Cafe24 주문 최신 조회 실패/);
+  assert.doesNotMatch(route,/if\(!readiness\.ready\)return workerUnavailable/);
   assert.match(center,/AbortController/);
   assert.match(center,/LIVE_REFRESH_DEADLINE_MS/);
   assert.doesNotMatch(center,/attempt<70/);

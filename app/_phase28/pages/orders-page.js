@@ -507,7 +507,8 @@ export default function Phase28OrdersPage({model={}}){
           break;
         }
         if(!settled)setStatusMessage(`${collectionProgressLabel(latestPlatforms).replace(/ 수집 중$/,'')} 수집이 계속 진행 중이에요. 수집 상태에서 완료 여부를 확인해주세요.`);
-      }else setStatusMessage(start.partial?'일부 채널은 확인이 필요해요.':'전체 플랫폼 최신 주문을 반영했어요.');
+      }else if(start.partial)setStatusMessage(`Cafe24 주문 반영 완료 · ${start.failures?.join(' · ')||'일부 채널 확인 필요'}`);
+      else setStatusMessage('전체 플랫폼 최신 주문을 반영했어요.');
       router.refresh();
     }catch(error){setStatusMessage(`수집 확인 필요 · ${error.message}`);}finally{setSyncState('IDLE');setSyncPlatforms([]);setBusy('');}
   }
