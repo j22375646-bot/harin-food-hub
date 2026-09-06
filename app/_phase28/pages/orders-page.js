@@ -11,6 +11,7 @@ import collectionProgress from '../../../lib/orders/collection-progress.js';
 import cafe24Delivery from '../../../lib/ui/phase28-orders-delivery.js';
 import businessCalendar from '../../../lib/shipping-reference/business-calendar.js';
 import cafe24OrderRefreshPolicy from '../../../lib/cafe24/order-refresh-policy.js';
+import orderPageWindow from '../../../lib/ui/order-page-window.js';
 import './orders-page.css';
 
 const {activeCollectionPlatforms,collectionProgressLabel}=collectionProgress;
@@ -261,6 +262,8 @@ export default function Phase28OrdersPage({model={}}){
   const [pageError,setPageError]=useState('');
   const [pageFailed,setPageFailed]=useState(false);
   const pageRequestRef=useRef(0);
+  const pageQueryRef=useRef(null);
+  const loadedDepthRef=useRef(20);
   const channels=model.channels||[];
   const [receiverHydration,setReceiverHydration]=useState({});
   const [receiverHydrationStatus,setReceiverHydrationStatus]=useState({});
@@ -286,26 +289,39 @@ export default function Phase28OrdersPage({model={}}){
   const loadPage=useCallback(async(append=false)=>{
     const requestId=++pageRequestRef.current;
     setPageLoading(true);setPageError('');setPageFailed(false);
-    const params=new URLSearchParams({stage:activeStage,platform,delayOnly:String(delayOnly),giftOnly:String(giftOnly),offset:String(append?pagination?.nextOffset||0:0)});
-    if(append&&pagination?.snapshot)params.set('snapshot',pagination.snapshot);
+    const params=new URLSearchParams({stage:activeStage,platform,delayOnly:String(delayOnly),giftOnly:String(giftOnly)});
     try{
-      const response=await fetch(`/api/orders/page?${params}`,{cache:'no-store'});
-      const result=await response.json();
+      const result=await orderPageWindow.loadOrderPageWindow({query:params,minimumRows:append?20:loadedDepthRef.current,offset:append?pagination?.nextOffset||0:0,snapshot:append?pagination?.snapshot||'':'',requestPage:async query=>{
+        const response=await fetch(`/api/orders/page?${query}`,{cache:'no-store'});
+        const page=await response.json();
+        if(requestId!==pageRequestRef.current)throw new Error('PAGE_REQUEST_SUPERSEDED');
+        if(!response.ok||!page.ok)throw Object.assign(new Error(page.error||'주문을 불러오지 못했습니다.'),{code:page.code});
+        return page;
+      }});
       if(requestId!==pageRequestRef.current)return;
-      if(!response.ok||!result.ok){
-        if(result.code==='ORDERS_SNAPSHOT_CHANGED'){setSourceOrders([]);setSelectedIds(new Set());setPagination(null);router.refresh();}
-        throw new Error(result.error||'주문을 불러오지 못했습니다.');
-      }
-      setSourceOrders(previous=>append?[...new Map([...previous,...result.orders].map(order=>[order.hubOrderId,order])).values()]:result.orders);
+      setSourceOrders(previous=>{
+        const next=append?[...new Map([...previous,...result.orders].map(order=>[order.hubOrderId,order])).values()]:result.orders;
+        loadedDepthRef.current=next.length;
+        return next;
+      });
       setPagination(result);
       if(result.hero)setHero(result.hero);
       if(result.workspaces)setWorkspaces(result.workspaces);
       if(result.warning)setPageError(result.warning);
-    }catch(error){if(requestId===pageRequestRef.current){setPageError(`${error.message} 이전에 불러온 주문은 유지되며 새로 확인될 때까지 출고 선택이 잠깁니다.`);setPageFailed(true);}}
+    }catch(error){if(requestId===pageRequestRef.current){
+      if(error.code==='ORDERS_SNAPSHOT_CHANGED'){setSelectedIds(new Set());router.refresh();}
+      setPageError(`${error.message} 이전에 불러온 주문은 유지되며 새로 확인될 때까지 출고 선택이 잠깁니다.`);setPageFailed(true);
+    }}
     finally{if(requestId===pageRequestRef.current)setPageLoading(false);}
   },[activeStage,platform,delayOnly,giftOnly,pagination,router]);
   useEffect(()=>{
-    setPagination(null);setSelectedIds(new Set());setPreviewOrderId(null);
+    const queryKey=JSON.stringify([activeStage,platform,delayOnly,giftOnly]);
+    loadedDepthRef.current=orderPageWindow.revalidationDepth(pageQueryRef.current,queryKey,loadedDepthRef.current);
+    if(pageQueryRef.current!==queryKey){
+      pageQueryRef.current=queryKey;
+      setPagination(null);setPreviewOrderId(null);
+    }
+    setSelectedIds(new Set());
     loadPage(false);
     return()=>{pageRequestRef.current++;};
     // A returned page changes pagination, not the query. Only a filter or
