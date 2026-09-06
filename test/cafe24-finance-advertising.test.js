@@ -90,3 +90,9 @@ test('일일 자동수집이 Cafe24 매출통계와 광고 귀속 저장소를 �
   assert.match(source,/cafe24_ad_attribution/);
   assert.match(source,/mapAdAttribution/);
 });
+
+test('Cafe24 매출통계 수집 오류는 공통 분류기와 sanitized evidence를 sync metadata에 남긴다',()=>{
+  const source=fs.readFileSync(path.join(__dirname,'..','lib/cafe24/sync.js'),'utf8');
+  assert.match(source,/classifyFinanceError\(error\)/);
+  assert.match(source,/evidence:classification\.evidence/);
+});

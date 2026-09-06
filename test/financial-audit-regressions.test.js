@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const {buildMainCashflow}=require('../lib/analytics/main-cashflow.js');
 const {calculateProfitability}=require('../lib/analytics/profitability.js');
 const {buildUnifiedProductPerformance:buildPerformance}=require('../lib/products/performance.js');
-const coverage={status:'SUCCESS',complete:true,source:'NAVER_COMMERCE',basis:'PAYMENT_DATE',period_start:'2026-08-01',period_end:'2026-09-07',collected_at:'2026-09-07T00:00:00Z'};
+const coverage={status:'SUCCESS',complete:true,closed:true,source:'NAVER_COMMERCE',basis:'PAYMENT_DATE',period_start:'2026-08-01',period_end:'2026-09-07',collected_at:'2026-09-08T00:00:00Z'};
 const buildUnifiedProductPerformance=input=>buildPerformance({naverCollectionEvidence:coverage,...input});
 const {buildUnifiedSettlementCenter}=require('../lib/settlement/unified-center.js');
 const {buildPhase28MainModel}=require('../lib/ui/phase28-adapters/main.js');
@@ -38,7 +38,7 @@ test('FIN-03 mirrored marketplace orders excluded and official Naver Pay retaine
  assert.equal(result.channels[0].gross_sales,100000);
 });
 test('FIN-02 unavailable channels remain in payout coverage denominator',()=>{
- const result=buildUnifiedSettlementCenter({now,unavailable:{CAFE24:true,NAVER:true},coupangSettlements:[{recognition_date:'2026-09-05',sale_amount:100000,settlement_amount:90000}]});
+ const result=buildUnifiedSettlementCenter({now,unavailable:{CAFE24:true,NAVER:true},coupangSettlements:[{delivery_family:'COUPANG',recognition_date:'2026-09-05',sale_amount:100000,settlement_amount:90000}],coupangSettlementSummaries:[{delivery_family:'COUPANG',period_start:'2026-08-09',period_end:'2026-09-07',status:'DONE',final_amount:90000,provenance:{coverage:'COMPLETE'}}]});
  assert.equal(result.waterfall.actual_payout_complete,false);
  assert.equal(result.waterfall.actual_payout_coverage,33.3);
  assert.equal(result.waterfall.gross_sales,null);
@@ -51,12 +51,12 @@ test('FIN-06 pending Naver payments do not become a shortfall',()=>{
  assert.equal(naver.payout_complete,false);
 });
 test('FIN-07 one daily API row cannot replace other days of orders or advertising',()=>{
- const result=buildUnifiedSettlementCenter({now,cafe24Orders:[{order_date:'2026-09-04',paid_amount:100000},{order_date:'2026-09-05',paid_amount:200000}],cafe24SalesDaily:[{date:'2026-09-04',payment_amount:110000,refund_amount:0,sales_count:1}],naverAdStats:[{date:'2026-09-04',cost:100},{date:'2026-09-05',cost:200}],naverBizmoneyDaily:[{date:'2026-09-04',used_purchased:110,used_free:0}]});
+ const result=buildUnifiedSettlementCenter({now,cafe24Orders:[{order_date:'2026-09-04',paid_amount:100000},{order_date:'2026-09-05',paid_amount:200000}],cafe24SalesDaily:[{date:'2026-09-04',payment_amount:110000,refund_amount:0,sales_count:1,source_status:'OK'}],naverAdStats:[{date:'2026-09-04',cost:100},{date:'2026-09-05',cost:200}],naverBizmoneyDaily:[{date:'2026-09-04',used_purchased:110,used_free:0}]});
  assert.equal(result.channels[0].gross_sales,310000);
  assert.equal(result.channels.find(row=>row.platform==='NAVER').advertising,310);
 });
 test('FIN-08 platform payout and post operating cost amount have separate formulas',()=>{
- const result=buildUnifiedSettlementCenter({now,cafe24Orders:[{order_date:'2026-09-05',paid_amount:100000}],channelCostSettings:[{platform:'CAFE24',commission_rate:.1,payment_fee_rate:0,default_shipping_cost:3000}]});
+ const result=buildUnifiedSettlementCenter({now,cafe24Orders:[{order_date:'2026-09-05',paid_amount:100000,cancel_amount:0}],channelCostSettings:[{platform:'CAFE24',commission_rate:.1,payment_fee_rate:0,default_shipping_cost:3000}]});
  assert.equal(result.channels[0].expected_payout,90000);
  assert.equal(result.channels[0].after_operating_costs,87000);
  assert.equal(result.waterfall.payout_basis,'CHANNEL_SPECIFIC');

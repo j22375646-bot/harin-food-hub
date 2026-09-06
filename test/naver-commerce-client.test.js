@@ -26,3 +26,22 @@ test('Naver Commerce config requires server credentials and keeps writes locked 
 test('Naver Commerce order window is formatted in Korea time', () => {
   assert.equal(probe.kstIso(new Date('2026-08-13T00:00:00.000Z')), '2026-08-13T09:00:00.000+09:00');
 });
+
+test('a collection deadline aborts both token and API transport requests', async t => {
+  client.resetTokenCache();
+  const controller = new AbortController();
+  let requests = 0;
+  t.mock.method(globalThis,'fetch',async (_url,options) => {
+    assert.equal(options.signal,controller.signal);
+    requests++;
+    if (requests === 1) return {ok:true,json:async () => ({access_token:'test-token',expires_in:3600})};
+    controller.abort();
+    options.signal.throwIfAborted();
+  });
+  await assert.rejects(client.request('GET','/v1/pay-order/seller/product-orders',{
+    config:{clientId:'test',clientSecret:bcrypt.genSaltSync(4),tokenType:'SELF',accountId:''},
+    signal:controller.signal,maxAttempts:1,
+  }),error => error.name === 'AbortError');
+  assert.equal(requests,2);
+  client.resetTokenCache();
+});

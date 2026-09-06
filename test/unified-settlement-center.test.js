@@ -76,7 +76,7 @@ test('Cafe24 주문이 없는 달에도 매출통계 재연결 필요를 정상 
 test('Cafe24 이전 매출통계가 남아도 현재 토큰 범위 누락을 정상 수집으로 오인하지 않는다', () => {
   const center=buildUnifiedSettlementCenter({now,
     cafe24Token:{access_token:'stored',scopes:['mall.read_order','mall.read_analytics']},
-    cafe24SalesDaily:[{date:'2026-08-10',payment_amount:100000,refund_amount:0,sales_count:1}]
+    cafe24SalesDaily:[{date:'2026-08-10',payment_amount:100000,refund_amount:0,sales_count:1,source_status:'OK'}]
   });
   const cafe=center.channels.find(item=>item.platform==='CAFE24');
   assert.equal(cafe.status,'RECONNECT_REQUIRED');
@@ -97,9 +97,9 @@ test('Cafe24 토큰 범위가 있어도 실제 매출통계 API가 403이면 개
 
 test('쿠팡 매출·환불·수수료와 확정 지급액을 분리한다', () => {
   const center=buildUnifiedSettlementCenter({now,coupangSettlements:[
-    {order_id:'O1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:10000,service_fee_vat:1000,settlement_amount:89000},
-    {order_id:'O2',recognition_date:'2026-08-11',sale_type:'REFUND',sale_amount:20000,service_fee:-2000,service_fee_vat:-200,settlement_amount:-17800}
-  ],coupangSettlementSummaries:[{settlement_date:'2026-08-13',final_amount:71200,status:'DONE'}]});
+    {delivery_family:'COUPANG',order_id:'O1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:10000,service_fee_vat:1000,settlement_amount:89000},
+    {delivery_family:'COUPANG',order_id:'O2',recognition_date:'2026-08-11',sale_type:'REFUND',sale_amount:20000,service_fee:-2000,service_fee_vat:-200,settlement_amount:-17800}
+  ],coupangSettlementSummaries:[{delivery_family:'COUPANG',period_start:'2026-08-10',period_end:'2026-08-11',settlement_date:'2026-08-13',final_amount:71200,status:'DONE'}]});
   const coupang=center.channels.find(item=>item.platform==='COUPANG');
   assert.equal(coupang.status,'ACTUAL');
   assert.equal(coupang.gross_sales,100000);
@@ -121,17 +121,17 @@ test('쿠팡 예정 정산은 아직 0인 최종 지급액 대신 예정 지급�
 
 test('쿠팡 광고 정산 요약을 광고비로 분리하고 예상 정산액에서 한 번만 차감한다', () => {
   const center=buildUnifiedSettlementCenter({now,coupangSettlements:[
-    {order_id:'O1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:9000,service_fee_vat:1000,settlement_amount:90000}
+    {delivery_family:'COUPANG',order_id:'O1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:9000,service_fee_vat:1000,settlement_amount:90000}
   ],coupangAdSettlements:[
     {date:'2026-08-10',row_type:'DELIVERY_SUMMARY',delivery_type:'판매자배송',chargeable_ad_spend:30000,vat:3000,billed_amount:33000},
     {date:'2026-08-10',row_type:'CAMPAIGN',campaign_id:'campaign-1',chargeable_ad_spend:30000,vat:0,billed_amount:0}
-  ],coupangSettlementSummaries:[{settlement_date:'2026-08-13',final_amount:57000,status:'DONE'}]});
+  ],coupangSettlementSummaries:[{delivery_family:'COUPANG',period_start:'2026-08-10',period_end:'2026-08-10',settlement_date:'2026-08-13',final_amount:57000,status:'DONE'}]});
   const coupang=center.channels.find(item=>item.platform==='COUPANG');
   assert.equal(coupang.advertising,33000);
   assert.equal(coupang.logistics,null);
   assert.equal(coupang.expected_payout,57000);
   assert.equal(coupang.actual_payout,57000);
-  assert.equal(coupang.payout_variance,0);
+  assert.equal(coupang.payout_variance,null); // one day's payout does not prove the full period
   assert.equal(center.waterfall.advertising,null);
   assert.equal(center.summary.known_advertising,33000);
 });
@@ -157,15 +157,15 @@ test('쿠팡 판매자배송과 로켓그로스 정산·광고·물류비를 채
       {order_id:'RG-1',vendor_item_id:'RG-VI-1',quantity:1,amount:100000}
     ],
     coupangSettlements:[
-      {order_id:'SELLER-1',vendor_item_id:'SELLER-VI-1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:80000,service_fee:7000,service_fee_vat:1000,settlement_amount:72000},
+      {delivery_family:'COUPANG',order_id:'SELLER-1',vendor_item_id:'SELLER-VI-1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:80000,service_fee:7000,service_fee_vat:1000,settlement_amount:72000},
       {order_id:'RG-1',vendor_item_id:'RG-VI-1',delivery_type:'ROCKETGROWTH',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:9000,service_fee_vat:1000,settlement_amount:90000}
     ],
     coupangCostTransactions:[
-      {source_type:'SHIPPING',event_date:'2026-08-10',order_id:'SELLER-1',vendor_item_id:'SELLER-VI-1',cost_amount:3000,cost_vat:0,credit_amount:0},
-      {source_type:'SALES_COMMISSION',event_date:'2026-08-10',order_id:'RG-1',vendor_item_id:'RG-VI-1',cost_amount:9000,cost_vat:1000,credit_amount:0},
-      {source_type:'WAREHOUSING',event_date:'2026-08-10',order_id:'RG-1',vendor_item_id:'RG-VI-1',cost_amount:2000,cost_vat:200,credit_amount:0},
-      {source_type:'SHIPPING',event_date:'2026-08-10',order_id:'RG-1',vendor_item_id:'RG-VI-1',cost_amount:6000,cost_vat:600,credit_amount:0},
-      {source_type:'STORAGE',event_date:'2026-08-10',cost_amount:500,cost_vat:0,credit_amount:0,raw_data:{source_file:'STORAGE_FEE.xlsx'}}
+      {delivery_family:'COUPANG',source_type:'SHIPPING',event_date:'2026-08-10',order_id:'SELLER-1',vendor_item_id:'SELLER-VI-1',cost_amount:3000,cost_vat:0,credit_amount:0},
+      {delivery_family:'ROCKET_GROWTH',source_type:'SALES_COMMISSION',event_date:'2026-08-10',order_id:'RG-1',vendor_item_id:'RG-VI-1',cost_amount:9000,cost_vat:1000,credit_amount:0},
+      {delivery_family:'ROCKET_GROWTH',source_type:'WAREHOUSING',event_date:'2026-08-10',order_id:'RG-1',vendor_item_id:'RG-VI-1',cost_amount:2000,cost_vat:200,credit_amount:0},
+      {delivery_family:'ROCKET_GROWTH',source_type:'SHIPPING',event_date:'2026-08-10',order_id:'RG-1',vendor_item_id:'RG-VI-1',cost_amount:6000,cost_vat:600,credit_amount:0},
+      {delivery_family:'ROCKET_GROWTH',source_type:'STORAGE',event_date:'2026-08-10',cost_amount:500,cost_vat:0,credit_amount:0,raw_data:{source_file:'STORAGE_FEE.xlsx'}}
     ],
     coupangAdSettlements:[
       {date:'2026-08-10',row_type:'DELIVERY_SUMMARY',delivery_type:'SELLER',billed_amount:11000},
@@ -258,7 +258,7 @@ test('판매자배송 정산 주문번호가 로켓그로스 주문과 겹쳐도
   });
   const seller=center.channels.find(item=>item.platform==='COUPANG');
   const rocket=center.channels.find(item=>item.platform==='COUPANG_RG');
-  assert.equal(seller.gross_sales,80000);
+  assert.equal(seller.gross_sales,null); // no delivery-family proof for this legacy row
   assert.equal(rocket.gross_sales,150000);
   assert.equal(rocket.settlement_order_count,null);
   assert.equal(rocket.settlement_coverage,null);
@@ -349,7 +349,7 @@ test('채널 조회 실패는 저장된 0원 대신 자료 확인 필요로 격�
   assert.ok(center.channels.every(item=>item.status==='UNAVAILABLE'));
 });
 
-test('Cafe24 토큰 범위가 연결되어도 최근 매출통계 호출이 403이면 개발자 승인 필요로 표시한다',()=>{
+test('Cafe24 generic 403은 개발자 승인이 원인이라고 단정하지 않는다',()=>{
   const center=buildUnifiedSettlementCenter({now,
     cafe24Token:{access_token:'token',scope:'mall.read_order mall.read_salesreport'},
     cafe24Orders:[{order_id:'C1',order_date:'2026-08-10',paid_amount:100000}],
@@ -360,9 +360,9 @@ test('Cafe24 토큰 범위가 연결되어도 최근 매출통계 호출이 403�
     }]
   });
   const cafe24=center.channels.find(item=>item.platform==='CAFE24');
-  assert.equal(cafe24.status,'APPROVAL_REQUIRED');
-  assert.match(cafe24.basis,/개발자 승인 필요/);
-  assert.match(cafe24.action,/개발자센터/);
+  assert.equal(cafe24.status,'VERIFY_REQUIRED');
+  assert.match(cafe24.basis,/접근 원인 확인/);
+  assert.match(cafe24.action,/앱 설치/);
 });
 
 test('Cafe24 기본 0원 비용 행은 실제 비용 설정으로 인정하지 않는다',()=>{
@@ -381,8 +381,8 @@ test('Cafe24 기본 0원 비용 행은 실제 비용 설정으로 인정하지 �
 
 test('예상 정산액과 실제 지급액 차이 및 정산 흐름을 계산한다', () => {
   const center=buildUnifiedSettlementCenter({now,coupangSettlements:[
-    {order_id:'O1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:10000,settlement_amount:90000}
-  ],coupangSettlementSummaries:[{settlement_date:'2026-08-13',final_amount:88000,status:'DONE'}]});
+    {delivery_family:'COUPANG',order_id:'O1',recognition_date:'2026-08-10',sale_type:'SALE',sale_amount:100000,service_fee:10000,service_fee_vat:0,settlement_amount:90000}
+  ],coupangSettlementSummaries:[{delivery_family:'COUPANG',period_start:'2026-07-16',period_end:'2026-08-14',provenance:{coverage:'COMPLETE'},settlement_date:'2026-08-13',final_amount:88000,status:'DONE'}]});
   const coupang=center.channels.find(item=>item.platform==='COUPANG');
   assert.equal(coupang.expected_payout,90000);
   assert.equal(coupang.actual_payout,88000);

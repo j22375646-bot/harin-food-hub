@@ -17,7 +17,7 @@ test('확정 매핑을 기준으로 Cafe24·네이버·쿠팡 성과를 한 상�
     cafe24OrderItems:[{order_id:'O1',external_product_no:'P1',quantity:2,paid_amount:22000}],
     naverKeywords:[{ncc_keyword_id:'K1',ncc_adgroup_id:'G1'}],
     naverOrders:[],naverOrderItems:[],
-    naverCollectionEvidence:{status:'SUCCESS',complete:true,source:'NAVER_COMMERCE',basis:'PAYMENT_DATE',period_start:'2026-08-01',period_end:'2026-08-07',collected_at:'2026-08-08T00:00:00Z'},
+    naverCollectionEvidence:{status:'SUCCESS',complete:true,closed:true,source:'NAVER_COMMERCE',basis:'PAYMENT_DATE',period_start:'2026-08-01',period_end:'2026-08-07',collected_at:'2026-08-08T00:00:00Z'},
     naverKeywordStats:[{ncc_keyword_id:'K1',cost:1000,conversions:1,conversion_revenue:11000}],
     coupangOrders:[{order_id:'O2',paid_at:'2026-08-03'}],
     coupangOrderItems:[{order_id:'O2',seller_product_id:'C1',quantity:1,paid_amount:11000}],

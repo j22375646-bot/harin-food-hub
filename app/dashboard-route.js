@@ -18,6 +18,7 @@ import productOperationsModule from '../lib/products/operations-center.js';
 import cafe24CatalogModule from '../lib/products/cafe24-catalog.js';
 import unifiedInventoryModule from '../lib/inventory/unified-center.js';
 import unifiedSettlementModule from '../lib/settlement/unified-center.js';
+import settlementQueryModule from '../lib/settlement/query.js';
 import unifiedCollectionModule from '../lib/collection/unified-center.js';
 import reliabilityModule from '../lib/operations/reliability-center.js';
 import costCalibrationModule from '../lib/analytics/cost-calibration.js';
@@ -1268,6 +1269,7 @@ async function buildChangesDashboardData({
 async function getDashboardData(state) {
   const view=state?.view||'main';
   const generatedAt=new Date().toISOString();
+  const settlementReadStart=seoulDateKey(new Date(Date.parse(generatedAt)-89*86400000));
   const fallbackTables=view==='insight'&&state?.workspace==='overview'?INSIGHT_OVERVIEW_TABLES:(VIEW_TABLES[view]||VIEW_TABLES.main);
   const loaderSession=pageLoaderProfilesModule.createLoaderSession(state,fallbackTables);
   const db = databaseForLoaderState(supabaseModule.getSupabase(), view, state?.workspace, state?.platform, loaderSession);
@@ -1351,7 +1353,9 @@ async function getDashboardData(state) {
     naverCommerce:Promise.allSettled([
       db.from('naver_commerce_orders').select(view==='main'?'order_id,order_date,payment_date,status,paid_amount,shipment_id,invoice_no,delivery_company,updated_at':view==='orders'?'order_id,order_date,payment_date,status,paid_amount,receiver_name,receiver_phone,receiver_address,shipping_memo,shipment_id,invoice_no,delivery_company,updated_at':'order_id,order_date,payment_date,status,paid_amount,receiver_name,receiver_phone,receiver_address,shipping_memo,shipment_id,invoice_no,delivery_company,raw_data,updated_at').order('order_date',{ascending:false}).limit(rowLimit('orders',5000)),
       db.from('naver_commerce_order_items').select(view==='main'?'product_order_id,order_id,status,updated_at':view==='orders'?'product_order_id,order_id,product_id,original_product_id,product_name,option_name,quantity,unit_price,paid_amount,status,shipping_due_date,updated_at':'product_order_id,order_id,product_id,original_product_id,product_name,option_name,quantity,unit_price,paid_amount,status,shipping_due_date,raw_data,updated_at').limit(rowLimit('items',10000)),
-      db.from('naver_commerce_settlements').select('settlement_key,settle_basis_start_date,settle_basis_end_date,settle_expect_date,settle_complete_date,settle_amount,pay_settle_amount,commission_settle_amount,benefit_settle_amount,deduction_restore_settle_amount,pay_holdback_amount,difference_settle_amount,updated_at').order('settle_basis_end_date',{ascending:false}).limit(1000)
+      view==='settlement'
+        ?settlementQueryModule.readLedgerPages(()=>db.from('naver_commerce_settlements').select('settlement_key,settle_basis_start_date,settle_basis_end_date,settle_expect_date,settle_complete_date,settle_amount,pay_settle_amount,commission_settle_amount,benefit_settle_amount,deduction_restore_settle_amount,pay_holdback_amount,difference_settle_amount,updated_at',{count:'exact'}).or(`settle_basis_end_date.gte.${settlementReadStart},settle_basis_end_date.is.null`).order('settlement_key'),'settlement_key')
+        :db.from('naver_commerce_settlements').select('settlement_key,settle_basis_start_date,settle_basis_end_date,settle_expect_date,settle_complete_date,settle_amount,pay_settle_amount,commission_settle_amount,benefit_settle_amount,deduction_restore_settle_amount,pay_holdback_amount,difference_settle_amount,updated_at').order('settle_basis_end_date',{ascending:false}).limit(1000)
     ]),
     phase7:Promise.allSettled([
       db.from('financial_change_requests').select('id,change_type,platform,target_key,status,before_value,proposed_value,impact_preview,created_at,approved_at,executed_at,verified_at,rolled_back_at,verification_result,error_message').order('created_at',{ascending:false}).limit(100),
@@ -1471,7 +1475,9 @@ async function getDashboardData(state) {
     : db.from('coupang_rg_inventory').select('vendor_item_id,external_sku_id,total_orderable_quantity,sales_last_30_days,average_daily_sales,days_of_stock,stock_status,snapshot_at'))
     .order('days_of_stock',{ascending:true,nullsFirst:false}).limit(500);
   const settledQueries = await Promise.allSettled([
-    db.from('cafe24_orders').select('order_id,order_date,customer_id,payment_status,paid_amount,order_price,cancel_amount,refund_amount,raw_data').order('order_date', { ascending: false }).limit(rowLimit('orders',10000)),
+    view==='settlement'
+      ?settlementQueryModule.readLedgerPages(()=>db.from('cafe24_orders').select('order_id,order_date,payment_status,paid_amount,order_price,cancel_amount,refund_amount,raw_data',{count:'exact'}).order('order_id'),'order_id')
+      :db.from('cafe24_orders').select('order_id,order_date,customer_id,payment_status,paid_amount,order_price,cancel_amount,refund_amount,raw_data').order('order_date', { ascending: false }).limit(rowLimit('orders',10000)),
     db.from('cafe24_order_items').select(view==='main'?'order_id,raw_data':'order_id,external_item_id,external_product_no,product_name,option_name,quantity,unit_price,paid_amount,raw_data').limit(rowLimit('items',10000)),
     db.from('cafe24_traffic_daily').select('date,visitors,pageviews,source_status,raw_data').order('date', { ascending: true }).limit(31),
     db.from('cafe24_referrers_daily').select('date,source,visitors,orders,revenue').order('visitors', { ascending: false }).limit(500),
@@ -1489,7 +1495,9 @@ async function getDashboardData(state) {
       ? db.from('naver_keywords').select('*',{count:'exact',head:true})
       : Promise.resolve({data:null,error:null,count:0}),
     focusedEarlyReturn?Promise.resolve({data:null,error:null}):db.from('sync_logs').select('status,finished_at,error_message,metadata').eq('platform','NAVER').eq('job_type','FETCH_ALL').order('started_at',{ascending:false}).limit(1).maybeSingle(),
-    db.from('naver_stats_daily').select('date,entity_id,entity_type,impressions,clicks,cost,conversions,conversion_revenue').order('date',{ascending:false}).limit(1200),
+    view==='settlement'
+      ?settlementQueryModule.readLedgerPages(()=>db.from('naver_stats_daily').select('id,date,entity_id,entity_type,impressions,clicks,cost,conversions,conversion_revenue',{count:'exact'}).gte('date',settlementReadStart).eq('entity_type','CAMPAIGN').order('id'),'id')
+      :db.from('naver_stats_daily').select('date,entity_id,entity_type,impressions,clicks,cost,conversions,conversion_revenue').order('date',{ascending:false}).limit(1200),
     optionalTableQuery(db.from('naver_bizmoney_daily').select('date,charged_purchased,charged_free,used_purchased,used_free,refunded_purchased,refunded_free,returned_purchased,closing_balance,current_balance,charge_events,deduction_events,updated_at').order('date',{ascending:false}).limit(366)),
     db.from('raw_api_responses').select('endpoint,http_status,response_json,requested_at,created_at,error_message').eq('platform','NAVER').like('endpoint','/billing/bizmoney%').order('created_at',{ascending:false}).limit(40),
     db.from('automation_runs').select('id,job_name,trigger_type,status,started_at,finished_at,attempt_count,result_json,error_message,idempotency_key,scheduled_for,kst_execution_date,recovery_count').order('started_at',{ascending:false}).limit(20),
@@ -1510,27 +1518,39 @@ async function getDashboardData(state) {
           .order('created_at',{ascending:false}).limit(5000)
       :Promise.resolve({data:[],error:null}),
     db.from('coupang_order_items').select('external_item_key,shipment_box_id,order_id,vendor_item_id,seller_product_id,product_name,quantity,unit_price,paid_amount,status,raw_data').limit(rowLimit('items',5000)),
-    db.from('coupang_settlements').select('order_id,vendor_item_id,recognition_date,sale_type,sale_amount,service_fee,service_fee_vat,settlement_amount,quantity').order('recognition_date',{ascending:false}).limit(5000),
+    view==='settlement'
+      ?settlementQueryModule.readLedgerPages(()=>db.from('coupang_settlements').select('settlement_key,order_id,vendor_item_id,recognition_date,settlement_date,sale_type,sale_amount,service_fee,service_fee_vat,settlement_amount,quantity,delivery_family,ingestion_source,source_record_id,period_start,period_end,reconciliation_status,provenance',{count:'exact'}).or(`recognition_date.gte.${settlementReadStart},recognition_date.is.null`).order('settlement_key'), 'settlement_key')
+      :db.from('coupang_settlements').select('order_id,vendor_item_id,recognition_date,sale_type,sale_amount,service_fee,service_fee_vat,settlement_amount,quantity,delivery_family').order('recognition_date',{ascending:false}).limit(5000),
     rocketGrowthInventoryQuery,
     db.from('coupang_sync_requests').select('id,request_type,status,requested_at,started_at,finished_at,error_message,attempt_count,next_attempt_at,idempotency_key,scheduled_for,kst_execution_date').order('requested_at',{ascending:false}).limit(50),
-    db.from('coupang_rg_orders').select('order_id,status,paid_at,total_amount,item_count').order('paid_at',{ascending:false}).limit(rowLimit('orders',2000)),
+    view==='settlement'
+      ?settlementQueryModule.readLedgerPages(()=>db.from('coupang_rg_orders').select('order_id,status,paid_at,total_amount,item_count',{count:'exact'}).gte('paid_at',`${settlementReadStart}T00:00:00+09:00`).order('order_id'),'order_id')
+      :db.from('coupang_rg_orders').select('order_id,status,paid_at,total_amount,item_count').order('paid_at',{ascending:false}).limit(rowLimit('orders',2000)),
     db.from('coupang_returns').select('receipt_id,order_id,status,cancel_type,reason_text,requested_at,amount,raw_data').order('requested_at',{ascending:false}).limit(100),
     db.from('coupang_exchanges').select('exchange_id,order_id,status,reason_text,requested_at,item_count,raw_data').order('requested_at',{ascending:false}).limit(100),
     db.from('coupang_inquiries').select('inquiry_key,inquiry_type,inquiry_id,status,answered,product_id,seller_product_id,vendor_item_id,order_id,question_text,parent_answer_id,inquired_at,raw_data').order('inquired_at',{ascending:false}).limit(100),
     db.from('coupang_item_inventory').select('vendor_item_id,quantity,sale_price,original_price,status,external_sku_id,checked_at').order('quantity',{ascending:true}).limit(500),
-    db.from('coupang_settlement_summaries').select('recognition_month,settlement_type,settlement_date,status,total_sale,service_fee,settlement_target_amount,settlement_amount,last_amount,pending_released_amount,final_amount').order('recognition_month',{ascending:false}).order('settlement_date',{ascending:false}).limit(24),
+    view==='settlement'
+      ?settlementQueryModule.readLedgerPages(()=>db.from('coupang_settlement_summaries').select('summary_key,recognition_month,settlement_type,settlement_date,status,total_sale,service_fee,settlement_target_amount,settlement_amount,last_amount,pending_released_amount,final_amount,delivery_family,ingestion_source,source_record_id,period_start,period_end,reconciliation_status,provenance',{count:'exact'}).or(`period_end.gte.${settlementReadStart},period_end.is.null`).order('summary_key'),'summary_key')
+      :db.from('coupang_settlement_summaries').select('recognition_month,settlement_type,settlement_date,status,total_sale,service_fee,settlement_target_amount,settlement_amount,last_amount,pending_released_amount,final_amount,delivery_family,period_start,period_end').order('recognition_month',{ascending:false}).order('settlement_date',{ascending:false}).limit(24),
     db.from('coupang_promotion_budgets').select('budget_key,status,budget_amount,used_amount,remaining_amount,checked_at').order('checked_at',{ascending:false}).limit(20),
     db.from('coupang_api_capabilities').select('feature_key,family,title,method,mode,status,risk_level,sync_frequency').order('family').order('title'),
     db.from('coupang_product_items').select('vendor_item_id,seller_product_id,item_name,sale_price,status,raw_data').limit(view==='orders'?200:1000),
-    db.from('coupang_rg_order_items').select('order_id,vendor_item_id,product_name,quantity,amount').limit(rowLimit('items',5000)),
-    db.from('coupang_cost_transactions').select('source_type,transaction_type,event_date,recognition_date,order_id,reference_id,vendor_item_id,sku_id,product_name,option_name,quantity,gross_sales,seller_discount,cost_amount,cost_vat,credit_amount,raw_data').order('event_date',{ascending:false}).limit(rowLimit('costs',10000)),
+    view==='settlement'
+      ?settlementQueryModule.readLedgerPages(()=>db.from('coupang_rg_order_items').select('external_item_key,order_id,vendor_item_id,product_name,quantity,amount',{count:'exact'}).order('external_item_key'),'external_item_key')
+      :db.from('coupang_rg_order_items').select('order_id,vendor_item_id,product_name,quantity,amount').limit(rowLimit('items',5000)),
+    view==='settlement'
+      ?settlementQueryModule.readLedgerPages(()=>db.from('coupang_cost_transactions').select('transaction_key,source_type,transaction_type,event_date,recognition_date,order_id,reference_id,vendor_item_id,sku_id,product_name,option_name,quantity,gross_sales,seller_discount,cost_amount,cost_vat,credit_amount,delivery_family,ingestion_source,source_record_id,period_start,period_end,reconciliation_status,provenance',{count:'exact'}).or(`event_date.gte.${settlementReadStart},recognition_date.gte.${settlementReadStart},event_date.is.null`).order('transaction_key'),'transaction_key')
+      :db.from('coupang_cost_transactions').select('source_type,transaction_type,event_date,recognition_date,order_id,reference_id,vendor_item_id,sku_id,product_name,option_name,quantity,gross_sales,seller_discount,cost_amount,cost_vat,credit_amount,raw_data,delivery_family').order('event_date',{ascending:false}).limit(rowLimit('costs',10000)),
     db.from('coupang_cost_imports').select('id,file_name,source_types,status,input_rows,stored_rows,duplicate_rows,invalid_rows,gross_sales,cost_amount,cost_vat,credit_amount,period_start,period_end,imported_at').order('imported_at',{ascending:false}).limit(30),
     db.from('coupang_ad_daily_summary').select('*').order('date',{ascending:true}).limit(62),
     db.from('coupang_ad_keyword_summary').select('*').gt('revenue',0).order('revenue',{ascending:false}).limit(50),
     db.from('coupang_ad_keyword_summary').select('*').eq('revenue',0).gt('ad_spend',0).order('ad_spend',{ascending:false}).limit(50),
     db.from('coupang_ad_campaign_summary').select('*').order('revenue',{ascending:false}).limit(50),
     db.from('coupang_ad_billing_daily').select('*').order('date',{ascending:true}).limit(100),
-    db.from('coupang_ad_settlement_daily').select('date,row_type,delivery_type,campaign_id,chargeable_ad_spend,vat,billed_amount').order('date',{ascending:true}).limit(1000),
+    view==='settlement'
+      ?settlementQueryModule.readLedgerPages(()=>db.from('coupang_ad_settlement_daily').select('id,date,row_type,delivery_type,campaign_id,chargeable_ad_spend,vat,billed_amount',{count:'exact'}).gte('date',settlementReadStart).order('id'),'id')
+      :db.from('coupang_ad_settlement_daily').select('date,row_type,delivery_type,campaign_id,chargeable_ad_spend,vat,billed_amount').order('date',{ascending:true}).limit(1000),
     db.from('cafe24_sales_daily').select('date,shop_no,payment_amount,refund_amount,sales_count,source_status,updated_at').order('date',{ascending:false}).limit(120),
     db.from('cafe24_ad_attribution').select('period_start,period_end,shop_no,dimension_type,ad,keyword,visit_count,order_count,revenue,join_count,purchase_rate,ad_spend,source_status,updated_at').order('period_end',{ascending:false}).limit(1000)
   ]);
@@ -2300,8 +2320,8 @@ async function getDashboardData(state) {
     unavailable:{
       CAFE24:Boolean(ordersResult.unavailable),
       NAVER:Boolean(naverCommerceSettlementsResult.unavailable),
-      COUPANG:Boolean(coupangSettlementsResult.unavailable && coupangSettlementSummaryResult.unavailable),
-      COUPANG_RG:Boolean(coupangRgOrdersResult.unavailable && coupangRgOrderItemsResult.unavailable)
+      COUPANG:Boolean(coupangSettlementsResult.unavailable || coupangSettlementSummaryResult.unavailable || coupangCostsResult.unavailable || coupangAdSettlementResult.unavailable),
+      COUPANG_RG:Boolean(coupangRgOrdersResult.unavailable || coupangRgOrderItemsResult.unavailable || coupangSettlementsResult.unavailable || coupangSettlementSummaryResult.unavailable || coupangCostsResult.unavailable || coupangAdSettlementResult.unavailable)
     },
     now:new Date(generatedAt)
   };
