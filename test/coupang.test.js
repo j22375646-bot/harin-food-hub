@@ -54,6 +54,50 @@ test('Coupang concurrent requests preserve the configured global start interval'
   }
 });
 
+test('Coupang pacing survives slow signing while response I/O stays concurrent', { timeout: 5000 }, async () => {
+  const crypto = require('node:crypto');
+  const originalHmac = crypto.createHmac;
+  const originalFetch = global.fetch;
+  const envKeys = ['COUPANG_VENDOR_ID', 'COUPANG_ACCESS_KEY', 'COUPANG_SECRET_KEY'];
+  const originalEnv = envKeys.map(key => process.env[key]);
+  const starts = [];
+  let first = true;
+  let releaseResponses;
+  const responsesReady = new Promise(resolve => { releaseResponses = resolve; });
+  envKeys.forEach(key => { process.env[key] = 'test-value'; });
+  crypto.createHmac = function (...args) {
+    if (first) {
+      first = false;
+      const until = performance.now() + 80;
+      while (performance.now() < until) { /* Simulate synchronous signing delay. */ }
+    }
+    return originalHmac.apply(this, args);
+  };
+  global.fetch = async () => {
+    starts.push(performance.now());
+    // No response completes until all three requests have started.
+    if (starts.length === 3) releaseResponses();
+    await responsesReady;
+    return new Response('{}', { status: 200 });
+  };
+  try {
+    await Promise.all(Array.from({ length: 3 }, (_, index) =>
+      client.request('GET', `/slow-signing/${index}`, {}, { minInterval: 30 })
+    ));
+    assert.equal(starts.length, 3);
+    const gaps = starts.slice(1).map((value, index) => value - starts[index]);
+    assert.ok(gaps.every(gap => gap >= 30), `slow signing request start gaps: ${gaps.join(',')}`);
+  } finally {
+    releaseResponses();
+    crypto.createHmac = originalHmac;
+    global.fetch = originalFetch;
+    envKeys.forEach((key, index) => {
+      if (originalEnv[index] === undefined) delete process.env[key];
+      else process.env[key] = originalEnv[index];
+    });
+  }
+});
+
 test('Coupang default request pacing remains below the official five-per-second threshold', async () => {
   const originalFetch = global.fetch;
   const originalEnv = {

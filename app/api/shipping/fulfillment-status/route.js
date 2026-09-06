@@ -33,14 +33,22 @@ export async function GET(request){
       db.from('coupang_operation_requests')
         .select('id,operation_type,target_type,target_id,status,payload,result_json,error_message,created_at,started_at,executed_at,next_attempt_at')
         .in('operation_type',OPERATIONS).in('status',['PENDING','RUNNING','EXECUTING']).order('created_at',{ascending:false}).limit(500),
-      db.from('coupang_orders').select('shipment_box_id,order_id').order('ordered_at',{ascending:false}).limit(5000)
+      unifiedOrders.loadCoupangShipmentIdentities(db)
     ]);
     if(operationsResult.error)throw operationsResult.error;
     if(activeOperationsResult.error)throw activeOperationsResult.error;
+    if(coupangResult.unavailable)return apiSafety.json({ok:false,error:'배송묶음 전체를 확인하지 못했습니다. 기존 출고 이력을 유지하고 다시 확인하세요.'},{status:502});
+    const aliases=new Map();
+    for(const row of coupangResult.rows||[]){
+      const legacy=unifiedOrders.hubOrderId('COUPANG',text(row.order_id));
+      const canonical=unifiedOrders.hubOrderId('COUPANG',text(row.order_id),text(row.shipment_box_id));
+      aliases.set(legacy,aliases.has(legacy)?null:canonical);
+    }
     const operationRows=[...(activeOperationsResult.data||[]),...(operationsResult.data||[])]
       .filter((row,index,rows)=>rows.findIndex(candidate=>candidate.id===row.id)===index)
+      .map(row=>row.target_type==='HUB_ORDER'&&aliases.get(text(row.target_id))?{...row,target_id:aliases.get(text(row.target_id))}:row)
       .sort((a,b)=>Date.parse(b.created_at||0)-Date.parse(a.created_at||0));
-    const shipmentToHub=new Map((coupangResult.data||[]).map(row=>[text(row.shipment_box_id),unifiedOrders.hubOrderId('COUPANG',text(row.order_id))]));
+    const shipmentToHub=new Map((coupangResult.rows||[]).map(row=>[text(row.shipment_box_id),unifiedOrders.hubOrderId('COUPANG',text(row.order_id),text(row.shipment_box_id))]));
     const trackingStates=trackingQueue.trackingStatesFromRows(operationRows);
     const orderById=new Map();
     for(const row of operationRows){

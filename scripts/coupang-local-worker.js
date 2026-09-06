@@ -32,6 +32,7 @@ const naverCustomerService = require("../lib/naver-commerce/customer-service.js"
 const epostConfig = require("../lib/epost/config.js");
 const epostClient = require("../lib/epost/client.js");
 const epostTracking = require("../lib/epost/tracking.js");
+const {createHeartbeatWriter}=require('../lib/operations/worker-heartbeat.js');
 
 const logPath = path.join(root, "tmp", "coupang-local-worker.log");
 const watchMode = process.argv.includes("--watch");
@@ -143,35 +144,24 @@ async function assertAllowedSourceIp() {
   return actual;
 }
 
-async function writeHeartbeat(db, values = {}) {
-  const now = new Date().toISOString();
-  const row = {
+const heartbeatWriters=new WeakMap();
+function writeHeartbeat(db, values = {}) {
+  if(!heartbeatWriters.has(db))heartbeatWriters.set(db,createHeartbeatWriter({
+    identity:()=>({
     worker_id: collectorId,
     service_name: "harin-coupang-worker",
     collector: collectorId,
-    status: values.status || "ONLINE",
     source_ip: verifiedSourceIp,
-    current_job_type: values.currentJobType || null,
-    current_job_id: values.currentJobId || null,
     started_at: workerStartedAt,
-    last_seen_at: now,
-    last_success_at: values.success ? now : undefined,
-    last_error: values.error ? safeMessage(values.error) : null,
-    metadata: {
+    }),
+    metadata:()=>({
       watch_mode: watchMode,
       node: process.version,
       operation_recovery_interval_ms: OPERATION_RECOVERY_INTERVAL_MS,
       sync_recovery_interval_ms: SYNC_RECOVERY_INTERVAL_MS,
-    },
-    updated_at: now,
-  };
-  if (row.last_success_at === undefined) delete row.last_success_at;
-  try {
-    const result = await db.from("worker_heartbeats").upsert(row, { onConflict: "worker_id" });
-    if (result.error) throw result.error;
-  } catch (error) {
-    log(`HEARTBEAT_FAILED ${safeMessage(error)}`);
-  }
+    }),sanitize:safeMessage,onError:error=>log(`HEARTBEAT_FAILED ${safeMessage(error)}`)
+  }));
+  return heartbeatWriters.get(db)(db,values);
 }
 
 async function claimNext(db) {
@@ -226,7 +216,7 @@ async function processRequest(db, request) {
       })
       .eq("id", request.id);
     if (saved.error) throw saved.error;
-    await writeHeartbeat(db, { status: "ONLINE", success: true });
+    await writeHeartbeat(db, { status: "ONLINE", currentJobType:request.request_type,currentJobId:request.id, success: true });
     log(`SUCCESS ${request.request_type} ${request.id}`);
   } catch (error) {
     const message = safeMessage(error);
@@ -252,10 +242,10 @@ async function processRequest(db, request) {
       )
       .eq("id", request.id);
     if (retryable) {
-      await writeHeartbeat(db, { status: "ONLINE", error: message });
+      await writeHeartbeat(db, { status: "ONLINE",currentJobType:request.request_type,currentJobId:request.id, error: message });
       return log(`RETRY ${request.request_type} ${request.id} at=${retryAt}`);
     }
-    await writeHeartbeat(db, { status: "ERROR", error: message });
+    await writeHeartbeat(db, { status: "ERROR",currentJobType:request.request_type,currentJobId:request.id, error: message });
     throw error;
   }
 }
@@ -453,7 +443,7 @@ async function processOperationRequest(db, request) {
       .eq("id", request.id)
       .eq("status", "RUNNING");
     if (saved.error) throw saved.error;
-    await writeHeartbeat(db, { status: "ONLINE", success: true });
+    await writeHeartbeat(db, { status: "ONLINE",currentJobType:request.operation_type,currentJobId:request.id, success: true });
     log(`OPERATION_SUCCESS ${request.operation_type} ${request.id}`);
   } catch (error) {
     const message = safeMessage(error);
@@ -466,13 +456,13 @@ async function processOperationRequest(db, request) {
       .eq("status", "RUNNING");
     if (retry) {
       log(`OPERATION_RETRY ${request.operation_type} ${request.id} ${message}`);
-      await writeHeartbeat(db, { status: "ONLINE", error: message });
+      await writeHeartbeat(db, { status: "ONLINE",currentJobType:request.operation_type,currentJobId:request.id, error: message });
     } else if (terminalExpected) {
       log(`OPERATION_CANCELLED ${request.operation_type} ${request.id} ${message}`);
-      await writeHeartbeat(db, { status: "ONLINE" });
+      await writeHeartbeat(db, { status: "ONLINE",currentJobType:request.operation_type,currentJobId:request.id });
     } else {
       log(`OPERATION_FAILED ${request.operation_type} ${request.id} ${message}`);
-      await writeHeartbeat(db, { status: "ERROR", error: message });
+      await writeHeartbeat(db, { status: "ERROR",currentJobType:request.operation_type,currentJobId:request.id, error: message });
     }
   }
 }
@@ -510,7 +500,7 @@ async function watch(db = getSupabase()) {
   // queued requests if a WebSocket event was missed; it never starts a
   // collection unless a user or the daily scheduler already queued one.
   const keepAlive = setInterval(() => {
-    writeHeartbeat(db, { status: "ONLINE" })
+    writeHeartbeat(db)
       .then(async () => {
         await drainSyncRequests();
         await drainOperations();

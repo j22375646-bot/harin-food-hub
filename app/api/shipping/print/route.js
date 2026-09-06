@@ -79,7 +79,7 @@ export async function GET(request) {
     const ids=new Set(String(params.get('ids')||'').split(',').filter(value=>/^HR-[A-Z]+-[A-F0-9]{8}$/.test(value)).slice(0,limit));
     const db=supabaseModule.getSupabase();
     const center=await unifiedOrdersModule.loadUnifiedOrders({db});
-    let orders=center.orders.filter(order=>ids.has(order.hubOrderId));
+    let orders=[...ids].map(id=>unifiedOrdersModule.resolveOrderTarget(center.orders,id)).filter(Boolean);
     if(type==='label'){
       const history=await invoiceHistory(db,orders);
       orders=orders.map(order=>({...order,invoiceNumber:/^\d{13}$/.test(text(order.invoiceNumber))?text(order.invoiceNumber):history[order.hubOrderId]||''})).filter(order=>/^\d{13}$/.test(order.invoiceNumber));

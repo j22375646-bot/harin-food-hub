@@ -85,12 +85,11 @@ export async function POST(request) {
     const hubOrderId = text(body.hubOrderId).toUpperCase();
     if (!HUB_ORDER.test(hubOrderId)) return apiSafety.json({ ok:false, error:'Cafe24 또는 쿠팡 허브 주문번호를 확인하세요.' }, { status:400 });
     const db = supabaseModule.getSupabase();
-    const prior = await priorSuccess(db, hubOrderId);
-    if (prior) return publicResult(prior, { reused:true });
-
     const center = await unifiedOrdersModule.loadUnifiedOrders({ db });
-    const order = center.orders.find(item => item.hubOrderId === hubOrderId);
+    const order = unifiedOrdersModule.resolveOrderTarget(center.orders,hubOrderId);
     if (!order) return apiSafety.json({ ok:false, error:'최신 주문 목록에서 주문을 찾지 못했습니다.' }, { status:404 });
+    const prior = await priorSuccess(db, order.hubOrderId);
+    if (prior) return publicResult(prior, { reused:true });
     if (!order.shippingEligible || !['PAID','PREPARING','READY_TO_SHIP'].includes(order.stage) || order.invoiceNumber) {
       return apiSafety.json({ ok:false, error:order.invoiceNumber ? '이미 송장이 등록된 주문입니다.' : order.shippingBlockedReason || '현재 테스트 접수할 수 없는 주문입니다.' }, { status:409 });
     }
@@ -111,8 +110,8 @@ export async function POST(request) {
       }
     };
     const queued = await operationQueue.queueOperation(db, {
-      operationType:'EPOST_TEST_ISSUE', targetType:'HUB_ORDER', targetId:hubOrderId, payload,
-      idempotencyKey:`epost-test:${hubOrderId}:${Math.floor(Date.now() / 60000)}`
+      operationType:'EPOST_TEST_ISSUE', targetType:'HUB_ORDER', targetId:order.hubOrderId, payload,
+      idempotencyKey:`epost-test:${order.hubOrderId}:${Math.floor(Date.now() / 60000)}`
     });
     return apiSafety.json({ ok:true, pending:true, testOnly:true, request:queued.request }, { status:202 });
   } catch (error) {

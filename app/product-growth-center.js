@@ -148,8 +148,8 @@ export default function ProductGrowthCenter({ unifiedPerformance={} }) {
 
       <section className="growthBlock channelGrowthBlock">
         <div className="growthBlockHead"><GrowthBlockTitle icon="analysis" step="3-CHANNEL RESULT" title="네이버·Cafe24·쿠팡 통합 성과" description="선택한 기준상품에 연결된 채널 실적만 나란히 비교합니다."/></div>
-        <div className="channelGrowthGrid">{[['NAVER','네이버'],['CAFE24','Cafe24'],['COUPANG','쿠팡']].map(([platform,label])=>{const channel=performance?.channels?.[platform]||{};return <span key={platform}><small>{label}</small><b>{money(channel.revenue)}</b><em>주문 {number(channel.orders).toLocaleString('ko-KR')}건 · 판매/전환 {number(channel.units).toLocaleString('ko-KR')}개</em></span>})}</div>
-        <p className="growthFootnote">Cafe24·쿠팡은 주문 실매출, 네이버는 상품에 연결된 광고 전환매출입니다. 상품 연결이 없으면 0원으로 단정하지 않고 연결 대기로 안내합니다.</p>
+        <div className="channelGrowthGrid">{[['NAVER','네이버'],['CAFE24','Cafe24'],['COUPANG','쿠팡']].map(([platform,label])=>{const channel=performance?.channels?.[platform]||{};return <span key={platform}><small>{label}</small><b>{money(channel.revenue)}</b><em>주문 {number(channel.orders).toLocaleString('ko-KR')}건 · 판매 {number(channel.units).toLocaleString('ko-KR')}개</em></span>})}</div>
+        <p className="growthFootnote">Cafe24·네이버·쿠팡은 상품에 연결된 주문 실매출입니다. 광고 기여매출은 주문 매출에 더하지 않습니다. 상품 연결이 없으면 0원으로 단정하지 않고 연결 대기로 안내합니다.</p>
       </section>
     </>}
   </article>;

@@ -31,16 +31,20 @@ test('캘린더 화면은 실제 저장 CRUD와 메인 오늘 연동을 연결�
   assert.match(home,/item\.type==='EVENT'/);
 });
 
-test('주문 화면은 캘린더 이벤트 개정값을 가볍게 확인해 열린 화면도 자동 갱신한다',()=>{
-  const revisionApi=read('app/api/calendar/events/revision/route.js');
-  const orders=read('app/_phase28/pages/orders-page.js');
-  assert.match(revisionApi,/isAuthorized/);
-  assert.match(revisionApi,/context_label','캘린더 이벤트%'/);
-  assert.match(revisionApi,/updated_at/);
-  assert.match(revisionApi,/force-dynamic/);
-  assert.match(orders,/CALENDAR_EVENT_REFRESH_INTERVAL_MS/);
-  assert.match(orders,/\/api\/calendar\/events\/revision/);
-  assert.match(orders,/router\.refresh\(\)/);
+test('주문 이벤트 조회는 같은 기간의 활성 캘린더 이벤트만 개정값에 포함한다',async()=>{
+  const {loadOrderEvents}=require('../lib/calendar/order-events.js');
+  const {eventRevision}=require('../lib/calendar/calendar-center.js');
+  const valid={id:'event-1',context_href:'/calendar',context_label:'캘린더 이벤트',status:'OPEN',due_at:'2026-09-07T00:00:00.000Z',updated_at:'2026-09-07T01:00:00.000Z'};
+  const records=[valid,{...valid,id:'schedule',context_label:'일정'},{...valid,id:'archived',status:'ARCHIVED'},{...valid,id:'other-page',context_href:'/orders'},{...valid,id:'future',due_at:'2027-09-07T00:00:00.000Z'}];
+  const db={from(table){
+    assert.equal(table,'hub_work_items');
+    const filters=[];
+    const query={select(){return query;},order(){return query;},eq(k,v){filters.push(row=>row[k]===v);return query;},neq(k,v){filters.push(row=>row[k]!==v);return query;},like(k,v){filters.push(row=>row[k].startsWith(v.replace(/%$/,'')));return query;},gte(k,v){filters.push(row=>row[k]>=v);return query;},lt(k,v){filters.push(row=>row[k]<v);return query;},range(start,end){return Promise.resolve({data:records.filter(row=>filters.every(filter=>filter(row))).slice(start,end+1),error:null});}};
+    return query;
+  }};
+  const result=await loadOrderEvents(db,{asOf:'2026-09-07'});
+  assert.deepEqual(result.data.map(row=>row.id),['event-1']);
+  assert.equal(eventRevision(result.data),'[["event-1","2026-09-07T01:00:00.000Z"]]');
 });
 
 test('캘린더는 선택 달만 지연 조회하고 고정 UI 규칙을 지킨다',()=>{

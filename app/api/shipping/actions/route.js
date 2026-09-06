@@ -131,7 +131,6 @@ export async function POST(request) {
     if(!requested.length)return apiSafety.json({ok:false,error:'처리할 주문을 선택하세요.'},{status:400});
     const db=supabaseModule.getSupabase();
     const center=await unifiedOrdersModule.loadUnifiedOrders({db});
-    const byId=new Map(center.orders.map(order=>[order.hubOrderId,order]));
     let successfulTransfers=new Map();
     if(action==='UPLOAD_INVOICE'){
       const history=await db.from('coupang_operation_requests')
@@ -144,8 +143,9 @@ export async function POST(request) {
     const results=[];
     for(let input of requested) {
       const hubOrderId=text(input.hubOrderId);
-      const order=byId.get(hubOrderId);
+      let order;
       try {
+        order=unifiedOrdersModule.resolveOrderTarget(center.orders,hubOrderId);
         if(!order)throw Object.assign(new Error('최신 주문 목록에서 찾지 못했습니다.'),{status:404});
         if(!order.shippingEligible)throw Object.assign(new Error(order.shippingBlockedReason||'이 주문은 출고할 수 없습니다.'),{status:409});
         if(action==='UPLOAD_INVOICE') {

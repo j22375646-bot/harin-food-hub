@@ -7,6 +7,15 @@ const path=require('node:path');
 const {buildNaverOwnerInsight}=require('../lib/reports/naver-owner-insight.js');
 const insightsAdapter=require('../lib/ui/phase28-adapters/insights.js');
 
+test('missing ROAS target keeps every derived lever unassessed',()=>{
+  const brief=buildNaverOwnerInsight(summary({operating_rule:{thresholds:{}}}));
+  for(const lever of brief.levers){
+    assert.equal(lever.state,'CHECK_REQUIRED');
+    assert.doesNotMatch(lever.diagnosis,/충족|허용 범위/);
+  }
+  assert.equal(brief.bottleneck.find(item=>item.id==='click').state,'CHECK_REQUIRED');
+});
+
 function summary(overrides={}){
   return {
     generated_at:'2026-09-01T22:30:00.000Z',

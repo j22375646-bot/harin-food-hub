@@ -136,12 +136,49 @@ test('test issuance route requires auth, explicit test confirmation and the encr
   assert.doesNotMatch(route,/EPOST_API_KEY|EPOST_SECURITY_KEY/);
 });
 
-test('live issuance route is authenticated, idempotent and fixed-IP queued', () => {
-  const root=path.resolve(__dirname,'..');
-  const route=fs.readFileSync(path.join(root,'app/api/epost/issue/route.js'),'utf8');
-  assert.match(route,/apiSafety\.isAuthorized\(request, authModule\)/);
-  assert.match(route,/EPOST_LIVE_ISSUE/);
-  assert.match(route,/idempotencyKey:`epost-live:\$\{hubOrderId\}`/);
-  assert.match(route,/operationQueue\.queueOperation/);
-  assert.doesNotMatch(route,/EPOST_API_KEY|EPOST_SECURITY_KEY/);
+test('live issuance authenticates and queues one encrypted job for a canonical shipment even through a legacy ID', async () => {
+  const {pathToFileURL}=require('node:url');
+  const auth=require('../lib/dashboard-auth.js');
+  const supabase=require('../lib/cafe24/supabase.js');
+  const queue=require('../lib/coupang/operation-queue.js');
+  const originalDb=supabase.getSupabase;
+  const originalSecret=process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const originalSessionSecret=process.env.DASHBOARD_SESSION_SECRET;
+  process.env.SUPABASE_SERVICE_ROLE_KEY='test-only-queue-encryption';
+  process.env.DASHBOARD_SESSION_SECRET='test-only-session';
+  const jobs=[];
+  const tables={coupang_orders:[{order_id:'ORDER-1',shipment_box_id:'BOX-A',status:'ACCEPT',ordered_at:new Date().toISOString(),raw_data:{}}],coupang_operation_requests:jobs};
+  supabase.getSupabase=()=>({from(table){
+    const predicates=[];let start=0,end=999,single=false,insert=null;
+    const query={
+      select(){return query;},order(){return query;},limit(n){end=n-1;return query;},range(a,b){start=a;end=b;return query;},
+      eq(key,value){predicates.push(row=>row[key]===value);return query;},in(key,values){predicates.push(row=>values.includes(row[key]));return query;},
+      insert(value){insert=value;return query;},single(){single=true;return query;},maybeSingle(){single=true;return query;},
+      then(resolve){
+        if(insert){jobs.push({...insert,id:'queued-job-1',created_at:new Date().toISOString()});return Promise.resolve({data:jobs.at(-1),error:null}).then(resolve);}
+        const rows=(tables[table]||[]).filter(row=>predicates.every(check=>check(row))).slice(start,end+1);
+        return Promise.resolve({data:single?rows[0]||null:rows,error:null}).then(resolve);
+      }
+    };return query;
+  }});
+  try{
+    const route=await import(pathToFileURL(path.resolve(__dirname,'../app/api/epost/issue/route.js')));
+    const cookie=`${auth.COOKIE_NAME}=${auth.createSessionToken()}`;
+    const request=(id,authorized=true)=>new Request('http://localhost/api/epost/issue',{method:'POST',headers:{'content-type':'application/json',...(authorized?{cookie}:{})},body:JSON.stringify({confirm:true,orderIds:[id]})});
+    assert.equal((await route.POST(request('HR-CP-C1484BA5',false))).status,401);
+    const first=await route.POST(request('HR-CP-C1484BA5'));
+    assert.equal(first.status,202);
+    assert.equal((await route.POST(request('HR-CP-C400D84E'))).status,202);
+    assert.equal(jobs.length,1);
+    assert.equal(jobs[0].operation_type,'EPOST_LIVE_ISSUE');
+    assert.equal(jobs[0].target_id,'HR-CP-C400D84E');
+    assert.equal(jobs[0].idempotency_key,'epost-live:HR-CP-C400D84E');
+    assert.equal(jobs[0].status,'PENDING');
+    assert.equal(jobs[0].payload.alg,'A256GCM');
+    assert.equal(queue.open(jobs[0].payload).order.shipmentId,'BOX-A');
+  }finally{
+    supabase.getSupabase=originalDb;
+    if(originalSecret===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=originalSecret;
+    if(originalSessionSecret===undefined)delete process.env.DASHBOARD_SESSION_SECRET;else process.env.DASHBOARD_SESSION_SECRET=originalSessionSecret;
+  }
 });

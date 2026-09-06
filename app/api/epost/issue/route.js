@@ -60,12 +60,11 @@ export async function POST(request) {
     if (!orderIds.length) return apiSafety.json({ ok:false, error:'송장을 발급할 주문을 선택하세요.' }, { status:400 });
     const db = supabaseModule.getSupabase();
     const center = await unifiedOrdersModule.loadUnifiedOrders({ db });
-    const byId = new Map(center.orders.map(order=>[order.hubOrderId,order]));
     const results = await mapLimitModule.mapLimit(orderIds,4,async hubOrderId => {
-      const order = byId.get(hubOrderId);
       try {
+        const order = unifiedOrdersModule.resolveOrderTarget(center.orders,hubOrderId);
         if (!order) throw Object.assign(new Error('최신 주문 목록에서 찾지 못했습니다.'), { status:404 });
-        if (!order.shippingEligible || !['PAID','PREPARING','READY_TO_SHIP'].includes(order.stage) || order.invoiceNumber) {
+        if (!order.shippingEligible || !['PAID','PREPARING','READY_TO_SHIP'].includes(order.stage) || order.invoiceNumber || order.issuedInvoiceNumber) {
           throw Object.assign(new Error(order.invoiceNumber ? '이미 송장이 등록된 주문입니다.' : order.shippingBlockedReason || '현재 송장을 발급할 수 없는 주문입니다.'), { status:409 });
         }
         let receiver = order.receiver || {};
@@ -81,8 +80,8 @@ export async function POST(request) {
           weight:2, volume:60, receiver
         } };
         const queued = await operationQueue.queueOperation(db, {
-          operationType:'EPOST_LIVE_ISSUE', targetType:'HUB_ORDER', targetId:hubOrderId, payload,
-          idempotencyKey:`epost-live:${hubOrderId}`
+          operationType:'EPOST_LIVE_ISSUE', targetType:'HUB_ORDER', targetId:order.hubOrderId, payload,
+          idempotencyKey:`epost-live:${order.hubOrderId}`
         });
         return { hubOrderId, ok:true, pending:!queued.completed, request:queued.request };
       } catch (error) {

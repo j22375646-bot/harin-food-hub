@@ -62,6 +62,7 @@ import unifiedCustomerServiceModule from '../lib/customer-service/unified-center
 import customerServiceStore from '../lib/customer-service/store.js';
 import featureFlagsModule from '../lib/ui/phase28-production-runtime.js';
 import calendarCenterModule from '../lib/calendar/calendar-center.js';
+import orderEventsModule from '../lib/calendar/order-events.js';
 import phase28ClientPayloadModule from '../lib/ui/phase28-client-payload.js';
 import operationSnapshotModule from '../lib/navigation/operation-snapshot.js';
 import { cookies, headers } from 'next/headers';
@@ -1329,7 +1330,7 @@ async function getDashboardData(state) {
           issues:[{platform:'ALL',dataset:'monthly_revenue',code:'MONTHLY_QUERY_FAILED',message:String(error?.message||error||'월 매출 조회 실패')}]
         }))
       : Promise.resolve({status:'NO_DATA',totals:{ALL:null,NAVER:null,CAFE24:null,COUPANG:null},counts:{},issues:[]}),
-    calendarItems:['main','calendar','orders'].includes(view) ? Promise.allSettled([
+    calendarItems:view==='orders'?Promise.allSettled([orderEventsModule.loadOrderEvents(db,{asOf:generatedAt})]):['main','calendar'].includes(view) ? Promise.allSettled([
       db.from('hub_work_items').select('id,item_type,title,body,status,priority,due_at,page_key,context_label,context_href,completed_at,created_at,updated_at')
         .eq('context_href','/calendar').neq('status','ARCHIVED')
         .gte('due_at',new Date(`${calendarCenterModule.addDays(calendarQueryRange.start,-366)}T00:00:00+09:00`).toISOString())

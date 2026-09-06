@@ -7,7 +7,7 @@ const targets = require('../lib/marketing/product-ad-targets.js');
 const trust = { status:'READY' };
 const item = {
   master_product_id:'P1', name:'작두콩차', revenue:100000, orders:10, contribution_before_ads:40000, cost_status:'CALCULATED',
-  channels:{ NAVER:{ clicks:100, orders:5, ad_spend:10000 } }
+  channels:{ NAVER:{ clicks:100, orders:5, attributed_orders:5, ad_spend:10000 } }
 };
 
 test('상품별 목표 이익률로 목표 ROAS, 허용 CPA와 CPC를 서버 계산한다', () => {

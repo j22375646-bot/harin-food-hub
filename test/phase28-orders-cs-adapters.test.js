@@ -104,7 +104,7 @@ test('orders adapter applies the active calendar event gift tier to matching pai
   assert.equal(model.orders.find(item=>item.hubOrderId==='C24-CANCELLED').giftRequired,false);
   assert.equal(model.hero.giftOrderCount,1);
   assert.deepEqual(model.giftAutomation,{
-    status:'READY',eventCount:1,ruleCount:2,revision:null,
+    status:'READY',eventCount:1,ruleCount:2,revision:'[["event-1",""]]',
     label:'캘린더 사은품 조건 2개 자동 연동'
   });
 });
@@ -115,7 +115,7 @@ test('orders adapter keeps an empty calendar gift setup visible instead of prese
   });
 
   assert.deepEqual(model.giftAutomation,{
-    status:'SETUP_REQUIRED',eventCount:0,ruleCount:0,revision:null,
+    status:'SETUP_REQUIRED',eventCount:0,ruleCount:0,revision:'[]',
     label:'캘린더 사은품 조건 없음'
   });
 });

@@ -33,7 +33,7 @@ const CALENDAR_EVENT_REFRESH_INTERVAL_MS=15000;
 const wait=milliseconds=>new Promise(resolve=>window.setTimeout(resolve,milliseconds));
 const productImageLoader=({src})=>src;
 
-function money(value){return `${Math.round(Number(value)||0).toLocaleString('ko-KR')}원`;}
+function money(value){return value==null?'확인 필요':`${Math.round(Number(value)||0).toLocaleString('ko-KR')}원`;}
 function dateTime(value){
   if(!value)return '주문 시각 확인 필요';
   const date=new Date(value);
@@ -165,6 +165,7 @@ function OrderProductThumbnail({order}){
 }
 
 function OrderGiftNotice({order}){
+  if(order?.giftEligibilityStatus==='CHECK_REQUIRED')return <section className="orderGiftNotice" aria-label="사은품 조건 확인 필요"><strong>사은품 조건 확인 필요</strong><p>실결제 금액을 확인한 뒤 사은품 증정 여부를 판단하세요.</p></section>;
   if(!order?.gifts?.length)return null;
   return <section className="orderGiftNotice" aria-label="사은품 증정 안내">
     <header><span><HarinIcon name="sparkles" size={18}/></span><div><strong>사은품 증정 대상</strong><small>포장할 때 아래 사은품을 함께 넣어주세요.</small></div></header>
@@ -204,13 +205,13 @@ export function OrderRow({order,selected,previewed,onSelect,onPreview}){
   </article>;
 }
 
-function OrdersWorkspace({orders,stage,selectedIds,previewOrderId,onSelect,onPreview,platform,setPlatform,delayOnly,giftOnly,setGiftOnly,onOpenActions,visibleLimit=20}){
+function OrdersWorkspace({orders,stage,selectedIds,previewOrderId,onSelect,onPreview,platform,setPlatform,delayOnly,giftOnly,setGiftOnly,onOpenActions,visibleLimit=20,pagination,onLoadMore,pageLoading,pageError}){
   const [showCount,setShowCount]=useState(visibleLimit);
   useEffect(()=>setShowCount(visibleLimit),[stage,platform,delayOnly,giftOnly,visibleLimit]);
   const candidates=useMemo(()=>orders.filter(order=>order.stageIds?.includes(stage)).filter(order=>platform==='ALL'||order.platform===platform).filter(order=>!delayOnly||order.timingBadge?.type==='DELAYED'),[orders,stage,platform,delayOnly]);
   const giftCount=candidates.filter(order=>order.giftRequired).length;
   const visible=giftOnly?candidates.filter(order=>order.giftRequired):candidates;
-  const eligible=visible.filter(order=>order.selectionEligible===true);
+  const eligible=visible.slice(0,showCount).filter(order=>order.selectionEligible===true);
   const allSelected=Boolean(eligible.length)&&eligible.every(order=>selectedIds.has(order.hubOrderId));
   const stageLabel=STAGES.find(item=>item.id===stage)?.label||'주문';
   function toggleAll(checked){eligible.forEach(order=>onSelect(order,checked));}
@@ -218,7 +219,8 @@ function OrdersWorkspace({orders,stage,selectedIds,previewOrderId,onSelect,onPre
     <header><div><h2>{stageLabel} 주문</h2><p>배송정보·연락처·메모와 사은품 증정 여부를 바로 확인할 수 있어요.</p></div><div><select value={platform} onChange={event=>setPlatform(event.target.value)} aria-label="판매 채널 필터"><option value="ALL">전체 채널</option><option value="NAVER">네이버</option><option value="CAFE24">Cafe24</option><option value="COUPANG">쿠팡</option></select><button type="button" className="giftOnlyToggle" data-active={giftOnly?'true':'false'} onClick={()=>setGiftOnly(value=>!value)}>사은품 대상만 보기 · {giftCount}건</button><span>{delayOnly?'배송지연만':'전체 일정'}</span></div></header>
     <div className="bulkBar"><input type="checkbox" checked={allSelected} disabled={!eligible.length} onChange={event=>toggleAll(event.target.checked)} aria-label="현재 출고 가능 주문 전체 선택"/><strong>{selectedIds.size.toLocaleString('ko-KR')}건 선택</strong><span>현재 화면의 출고 가능 주문만 선택돼요.</span><button type="button" onClick={onOpenActions} disabled={!selectedIds.size}>선택 주문 출고하기</button></div>
     <div className="orderRows">{visible.length?visible.slice(0,showCount).map(order=><OrderRow order={order} selected={selectedIds.has(order.hubOrderId)} previewed={previewOrderId===order.hubOrderId} onSelect={onSelect} onPreview={onPreview} key={order.hubOrderId}/>):<div className="ordersEmpty"><strong>{stageLabel}에 표시할 주문이 없어요.</strong><span>{delayOnly?'배송지연 필터를 해제하거나 다른 단계를 확인하세요.':'다른 출고 단계를 확인하거나 전체 수집을 실행하세요.'}</span></div>}</div>
-    {showCount<visible.length?<button type="button" className="ordersMore" onClick={()=>setShowCount(value=>value+visibleLimit)}>주문 {Math.min(visibleLimit,visible.length-showCount)}건 더 보기 · 남은 {(visible.length-showCount).toLocaleString('ko-KR')}건</button>:null}
+    {pageError?<p role="alert">{pageError}</p>:null}
+    {showCount<visible.length||pagination?.nextOffset!=null?<button type="button" className="ordersMore" disabled={pageLoading} onClick={()=>{setShowCount(value=>value+visibleLimit);if(showCount>=visible.length)onLoadMore();}}>{pageLoading?'주문 불러오는 중':'주문 더 보기'} · 남은 {Math.max(0,(pagination?.total||visible.length)-Math.min(showCount,visible.length)).toLocaleString('ko-KR')}건</button>:null}
   </section>;
 }
 
@@ -250,9 +252,15 @@ function OrdersRail({activeTab,setActiveTab,selectedOrders,previewOrder,channels
 
 export default function Phase28OrdersPage({model={}}){
   const router=useRouter();
-  const hero=model.hero||{};
+  const [hero,setHero]=useState(model.hero||{});
+  const [workspaces,setWorkspaces]=useState(model.workspaces||[]);
   const giftAutomation=model.giftAutomation||{status:'SETUP_REQUIRED',eventCount:0,ruleCount:0,revision:null};
-  const sourceOrders=model.orders||[];
+  const [sourceOrders,setSourceOrders]=useState(model.orders||[]);
+  const [pagination,setPagination]=useState(model.pagination||null);
+  const [pageLoading,setPageLoading]=useState(false);
+  const [pageError,setPageError]=useState('');
+  const [pageFailed,setPageFailed]=useState(false);
+  const pageRequestRef=useRef(0);
   const channels=model.channels||[];
   const [receiverHydration,setReceiverHydration]=useState({});
   const [receiverHydrationStatus,setReceiverHydrationStatus]=useState({});
@@ -275,14 +283,43 @@ export default function Phase28OrdersPage({model={}}){
   const cafe24OrderRefreshRunRef=useRef(false);
   const fulfillmentSignatureRef=useRef('');
   const calendarEventRevisionRef=useRef(String(giftAutomation.revision||''));
+  const loadPage=useCallback(async(append=false)=>{
+    const requestId=++pageRequestRef.current;
+    setPageLoading(true);setPageError('');setPageFailed(false);
+    const params=new URLSearchParams({stage:activeStage,platform,delayOnly:String(delayOnly),giftOnly:String(giftOnly),offset:String(append?pagination?.nextOffset||0:0)});
+    if(append&&pagination?.snapshot)params.set('snapshot',pagination.snapshot);
+    try{
+      const response=await fetch(`/api/orders/page?${params}`,{cache:'no-store'});
+      const result=await response.json();
+      if(requestId!==pageRequestRef.current)return;
+      if(!response.ok||!result.ok){
+        if(result.code==='ORDERS_SNAPSHOT_CHANGED'){setSourceOrders([]);setSelectedIds(new Set());setPagination(null);router.refresh();}
+        throw new Error(result.error||'주문을 불러오지 못했습니다.');
+      }
+      setSourceOrders(previous=>append?[...new Map([...previous,...result.orders].map(order=>[order.hubOrderId,order])).values()]:result.orders);
+      setPagination(result);
+      if(result.hero)setHero(result.hero);
+      if(result.workspaces)setWorkspaces(result.workspaces);
+      if(result.warning)setPageError(result.warning);
+    }catch(error){if(requestId===pageRequestRef.current){setPageError(`${error.message} 이전에 불러온 주문은 유지되며 새로 확인될 때까지 출고 선택이 잠깁니다.`);setPageFailed(true);}}
+    finally{if(requestId===pageRequestRef.current)setPageLoading(false);}
+  },[activeStage,platform,delayOnly,giftOnly,pagination,router]);
+  useEffect(()=>{
+    setPagination(null);setSelectedIds(new Set());setPreviewOrderId(null);
+    loadPage(false);
+    return()=>{pageRequestRef.current++;};
+    // A returned page changes pagination, not the query. Only a filter or
+    // server refresh starts a new snapshot.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[activeStage,platform,delayOnly,giftOnly,model.orders]);
   const cutoff=useCutoff(model.cutoff||{});
   const fulfillmentByOrder=useMemo(()=>Object.fromEntries((fulfillmentFeed.items||[]).map(item=>[item.hubOrderId,item])),[fulfillmentFeed]);
   const orders=useMemo(()=>sourceOrders.map(order=>{
     const hydrated=receiverHydration[order.hubOrderId]?{...order,receiver:receiverHydration[order.hubOrderId]}:order;
     const receiverStatus=hasReceiverDetails(hydrated.receiver)?'READY':receiverHydrationStatus[order.hubOrderId]||(needsReceiverHydration(hydrated)?'LOADING':'UNAVAILABLE');
-    const decorated={...hydrated,receiverHydrationStatus:receiverStatus};
+    const decorated={...hydrated,receiverHydrationStatus:receiverStatus,...(pageLoading||pageFailed?{selectionEligible:false,shippingEligible:false,selectionBlockedReason:'최신 주문 확인 후 선택할 수 있습니다.'}:{})};
     return fulfillmentByOrder[order.hubOrderId]?{...decorated,fulfillmentStatus:fulfillmentByOrder[order.hubOrderId]}:decorated;
-  }),[sourceOrders,receiverHydration,receiverHydrationStatus,fulfillmentByOrder]);
+  }),[sourceOrders,receiverHydration,receiverHydrationStatus,fulfillmentByOrder,pageLoading,pageFailed]);
   const selectedOrders=useMemo(()=>orders.filter(order=>selectedIds.has(order.hubOrderId)),[orders,selectedIds]);
   const stageOrders=useMemo(()=>orders.filter(order=>order.stageIds?.includes(activeStage)),[orders,activeStage]);
   const automaticTrackingIds=useMemo(()=>orders
@@ -568,7 +605,7 @@ export default function Phase28OrdersPage({model={}}){
   return <section className="p28OrdersPage" data-phase28-root="true" data-phase28-page="orders">
     <div className="ordersIntro"><Phase28PageHeading context={`채널 ${channels.length||0}/3 최신 · 판매자배송만 표시`} title="오늘 출고할 주문은 " accent={workCount==null?'확인 필요':`${workCount.toLocaleString('ko-KR')}건`} suffix="이에요." summary="취소 주문과 로켓그로스는 작업목록에서 빼고, 직접 보낼 주문만 모았어요."/><div className="ordersSyncCluster"><span><i><HarinIcon name="sync" size={19}/></i><span><small>{syncState==='RUNNING'?(syncPlatforms.length?collectionProgressLabel(syncPlatforms):'완료 반영 중'):'마지막 전체 동기화'}</small><strong>{referenceTime(hero.asOf)}</strong></span></span><button type="button" onClick={syncOrders} disabled={syncState==='RUNNING'}><HarinIcon name="sync" size={17}/>{syncState==='RUNNING'?'수집 중':'지금 동기화'}</button></div></div>
     <Phase28RightRailLayout label="출고 보조석" rail={<OrdersRail activeTab={activeRailTab} setActiveTab={setActiveRailTab} selectedOrders={selectedOrders} previewOrder={previewOrder} channels={channels} activeStage={activeStage} busy={busy} delayedCount={hero.delayedCount} giftOrderCount={hero.giftOrderCount} giftAutomation={giftAutomation} fulfillmentFeed={fulfillmentFeed} fulfillmentError={fulfillmentError} fulfillmentCheckedAt={fulfillmentCheckedAt} onPrimaryAction={primaryAction} onSync={syncOrders}/> }>
-      <div className="ordersCore"><Runway workspaces={model.workspaces||[]} activeStage={activeStage} onStageChange={changeStage} cutoff={cutoff} onOpenActions={openActions} delayOnly={delayOnly} onDelayToggle={()=>setDelayOnly(value=>!value)}/><FreshnessDock channels={channels} asOf={hero.asOf} syncState={syncState} syncPlatforms={syncPlatforms} onSync={syncOrders}/><OrdersWorkspace orders={orders} stage={activeStage} selectedIds={selectedIds} previewOrderId={previewOrderId} onSelect={selectOrder} onPreview={previewOrderInRail} platform={platform} setPlatform={setPlatform} delayOnly={delayOnly} giftOnly={giftOnly} setGiftOnly={setGiftOnly} onOpenActions={openActions} visibleLimit={model.visibleLimit||20}/>{selectedIds.size?<div className="mobileBatchAction"><span><strong>{selectedIds.size}건 선택</strong><small>판매자배송 출고 작업</small></span><button type="button" onClick={primaryAction}>우체국 발급</button></div>:null}</div>
+<div className="ordersCore"><Runway workspaces={workspaces} activeStage={activeStage} onStageChange={changeStage} cutoff={cutoff} onOpenActions={openActions} delayOnly={delayOnly} onDelayToggle={()=>setDelayOnly(value=>!value)}/><FreshnessDock channels={channels} asOf={hero.asOf} syncState={syncState} syncPlatforms={syncPlatforms} onSync={syncOrders}/><OrdersWorkspace orders={orders} stage={activeStage} selectedIds={selectedIds} previewOrderId={previewOrderId} onSelect={selectOrder} onPreview={previewOrderInRail} platform={platform} setPlatform={setPlatform} delayOnly={delayOnly} giftOnly={giftOnly} setGiftOnly={setGiftOnly} onOpenActions={openActions} visibleLimit={model.visibleLimit||20} pagination={pagination} onLoadMore={()=>loadPage(true)} pageLoading={pageLoading} pageError={pageError}/>{selectedIds.size?<div className="mobileBatchAction"><span><strong>{selectedIds.size}건 선택</strong><small>판매자배송 출고 작업</small></span><button type="button" onClick={primaryAction}>우체국 발급</button></div>:null}</div>
     </Phase28RightRailLayout>
     <div className={`ordersToast${toastVisible?' visible':''}`} role="status" aria-live="polite">{statusMessage}</div>
   </section>;

@@ -9,10 +9,18 @@ const performance={
   contribution_profit:126000,contribution_margin_rate:44.2,roas:512,cost_status:'CALCULATED',
   channels:{
     CAFE24:{revenue:118000,orders:15,units:24,impressions:0,clicks:0,ad_spend:0},
-    NAVER:{revenue:126000,orders:14,units:14,impressions:27800,clicks:482,ad_spend:24600},
+    NAVER:{revenue:126000,orders:14,units:14,impressions:27800,clicks:482,ad_spend:24600,ad_evidence_status:'READY'},
     COUPANG:{revenue:84000,orders:12,units:32,impressions:0,clicks:0,ad_spend:18000}
   }
 };
+
+test('analysis selector treats absent or incomplete advertising evidence as unknown',()=>{
+  for(const flag of [undefined,'CHECK_REQUIRED']){
+    const model=buildPhase28ProductAnalysisModel({unifiedProductPerformance:{items:[{...performance,channels:{NAVER:{impressions:0,clicks:0,ad_evidence_status:flag}}}]}});
+    assert.equal(model.products[0].metrics.searchDemand,null);
+    assert.equal(model.products[0].sources.search.status,'NO_DATA');
+  }
+});
 
 test('product analysis adapter exposes real product evidence and keeps missing market inputs explicit',()=>{
   const model=buildPhase28ProductAnalysisModel({

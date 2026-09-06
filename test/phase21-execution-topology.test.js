@@ -11,7 +11,7 @@ const root=path.resolve(__dirname,'..');
 const now=new Date('2026-08-18T00:10:00Z');
 
 test('phase 21-7 and 21-8 preserve the guarded routes and add final readiness evidence',()=>{
-  const center=topology.buildExecutionTopology({env:{},now,heartbeats:[{service_name:'harin-coupang-worker',status:'ONLINE',source_ip:'13.124.12.17',last_seen_at:'2026-08-18T00:05:00Z'}],syncRequests:[{request_type:'ORDERS_REALTIME',status:'SUCCESS',idempotency_key:'orders-hourly:2026-08-18T00',finished_at:'2026-08-18T00:01:00Z'}]});
+  const center=topology.buildExecutionTopology({env:{},now,heartbeats:[{service_name:'harin-coupang-worker',status:'ONLINE',source_ip:'13.124.12.17',last_seen_at:'2026-08-18T00:05:00Z'}],automationRuns:[{job_name:'EXECUTION_LANE_HOURLY_ORDERS',status:'SUCCESS',started_at:'2026-08-18T00:00:00Z',finished_at:'2026-08-18T00:01:00Z'}],syncRequests:[{request_type:'ORDERS_REALTIME',status:'SUCCESS',idempotency_key:'orders-hourly:2026-08-18T00',finished_at:'2026-08-18T00:01:00Z'}]});
   assert.equal(center.phase,'21-7 · 21-8');assert.equal(center.mode,'FINAL_READINESS');assert.equal(center.summary.lanes,6);assert.equal(center.worker.ready,true);
   assert.equal(center.summary.protectedLanes,6);assert.equal(center.summary.manualLocks,0);assert.equal(center.summary.switchReady,true);
   assert.equal(center.dryRun.status,'PASS');assert.equal(center.dryRun.guardedLanes,6);assert.equal(center.dryRun.changesApplied,false);

@@ -11,6 +11,9 @@
 /.tools
 /supabase/.temp
 /test
+/docs/audits
+/.superpowers
+/*.log
 /server.js
 /server.mjs
 /cafe24-oauth-server.js

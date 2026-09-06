@@ -132,7 +132,7 @@ test('쿠팡 광고 정산 요약을 광고비로 분리하고 예상 정산액�
   assert.equal(coupang.expected_payout,57000);
   assert.equal(coupang.actual_payout,57000);
   assert.equal(coupang.payout_variance,0);
-  assert.equal(center.waterfall.advertising,33000);
+  assert.equal(center.waterfall.advertising,null);
   assert.equal(center.summary.known_advertising,33000);
 });
 
@@ -190,10 +190,11 @@ test('쿠팡 판매자배송과 로켓그로스 정산·광고·물류비를 채
   assert.equal(rocket.status,'ESTIMATED');
   assert.equal(rocket.settlement_order_count,1);
   assert.equal(rocket.settlement_coverage,100);
-  assert.equal(center.waterfall.gross_sales,180000);
-  assert.equal(center.waterfall.logistics,12300);
-  assert.equal(center.waterfall.advertising,44000);
-  assert.equal(center.waterfall.expected_payout,105700);
+  assert.equal(center.waterfall.gross_sales,null);
+  assert.equal(center.waterfall.known_gross_sales,180000);
+  assert.equal(center.waterfall.logistics,null);
+  assert.equal(center.waterfall.advertising,null);
+  assert.equal(center.waterfall.expected_payout,null);
   assert.deepEqual(center.waterfall.revenue_breakdown,[
     {platform:'COUPANG',label:'쿠팡 판매자배송',gross_sales:80000,expected_payout:58000},
     {platform:'COUPANG_RG',label:'쿠팡 로켓그로스',gross_sales:100000,expected_payout:47700}
@@ -207,7 +208,7 @@ test('쿠팡 판매자배송과 로켓그로스 정산·광고·물류비를 채
     deductions:52300,
     expected_payout:47700,
     actual_payout:null,
-    included_in_total_gross:true
+    included_in_total_gross:false
   });
 });
 
@@ -324,7 +325,7 @@ test('네이버 비즈머니 충전과 실제 차감 광고비를 분리해 정�
   assert.equal(naver.advertising_balance,90000);
   assert.equal(naver.advertising_variance,1000);
   assert.equal(naver.advertising_source,'BIZMONEY_EXHAUST');
-  assert.equal(center.waterfall.advertising,25000);
+  assert.equal(center.waterfall.advertising,null);
   assert.equal(center.waterfall.advertising_charged,115000);
 });
 
@@ -386,8 +387,9 @@ test('예상 정산액과 실제 지급액 차이 및 정산 흐름을 계산한
   assert.equal(coupang.expected_payout,90000);
   assert.equal(coupang.actual_payout,88000);
   assert.equal(coupang.payout_variance,-2000);
-  assert.equal(center.waterfall.gross_sales,100000);
-  assert.equal(center.waterfall.expected_payout,90000);
+  assert.equal(center.waterfall.gross_sales,null);
+  assert.equal(center.waterfall.known_gross_sales,100000);
+  assert.equal(center.waterfall.expected_payout,null);
   assert.equal(center.waterfall.variance,-2000);
 });
 
@@ -403,6 +405,6 @@ test('일부 채널만 지급 확인되면 전체 실제 지급으로 확정하�
   assert.equal(center.waterfall.actual_payout,90000);
   assert.equal(center.waterfall.actual_payout_complete,false);
   assert.equal(center.waterfall.actual_channel_count,1);
-  assert.equal(center.waterfall.revenue_channel_count,2);
-  assert.equal(center.waterfall.actual_payout_coverage,50);
+  assert.equal(center.waterfall.revenue_channel_count,3);
+  assert.equal(center.waterfall.actual_payout_coverage,33.3);
 });
