@@ -1,0 +1,163 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const { PGlite } = require('@electric-sql/pglite');
+const user = '20000000-0000-4000-8000-000000000001';
+const other = '20000000-0000-4000-8000-000000000002';
+const ticket = '30000000-0000-4000-8000-000000000001';
+const session = '40000000-0000-4000-8000-000000000001';
+const operation = '50000000-0000-4000-8000-000000000001';
+const second = '50000000-0000-4000-8000-000000000002';
+let db;
+
+test.before(async () => {
+  db = new PGlite();
+  await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
+    create schema auth; create table auth.users(id uuid primary key);`);
+  await db.exec(await fs.readFile(path.join(__dirname, '../supabase/migrations/20260812182508_add_dashboard_accounts_and_rbac.sql'), 'utf8'));
+  await db.exec(await fs.readFile(path.join(__dirname, '../lib/tenancy/sql/auth-session-fence.sql'), 'utf8'));
+});
+test.after(async () => { if (db) await db.close(); });
+test.beforeEach(async () => {
+  await db.exec('drop trigger if exists force_change_failure on moaon_auth.password_changes; drop function if exists moaon_auth.force_change_failure();');
+  await db.exec(`reset role; truncate auth.users cascade;
+    insert into auth.users values ('${user}'), ('${other}');
+    insert into public.dashboard_users(user_id,email,username,display_name,role)
+    values ('${user}','one@example.test','one','One','OWNER'),
+           ('${other}','two@example.test','two','Two','VIEWER');`);
+});
+
+async function begin(who = user, id = ticket) {
+  return db.query('select public.moaon_begin_login($1,$2)', [who, id]);
+}
+async function issue(id = ticket, who = user) {
+  return db.query(`select public.moaon_issue_session($1,$2,$3,$4,clock_timestamp()+interval '12 hours')`,
+    [who, id, session, 'a'.repeat(64)]);
+}
+async function reset(who = user, id = operation) {
+  return db.query('select public.moaon_begin_password_change($1,$2)', [who,id]);
+}
+async function complete(who = user, id = operation) {
+  return db.query('select public.moaon_complete_password_change($1,$2)', [who,id]);
+}
+async function rejected(run) {
+  await assert.rejects(run, error => error.message.includes('AUTH_TRANSITION_REJECTED'));
+}
+
+test('one-use ticket issues a session using current server profile', async () => {
+  await begin();
+  await db.query("update dashboard_users set role='VIEWER' where user_id=$1", [user]);
+  await issue();
+  const { rows } = await db.query('select user_id,role,revoked_at from dashboard_sessions');
+  assert.deepEqual(rows, [{user_id:user, role:'VIEWER', revoked_at:null}]);
+  await rejected(() => issue());
+});
+
+test('password change revokes existing sessions but not another account', async () => {
+  await begin(); await issue();
+  await db.query(`insert into dashboard_sessions(id,user_id,token_hash,username,display_name,role,expires_at)
+    values ($1,$2,$3,'two','Two','VIEWER',clock_timestamp()+interval '1 hour')`, [second,other,'b'.repeat(64)]);
+  await reset();
+  const { rows } = await db.query('select user_id,revoked_at is not null as revoked from dashboard_sessions order by user_id');
+  assert.deepEqual(rows, [{user_id:user,revoked:true},{user_id:other,revoked:false}]);
+});
+
+test('late old-password login stays rejected after reset completion', async () => {
+  await begin(); await reset(); await complete();
+  await rejected(() => issue());
+  assert.equal((await db.query('select count(*)::int as n from dashboard_sessions')).rows[0].n, 0);
+  await begin(user, second); await issue(second);
+});
+
+test('pending or uncertain provider write keeps login locked', async () => {
+  await begin(); await reset();
+  await rejected(() => begin(user, second));
+  await rejected(() => issue());
+  await rejected(() => complete(user,second));
+  assert.equal((await db.query('select blocked from moaon_auth.account_state')).rows[0].blocked, true);
+});
+
+test('same pending reset is idempotent and competing reset is rejected', async () => {
+  await reset(); await reset();
+  assert.equal((await db.query('select generation from moaon_auth.account_state')).rows[0].generation, 1);
+  await rejected(() => reset(user, second));
+  await complete(); await complete();
+  await rejected(() => reset());
+});
+
+test('an old completed operation cannot unlock a later reset', async () => {
+  await reset(); await complete(); await reset(user, second);
+  await rejected(() => complete());
+  await rejected(() => begin());
+  await complete(user, second); await begin();
+});
+
+test('ticket bound to another user is rejected without consuming it', async () => {
+  await begin(); await rejected(() => issue(ticket, other)); await issue();
+});
+
+test('expired login ticket is rejected', async () => {
+  await begin();
+  await db.query("update moaon_auth.login_tickets set expires_at=clock_timestamp()-interval '1 second'");
+  await rejected(() => issue());
+});
+
+test('inactive account cannot begin, issue, or complete password change', async () => {
+  await begin();
+  await db.query('update dashboard_users set active=false where user_id=$1', [user]);
+  await rejected(() => issue()); await rejected(() => begin(user,second)); await rejected(() => reset());
+  await db.query('update dashboard_users set active=true where user_id=$1', [user]);
+  await reset();
+  await db.query('update dashboard_users set active=false where user_id=$1', [user]);
+  await rejected(() => complete());
+});
+
+test('failed session insertion rolls back ticket consumption', async () => {
+  await begin();
+  await db.query(`insert into dashboard_sessions(id,user_id,token_hash,username,display_name,role,expires_at)
+    values ($1,$2,$3,'one','One','OWNER',clock_timestamp()+interval '1 hour')`, [session,user,'b'.repeat(64)]);
+  await assert.rejects(() => issue(), /duplicate key/);
+  await db.query('delete from dashboard_sessions where id=$1', [session]);
+  await issue();
+});
+
+test('password-change record failure rolls back revocation and generation together', async () => {
+  await begin(); await issue();
+  await db.exec(`create function moaon_auth.force_change_failure() returns trigger language plpgsql as $$
+    begin raise exception 'synthetic failure'; end $$;
+    create trigger force_change_failure before insert on moaon_auth.password_changes
+    for each row execute function moaon_auth.force_change_failure();`);
+  await assert.rejects(() => reset(), /synthetic failure/);
+  assert.deepEqual((await db.query('select generation,blocked from moaon_auth.account_state')).rows,[{generation:0,blocked:false}]);
+  assert.equal((await db.query('select revoked_at from dashboard_sessions')).rows[0].revoked_at,null);
+});
+
+test('unknown account and malformed token hash cannot create sessions', async () => {
+  await rejected(() => begin(second));
+  await begin();
+  for (const hash of ['', 'raw-cookie', 'A'.repeat(64), null]) {
+    await rejected(() => db.query(`select public.moaon_issue_session($1,$2,$3,$4,clock_timestamp()+interval '1 hour')`, [user,ticket,session,hash]));
+  }
+});
+
+for (const role of ['anon','authenticated']) {
+  test(`${role} cannot call functions or read account state`, async () => {
+    await db.exec(`set role ${role}`);
+    try {
+      await assert.rejects(() => begin(), /permission denied/);
+      await assert.rejects(() => reset(), /permission denied/);
+      await assert.rejects(() => complete(), /permission denied/);
+      await assert.rejects(() => issue(), /permission denied/);
+      await assert.rejects(() => db.query('select * from moaon_auth.account_state'), /permission denied/);
+    } finally { await db.exec('reset role'); }
+  });
+}
+
+test('service_role can execute the complete isolated flow', async () => {
+  await db.exec('set role service_role');
+  try { await begin(); await issue(); await reset(); await complete(); }
+  finally { await db.exec('reset role'); }
+});

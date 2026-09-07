@@ -1,6 +1,6 @@
 {
   "name": "harin-cafe24-sync",
-  "version": "1.42.0",
+  "version": "1.43.0",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -31,6 +31,7 @@
     "start:legacy": "node cafe24-oauth-server.js",
     "test": "node scripts/check-ui-design-rules.js && node scripts/run-harin-tests.js",
     "test:tenancy:postgres": "node --test test/integration/tenant-postgres-control.native-test.js",
+    "test:auth:postgres": "node --test test/integration/tenant-auth-session-fence.native-test.js",
     "ui:guard": "node scripts/check-ui-design-rules.js",
     "ui:guard:baseline": "node scripts/check-ui-design-rules.js --write-baseline",
     "ui:guard:report": "node scripts/check-ui-design-rules.js --write-report",

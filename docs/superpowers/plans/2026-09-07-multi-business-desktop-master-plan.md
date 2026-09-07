@@ -17,7 +17,8 @@
 | 첫 기반 릴리스 / 1.40.0 | 모아온 이름, 요청별 사업장 권한 검사 기반. 다사업장 실사용은 미개방 | [첫 보고서](./2026-09-07-moaon-first-development-report.md) |
 | P1-02 / 1.41.0 | 내부 회원·초대 SQL 저장 기반과 로컬 검증. 실제 DB/인증 연결과 가입 UI는 별도 게이트 | [실행 계획](./2026-09-07-moaon-membership-storage.md), [개발 보고서](./2026-09-07-moaon-p1-02-development-report.md) |
 | P1-03 / 1.42.0 | 기존 로그인·인증 이메일 연결부 및 제한 DB adapter 구현·로컬 PostgreSQL 다중 연결 시험 완료. 운영 개방은 별도 | [실행 계획](./2026-09-07-moaon-p1-03-adapters.md), [보고서](./2026-09-07-moaon-p1-03-development-report.md) |
-| P1-04 / 다음 인증 단계 | SMTP/이메일 확인·비밀번호 재설정·구 세션 폐기와 hosted 검증. P2 전 공개 가입 미개방 | [진입 조건](../specs/2026-09-07-moaon-account-integration-gates.md) |
+| P1-04-1 / 1.43.0 | 복구 세션 잠금·구 세션 폐기 후보 및 RPC 연결부. 격리 hosted/로컬 동시성 검증. 운영 활성화 아님 | [실행 계획](./2026-09-08-moaon-p1-04-session-fence.md), [보고서](./2026-09-08-moaon-p1-04-1-development-report.md) |
+| P1-04-2 / 다음 인증 단계 | SMTP/실제 이메일 확인·재설정 링크·인증 공급자 세션 폐기·모든 로그인 발급 경로 전환. P2 전 공개 가입 미개방 | [진입 조건](../specs/2026-09-07-moaon-account-integration-gates.md) |
 
 실행 단위 완료와 P1 전체/G1 통과는 다르다. P2의 모든 업무 자료 격리 전에는 다른 실사업장을 개방하지 않는다.
 
