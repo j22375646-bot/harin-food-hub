@@ -142,3 +142,28 @@ test('candidate trigger preserves the legacy no-journal password-change begin in
     [USER, operation]
   )).rows, [{status: 'PENDING'}]);
 });
+
+test('candidate unresolved index provides the millisecond LIMIT order without a Sort', async context => {
+  const client = await pool.connect();
+  try {
+    await client.query('begin');
+    await client.query('set local enable_seqscan=off; set local enable_bitmapscan=off');
+    const explained = await client.query(
+      `explain (costs off)
+       select user_id,operation_id,status,stage,
+         date_trunc('milliseconds',created_at at time zone 'UTC') created_at_ms,
+         date_trunc('milliseconds',updated_at) updated_at_ms
+       from moaon_auth.recovery_reviews
+       where status in ('PENDING','REVIEW_REQUIRED')
+       order by date_trunc('milliseconds',created_at at time zone 'UTC'),operation_id
+       limit 1`
+    );
+    const plan = explained.rows.map(row => row['QUERY PLAN']).join('\n');
+    assert.match(plan, /Index Scan using recovery_reviews_unresolved_idx/);
+    assert.doesNotMatch(plan, /\bSort\b/);
+    context.diagnostic(plan);
+  } finally {
+    await client.query('rollback');
+    client.release();
+  }
+});

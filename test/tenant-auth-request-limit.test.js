@@ -179,7 +179,10 @@ test('candidate SQL enforces fixed limits and keeps kinds and subjects independe
     assert.equal(await consume(db, 'LOGIN', b), true);
     for (let index = 0; index < 3; index++) assert.equal(await consume(db, 'RECOVERY_MAIL', a), true);
     assert.equal(await consume(db, 'RECOVERY_MAIL', a), false);
-    assert.equal(await consume(db, 'RECOVERY_COMPLETE', a), true);
+    for (let index = 0; index < 5; index++) {
+      assert.equal(await consume(db, 'RECOVERY_COMPLETE', a), true);
+    }
+    assert.equal(await consume(db, 'RECOVERY_COMPLETE', a), false);
     assert.equal(await consume(db, 'EMAIL_CONFIRM', a), true);
   } finally {
     await db.close();

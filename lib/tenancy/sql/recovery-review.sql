@@ -16,7 +16,7 @@ create table moaon_auth.recovery_reviews (
     or status in ('COMPLETED','REJECTED'))
 );
 create index recovery_reviews_unresolved_idx
-  on moaon_auth.recovery_reviews(created_at,operation_id)
+  on moaon_auth.recovery_reviews((date_trunc('milliseconds',created_at at time zone 'UTC')),operation_id)
   where status in ('PENDING','REVIEW_REQUIRED');
 alter table moaon_auth.recovery_reviews enable row level security;
 revoke all on moaon_auth.recovery_reviews from public, anon, authenticated;
@@ -115,7 +115,7 @@ begin
       date_trunc('milliseconds',created_at) created_at_ms,
       date_trunc('milliseconds',updated_at) updated_at_ms
     from moaon_auth.recovery_reviews where status in ('PENDING','REVIEW_REQUIRED')
-    order by date_trunc('milliseconds',created_at),operation_id limit p_limit
+    order by date_trunc('milliseconds',created_at at time zone 'UTC'),operation_id limit p_limit
   ) listed;
   return v_rows;
 end $$;

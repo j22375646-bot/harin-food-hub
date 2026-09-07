@@ -365,6 +365,30 @@ test('SQL orders equal serialized milliseconds by operation ID so validated list
   } finally {await db.close();}
 });
 
+test('SQL unresolved listing uses its millisecond ordering index without a sort', async () => {
+  const db = new PGlite();
+  try {
+    await prepareDatabase(db);
+    const store = createRecoveryReviewStore({rpcClient: rpcFor(db)});
+    await store.start({userId: USER, operationId: OPERATION});
+    await store.start({userId: OTHER, operationId: OTHER_OPERATION});
+    await db.exec('set enable_seqscan=off; set enable_bitmapscan=off;');
+    const explained = await db.query(
+      `explain (costs off)
+       select user_id,operation_id,status,stage,
+         date_trunc('milliseconds',created_at at time zone 'UTC') created_at_ms,
+         date_trunc('milliseconds',updated_at) updated_at_ms
+       from moaon_auth.recovery_reviews
+       where status in ('PENDING','REVIEW_REQUIRED')
+       order by date_trunc('milliseconds',created_at at time zone 'UTC'),operation_id
+       limit 1`
+    );
+    const plan = explained.rows.map(row => row['QUERY PLAN']).join('\n');
+    assert.match(plan, /Index Scan using recovery_reviews_unresolved_idx/);
+    assert.doesNotMatch(plan, /\bSort\b/);
+  } finally {await db.close();}
+});
+
 test('file-backed reopen preserves a pending review for trusted listing', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'moaon-recovery-review-'));
   const dataDir = path.join(root, 'pgdata');
