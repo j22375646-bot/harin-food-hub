@@ -1,6 +1,6 @@
 # 모아온 P1-04-5 개발 보고서
 
-> **현재 상태:** `1.47.0`은 UNRELEASED 후보입니다. 요청 제한과 복구 검토 이력의 로컬 구현·검증을 마쳤으며, 독립 검토·최종 빌드·운영 배포를 진행 중입니다. 새 인증 기능의 운영 활성화와는 구분합니다.
+> **완료 범위:** P1-04-5 / `1.47.0`의 코드 구현·독립 검토·최종 빌드·회귀 검증을 완료했습니다. 새 SQL과 인증 조합은 운영에 활성화하지 않습니다. 코드 릴리스와 실제 인증 전환은 별개입니다.
 
 ## 무엇을 바꾸는가
 
@@ -44,7 +44,9 @@
 - 복구 검토: 초기22개 중 예상 실패7개를 확인한 뒤 구현했다. 최종 집중37/37, 실제 PostgreSQL3/3, 전체2,204/2,204 통과. 계정 교차 작업번호, 잘못된 응답·NULL 단계, 같은 밀리초 기록의 정렬까지 실패 재현 후 보완했다.
 - 기존 세션 차단의 실제 PostgreSQL 검사도2/2 통과했다. 변경 중 늦은 로그인 거절과 기존 세션 폐기를 확인했다.
 - 전체 검사에는 기존 모듈 형식 경고와 오류 상황을 시험하기 위한 인증 진단 로그가 남아 있다. 새 검사 실패는 없지만 경고가 전혀 없는 출력이라고 보고하지 않는다.
-- 최종 검토·빌드·배포 결과는 이후 기록한다. 코드 배포와 새 SQL/인증 조합의 운영 활성화는 별개다.
+- 최종 전체 검토에서 Critical/Important는 없었다. 두 보완 항목(목록 인덱스 정렬 일치, 복구 요청5회/6회 경계 검사)을 수정하고 재검토를 통과했다. 최종 빌드 성공, 전체2,205/2,205 통과, 실패·취소·건너뜀0.
+- 검토 목록의 DB 인덱스와 정렬 기준을 UTC 밀리초로 맞췄다. 검사 조건에서 실제 PostgreSQL 실행 계획이 `Limit → Index Scan`이며 불필요한 `Sort`가 없는 것을 확인했다. 복구 요청 한도를 일부러6회로 바꿨을 때 경계 검사가 실패하고, 원래5회 정책에서는 통과하는 것도 확인했다.
+- 임시 테스트 DB가0개 남은 것을 확인하고 이번에 시작한 로컬 PostgreSQL을 정상 종료했다. 기존 설치 파일은 재사용을 위해 보존했다. 새 외부 유료 테스트 자원이나 운영 데이터 복사본은 만들지 않았다.
 - 현재 운영 로그인·비밀번호·UI·업무 API는 유지한다. 새 SQL은 미적용 후보 파일이며 새 서버 의존성을 운영에 연결하지 않는다.
 
 ### 재현 가능한 검증 기록
@@ -55,9 +57,10 @@
 | 복구 검토 집중 | `node --test test/tenant-recovery-review.test.js test/tenant-account-recovery.test.js` | Task 2 시점37/37 |
 | 실제 DB 요청 경합 | `node --test test/integration/tenant-auth-request-limit.native-test.js` | 2/2, 별도 재실행도 통과 |
 | 실제 DB 기존 세션 차단 | `node --test test/integration/tenant-auth-session-fence.native-test.js` | 2/2 |
-| 실제 DB 복구 경합 | `node --test test/integration/tenant-recovery-review.native-test.js` | 3/3, 별도 재실행도 통과 |
+| 실제 DB 복구 경합·목록 인덱스 | `node --test test/integration/tenant-recovery-review.native-test.js` | 최종4/4, 별도 재실행도 통과 |
 | 운영용 빌드 | `pnpm build` | 성공, Next16.3.0 |
-| 빌드 후 전체 회귀 | `pnpm test` | 2,204/2,204, 실패·취소·건너뜀0 |
+| 최종 보완 집중 | `node --test test/tenant-auth-request-limit.test.js` 및 `node --test test/tenant-recovery-review.test.js` | 각각9/9,15/15 |
+| 빌드 후 전체 회귀 | `pnpm test` | 최종2,205/2,205, 실패·취소·건너뜀0 |
 
 Node24.19.0과 기존 설치된 PostgreSQL17.11을 사용했다. native 명령은 안전 검사가 있는 로컬 접속 설정이 필요하며, 비밀값을 보고서에 싣지 않는다. PGlite 시험은 실제 SQL·재개방 검증이며 동시 연결 시험과 구분한다. Auth 공급자와 이메일은 모의 응답이므로 실제 메일 도착·운영 인증 전환 검증을 대신하지 않는다.
 
