@@ -47,6 +47,25 @@
 - 최종 검토·빌드·배포 결과는 이후 기록한다. 코드 배포와 새 SQL/인증 조합의 운영 활성화는 별개다.
 - 현재 운영 로그인·비밀번호·UI·업무 API는 유지한다. 새 SQL은 미적용 후보 파일이며 새 서버 의존성을 운영에 연결하지 않는다.
 
+### 재현 가능한 검증 기록
+
+| 검사 | 실행 명령 | 결과 |
+|---|---|---|
+| 요청 제한 집중 | `node --test test/tenant-auth-request-limit.test.js test/tenant-fenced-login.test.js test/tenant-account-recovery.test.js` | Task 1 시점49/49 |
+| 복구 검토 집중 | `node --test test/tenant-recovery-review.test.js test/tenant-account-recovery.test.js` | Task 2 시점37/37 |
+| 실제 DB 요청 경합 | `node --test test/integration/tenant-auth-request-limit.native-test.js` | 2/2, 별도 재실행도 통과 |
+| 실제 DB 기존 세션 차단 | `node --test test/integration/tenant-auth-session-fence.native-test.js` | 2/2 |
+| 실제 DB 복구 경합 | `node --test test/integration/tenant-recovery-review.native-test.js` | 3/3, 별도 재실행도 통과 |
+| 운영용 빌드 | `pnpm build` | 성공, Next16.3.0 |
+| 빌드 후 전체 회귀 | `pnpm test` | 2,204/2,204, 실패·취소·건너뜀0 |
+
+Node24.19.0과 기존 설치된 PostgreSQL17.11을 사용했다. native 명령은 안전 검사가 있는 로컬 접속 설정이 필요하며, 비밀값을 보고서에 싣지 않는다. PGlite 시험은 실제 SQL·재개방 검증이며 동시 연결 시험과 구분한다. Auth 공급자와 이메일은 모의 응답이므로 실제 메일 도착·운영 인증 전환 검증을 대신하지 않는다.
+
+### 작업 중 내린 판단
+
+1. **개발 중 버전을 출시 완료로 표시하지 않기:** 구현 중의1.47.0 표기는 출시 후보로 명시하고, 요청 제한과 복구 이력의 완료 상태를 나눠 기록했다. 버전 번호 준비와 실제 배포는 별개다. 이 판단이 잘못되면 문서 수정이 필요하지만 운영 설정에는 영향이 없다.
+2. **거절된 복구의 뒤늦은 시작도 DB에서 막기:** 거절 함수만 잠그는 것으로는 거절이 끝난 다음 시작하는 요청을 막지 못해, 후보 SQL에 작업 시작 전 검사를 추가했다. 계정→검토 기록 순서로 잠그며 기존 검토 행 없는 경로는 유지한다. 잘못 구현하면 정상 복구 차단이나 DB 교착이 생길 수 있어, 양쪽 실행 순서와 기존 경로를 실제 PostgreSQL에서 검증했다. 운영 DB에는 아직 적용하지 않았다.
+
 ## 남아 있는 조건
 
 대상별 제한은 IP/전체 서비스 요청량 제한과 다르다. 아이디·이메일 별칭 통합, 만료 제한 기록 정리/보관 정책, 지원 관리자 검토 화면 및 안전한 수동 해결 절차, 실제 Auth/SMTP/HTTP 전환 시험은 개방 전에 추가해야 한다. 이번 구현만으로 분산 공격 방어 또는 실제 다사업장 가입이 완료됐다는 뜻이 아니다.
