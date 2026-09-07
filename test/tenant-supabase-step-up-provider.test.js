@@ -5,6 +5,16 @@ const test=require('node:test');
 const {createStepUpProviderFixture,tamperJwt,json,USER,SESSION,FACTOR,CHALLENGE}=require('./helpers/step-up-provider-fixture.js');
 const {createSupabaseStepUpProvider,StepUpProviderError}=require('../lib/tenancy/supabase-step-up-provider.js');
 
+function assertSanitizedProviderError(error,code,secrets){
+  assert.ok(error instanceof StepUpProviderError);
+  assert.equal(error.code,code);
+  assert.equal(error.status,code==='STEP_UP_REJECTED'?403:503);
+  const ownSurface=Reflect.ownKeys(error).map(key=>{try{return `${String(key)}:${String(error[key])}`;}catch{return String(key);}}).join(' ');
+  for(const secret of secrets)assert.equal(`${error.message} ${ownSurface}`.includes(secret),false);
+  assert.equal(Object.hasOwn(error,'cause'),false);
+  return true;
+}
+
 test('verified TOTP returns minimal frozen provider evidence and renewed credentials',async()=>{
   const fixture=await createStepUpProviderFixture();
   const provider=createSupabaseStepUpProvider(fixture.config);
@@ -43,16 +53,34 @@ test('tampered signed token is rejected before any provider write',async()=>{
   const secretCode='654321';
   const input={...fixture.input,accessToken:tamperJwt(fixture.accessToken),code:secretCode};
 
-  await assert.rejects(()=>provider.verifyTotp(input),error=>{
-    assert.ok(error instanceof StepUpProviderError);
-    assert.equal(error.code,'STEP_UP_REJECTED');
-    assert.equal(error.status,403);
-    const exposed=Reflect.ownKeys(error).map(key=>String(error[key])).join(' ');
-    assert.doesNotMatch(`${error.message} ${exposed}`,new RegExp(`${secretCode}|original-refresh-secret`));
-    assert.equal(Object.hasOwn(error,'cause'),false);
-    return true;
-  });
+  await assert.rejects(()=>provider.verifyTotp(input),error=>assertSanitizedProviderError(error,'STEP_UP_REJECTED',[input.accessToken,fixture.refreshToken,secretCode]));
   assert.equal(fixture.writes.length,0);
+});
+
+test('provider, transport, and SDK failures never expose submitted or upstream secrets',async(t)=>{
+  await t.test('provider error body',async()=>{
+    const providerText='provider-opaque-error-4071';
+    const fixture=await createStepUpProviderFixture({challengeStatus:422,challengeResponse:{code:'invalid_totp',message:providerText}});
+    const provider=createSupabaseStepUpProvider(fixture.config);
+    await assert.rejects(()=>provider.verifyTotp(fixture.input),error=>assertSanitizedProviderError(error,'STEP_UP_REJECTED',[providerText,fixture.accessToken,fixture.refreshToken,fixture.input.code]));
+  });
+  await t.test('transport exception',async()=>{
+    const transportText='transport-exception-opaque-5082';
+    const fixture=await createStepUpProviderFixture({onRequest:async request=>{if(new URL(request.url).pathname.endsWith('/jwks.json'))throw new Error(transportText);}});
+    const provider=createSupabaseStepUpProvider(fixture.config);
+    await assert.rejects(()=>provider.verifyTotp(fixture.input),error=>assertSanitizedProviderError(error,'STEP_UP_UNAVAILABLE',[transportText,fixture.accessToken,fixture.refreshToken,fixture.input.code]));
+  });
+  await t.test('SDK response exception',async()=>{
+    const sdkText='sdk-response-exception-opaque-6193';
+    const fixture=await createStepUpProviderFixture({onRequest:async request=>{
+      if(!new URL(request.url).pathname.endsWith('/jwks.json'))return undefined;
+      const response=new Response('{}',{status:200,headers:{'content-type':'application/json'}});
+      Object.defineProperty(response,'json',{value:async()=>{throw new Error(sdkText);}});
+      return response;
+    }});
+    const provider=createSupabaseStepUpProvider(fixture.config);
+    await assert.rejects(()=>provider.verifyTotp(fixture.input),error=>assertSanitizedProviderError(error,'STEP_UP_UNAVAILABLE',[sdkText,fixture.accessToken,fixture.refreshToken,fixture.input.code]));
+  });
 });
 
 test('invalid exact input is a TypeError and performs no network request',async()=>{
@@ -115,14 +143,16 @@ test('factory accepts only canonical server configuration and default clock opti
   }finally{delete global.window;delete global.document;}
 });
 
-test('UUID versions 1 through 8 are accepted and normalized to lowercase',async()=>{
-  const userId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
-  const factorId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
-  const fixture=await createStepUpProviderFixture({userId,factorId});
-  const provider=createSupabaseStepUpProvider(fixture.config);
-  const result=await provider.verifyTotp({...fixture.input,userId:fixture.input.userId.toUpperCase(),factorId:fixture.input.factorId.toUpperCase()});
-  assert.equal(result.evidence.userId,userId);
-  assert.equal(result.evidence.factorId,factorId);
+test('UUID versions 1 through 8 are accepted and normalized to lowercase',async(t)=>{
+  for(let version=1;version<=8;version+=1)await t.test(`version ${version}`,async()=>{
+    const userId=`aaaaaaaa-aaaa-${version}aaa-8aaa-aaaaaaaaaaaa`;
+    const factorId=`bbbbbbbb-bbbb-${version}bbb-8bbb-bbbbbbbbbbbb`;
+    const fixture=await createStepUpProviderFixture({userId,factorId});
+    const provider=createSupabaseStepUpProvider(fixture.config);
+    const result=await provider.verifyTotp({...fixture.input,userId:userId.toUpperCase(),factorId:factorId.toUpperCase()});
+    assert.equal(result.evidence.userId,userId);
+    assert.equal(result.evidence.factorId,factorId);
+  });
 });
 
 test('signed original claim policy mismatches are rejected before provider writes',async(t)=>{
@@ -132,7 +162,6 @@ test('signed original claim policy mismatches are rejected before provider write
     ['audience',{aud:'anon'}],
     ['role',{role:'anon'}],
     ['subject',{sub:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'}],
-    ['session',{session_id:'not-a-uuid'}],
     ['anonymous',{is_anonymous:true}],
     ['future iat',{iat:Math.floor(current/1000)+1}],
     ['future nbf',{nbf:Math.floor(current/1000)+1}],
@@ -144,12 +173,12 @@ test('signed original claim policy mismatches are rejected before provider write
     await assert.rejects(()=>provider.verifyTotp(fixture.input),error=>error.code==='STEP_UP_REJECTED');
     assert.equal(fixture.writes.length,0);
   });
-  await t.test('malformed claim',async()=>{
-    const fixture=await createStepUpProviderFixture({nowMs:current,originalClaims:{iat:'bad'}});
-    const provider=createSupabaseStepUpProvider(fixture.config);
-    await assert.rejects(()=>provider.verifyTotp(fixture.input),error=>error.code==='STEP_UP_UNAVAILABLE');
-    assert.equal(fixture.writes.length,0);
-  });
+  for(const [name,claims] of [['malformed numeric claim',{iat:'bad'}],['malformed session claim',{session_id:'not-a-uuid'}]])await t.test(name,async()=>{
+      const fixture=await createStepUpProviderFixture({nowMs:current,originalClaims:claims});
+      const provider=createSupabaseStepUpProvider(fixture.config);
+      await assert.rejects(()=>provider.verifyTotp(fixture.input),error=>error.code==='STEP_UP_UNAVAILABLE');
+      assert.equal(fixture.writes.length,0);
+    });
 });
 
 test('authoritative user and selected factor policy is enforced before challenge',async(t)=>{
