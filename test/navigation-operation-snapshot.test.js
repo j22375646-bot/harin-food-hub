@@ -8,6 +8,26 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const snapshotModule=require('../lib/navigation/operation-snapshot.js');
 
+test('corrected CS snapshots discard fresh version 1 storage and cookies before accepting version 2 summaries',()=>{
+  const generatedAt='2026-09-07T08:00:00.000Z';
+  const now=Date.parse('2026-09-07T08:01:00.000Z');
+  const legacy={version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt,badges:{orders:2,cs:0,inventory:3,notifications:4},connection:{ready:3,total:3}};
+  assert.equal(snapshotModule.parseNavigationOperationSnapshot(JSON.stringify(legacy),now),null);
+  assert.equal(snapshotModule.parseNavigationOperationSnapshotCookie(encodeURIComponent(JSON.stringify(legacy)),now),null);
+  assert.equal(snapshotModule.serializeNavigationOperationSnapshotCookie(legacy,now),'');
+  assert.equal(snapshotModule.selectFetchedNavigationOperationSnapshot(legacy,null,{now}),null);
+
+  const main=snapshotModule.buildNavigationOperationSnapshot({loadedView:'main',generatedAt,customerService:{summary:{active:1}}});
+  const live=require('../lib/navigation/live-operation-snapshot.js').buildLiveNavigationOperationSnapshot({generatedAt,customerServiceRows:[{id:'TEST-CS-OPEN',completed:false}]});
+  for(const current of [main,live]){
+    assert.equal(current.version,2);
+    assert.equal(current.badges.cs,1);
+    assert.deepEqual(snapshotModule.parseNavigationOperationSnapshot(JSON.stringify(current),now),current);
+    assert.deepEqual(snapshotModule.parseNavigationOperationSnapshotCookie(snapshotModule.serializeNavigationOperationSnapshotCookie(current,now),now),current);
+    assert.equal(snapshotModule.selectFetchedNavigationOperationSnapshot(legacy,current,{now}),current);
+  }
+});
+
 test('navigation snapshot uses one shared browser storage key',()=>{
   assert.equal(snapshotModule.NAVIGATION_SNAPSHOT_KEY,'harin-hub:navigation-operation-snapshot');
 });
@@ -15,7 +35,7 @@ test('navigation snapshot uses one shared browser storage key',()=>{
 test('navigation snapshot has one validated cookie format for full route loads',()=>{
   assert.equal(snapshotModule.NAVIGATION_SNAPSHOT_COOKIE,'harin_hub_navigation_operation_snapshot');
   const snapshot={
-    version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:new Date().toISOString(),
+    version:snapshotModule.SNAPSHOT_VERSION,source:'MAIN_OPERATION_SUMMARY',generatedAt:new Date().toISOString(),
     badges:{orders:2,cs:1,inventory:3,notifications:4},
     connection:{ready:3,total:3,label:'3개 채널 연결',tone:'ready'}
   };
@@ -45,8 +65,8 @@ test('navigation snapshot accepts only the complete main operating summary',()=>
 });
 
 test('navigation snapshot keeps the newest authoritative value without turning a briefly stale cache into zero',()=>{
-  const older={version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-08-23T03:00:00.000Z',badges:{orders:4},connection:{}};
-  const newer={version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-08-23T03:02:00.000Z',badges:{orders:3},connection:{}};
+  const older={version:snapshotModule.SNAPSHOT_VERSION,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-08-23T03:00:00.000Z',badges:{orders:4},connection:{}};
+  const newer={version:snapshotModule.SNAPSHOT_VERSION,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-08-23T03:02:00.000Z',badges:{orders:3},connection:{}};
   assert.equal(snapshotModule.selectNavigationOperationSnapshot(older,newer)?.badges.orders,3);
   assert.equal(snapshotModule.parseNavigationOperationSnapshot(JSON.stringify(newer),Date.parse('2026-08-23T03:05:00.000Z'))?.badges.orders,3);
   const cached=snapshotModule.parseNavigationOperationSnapshot(JSON.stringify(newer),Date.parse('2026-08-23T03:20:00.000Z'));
@@ -57,16 +77,16 @@ test('navigation snapshot keeps the newest authoritative value without turning a
 
 test('an incomplete refresh keeps the last complete snapshot instead of replacing known counts with zero or unknown',()=>{
   const now=Date.parse('2026-09-02T07:40:00.000Z');
-  const complete={version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:30:00.000Z',badges:{orders:2,cs:1,inventory:3,notifications:4},connection:{ready:3,total:3}};
-  const partial={version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:39:00.000Z',badges:{orders:null,cs:0,inventory:0,notifications:2},connection:{ready:3,total:3}};
+  const complete={version:snapshotModule.SNAPSHOT_VERSION,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:30:00.000Z',badges:{orders:2,cs:1,inventory:3,notifications:4},connection:{ready:3,total:3}};
+  const partial={version:snapshotModule.SNAPSHOT_VERSION,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:39:00.000Z',badges:{orders:null,cs:0,inventory:0,notifications:2},connection:{ready:3,total:3}};
   assert.equal(snapshotModule.selectFetchedNavigationOperationSnapshot(complete,partial,{partial:true,now}),complete);
   assert.equal(snapshotModule.selectFetchedNavigationOperationSnapshot(complete,partial,{partial:false,now}),complete);
 });
 
 test('an incomplete fresh snapshot is retried and can recover from a better partial refresh',()=>{
   const now=Date.parse('2026-09-02T07:40:00.000Z');
-  const incomplete={version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:39:30.000Z',badges:{orders:null,cs:null,inventory:0,notifications:null},connection:{ready:null,total:null}};
-  const recovering={version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:39:50.000Z',badges:{orders:2,cs:0,inventory:0,notifications:3},connection:{ready:null,total:null}};
+  const incomplete={version:snapshotModule.SNAPSHOT_VERSION,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:39:30.000Z',badges:{orders:null,cs:null,inventory:0,notifications:null},connection:{ready:null,total:null}};
+  const recovering={version:snapshotModule.SNAPSHOT_VERSION,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:39:50.000Z',badges:{orders:2,cs:0,inventory:0,notifications:3},connection:{ready:null,total:null}};
   assert.equal(snapshotModule.navigationOperationSnapshotFreshness(incomplete,now).stale,false);
   assert.equal(snapshotModule.isNavigationOperationSnapshotComplete(incomplete),false);
   assert.equal(snapshotModule.isNavigationOperationSnapshotComplete(recovering),true);
@@ -74,8 +94,8 @@ test('an incomplete fresh snapshot is retried and can recover from a better part
 });
 
 test('route hydration never lets a newer incomplete snapshot hide an existing complete sidebar',()=>{
-  const complete={version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:30:00.000Z',badges:{orders:2,cs:0,inventory:0,notifications:3},connection:{ready:3,total:3}};
-  const newerIncomplete={version:1,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:39:00.000Z',badges:{orders:null,cs:0,inventory:0,notifications:null},connection:{ready:null,total:null}};
+  const complete={version:snapshotModule.SNAPSHOT_VERSION,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:30:00.000Z',badges:{orders:2,cs:0,inventory:0,notifications:3},connection:{ready:3,total:3}};
+  const newerIncomplete={version:snapshotModule.SNAPSHOT_VERSION,source:'MAIN_OPERATION_SUMMARY',generatedAt:'2026-09-02T07:39:00.000Z',badges:{orders:null,cs:0,inventory:0,notifications:null},connection:{ready:null,total:null}};
   assert.equal(snapshotModule.selectNavigationOperationSnapshot(complete,newerIncomplete),complete);
 });
 

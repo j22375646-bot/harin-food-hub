@@ -3,6 +3,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const payloadModule=require('../lib/ui/phase28-client-payload.js');
+const {SNAPSHOT_VERSION}=require('../lib/navigation/operation-snapshot.js');
 
 test('Phase 28 client payload keeps rendered models and drops raw operational rows',()=>{
   const generatedAt='2026-08-31T01:23:00.000Z';
@@ -41,7 +42,7 @@ test('Phase 28 client payload keeps rendered models and drops raw operational ro
 test('non-main route payload reuses the verified main navigation snapshot without inventing route counts',()=>{
   const generatedAt=new Date().toISOString();
   const verifiedMainSnapshot={
-    version:1,
+    version:SNAPSHOT_VERSION,
     source:'MAIN_OPERATION_SUMMARY',
     generatedAt,
     badges:{orders:2,cs:1,inventory:3,notifications:4},
