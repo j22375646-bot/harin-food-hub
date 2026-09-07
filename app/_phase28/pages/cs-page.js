@@ -1,11 +1,12 @@
 'use client';
 
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {HarinIcon} from '../../_design-system/harin-icon.js';
 import {Phase28ChannelLogo} from '../primitives/channel-logo.js';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
 import {Phase28RightRailLayout} from '../primitives/right-rail-layout.js';
+import syncWatch from '../../../lib/customer-service/sync-watch.js';
 import './cs-page.css';
 
 const CHANNEL_NAMES={NAVER:'네이버',CAFE24:'Cafe24',COUPANG:'쿠팡',ALL:'채널 확인 필요'};
@@ -140,14 +141,49 @@ function ClaimActions({row,busy,onRun}){
   </div>;
 }
 
-function CsRail({row,asOf,activeTab,setActiveTab,draft,setDraft,templates,replyBy,setReplyBy,busy,onReply,onCopy,onClaim}){
+export function CsRail({row,asOf,activeTab,setActiveTab,draft,setDraft,templates,replyBy,setReplyBy,busy,onReply,onCopy,onClaim}){
   const tabs=[['message','문의 내용'],['compose','답변 작성'],['order','주문 정보']];
   const minutes=row?waitMinutes(row,asOf):null;
+  const replyBlock=syncWatch.replyBlockedReason(row);
+  const conversation = row?.source?.conversation || [];
+  const contentInConversation = conversation.some(
+    entry => safeText(entry.content).trim() === safeText(row?.content).trim()
+  );
   return <div className="csRailBody">
     <div className="csRailTabs" role="tablist" aria-label="고객 CS 보조 작업">{tabs.map(([id,label])=><button key={id} id={`phase28-cs-tab-${id}`} type="button" role="tab" aria-selected={activeTab===id} aria-controls={`phase28-cs-panel-${id}`} tabIndex={activeTab===id?0:-1} onClick={()=>setActiveTab(id)}>{label}</button>)}</div>
     <div className="csRailPanels">
-      <section id="phase28-cs-panel-message" role="tabpanel" aria-labelledby="phase28-cs-tab-message" data-active={activeTab==='message'} aria-hidden={activeTab!=='message'} inert={activeTab==='message'?undefined:true}>{row?<><header className="csCustomerSignature"><CustomerAvatar row={row} size="large"/><div><span>{CHANNEL_NAMES[row.platform]} · {row.kindLabel}</span><h3>{row.title}</h3><p>{dateTime(row.occurredAt)} · {minutes==null?'대기시간 확인 필요':`${waitLabel(minutes)} 전`}</p></div></header><blockquote>{row.content}</blockquote><div className="csContextFacts"><div><span>관련 상품</span><strong>{orderProduct(row)}</strong></div><div><span>확인할 기준</span><strong>{row.order?'주문·배송 상태와 채널 처리 기록':'상품 정보와 채널 답변 기준'}</strong></div></div><div className={`csNextAction ${dueTone(row,minutes)}`}><span>지금 먼저 할 일</span><strong>{row.kind==='INQUIRY'?'문의 내용에 맞는 답변 확인':'주문과 클레임 상태 대조'}</strong><small>{row.due?.label||'기한 확인 필요'}</small></div><button className="csRailPrimary" type="button" onClick={()=>setActiveTab(row.kind==='INQUIRY'?'compose':'order')}>{row.kind==='INQUIRY'?'이 문의 답변 작성하기':'클레임 처리 열기'}</button></>:<p className="csRailEmpty">현재 단계에 표시할 문의가 없어요.</p>}</section>
-      <section id="phase28-cs-panel-compose" role="tabpanel" aria-labelledby="phase28-cs-tab-compose" data-active={activeTab==='compose'} aria-hidden={activeTab!=='compose'} inert={activeTab==='compose'?undefined:true}><header><span>페이지별 AI · 고객 CS</span><h3>답변 초안을 확인하세요</h3><p>현재 문의와 주문 정보만 참고해 직접 작성합니다.</p></header>{row?.kind==='INQUIRY'?<><label className="draftTemplate"><span>답변 양식</span><select value="" onChange={event=>{const template=templates.find(item=>item.id===event.target.value);if(template)setDraft(template.content);}}><option value="">양식 선택</option>{templates.map(item=><option value={item.id} key={item.id}>{item.label}</option>)}</select></label>{row.platform==='COUPANG'?<label className="replyBy"><span>쿠팡 Wing 사용자 ID</span><input value={replyBy} onChange={event=>setReplyBy(event.target.value)} placeholder="답변 전송 계정"/></label>:null}<textarea rows="9" maxLength="1000" value={draft} onChange={event=>setDraft(event.target.value)} placeholder="답변 내용을 확인해 작성하세요."/><div className="csDraftActions"><button type="button" onClick={onCopy} disabled={!draft.trim()}>답변 복사</button><button className="primary" type="button" onClick={onReply} disabled={busy||!draft.trim()||(row.platform==='COUPANG'&&!replyBy)}>{busy?'처리 중':row.platform==='COUPANG'?'확인 후 실제 전송':'초안 복사'}</button></div><small className="csDraftNote">{row.platform==='COUPANG'?'실제 전송 전 확인창을 한 번 띄우고 처리기록을 남깁니다.':'직접 전송은 잠겨 있어요. 복사한 뒤 원본 판매자센터에서 확인하고 전송하세요.'}</small></>:<p className="railSafety">선택한 항목은 답변 문의가 아닙니다. 주문 정보 탭에서 클레임 처리 가능 여부를 확인하세요.</p>}</section>
+      <section id="phase28-cs-panel-message" role="tabpanel" aria-labelledby="phase28-cs-tab-message" data-active={activeTab==='message'} aria-hidden={activeTab!=='message'} inert={activeTab==='message'?undefined:true}>
+        {row ? <>
+          <header className="csCustomerSignature">
+            <CustomerAvatar row={row} size="large"/>
+            <div>
+              <span>{CHANNEL_NAMES[row.platform]} · {row.kindLabel}</span>
+              <h3>{row.title}</h3>
+              <p>{dateTime(row.occurredAt)} · {minutes==null?'대기시간 확인 필요':`${waitLabel(minutes)} 전`}</p>
+            </div>
+          </header>
+          {!contentInConversation ? <blockquote>{row.content}</blockquote> : null}
+          {conversation.length ? <div aria-label="문의 대화 이력">
+            {conversation.map((entry, index) => <blockquote key={entry.answerId || index}>
+              <small>{entry.answerType === 'vendor' ? '판매자 답변' : '고객센터 문의'} · {dateTime(entry.replyAt)}</small>
+              <p>{entry.content}</p>
+            </blockquote>)}
+          </div> : null}
+          <div className="csContextFacts">
+            <div><span>관련 상품</span><strong>{orderProduct(row)}</strong></div>
+            <div><span>확인할 기준</span><strong>{row.order ? '주문·배송 상태와 채널 처리 기록' : '상품 정보와 채널 답변 기준'}</strong></div>
+          </div>
+          <div className={`csNextAction ${dueTone(row, minutes)}`}>
+            <span>지금 먼저 할 일</span>
+            <strong>{row.kind === 'INQUIRY' ? '문의 내용에 맞는 답변 확인' : '주문과 클레임 상태 대조'}</strong>
+            <small>{row.due?.label || '기한 확인 필요'}</small>
+          </div>
+          <button className="csRailPrimary" type="button" onClick={() => setActiveTab(row.kind === 'INQUIRY' ? 'compose' : 'order')}>
+            {row.kind === 'INQUIRY' ? '이 문의 답변 작성하기' : '클레임 처리 열기'}
+          </button>
+        </> : <p className="csRailEmpty">현재 단계에 표시할 문의가 없어요.</p>}
+      </section>
+      <section id="phase28-cs-panel-compose" role="tabpanel" aria-labelledby="phase28-cs-tab-compose" data-active={activeTab==='compose'} aria-hidden={activeTab!=='compose'} inert={activeTab==='compose'?undefined:true}><header><span>페이지별 AI · 고객 CS</span><h3>답변 초안을 확인하세요</h3><p>현재 문의와 주문 정보만 참고해 직접 작성합니다.</p></header>{row?.kind==='INQUIRY'?<><label className="draftTemplate"><span>답변 양식</span><select value="" onChange={event=>{const template=templates.find(item=>item.id===event.target.value);if(template)setDraft(template.content);}}><option value="">양식 선택</option>{templates.map(item=><option value={item.id} key={item.id}>{item.label}</option>)}</select></label>{row.platform==='COUPANG'?<label className="replyBy"><span>쿠팡 Wing 사용자 ID</span><input value={replyBy} onChange={event=>setReplyBy(event.target.value)} placeholder="답변 전송 계정"/></label>:null}<textarea rows="9" maxLength="1000" value={draft} onChange={event=>setDraft(event.target.value)} placeholder="답변 내용을 확인해 작성하세요."/><div className="csDraftActions"><button type="button" onClick={onCopy} disabled={!draft.trim()}>답변 복사</button><button className="primary" type="button" onClick={onReply} disabled={busy||!draft.trim()||(row.platform==='COUPANG'&&(!replyBy.trim()||Boolean(replyBlock)))}>{busy?'처리 중':row.platform==='COUPANG'?'확인 후 실제 전송':'초안 복사'}</button></div>{row.platform==='COUPANG'&&replyBlock?<p className="railSafety" role="status">{replyBlock}</p>:null}<small className="csDraftNote">{row.platform==='COUPANG'?'실제 전송 전 확인창을 한 번 띄우고 처리기록을 남깁니다.':'직접 전송은 잠겨 있어요. 복사한 뒤 원본 판매자센터에서 확인하고 전송하세요.'}</small></>:<p className="railSafety">선택한 항목은 답변 문의가 아닙니다. 주문 정보 탭에서 클레임 처리 가능 여부를 확인하세요.</p>}</section>
       <section id="phase28-cs-panel-order" role="tabpanel" aria-labelledby="phase28-cs-tab-order" data-active={activeTab==='order'} aria-hidden={activeTab!=='order'} inert={activeTab==='order'?undefined:true}><header><span>문의와 연결된 주문</span><h3>{row?.orderId?`주문 ${row.orderId}`:'주문 전 문의'}</h3><p>결제·출고·배송 상태와 허용된 처리 작업을 확인합니다.</p></header>{row?<><div className="csOrderSummary"><div><span>상품</span><strong>{orderProduct(row)}</strong></div><div><span>현재 상태</span><strong>{row.order?.status||'주문 상세 연결 대기'}</strong></div><div><span>접수 상태</span><strong>{row.status||'확인 필요'}</strong></div>{row.order?.amount!=null?<div><span>주문 금액</span><strong>{count(row.order.amount)}원</strong></div>:null}</div>{row.kind!=='INQUIRY'?<ClaimActions row={row} busy={busy} onRun={onClaim}/>:null}</>:<p className="csRailEmpty">선택한 문의가 없습니다.</p>}</section>
     </div>
     <section className="csRailSummary"><h3>오늘 응대 기준</h3><div><span>첫 답변 목표</span><strong>30분 안에</strong></div><div><span>직접 처리</span><strong>쿠팡 검증 작업만</strong></div><div><span>완료 기록</span><strong>최근 이력 확인</strong></div></section>
@@ -170,6 +206,8 @@ export default function Phase28CsPage({model={}}){
   const [priorityOnly,setPriorityOnly]=useState(false);
   const [sort,setSort]=useState('wait');
   const [busy,setBusy]=useState('');
+  const actionLock=useRef(false);
+  const syncController=useRef(null);
   const [replyBy,setReplyBy]=useState('');
   const [statusMessage,setStatusMessage]=useState('');
   const [toastVisible,setToastVisible]=useState(false);
@@ -179,12 +217,15 @@ export default function Phase28CsPage({model={}}){
   const historyRows=rows.filter(row=>row.completed);
   const draft=selectedRow?drafts[selectedRow.id]||'':'';
 
+  useEffect(()=>()=>syncController.current?.abort(),[]);
+
   useEffect(()=>{
     if(!statusMessage)return undefined;
     setToastVisible(true);
+    if(busy==='sync'||statusMessage.includes('확인 필요')||statusMessage.includes('실패'))return undefined;
     const timer=window.setTimeout(()=>setToastVisible(false),2600);
     return()=>window.clearTimeout(timer);
-  },[statusMessage]);
+  },[statusMessage,busy]);
 
   const stageRows=useMemo(()=>{
     if(activeStage==='DRAFTS')return rows.filter(row=>draftIds.has(row.id));
@@ -231,14 +272,25 @@ export default function Phase28CsPage({model={}}){
   }
 
   async function syncChannels(){
+    if(actionLock.current)return;
+    actionLock.current=true;
+    const controller=new AbortController();
+    syncController.current=controller;
     setBusy('sync');setStatusMessage('카페24와 고정 IP 채널의 최신 문의를 수집하고 있어요.');
     try{
-      const response=await fetch('/api/customer-service/sync',{method:'POST',headers:{'Content-Type':'application/json'}});
+      const response=await fetch('/api/customer-service/sync',{method:'POST',headers:{'Content-Type':'application/json'},signal:controller.signal});
       const result=await response.json();
       if(!response.ok&&response.status!==202&&response.status!==207)throw new Error(result.error||'수집 요청 실패');
-      const summary=(result.jobs||[]).map(job=>`${CHANNEL_NAMES[job.platform]||job.platform} ${job.skipped?'설정 필요':job.ok?'요청 완료':'확인 필요'}`).join(' · ');
-      setStatusMessage(summary||'채널별 수집 요청을 보냈어요.');router.refresh();
-    }catch(error){setStatusMessage(`문의 수집 확인 필요 · ${error.message}`);}finally{setBusy('');}
+      router.refresh();
+      const completed=await syncWatch.watchCustomerServiceSync(result,{signal:controller.signal,onUpdate:jobs=>setStatusMessage(syncWatch.collectionSummary(jobs))});
+      const summary=syncWatch.collectionSummary(completed.jobs);
+      setStatusMessage(`${summary}${completed.timedOut?' · 대기 시간이 길어 수집 결과 확인 필요. 시스템 처리기록에서 진행 상태를 확인하세요.':''}`);
+    }catch(error){if(!controller.signal.aborted)setStatusMessage(`문의 수집 확인 필요 · ${error.message}`);}
+    finally{
+      actionLock.current=false;
+      if(syncController.current===controller)syncController.current=null;
+      if(!controller.signal.aborted){setBusy('');router.refresh();window.dispatchEvent(new Event('harin:operations-updated'));}
+    }
   }
 
   async function copyDraft(){
@@ -247,30 +299,35 @@ export default function Phase28CsPage({model={}}){
   }
 
   async function reply(){
-    if(!selectedRow||!draft.trim())return;
+    if(actionLock.current||!selectedRow||!draft.trim())return;
     if(selectedRow.platform!=='COUPANG')return copyDraft();
+    const blocked=syncWatch.replyBlockedReason(selectedRow);
+    if(blocked||!replyBy.trim()){setStatusMessage(blocked||'쿠팡 Wing 사용자 ID를 확인하세요.');return;}
     const inquiryId=selectedRow.source?.inquiryId||selectedRow.sourceId;
     if(!window.confirm(`문의 ${inquiryId}에 아래 답변을 실제 전송합니다.\n\n${draft}\n\n전송할까요?`))return;
+    actionLock.current=true;
     setBusy('reply');setStatusMessage('서울 고정 IP 서버에서 답변을 전송하고 있어요.');
     try{
       const response=await fetch('/api/coupang/cs/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:true,action:selectedRow.source?.inquiryType==='CALL_CENTER'?'REPLY_CALL_CENTER':'REPLY_ONLINE',inquiryId,replyBy,content:draft,parentAnswerId:selectedRow.source?.parentAnswerId})});
       const result=await fixedIpResult(response);
       if(!result.ok)throw new Error(result.error||'전송 실패');
-      setStatusMessage('답변 전송 완료 · 처리기록에 저장됐어요.');setDraft('');router.refresh();
-    }catch(error){setStatusMessage(`답변 전송 실패 · ${error.message}`);}finally{setBusy('');}
+      setStatusMessage(result.verificationRequired?'답변은 전송됐지만 최신 처리 상태 확인 필요 · 문의를 다시 수집해 확인하세요.':'답변 전송 완료 · 처리기록에 저장됐어요.');setDraft('');router.refresh();window.dispatchEvent(new Event('harin:operations-updated'));
+    }catch(error){setStatusMessage(`답변 전송 실패 · ${error.message}`);}finally{actionLock.current=false;setBusy('');}
   }
 
   async function runClaim(row,action,values){
+    if(actionLock.current)return;
     const labels={RETURN_RECEIVE:'반품상품 입고 확인',RETURN_APPROVE:'반품 승인·환불',RETURN_PICKUP_INVOICE:'반품 회수송장 등록',EXCHANGE_PICKUP_INVOICE:'교환 회수송장 등록',EXCHANGE_RECEIVE:'교환상품 입고 확인',EXCHANGE_REJECT:'교환 거부',EXCHANGE_SHIPPING_INVOICE:'교환상품 출고송장 등록'};
     if(!window.confirm(`${labels[action]||action}을 실제 쿠팡에 반영합니다.\n주문 ${row.orderId||'-'} · 접수 ${row.sourceId}\n\n계속할까요?`))return;
+    actionLock.current=true;
     setBusy('claim');setStatusMessage('서울 고정 IP 서버에서 클레임을 처리하고 있어요.');
     try{
       const isReturn=row.kind!=='EXCHANGE';
       const response=await fetch('/api/coupang/cases/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:true,action,receiptId:isReturn?row.sourceId:undefined,exchangeId:isReturn?undefined:row.sourceId,shipmentBoxId:row.source?.shipmentBoxId,...values})});
       const result=await fixedIpResult(response);
       if(!result.ok)throw new Error(result.error||'처리 실패');
-      setStatusMessage('클레임 처리 완료 · 감사기록에 저장됐어요.');router.refresh();
-    }catch(error){setStatusMessage(`클레임 처리 실패 · ${error.message}`);}finally{setBusy('');}
+      setStatusMessage('클레임 처리 완료 · 감사기록에 저장됐어요.');router.refresh();window.dispatchEvent(new Event('harin:operations-updated'));
+    }catch(error){setStatusMessage(`클레임 처리 실패 · ${error.message}`);}finally{actionLock.current=false;setBusy('');}
   }
 
   const currentStage=STAGES.find(item=>item.id===activeStage)||STAGES[0];

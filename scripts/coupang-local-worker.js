@@ -206,6 +206,21 @@ async function processRequest(db, request) {
             : request.request_type === "CS_REALTIME"
               ? await syncCustomerServiceRealtime()
               : await syncAll();
+    const syncStatus=String(result?.status||'UNKNOWN').toUpperCase();
+    if(syncStatus!=='SUCCESS'){
+      const details=[
+        ...(Array.isArray(result?.errors)?result.errors:[]).map(error=>[
+          error.dataset,error.status?`HTTP ${error.status}`:null,error.message
+        ].filter(Boolean).join(': ')),
+        ...(Array.isArray(result?.inquiryVerificationWarnings)?result.inquiryVerificationWarnings:[])
+          .map(warning=>`inquiries: ${warning.code||'VERIFY_REQUIRED'} (${warning.inquiryId||'unknown'})`),
+        result?.error_message,result?.counts?.claimWarning,result?.counts?.imageWarning
+      ].filter(Boolean).join('; ');
+      throw Object.assign(new Error(`Coupang ${request.request_type} ${syncStatus}${details?`: ${details}`:''}`),{
+        code:['FAILED','PARTIAL'].includes(syncStatus)?`COUPANG_SYNC_${syncStatus}`:'COUPANG_SYNC_RESULT_INVALID',
+        syncResult:result
+      });
+    }
     const saved = await db
       .from("coupang_sync_requests")
       .update({
@@ -220,6 +235,7 @@ async function processRequest(db, request) {
     log(`SUCCESS ${request.request_type} ${request.id}`);
   } catch (error) {
     const message = safeMessage(error);
+    const evidence=error.syncResult?{result_json:error.syncResult}:{};
     const retryable =
       /not allowed|403|429|timeout|fetch failed/i.test(message) &&
       request.attempt_count < 8;
@@ -229,11 +245,13 @@ async function processRequest(db, request) {
       .update(
         retryable
           ? {
+              ...evidence,
               status: "PENDING",
               next_attempt_at: retryAt,
               error_message: message,
             }
           : {
+              ...evidence,
               status: "FAILED",
               finished_at: new Date().toISOString(),
               dead_lettered_at: new Date().toISOString(),

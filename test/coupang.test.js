@@ -13,9 +13,11 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 function rawInsertDb() {
   return {
     from() {
+      const query = { eq() { return query; }, lt() { return query; }, order() { return query; }, limit() { return Promise.resolve({ data: [], error: null }); } };
       return {
         insert: async () => ({ error: null }),
-        upsert: async () => ({ error: null })
+        upsert: async () => ({ error: null }),
+        select: () => query
       };
     }
   };

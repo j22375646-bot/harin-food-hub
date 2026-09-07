@@ -38,6 +38,79 @@ async function naverReady(db) {
   );
 }
 
+export async function GET(request) {
+  const headers = { "Cache-Control": "private, no-store" };
+  try {
+    const session = await authModule.validateSession(cookieValue(request));
+    if (!session || session.role !== "OWNER") {
+      return Response.json({ ok: false, error: "Unauthorized" }, { status: 401, headers });
+    }
+    const query = new URL(request.url).searchParams;
+    const requested = [
+      ["COUPANG", query.get("coupangId")],
+      ["NAVER", query.get("naverId")],
+    ].filter(([, id]) => id !== null);
+    const validId = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+    if (!requested.length || requested.some(([, id]) => !validId.test(id))) {
+      return Response.json(
+        { ok: false, error: "문의 수집 작업 번호를 확인하세요." },
+        { status: 400, headers },
+      );
+    }
+
+    const db = supabaseModule.getSupabase();
+    const jobs = await Promise.all(requested.map(async ([platform, id]) => {
+      const isCoupang = platform === "COUPANG";
+      let lookup = db
+        .from(isCoupang ? "coupang_sync_requests" : "coupang_operation_requests")
+        .select(isCoupang ? "id,status,result_json,finished_at" : "id,status,result_json,executed_at")
+        .eq("id", id)
+        .eq(isCoupang ? "request_type" : "operation_type", isCoupang ? "CS_REALTIME" : "NAVER_COMMERCE_CS_SYNC");
+      if (!isCoupang) lookup = lookup.eq("target_type", "CHANNEL").eq("target_id", "SMARTSTORE");
+      const result = await lookup.maybeSingle();
+      if (result.error) throw result.error;
+      if (!result.data) {
+        throw Object.assign(new Error("문의 수집 작업을 찾지 못했습니다."), { status: 404 });
+      }
+
+      let status = result.data.status;
+      if (status === "SUCCESS" || status === "FAILED") {
+        let details = null;
+        try {
+          details = isCoupang
+            ? result.data.result_json
+            : operationQueue.open(result.data.result_json)?.naverCustomerService;
+        } catch {
+          // A missing result must not turn a failed queue entry into a success.
+        }
+        if (status === "SUCCESS") {
+          status = ["SUCCESS", "PARTIAL", "FAILED"].includes(details?.status)
+            ? details.status
+            : "CHECK_REQUIRED";
+        } else if (details?.status === "PARTIAL") {
+          status = "PARTIAL";
+        }
+      }
+      if (!["PENDING", "RUNNING", "RETRYING", "SUCCESS", "PARTIAL", "FAILED", "CANCELLED"].includes(status)) {
+        status = "CHECK_REQUIRED";
+      }
+      return { platform, id, status, finishedAt: result.data.finished_at || result.data.executed_at || null };
+    }));
+    return Response.json({ ok: true, jobs }, { headers });
+  } catch (error) {
+    const status = error.status === 404 ? 404 : 502;
+    return Response.json(
+      {
+        ok: false,
+        error: status === 404
+          ? "문의 수집 작업을 찾지 못했습니다."
+          : "문의 수집 결과를 확인하지 못했습니다. 잠시 후 다시 확인하세요.",
+      },
+      { status, headers },
+    );
+  }
+}
+
 export async function POST(request) {
   if (!authModule.verifySession(cookieValue(request)))
     return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });

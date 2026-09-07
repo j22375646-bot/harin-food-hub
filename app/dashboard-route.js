@@ -61,6 +61,8 @@ import trackingQueueModule from '../lib/shipping/tracking-queue.js';
 import issueHistoryModule from '../lib/epost/issue-history.js';
 import unifiedCustomerServiceModule from '../lib/customer-service/unified-center.js';
 import customerServiceStore from '../lib/customer-service/store.js';
+import customerServiceOperationModule from '../lib/customer-service/operation-summary.js';
+import coupangInquiryThreadModule from '../lib/coupang/inquiry-thread.js';
 import featureFlagsModule from '../lib/ui/phase28-production-runtime.js';
 import calendarCenterModule from '../lib/calendar/calendar-center.js';
 import orderEventsModule from '../lib/calendar/order-events.js';
@@ -152,7 +154,7 @@ const MINIMAL_SHELL_TABLES = ['sync_logs','alerts'];
 // heavier settlement/keyword evidence remains on its dedicated real route.
 const MAIN_OVERVIEW_TABLES = [
   'cafe24_orders','cafe24_order_items','cafe24_oauth_tokens','naver_commerce_orders','naver_commerce_order_items',
-  'coupang_orders','coupang_rg_orders','coupang_returns',
+  'coupang_orders','coupang_rg_orders','coupang_returns','coupang_inquiries','coupang_exchanges',
   'coupang_rg_inventory','business_targets','customer_service_items','reports','hub_work_items'
 ];
 const VIEW_TABLES = {
@@ -325,7 +327,7 @@ function buildMainPacing({ generatedAt, targets = [], monthlyRevenue = null }) {
 async function buildMainDashboardData({
   loaderSession,generatedAt,queryIssues,syncResult,alertsResult,
   ordersResult,itemsResult,coupangOrdersResult,coupangOrderTerminalsResult,coupangItemsResult,coupangReturnsResult,
-  coupangInventoryResult,coupangRgOrdersResult,
+  coupangInventoryResult,coupangRgOrdersResult,coupangInquiriesResult,coupangExchangesResult,customerServiceAvailable,
   naverCommerceOrdersResult,naverCommerceItemsResult,businessTargetsResult,monthlyRevenueResult,customerServiceRows,cafe24Token,reportsResult,calendarEntries=[]
 }) {
   const rawInventory=coupangInventoryResult.data||[];
@@ -356,8 +358,11 @@ async function buildMainDashboardData({
     coupangOrders:coupangOrdersResult.data||[],
     coupangRgOrders:coupangRgOrdersResult.data||[]
   });
-  const activeCs=(customerServiceRows||[]).filter(item=>!item.completed);
-  const customerService={active:activeCs.map(item=>({id:item.source_key||item.id,platform:item.platform,kind:item.kind})),summary:{active:activeCs.length}};
+  const customerService=customerServiceOperationModule.buildCustomerServiceOperationSummary({
+    customerServiceRows,coupangInquiries:coupangInquiriesResult.data,
+    coupangReturns:coupangReturnsResult.data,coupangExchanges:coupangExchangesResult.data,
+    available:customerServiceAvailable
+  });
   const unifiedInventory=coupangOperationalInventoryModule.buildOperationalInventoryCenter(rgInventory);
   const pacing=buildMainPacing({
     generatedAt,targets:businessTargetsResult.data||[],monthlyRevenue:monthlyRevenueResult
@@ -387,7 +392,7 @@ async function buildMainDashboardData({
       rgSalesLast30Days:rgInventory.reduce((sum,item)=>sum+number(item.sales_last_30_days),0),
       rgOutOfStock:rgInventory.filter(item=>item.stock_status==='OUT_OF_STOCK').length,
       rgLowStock:rgInventory.filter(item=>['CRITICAL','LOW'].includes(item.stock_status)).length,
-      inventoryMarketing,unansweredInquiries:activeCs.filter(item=>String(item.kind).toUpperCase()==='INQUIRY').length,
+      inventoryMarketing,unansweredInquiries:coupangInquiriesResult.unavailable?null:customerService.active.filter(item=>item.platform==='COUPANG'&&item.kind==='INQUIRY').length,
       latestSync:shell.syncs.find(item=>item.platform==='COUPANG')||null
     }
   };
@@ -1103,7 +1108,7 @@ async function buildCsDashboardData({
     coupangOrders:coupangOrdersResult.data||[],coupangOrderItems:coupangItemsResult.data||[],
     coupangReturns:(coupangReturnsResult.data||[]).map(returnCaseView),
     coupangExchanges:(coupangExchangesResult.data||[]).map(exchangeCaseView),
-    coupangInquiries:(coupangInquiriesResult.data||[]).map(({raw_data,...item})=>item),
+    coupangInquiries:(coupangInquiriesResult.data||[]).map(item=>coupangInquiryThreadModule.hydrateInquiry(item)),
     channelItems:channelCsItems||[],operationAudits:csOperationAudits||[],
     collectorPlatforms:[...new Set((syncResult.data||[])
       .filter(item=>item.job_type==='CUSTOMER_SERVICE'&&['SUCCESS','PARTIAL'].includes(item.status))
@@ -1528,7 +1533,7 @@ async function getDashboardData(state) {
       :db.from('coupang_rg_orders').select('order_id,status,paid_at,total_amount,item_count').order('paid_at',{ascending:false}).limit(rowLimit('orders',2000)),
     db.from('coupang_returns').select('receipt_id,order_id,status,cancel_type,reason_text,requested_at,amount,raw_data').order('requested_at',{ascending:false}).limit(100),
     db.from('coupang_exchanges').select('exchange_id,order_id,status,reason_text,requested_at,item_count,raw_data').order('requested_at',{ascending:false}).limit(100),
-    db.from('coupang_inquiries').select('inquiry_key,inquiry_type,inquiry_id,status,answered,product_id,seller_product_id,vendor_item_id,order_id,question_text,parent_answer_id,inquired_at,raw_data').order('inquired_at',{ascending:false}).limit(100),
+    db.from('coupang_inquiries').select('inquiry_key,inquiry_type,inquiry_id,status,answered,product_id,seller_product_id,vendor_item_id,order_id,question_text,parent_answer_id,inquired_at,updated_at,raw_data').order('inquired_at',{ascending:false}).limit(100),
     db.from('coupang_item_inventory').select('vendor_item_id,quantity,sale_price,original_price,status,external_sku_id,checked_at').order('quantity',{ascending:true}).limit(500),
     view==='settlement'
       ?settlementQueryModule.readLedgerPages(()=>db.from('coupang_settlement_summaries').select('summary_key,recognition_month,settlement_type,settlement_date,status,total_sale,service_fee,settlement_target_amount,settlement_amount,last_amount,pending_released_amount,final_amount,delivery_family,ingestion_source,source_record_id,period_start,period_end,reconciliation_status,provenance',{count:'exact'}).or(`period_end.gte.${settlementReadStart},period_end.is.null`).order('summary_key'),'summary_key')
@@ -1583,6 +1588,7 @@ async function getDashboardData(state) {
     queryIssues.push(...naverCommerceSettled.issues,...targetSettled.issues,...(monthlyRevenueResult.issues||[]),...channelCsSettled.issues,...cafe24TokenSettled.issues,...calendarSettled.issues);
     return buildMainDashboardData({
       loaderSession,generatedAt,queryIssues,syncResult,alertsResult,ordersResult,itemsResult,coupangOrdersResult,coupangOrderTerminalsResult,coupangItemsResult,coupangReturnsResult,coupangInventoryResult,coupangRgOrdersResult,
+      coupangInquiriesResult,coupangExchangesResult,customerServiceAvailable:![channelCsSettled.results[0],coupangInquiriesResult,coupangReturnsResult,coupangExchangesResult].some(result=>result.unavailable),
       naverCommerceOrdersResult:naverCommerceSettled.results[0],naverCommerceItemsResult:naverCommerceSettled.results[1],businessTargetsResult:targetSettled.results[0],monthlyRevenueResult,
       customerServiceRows:channelCsSettled.results[0].data||[],cafe24Token:cafe24TokenSettled.results[0].data?.token_data||null,reportsResult,calendarEntries:calendarSettled.results[0].data||[]
     });
@@ -2650,7 +2656,7 @@ async function getDashboardData(state) {
     cafe24Orders:ordersResult.data || [], cafe24OrderItems:itemsResult.data || [],
     coupangOrders:coupangOrdersResult.data || [], coupangOrderItems:coupangItemsResult.data || [],
     coupangReturns:coupangReturnViews, coupangExchanges:coupangExchangeViews,
-    coupangInquiries:(coupangInquiriesResult.data || []).map(({raw_data,...item})=>item),
+    coupangInquiries:(coupangInquiriesResult.data || []).map(item=>coupangInquiryThreadModule.hydrateInquiry(item)),
     channelItems:channelCsItems,
     collectorPlatforms:[...new Set((syncResult.data || [])
       .filter(item=>item.job_type==='CUSTOMER_SERVICE'&&['SUCCESS','PARTIAL'].includes(item.status))
@@ -2813,7 +2819,7 @@ async function getDashboardData(state) {
       returnCount: coupangReturnsResult.data?.length || 0,
       exchanges: coupangExchangeViews,
       exchangeCount: coupangExchangesResult.data?.length || 0,
-      inquiries: (coupangInquiriesResult.data || []).map(({raw_data,...item})=>item),
+      inquiries: (coupangInquiriesResult.data || []).map(item=>coupangInquiryThreadModule.hydrateInquiry(item)),
       unansweredInquiries: (coupangInquiriesResult.data || []).filter(item=>!item.answered).length,
       itemInventory: coupangItemInventoryResult.data || [],
       marketplaceOutOfStock: (coupangItemInventoryResult.data || []).filter(item=>number(item.quantity)<=0).length,

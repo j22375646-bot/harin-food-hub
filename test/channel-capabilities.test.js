@@ -81,3 +81,74 @@ test('Coupang newer fixed-IP order and CS successes supersede an old direct-IP f
   assert.equal(result.status, 'READ_READY');
   assert.match(result.summary, /주문·CS 정상/);
 });
+
+function coupangWithLatestCs(status,metadata={}){
+  return channels.coupangChannel([
+    {platform:'COUPANG',job_type:'FETCH_ALL',status:'SUCCESS',finished_at:'2026-09-07T01:00:00Z',metadata:{counts:{inquiries:0,returns:0,exchanges:0}}},
+    {platform:'COUPANG',job_type:'CUSTOMER_SERVICE',status,finished_at:'2026-09-07T02:00:00Z',metadata}
+  ],{products:2});
+}
+
+for(const dataset of ['inquiries','returns','exchanges']){
+  test(`Coupang partial ${dataset} failure locks only the affected CS capability`,()=>{
+    const model=coupangWithLatestCs('PARTIAL',{
+      counts:{inquiries:0,returns:1,exchanges:0},errors:[{dataset,message:'Source unavailable'}]
+    });
+    const inquiries=model.capabilities.find(item=>item.key==='inquiries');
+    const claims=model.capabilities.find(item=>item.key==='claims');
+    assert.equal(inquiries.read.status,dataset==='inquiries'?'VERIFY_REQUIRED':'READY');
+    assert.equal(inquiries.write.status,dataset==='inquiries'?'LOCKED':'READY');
+    assert.equal(claims.read.status,dataset==='inquiries'?'READY':'VERIFY_REQUIRED');
+    assert.equal(claims.write.status,dataset==='inquiries'?'READY':'LOCKED');
+    assert.equal(model.status,'VERIFY_REQUIRED');
+  });
+}
+
+test('an older full-sync success cannot hide a newer failed CS collection',()=>{
+  const model=coupangWithLatestCs('FAILED',{errors:[{dataset:'inquiries',message:'No access'}]});
+  for(const key of ['inquiries','claims']){
+    const capability=model.capabilities.find(item=>item.key===key);
+    assert.equal(capability.read.status,'VERIFY_REQUIRED');
+    assert.equal(capability.write.status,'LOCKED');
+  }
+  assert.equal(model.status,'FAILED');
+});
+
+test('unverified inquiry status blocks inquiry writes while verified claim collection stays available',()=>{
+  const model=coupangWithLatestCs('PARTIAL',{
+    counts:{inquiries:0,returns:0,exchanges:0},errors:[],
+    inquiryVerificationWarnings:[{inquiryId:'old',code:'COUPANG_INQUIRY_NOT_FOUND'}]
+  });
+  assert.equal(model.capabilities.find(item=>item.key==='inquiries').read.status,'VERIFY_REQUIRED');
+  assert.equal(model.capabilities.find(item=>item.key==='inquiries').write.status,'LOCKED');
+  assert.equal(model.capabilities.find(item=>item.key==='claims').read.status,'READY');
+  assert.equal(model.status,'VERIFY_REQUIRED');
+});
+
+test('partial CS results without dataset evidence cannot unlock reads or writes',()=>{
+  const model=coupangWithLatestCs('PARTIAL',{});
+  for(const key of ['inquiries','claims']){
+    const capability=model.capabilities.find(item=>item.key===key);
+    assert.equal(capability.read.status,'VERIFY_REQUIRED');
+    assert.equal(capability.write.status,'LOCKED');
+  }
+});
+
+test('a full-sync failure outside CS preserves independently verified inquiry and claim reads',()=>{
+  const model=channels.coupangChannel([{
+    platform:'COUPANG',job_type:'FETCH_ALL',status:'PARTIAL',finished_at:'2026-09-07T02:00:00Z',
+    metadata:{counts:{inquiries:0,returns:0,exchanges:0},errors:[{dataset:'settlements',message:'Revenue unavailable'}]}
+  }],{products:2});
+  assert.equal(model.capabilities.find(item=>item.key==='inquiries').read.status,'READY');
+  assert.equal(model.capabilities.find(item=>item.key==='claims').read.status,'READY');
+});
+
+test('a newer full CS read supersedes an older failed CS collection',()=>{
+  const model=channels.coupangChannel([
+    {platform:'COUPANG',job_type:'CUSTOMER_SERVICE',status:'FAILED',finished_at:'2026-09-07T01:00:00Z'},
+    {platform:'COUPANG',job_type:'FETCH_ALL',status:'SUCCESS',finished_at:'2026-09-07T02:00:00Z',metadata:{counts:{inquiries:0,returns:0,exchanges:0}}}
+  ],{products:2});
+  assert.equal(model.status,'READ_READY');
+  assert.equal(model.capabilities.find(item=>item.key==='inquiries').read.status,'READY');
+  assert.equal(model.capabilities.find(item=>item.key==='claims').read.status,'READY');
+});

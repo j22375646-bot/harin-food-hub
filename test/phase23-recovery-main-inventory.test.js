@@ -32,7 +32,7 @@ test('23-R1 gives Main a bounded dedicated loader instead of the generic dashboa
   assert.equal(profile.target_ms,2500);
   assert.deepEqual(profile.tables,[
     'cafe24_orders','cafe24_order_items','cafe24_oauth_tokens','naver_commerce_orders','naver_commerce_order_items',
-    'coupang_orders','coupang_order_items','coupang_rg_orders','coupang_rg_order_items','coupang_product_items','coupang_returns',
+    'coupang_orders','coupang_order_items','coupang_rg_orders','coupang_rg_order_items','coupang_product_items','coupang_returns','coupang_inquiries','coupang_exchanges',
     'coupang_rg_inventory','business_targets','customer_service_items','reports','hub_work_items',
     'channel_products','product_costs','channel_cost_settings','channel_shipping_rules','channel_cost_calibrations',
     'naver_stats_daily','coupang_ad_daily_summary','cafe24_sales_daily','naver_commerce_settlements',

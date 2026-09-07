@@ -104,7 +104,7 @@ test('concurrent navigation reads share one query batch and keep each request ti
   const pending=times.map(now=>liveSnapshot.loadLiveNavigationOperationSnapshot({db:database.db,now}));
   t.after(database.release);
   await queriesStarted();
-  assert.equal(database.calls.length,15,'three overlapping reads should issue 15 queries, not 45');
+  assert.equal(database.calls.length,17,'three overlapping reads should issue one 17-query batch, not 51');
   database.release();
   const results=await Promise.all(pending);
   assert.deepEqual(results.map(result=>result.snapshot.generatedAt),times);
@@ -119,7 +119,7 @@ test('a completed navigation read is never reused by a later refresh',async t=>{
   const first=await liveSnapshot.loadLiveNavigationOperationSnapshot({db:database.db});
   database.responses.set('alerts',{data:[{id:'new-alert',status:'OPEN'}]});
   const second=await liveSnapshot.loadLiveNavigationOperationSnapshot({db:database.db});
-  assert.equal(database.calls.length,30);
+  assert.equal(database.calls.length,34);
   assert.equal(first.snapshot.badges.notifications,0);
   assert.equal(second.snapshot.badges.notifications,1);
 });
@@ -134,8 +134,8 @@ test('concurrent navigation reads never share data across database clients',asyn
   const second=liveSnapshot.loadLiveNavigationOperationSnapshot({db:secondDb.db});
   firstDb.release();secondDb.release();
   const results=await Promise.all([first,second]);
-  assert.equal(firstDb.calls.length,15);
-  assert.equal(secondDb.calls.length,15);
+  assert.equal(firstDb.calls.length,17);
+  assert.equal(secondDb.calls.length,17);
   assert.deepEqual(results.map(result=>result.snapshot.badges.notifications),[1,2]);
 });
 
@@ -147,7 +147,7 @@ test('navigation reads for different Cafe24 malls remain separate even with the 
   const second=liveSnapshot.loadLiveNavigationOperationSnapshot({db:database.db});
   database.release();
   await Promise.all([first,second]);
-  assert.equal(database.calls.length,30);
+  assert.equal(database.calls.length,34);
   assert.deepEqual(database.calls.filter(call=>call.table==='cafe24_oauth_tokens').map(call=>call.filters),[
     [['mall_id','first-mall']],[['mall_id','second-mall']]
   ]);
@@ -161,12 +161,12 @@ test('partial navigation data stays unknown and is retried after the shared read
   const second=liveSnapshot.loadLiveNavigationOperationSnapshot({db:database.db});
   database.release();
   const failed=await Promise.all([first,second]);
-  assert.equal(database.calls.length,15);
+  assert.equal(database.calls.length,17);
   assert.ok(failed.every(result=>result.partial&&result.snapshot.badges.notifications===null));
   assert.deepEqual(failed[0].unavailable,['alerts']);
   database.responses.set('alerts',{data:[{id:'recovered',status:'OPEN'}]});
   const recovered=await liveSnapshot.loadLiveNavigationOperationSnapshot({db:database.db});
-  assert.equal(database.calls.length,30);
+  assert.equal(database.calls.length,34);
   assert.equal(recovered.partial,false);
   assert.equal(recovered.snapshot.badges.notifications,1);
 });
@@ -185,5 +185,5 @@ test('an unexpected query construction error does not poison future navigation r
   database.release();
   const recovered=await liveSnapshot.loadLiveNavigationOperationSnapshot({db:database.db});
   assert.equal(recovered.partial,false);
-  assert.equal(database.calls.length,16);
+  assert.equal(database.calls.length,18);
 });

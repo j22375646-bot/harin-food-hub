@@ -241,10 +241,13 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
     const onVisibilityChange=()=>{
       if(document.visibilityState==='visible')void refreshNavigationSnapshot();
     };
+    const onOperationsUpdated=()=>{void refreshNavigationSnapshot({force:true});};
     document.addEventListener('visibilitychange',onVisibilityChange);
+    window.addEventListener('harin:operations-updated',onOperationsUpdated);
     return ()=>{
       window.clearInterval(intervalId);
       document.removeEventListener('visibilitychange',onVisibilityChange);
+      window.removeEventListener('harin:operations-updated',onOperationsUpdated);
     };
   },[refreshNavigationSnapshot]);
 
