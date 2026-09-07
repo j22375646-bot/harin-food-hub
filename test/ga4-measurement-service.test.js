@@ -48,7 +48,10 @@ function fakeDb(seed={},options={}){
       insert(value){mode='insert';payload=value;calls.push({table,op:'insert',value});return query;},
       update(value){mode='update';payload=value;calls.push({table,op:'update',value});return query;},
       async maybeSingle(){
-        if(mode==='update'&&payload?.error_code==='GA4_STALE_READ_LEASE'&&options.failStaleRecovery)return {data:null,error:{message:'raw ledger failure'}};
+        if(mode==='update'&&payload?.error_code==='GA4_STALE_READ_LEASE'&&options.failStaleRecovery){
+          if(options.releaseStaleOnRecoveryFailure){for(let index=rows.length-1;index>=0;index-=1){if(filters.every(filter=>filter(rows[index])))rows.splice(index,1);}}
+          return {data:null,error:{message:'raw ledger failure'}};
+        }
         let found=rows.filter(row=>filters.every(filter=>filter(row)));
         if(order)found.sort((a,b)=>(new Date(valueAt(a,order.key)).getTime()-new Date(valueAt(b,order.key)).getTime())*(order.ascending?1:-1));
         if(limit!==null)found=found.slice(0,limit);
@@ -210,6 +213,18 @@ test('stale lease ledger failure remains a warning and never claims recovery',as
   assert.equal(db.tables.provider_request_runs.find(row=>row.id==='stale').status,'RUNNING');
   assert.equal(google.calls.length,0);
   assert.doesNotMatch(JSON.stringify(state),/raw ledger failure/);
+});
+
+test('stale lease warning remains visible when the provider then fails',async()=>{
+  const now=new Date('2026-08-27T00:00:00Z');
+  const hash=requestGuard.requestHash('GA4',{kind:'GA4_ECOMMERCE_V1',scopeHash,date:'2026-08-27'});
+  const db=fakeDb({provider_request_runs:[{id:'stale',provider:'GA4',request_hash:hash,status:'RUNNING',started_at:'2026-08-26T23:57:00.000Z'}]},{failStaleRecovery:true,releaseStaleOnRecoveryFailure:true});
+  const state=await measurement.refresh({db,env:liveEnv,now,fetchImpl:googleFixture({failCode:500}).fetchImpl});
+  assert.equal(state.status,'FAILED');
+  assert.equal(state.runtime.kind,'FAILED');
+  assert.match(state.runtime.warning,/실행 기록/);
+  assert.equal(db.tables.owned_site_api_snapshots.at(-1).status,'FAILED');
+  assert.doesNotMatch(JSON.stringify(state),/raw ledger failure|raw private provider body/);
 });
 
 test('fresh cache and process-local concurrency avoid duplicate GA4 collection without changing source time',async()=>{

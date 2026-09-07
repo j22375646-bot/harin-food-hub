@@ -10,6 +10,7 @@ const supabase=require('../lib/cafe24/supabase.js');
 const syncModule=require('../lib/automation/sync-all.js');
 const runnerModule=require('../lib/automation/job-runner.js');
 const executionGuard=require('../lib/infrastructure/execution-route-guard.js');
+const ga4Measurement=require('../lib/measurement/ga4-service.js');
 
 function valueAt(row,key){
   if(key==='metadata->>kind')return row.metadata?.kind;
@@ -96,7 +97,7 @@ test('GA4 measurement API enforces owner, origin and exact read-only inputs with
 });
 
 test('daily cron runs GA4 independently and keeps existing jobs when GA4 fails',async t=>{
-  const original={db:supabase.getSupabase,fetch:global.fetch,guard:executionGuard.runGuardedRoute,sync:syncModule.syncAllPlatforms,job:runnerModule.runJob,secret:process.env.CRON_SECRET,site:process.env.HUB_OWNED_SITE_URL,property:process.env.GOOGLE_GA4_PROPERTY_ID,email:process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key:process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,enabled:process.env.GOOGLE_GA4_ENABLED};
+  const original={db:supabase.getSupabase,fetch:global.fetch,guard:executionGuard.runGuardedRoute,sync:syncModule.syncAllPlatforms,job:runnerModule.runJob,scheduled:ga4Measurement.runScheduled,secret:process.env.CRON_SECRET,site:process.env.HUB_OWNED_SITE_URL,property:process.env.GOOGLE_GA4_PROPERTY_ID,email:process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,key:process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY,enabled:process.env.GOOGLE_GA4_ENABLED};
   const db=fakeDb();let syncCalls=0,jobCalls=0;
   supabase.getSupabase=()=>db;
   executionGuard.runGuardedRoute=async(_options,work)=>work();
@@ -105,7 +106,7 @@ test('daily cron runs GA4 independently and keeps existing jobs when GA4 fails',
   process.env.CRON_SECRET='cron-test-secret';
   delete process.env.HUB_OWNED_SITE_URL;delete process.env.GOOGLE_GA4_PROPERTY_ID;delete process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;delete process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;delete process.env.GOOGLE_GA4_ENABLED;
   t.after(()=>{
-    supabase.getSupabase=original.db;global.fetch=original.fetch;executionGuard.runGuardedRoute=original.guard;syncModule.syncAllPlatforms=original.sync;runnerModule.runJob=original.job;
+    supabase.getSupabase=original.db;global.fetch=original.fetch;executionGuard.runGuardedRoute=original.guard;syncModule.syncAllPlatforms=original.sync;runnerModule.runJob=original.job;ga4Measurement.runScheduled=original.scheduled;
     for(const [key,value] of [['CRON_SECRET',original.secret],['HUB_OWNED_SITE_URL',original.site],['GOOGLE_GA4_PROPERTY_ID',original.property],['GOOGLE_SERVICE_ACCOUNT_EMAIL',original.email],['GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY',original.key],['GOOGLE_GA4_ENABLED',original.enabled]]){if(value===undefined)delete process.env[key];else process.env[key]=value;}
   });
   const routePath=path.resolve(__dirname,'../app/api/cron/daily-sync/route.js');
@@ -134,4 +135,13 @@ test('daily cron runs GA4 independently and keeps existing jobs when GA4 fails',
   assert.equal(syncCalls,3);assert.equal(jobCalls,9);
   assert.equal(failureBody.jobs.filter(job=>job.name!=='GA4_ECOMMERCE').every(job=>job.ok),true);
   assert.doesNotMatch(JSON.stringify(failureBody),/raw provider cron failure|private-token/);
+
+  syncModule.syncAllPlatforms=async()=>{syncCalls+=1;return {status:'IN_FLIGHT',jobs:[]};};
+  ga4Measurement.runScheduled=async()=>({status:'IN_FLIGHT',canRefresh:false,runtime:{kind:'IN_FLIGHT'}});
+  const inFlight=await route.GET(new Request('https://hub.example/api/cron/daily-sync',{headers:{authorization:'Bearer cron-test-secret'}}));
+  const inFlightBody=await inFlight.json();const ga4InFlight=inFlightBody.jobs.find(job=>job.name==='GA4_ECOMMERCE');
+  assert.equal(inFlight.status,207);assert.equal(inFlightBody.ok,false);
+  assert.equal(ga4InFlight.ok,false);assert.equal(ga4InFlight.data.status,'IN_FLIGHT');assert.match(ga4InFlight.error,/진행/);
+  assert.equal(inFlightBody.jobs.find(job=>job.name==='CONNECTED_PLATFORM_SYNC').ok,true);
+  assert.equal(inFlightBody.jobs.filter(job=>job.name!=='GA4_ECOMMERCE').every(job=>job.ok),true);
 });

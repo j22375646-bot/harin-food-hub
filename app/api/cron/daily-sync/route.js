@@ -22,8 +22,10 @@ function settled(name, value) {
   if (value.status !== 'fulfilled') return { name, ok:false, error:value.reason?.message || '실행 실패', run_id:value.reason?.automationRunId || null };
   const data = value.value;
   if (data?.skipped) return { name, ok:true, skipped:true, data };
-  const ok = !['PARTIAL','FAILED'].includes(data?.status);
-  return { name, ok, data, ...(ok ? {} : { error:data?.status === 'PARTIAL' ? '일부 연결 채널 수집 실패' : '실행 실패' }) };
+  const failedStatuses=name==='GA4_ECOMMERCE'?['PARTIAL','FAILED','IN_FLIGHT']:['PARTIAL','FAILED'];
+  const ok = !failedStatuses.includes(data?.status);
+  const error=data?.status==='PARTIAL'?'일부 연결 채널 수집 실패':data?.status==='IN_FLIGHT'?'GA4 측정 수집이 이미 진행 중입니다.':'실행 실패';
+  return { name, ok, data, ...(ok ? {} : { error }) };
 }
 
 export async function GET(request) {
