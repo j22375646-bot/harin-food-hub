@@ -74,7 +74,7 @@ test('GA4 measurement API enforces owner, origin and exact read-only inputs with
   const cookie=token=>({cookie:`${auth.COOKIE_NAME}=${token}`});
   const denied=await route.GET(new Request('https://hub.example/api/system/measurement/ga4'));assert.equal(denied.status,401);privateResponse(denied);
   const forbidden=await route.GET(new Request('https://hub.example/api/system/measurement/ga4',{headers:cookie(viewerToken)}));assert.equal(forbidden.status,403);privateResponse(forbidden);
-  const setup=await route.GET(new Request('https://hub.example/api/system/measurement/ga4',{headers:cookie(ownerToken)}));assert.equal(setup.status,200);privateResponse(setup);assert.equal((await setup.json()).measurement.status,'SETUP_REQUIRED');
+  const setup=await route.GET(new Request('https://hub.example/api/system/measurement/ga4',{headers:cookie(ownerToken)}));assert.equal(setup.status,200);privateResponse(setup);const setupBody=await setup.json();assert.equal(setupBody.measurement.status,'SETUP_REQUIRED');assert.equal(setupBody.measurement.scopeHash,null);
   assert.deepEqual([...new Set(db.calls.map(call=>call.table))],['dashboard_sessions']);
   const badQuery=await route.GET(new Request('https://hub.example/api/system/measurement/ga4?propertyId=private',{headers:cookie(ownerToken)}));assert.equal(badQuery.status,400);privateResponse(badQuery);
   for(const [request,status] of [
@@ -88,10 +88,13 @@ test('GA4 measurement API enforces owner, origin and exact read-only inputs with
 
   const privateKey=crypto.generateKeyPairSync('rsa',{modulusLength:2048}).privateKey.export({type:'pkcs8',format:'pem'});
   process.env.HUB_OWNED_SITE_URL='https://shop.example.com';process.env.GOOGLE_GA4_PROPERTY_ID='123456';process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL='reader@example.test';process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY=privateKey;
+  const expectedScopeHash=crypto.createHash('sha256').update('123456\0shop.example.com').digest('hex');
+  const configured=await route.GET(new Request('https://hub.example/api/system/measurement/ga4',{headers:cookie(ownerToken)}));
+  assert.equal(configured.status,200);privateResponse(configured);const configuredBody=await configured.json();assert.equal(configuredBody.measurement.status,'VERIFY_REQUIRED');assert.equal(configuredBody.measurement.scopeHash,expectedScopeHash);
   const google=googleFetch();global.fetch=google.fetchImpl;
   const refreshed=await route.POST(postRequest({action:'REFRESH'},{headers:cookie(ownerToken)}));
   assert.equal(refreshed.status,200);privateResponse(refreshed);
-  const body=await refreshed.json();assert.equal(body.ok,true);assert.equal(body.measurement.status,'NO_DATA');
+  const body=await refreshed.json();assert.equal(body.ok,true);assert.equal(body.measurement.status,'NO_DATA');assert.equal(body.measurement.scopeHash,expectedScopeHash);
   assert.equal(google.calls.length,3);assert.equal(db.tables.owned_site_api_snapshots.length,1);
   assert.doesNotMatch(JSON.stringify(body),/private-token|privateKey|propertyId/);
 });

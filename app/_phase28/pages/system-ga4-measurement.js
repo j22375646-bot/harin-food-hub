@@ -27,16 +27,30 @@ export const initialGa4MeasurementState={measurement:null,pending:'',error:'',me
 function successMessage(measurement,kind){
   if(kind!=='POST')return '';
   if(measurement?.status==='IN_FLIGHT')return '다른 확인 작업이 진행 중입니다. 저장 상태만 다시 확인할 수 있어요.';
-  if(!['OBSERVED','NO_DATA','PARTIAL'].includes(measurement?.status))return '';
+  if(!['OBSERVED','NO_DATA','PARTIAL'].includes(measurement?.status)||!measurement?.report)return '';
   if(measurement?.runtime?.cached||measurement?.runtime?.deduplicated)return '저장된 최신 자료를 확인했습니다. 새 Google 수집 완료를 뜻하지 않습니다.';
   if(measurement?.status==='NO_DATA')return 'GA4를 새로 확인했지만 선택 범위에서 관측 자료가 없었습니다.';
   if(measurement?.status==='PARTIAL')return 'GA4 자료를 확인해 일부 관측 상태를 저장했습니다.';
   return 'GA4 자료를 새로 확인해 저장했습니다.';
 }
 
+function isKnownScopeHash(value){return typeof value==='string'&&/^[a-f0-9]{64}$/.test(value);}
+
+function measurementAfterCompletedRequest(previous,next){
+  const canRetain=next?.report===null&&(
+    next.status==='FAILED'||(next.status==='IN_FLIGHT'&&typeof next.error==='string'&&next.error.trim())
+  );
+  const sameKnownScope=isKnownScopeHash(previous?.scopeHash)&&previous.scopeHash===next?.scopeHash;
+  if(!canRetain||!sameKnownScope||!previous?.report)return next;
+  return {...next,report:previous.report,lastSuccessAt:previous.lastSuccessAt??null,previousSuccess:true};
+}
+
 export function ga4MeasurementReducer(state,action){
   if(action.type==='REQUEST_STARTED')return {...state,pending:action.kind,error:'',message:''};
-  if(action.type==='REQUEST_SUCCEEDED')return {...state,measurement:action.measurement,pending:'',error:'',message:successMessage(action.measurement,action.kind)};
+  if(action.type==='REQUEST_SUCCEEDED'){
+    const measurement=measurementAfterCompletedRequest(state.measurement,action.measurement);
+    return {...state,measurement,pending:'',error:'',message:successMessage(measurement,action.kind)};
+  }
   if(action.type==='REQUEST_FAILED')return {...state,pending:'',error:action.error||'GA4 저장 상태를 확인하지 못했습니다.',message:''};
   return state;
 }
@@ -190,7 +204,7 @@ export function Ga4MeasurementView({measurement=null,pending='',error='',message
     <section className="ga4PropertyAnswer"><strong>GA4 속성이 무엇인가요?</strong><p><b>속성 ID</b>는 공식몰 분석 공간을 가리키는 숫자 식별자입니다. Cafe24 쇼핑몰 ID도, G-로 시작하는 측정 ID도 아닙니다. 허브 설정이 없다는 사실만으로 공식몰 태그가 설치되지 않았다고 판단할 수 없어요.</p></section>
     <section className="ga4Trust" aria-label="GA4 측정 검증 상태"><div><span>태그 검증</span><strong>실제 구매·환불 태그 검증 필요</strong><p>API 관측만으로 purchase·refund 태그가 정확히 동작한다고 확인할 수 없습니다. 항상 <code>VERIFY_REQUIRED</code>입니다.</p></div><div><span>자동 확인 일정</span><strong>{scheduleStatus}</strong><p>{scheduleCopy}</p></div></section>
     {measurement?.runtime?.warning?<p className="ga4RuntimeWarning" role="status">{measurement.runtime.warning}</p>:null}
-    {measurement?.status==='FAILED'?<p className="ga4Failure" role="alert">{measurement.error||'최근 GA4 조회가 실패했습니다.'}{measurement.previousSuccess&&measurement.report?' 이전 성공 자료를 계속 표시합니다.':''}</p>:null}
+    {(measurement?.status==='FAILED'||(measurement?.status==='IN_FLIGHT'&&measurement.error))?<p className="ga4Failure" role="alert">{measurement.error||'최근 GA4 조회가 실패했습니다.'}{measurement.previousSuccess&&measurement.report?' 이전 성공 자료를 계속 표시합니다.':''}</p>:null}
     {measurement?.status==='STALE'?<p className="ga4Stale" role="status">저장된 성공 자료가 26시간보다 오래됐습니다. 가져온 시각과 보고 기간을 확인해 주세요.</p>:null}
     {measurement?.status==='IN_FLIGHT'?<p className="ga4InFlight" role="status">다른 읽기 작업이 아직 진행 중입니다. 완료로 표시하지 않고 저장된 자료만 유지합니다.</p>:null}
     <SetupPanel measurement={measurement}/>

@@ -42,7 +42,7 @@ const report={
   trackingVerification:'VERIFY_REQUIRED',notes:['GA4 관측값이며 Cafe24 주문·정산 합계가 아닙니다.']
 };
 function measurement(status='OBSERVED',overrides={}){
-  return {status,missingFields:[],canRefresh:status!=='IN_FLIGHT',report,lastAttemptAt:'2026-09-07T16:31:00.000Z',lastSuccessAt:'2026-09-07T16:31:00.000Z',previousSuccess:false,error:null,trackingVerification:'VERIFY_REQUIRED',automation:{schedule:'매일 05:30 (한국시간)',status:'SCHEDULED'},...overrides};
+  return {status,scopeHash:'a'.repeat(64),missingFields:[],canRefresh:status!=='IN_FLIGHT',report,lastAttemptAt:'2026-09-07T16:31:00.000Z',lastSuccessAt:'2026-09-07T16:31:00.000Z',previousSuccess:false,error:null,trackingVerification:'VERIFY_REQUIRED',automation:{schedule:'매일 05:30 (한국시간)',status:'SCHEDULED'},...overrides};
 }
 
 test('GA4 inspection exposes the real client component and testable production boundaries',async()=>{
@@ -178,6 +178,103 @@ test('state reducer preserves the report on refresh failure and clears old succe
   assert.equal(failed.measurement.report,report);
   assert.equal(failed.error,'새로 확인 실패');
   assert.equal(failed.pending,'');
+});
+
+test('completed storage failures retain only an explicitly matching scoped success',async()=>{
+  const {ga4MeasurementReducer,initialGa4MeasurementState}=await load();
+  const priorReport={...report,fetchedAt:'2026-09-06T16:30:00.000Z'};
+  const previous={measurement:measurement('OBSERVED',{report:priorReport,lastSuccessAt:'2026-09-06T16:31:00.000Z'}),pending:'GET',error:'',message:'이전 완료 알림'};
+  const reduce=(next,kind='GET')=>ga4MeasurementReducer(previous,{type:'REQUEST_SUCCEEDED',kind,measurement:next});
+
+  const sameScopeFailure=reduce(measurement('FAILED',{report:null,lastAttemptAt:'2026-09-07T17:00:00.000Z',lastSuccessAt:null,error:'저장된 측정 자료를 불러오지 못했습니다.'}));
+  assert.equal(sameScopeFailure.measurement.report,priorReport);
+  assert.equal(sameScopeFailure.measurement.lastSuccessAt,'2026-09-06T16:31:00.000Z');
+  assert.equal(sameScopeFailure.measurement.lastAttemptAt,'2026-09-07T17:00:00.000Z');
+  assert.equal(sameScopeFailure.measurement.previousSuccess,true);
+  assert.equal(sameScopeFailure.measurement.error,'저장된 측정 자료를 불러오지 못했습니다.');
+  assert.equal(sameScopeFailure.message,'');
+
+  const deduplicatedStorageFailure=reduce(measurement('IN_FLIGHT',{report:null,canRefresh:false,lastAttemptAt:null,lastSuccessAt:null,error:'저장된 측정 자료를 불러오지 못했습니다.',runtime:{kind:'IN_FLIGHT',deduplicated:true}}),'POST');
+  assert.equal(deduplicatedStorageFailure.measurement.report,priorReport);
+  assert.equal(deduplicatedStorageFailure.measurement.lastSuccessAt,'2026-09-06T16:31:00.000Z');
+  assert.equal(deduplicatedStorageFailure.measurement.previousSuccess,true);
+  assert.match(deduplicatedStorageFailure.message,/진행 중/);
+  assert.doesNotMatch(deduplicatedStorageFailure.message,/새로 확인해 저장|수집 완료/);
+
+  const serverReport={...report,fetchedAt:'2026-09-07T15:30:00.000Z'};
+  const providerFailure=reduce(measurement('FAILED',{report:serverReport,lastSuccessAt:'2026-09-07T15:31:00.000Z',previousSuccess:true,error:'GA4 읽기 권한을 확인해 주세요.'}),'POST');
+  assert.equal(providerFailure.measurement.report,serverReport);
+  assert.equal(providerFailure.measurement.lastSuccessAt,'2026-09-07T15:31:00.000Z');
+  assert.equal(providerFailure.message,'');
+
+  for(const next of [
+    measurement('FAILED',{scopeHash:'b'.repeat(64),report:null,error:'다른 속성 저장 조회 실패'}),
+    measurement('FAILED',{scopeHash:null,report:null,error:'범위 확인 실패'}),
+    measurement('FAILED',{scopeHash:undefined,report:null,error:'범위 누락'}),
+    measurement('FAILED',{scopeHash:'unknown',report:null,error:'범위 확인 실패'}),
+    measurement('VERIFY_REQUIRED',{report:null}),
+    measurement('NO_DATA',{report:null}),
+    measurement('OBSERVED',{report:null}),
+    measurement('IN_FLIGHT',{report:null,canRefresh:false,error:null,runtime:{kind:'IN_FLIGHT'}}),
+    measurement('SETUP_REQUIRED',{scopeHash:null,report:null,canRefresh:false,missingFields:['GA4 속성 ID'],automation:{schedule:'매일 05:30 (한국시간)',status:'SETUP_REQUIRED'}}),
+    measurement('LOCKED',{scopeHash:null,report:null,canRefresh:false,automation:{schedule:'매일 05:30 (한국시간)',status:'LOCKED'}})
+  ]){
+    const state=reduce(next,'POST');
+    assert.equal(state.measurement.report,null,String(next.status));
+    assert.equal(state.measurement.previousSuccess,false,String(next.status));
+    if(next.status==='IN_FLIGHT')assert.match(state.message,/진행 중/);
+    else assert.equal(state.message,'',String(next.status));
+    assert.doesNotMatch(state.message,/새로 확인해 저장|수집 완료/);
+  }
+
+  const initialFailure=ga4MeasurementReducer({...initialGa4MeasurementState,measurement:null,pending:'GET'},{type:'REQUEST_SUCCEEDED',kind:'GET',measurement:measurement('FAILED',{report:null,lastSuccessAt:null,error:'저장 실패'})});
+  assert.equal(initialFailure.measurement.report,null);
+  assert.equal(initialFailure.measurement.previousSuccess,false);
+  const initialFailureHtml=renderToStaticMarkup(React.createElement((await load()).Ga4MeasurementView,initialFailure));
+  assert.match(initialFailureHtml,/저장 자료 확인 필요/);
+  assert.doesNotMatch(initialFailureHtml,/KRW[\s\S]*55,000|이전 성공 자료를 계속 표시합니다/);
+});
+
+test('same-scope in-flight storage failure labels the retained report as a previous success',async()=>{
+  const {Ga4MeasurementView,ga4MeasurementReducer}=await load();
+  const previous={measurement:measurement(),pending:'POST',error:'',message:''};
+  const state=ga4MeasurementReducer(previous,{type:'REQUEST_SUCCEEDED',kind:'POST',measurement:measurement('IN_FLIGHT',{
+    report:null,canRefresh:false,lastSuccessAt:null,error:'저장된 측정 자료를 불러오지 못했습니다.',runtime:{kind:'IN_FLIGHT',deduplicated:true}
+  })});
+  const html=renderToStaticMarkup(React.createElement(Ga4MeasurementView,state));
+  assert.match(html,/저장된 측정 자료를 불러오지 못했습니다/);
+  assert.match(html,/이전 성공 자료를 계속 표시합니다/);
+  assert.match(html,/KRW[\s\S]*55,000/);
+  assert.doesNotMatch(html,/GA4 자료를 새로 확인해 저장했습니다|새 Google 수집 완료/);
+});
+
+test('actual GET and POST controller responses apply scope-safe reducer preservation',async()=>{
+  const {createGa4MeasurementRequestController,ga4MeasurementReducer}=await load();
+  const responses=[
+    measurement('FAILED',{report:null,lastSuccessAt:null,error:'GET 저장 조회 실패'}),
+    measurement('FAILED',{scopeHash:'b'.repeat(64),report:null,lastSuccessAt:null,error:'POST 다른 속성 저장 조회 실패'})
+  ];
+  let state={measurement:measurement(),pending:'',error:'',message:''};
+  let index=0;
+  const controller=createGa4MeasurementRequestController({
+    fetchImpl:async(_url,options)=>{
+      assert.equal(options.method,index===0?'GET':'POST');
+      return new Response(JSON.stringify({ok:true,measurement:responses[index++]}),{status:200,headers:{'Content-Type':'application/json'}});
+    },
+    onStart:({kind})=>{state=ga4MeasurementReducer(state,{type:'REQUEST_STARTED',kind});},
+    onSuccess:(value,{kind})=>{state=ga4MeasurementReducer(state,{type:'REQUEST_SUCCEEDED',measurement:value,kind});}
+  });
+  assert.equal(await controller.load(),true);
+  assert.equal(state.measurement.report,report);
+  assert.equal(state.measurement.previousSuccess,true);
+  assert.equal(state.measurement.error,'GET 저장 조회 실패');
+  assert.equal(await controller.refresh(),true);
+  assert.equal(state.measurement.scopeHash,'b'.repeat(64));
+  assert.equal(state.measurement.report,null);
+  assert.equal(state.measurement.previousSuccess,false);
+  assert.equal(state.measurement.error,'POST 다른 속성 저장 조회 실패');
+  assert.equal(state.message,'');
+  controller.dispose();
 });
 
 test('a completed HTTP response with FAILED service state never emits a collection success message',async()=>{

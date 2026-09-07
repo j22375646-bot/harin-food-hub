@@ -48,6 +48,7 @@ function fakeDb(seed={},options={}){
       insert(value){mode='insert';payload=value;calls.push({table,op:'insert',value});return query;},
       update(value){mode='update';payload=value;calls.push({table,op:'update',value});return query;},
       async maybeSingle(){
+        if(table==='owned_site_api_snapshots'&&mode==='select'&&options.failSnapshotRead)return {data:null,error:{message:'raw snapshot read failure'}};
         if(mode==='update'&&payload?.error_code==='GA4_STALE_READ_LEASE'&&options.failStaleRecovery){
           if(options.releaseStaleOnRecoveryFailure){for(let index=rows.length-1;index>=0;index-=1){if(filters.every(filter=>filter(rows[index])))rows.splice(index,1);}}
           return {data:null,error:{message:'raw ledger failure'}};
@@ -104,9 +105,11 @@ test('GA4 measurement setup and kill-switch gates run before storage',async()=>{
   assert.deepEqual(setup.missingFields,['자사몰 주소','GA4 속성 ID','서비스 계정 이메일','서비스 계정 비밀키']);
   assert.equal(setup.canRefresh,false);
   assert.equal(setup.automation.status,'SETUP_REQUIRED');
+  assert.equal(setup.scopeHash,null);
   const locked=await measurement.getState({db,env:{GOOGLE_GA4_ENABLED:'false'},now:new Date('2026-08-27T00:00:00Z')});
   assert.equal(locked.status,'LOCKED');
   assert.equal(locked.automation.status,'LOCKED');
+  assert.equal(locked.scopeHash,null);
   assert.equal(reads,0);
 });
 
@@ -118,6 +121,7 @@ test('configured state scopes attempts and preserves the last usable report afte
     {id:'other',provider:'GA4',status:'SUCCESS',fetched_at:'2026-08-27T02:00:00.000Z',metric_summary:{ecommerce:report({host:'other.example'})},metadata:{kind:'GA4_ECOMMERCE_V1',scopeHash:'other-scope'}}
   ]});
   const state=await measurement.getState({db,env:configuredEnv,now:new Date('2026-08-27T02:00:00Z')});
+  assert.equal(state.scopeHash,scopeHash);
   assert.equal(state.status,'FAILED');
   assert.equal(state.previousSuccess,true);
   assert.equal(state.lastAttemptAt,'2026-08-27T01:00:00.000Z');
@@ -125,9 +129,15 @@ test('configured state scopes attempts and preserves the last usable report afte
   assert.equal(state.report.host,'shop.example.com');
   assert.doesNotMatch(JSON.stringify(state),/transactionId|provider secret payload/);
   assert.match(state.error,/권한/);
+  const changedPropertyHash=crypto.createHash('sha256').update('654321\0shop.example.com').digest('hex');
+  const changedProperty=await measurement.getState({db,env:{...configuredEnv,GOOGLE_GA4_PROPERTY_ID:'654321'},now:new Date('2026-08-27T02:00:00Z')});
+  assert.equal(changedProperty.status,'VERIFY_REQUIRED');
+  assert.equal(changedProperty.scopeHash,changedPropertyHash);
+  assert.equal(changedProperty.report,null);
   const snapshotCalls=db.calls.filter(call=>call.table==='owned_site_api_snapshots');
-  assert.equal(snapshotCalls.filter(call=>call.op==='limit'&&call.value===1).length,2);
+  assert.equal(snapshotCalls.filter(call=>call.op==='limit'&&call.value===1).length,4);
   assert.equal(snapshotCalls.filter(call=>call.op==='eq'&&call.key==='metadata->>scopeHash'&&call.value===scopeHash).length,2);
+  assert.equal(snapshotCalls.filter(call=>call.op==='eq'&&call.key==='metadata->>scopeHash'&&call.value===changedPropertyHash).length,2);
 });
 
 test('invalid configured scope and storage failures stay explicit before provider I/O',async()=>{
@@ -138,6 +148,7 @@ test('invalid configured scope and storage failures stay explicit before provide
   assert.equal(reads,0);
   const failed=await measurement.getState({db:{from(){throw new Error('database credential raw error');}},env:configuredEnv,now:new Date('2026-08-27T00:00:00Z')});
   assert.equal(failed.status,'FAILED');
+  assert.equal(failed.scopeHash,scopeHash);
   assert.match(failed.error,/저장된 측정 자료/);
   assert.doesNotMatch(JSON.stringify(failed),/credential raw/);
 });
@@ -196,9 +207,28 @@ test('refresh recovers only its stale scoped read lease and leaves recent or oth
   const unused=googleFixture();
   const active=await measurement.refresh({db:activeDb,env:liveEnv,now,fetchImpl:unused.fetchImpl});
   assert.equal(active.status,'IN_FLIGHT');
+  assert.equal(active.scopeHash,scopeHash);
+  assert.equal(active.error,null);
   assert.equal(active.runtime.kind,'IN_FLIGHT');
   assert.equal(activeDb.tables.provider_request_runs.find(row=>row.id==='active').status,'RUNNING');
   assert.equal(unused.calls.length,0);
+});
+
+test('deduplicated refresh keeps scoped storage lookup failure honest without calling Google',async()=>{
+  const now=new Date('2026-08-27T00:00:00Z');
+  const hash=requestGuard.requestHash('GA4',{kind:'GA4_ECOMMERCE_V1',scopeHash,date:'2026-08-27'});
+  const db=fakeDb({provider_request_runs:[{id:'active',provider:'GA4',request_hash:hash,status:'RUNNING',started_at:'2026-08-26T23:59:00.000Z'}]},{failSnapshotRead:true});
+  const google=googleFixture();
+  const state=await measurement.refresh({db,env:liveEnv,now,fetchImpl:google.fetchImpl});
+  assert.equal(state.status,'IN_FLIGHT');
+  assert.equal(state.scopeHash,scopeHash);
+  assert.equal(state.report,null);
+  assert.equal(state.previousSuccess,false);
+  assert.match(state.error,/저장된 측정 자료/);
+  assert.equal(state.runtime.kind,'IN_FLIGHT');
+  assert.equal(state.runtime.deduplicated,true);
+  assert.equal(google.calls.length,0);
+  assert.doesNotMatch(JSON.stringify(state),/raw snapshot read failure/);
 });
 
 test('stale lease ledger failure remains a warning and never claims recovery',async()=>{
