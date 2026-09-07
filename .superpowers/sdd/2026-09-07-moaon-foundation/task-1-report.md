@@ -8,6 +8,7 @@
 - 비동기 membership 조회 전에 검증된 세션 primitive를 snapshot하고, 조회 완료 뒤 동일한 만료시각을 새 clock으로 다시 확인한다.
 - 세션/사업장 식별자의 경계 공백은 정규화하지 않고 거부한다. 따라서 조회 키와 발급 context의 식별자가 caller 입력과 애매하게 달라지지 않는다.
 - action은 primitive string과 `Map`의 명시된 키만 허용하므로 `toString`, `constructor`, `__proto__` 및 non-string 입력도 안정적인 권한 오류로 거부한다.
+- clock은 두 검증 시점 모두 안전한 공통 래퍼로 읽는다. 누락·예외·잘못된 값은 내부 원문을 노출하지 않고 `AUTH_REQUIRED`로 닫으며, 초기 clock 오류에서는 membership 조회를 시작하지 않는다.
 - DB, 환경변수, 네트워크, 기존 인증, 라우트에는 연결하지 않았다. 실사용 다사업장 기능이 아니라 후속 서버 통합을 위한 준비 계약이다.
 
 ## TDD 증거
@@ -21,6 +22,10 @@
   - 17 tests 중 4 fail로 각 결함을 재현했다.
 - 독립 리뷰 GREEN: `node --test test/tenant-context.test.js test/tenant-permissions.test.js`
   - 17 tests, 17 pass, 0 fail, 0 skipped.
+- 최종 clock 리뷰 RED: 누락/invalid/throw 초기 clock과 조회 후 throw clock 테스트를 추가했다.
+  - 19 tests 중 2 fail로 raw clock 오류 및 lookup-before-validation 결함을 재현했다.
+- 최종 clock 리뷰 GREEN: `node --test test/tenant-context.test.js test/tenant-permissions.test.js`
+  - 19 tests, 19 pass, 0 fail, 0 skipped.
 
 ## 안정 오류 계약
 

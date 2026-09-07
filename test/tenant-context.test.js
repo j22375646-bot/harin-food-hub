@@ -223,3 +223,52 @@ test('식별자의 leading 또는 trailing whitespace는 정규화하지 않고 
     400
   );
 });
+
+test('초기 clock이 누락·invalid·throw이면 lookup 없이 AUTH_REQUIRED로 닫는다', async () => {
+  const clocks = [
+    undefined,
+    () => 'not-a-date',
+    () => { throw new Error('clock implementation detail'); },
+  ];
+
+  for (const now of clocks) {
+    let lookupCount = 0;
+    await assert.rejects(
+      () => resolveTenantContext(
+        { session: validSession(), requestedTenantId: 'tenant-1' },
+        { findMembership: async () => { lookupCount += 1; return activeMembership(); }, now }
+      ),
+      error => {
+        assert.equal(error.code, 'AUTH_REQUIRED');
+        assert.equal(error.status, 401);
+        assert.doesNotMatch(error.message, /clock implementation detail/);
+        return true;
+      }
+    );
+    assert.equal(lookupCount, 0);
+  }
+});
+
+test('lookup 뒤 clock이 throw해도 내부 오류를 노출하지 않고 AUTH_REQUIRED로 닫는다', async () => {
+  let clockCalls = 0;
+  await assert.rejects(
+    () => resolveTenantContext(
+      { session: validSession(), requestedTenantId: 'tenant-1' },
+      {
+        findMembership: async () => activeMembership(),
+        now: () => {
+          clockCalls += 1;
+          if (clockCalls === 1) return NOW;
+          throw new Error('second clock secret');
+        },
+      }
+    ),
+    error => {
+      assert.equal(error.code, 'AUTH_REQUIRED');
+      assert.equal(error.status, 401);
+      assert.doesNotMatch(error.message, /second clock secret/);
+      return true;
+    }
+  );
+  assert.equal(clockCalls, 2);
+});
