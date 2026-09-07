@@ -66,6 +66,25 @@ test('construction rejects nonliteral IPs and unbounded keys without exposing th
   }
 });
 
+test('IPv6 zone literal rejection does not retain the raw IP in the thrown error', () => {
+  const rawIp = 'fe80::1%eth0';
+  const rpcClient = {rpc: async () => ({data: true, error: null})};
+  let error;
+  assert.throws(
+    () => createAuthRequestAdmission({rpcClient, hmacKey: KEY, trustedClientIp: rawIp}),
+    thrown => {
+      error = thrown;
+      return thrown instanceof TypeError;
+    }
+  );
+
+  assert.equal(error.message, 'An explicit literal trusted client IP is required.');
+  assert.equal(JSON.stringify(error).includes(rawIp), false);
+  for (const property of Object.getOwnPropertyNames(error)) {
+    assert.equal(String(error[property]).includes(rawIp), false, property);
+  }
+});
+
 test('all supported kinds validate before IP quota and run fixed IP before subject quota', async () => {
   const calls = [];
   const requestLimit = createAuthRequestAdmission({
