@@ -4,6 +4,8 @@ import hubRoutesModule from './lib/navigation/hub-routes.js';
 
 function isPublic(pathname) {
   return pathname === '/login'
+    || pathname === '/manifest.webmanifest'
+    || pathname === '/hub-offline-v1.html'
     || pathname === '/api/dashboard/login'
     || pathname.startsWith('/api/cron/')
     || pathname.startsWith('/oauth/cafe24/');

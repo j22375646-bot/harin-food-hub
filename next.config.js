@@ -45,6 +45,17 @@ module.exports = {
     return [
       { source:'/:path*', headers:securityHeaders },
       {
+        source:'/hub-sw.js',
+        headers:[
+          { key:'Content-Type', value:'application/javascript; charset=utf-8' },
+          { key:'Cache-Control', value:'no-cache, no-store, must-revalidate' }
+        ]
+      },
+      {
+        source:'/hub-offline-v1.html',
+        headers:[{ key:'Cache-Control', value:'public, max-age=31536000, immutable' }]
+      },
+      {
         source:'/api/:path*',
         headers:[
           { key:'Cache-Control', value:'private, no-store, max-age=0, must-revalidate' },
