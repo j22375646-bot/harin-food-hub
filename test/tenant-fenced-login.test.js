@@ -15,8 +15,10 @@ const USER_B='20000000-0000-4000-8000-000000000002';
 const PROFILE_A={user_id:USER_A,email:'owner-a@example.test',username:'owner-a',display_name:'Owner A',role:'OWNER',active:true};
 const PROFILE_B={user_id:USER_B,email:'owner-b@example.test',username:'owner-b',display_name:'Owner B',role:'VIEWER',active:true};
 const CONFIRMED_AT='2026-09-07T00:00:00.000Z';
-const SESSION_WINDOW=Object.freeze({issuedAt:'2026-09-08T12:00:00.000Z',expiresAt:'2026-09-09T00:00:00.000Z'});
-async function getSessionWindow(){return {...SESSION_WINDOW};}
+function sessionWindow(now=Date.now()){
+  return {issuedAt:new Date(now).toISOString(),expiresAt:new Date(now+12*60*60*1000).toISOString()};
+}
+async function getSessionWindow(){return sessionWindow();}
 
 async function authWithIndependentAppClock(offsetMs){
   const filename=path.join(__dirname,'../lib/dashboard-auth.js');
@@ -83,7 +85,7 @@ test('fenced login orders ticket, authoritative password auth, and RPC-only sess
   const state=database();
   const sessionFence={
     async beginLogin(){events.push('begin-login');return true;},
-    async getSessionWindow(){events.push('get-window');return {...SESSION_WINDOW};},
+    async getSessionWindow(){events.push('get-window');return sessionWindow();},
     async issueSession(){events.push('issue-session');return true;}
   };
   const authClient={auth:{async signInWithPassword(){events.push('password-auth');return {data:{user:providerUser(),session:{}},error:null};}}};
@@ -92,6 +94,29 @@ test('fenced login orders ticket, authoritative password auth, and RPC-only sess
   assert.equal(state.directSessionInserts,0);
   assert.equal(state.profileReads,2);
   assert.equal(auth.parseSession(result.token).userId,USER_A);
+}));
+
+test('dynamic unit window reaches the issue stage after the former fixed-fixture boundary',()=>withSecret(async()=>{
+  const previousNow=Date.now;
+  const futureNow=Date.parse('2030-01-02T03:04:05.678Z');
+  Date.now=()=>futureNow;
+  try{
+    const state=database();let windows=0,issues=0,issued;
+    const result=await auth.authenticateAccount({account:'owner-a',password:'123456'},state.db,{
+      authClient:{auth:{signInWithPassword:async()=>({data:{user:providerUser(),session:{}},error:null})}},
+      sessionFence:{
+        beginLogin:async()=>true,
+        getSessionWindow:async()=>{windows++;return sessionWindow();},
+        issueSession:async value=>{issues++;issued=value;return true;},
+      }
+    });
+    assert.equal(windows,1);assert.equal(issues,1);
+    assert.equal(issued.expiresAt,'2030-01-02T15:04:05.678Z');
+    const payload=JSON.parse(Buffer.from(result.token.split('.')[0],'base64url').toString('utf8'));
+    assert.equal(payload.exp-payload.iat,43200);
+    assert.equal(auth.parseSession(result.token,futureNow).userId,USER_A);
+    assert.equal(state.directSessionInserts,0);
+  }finally{Date.now=previousNow;}
 }));
 
 test('explicit fenced dependencies and timeouts fail closed instead of selecting legacy writes',()=>withSecret(async()=>{
@@ -364,9 +389,10 @@ test('an ambiguous late issue writes at most once and never returns its token',(
 }));
 
 test('window dependency failures never issue, insert directly, retry, or count a password failure',()=>withSecret(async()=>{
+  const valid=sessionWindow();
   const malformed=[false,null,true,[],{},
-    {issuedAt:SESSION_WINDOW.issuedAt,expiresAt:'2026-09-08T23:59:59.999Z'},
-    {issuedAt:'2026-09-08T12:00:00.000+00:00',expiresAt:SESSION_WINDOW.expiresAt}];
+    {issuedAt:valid.issuedAt,expiresAt:new Date(Date.parse(valid.expiresAt)-1).toISOString()},
+    {issuedAt:valid.issuedAt.replace('Z','+00:00'),expiresAt:valid.expiresAt}];
   for(const value of malformed){
     const state=database();let windows=0,issues=0;
     await assert.rejects(()=>auth.authenticateAccount({account:'owner-a',password:'123456'},state.db,{
@@ -391,7 +417,7 @@ test('window timeout ignores late success and cannot issue a session',()=>withSe
     fenceTimeoutMs:10
   });
   await assert.rejects(pending,error=>error.code==='LOGIN_AUTH_UNAVAILABLE');
-  late.resolve({...SESSION_WINDOW});await new Promise(resolve=>setTimeout(resolve,20));
+  late.resolve(sessionWindow());await new Promise(resolve=>setTimeout(resolve,20));
   assert.equal(windows,1);assert.equal(issues,0);assert.equal(state.failures,0);assert.equal(state.directSessionInserts,0);
 }));
 
@@ -415,19 +441,20 @@ test('token signing completes before the fenced write and expiry is canonical UT
   }
 
   await withSecret(async()=>{
+    const expectedWindow=sessionWindow();
     const result=await auth.createDatabaseSession(PROFILE_A,{
       issuedAt:'client-controlled',expiresAt:'2099-01-01T00:00:00.000Z'
     },state.db,{
-      sessionFence:{beginLogin:async()=>true,getSessionWindow,issueSession:async value=>{issued=value;return true;}},
+      sessionFence:{beginLogin:async()=>true,getSessionWindow:async()=>({...expectedWindow}),issueSession:async value=>{issued=value;return true;}},
       ticketId:'30000000-0000-4000-8000-000000000001'
     });
-    assert.equal(issued.expiresAt,SESSION_WINDOW.expiresAt);
+    assert.equal(issued.expiresAt,expectedWindow.expiresAt);
     assert.match(issued.tokenHash,/^[0-9a-f]{64}$/);
     const payload=JSON.parse(Buffer.from(result.token.split('.')[0],'base64url').toString('utf8'));
-    assert.equal(payload.iat,Date.parse(SESSION_WINDOW.issuedAt)/1000);
-    assert.equal(payload.exp,Date.parse(SESSION_WINDOW.expiresAt)/1000);
+    assert.equal(payload.iat,Math.floor(Date.parse(expectedWindow.issuedAt)/1000));
+    assert.equal(payload.exp,Math.floor(Date.parse(expectedWindow.expiresAt)/1000));
     assert.equal(payload.exp-payload.iat,43200);
-    assert.equal(result.session.expiresAt,SESSION_WINDOW.expiresAt);
+    assert.equal(result.session.expiresAt,new Date(Math.floor(Date.parse(expectedWindow.expiresAt)/1000)*1000).toISOString());
   });
 });
 
