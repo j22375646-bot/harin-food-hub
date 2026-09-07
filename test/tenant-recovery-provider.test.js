@@ -25,6 +25,13 @@ function provider(fetch,extra={}){
     callbackUrl:'https://app.example.test/auth/callback',fetch,timeoutMs:1000,now:()=>Date.parse(NOW),...extra
   });
 }
+function requestedRefresh(calls){
+  return calls.some(call=>{
+    const raw=call.url||call.path;
+    const grant=raw?new URL(raw,'https://provider.example.test').searchParams.get('grant_type'):null;
+    return grant==='refresh_token'||call.body?.grant_type==='refresh_token';
+  });
+}
 
 test('SDK wire contract fixes callback and creates a fresh nonpersistent client per operation',async()=>{
   const calls=[];
@@ -221,7 +228,7 @@ test('verified sessions require a finite expiry beyond the SDK 90-second refresh
     const p=provider(fixture({'POST /auth/v1/verify':{body:{...session,...expiry}},'POST /auth/v1/logout?scope=local':{}},calls));
     await assert.rejects(()=>p.openRecovery('token'),e=>e.code==='RECOVERY_REJECTED');
     assert.equal(calls.some(c=>c.url.includes('/admin/users/')),false);
-    assert.equal(calls.some(c=>c.body?.grant_type==='refresh_token'),false);
+    assert.equal(requestedRefresh(calls),false);
   }
 });
 
@@ -233,7 +240,7 @@ test('session expiry is rechecked immediately before update without an implicit 
   await assert.rejects(()=>handle.updatePassword('twelve-chars!'),e=>e.code==='RECOVERY_REJECTED');
   puts=calls.filter(c=>c.method==='PUT').length;
   assert.equal(puts,0);
-  assert.equal(calls.some(c=>c.body?.grant_type==='refresh_token'),false);
+  assert.equal(requestedRefresh(calls),false);
   await handle.dispose();
 });
 
@@ -252,5 +259,5 @@ test('verifyOtp response arriving after provider timeout is locally revoked exac
   assert.equal(cleanup.length,1);
   assert.equal(cleanup[0].authorization,'Bearer access-secret');
   assert.equal(calls.some(c=>c.path.includes('/admin/users/')),false);
-  assert.equal(calls.some(c=>c.body?.grant_type==='refresh_token'),false);
+  assert.equal(requestedRefresh(calls),false);
 });
