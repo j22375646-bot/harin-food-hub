@@ -105,6 +105,20 @@ test('recovery handle returned after coordinator timeout is still disposed witho
   assert.equal(calls.some(c=>c[0]==='begin'),false);
 });
 
+test('provider-expired recovery session is rejected before the fence begins',async()=>{
+  const expired=Object.assign(new Error('expired provider detail'),{code:'RECOVERY_REJECTED'});
+  const {service,calls}=setup({provider:{requestRecoveryEmail:async()=>{},confirmEmail:async()=>{},openRecovery:async()=>{throw expired;}}});
+  await assert.rejects(()=>service.completeRecovery({tokenHash:'x',newPassword:'twelve-chars!'}),e=>e.code==='RECOVERY_REJECTED'&&!e.message.includes('detail'));
+  assert.equal(calls.some(c=>c[0]==='begin'),false);
+});
+
+test('session expiring after fence begins remains review-required without completion',async()=>{
+  const expired=Object.assign(new Error('expired provider detail'),{code:'RECOVERY_REJECTED'});
+  const {service,calls}=setup({provider:{requestRecoveryEmail:async()=>{},confirmEmail:async()=>{},openRecovery:async()=>({identity,updatePassword:async()=>{throw expired;},signOutGlobal:async()=>calls.push(['signout']),currentIdentity:async()=>identity,dispose:async()=>calls.push(['dispose'])})}});
+  assert.deepEqual(await service.completeRecovery({tokenHash:'x',newPassword:'twelve-chars!'}),{status:'REVIEW_REQUIRED'});
+  assert.equal(calls.some(c=>c[0]==='signout'||c[0]==='complete'),false);
+});
+
 test('provider signout failure, changed identity, and fence errors never unlock',async()=>{
   for(const point of ['begin','signout','changed','complete']){
     const {service,calls,deps}=setup();

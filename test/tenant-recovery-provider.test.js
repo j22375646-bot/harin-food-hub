@@ -4,9 +4,10 @@ const assert = require('node:assert/strict');
 const {createSupabaseRecoveryProvider} = require('../lib/tenancy/supabase-recovery-provider.js');
 
 const USER_ID='20000000-0000-4000-8000-000000000001';
-const NOW='2026-09-08T00:00:00.000Z';
+const NOW=new Date(Math.floor(Date.now()/1000)*1000).toISOString();
 const user={id:USER_ID,email:'owner@example.test',is_anonymous:false,deleted_at:null,banned_until:null,email_confirmed_at:NOW};
-const session={access_token:'access-secret',refresh_token:'refresh-secret',expires_in:3600,user};
+const NOW_SECONDS=Date.parse(NOW)/1000;
+const session={access_token:'access-secret',refresh_token:'refresh-secret',expires_in:3600,expires_at:NOW_SECONDS+3600,user};
 
 function fixture(routes, calls=[]){
   return async (url,init={})=>{
@@ -205,4 +206,51 @@ test('SDK error-bearing update and global-signout responses are sanitized failur
     }
     await handle.dispose();
   }
+});
+
+test('verified sessions require a finite expiry beyond the SDK 90-second refresh margin',async()=>{
+  const expiries=[
+    {expires_at:1,expires_in:-1},
+    {expires_at:'not-a-number',expires_in:3600},
+    {expires_at:null,expires_in:null},
+    {expires_at:1e308,expires_in:3600},
+    {expires_at:NOW_SECONDS+90,expires_in:90},
+  ];
+  for(const expiry of expiries){
+    const calls=[];
+    const p=provider(fixture({'POST /auth/v1/verify':{body:{...session,...expiry}},'POST /auth/v1/logout?scope=local':{}},calls));
+    await assert.rejects(()=>p.openRecovery('token'),e=>e.code==='RECOVERY_REJECTED');
+    assert.equal(calls.some(c=>c.url.includes('/admin/users/')),false);
+    assert.equal(calls.some(c=>c.body?.grant_type==='refresh_token'),false);
+  }
+});
+
+test('session expiry is rechecked immediately before update without an implicit refresh',async()=>{
+  let clock=Date.parse(NOW),puts=0;const calls=[];
+  const near={...session,expires_at:NOW_SECONDS+91,expires_in:91};
+  const p=provider(fixture({'POST /auth/v1/verify':{body:near},[`GET /auth/v1/admin/users/${USER_ID}`]:{body:user},'POST /auth/v1/logout?scope=local':{}},calls),{now:()=>clock});
+  const handle=await p.openRecovery('token');clock+=2000;
+  await assert.rejects(()=>handle.updatePassword('twelve-chars!'),e=>e.code==='RECOVERY_REJECTED');
+  puts=calls.filter(c=>c.method==='PUT').length;
+  assert.equal(puts,0);
+  assert.equal(calls.some(c=>c.body?.grant_type==='refresh_token'),false);
+  await handle.dispose();
+});
+
+test('verifyOtp response arriving after provider timeout is locally revoked exactly once',async()=>{
+  const calls=[];let release;
+  const fetch=async(url,init={})=>{
+    const u=new URL(url);calls.push({path:u.pathname+u.search,body:init.body?JSON.parse(init.body):null,authorization:init.headers?.Authorization||init.headers?.authorization});
+    if(u.pathname.endsWith('/verify'))return new Promise(resolve=>{release=()=>resolve(new Response(JSON.stringify(session),{status:200,headers:{'content-type':'application/json'}}));});
+    if(u.pathname.includes('/admin/users/'))return new Response(JSON.stringify(user),{status:200,headers:{'content-type':'application/json'}});
+    return new Response(null,{status:200});
+  };
+  const p=provider(fetch,{timeoutMs:10});
+  await assert.rejects(()=>p.openRecovery('token'),e=>e.code==='RECOVERY_UNAVAILABLE');
+  release();await new Promise(r=>setTimeout(r,30));
+  const cleanup=calls.filter(c=>c.path.includes('scope=local'));
+  assert.equal(cleanup.length,1);
+  assert.equal(cleanup[0].authorization,'Bearer access-secret');
+  assert.equal(calls.some(c=>c.path.includes('/admin/users/')),false);
+  assert.equal(calls.some(c=>c.body?.grant_type==='refresh_token'),false);
 });
