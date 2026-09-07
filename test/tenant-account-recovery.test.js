@@ -114,11 +114,160 @@ test('denied, malformed, failed, or late limits stop each recovery consumer befo
 
 test('successful recovery uses server UUID and exact fenced write order, returning no token or session',async()=>{
   const {service,calls}=setup();
-  const result=await service.completeRecovery({tokenHash:'recovery-token',newPassword:'twelve-chars!'});
+  const result=await service.completeRecovery({tokenHash:'recovery-token',newPassword:'twelve-chars!',operationId:'50000000-0000-4000-8000-000000000099',status:'COMPLETED'});
   assert.deepEqual(result,{status:'COMPLETED',requiresFreshLogin:true});
   assert.deepEqual(calls.map(c=>c[0]),['limit','begin','update','signout','complete','dispose']);
   assert.deepEqual(calls.find(c=>c[0]==='begin')[1],{userId:ID,operationId:OP});
   assert.equal(JSON.stringify(result).includes('token'),false);
+});
+
+test('explicit review store is complete at construction while undefined preserves the legacy contract',async()=>{
+  assert.doesNotThrow(()=>setup());
+  for(const reviewStore of [null,{}, {start:async()=>true}, {
+    start:async()=>true,markRequired:async()=>true,complete:async()=>true,reject:null,list:async()=>[],
+  }]){
+    assert.throws(()=>setup({reviewStore}),TypeError);
+  }
+});
+
+test('review start must durably return true before fence or provider writes',async()=>{
+  for(const start of [async()=>false,async()=>undefined,async()=>{throw Error('journal secret');}]){
+    const reviewStore={start,markRequired:async()=>true,complete:async()=>true,reject:async()=>true,list:async()=>[]};
+    const {service,calls}=setup({reviewStore});
+    await assert.rejects(()=>service.completeRecovery({tokenHash:'x',newPassword:'twelve-chars!'}),error=>
+      error.code==='RECOVERY_UNAVAILABLE'&&!error.message.includes('secret'));
+    assert.equal(calls.some(call=>['begin','update','signout','complete'].includes(call[0])),false);
+    assert.equal(calls.at(-1)[0],'dispose');
+  }
+
+  const late=(()=>{let resolve;const promise=new Promise(done=>{resolve=done;});return {promise,resolve};})();
+  let starts=0;
+  const {service,calls}=setup({timeoutMs:10,reviewStore:{
+    start:()=>{starts++;return late.promise;},markRequired:async()=>true,complete:async()=>true,reject:async()=>true,list:async()=>[],
+  }});
+  await assert.rejects(()=>service.completeRecovery({tokenHash:'x',newPassword:'twelve-chars!'}),error=>error.code==='RECOVERY_UNAVAILABLE');
+  late.resolve(true);await new Promise(resolve=>setTimeout(resolve,20));
+  assert.equal(starts,1);
+  assert.equal(calls.some(call=>['begin','update','signout','complete'].includes(call[0])),false);
+});
+
+test('failure after fence risk records the fixed in-memory stage with an independent attempt',async()=>{
+  let resolveUpdate;
+  const late=new Promise(resolve=>{resolveUpdate=resolve;});
+  const stages=[];
+  const {service,calls}=setup({timeoutMs:10,reviewStore:{
+    start:async()=>true,
+    markRequired:async value=>{stages.push(value);return true;},
+    complete:async()=>true,reject:async()=>true,list:async()=>[],
+  },sessionStore:{
+    beginPasswordChange:async value=>{calls.push(['begin',value]);return true;},
+    completePasswordChange:async value=>{calls.push(['complete',value]);return true;},
+  },provider:{requestRecoveryEmail:async()=>{},confirmEmail:async()=>{},openRecovery:async()=>({
+    identity,updatePassword:()=>late,signOutGlobal:async()=>calls.push(['signout']),
+    currentIdentity:async()=>identity,dispose:async()=>calls.push(['dispose']),
+  })}});
+  assert.deepEqual(await service.completeRecovery({tokenHash:'x',newPassword:'twelve-chars!'}),{status:'REVIEW_REQUIRED'});
+  assert.deepEqual(stages,[{userId:ID,operationId:OP,stage:'PASSWORD_UPDATE'}]);
+  resolveUpdate(identity);await new Promise(resolve=>setTimeout(resolve,20));
+  assert.equal(calls.some(call=>call[0]==='signout'||call[0]==='complete'),false);
+});
+
+test('journal fallback is diagnostic-only and never leaks raw recovery material',async()=>{
+  const diagnostics=[];
+  const {service}=setup({
+    diagnostic:event=>diagnostics.push(event),
+    reviewStore:{start:async()=>true,markRequired:async()=>{throw Error('database token password secret');},complete:async()=>true,reject:async()=>true,list:async()=>[]},
+    provider:{requestRecoveryEmail:async()=>{},confirmEmail:async()=>{},openRecovery:async()=>({
+      identity,updatePassword:async()=>{throw Error('provider raw token');},signOutGlobal:async()=>{},currentIdentity:async()=>identity,dispose:async()=>{},
+    })},
+  });
+  const result=await service.completeRecovery({tokenHash:'private-token',newPassword:'twelve-chars!'});
+  assert.deepEqual(result,{status:'REVIEW_REQUIRED'});
+  assert.deepEqual(diagnostics,[{event:'RECOVERY_REVIEW_RECORD_FAILED'}]);
+  assert.equal(JSON.stringify({result,diagnostics}).includes('private-token'),false);
+  assert.equal(JSON.stringify(diagnostics).includes('secret'),false);
+});
+
+test('authoritative fence rejection classifies pending review best-effort and preserves rejection',async()=>{
+  for(const [rejectReview,expectedEvents] of [
+    [async()=>true,[]],
+    [async()=>false,[{event:'RECOVERY_REVIEW_RECORD_FAILED'}]],
+    [async()=>{throw Error('journal secret');},[{event:'RECOVERY_REVIEW_RECORD_FAILED'}]],
+  ]){
+    const events=[];
+    const providerWrites=[];
+    const transition=Object.assign(Error('fixed rejection'),{code:'AUTH_TRANSITION_REJECTED'});
+    const {service}=setup({
+      diagnostic:event=>events.push(event),
+      reviewStore:{start:async()=>true,markRequired:async()=>true,complete:async()=>true,reject:rejectReview,list:async()=>[]},
+      sessionStore:{beginPasswordChange:async()=>{throw transition;},completePasswordChange:async()=>providerWrites.push('complete')},
+      provider:{requestRecoveryEmail:async()=>{},confirmEmail:async()=>{},openRecovery:async()=>({
+        identity,updatePassword:async()=>providerWrites.push('password'),signOutGlobal:async()=>providerWrites.push('signout'),currentIdentity:async()=>identity,dispose:async()=>{},
+      })},
+    });
+    await assert.rejects(()=>service.completeRecovery({tokenHash:'x',newPassword:'twelve-chars!'}),error=>error.code==='RECOVERY_REJECTED');
+    assert.deepEqual(providerWrites,[]);
+    assert.deepEqual(events,expectedEvents);
+  }
+});
+
+test('nonliteral explicit fence and journal completions never report completed',async()=>{
+  for(const point of ['begin','fence-complete','journal-complete']){
+    const stages=[];
+    const reviewStore={
+      start:async()=>true,markRequired:async value=>{stages.push(value.stage);return true;},
+      complete:async()=>point==='journal-complete'?false:true,reject:async()=>true,list:async()=>[],
+    };
+    const sessionStore={
+      beginPasswordChange:async()=>point==='begin'?undefined:true,
+      completePasswordChange:async()=>point==='fence-complete'?undefined:true,
+    };
+    const {service}=setup({reviewStore,sessionStore});
+    assert.deepEqual(await service.completeRecovery({tokenHash:'x',newPassword:'twelve-chars!'}),{status:'REVIEW_REQUIRED'});
+    assert.deepEqual(stages,[point==='begin'?'FENCE_BEGIN':'FENCE_COMPLETE']);
+  }
+});
+
+test('explicit review records the fixed stage immediately preceding each failed risky phase',async()=>{
+  for(const [point,expectedStage] of [
+    ['begin','FENCE_BEGIN'],['password','PASSWORD_UPDATE'],['signout','PROVIDER_SIGNOUT'],
+    ['current','IDENTITY_RECHECK'],['fence-complete','FENCE_COMPLETE'],
+  ]){
+    const stages=[];
+    const reviewStore={start:async()=>true,markRequired:async value=>{stages.push(value.stage);return true;},complete:async()=>true,reject:async()=>true,list:async()=>[]};
+    const sessionStore={
+      beginPasswordChange:async()=>{if(point==='begin')throw Error('db secret');return true;},
+      completePasswordChange:async()=>{if(point==='fence-complete')throw Error('db secret');return true;},
+    };
+    const provider={requestRecoveryEmail:async()=>{},confirmEmail:async()=>{},openRecovery:async()=>({
+      identity,
+      updatePassword:async()=>{if(point==='password')throw Error('provider secret');return identity;},
+      signOutGlobal:async()=>{if(point==='signout')throw Error('provider secret');},
+      currentIdentity:async()=>{if(point==='current')throw Error('provider secret');return identity;},
+      dispose:async()=>{},
+    })};
+    const {service}=setup({reviewStore,sessionStore,provider});
+    assert.deepEqual(await service.completeRecovery({tokenHash:'x',newPassword:'twelve-chars!'}),{status:'REVIEW_REQUIRED'});
+    assert.deepEqual(stages,[expectedStage]);
+  }
+});
+
+test('ambiguous late journal completion returns review-required and is never retried',async()=>{
+  let resolveComplete;
+  const late=new Promise(resolve=>{resolveComplete=resolve;});
+  let completions=0;
+  const stages=[];
+  const reviewStore={
+    start:async()=>true,
+    markRequired:async value=>{stages.push(value.stage);return true;},
+    complete:()=>{completions++;return late;},reject:async()=>true,list:async()=>[],
+  };
+  const sessionStore={beginPasswordChange:async()=>true,completePasswordChange:async()=>true};
+  const {service}=setup({timeoutMs:10,reviewStore,sessionStore});
+  assert.deepEqual(await service.completeRecovery({tokenHash:'x',newPassword:'twelve-chars!'}),{status:'REVIEW_REQUIRED'});
+  resolveComplete(true);await new Promise(resolve=>setTimeout(resolve,20));
+  assert.equal(completions,1);
+  assert.deepEqual(stages,['FENCE_COMPLETE']);
 });
 
 test('password and token validation happen before external work without trimming password',async()=>{
