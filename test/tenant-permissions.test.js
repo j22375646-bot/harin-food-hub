@@ -75,3 +75,10 @@ test('알 수 없는 action이나 role은 fail-closed로 거부한다', async ()
     userId: 'user-1', sessionId: 'session-1', tenantId: 'tenant-1', role: 'SUPERUSER', membershipVersion: 1,
   }, 'workspace.read'));
 });
+
+test('상속 프로퍼티 이름과 non-string action도 안정적인 PERMISSION_DENIED로 거부한다', async () => {
+  const owner = await contextFor('OWNER');
+  for (const action of ['toString', 'constructor', '__proto__', null, 1, {}, Symbol('workspace.read')]) {
+    denied(() => authorizeAction(owner, action));
+  }
+});

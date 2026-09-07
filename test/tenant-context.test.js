@@ -151,3 +151,75 @@ test('membership 저장소 오류를 안전한 오류로 감싸고 원문을 노
     }
   );
 });
+
+test('지연된 membership 조회 중 caller가 session을 바꿔도 검증된 식별자 snapshot만 사용한다', async () => {
+  const session = validSession();
+  let releaseLookup;
+  let lookupStarted;
+  const started = new Promise(resolve => { lookupStarted = resolve; });
+  const lookupGate = new Promise(resolve => { releaseLookup = resolve; });
+  const resolving = resolveTenantContext(
+    { session, requestedTenantId: 'tenant-1' },
+    {
+      findMembership: async () => {
+        lookupStarted();
+        await lookupGate;
+        return activeMembership();
+      },
+      now: () => NOW,
+    }
+  );
+
+  await started;
+  session.id = 'attacker-session';
+  session.userId = 'attacker-user';
+  session.expiresAt = '2027-01-01T00:00:00.000Z';
+  releaseLookup();
+
+  assert.deepEqual(await resolving, {
+    userId: 'user-1',
+    sessionId: 'session-1',
+    tenantId: 'tenant-1',
+    role: 'OPERATOR',
+    membershipVersion: 3,
+  });
+});
+
+test('membership 조회 중 세션이 만료되면 조회 시작 시 유효했어도 context를 발급하지 않는다', async () => {
+  let currentTime = new Date('2026-09-07T00:59:59.000Z');
+  await rejectsWith(
+    () => resolveTenantContext(
+      { session: validSession(), requestedTenantId: 'tenant-1' },
+      {
+        findMembership: async () => {
+          currentTime = new Date('2026-09-07T01:00:00.000Z');
+          return activeMembership();
+        },
+        now: () => currentTime,
+      }
+    ),
+    'AUTH_REQUIRED',
+    401
+  );
+});
+
+test('식별자의 leading 또는 trailing whitespace는 정규화하지 않고 거부한다', async () => {
+  for (const session of [validSession({ id: ' session-1' }), validSession({ userId: 'user-1 ' })]) {
+    await rejectsWith(
+      () => resolveTenantContext(
+        { session, requestedTenantId: 'tenant-1' },
+        { findMembership: async () => activeMembership(), now: () => NOW }
+      ),
+      'AUTH_REQUIRED',
+      401
+    );
+  }
+  await rejectsWith(
+    () => resolveTenantContext(
+      { session: validSession(), requestedTenantId: ' tenant-1' },
+      { findMembership: async () => activeMembership(), now: () => NOW }
+    ),
+    'TENANT_REQUIRED',
+    400
+  );
+});

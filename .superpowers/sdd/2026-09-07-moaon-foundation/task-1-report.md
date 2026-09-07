@@ -5,6 +5,9 @@
 - `resolveTenantContext`가 서버 세션과 매 호출 조회한 membership을 검증한 뒤 동결된 요청 단위 context를 발급한다.
 - 발급 context는 비공개 `WeakSet`의 객체 동일성으로 확인하며, 임의 객체·복제본·프로토타입 객체를 신뢰하지 않는다.
 - `authorizeAction`은 명시된 네 action과 역할 조합만 허용하고 나머지는 `PERMISSION_DENIED`로 fail-closed 처리한다.
+- 비동기 membership 조회 전에 검증된 세션 primitive를 snapshot하고, 조회 완료 뒤 동일한 만료시각을 새 clock으로 다시 확인한다.
+- 세션/사업장 식별자의 경계 공백은 정규화하지 않고 거부한다. 따라서 조회 키와 발급 context의 식별자가 caller 입력과 애매하게 달라지지 않는다.
+- action은 primitive string과 `Map`의 명시된 키만 허용하므로 `toString`, `constructor`, `__proto__` 및 non-string 입력도 안정적인 권한 오류로 거부한다.
 - DB, 환경변수, 네트워크, 기존 인증, 라우트에는 연결하지 않았다. 실사용 다사업장 기능이 아니라 후속 서버 통합을 위한 준비 계약이다.
 
 ## TDD 증거
@@ -13,7 +16,11 @@
   - 신규 두 테스트 파일이 `Cannot find module '../lib/tenancy/context.js'`로 실패했다.
   - 당시 전체 집계: 1953 tests, 1948 pass, 2 fail, 3 skipped.
 - GREEN: `node --test test/tenant-context.test.js test/tenant-permissions.test.js`
-  - 13 tests, 13 pass, 0 fail, 0 skipped.
+  - 최초 구현: 13 tests, 13 pass, 0 fail, 0 skipped.
+- 독립 리뷰 RED: 지연 조회 중 세션 변조·만료, 경계 공백 식별자, 상속 프로퍼티/non-string action 테스트를 추가했다.
+  - 17 tests 중 4 fail로 각 결함을 재현했다.
+- 독립 리뷰 GREEN: `node --test test/tenant-context.test.js test/tenant-permissions.test.js`
+  - 17 tests, 17 pass, 0 fail, 0 skipped.
 
 ## 안정 오류 계약
 
