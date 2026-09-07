@@ -264,10 +264,14 @@ test('prior request limiter denial prevents profile lookup and canonical quota c
 });
 
 test('canonical denial, malformed response, or rejection stops provider, fence, and session work', () => withSecret(async () => {
+  const inheritedAllowed = Object.assign(Object.create({allowed: true}), {extra: false});
+  const symbolExtra = {allowed: true, [Symbol('extra')]: false};
   const cases = [
     [async () => ({allowed: false}), 'LOGIN_RATE_LIMITED', 429],
     [async () => ({allowed: true, extra: false}), 'LOGIN_AUTH_UNAVAILABLE', 503],
     [async () => [{allowed: true}], 'LOGIN_AUTH_UNAVAILABLE', 503],
+    [async () => inheritedAllowed, 'LOGIN_AUTH_UNAVAILABLE', 503],
+    [async () => symbolExtra, 'LOGIN_AUTH_UNAVAILABLE', 503],
     [async () => { throw new Error('secret canonical limiter detail'); }, 'LOGIN_AUTH_UNAVAILABLE', 503],
   ];
   for (const [accountLimit, code, status] of cases) {
