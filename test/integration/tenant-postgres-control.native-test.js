@@ -14,6 +14,8 @@ const {
 } = require('../../lib/tenancy/control-store.js');
 const {
   cleanupNativeResources,
+  createNativeBarrierPool,
+  useAndClose,
 } = require('./postgres-native-harness-safety.js');
 
 const IDS = Object.freeze({
@@ -92,19 +94,6 @@ async function verifySession(credential) {
   return sessions[credential] || null;
 }
 
-function createBarrier(parties) {
-  let arrivals = 0;
-  let release;
-  const ready = new Promise(resolve => { release = resolve; });
-  return {
-    async arrive() {
-      arrivals += 1;
-      if (arrivals === parties) release();
-      await ready;
-    },
-  };
-}
-
 function createBarrierPool(connectionString, matcher, evidence) {
   const rawPool = new Pool({
     connectionString,
@@ -114,35 +103,7 @@ function createBarrierPool(connectionString, matcher, evidence) {
     idleTimeoutMillis: 1000,
     allowExitOnIdle: true,
   });
-  const barrier = createBarrier(2);
-  return {
-    on(event, listener) {
-      rawPool.on(event, listener);
-      return this;
-    },
-    async connect() {
-      const raw = await rawPool.connect();
-      const pid = (await raw.query('select pg_backend_pid() as pid')).rows[0].pid;
-      let waited = false;
-      return {
-        async query(text, values) {
-          const sql = String(text);
-          if (!waited && matcher(sql)) {
-            waited = true;
-            evidence.push(pid);
-            await barrier.arrive();
-          }
-          return raw.query(text, values);
-        },
-        release(destroy) {
-          raw.release(destroy);
-        },
-      };
-    },
-    end() {
-      return rawPool.end();
-    },
-  };
+  return createNativeBarrierPool({ rawPool, matcher, evidence });
 }
 
 const supervisorUrl = validateSupervisorUrl(process.env.MOAON_TEST_POSTGRES_URL);
@@ -214,7 +175,13 @@ async function runRace(matcher, operationA, operationB) {
   const database = createAdapter({ testPool });
   const store = createStore(database);
   try {
-    const settled = await Promise.allSettled([operationA(store), operationB(store)]);
+    const guarded = operation => Promise.resolve()
+      .then(() => operation(store))
+      .catch(error => {
+        testPool.abortBarrier();
+        throw error;
+      });
+    const settled = await Promise.allSettled([guarded(operationA), guarded(operationB)]);
     assert.equal(new Set(backendPids).size, 2);
     assert.equal(backendPids.length, 2);
     return { settled, backendPids };
@@ -344,9 +311,10 @@ test('native PostgreSQL 17 server와 제한 역할 metadata를 실제로 검증�
 });
 
 test('같은 초대를 서로 다른 backend에서 동시에 수락해 membership/audit 하나만 남긴다', async t => {
-  const setupDatabase = createAdapter();
-  const invitation = await createInvitation(createStore(setupDatabase));
-  await setupDatabase.close();
+  const invitation = await useAndClose(
+    createAdapter(),
+    setupDatabase => createInvitation(createStore(setupDatabase))
+  );
 
   const { settled, backendPids } = await runRace(
     sql => /from moaon_control\.tenants[\s\S]*for update/i.test(sql),
@@ -402,9 +370,10 @@ test('두 active OWNER의 동시 self-demote 뒤에도 active OWNER가 남는다
 });
 
 test('초대 accept와 revoke 경합은 하나의 일관된 terminal state만 남긴다', async t => {
-  const setupDatabase = createAdapter();
-  const invitation = await createInvitation(createStore(setupDatabase));
-  await setupDatabase.close();
+  const invitation = await useAndClose(
+    createAdapter(),
+    setupDatabase => createInvitation(createStore(setupDatabase))
+  );
 
   const { settled, backendPids } = await runRace(
     sql => /from moaon_control\.tenants[\s\S]*for update/i.test(sql),

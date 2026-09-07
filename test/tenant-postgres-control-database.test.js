@@ -8,7 +8,10 @@ const {
 } = require('../lib/tenancy/postgres-control-database.js');
 const {
   cleanupNativeResources,
+  createBoundedBarrier,
+  createNativeBarrierPool,
   NativeHarnessCleanupError,
+  useAndClose,
 } = require('./integration/postgres-native-harness-safety.js');
 
 const SAFE_ROLE = Object.freeze({
@@ -522,4 +525,63 @@ test('native cleanup은 한 단계가 실패해도 모든 owned resource를 시�
   assert.equal(statements.some(sql => /drop role if exists moaon_control_app/i.test(sql)), true);
   assert.equal(statements.some(sql => /drop role if exists "moaon_test_public_1234"/i.test(sql)), true);
   assert.equal(statements.includes('SUPERVISOR_END'), true);
+});
+
+test('native race barrier는 참가자 누락과 명시 실패에서 대기자를 bounded하게 해제한다', async () => {
+  const timedBarrier = createBoundedBarrier(2, { timeoutMs: 20 });
+  const startedAt = Date.now();
+  await assert.rejects(timedBarrier.arrive(), error => {
+    assert.equal(error.code, 'NATIVE_BARRIER_FAILED');
+    assert.doesNotMatch(error.message, /secret|query|password/i);
+    return true;
+  });
+  assert.equal(Date.now() - startedAt < 500, true);
+
+  const abortedBarrier = createBoundedBarrier(2, { timeoutMs: 500 });
+  const waiting = abortedBarrier.arrive();
+  abortedBarrier.abort();
+  await assert.rejects(waiting, error => error.code === 'NATIVE_BARRIER_FAILED');
+});
+
+test('native barrier pool은 backend PID 조회 실패 client를 destroy하고 닫힘을 위임한다', async () => {
+  const rawClient = {
+    releases: [],
+    async query() {
+      throw new Error('synthetic pid lookup failure');
+    },
+    release(destroy) {
+      this.releases.push(destroy === true);
+    },
+  };
+  const rawPool = {
+    ends: 0,
+    on() {},
+    async connect() { return rawClient; },
+    async end() { this.ends += 1; },
+  };
+  const pool = createNativeBarrierPool({
+    rawPool,
+    matcher: () => true,
+    evidence: [],
+    barrierTimeoutMs: 20,
+  });
+
+  await assert.rejects(() => pool.connect(), /synthetic pid lookup failure/);
+  assert.deepEqual(rawClient.releases, [true]);
+  await pool.end();
+  assert.equal(rawPool.ends, 1);
+});
+
+test('native setup resource는 invitation 준비가 실패해도 항상 닫힌다', async () => {
+  const resource = {
+    closes: 0,
+    async close() { this.closes += 1; },
+  };
+  await assert.rejects(
+    () => useAndClose(resource, async () => {
+      throw new Error('synthetic invitation preparation failure');
+    }),
+    /synthetic invitation preparation failure/
+  );
+  assert.equal(resource.closes, 1);
 });

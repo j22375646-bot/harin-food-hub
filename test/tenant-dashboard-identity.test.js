@@ -577,3 +577,91 @@ test('adapter의 미확인 이메일은 control-store 초대 수락에서 member
     await database.close();
   }
 });
+
+function controlDatabaseProbe() {
+  const calls = [];
+  let transactions = 0;
+  return {
+    calls,
+    get transactions() { return transactions; },
+    async query(sql) {
+      calls.push(String(sql));
+      if (/clock_timestamp/i.test(sql)) {
+        return { rows: [{ database_now: new Date(NOW).toISOString() }] };
+      }
+      return { rows: [] };
+    },
+    async transaction(callback) {
+      transactions += 1;
+      return callback(this);
+    },
+  };
+}
+
+async function expectComposedStoreFailure({ verifySession, code, status }) {
+  const database = controlDatabaseProbe();
+  const store = createTenantControlStore({ database, verifySession });
+  await assert.rejects(
+    () => store.findMembership({
+      sessionCredential: 'opaque-dashboard-session',
+      tenantId: '10000000-0000-4000-8000-000000000001',
+    }),
+    error => {
+      assert.equal(error.code, code);
+      assert.equal(error.status, status);
+      assert.doesNotMatch(error.message, /provider|secret|timeout|select|dashboard/i);
+      return true;
+    }
+  );
+  assert.equal(database.transactions, 0);
+  assert.equal(database.calls.length, 1);
+  assert.match(database.calls[0], /clock_timestamp/i);
+}
+
+test('composed identity dependency 실패는 membership SQL 없이 안전한 503을 보존한다', async () => {
+  const verifySession = verifier({
+    db: profileDb(async () => ({
+      data: null,
+      error: new Error('provider-secret profile failure'),
+    })),
+  });
+  await expectComposedStoreFailure({
+    verifySession,
+    code: 'IDENTITY_UNAVAILABLE',
+    status: 503,
+  });
+});
+
+test('composed identity timeout은 membership SQL 없이 안전한 503을 보존한다', async () => {
+  const verifySession = verifier({
+    timeoutMs: 20,
+    authAdmin: {
+      async getUserById() {
+        return new Promise(() => {});
+      },
+    },
+  });
+  await expectComposedStoreFailure({
+    verifySession,
+    code: 'IDENTITY_UNAVAILABLE',
+    status: 503,
+  });
+});
+
+test('composed identity 인증 거부와 duck-typed provider 오류는 계속 안전한 401이다', async () => {
+  await expectComposedStoreFailure({
+    verifySession: verifier({ sessionValues: [null] }),
+    code: 'AUTH_REQUIRED',
+    status: 401,
+  });
+  await expectComposedStoreFailure({
+    verifySession: async () => {
+      throw Object.assign(new Error('provider-secret'), {
+        code: 'IDENTITY_UNAVAILABLE',
+        status: 503,
+      });
+    },
+    code: 'AUTH_REQUIRED',
+    status: 401,
+  });
+});
