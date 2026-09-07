@@ -17,7 +17,7 @@
 - Operate only in the existing isolated worktree on codex/moaon-p1-04-3, base 146b9103f6f242415987686fd599e05add012748.
 - Session tickets are not proof of password authentication. Generate them on the server before password authentication, never accept them from the HTTP request or user metadata.
 - Once explicitly opted into the fence, any invalid dependency, timeout, rejection or unknown result must fail closed; never fall back to direct dashboard_sessions inserts.
-- Do not apply or alter candidate SQL or add public signup/recovery routes in this slice. P2 business-data isolation and hosted SMTP/HTTP acceptance remain closed gates.
+- Do not apply candidate SQL or add public signup/recovery routes in this slice. Review amendment: a minimal unapplied candidate SQL/store contract change is allowed to bind the verified profile atomically at issue time. P2 business-data isolation and hosted SMTP/HTTP acceptance remain closed gates.
 - Keep secrets/provider tokens/passwords out of errors, logs and response metadata. Return the existing signed dashboard cookie only after a confirmed session write.
 
 ## Task 1: Compose fenced login and complete the deferred refresh assertion
@@ -55,5 +55,9 @@ assert.equal(await countUsableSessions(USER_B), 1);
 - [ ] Run focused tests RED then GREEN, then full suite once. Append exact commands/counts, current issuer inventory, self-review, and any activation limitations to assigned task report. Commit only task implementation/tests. Do not dispatch subagents.
 
 ## Controller validation and release
+
+### Review amendment (2026-09-08)
+
+The pre-sign profile read alone leaves a race before SQL issues the session. Extend the issue contract with the server-verified expected profile (or an equivalent deterministic fingerprint), compare all identity/token-relevant fields against the locked current profile and reject mismatches before inserting/consuming the ticket. Keep existing lock ordering and prior store caller compatibility explicit and tested; the actual fenced login must always bind its expected profile. Candidate SQL remains unapplied. Also reject error-free but structurally incomplete provider success as unavailable without increasing wrong-password attempts, and add the missing provider ID mismatch regression. App/DB expiry clock skew is a separately recorded activation gate, not permission to weaken expiry checks.
 
 Baseline focused authentication/recovery tests: 45/45 pass. Reuse existing dependencies/worktree; no new hosted branch. Perform task review, bounded fixes and final whole-branch review. Run build then full suite (not concurrently, because three pre-existing tests inspect build artifacts), commit release documentation, push/tag and verify deployment exact SHA/version plus unauthenticated route protections. Remaining work includes runtime SQL/config cutover of all issuers, durable atomic request limiting, operator recovery review, real allowed-recipient SMTP/link validation, HTTP/CSRF and P2 isolation. Clearly say this optional composition is not production activation.
