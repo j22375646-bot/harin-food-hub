@@ -10,6 +10,16 @@
 
 **Spec:** `../specs/2026-09-07-multi-business-desktop-hub-design.md`, `../specs/2026-09-07-desktop-business-ui-design.md`. 출력/설치 상세는 기존 `2026-09-07-windows-private-hub-roadmap.md` W1~W7을 재사용하되 사업장 경계를 추가한다.
 
+## 실행 번호별 기록
+
+| 실행 단위 | 범위 | 기록 |
+|---|---|---|
+| 첫 기반 릴리스 / 1.40.0 | 모아온 이름, 요청별 사업장 권한 검사 기반. 다사업장 실사용은 미개방 | [첫 보고서](./2026-09-07-moaon-first-development-report.md) |
+| P1-02 / 1.41.0 | 내부 회원·초대 SQL 저장 기반과 로컬 검증. 실제 DB/인증 연결과 가입 UI는 별도 게이트 | [실행 계획](./2026-09-07-moaon-membership-storage.md), [개발 보고서](./2026-09-07-moaon-p1-02-development-report.md) |
+| P1-03 / 다음 | 제한 역할의 실제 DB adapter, 검증된 이메일/세션 연결, 다중 연결 경합 시험 | [진입 조건](../specs/2026-09-07-moaon-account-integration-gates.md) |
+
+실행 단위 완료와 P1 전체/G1 통과는 다르다. P2의 모든 업무 자료 격리 전에는 다른 실사업장을 개방하지 않는다.
+
 ## Global Constraints
 
 - 최초 산출물은 계획 문서였으며, 현재 사용자 승인으로 단계별 구현에 착수했다. 미검증 DB 전환·실업무 실행은 승인된 안전 조건 없이 수행하지 않는다.
