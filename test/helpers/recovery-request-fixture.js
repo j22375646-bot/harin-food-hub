@@ -1,6 +1,8 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const path = require('node:path');
 const {PGlite} = require('@electric-sql/pglite');
 const dashboardAuth = require('../../lib/dashboard-auth.js');
 const {
@@ -61,7 +63,9 @@ function rpcFor(db, onCall = () => {}) {
   return {async rpc(name, args) {
     onCall(name, args);
     try {
-      const values = name === 'moaon_inspect_recovery_review'
+      const values = name === 'moaon_consume_recovery_review'
+        ? [args.p_operator_id, args.p_session_id, args.p_mode]
+        : name === 'moaon_inspect_recovery_review'
         ? [args.p_operator_id, args.p_user_id, args.p_operation_id]
         : [args.p_operator_id, args.p_user_id, args.p_operation_id, args.p_resolution_id,
           args.p_expected_version, args.p_action];
@@ -102,6 +106,7 @@ async function prepareRequestDatabase() {
   const db = new PGlite();
   await db.exec('create role anon; create role authenticated; create role service_role bypassrls; create schema auth; create table auth.users(id uuid primary key);');
   await install(db);
+  await db.exec(await fs.readFile(path.join(__dirname, '../../lib/tenancy/sql/recovery-review-admission.sql'), 'utf8'));
   await seed(db);
   await db.exec('set role service_role');
   return db;

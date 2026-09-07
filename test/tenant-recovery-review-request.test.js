@@ -30,6 +30,25 @@ function identity(overrides = {}) {
   };
 }
 
+function proof(overrides = {}) {
+  return {
+    userId: OPERATOR,
+    sessionId: SESSION,
+    method: 'mfa',
+    verifiedAt: '2026-09-08T11:59:00.000Z',
+    expiresAt: '2026-09-08T12:04:00.000Z',
+    ...overrides,
+  };
+}
+
+function liveProof() {
+  const current = Date.now();
+  return proof({
+    verifiedAt: new Date(current - 1_000).toISOString(),
+    expiresAt: new Date(current + 60_000).toISOString(),
+  });
+}
+
 function inspection(overrides = {}) {
   return {
     userId: USER,
@@ -66,8 +85,10 @@ function dependencies(overrides = {}) {
   return {
     allowedOrigin: ORIGIN,
     verifySession: async () => identity(),
+    verifyStepUp: async () => proof(),
     rpcClient: {async rpc(name) {
-      return {data: name === 'moaon_inspect_recovery_review' ? inspection() : {
+      return {data: name === 'moaon_consume_recovery_review' ? true
+        : name === 'moaon_inspect_recovery_review' ? inspection() : {
         userId: USER,
         operationId: OPERATION,
         resolutionId: RESOLUTION,
@@ -91,11 +112,245 @@ async function expectError(response, status, code) {
   assert.equal(response.headers.has('location'), false);
 }
 
+test('factory rejects a recovery review handler without a step-up authority', () => {
+  const {verifySession, rpcClient, allowedOrigin} = dependencies();
+  assert.throws(
+    () => createRecoveryReviewRequestHandler({verifySession, rpcClient, allowedOrigin}),
+    TypeError
+  );
+});
+
+test('missing step-up proof returns STEP_UP_REQUIRED before recovery resolution', async () => {
+  let resolutionCalls = 0;
+  const handler = createRecoveryReviewRequestHandler(dependencies({
+    verifyStepUp: async () => null,
+    rpcClient: {async rpc() {
+      resolutionCalls += 1;
+      return {data: inspection(), error: null};
+    }},
+  }));
+
+  const response = await handler(request());
+
+  assert.equal(response.status, 403);
+  assert.equal(resolutionCalls, 0);
+  assert.deepEqual(await response.json(), {ok: false, code: 'STEP_UP_REQUIRED'});
+});
+
+test('step-up proof rejects absent, cross-session, stale, future, expired and non-mfa evidence before SQL', async () => {
+  const cases = [
+    [undefined, 403],
+    [false, 403],
+    [proof({userId: USER}), 403],
+    [proof({sessionId: '30000000-0000-4000-8000-000000000009'}), 403],
+    [proof({method: 'password'}), 403],
+    [proof({verifiedAt: '2026-09-08T12:00:00.001Z', expiresAt: '2026-09-08T12:04:00.001Z'}), 403],
+    [proof({verifiedAt: '2026-09-08T11:55:00.000Z', expiresAt: '2026-09-08T12:00:00.000Z'}), 403],
+    [proof({expiresAt: '2026-09-08T12:00:00.000Z'}), 403],
+  ];
+  for (const [evidence, status] of cases) {
+    let resolutionCalls = 0;
+    const handler = createRecoveryReviewRequestHandler(dependencies({
+      verifyStepUp: async context => {
+        assert.deepEqual(context, {userId: OPERATOR, sessionId: SESSION});
+        assert.equal(Object.isFrozen(context), true);
+        return evidence;
+      },
+      rpcClient: {async rpc() { resolutionCalls += 1; return {data: inspection(), error: null}; }},
+    }));
+    const response = await handler(request());
+    await expectError(response, status, 'STEP_UP_REQUIRED');
+    assert.equal(resolutionCalls, 0);
+  }
+});
+
+test('malformed step-up authority evidence is sanitized before SQL', async () => {
+  const symbol = Symbol('hidden');
+  const malformed = [
+    {},
+    [],
+    {...proof(), extra: true},
+    Object.assign(proof(), {[symbol]: true}),
+    proof({userId: 'bad'}),
+    proof({sessionId: '30000000-0000-9000-8000-000000000001'}),
+    proof({method: 1}),
+    proof({verifiedAt: '2026-09-08T11:59:00Z'}),
+    proof({expiresAt: '2026-09-08T12:04:00Z'}),
+    proof({expiresAt: '2026-09-08T11:59:00.000Z'}),
+    proof({verifiedAt: '2026-09-08T11:59:00.000Z', expiresAt: '2026-09-08T12:04:00.001Z'}),
+  ];
+  const throwing = proof();
+  Object.defineProperty(throwing, 'expiresAt', {enumerable: true, get() { throw new Error('private proof store'); }});
+  malformed.push(throwing);
+  for (const evidence of malformed) {
+    let resolutionCalls = 0;
+    const handler = createRecoveryReviewRequestHandler(dependencies({
+      verifyStepUp: async () => evidence,
+      rpcClient: {async rpc() { resolutionCalls += 1; return {data: inspection(), error: null}; }},
+    }));
+    await expectError(await handler(request()), 503, 'RECOVERY_REVIEW_UNAVAILABLE');
+    assert.equal(resolutionCalls, 0);
+  }
+});
+
+test('step-up evidence values are copied once before a successful request', async () => {
+  const reads = new Map();
+  const evidence = {};
+  for (const [key, value] of Object.entries(proof())) Object.defineProperty(evidence, key, {
+    enumerable: true,
+    get() { reads.set(key, (reads.get(key) || 0) + 1); return value; },
+  });
+  const response = await createRecoveryReviewRequestHandler(dependencies({
+    verifyStepUp: async () => evidence,
+  }))(request());
+  assert.equal(response.status, 200);
+  assert.deepEqual(Object.fromEntries(reads), Object.fromEntries(Object.keys(proof()).map(key => [key, 1])));
+});
+
+test('admission denial returns a fixed retry window and never dispatches resolution', async () => {
+  const calls = [];
+  const handler = createRecoveryReviewRequestHandler(dependencies({
+    rpcClient: {async rpc(name, args) {
+      calls.push({name, args});
+      return {data: false, error: null};
+    }},
+  }));
+
+  const response = await handler(request());
+
+  await expectError(response, 429, 'RECOVERY_REVIEW_RATE_LIMITED');
+  assert.equal(response.headers.get('retry-after'), '60');
+  assert.deepEqual(calls, [{name: 'moaon_consume_recovery_review', args: {
+    p_operator_id: OPERATOR,
+    p_session_id: SESSION,
+    p_mode: 'inspect',
+  }}]);
+});
+
+test('successful request verifies identity, proof, admission, identity again, then resolution', async () => {
+  const events = [];
+  let identityCalls = 0;
+  const handler = createRecoveryReviewRequestHandler(dependencies({
+    verifySession: async credential => {
+      assert.equal(credential, COOKIE);
+      identityCalls += 1;
+      events.push(`identity:${identityCalls}`);
+      return identity();
+    },
+    verifyStepUp: async context => {
+      assert.deepEqual(context, {userId: OPERATOR, sessionId: SESSION});
+      events.push('proof');
+      return proof();
+    },
+    rpcClient: {async rpc(name, args) {
+      events.push(name);
+      if (name === 'moaon_consume_recovery_review') {
+        assert.deepEqual(args, {p_operator_id: OPERATOR, p_session_id: SESSION, p_mode: 'inspect'});
+        return {data: true, error: null};
+      }
+      return {data: inspection(), error: null};
+    }},
+  }));
+
+  assert.equal((await handler(request())).status, 200);
+  assert.deepEqual(events, [
+    'identity:1',
+    'proof',
+    'moaon_consume_recovery_review',
+    'identity:2',
+    'moaon_inspect_recovery_review',
+  ]);
+});
+
+test('identity recheck failures after admission never dispatch resolution', async () => {
+  const cases = [
+    [null, 401, 'AUTH_REQUIRED'],
+    [identity({id: '30000000-0000-4000-8000-000000000009'}), 401, 'AUTH_REQUIRED'],
+    [identity({userId: USER}), 401, 'AUTH_REQUIRED'],
+    [identity({email: 'changed@example.test'}), 401, 'AUTH_REQUIRED'],
+    [identity({emailVerified: false}), 401, 'AUTH_REQUIRED'],
+    [identity({expiresAt: '2026-09-08T12:00:00.000Z'}), 401, 'AUTH_REQUIRED'],
+    [identity({expiresAt: '2026-09-08T13:00:00Z'}), 503, 'RECOVERY_REVIEW_UNAVAILABLE'],
+    [{...identity(), extra: true}, 503, 'RECOVERY_REVIEW_UNAVAILABLE'],
+  ];
+  for (const [second, status, code] of cases) {
+    let identityCalls = 0;
+    const rpcNames = [];
+    const handler = createRecoveryReviewRequestHandler(dependencies({
+      verifySession: async () => (++identityCalls === 1 ? identity() : second),
+      rpcClient: {async rpc(name) {
+        rpcNames.push(name);
+        return {data: name === 'moaon_consume_recovery_review' ? true : inspection(), error: null};
+      }},
+    }));
+    await expectError(await handler(request()), status, code);
+    assert.deepEqual(rpcNames, ['moaon_consume_recovery_review']);
+  }
+});
+
+test('proof and initial session expiry cannot be extended while admission or identity recheck waits', async t => {
+  await t.test('proof expires after admission dispatch', async () => {
+    let current = NOW;
+    const rpcNames = [];
+    const handler = createRecoveryReviewRequestHandler(dependencies({
+      now: () => current,
+      verifyStepUp: async () => proof({
+        verifiedAt: '2026-09-08T11:59:59.000Z',
+        expiresAt: '2026-09-08T12:00:00.005Z',
+      }),
+      rpcClient: {async rpc(name) {
+        rpcNames.push(name);
+        if (name === 'moaon_consume_recovery_review') current = NOW + 5;
+        return {data: name === 'moaon_consume_recovery_review' ? true : inspection(), error: null};
+      }},
+    }));
+    await expectError(await handler(request()), 403, 'STEP_UP_REQUIRED');
+    assert.deepEqual(rpcNames, ['moaon_consume_recovery_review']);
+  });
+
+  await t.test('initial session expiry wins over a longer rechecked expiry', async () => {
+    let current = NOW;
+    let identityCalls = 0;
+    const rpcNames = [];
+    const handler = createRecoveryReviewRequestHandler(dependencies({
+      now: () => current,
+      verifySession: async () => {
+        identityCalls += 1;
+        if (identityCalls === 2) current = NOW + 5;
+        return identity({expiresAt: identityCalls === 1
+          ? '2026-09-08T12:00:00.005Z' : '2026-09-08T13:00:00.000Z'});
+      },
+      rpcClient: {async rpc(name) {
+        rpcNames.push(name);
+        return {data: name === 'moaon_consume_recovery_review' ? true : inspection(), error: null};
+      }},
+    }));
+    await expectError(await handler(request()), 401, 'AUTH_REQUIRED');
+    assert.deepEqual(rpcNames, ['moaon_consume_recovery_review']);
+  });
+});
+
+test('malformed or failed admission stays sanitized and never starts resolution', async () => {
+  for (const result of [
+    {data: 1, error: null},
+    {data: true},
+    {data: true, error: {message: 'private admission SQL'}},
+  ]) {
+    const rpcNames = [];
+    const handler = createRecoveryReviewRequestHandler(dependencies({
+      rpcClient: {async rpc(name) { rpcNames.push(name); return result; }},
+    }));
+    await expectError(await handler(request()), 503, 'RECOVERY_REVIEW_UNAVAILABLE');
+    assert.deepEqual(rpcNames, ['moaon_consume_recovery_review']);
+  }
+});
+
 test('missing dashboard cookie returns AUTH_REQUIRED without dispatching recovery SQL', async () => {
   let rpcCalls = 0;
   const handler = createRecoveryReviewRequestHandler({
     allowedOrigin: ORIGIN,
     verifySession: async () => { throw new Error('must not verify'); },
+    verifyStepUp: async () => { throw new Error('must not verify step-up'); },
     rpcClient: {async rpc() { rpcCalls += 1; throw new Error('must not dispatch'); }},
   });
 
@@ -121,6 +376,7 @@ test('factory requires exact trusted server dependencies and a canonical HTTPS o
     undefined,
     {},
     {...valid, verifySession: null},
+    {...valid, verifyStepUp: null},
     {...valid, rpcClient: {}},
     {...valid, allowedOrigin: 'http://hub.example.test'},
     {...valid, allowedOrigin: 'https://hub.example.test/'},
@@ -190,7 +446,9 @@ test('media, encoding and declared/body byte limits reject before identity or SQ
   let calls = 0;
   const handler = createRecoveryReviewRequestHandler(dependencies({
     verifySession: async () => {verified += 1; return identity();},
-    rpcClient: {async rpc() {calls += 1; return {data: inspection(), error: null};}},
+    rpcClient: {async rpc(name) {calls += 1; return {
+      data: name === 'moaon_consume_recovery_review' ? true : inspection(), error: null,
+    };}},
   }));
   for (const contentType of ['text/plain', 'application/json; charset=latin1', 'application/json; charset=utf-8; profile=x', 'application/json, text/plain']) {
     await expectError(await handler(request(undefined, {headers: {'content-type': contentType}})), 415, 'UNSUPPORTED_MEDIA_TYPE');
@@ -202,8 +460,8 @@ test('media, encoding and declared/body byte limits reject before identity or SQ
   }
   await expectError(await handler(request(undefined, {headers: {'content-length': '4097'}})), 413, 'REQUEST_TOO_LARGE');
   await expectError(await handler(request(undefined, {body: JSON.stringify({pad: 'x'.repeat(5000)})})), 413, 'REQUEST_TOO_LARGE');
-  assert.equal(calls, 1);
-  assert.equal(verified, 1);
+  assert.equal(calls, 2);
+  assert.equal(verified, 2);
 });
 
 test('cookie parsing rejects duplication, mixing and ambiguous values while passing the raw cookie octets', async () => {
@@ -258,14 +516,20 @@ test('the last duplicate JSON key is validated and copied values alone reach fre
   const calls = [];
   const handler = createRecoveryReviewRequestHandler(dependencies({
     verifySession: async value => {assert.equal(value, COOKIE); return source;},
-    rpcClient: {async rpc(name, args) {calls.push({name, args}); return {data: inspection(), error: null};}},
+    rpcClient: {async rpc(name, args) {calls.push({name, args}); return {
+      data: name === 'moaon_consume_recovery_review' ? true : inspection(), error: null,
+    };}},
   }));
   const duplicate = `{"mode":"resolve","mode":"inspect","userId":"${USER.toUpperCase()}","operationId":"${OPERATION.toUpperCase()}"}`;
   const response = await handler(request(undefined, {body: duplicate}));
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), {ok: true, data: inspection()});
-  assert.deepEqual(Object.fromEntries(reads), Object.fromEntries(Object.keys(identity()).map(key => [key, 1])));
-  assert.deepEqual(calls, [{name: 'moaon_inspect_recovery_review', args: {
+  assert.deepEqual(Object.fromEntries(reads), Object.fromEntries(Object.keys(identity()).map(key => [key, 2])));
+  assert.deepEqual(calls, [{name: 'moaon_consume_recovery_review', args: {
+    p_operator_id: OPERATOR,
+    p_session_id: SESSION,
+    p_mode: 'inspect',
+  }}, {name: 'moaon_inspect_recovery_review', args: {
     p_operator_id: OPERATOR,
     p_user_id: USER,
     p_operation_id: OPERATION,
@@ -277,7 +541,8 @@ test('resolve uses only the freshly verified userId and preserves the existing r
   const handler = createRecoveryReviewRequestHandler(dependencies({
     rpcClient: {async rpc(name, args) {
       calls.push({name, args});
-      return {data: {userId: USER, operationId: OPERATION, resolutionId: RESOLUTION, status: 'REJECTED'}, error: null};
+      return {data: name === 'moaon_consume_recovery_review' ? true
+        : {userId: USER, operationId: OPERATION, resolutionId: RESOLUTION, status: 'REJECTED'}, error: null};
     }},
   }));
   const body = {mode: 'resolve', userId: USER, operationId: OPERATION, resolutionId: RESOLUTION,
@@ -287,8 +552,8 @@ test('resolve uses only the freshly verified userId and preserves the existing r
   assert.deepEqual(await response.json(), {ok: true, data: {
     userId: USER, operationId: OPERATION, resolutionId: RESOLUTION, status: 'REJECTED',
   }});
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].args.p_operator_id, OPERATOR);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].args.p_operator_id, OPERATOR);
 });
 
 test('identity authentication failures map narrowly to 401; malformed and general failures map to sanitized 503', async () => {
@@ -361,6 +626,7 @@ test('abort before dispatch and during verification prevents SQL; RPC timeout di
     timeoutMs: 15,
     now: Date.now,
     verifySession: async () => identity({expiresAt: new Date(Date.now() + 60_000).toISOString()}),
+    verifyStepUp: async () => liveProof(),
   }));
   await expectError(await timed(request()), 503, 'RECOVERY_REVIEW_UNAVAILABLE');
   pendingRpc.resolve({data: inspection(), error: null});
@@ -368,24 +634,59 @@ test('abort before dispatch and during verification prevents SQL; RPC timeout di
   assert.equal(calls, 1);
 });
 
-test('abort in the resolver microtask gap cannot dispatch a new resolve RPC', async () => {
-  for (const delay of [5, 6]) {
+test('abort in the admission transport microtask gap cannot dispatch the bound RPC', async () => {
+  for (const delay of [2, 3]) {
     const controller = new AbortController();
     const events = [];
     const handler = createRecoveryReviewRequestHandler(dependencies({
-      verifySession: async () => {
+      verifyStepUp: async () => {
         let pending = Promise.resolve();
         for (let step = 0; step < delay; step += 1) pending = pending.then(() => {});
         pending.then(() => {
           events.push('abort');
           controller.abort();
         });
+        return liveProof();
+      },
+      rpcClient: {async rpc() {
+        events.push(`rpc-after-abort:${controller.signal.aborted}`);
+        return {data: true, error: null};
+      }},
+      now: Date.now,
+    }));
+    await expectError(await handler(request(undefined, {signal: controller.signal})),
+      503, 'RECOVERY_REVIEW_UNAVAILABLE');
+    assert.deepEqual(events, ['abort']);
+  }
+});
+
+test('abort in the resolver microtask gap cannot dispatch a new resolve RPC', async () => {
+  for (const delay of [2, 3]) {
+    const controller = new AbortController();
+    const events = [];
+    let identityCalls = 0;
+    const handler = createRecoveryReviewRequestHandler(dependencies({
+      verifySession: async () => {
+        identityCalls += 1;
+        if (identityCalls === 2) {
+          let pending = Promise.resolve();
+          for (let step = 0; step < delay; step += 1) pending = pending.then(() => {});
+          pending.then(() => {
+            events.push('abort');
+            controller.abort();
+          });
+        }
         return identity({expiresAt: new Date(Date.now() + 60_000).toISOString()});
       },
+      verifyStepUp: async () => liveProof(),
       rpcClient: {
         marker: 'bound-client',
-        async rpc() {
+        async rpc(name) {
           assert.equal(this.marker, 'bound-client');
+          if (name === 'moaon_consume_recovery_review') {
+            events.push(name);
+            return {data: true, error: null};
+          }
           events.push(`rpc-after-abort:${controller.signal.aborted}`);
           return {data: {
             userId: USER,
@@ -403,7 +704,7 @@ test('abort in the resolver microtask gap cannot dispatch a new resolve RPC', as
     }, {signal: controller.signal}));
 
     await expectError(response, 503, 'RECOVERY_REVIEW_UNAVAILABLE');
-    assert.deepEqual(events, ['abort']);
+    assert.deepEqual(events, ['moaon_consume_recovery_review', 'abort']);
   }
 });
 

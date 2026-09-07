@@ -35,7 +35,13 @@ function webRequest(token, body) {
   });
 }
 
-function createHandler(db, token, {userId = OPERATOR, authOverrides = {}, authAdmin, onRpc = () => {}} = {}) {
+function createHandler(db, token, {
+  userId = OPERATOR,
+  authOverrides = {},
+  authAdmin,
+  onRpc = () => {},
+  verifyStepUp,
+} = {}) {
   const reader = createPostgrestReader(db);
   const verifySession = createDashboardIdentityVerifier({
     db: reader,
@@ -52,6 +58,16 @@ function createHandler(db, token, {userId = OPERATOR, authOverrides = {}, authAd
     token,
     handler: createRecoveryReviewRequestHandler({
       verifySession,
+      verifyStepUp: verifyStepUp || (async ({userId: proofUserId, sessionId}) => {
+        const current = Date.now();
+        return {
+          userId: proofUserId,
+          sessionId,
+          method: 'mfa',
+          verifiedAt: new Date(current - 1_000).toISOString(),
+          expiresAt: new Date(current + 60_000).toISOString(),
+        };
+      }),
       rpcClient: rpcFor(db, onRpc),
       allowedOrigin: ORIGIN,
       now: Date.now,
@@ -94,7 +110,7 @@ async function withSyntheticSecret(run) {
   }
 }
 
-test('real signed cookie traverses current identity verifier, resolver and PGlite SQL for inspect and CLOSE_NOT_STARTED', async () => {
+test('real signed cookie traverses identity, synthetic step-up, admission and resolver SQL for inspect and CLOSE_NOT_STARTED', async () => {
   await withSyntheticSecret(async () => {
     const db = await prepareRequestDatabase();
     try {
@@ -232,6 +248,64 @@ test('revoking the session during the external Auth lookup is caught by the seco
         mode: 'inspect', userId: USER, operationId: OPERATION,
       })));
       assert.equal(rpcCalls, 0);
+      assert.deepEqual(await counts(db), before);
+    } finally { await db.close(); }
+  });
+});
+
+test('missing synthetic step-up evidence reaches no admission or resolver SQL', async () => {
+  await withSyntheticSecret(async () => {
+    const db = await prepareRequestDatabase();
+    try {
+      const token = await issueSession(db);
+      let rpcCalls = 0;
+      const {handler} = createHandler(db, token, {
+        verifyStepUp: async () => null,
+        onRpc: () => { rpcCalls += 1; },
+      });
+      const before = await counts(db);
+      await expectUnavailable(await handler(webRequest(token, {
+        mode: 'inspect', userId: USER, operationId: OPERATION,
+      })), 403, 'STEP_UP_REQUIRED');
+      assert.equal(rpcCalls, 0);
+      assert.equal((await db.query(
+        'select count(*)::int as count from moaon_auth.recovery_request_limits'
+      )).rows[0].count, 0);
+      assert.deepEqual(await counts(db), before);
+    } finally { await db.close(); }
+  });
+});
+
+test('session revocation during post-admission identity recheck spends quota but reaches no resolver SQL', async () => {
+  await withSyntheticSecret(async () => {
+    const db = await prepareRequestDatabase();
+    try {
+      const token = await issueSession(db);
+      let authCalls = 0;
+      let rpcCalls = 0;
+      const {handler} = createHandler(db, token, {
+        onRpc: () => { rpcCalls += 1; },
+        authAdmin: {
+          async getUserById(queriedId) {
+            assert.equal(queriedId, OPERATOR);
+            authCalls += 1;
+            if (authCalls === 2) {
+              await db.exec('reset role');
+              await db.query('update public.dashboard_sessions set revoked_at=clock_timestamp() where user_id=$1', [OPERATOR]);
+              await db.exec('set role service_role');
+            }
+            return {data: {user: authUser()}, error: null};
+          },
+        },
+      });
+      const before = await counts(db);
+      await expectUnavailable(await handler(webRequest(token, {
+        mode: 'inspect', userId: USER, operationId: OPERATION,
+      })));
+      assert.equal(rpcCalls, 1);
+      assert.deepEqual((await db.query(
+        `select scope,used from moaon_auth.recovery_request_limits order by scope`
+      )).rows, [{scope: 'GLOBAL', used: 1}, {scope: 'OPERATOR', used: 1}]);
       assert.deepEqual(await counts(db), before);
     } finally { await db.close(); }
   });
