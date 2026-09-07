@@ -52,6 +52,26 @@ test('builds the same exact URL twice while preserving Unicode, encoded query, a
   assert.deepEqual(first.warnings, [UTM_RULE.personalDataNotice]);
 });
 
+test('preserves valid percent-encoded Korean in path, query value, and fragment', () => {
+  const result = buildUtmLink({
+    ...VALID_INPUT,
+    landingUrl: 'https://shop.example/%EC%95%88?label=%ED%95%9C%EA%B8%80#%EC%83%81%EC%84%B8',
+  });
+
+  assert.equal(result.url, 'https://shop.example/%EC%95%88?label=%ED%95%9C%EA%B8%80&utm_source=naver&utm_medium=cpc&utm_campaign=autumn-sale&utm_id=autumn-2026#%EC%83%81%EC%84%B8');
+});
+
+test('reparses a generated Korean campaign URL without changing it', () => {
+  const input = {
+    ...VALID_INPUT,
+    campaign: '가을 행사',
+  };
+  const first = buildUtmLink(input);
+  const second = buildUtmLink({ ...input, landingUrl: first.url });
+
+  assert.equal(second.url, first.url);
+});
+
 test('normalizes NFC text and appends optional UTM fields in deterministic order', () => {
   const productId = '550e8400-e29b-41d4-a716-446655440000';
   const result = buildUtmLink({
