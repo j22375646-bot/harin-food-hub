@@ -103,6 +103,38 @@ test('invalid exact input is a TypeError and performs no network request',async(
   assert.equal(fixture.requests.length,0);
 });
 
+test('UUID inputs reject boxed and custom coercion without touching secrets or network',async(t)=>{
+  const variants=[
+    ['boxed string',(value)=>new String(value)],
+    ['custom toString',(_value,state,marker)=>({toString(){state.calls+=1;throw new Error(marker);}})],
+    ['throwing Symbol.toPrimitive',(_value,state,marker)=>({[Symbol.toPrimitive](){state.calls+=1;throw new Error(marker);}})],
+  ];
+  for(const field of ['userId','factorId'])for(const [name,build] of variants)await t.test(`${field} ${name}`,async()=>{
+    const fixture=await createStepUpProviderFixture();
+    const state={calls:0};
+    const marker=`input-secret-marker-${field}-${name}`;
+    const input={...fixture.input,[field]:build(fixture.input[field],state,marker)};
+    let error;
+    try{await createSupabaseStepUpProvider(fixture.config).verifyTotp(input);}catch(caught){error=caught;}
+    const surface=error?Reflect.ownKeys(error).map(key=>{try{return String(error[key]);}catch{return '';}}).join(' '):'';
+    assert.deepEqual({
+      typeError:error instanceof TypeError,
+      message:error?.message,
+      coercionCalls:state.calls,
+      networkRequests:fixture.requests.length,
+      leaked:[marker,fixture.accessToken,fixture.refreshToken,fixture.input.code].some(secret=>surface.includes(secret)),
+      hasCause:error?Object.hasOwn(error,'cause'):false,
+    },{
+      typeError:true,
+      message:'Exact TOTP verification input is required.',
+      coercionCalls:0,
+      networkRequests:0,
+      leaked:false,
+      hasCause:false,
+    });
+  });
+});
+
 test('configuration and input getters are copied exactly once',async()=>{
   const fixture=await createStepUpProviderFixture();
   const configReads=new Map();
