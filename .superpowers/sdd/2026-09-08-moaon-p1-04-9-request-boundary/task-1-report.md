@@ -56,3 +56,24 @@ Result: exit 0. UI design guard passed; Node tests 2283 passed / 0 failed / 0 ca
 - The timeout/abort result is deliberately not evidence of database rollback. Once RPC dispatch has happened, the handler cannot atomically cancel the database operation. It performs no retry and no activation; callers must inspect or repeat with the same `resolutionId` to establish the durable result.
 - The Auth provider response is a test fixture, not proof of a production provider, proxy/TLS, MFA/step-up, distributed admission, or deployment configuration. Those remain parent/next-boundary activation gates.
 - No production Auth/mail/database/customer data or paid/cloud resource was used.
+
+## Review fix round 1
+
+Two Important findings were reproduced and fixed without widening the task scope.
+
+RED command:
+
+`C:\Program Files\nodejs\node.exe --test test/tenant-recovery-review-request.test.js`
+
+RED result: exit 1, 12 passed / 2 failed. A coercible non-number clock reached a 200 response instead of sanitized 503, and malformed `emailVerified` reached 401 instead of sanitized 503.
+
+Fixes:
+
+- `readClock` now requires the dependency return value itself to be a finite primitive number; it no longer applies `Number(...)` coercion. Focused values cover `null`, empty string, booleans, a numeric string, and a boxed Number in addition to `NaN`.
+- `identitySnapshot` now requires `emailVerified` to be a primitive boolean before authentication classification. Only literal `false` maps to 401; string, number, and `undefined` values map to sanitized 503.
+
+Final GREEN command:
+
+`C:\Program Files\nodejs\node.exe --test test/tenant-recovery-review-request.test.js test/tenant-recovery-review-request-integration.test.js`
+
+Final GREEN result: exit 0, 26 passed / 0 failed / 0 cancelled / 0 skipped, duration 15.5 seconds.

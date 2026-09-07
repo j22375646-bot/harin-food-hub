@@ -300,6 +300,9 @@ test('identity authentication failures map narrowly to 401; malformed and genera
     [async () => identity({expiresAt: '2026-09-08T12:00:00.000Z'}), 401, 'AUTH_REQUIRED'],
     [async () => identity({expiresAt: '2026-09-08T13:00:00Z'}), 503, 'RECOVERY_REVIEW_UNAVAILABLE'],
     [async () => identity({emailVerified: false}), 401, 'AUTH_REQUIRED'],
+    [async () => identity({emailVerified: 'true'}), 503, 'RECOVERY_REVIEW_UNAVAILABLE'],
+    [async () => identity({emailVerified: 0}), 503, 'RECOVERY_REVIEW_UNAVAILABLE'],
+    [async () => identity({emailVerified: undefined}), 503, 'RECOVERY_REVIEW_UNAVAILABLE'],
     [async () => ({...identity(), extra: true}), 503, 'RECOVERY_REVIEW_UNAVAILABLE'],
   ];
   for (const [verifySession, status, code] of cases) {
@@ -384,10 +387,12 @@ test('pending body read times out, cancels its reader without hanging, and never
 
 test('invalid clock is sanitized before identity and SQL', async () => {
   let verified = 0;
-  const handler = createRecoveryReviewRequestHandler(dependencies({
-    now: () => Number.NaN,
-    verifySession: async () => {verified += 1; return identity();},
-  }));
-  await expectError(await handler(request()), 503, 'RECOVERY_REVIEW_UNAVAILABLE');
+  for (const value of [Number.NaN, null, '', false, true, '1788870000000', new Number(NOW)]) {
+    const handler = createRecoveryReviewRequestHandler(dependencies({
+      now: () => value,
+      verifySession: async () => {verified += 1; return identity();},
+    }));
+    await expectError(await handler(request()), 503, 'RECOVERY_REVIEW_UNAVAILABLE');
+  }
   assert.equal(verified, 0);
 });
