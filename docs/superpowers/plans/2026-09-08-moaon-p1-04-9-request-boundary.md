@@ -34,4 +34,6 @@
 
 ## Next boundary
 
+Execution record: Task 1 and parent review/test/build/release gates completed in v1.51.0, source0141e1c. Focused27/27, full2284/2284, buildPASS, all Important review findings fixed and scoped re-reviewed, VercelREADY/exactSHA and four existing unauthenticated endpoints verified. Detailed evidence: [development report](./2026-09-08-moaon-p1-04-9-development-report.md). No candidate activation. Reused worktree/scratch preserved; no forced cleanup or paid test resources.
+
 P1-04-10: operator step-up/distributed admission and concrete activation checklist, including in-flight session revocation semantics. Public onboarding remains blocked until P2 business isolation. P3 connections/P4 app UI/P5 Windows EXE remain later.
