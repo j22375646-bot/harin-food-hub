@@ -31,11 +31,11 @@ export async function POST(request) {
     return response;
   } catch (error) {
     const login = new URL('/login', request.url);
-    const errorType = error.code === 'LOGIN_RATE_LIMITED'
-      ? 'blocked'
-      : error.code === 'LOGIN_AUTH_TIMEOUT'
-        ? 'delayed'
-        : 'invalid';
+    const errorType = loginRequestModule.loginErrorType(error);
+    if (['restricted','unavailable','delayed'].includes(errorType)) {
+      // Only the allowlisted category is logged; never credentials or provider payloads.
+      console.error('[DASHBOARD_LOGIN_FAILURE]', { reason:errorType });
+    }
     login.searchParams.set('error', errorType);
     if (safeNext !== '/') login.searchParams.set('next', safeNext);
     return NextResponse.redirect(login, 303);

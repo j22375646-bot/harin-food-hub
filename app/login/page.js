@@ -14,6 +14,10 @@ export default async function LoginPage({ searchParams }) {
   const params = await searchParams;
   const error = params?.error === 'blocked'
     ? '로그인 시도가 잠시 차단되었습니다. 15분 뒤 다시 시도해주세요.'
+    : params?.error === 'restricted'
+      ? '비밀번호 오류가 아닙니다. 데이터 서버(Supabase)의 사용량·결제 제한으로 로그인이 중단됐습니다. Supabase 관리화면에서 제한 해제가 필요합니다.'
+    : params?.error === 'unavailable'
+      ? '비밀번호 오류가 아닌 로그인 서버 연결·처리 문제가 발생했습니다. 잠시 후 다시 시도해주세요.'
     : params?.error === 'delayed'
       ? '로그인 서버 연결이 늦어졌어요. 잠시 후 한 번만 다시 시도해주세요.'
     : params?.error === 'source'
