@@ -11,9 +11,9 @@ const {
 } = require('../lib/tenancy/account-login-limit.js');
 
 const KEY = 'test-only-account-login-hmac-key-32-bytes';
-const USER_A = '20000000-0000-4000-8000-000000000001';
+const USER_A = '2a000000-b000-4c00-8d00-0000000000ef';
 const USER_B = '20000000-0000-4000-8000-000000000002';
-const FIXED_ACCOUNT_HASH = '16ff267444c3aa330d7106a7e130cb416d2b93321c72933ac03f60caa8f1d38b';
+const FIXED_ACCOUNT_HASH = '4baa4b010c6910723cb0f748f046b4f04dc90e75b854aed996f2b142a5616255';
 const PROFILE_A = {
   user_id: USER_A,
   email: 'quota-owner@example.test',
@@ -289,6 +289,45 @@ test('canonical denial, malformed response, or rejection stops provider, fence, 
     );
     assert.equal(canonicalCalls, 1);
     assert.equal(store.state.profileReads, 1);
+    assert.deepEqual(dependencies.counts, {provider: 0, begin: 0, window: 0, issue: 0});
+    assert.equal(store.state.directSessionWrites, 0);
+  }
+}));
+
+test('canonical quota reads allowed once and fail-closes accessors before external work', () => withSecret(async () => {
+  const cases = [
+    {
+      code: 'LOGIN_RATE_LIMITED',
+      status: 429,
+      read(reads) { return reads === 1 ? false : true; },
+    },
+    {
+      code: 'LOGIN_AUTH_UNAVAILABLE',
+      status: 503,
+      read() { throw new Error('private allowed getter detail'); },
+    },
+  ];
+  for (const current of cases) {
+    const store = dashboardDatabase();
+    const dependencies = trackedDependencies(PROFILE_A);
+    let reads = 0;
+    const answer = {};
+    Object.defineProperty(answer, 'allowed', {
+      enumerable: true,
+      get() { return current.read(++reads); },
+    });
+
+    await assert.rejects(
+      () => auth.authenticateAccount({account: PROFILE_A.username, password: '123456'}, store.db, {
+        requestLimit: async () => ({allowed: true}),
+        accountLimit: async () => answer,
+        authClient: dependencies.authClient,
+        sessionFence: dependencies.sessionFence,
+      }),
+      error => error.code === current.code && error.status === current.status
+        && !error.message.includes('private')
+    );
+    assert.equal(reads, 1);
     assert.deepEqual(dependencies.counts, {provider: 0, begin: 0, window: 0, issue: 0});
     assert.equal(store.state.directSessionWrites, 0);
   }

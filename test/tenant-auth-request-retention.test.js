@@ -180,6 +180,8 @@ test('SQL prunes at most 500 stale subject and IP rows per call and preserves cu
       select 'LOGIN',lpad(to_hex(value),64,'0'),clock_timestamp()-interval '25 hours'-value*interval '1 millisecond',1
       from generate_series(1,501) as value;
       insert into moaon_auth.request_limits(kind,subject_hash,started_at,used) values
+        ('LOGIN',repeat('c',64),clock_timestamp()-interval '24 hours 1 minute',1),
+        ('LOGIN',repeat('d',64),clock_timestamp()-interval '23 hours 59 minutes',1),
         ('LOGIN',repeat('f',64),clock_timestamp()-interval '1 hour',1),
         ('LOGIN',repeat('e',64),clock_timestamp()+interval '1 hour',1);
 
@@ -188,16 +190,19 @@ test('SQL prunes at most 500 stale subject and IP rows per call and preserves cu
       from generate_series(1,501) as value;
       insert into moaon_auth.admission_limits(scope,key_hash,started_at,used) values
         ('GLOBAL',repeat('0',64),clock_timestamp()-interval '25 hours',1),
+        ('IP',repeat('c',64),clock_timestamp()-interval '24 hours 1 minute',1),
+        ('IP',repeat('d',64),clock_timestamp()-interval '23 hours 59 minutes',1),
         ('IP',repeat('f',64),clock_timestamp()-interval '1 hour',1),
         ('IP',repeat('e',64),clock_timestamp()+interval '1 hour',1);
     `);
 
     assert.deepEqual(await prune(db), {requestDeleted: 500, ipDeleted: 500});
-    assert.deepEqual(await prune(db), {requestDeleted: 1, ipDeleted: 1});
+    assert.deepEqual(await prune(db), {requestDeleted: 2, ipDeleted: 2});
     assert.deepEqual(await prune(db), {requestDeleted: 0, ipDeleted: 0});
     assert.deepEqual((await db.query(`
       select kind,subject_hash from moaon_auth.request_limits order by subject_hash
     `)).rows, [
+      {kind: 'LOGIN', subject_hash: 'd'.repeat(64)},
       {kind: 'LOGIN', subject_hash: 'e'.repeat(64)},
       {kind: 'LOGIN', subject_hash: 'f'.repeat(64)},
     ]);
@@ -205,6 +210,7 @@ test('SQL prunes at most 500 stale subject and IP rows per call and preserves cu
       select scope,key_hash from moaon_auth.admission_limits order by scope,key_hash
     `)).rows, [
       {scope: 'GLOBAL', key_hash: '0'.repeat(64)},
+      {scope: 'IP', key_hash: 'd'.repeat(64)},
       {scope: 'IP', key_hash: 'e'.repeat(64)},
       {scope: 'IP', key_hash: 'f'.repeat(64)},
     ]);
