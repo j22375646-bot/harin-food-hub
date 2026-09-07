@@ -712,7 +712,11 @@ test('media, encoding and declared/body byte limits reject before identity or SQ
 
 test('cookie parsing rejects duplication, mixing and ambiguous values while passing the raw cookie octets', async () => {
   let credential;
-  const handler = createRecoveryReviewRequestHandler(dependencies({verifySession: async value => {credential = value; return identity();}}));
+  let proofReads = 0;
+  const handler = createRecoveryReviewRequestHandler(dependencies({
+    verifySession: async value => {credential = value; return identity();},
+    verifyStepUp: async () => {proofReads += 1; return proof();},
+  }));
   const invalidHeaders = [
     {authorization: 'Bearer mixed'},
     {cookie: 'other=1'},
@@ -725,10 +729,12 @@ test('cookie parsing rejects duplication, mixing and ambiguous values while pass
     {cookie: `other=${'a'.repeat(16385)}; harin_dashboard_session=ok`},
   ];
   for (const headers of invalidHeaders) await expectError(await handler(request(undefined, {headers})), 401, 'AUTH_REQUIRED');
+  assert.equal(proofReads, 0);
   const raw = 'opaque%2Ecookie_value-~';
   const response = await handler(request(undefined, {headers: {cookie: `other=1; harin_dashboard_session=${raw}`}}));
   assert.equal(response.status, 200);
   assert.equal(credential, raw);
+  assert.equal(proofReads, 2);
 });
 
 test('fatal UTF-8, JSON shape, identifiers and unknown fields are rejected before identity and SQL', async () => {

@@ -41,16 +41,16 @@ async function createStepUpProviderFixture(options={}){
   const header={alg:'ES256',kid,typ:'JWT'};
   const issuedSeconds=Math.floor(nowMs/1000)-30;
   const expiresSeconds=Math.floor(nowMs/1000)+600;
-  const totpSeconds=Math.floor(nowMs/1000);
+  let totpSeconds=Math.floor(nowMs/1000);
   const baseClaims={
     iss:`${url}/auth/v1`,aud:'authenticated',role:'authenticated',sub:userId,
     session_id:sessionId,is_anonymous:false,iat:issuedSeconds,exp:expiresSeconds,aal:'aal1',
     amr:[{method:'password',timestamp:issuedSeconds}],
   };
   const originalClaims={...baseClaims,...options.originalClaims};
-  const verifiedClaims={...baseClaims,aal:'aal2',amr:[{method:'password',timestamp:issuedSeconds},{method:'totp',timestamp:totpSeconds}],...options.verifiedClaims};
+  let verifiedClaims={...baseClaims,aal:'aal2',amr:[{method:'password',timestamp:issuedSeconds},{method:'totp',timestamp:totpSeconds}],...options.verifiedClaims};
   const accessToken=await signJwt(keyPair.privateKey,header,originalClaims);
-  const verifiedJwt=await signJwt(keyPair.privateKey,header,verifiedClaims);
+  let verifiedJwt=await signJwt(keyPair.privateKey,header,verifiedClaims);
   const refreshToken='original-refresh-secret';
   const verifiedRefreshToken='verified-refresh-secret';
   const factor={id:factorId,factor_type:'totp',status:'verified'};
@@ -102,9 +102,16 @@ async function createStepUpProviderFixture(options={}){
     if(requestUrl.pathname===`/auth/v1/factors/${factorId}/verify`&&method==='POST'){
       writes.push(request);verifyCount+=1;
       if(options.malformedVerify)return new Response('{',{status:200,headers:{'content-type':'application/json'}});
+      if(typeof options.verificationNow==='function'){
+        const verificationMs=options.verificationNow();
+        totpSeconds=Math.floor(verificationMs/1000);
+        verifiedClaims={...baseClaims,iat:totpSeconds,exp:totpSeconds+600,aal:'aal2',
+          amr:[{method:'password',timestamp:issuedSeconds},{method:'totp',timestamp:totpSeconds}],...options.verifiedClaims};
+        verifiedJwt=await signJwt(keyPair.privateKey,header,verifiedClaims);
+      }
       const defaultVerify={
         access_token:verifiedJwt,refresh_token:verifiedRefreshToken,expires_in:600,
-        expires_at:expiresSeconds,token_type:'bearer',user:verifiedUser,
+        expires_at:verifiedClaims.exp,token_type:'bearer',user:verifiedUser,
       };
       const verifyBody=typeof options.verifyResponse==='function'?options.verifyResponse({defaultVerify,verifiedJwt,verifiedRefreshToken,verifiedUser,request}):options.verifyResponse;
       return json(verifyBody??defaultVerify,options.verifyStatus??200);
@@ -113,8 +120,10 @@ async function createStepUpProviderFixture(options={}){
   }
 
   return {
-    url,now,clock,publicJwk,kid,header,keyPair,originalClaims,verifiedClaims,originalUser,verifiedUser,
-    accessToken,verifiedJwt,refreshToken,verifiedRefreshToken,totpSeconds,
+    url,now,clock,publicJwk,kid,header,keyPair,originalClaims,
+    get verifiedClaims(){return verifiedClaims;},originalUser,verifiedUser,
+    accessToken,get verifiedJwt(){return verifiedJwt;},refreshToken,verifiedRefreshToken,
+    get totpSeconds(){return totpSeconds;},
     input:{userId,accessToken,refreshToken,factorId,code:'123456'},
     config:{url,publishableKey:'test-publishable-key',fetch:syntheticFetch,timeoutMs:500,now},
     requests,writes,

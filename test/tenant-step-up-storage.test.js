@@ -188,7 +188,11 @@ test('storage errors expose only fixed rejection or unavailable outcomes', () =>
 test('real Supabase SDK verification binds provider evidence to a different hub session', async () => {
   const db = await prepareStepUpDatabase();
   try {
-    const fixture = await createStepUpProviderFixture();
+    const fixture = await createStepUpProviderFixture({
+      nowMs: Date.now() - 2_000,
+      now: Date.now,
+      verificationNow: Date.now,
+    });
     const provider = createSupabaseStepUpProvider(fixture.config);
     const service = createStepUpStorage({
       rpcClient: rpcFor(db),
