@@ -1,6 +1,7 @@
 'use client';
 
 import {useCallback,useEffect,useRef,useState} from 'react';
+import SystemGa4Measurement from './system-ga4-measurement.js';
 import './system-measurement-panel.css';
 
 const EMPTY_INPUT={landingUrl:'',source:'',medium:'',campaign:'',campaignId:'',creativeId:'',term:'',productId:''};
@@ -156,7 +157,7 @@ export default function SystemMeasurementPanel(){
 
   return <section className="sysMeasurementPanel" aria-labelledby="sysMeasurementTitle">
     <header><span>광고 유입 기록</span><h2 id="sysMeasurementTitle">광고 링크 측정</h2><p>유입 출처와 캠페인 식별자를 같은 규칙으로 붙이고, 광고에 사용할 링크를 저장해요.</p></header>
-    <div className="sysMeasurementReadiness"><strong>GA4 · {data.readiness?.ga4==='SETUP_REQUIRED'?'설정 필요':data.readiness?.ga4==='VERIFY_REQUIRED'?'검증 필요':'확인 필요'}</strong><p>링크 저장은 구매·환불 측정 성공을 뜻하지 않습니다. 실제 구매·환불 이벤트 수집은 별도로 검증해야 합니다.</p>{data.readiness?.note?<p>{data.readiness.note}</p>:null}</div>
+    <SystemGa4Measurement/>
     <p className="sysMeasurementNote">HTTPS 주소를 입력하세요. 출처·매체는 소문자로 통일하고 공백을 정리합니다. 기존 UTM과 입력값이 다르면 검사를 통과할 수 없습니다. 캠페인명·검색어에 개인정보를 넣지 마세요.</p>
     <MeasurementForm input={input} products={data.products} preview={preview} busy={busy} onChange={changeInput} onPreview={()=>runAction('PREVIEW')} onSave={()=>runAction('SAVE_LINK')} onCopy={copyLink}/>
     {error?<p className="sysMeasurementFeedback" role="alert">{error}</p>:null}
