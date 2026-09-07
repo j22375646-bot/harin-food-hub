@@ -163,6 +163,7 @@ test('세션의 UUID·만료·재검증 identity가 틀리면 unauthenticated로
     ['invalid session id', [session({ id: 'not-a-uuid' })]],
     ['invalid user id', [session({ userId: 'not-a-uuid' })]],
     ['malformed expiry', [session({ expiresAt: 'not-a-date' })]],
+    ['impossible calendar expiry', [session({ expiresAt: '2027-02-29T13:00:00.000Z' })]],
     ['expired', [session({ expiresAt: '2026-09-07T12:00:00.000Z' })]],
     ['changed session', [session(), session({ id: '30000000-0000-4000-8000-000000000002' })]],
     ['changed user', [session(), session({ userId: '20000000-0000-4000-8000-000000000002' })]],
@@ -213,9 +214,11 @@ test('Auth identity는 같은 사용자·비익명·비삭제·비차단 계정�
     ['currently banned', authUser({ banned_until: '2026-09-07T12:01:00.000Z' })],
     ['malformed ban', authUser({ banned_until: 'provider-secret-invalid-time' })],
     ['non-ISO ban', authUser({ banned_until: '0' })],
+    ['impossible calendar ban', authUser({ banned_until: '2026-04-31T00:00:00.000Z' })],
     ['mismatched email', authUser({ email: 'other@example.com' })],
     ['malformed confirmation', authUser({ email_confirmed_at: 'provider-secret-invalid-time' })],
     ['non-ISO confirmation', authUser({ email_confirmed_at: '0' })],
+    ['impossible calendar confirmation', authUser({ email_confirmed_at: '2026-02-31T00:00:00.000Z' })],
     ['future confirmation', authUser({ email_confirmed_at: '2026-09-07T12:01:00.000Z' })],
   ];
 
@@ -254,6 +257,28 @@ test('만료된 ban은 허용하고 두 DB 검증 중 이른 만료를 반환한
     (await verifySession('opaque-dashboard-session')).expiresAt,
     '2026-09-07T12:30:00.000Z'
   );
+});
+
+test('유효한 윤년 날짜와 UTC offset timestamp는 모든 identity 날짜 경계에서 허용한다', async () => {
+  const verifySession = verifier({
+    sessionValues: [
+      session({ expiresAt: '2028-02-29T23:30:00+09:00' }),
+      session({ expiresAt: '2028-02-29T23:30:00+09:00' }),
+    ],
+    authAdmin: {
+      async getUserById() {
+        return { data: { user: authUser({
+          banned_until: '2024-02-29T23:30:00-04:00',
+          email_confirmed_at: '2024-02-29T23:30:00+09:00',
+        }) }, error: null };
+      },
+    },
+  });
+
+  const identity = await verifySession('opaque-dashboard-session');
+
+  assert.equal(identity.emailVerified, true);
+  assert.equal(identity.expiresAt, '2028-02-29T14:30:00.000Z');
 });
 
 test('외부 조회 중 먼저 검증한 세션이 만료되면 identity를 반환하지 않는다', async () => {
