@@ -98,6 +98,8 @@ The full suite retained its existing `MODULE_TYPELESS_PACKAGE_JSON` and controll
 
 ## Source inventory
 
+This inventory describes the Task 1 implementation commit `e99d10a`, not the combined controller-to-implementation commit range. The controller's earlier commit `4c41b62` separately changed `CHANGELOG.md`, `package.json`, the master plan, and the phase development-report draft to reserve candidate version `1.47.0`; those files were not changed by the original Task 1 implementation. Publication wording is corrected in the review fix below.
+
 Created:
 
 - `lib/tenancy/bounded-auth-rpc.js`
@@ -114,7 +116,7 @@ Modified:
 - `test/tenant-fenced-login.test.js`
 - `test/tenant-account-recovery.test.js`
 
-Intentionally untouched: `lib/tenancy/auth-session-store.js`, production migrations, routes, UI, environment files, package/dependency files, and Task 2 review-store work.
+Intentionally untouched by the Task 1 implementation: `lib/tenancy/auth-session-store.js`, production migrations, routes, UI, environment files, package/dependency files, and Task 2 review-store work.
 
 ## Self-review
 
@@ -129,3 +131,31 @@ Intentionally untouched: `lib/tenancy/auth-session-store.js`, production migrati
 - A timed-out RPC may already have consumed quota; the caller fails closed and never starts later auth/provider/session work. There is deliberately no retry or compensating decrement.
 - This is per-kind/per-subject control, not an IP-wide or service-wide distributed-attack control. Account alias unification, retention cleanup, support workflow, and production activation remain later gates from the approved spec.
 - Existing production login remains unchanged until a server composition explicitly supplies `requestLimit`.
+
+## Review fix round 1
+
+Reviewer finding: the combined review range included controller-authored changelog/version/plan drafts that described the full request-limit and recovery-review phase as if it were already released, although Task 2 does not yet exist. The source inventory also incorrectly implied that no package/version file appeared in that combined range.
+
+Resolution:
+
+- Marked `1.47.0` explicitly as an **UNRELEASED candidate** in the changelog and master plan.
+- Scoped current implementation claims to Task 1 request limiting only and marked Task 2 recovery review as **PENDING**.
+- Stated that no production activation or deployment occurred and retained the controller-selected candidate package version `1.47.0`.
+- Distinguished controller commit `4c41b62` documentation/version files from implementation commit `e99d10a` source inventory.
+- Preserved the controller's additional PostgreSQL/full-suite validation paragraphs in the development report.
+
+Verification command:
+
+```text
+C:\Program Files\nodejs\node.exe -e "const fs=require('node:fs'),a=require('node:assert/strict'),p=require('./package.json'); const files=['CHANGELOG.md','docs/superpowers/plans/2026-09-07-multi-business-desktop-master-plan.md','docs/superpowers/plans/2026-09-08-moaon-p1-04-5-development-report.md'].map(f=>fs.readFileSync(f,'utf8')); a.equal(p.version,'1.47.0'); for(const text of files){a.match(text,/UNRELEASED/);a.match(text,/Task 1/);a.match(text,/Task 2/);a.match(text,/PENDING/);} console.log('candidate docs verified: version=1.47.0 status=UNRELEASED task1=implemented task2=PENDING');"
+git diff --check
+```
+
+Output:
+
+```text
+candidate docs verified: version=1.47.0 status=UNRELEASED task1=implemented task2=PENDING
+git diff --check: exit 0 (line-ending conversion notices only; no whitespace errors)
+```
+
+Expected scope: documentation/version consistency only. No production code changed, so the already recorded 49/49 focused, 2/2 native, and 2,182/2,182 full-suite evidence remains applicable; no full test rerun was required for this wording correction.
