@@ -7,6 +7,8 @@
 **Tech Stack:** Existing Node24, PGlite, pg/PostgreSQL17, Next16.3; no dependency install.
 **Spec:** `../specs/2026-09-08-moaon-recovery-admission.md` (read fully).
 
+**Execution:** Task 1 implemented in `9ef017d`, review correction in `d461196`; all six implementation checks below completed with recorded RED/GREEN evidence. Focused53/full2310/native4 pass; isolated-output build pass. Final review/release evidence is maintained in `2026-09-08-moaon-p1-04-10-development-report.md`. Candidate activation remains excluded.
+
 ## Global Constraints
 
 - 운영 로그인·비밀번호·UI·업무 API·환경 설정과 기존 SQL은 변경하지 않는다. 새 공개 route, 운영 migration/계정/메일/유료 자원, 운영 자료 복사 금지.
