@@ -30,6 +30,19 @@ test('calls fixed RPC names with exact parameters; no secrets or SQL forwarded',
   ]);
 });
 
+test('optionally binds the verified profile while preserving the prior issue call', async () => {
+  const calls=[];
+  const store=createAuthSessionStore({rpcClient:{rpc:async(name,args)=>{calls.push({name,args});return {data:true,error:null};}}});
+  await store.issueSession({
+    userId:id,ticketId:ticket,sessionId:session,tokenHash:'a'.repeat(64),expiresAt:expiry,
+    expectedProfile:{email:'owner@example.test',username:'owner',displayName:'Owner',role:'OWNER'}
+  });
+  assert.deepEqual(calls,[{name:'moaon_issue_session',args:{
+    p_user_id:id,p_ticket_id:ticket,p_session_id:session,p_token_hash:'a'.repeat(64),p_expires_at:expiry,
+    p_expected_email:'owner@example.test',p_expected_username:'owner',p_expected_display_name:'Owner',p_expected_role:'OWNER'
+  }}]);
+});
+
 test('invalid IDs and hashes are rejected before network access', async () => {
   let calls=0;
   const store=createAuthSessionStore({rpcClient:{rpc:async () => { calls++; return {data:true}; }}});
@@ -41,6 +54,17 @@ test('invalid IDs and hashes are rejected before network access', async () => {
   }
   for (const expiresAt of ['2026-02-31T06:00:00.000Z','infinity',0,new Date()]) {
     await assert.rejects(() => store.issueSession({userId:id,ticketId:ticket,sessionId:session,tokenHash:'a'.repeat(64),expiresAt}), TypeError);
+  }
+  for (const expectedProfile of [
+    null,{},
+    {email:'OWNER@example.test',username:'owner',displayName:'Owner',role:'OWNER'},
+    {email:'owner@example.test',username:'x',displayName:'Owner',role:'OWNER'},
+    {email:'owner@example.test',username:'owner',displayName:null,role:'OWNER'},
+    {email:'owner@example.test',username:'owner',displayName:'Owner',role:'ADMIN'},
+  ]) {
+    await assert.rejects(() => store.issueSession({
+      userId:id,ticketId:ticket,sessionId:session,tokenHash:'a'.repeat(64),expiresAt:expiry,expectedProfile
+    }), TypeError);
   }
   assert.equal(calls,0);
 });

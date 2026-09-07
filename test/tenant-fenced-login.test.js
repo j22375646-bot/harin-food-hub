@@ -123,6 +123,9 @@ test('username and email login bind only server profile identity and a server ti
     assert.notEqual(calls[0][1].ticketId,'client-ticket');
     assert.equal(calls[1][1].ticketId,calls[0][1].ticketId);
     assert.equal(calls[1][1].userId,USER_A);
+    assert.deepEqual(calls[1][1].expectedProfile,{
+      email:PROFILE_A.email,username:PROFILE_A.username,displayName:PROFILE_A.display_name,role:PROFILE_A.role
+    });
     assert.equal(auth.parseSession(result.token).role,'OWNER');
   }
 }));
@@ -161,6 +164,7 @@ test('input and rate-limit gates run before the server ticket is created',()=>wi
 
 test('malformed or unsafe provider identities cannot issue a fenced session',()=>withSecret(async()=>{
   const cases=[
+    {id:USER_B},
     {email:'other@example.test'},
     {email_confirmed_at:null},
     {email_confirmed_at:'2026-02-31T00:00:00.000Z'},
@@ -181,6 +185,7 @@ test('malformed or unsafe provider identities cannot issue a fenced session',()=
     );
     assert.equal(issues,0);
     assert.equal(state.directSessionInserts,0);
+    assert.equal(state.failures,1);
   }
 }));
 
@@ -233,6 +238,8 @@ test('provider service errors remain unavailable and are never counted as wrong 
 test('malformed auth results and dependency errors with forged safe codes are still sanitized',()=>withSecret(async()=>{
   for(const signInWithPassword of [
     async()=>null,
+    async()=>({data:null,error:null}),
+    async()=>({data:{user:providerUser(),session:null},error:null}),
     async()=>{throw Object.assign(new Error('secret timeout detail'),{code:'LOGIN_AUTH_TIMEOUT'});}
   ]){
     const state=database();let issues=0;
@@ -244,6 +251,7 @@ test('malformed auth results and dependency errors with forged safe codes are st
       error=>['LOGIN_AUTH_UNAVAILABLE','LOGIN_AUTH_TIMEOUT'].includes(error.code)&&!error.message.includes('secret')
     );
     assert.equal(issues,0);
+    assert.equal(state.failures,0);
   }
   const state=database();
   await assert.rejects(
@@ -466,5 +474,54 @@ test('real login flow and candidate SQL fence preserve account isolation across 
     assert.equal(await countUsableSessions(USER_A),1);
     assert.equal(await countUsableSessions(USER_B),1);
     assert.equal(store.directSessionInserts,0);
+  }finally{await database.close();}
+}));
+
+test('SQL atomically rejects email, username, or role changes after the verified profile read',()=>withSecret(async()=>{
+  const database=new PGlite();
+  try{
+    await database.exec('create role anon; create role authenticated; create role service_role bypassrls; create schema auth; create table auth.users(id uuid primary key);');
+    await database.exec(await fs.readFile(path.join(__dirname,'../supabase/migrations/20260812182508_add_dashboard_accounts_and_rbac.sql'),'utf8'));
+    await database.exec(await fs.readFile(path.join(__dirname,'../lib/tenancy/sql/auth-session-fence.sql'),'utf8'));
+    const rpcClient={rpc:async(name,args)=>{
+      try{
+        const values=Object.values(args);
+        const result=await database.query(`select public.${name}(${values.map((_,index)=>`$${index+1}`).join(',')}) as data`,values);
+        return {data:result.rows[0].data,error:null};
+      }catch(error){
+        return {data:null,error:{code:error.code,message:String(error.message).includes('AUTH_TRANSITION_REJECTED')?'AUTH_TRANSITION_REJECTED':error.message}};
+      }
+    }};
+    const actualFence=createAuthSessionStore({rpcClient,timeoutMs:1000});
+    for(const [column,value] of [
+      ['email','changed@example.test'],
+      ['username','changed-owner'],
+      ['role','VIEWER'],
+    ]){
+      await database.exec('truncate auth.users cascade;');
+      await database.query('insert into auth.users values ($1)',[USER_A]);
+      await database.query(`insert into dashboard_users(user_id,email,username,display_name,role)
+        values ($1,$2,$3,$4,$5)`,[USER_A,PROFILE_A.email,PROFILE_A.username,PROFILE_A.display_name,PROFILE_A.role]);
+      let mutations=0;
+      const sessionFence={
+        beginLogin:value=>actualFence.beginLogin(value),
+        async issueSession(args){
+          mutations++;
+          await database.query(`update dashboard_users set ${column}=$1 where user_id=$2`,[value,USER_A]);
+          return actualFence.issueSession(args);
+        }
+      };
+      const store=pgliteDashboard(database);
+      await assert.rejects(
+        ()=>auth.authenticateAccount({account:PROFILE_A.username,password:'123456'},store.db,{
+          authClient:{auth:{signInWithPassword:async()=>({data:{user:providerUser(),session:{}},error:null})}},sessionFence
+        }),
+        error=>error.code==='LOGIN_AUTH_UNAVAILABLE'
+      );
+      assert.equal(mutations,1);
+      assert.equal((await database.query('select count(*)::int as count from dashboard_sessions')).rows[0].count,0);
+      assert.equal((await database.query('select consumed from moaon_auth.login_tickets')).rows[0].consumed,false);
+      assert.equal(store.directSessionInserts,0);
+    }
   }finally{await database.close();}
 }));

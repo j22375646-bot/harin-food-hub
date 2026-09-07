@@ -53,15 +53,24 @@ begin
   return true;
 end $$;
 
+-- Defaults preserve the earlier candidate RPC call shape. Production activation
+-- requires every login issuer to supply all four expected profile fields.
 create function public.moaon_issue_session(p_user_id uuid, p_ticket_id uuid, p_session_id uuid,
-  p_token_hash text, p_expires_at timestamptz)
+  p_token_hash text, p_expires_at timestamptz, p_expected_email text default null,
+  p_expected_username text default null, p_expected_display_name text default null,
+  p_expected_role text default null)
 returns boolean language plpgsql security invoker set search_path = '' as $$
 declare v_state moaon_auth.account_state; v_ticket moaon_auth.login_tickets; v_profile public.dashboard_users;
+  v_profile_bound boolean;
 begin
+  v_profile_bound := p_expected_email is not null or p_expected_username is not null
+    or p_expected_display_name is not null or p_expected_role is not null;
   if p_user_id is null or p_ticket_id is null or p_session_id is null or p_token_hash is null
     or p_token_hash !~ '^[0-9a-f]{64}$' or p_expires_at is null
     or not isfinite(p_expires_at) or p_expires_at <= clock_timestamp()
-    or p_expires_at > clock_timestamp()+interval '12 hours' then
+    or p_expires_at > clock_timestamp()+interval '12 hours'
+    or (v_profile_bound and (p_expected_email is null or p_expected_username is null
+      or p_expected_display_name is null or p_expected_role is null)) then
     raise exception 'AUTH_TRANSITION_REJECTED';
   end if;
   select * into v_state from moaon_auth.account_state where user_id=p_user_id for update;
@@ -71,6 +80,12 @@ begin
     or v_ticket.generation <> v_state.generation then raise exception 'AUTH_TRANSITION_REJECTED'; end if;
   select * into v_profile from public.dashboard_users where user_id=p_user_id and active for share;
   if not found then raise exception 'AUTH_TRANSITION_REJECTED'; end if;
+  if v_profile_bound and (v_profile.email is distinct from p_expected_email
+    or v_profile.username is distinct from p_expected_username
+    or v_profile.display_name is distinct from p_expected_display_name
+    or v_profile.role is distinct from p_expected_role) then
+    raise exception 'AUTH_TRANSITION_REJECTED';
+  end if;
   insert into public.dashboard_sessions(id,user_id,token_hash,username,display_name,role,expires_at)
     values(p_session_id,p_user_id,p_token_hash,v_profile.username,v_profile.display_name,v_profile.role,p_expires_at);
   update moaon_auth.login_tickets set consumed=true where id=p_ticket_id;
@@ -121,11 +136,11 @@ begin
 end $$;
 
 revoke all on function public.moaon_begin_login(uuid,uuid),
-  public.moaon_issue_session(uuid,uuid,uuid,text,timestamptz),
+  public.moaon_issue_session(uuid,uuid,uuid,text,timestamptz,text,text,text,text),
   public.moaon_begin_password_change(uuid,uuid), public.moaon_complete_password_change(uuid,uuid)
   from public, anon, authenticated;
 grant execute on function public.moaon_begin_login(uuid,uuid),
-  public.moaon_issue_session(uuid,uuid,uuid,text,timestamptz),
+  public.moaon_issue_session(uuid,uuid,uuid,text,timestamptz,text,text,text,text),
   public.moaon_begin_password_change(uuid,uuid), public.moaon_complete_password_change(uuid,uuid)
   to service_role;
 commit;
