@@ -1,7 +1,7 @@
 # 모아온 첫 개발 보고서
 
 작성일: 2026-09-07. 제품명: **모아온 / MOAON**. 대상 버전: **1.40.0**.
-상태: 구현·로컬 검증 완료, 최종 변경 검토 및 운영 배포 대기.
+상태: 첫 구현 단위 완료 및 운영 배포 확인. 전체 다사업장 Windows 앱 로드맵은 계속 진행할 후속 작업이다.
 
 ## 사장님께 설명드리면
 
@@ -52,7 +52,14 @@
 - 로컬 production 서버 + 실제 headless Chrome: 로그인 HTTP 200, 모아온 제목·입력란·라이트/다크, 가로 넘침 없음, 미인증 `/orders` 307 로그인 이동, manifest identity 유지, offline v2 안내 확인. 브라우저 pageerror 0.
 - 실제 비밀번호 입력/인증 성공 및 인증 후 주문·송장 실행은 이번 브라우저 검증에 포함하지 않았다. 기존 로그인 회귀 테스트는 통과했으며 외부 실업무 변경은 실행하지 않았다.
 - 두 구현 단위의 독립 검토 모두 승인. 권한 검토에서 발견한 비동기 만료/객체 변경, 잘못된 action/clock 예외를 회귀 테스트와 함께 보완했다.
-- 운영 배포: 최종 전체 변경 검토 후 결과 기록 예정.
+- 최종 전체 변경 독립 검토: `1488f44..8facfd8`, ReadyToMerge Yes, Critical/Important/Minor 지적 없음.
+- 병합 후 canonical checkout 재검증: 1,970개 통과/실패 0/skip 3. 이 3개는 production chunk가 없는 작업 폴더에서 건너뛰는 lazy-boundary 검사이며, 빌드한 격리 작업 폴더에서는 위 1,973개 모두 실행·통과했다.
+- 소스: `main`의 `8facfd890dbbb4e18c95cc7e28b16136dd09cec7`, 태그 `v1.40.0`, Git push 완료.
+- 운영 배포: `dpl_HrJdhxgjMF2WSUv1U45tharsyqfb`, **READY**, production. [모아온 열기](https://harin-cafe24-sync.vercel.app/login).
+- 운영 주소 Chrome 재검증: 로그인 200, 제목 `모아온 · 사업 운영 허브`, manifest 모아온, 라이트/다크, 미인증 주문 화면 307, 실제 offline 전환 안내 통과, pageerror 0.
+- 운영 HTTP 확인: login/manifest/offline-v2 200, orders 307, orders/page 및 navigation/operation-snapshot API 401. 모두 `X-Harin-Version: 1.40.0`. 401은 미로그인 요청을 막는 정상 동작이며 API 수집 성공을 의미하지 않는다.
+- 해당 배포의 최근 5분 error-level 로그 조회는 종료 코드 0, 반환 오류 항목 0. 짧은 배포 직후 관측 결과이며 장기 안정성이나 인증 후 전체 업무 검증을 대체하지 않는다.
+- 기존 미추적 계획 문서 원본 5개는 `output/moaon-original-plans-20260907/`에 보관했다. 다른 기존 미추적 자료는 보존했다. 검증 캡처와 브라우저 스크립트는 `output/moaon-foundation-verification/`에 있다.
 
 ## 관련 문서
 
