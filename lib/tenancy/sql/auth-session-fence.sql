@@ -53,6 +53,27 @@ begin
   return true;
 end $$;
 
+create function public.moaon_get_session_window(p_user_id uuid, p_ticket_id uuid)
+returns jsonb language plpgsql security invoker set search_path = '' as $$
+declare v_state moaon_auth.account_state; v_ticket moaon_auth.login_tickets;
+  v_profile public.dashboard_users; v_now timestamptz;
+begin
+  if p_user_id is null or p_ticket_id is null then raise exception 'AUTH_TRANSITION_REJECTED'; end if;
+  select * into v_state from moaon_auth.account_state where user_id=p_user_id for share;
+  if not found or v_state.blocked then raise exception 'AUTH_TRANSITION_REJECTED'; end if;
+  select * into v_ticket from moaon_auth.login_tickets
+    where id=p_ticket_id and user_id=p_user_id for share;
+  v_now := date_trunc('milliseconds',clock_timestamp());
+  if not found or v_ticket.consumed or v_ticket.expires_at <= v_now
+    or v_ticket.generation <> v_state.generation then raise exception 'AUTH_TRANSITION_REJECTED'; end if;
+  select * into v_profile from public.dashboard_users where user_id=p_user_id and active for share;
+  if not found then raise exception 'AUTH_TRANSITION_REJECTED'; end if;
+  return jsonb_build_object(
+    'issuedAt',to_char(v_now at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+    'expiresAt',to_char((v_now+interval '12 hours') at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+  );
+end $$;
+
 -- Defaults preserve the earlier candidate RPC call shape. Production activation
 -- requires every login issuer to supply all four expected profile fields.
 create function public.moaon_issue_session(p_user_id uuid, p_ticket_id uuid, p_session_id uuid,
@@ -136,10 +157,12 @@ begin
 end $$;
 
 revoke all on function public.moaon_begin_login(uuid,uuid),
+  public.moaon_get_session_window(uuid,uuid),
   public.moaon_issue_session(uuid,uuid,uuid,text,timestamptz,text,text,text,text),
   public.moaon_begin_password_change(uuid,uuid), public.moaon_complete_password_change(uuid,uuid)
   from public, anon, authenticated;
 grant execute on function public.moaon_begin_login(uuid,uuid),
+  public.moaon_get_session_window(uuid,uuid),
   public.moaon_issue_session(uuid,uuid,uuid,text,timestamptz,text,text,text,text),
   public.moaon_begin_password_change(uuid,uuid), public.moaon_complete_password_change(uuid,uuid)
   to service_role;

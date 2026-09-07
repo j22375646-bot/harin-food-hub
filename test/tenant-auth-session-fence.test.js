@@ -37,6 +37,9 @@ async function issue(id = ticket, who = user) {
   return db.query(`select public.moaon_issue_session($1,$2,$3,$4,clock_timestamp()+interval '12 hours')`,
     [who, id, session, 'a'.repeat(64)]);
 }
+async function windowFor(who = user, id = ticket) {
+  return db.query('select public.moaon_get_session_window($1,$2) as data', [who,id]);
+}
 async function reset(who = user, id = operation) {
   return db.query('select public.moaon_begin_password_change($1,$2)', [who,id]);
 }
@@ -54,6 +57,45 @@ test('one-use ticket issues a session using current server profile', async () =>
   const { rows } = await db.query('select user_id,role,revoked_at from dashboard_sessions');
   assert.deepEqual(rows, [{user_id:user, role:'VIEWER', revoked_at:null}]);
   await rejected(() => issue());
+});
+
+test('valid ticket receives one canonical DB-derived twelve-hour window without mutation', async () => {
+  await begin();
+  const before=(await db.query("select date_trunc('milliseconds',clock_timestamp()) as now")).rows[0].now.getTime();
+  const result=await windowFor();
+  const after=(await db.query("select date_trunc('milliseconds',clock_timestamp()) as now")).rows[0].now.getTime();
+  assert.match(result.rows[0].data.issuedAt,/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  assert.equal(Date.parse(result.rows[0].data.expiresAt)-Date.parse(result.rows[0].data.issuedAt),12*60*60*1000);
+  assert.ok(Date.parse(result.rows[0].data.issuedAt)>=before);
+  assert.ok(Date.parse(result.rows[0].data.issuedAt)<=after);
+  assert.deepEqual((await db.query('select consumed from moaon_auth.login_tickets')).rows,[{consumed:false}]);
+  assert.equal((await db.query('select count(*)::int as count from dashboard_sessions')).rows[0].count,0);
+});
+
+test('session window rejects wrong, expired, consumed, old-generation, blocked, and inactive eligibility', async () => {
+  await rejected(()=>db.query('select public.moaon_get_session_window($1,$2)',[null,ticket]));
+  await rejected(()=>db.query('select public.moaon_get_session_window($1,$2)',[user,null]));
+  await rejected(()=>windowFor());
+  await begin(); await rejected(()=>windowFor(other));
+  await db.query("update moaon_auth.login_tickets set expires_at=clock_timestamp()-interval '1 second'");
+  await rejected(()=>windowFor());
+
+  await db.exec('truncate moaon_auth.login_tickets;'); await begin(); await issue(); await rejected(()=>windowFor());
+  await begin(user,second); await db.query('update moaon_auth.account_state set generation=generation+1 where user_id=$1',[user]);
+  await rejected(()=>windowFor(user,second));
+
+  await db.exec('truncate moaon_auth.login_tickets;'); await db.query('update moaon_auth.account_state set generation=0,blocked=false,operation_id=null where user_id=$1',[user]);
+  await begin(); await db.query('update moaon_auth.account_state set blocked=true,operation_id=$1 where user_id=$2',[operation,user]);
+  await rejected(()=>windowFor());
+  await db.query('update moaon_auth.account_state set blocked=false,operation_id=null where user_id=$1',[user]);
+  await db.query('update dashboard_users set active=false where user_id=$1',[user]);
+  await rejected(()=>windowFor());
+});
+
+test('session expiry beyond the DB twelve-hour ceiling remains rejected', async () => {
+  await begin();
+  await rejected(()=>db.query(`select public.moaon_issue_session($1,$2,$3,$4,clock_timestamp()+interval '12 hours 1 second')`,
+    [user,ticket,session,'a'.repeat(64)]));
 });
 
 test('password change revokes existing sessions but not another account', async () => {
@@ -148,6 +190,7 @@ for (const role of ['anon','authenticated']) {
     await db.exec(`set role ${role}`);
     try {
       await assert.rejects(() => begin(), /permission denied/);
+      await assert.rejects(() => windowFor(), /permission denied/);
       await assert.rejects(() => reset(), /permission denied/);
       await assert.rejects(() => complete(), /permission denied/);
       await assert.rejects(() => issue(), /permission denied/);
@@ -158,6 +201,6 @@ for (const role of ['anon','authenticated']) {
 
 test('service_role can execute the complete isolated flow', async () => {
   await db.exec('set role service_role');
-  try { await begin(); await issue(); await reset(); await complete(); }
+  try { await begin(); await windowFor(); await issue(); await reset(); await complete(); }
   finally { await db.exec('reset role'); }
 });
