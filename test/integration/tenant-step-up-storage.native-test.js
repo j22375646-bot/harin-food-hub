@@ -90,7 +90,8 @@ function begin(client, operation = FIRST) {
 }
 function commit(client, operation = FIRST) {
   return client.query(`select public.moaon_commit_step_up($1,$2,$3,$4,$5,$6,
-    date_trunc('second',clock_timestamp()),clock_timestamp()+interval '4 minutes',$7) as data`,
+    date_trunc('milliseconds',clock_timestamp()),
+    date_trunc('milliseconds',clock_timestamp()+interval '4 minutes'),$7) as data`,
   [USER, SESSION, HASH, operation, PROVIDER_SESSION, FACTOR, ENVELOPE]);
 }
 function revoke(client) {

@@ -129,6 +129,8 @@ begin
     or p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$'
     or p_verified_at is null or p_expires_at is null
     or not isfinite(p_verified_at) or not isfinite(p_expires_at)
+    or p_verified_at <> date_trunc('milliseconds', p_verified_at)
+    or p_expires_at <> date_trunc('milliseconds', p_expires_at)
     or p_sealed_session is null or jsonb_typeof(p_sealed_session) <> 'object'
     or (select count(*) from jsonb_object_keys(p_sealed_session)) <> 5
     or not (p_sealed_session ?& array['v','keyId','iv','ciphertext','tag'])

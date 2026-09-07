@@ -183,6 +183,9 @@ test('raw commit rejects malformed identity, time, and noncanonical encrypted en
     });
     assert.equal(begin.error, null);
     const verifiedAt = begin.data.startedAt;
+    const subMillisecondVerifiedAt = verifiedAt.replace(/(\.\d{3})Z$/, '$11Z');
+    const canonicalExpiresAt = new Date(Date.parse(verifiedAt) + 240_000).toISOString();
+    const subMillisecondExpiresAt = canonicalExpiresAt.replace(/(\.\d{3})Z$/, '$11Z');
     const base = {
       p_user_id: USER,
       p_session_id: HUB_SESSION,
@@ -191,7 +194,7 @@ test('raw commit rejects malformed identity, time, and noncanonical encrypted en
       p_provider_session_id: PROVIDER_SESSION,
       p_factor_id: FACTOR,
       p_verified_at: verifiedAt,
-      p_expires_at: new Date(Date.parse(verifiedAt) + 240_000).toISOString(),
+      p_expires_at: canonicalExpiresAt,
       p_sealed_session: {v: 1, keyId: KEY_ID, iv: 'A'.repeat(16), ciphertext: 'AA', tag: 'A'.repeat(22)},
     };
     const cases = [
@@ -205,6 +208,8 @@ test('raw commit rejects malformed identity, time, and noncanonical encrypted en
       ['null envelope', {...base, p_sealed_session: null}],
       ['extra envelope key', {...base, p_sealed_session: {...base.p_sealed_session, extra: true}}],
       ['noncanonical base64url low bits', {...base, p_sealed_session: {...base.p_sealed_session, ciphertext: 'AB'}}],
+      ['sub-millisecond verification time', {...base, p_verified_at: subMillisecondVerifiedAt}],
+      ['sub-millisecond expiry time', {...base, p_expires_at: subMillisecondExpiresAt}],
     ];
     for (const [name, args] of cases) {
       const result = await rpc.rpc('moaon_commit_step_up', args);
@@ -551,6 +556,47 @@ test('one deadline prevents retries and any follow-up after late begin or provid
     });
     await assert.rejects(() => service.issue(issueInput()), error => assertStorageError(error, 'STEP_UP_UNAVAILABLE'));
     assert.equal(providerCalls, 0);
+  }
+});
+
+test('partial clock rollback stops provider and commit dispatch even while still after the initial clock', async () => {
+  const begin = {
+    operationId: OPERATION,
+    startedAt: '1970-01-01T00:01:40.000Z',
+    expiresAt: '1970-01-01T00:02:40.000Z',
+  };
+  const providerValue = providerResult({nowMs: 100_000});
+  const proof = {
+    userId: USER,
+    sessionId: HUB_SESSION,
+    method: 'mfa',
+    verifiedAt: providerValue.evidence.verifiedAt,
+    expiresAt: providerValue.evidence.expiresAt,
+  };
+  const cases = [
+    ['after begin', [100_000, 100_010, 100_060, 100_055, 100_056, 100_057], 0],
+    ['after provider', [100_000, 100_010, 100_020, 100_030, 100_040, 100_060, 100_055, 100_056], 1],
+  ];
+  for (const [name, values, expectedProviderCalls] of cases) {
+    let index = 0;
+    let providerCalls = 0;
+    const rpcCalls = [];
+    const now = () => values[Math.min(index++, values.length - 1)];
+    const service = createStepUpStorage({
+      rpcClient: {rpc: async rpcName => {
+        rpcCalls.push(rpcName);
+        return {data: rpcName === 'moaon_begin_step_up' ? begin : proof, error: null};
+      }},
+      provider: {verifyTotp: async () => { providerCalls += 1; return providerValue; }},
+      encryptionKey: ENCRYPTION_KEY,
+      keyId: KEY_ID,
+      timeoutMs: 1_000,
+      now,
+    });
+    await assert.rejects(() => service.issue(issueInput()),
+      error => assertStorageError(error, 'STEP_UP_UNAVAILABLE'), name);
+    assert.deepEqual(rpcCalls, ['moaon_begin_step_up'], name);
+    assert.equal(providerCalls, expectedProviderCalls, name);
   }
 });
 
