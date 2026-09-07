@@ -1,10 +1,13 @@
+import brand from '../lib/brand.js';
+
 export default function manifest() {
   return {
     id: '/',
     start_url: '/',
     scope: '/',
-    name: '하린식품 허브',
-    short_name: '하린허브',
+    name: brand.name,
+    short_name: brand.shortName,
+    description: `${brand.name} · ${brand.tagline}`,
     lang: 'ko',
     display: 'standalone',
     background_color: '#f7f4ff',

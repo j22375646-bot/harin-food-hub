@@ -6,6 +6,7 @@ function isPublic(pathname) {
   return pathname === '/login'
     || pathname === '/manifest.webmanifest'
     || pathname === '/hub-offline-v1.html'
+    || pathname === '/hub-offline-v2.html'
     || pathname === '/api/dashboard/login'
     || pathname.startsWith('/api/cron/')
     || pathname.startsWith('/oauth/cafe24/');

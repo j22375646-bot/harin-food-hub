@@ -46,6 +46,6 @@ export default function MarketIntelligenceShell({children}){
       {children}
     </main>
     <HarinMobileNavigation nav={nav} groups={groups} view="market" onOpenView={openView} onPrefetch={prefetchView} fontScale={fontScale} onFontScale={setFontScale}/>
-    <footer className="hubFooter" data-canvas-profile={canvasProfile}>하린식품 상품개발센터 <span>·</span> 상품별 근거·실험·결과를 따로 관리합니다</footer>
+    <footer className="hubFooter" data-canvas-profile={canvasProfile}>하린식품 사업장 · 상품개발센터 <span>·</span> 상품별 근거·실험·결과를 따로 관리합니다</footer>
   </div>;
 }

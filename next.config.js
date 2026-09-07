@@ -56,6 +56,10 @@ module.exports = {
         headers:[{ key:'Cache-Control', value:'public, max-age=31536000, immutable' }]
       },
       {
+        source:'/hub-offline-v2.html',
+        headers:[{ key:'Cache-Control', value:'public, max-age=31536000, immutable' }]
+      },
+      {
         source:'/api/:path*',
         headers:[
           { key:'Cache-Control', value:'private, no-store, max-age=0, must-revalidate' },

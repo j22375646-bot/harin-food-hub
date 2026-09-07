@@ -1,7 +1,7 @@
 'use strict';
 
-const OFFLINE_CACHE = 'harin-hub-offline-v1';
-const OFFLINE_URL = '/hub-offline-v1.html';
+const OFFLINE_CACHE = 'harin-hub-offline-v2';
+const OFFLINE_URL = '/hub-offline-v2.html';
 
 self.addEventListener('install', event => {
   // An unavailable cache must never prevent normal online use.

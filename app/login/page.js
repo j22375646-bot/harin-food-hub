@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import authModule from '../../lib/dashboard-auth.js';
+import brand from '../../lib/brand.js';
 import { HarinIcon } from '../_design-system/harin-icon.js';
 import { LoginForm } from './login-form.js';
 import styles from './login.module.css';
@@ -30,15 +31,15 @@ export default async function LoginPage({ searchParams }) {
     <section className={styles.loginFrame} aria-labelledby="login-title">
       <header className={styles.loginTopbar}>
         <div className={styles.loginBrand}>
-          <span className={styles.loginLogo} aria-hidden="true">H</span>
-          <span><b>하린식품</b><small>성장 운영 허브</small></span>
+          <span className={styles.loginLogo} aria-hidden="true">{brand.mark}</span>
+          <span><b>{brand.name}</b><small>{brand.tagline}</small></span>
         </div>
         <span className={styles.ownerAccess}><HarinIcon name="shield"/>사장님 전용</span>
       </header>
 
       <section className={styles.loginHero}>
         <div className={styles.heroCopy}>
-          <span className={styles.heroLabel}>HARIN DAILY DESK</span>
+          <span className={styles.heroLabel}>{brand.latinName} DAILY DESK</span>
           <h1 id="login-title">오늘의 운영을<br/><span className={styles.headlineAccent}>한 자리에서 시작해요.</span></h1>
           <p>주문부터 재고, 매출과 다음 행동까지<br/>사장님이 먼저 볼 일을 차분하게 모았습니다.</p>
         </div>

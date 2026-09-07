@@ -9,15 +9,15 @@ const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
 
 function manifest(){
-  const source=read('app/manifest.js').replace(/export default function manifest/u,'function manifest');
-  const context=vm.createContext({});
+  const source=read('app/manifest.js').replace(/import brand from ['"]\.\.\/lib\/brand\.js['"];?/u,'const brand=deps.brand;').replace(/export default function manifest/u,'function manifest');
+  const context=vm.createContext({deps:{brand:require('../lib/brand.js')}});
   vm.runInContext(`${source}\nglobalThis.value=manifest();`,context,{filename:'app/manifest.js'});
   return structuredClone(context.value);
 }
 function layoutMetadata(){
   const match=read('app/layout.js').match(/export const metadata\s*=\s*(\{[\s\S]*?\});\s*\n\s*const themeBootstrap/u);
   assert.ok(match,'layout metadata must remain statically evaluable');
-  const context=vm.createContext({});
+  const context=vm.createContext({brand:require('../lib/brand.js')});
   vm.runInContext(`globalThis.value=${match[1]}`,context);
   return structuredClone(context.value);
 }
@@ -79,22 +79,22 @@ function proxyRequest(pathname){const nextUrl=new URL(pathname,'https://hub.exam
 
 test('manifest has stable standalone identity and correctly sized install icons',()=>{
   const value=manifest();
-  assert.deepEqual({id:value.id,start:value.start_url,scope:value.scope,name:value.name,short:value.short_name,lang:value.lang,display:value.display,background:value.background_color,theme:value.theme_color},{id:'/',start:'/',scope:'/',name:'하린식품 허브',short:'하린허브',lang:'ko',display:'standalone',background:'#f7f4ff',theme:'#6f63bd'});
+  assert.deepEqual({id:value.id,start:value.start_url,scope:value.scope,name:value.name,short:value.short_name,lang:value.lang,display:value.display,background:value.background_color,theme:value.theme_color},{id:'/',start:'/',scope:'/',name:'모아온',short:'모아온',lang:'ko',display:'standalone',background:'#f7f4ff',theme:'#6f63bd'});
   assert.deepEqual(value.icons,[{src:'/icons/hub-icon-192.png',sizes:'192x192',type:'image/png',purpose:'any'},{src:'/icons/hub-icon-512.png',sizes:'512x512',type:'image/png',purpose:'any'}]);
   assert.deepEqual(pngSize('public/icons/hub-icon-192.png'),[192,192]);
   assert.deepEqual(pngSize('public/icons/hub-icon-512.png'),[512,512]);
   assert.deepEqual(pngSize('public/icons/hub-apple-touch-180.png'),[180,180]);
 });
-test('layout adds manifest and Apple metadata without changing title',()=>{
+test('layout adds manifest and Apple metadata with the product brand',()=>{
   const value=layoutMetadata();
-  assert.equal(value.title,'하린식품 광고·매출 진단 허브');
+  assert.equal(value.title,'모아온 · 사업 운영 허브');
   assert.equal(value.manifest,'/manifest.webmanifest');
   assert.deepEqual(value.icons.apple,[{url:'/icons/hub-apple-touch-180.png',sizes:'180x180',type:'image/png'}]);
-  assert.deepEqual(value.appleWebApp,{capable:true,title:'하린허브',statusBarStyle:'default'});
+  assert.deepEqual(value.appleWebApp,{capable:true,title:'모아온',statusBarStyle:'default'});
 });
 test('worker precaches only public explanation without forcing activation',async()=>{
   const value=workerHarness();await value.install();
-  assert.deepEqual(value.addAllCalls,[['/hub-offline-v1.html']]);
+  assert.deepEqual(value.addAllCalls,[['/hub-offline-v2.html']]);
   assert.deepEqual(value.activation,{skipWaiting:0,claim:0});assert.equal(value.handlers.has('activate'),false);assert.equal(value.puts,0);
 });
 test('worker falls back on rejected document navigation only',async()=>{
@@ -103,6 +103,7 @@ test('worker falls back on rejected document navigation only',async()=>{
   const result=await value.fetch(nav('/orders?tab=paid'));
   assert.equal(result.handled,true);assert.equal(result.response.status,200);
   const html=await result.response.text();
+  assert.match(html,/모아온/u);assert.match(html,/사업 운영 허브/u);
   assert.match(html,/데이터를 새로고침할 수 없습니다/u);assert.match(html,/배송·환불·기타 변경 작업은 인터넷 연결이 필요합니다/u);assert.match(html,/href="\/"/u);assert.equal(value.puts,0);
 });
 test('worker returns successful and HTTP error documents unchanged without caching',async()=>{
@@ -129,10 +130,10 @@ test('registration waits for load and idle, fails safely, cleans up, and stays p
   let effect;const component=registration({useEffect(setup){effect=setup;}}).PwaRegistration;assert.equal(component(),null);assert.equal(typeof effect,'function');
   const development=registration({environment:'development'});assert.equal(development.scheduleHubServiceWorker({windowObject,navigatorObject})(),undefined);assert.equal(calls.length,1);
 });
-test('exact manifest and offline routes are public while private pages require auth',async()=>{
-  const value=proxyModule();for(const pathname of ['/manifest.webmanifest','/hub-offline-v1.html'])assert.equal((await value.proxy(proxyRequest(pathname))).kind,'next');
+test('exact manifest and both immutable offline routes are public while private pages require auth',async()=>{
+  const value=proxyModule();for(const pathname of ['/manifest.webmanifest','/hub-offline-v1.html','/hub-offline-v2.html'])assert.equal((await value.proxy(proxyRequest(pathname))).kind,'next');
   const result=await value.proxy(proxyRequest('/orders?tab=paid'));assert.equal(result.kind,'redirect');assert.equal(result.url,'https://hub.example/login?next=%2Forders%3Ftab%3Dpaid');assert.equal(value.checks,0);
-  for(const pathname of ['/manifest.webmanifest/private','/hub-offline-v1.html/private'])assert.equal((await value.proxy(proxyRequest(pathname))).kind,'redirect');
+  for(const pathname of ['/manifest.webmanifest/private','/hub-offline-v1.html/private','/hub-offline-v2.html/private'])assert.equal((await value.proxy(proxyRequest(pathname))).kind,'redirect');
   assert.equal((await value.proxy(proxyRequest('/api/orders'))).status,401);
 });
 test('offline without an installed explanation preserves the original network failure',async()=>{
@@ -152,7 +153,7 @@ test('registration cleanup prevents late load, idle and timeout registration',()
   const beforeIdle=scheduleHubServiceWorker({windowObject,navigatorObject});beforeIdle();assert.equal(cleared,9);callback();assert.equal(calls,0);
   assert.doesNotThrow(()=>scheduleHubServiceWorker({windowObject,navigatorObject:{}})());
 });
-test('Next headers keep worker fresh and cache only versioned offline HTML immutably',async()=>{
-  const rules=await require('../next.config.js').headers();const worker=rules.find(rule=>rule.source==='/hub-sw.js'),offline=rules.find(rule=>rule.source==='/hub-offline-v1.html');
-  assert.equal(worker.headers.find(item=>item.key==='Content-Type').value,'application/javascript; charset=utf-8');assert.equal(worker.headers.find(item=>item.key==='Cache-Control').value,'no-cache, no-store, must-revalidate');assert.equal(offline.headers.find(item=>item.key==='Cache-Control').value,'public, max-age=31536000, immutable');
+test('Next headers keep worker fresh and retain immutable headers for both offline versions',async()=>{
+  const rules=await require('../next.config.js').headers();const worker=rules.find(rule=>rule.source==='/hub-sw.js'),v1=rules.find(rule=>rule.source==='/hub-offline-v1.html'),v2=rules.find(rule=>rule.source==='/hub-offline-v2.html');
+  assert.equal(worker.headers.find(item=>item.key==='Content-Type').value,'application/javascript; charset=utf-8');assert.equal(worker.headers.find(item=>item.key==='Cache-Control').value,'no-cache, no-store, must-revalidate');assert.equal(v1.headers.find(item=>item.key==='Cache-Control').value,'public, max-age=31536000, immutable');assert.equal(v2.headers.find(item=>item.key==='Cache-Control').value,'public, max-age=31536000, immutable');
 });

@@ -4,6 +4,7 @@ import {useRouter} from 'next/navigation';
 import {useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState,useTransition} from 'react';
 import operationSnapshotModule from '../../lib/navigation/operation-snapshot.js';
 import navigationModule from '../../lib/ui/phase28-navigation.js';
+import brand from '../../lib/brand.js';
 import {Phase28CommandPalette} from './phase28-command-palette.js';
 import {Phase28EvidenceDrawer} from './phase28-evidence-drawer.js';
 import {Phase28IntentLink} from './phase28-intent-link.js';
@@ -49,6 +50,10 @@ const ICON_PATHS={
 
 function RouteIcon({id}) {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICON_PATHS[id]||ICON_PATHS.home}</svg>;
+}
+
+export function Phase28Brand() {
+  return <><span className={styles.brandMark}>{brand.mark}</span><span className={styles.brandCopy}><strong>{brand.name}</strong><small>{brand.tagline}</small><small>하린식품 사업장</small></span></>;
 }
 
 function formatLiveTime(value) {
@@ -308,7 +313,7 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
     <div className={`${tokens.root} ${styles.shell}`} data-phase28-root="true" data-theme={theme} data-sidebar={compact?'compact':'expanded'} onClickCapture={beginRouteNavigation}>
       <aside className={styles.sidebar} aria-label="데스크톱 메뉴 영역" data-can-scroll-up={sidebarScrollState.up} data-can-scroll-down={sidebarScrollState.down}>
         <div className={styles.sidebarScrollArea} ref={sidebarScrollRef} onScroll={syncSidebarScrollState}>
-          <Phase28IntentLink href="/" className={styles.brand} aria-label="하린식품 홈(오늘)으로 이동"><span className={styles.brandMark}>H</span><span className={styles.brandCopy}><strong>하린식품</strong><small>성장 운영 허브</small></span></Phase28IntentLink>
+          <Phase28IntentLink href="/" className={styles.brand} aria-label={`${brand.name} 홈(오늘)으로 이동`}><Phase28Brand /></Phase28IntentLink>
           <button className={styles.sideSearch} type="button" onClick={()=>setCommandOpen(true)} aria-label="메뉴와 업무 찾기"><span aria-hidden="true">⌕</span><span>메뉴·업무 찾기</span></button>
           <section className={styles.sideCompanyStatus} aria-live="polite" aria-label={vitality.known?`오늘 회사 활력 ${vitality.score}점, ${vitality.label}`:'오늘 회사 활력 확인 필요'}>
             <header><span>오늘 회사 활력</span><b>{vitality.label}</b></header>
@@ -337,7 +342,7 @@ export default function Phase28Shell({routeId,navigationSnapshot:incomingNavigat
         </header>
 
         <header className={styles.mobileHeader}>
-          <span className={styles.brandMark}>H</span><strong>{activeItem.label}</strong><span className={styles.mobileLiveChip}>운영</span><span className={styles.mobileSpacer}/>
+          <span className={styles.brandMark}>{brand.mark}</span><strong>{activeItem.label}</strong><span className={styles.mobileLiveChip}>하린식품</span><span className={styles.mobileSpacer}/>
           <button type="button" onClick={toggleTheme} aria-label={theme==='light'?'어두운 화면으로 바꾸기':'밝은 화면으로 바꾸기'} aria-pressed={theme==='dark'}>{theme==='light'?'◐':'☀'}</button>
           <Phase28IntentLink href="/notifications" aria-label={notificationCount==null?'운영 확인':'운영 확인 항목'}>▣{notificationCount==null?null:<span>{notificationCount}</span>}</Phase28IntentLink>
           <button type="button" onClick={refreshStatus} disabled={refreshing} aria-label="전체 상태 새로고침">↻</button>

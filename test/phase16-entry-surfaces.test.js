@@ -32,7 +32,7 @@ test('16-2 keeps password-only owner login inside the split welcome layout',()=>
 test('Phase 28 login opens with the Harin Daily Desk operating line and responsive accessible motion',()=>{
   const login=read('app/login/page.js');
   const css=read('app/login/login.module.css');
-  assert.match(login,/HARIN DAILY DESK/);
+  assert.match(login,/brand\.latinName\} DAILY DESK/);
   assert.match(login,/오늘의 운영선/);
   for(const time of ['06:00','09:00','15:00','18:00'])assert.match(login,new RegExp(time.replace(':','\\:')));
   assert.doesNotMatch(login,/loginHighlights/);

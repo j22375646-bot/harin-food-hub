@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import hubRoutesModule from '../../lib/navigation/hub-routes.js';
 import sidebarCollapseModule from '../../lib/ui/sidebar-collapse.js';
 import brandSystem from '../../lib/ui/brand-system.js';
+import brand from '../../lib/brand.js';
 import { HarinIcon } from '../_design-system/harin-icon.js';
 
 const { resolveSidebarGroupAction }=sidebarCollapseModule;
@@ -27,7 +28,7 @@ export function HarinTopbar({
   const resolvedConnectionTone=resolveStatusTone(connectionTone,connectionTone==='check'?'warning':'neutral');
   return <header className="topbar v8Topbar">
     <div className="topbarIdentity">
-      <div className="brand"><span className="brandMark">H</span><div><b>하린식품</b><small>광고·매출 통합 관리 허브</small></div></div>
+      <div className="brand"><span className="brandMark">{brand.mark}</span><div><b>{brand.name}</b><small>{brand.tagline}</small><small>하린식품 사업장</small></div></div>
       <div className="topbarLocation" aria-label="현재 화면"><span>현재 화면</span><b>{context.group.label} · {context.item.label}</b></div>
     </div>
     <div className="headerActions">
@@ -67,7 +68,7 @@ function MobileMorePanel({ groups, countsKnown, countsStale, view, actionCount, 
   return <>
     <button type="button" className="mobileMenuBackdrop" aria-label="전체 메뉴 닫기" onClick={()=>onClose(true)} />
     <section ref={panelRef} className="mobileGroupedMenu" role="dialog" aria-modal="true" aria-labelledby="mobile-menu-title" aria-describedby="mobile-menu-description" tabIndex={-1}>
-      <header className="mobileMenuPanelHead"><span><small>하린식품 운영 허브</small><b id="mobile-menu-title">전체 메뉴</b><em>{!countsKnown?'작업 수 확인 중':actionCount>0?`${countsStale?'최근 ':''}확인할 일 ${actionCount}건`:`${countsStale?'최근 확인 · ':''}새 알림 없음`}</em></span><button ref={closeButtonRef} type="button" aria-label="전체 메뉴 닫기" onClick={()=>onClose(true)}>×</button></header>
+      <header className="mobileMenuPanelHead"><span><small>{brand.name} · 하린식품 사업장</small><b id="mobile-menu-title">전체 메뉴</b><em>{!countsKnown?'작업 수 확인 중':actionCount>0?`${countsStale?'최근 ':''}확인할 일 ${actionCount}건`:`${countsStale?'최근 확인 · ':''}새 알림 없음`}</em></span><button ref={closeButtonRef} type="button" aria-label="전체 메뉴 닫기" onClick={()=>onClose(true)}>×</button></header>
       <p id="mobile-menu-description" className="srOnly">화면 설정과 모든 운영 메뉴를 선택할 수 있습니다.</p>
       <section className="mobileViewSettings"><b>화면 설정</b><label><span><strong>글자 크기</strong><small>모든 화면에 바로 적용됩니다.</small></span><select aria-label="모바일 허브 글자 크기" value={fontScale} onChange={event=>onFontScale(event.target.value)}><option value="large">큰 글씨</option><option value="xlarge">더 큰 글씨</option></select></label></section>
       <div className="mobileMenuGroups">
