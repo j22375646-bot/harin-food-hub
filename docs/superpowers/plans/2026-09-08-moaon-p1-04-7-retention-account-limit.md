@@ -25,6 +25,8 @@ Binding constraints: preserve production login/UI/APIs; no real cloud/SQL activa
 - [ ] Native test follows existing disposable loopback harness guard (127.0.0.1:55437/user moaon_test_admin/supervisor postgres; pool<=4, own random database and only own roles cleanup). Prove separate backends: locked stale counter is skipped; consumer holds locks before clock evaluation; cleanup owns stale row then consumer waits, after cleanup commit consumer recreates safely; rollback restores deleted records; concurrent pruners never duplicate rows or remove fresh counts. Cover both subject and IP consumption. No external DB and no credentials in report. Parent runs native when file ready.
 - [ ] GREEN focused new tests plus existing request-limit/admission tests. Run full pnpm test once before commit, not after each edit. Self-review, commit, write task-1-report with RED/GREEN/commands/output and concerns. Parent verifies native and final build.
 
+Task 1 Ruling amendment: first-use counters with used=0 and started_at<=post-lock v_now start at v_now. Future-zero and nonzero rows preserve prior rules. This replaces insertion-default timing for unused rows and avoids system tuple metadata. Native prune-first evidence and focused zero/future/nonzero tests are required.
+
 ## Task 2: Trusted profile ID login quota
 
 Files: create `lib/tenancy/account-login-limit.js` and `test/tenant-account-login-limit.test.js`; modify only the narrow optional accountLimit path in `lib/dashboard-auth.js`. No schema, routes, UI or production dependency wiring.
