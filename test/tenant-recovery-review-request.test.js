@@ -368,6 +368,45 @@ test('abort before dispatch and during verification prevents SQL; RPC timeout di
   assert.equal(calls, 1);
 });
 
+test('abort in the resolver microtask gap cannot dispatch a new resolve RPC', async () => {
+  for (const delay of [5, 6]) {
+    const controller = new AbortController();
+    const events = [];
+    const handler = createRecoveryReviewRequestHandler(dependencies({
+      verifySession: async () => {
+        let pending = Promise.resolve();
+        for (let step = 0; step < delay; step += 1) pending = pending.then(() => {});
+        pending.then(() => {
+          events.push('abort');
+          controller.abort();
+        });
+        return identity({expiresAt: new Date(Date.now() + 60_000).toISOString()});
+      },
+      rpcClient: {
+        marker: 'bound-client',
+        async rpc() {
+          assert.equal(this.marker, 'bound-client');
+          events.push(`rpc-after-abort:${controller.signal.aborted}`);
+          return {data: {
+            userId: USER,
+            operationId: OPERATION,
+            resolutionId: RESOLUTION,
+            status: 'REJECTED',
+          }, error: null};
+        },
+      },
+      now: Date.now,
+    }));
+    const response = await handler(request({
+      mode: 'resolve', userId: USER, operationId: OPERATION, resolutionId: RESOLUTION,
+      expectedVersion: VERSION, action: 'CLOSE_NOT_STARTED',
+    }, {signal: controller.signal}));
+
+    await expectError(response, 503, 'RECOVERY_REVIEW_UNAVAILABLE');
+    assert.deepEqual(events, ['abort']);
+  }
+});
+
 test('pending body read times out, cancels its reader without hanging, and never verifies identity', async () => {
   let cancelled = 0;
   let verified = 0;

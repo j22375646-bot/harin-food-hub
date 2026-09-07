@@ -77,3 +77,112 @@ Final GREEN command:
 `C:\Program Files\nodejs\node.exe --test test/tenant-recovery-review-request.test.js test/tenant-recovery-review-request-integration.test.js`
 
 Final GREEN result: exit 0, 26 passed / 0 failed / 0 cancelled / 0 skipped, duration 15.5 seconds.
+
+## Final whole-branch fix wave
+
+The remaining Important review finding was reproduced at the real resolve seam. The handler's outer deadline queued the resolver, and the resolver's bounded transport queued the underlying RPC again. An abort in that second microtask gap returned 503 but still dispatched a new RPC after cancellation.
+
+The fix passes a request-scoped RPC wrapper to the unchanged existing resolver. That wrapper performs `deadline.checkpoint()` and invokes the factory-bound underlying `rpcClient.rpc` synchronously in the same call frame, with no await or microtask between the check and dispatch. The prior test still confirms that an RPC already dispatched before timeout is not cancelled and is never retried automatically.
+
+RED command:
+
+`C:\Program Files\nodejs\node.exe --test test/tenant-recovery-review-request.test.js`
+
+Full RED output:
+
+```text
+✔ missing dashboard cookie returns AUTH_REQUIRED without dispatching recovery SQL (19.2228ms)
+✔ factory requires exact trusted server dependencies and a canonical HTTPS origin (0.8681ms)
+✔ method and same-origin source guards run before authentication and never emit CORS or redirects (3.5334ms)
+✔ proxy identity headers are ignored and cannot replace the single opaque cookie (4.0748ms)
+✔ media, encoding and declared/body byte limits reject before identity or SQL (3.2561ms)
+✔ cookie parsing rejects duplication, mixing and ambiguous values while passing the raw cookie octets (2.6917ms)
+✔ fatal UTF-8, JSON shape, identifiers and unknown fields are rejected before identity and SQL (4.2937ms)
+✔ the last duplicate JSON key is validated and copied values alone reach fresh identity and resolver (0.8234ms)
+✔ resolve uses only the freshly verified userId and preserves the existing resolver result (0.849ms)
+✔ identity authentication failures map narrowly to 401; malformed and general failures map to sanitized 503 (4.069ms)
+✔ one deadline bounds pending identity and late verification cannot start SQL (41.9174ms)
+✔ abort before dispatch and during verification prevents SQL; RPC timeout dispatches once without retry (60.9226ms)
+✖ abort in the resolver microtask gap cannot dispatch a new resolve RPC (2.6939ms)
+✔ pending body read times out, cancels its reader without hanging, and never verifies identity (28ms)
+✔ invalid clock is sanitized before identity and SQL (1.9104ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 14
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 425.7361
+
+✖ failing tests:
+
+test at test\tenant-recovery-review-request.test.js:371:1
+✖ abort in the resolver microtask gap cannot dispatch a new resolve RPC (2.6939ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+    [
+      'abort',
+  +   'rpc-after-abort:true'
+    ]
+      at TestContext.<anonymous> (C:\Users\a\OneDrive\사진\문서\ChatGPT\하린식품 허브 개발\.worktrees\moaon-foundation\test\tenant-recovery-review-request.test.js:406:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'abort', 'rpc-after-abort:true' ],
+    expected: [ 'abort' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+```
+
+RED exit code: 1.
+
+Final GREEN command:
+
+`C:\Program Files\nodejs\node.exe --test test/tenant-recovery-review-request.test.js test/tenant-recovery-review-request-integration.test.js`
+
+Full GREEN output:
+
+```text
+✔ real signed cookie traverses current identity verifier, resolver and PGlite SQL for inspect and CLOSE_NOT_STARTED (1901.4137ms)
+✔ real PGlite evidence supports CONFIRM_COMPLETED while preserving all authentication state (1336.9767ms)
+▶ tampered, revoked, expired, inactive and provider-invalid identities never mutate journal or audit
+  ✔ tampered token (1323.8388ms)
+  ✔ revoked session (1410.9337ms)
+  ✔ expired signed session (1303.1155ms)
+  ✔ inactive profile (1268.5187ms)
+  ✔ provider ban (1221.4481ms)
+  ✔ provider email mismatch (1270.0445ms)
+  ✔ provider email unconfirmed (1274.6971ms)
+✔ tampered, revoked, expired, inactive and provider-invalid identities never mutate journal or audit (9082.523ms)
+✔ an ordinary OWNER absent from the recovery allowlist is rejected by real SQL without mutation (1363.0908ms)
+✔ revoking the session during the external Auth lookup is caught by the second real validateSession read (1221.1677ms)
+✔ missing dashboard cookie returns AUTH_REQUIRED without dispatching recovery SQL (26.2885ms)
+✔ factory requires exact trusted server dependencies and a canonical HTTPS origin (0.6174ms)
+✔ method and same-origin source guards run before authentication and never emit CORS or redirects (3.543ms)
+✔ proxy identity headers are ignored and cannot replace the single opaque cookie (5.0662ms)
+✔ media, encoding and declared/body byte limits reject before identity or SQL (5.2122ms)
+✔ cookie parsing rejects duplication, mixing and ambiguous values while passing the raw cookie octets (3.2741ms)
+✔ fatal UTF-8, JSON shape, identifiers and unknown fields are rejected before identity and SQL (4.4512ms)
+✔ the last duplicate JSON key is validated and copied values alone reach fresh identity and resolver (0.8026ms)
+✔ resolve uses only the freshly verified userId and preserves the existing resolver result (0.8957ms)
+✔ identity authentication failures map narrowly to 401; malformed and general failures map to sanitized 503 (5.7217ms)
+✔ one deadline bounds pending identity and late verification cannot start SQL (37.6051ms)
+✔ abort before dispatch and during verification prevents SQL; RPC timeout dispatches once without retry (46.1904ms)
+✔ abort in the resolver microtask gap cannot dispatch a new resolve RPC (2.227ms)
+✔ pending body read times out, cancels its reader without hanging, and never verifies identity (30.6068ms)
+✔ invalid clock is sanitized before identity and SQL (2.5343ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 15264.3437
+```
+
+GREEN exit code: 0.
