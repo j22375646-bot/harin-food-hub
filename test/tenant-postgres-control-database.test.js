@@ -6,6 +6,10 @@ const {
   createPostgresControlDatabase,
   PostgresControlDatabaseError,
 } = require('../lib/tenancy/postgres-control-database.js');
+const {
+  cleanupNativeResources,
+  NativeHarnessCleanupError,
+} = require('./integration/postgres-native-harness-safety.js');
 
 const SAFE_ROLE = Object.freeze({
   current_user: 'moaon_control_app',
@@ -333,4 +337,189 @@ test('close는 pool을 한 번 닫고 이후 operation을 즉시 거부한다', 
   await expectSafeDatabaseError(() => database.query('select 1'), 'CONTROL_DATABASE_CLOSED');
   await expectSafeDatabaseError(() => database.transaction(async () => 1), 'CONTROL_DATABASE_CLOSED');
   assert.equal(pool.connects, 0);
+});
+
+test('port와 password를 생략한 direct 또는 URL config는 driver 환경 fallback 전에 거부한다', () => {
+  const pool = createFakePool(createFakeClient());
+  for (const connection of [
+    localConnection({ port: undefined }),
+    localConnection({ password: undefined }),
+    localConnection({ password: '' }),
+    {
+      connectionString: 'postgresql://moaon_control_app:synthetic@127.0.0.1/moaon_test_unit',
+      ssl: false,
+    },
+    {
+      connectionString: 'postgresql://moaon_control_app@127.0.0.1:5432/moaon_test_unit',
+      ssl: false,
+    },
+  ]) {
+    assert.throws(() => createPostgresControlDatabase({
+      connection,
+      localTestOnly: true,
+      testPool: pool,
+    }), TypeError);
+  }
+});
+
+test('명시 config는 PG 환경 오염을 driver에 전달하지 않고 process.env도 변경하지 않는다', async () => {
+  const names = [
+    'PGPASSWORD', 'PGPORT', 'PGOPTIONS', 'PGAPPNAME', 'PGSSLMODE',
+    'PGSSLNEGOTIATION', 'PGCLIENT_ENCODING', 'PGREPLICATION', 'PGUSER',
+    'PGDATABASE', 'PGHOST', 'PGCONNECT_TIMEOUT',
+  ];
+  const previous = Object.fromEntries(names.map(name => [name, process.env[name]]));
+  const contamination = {
+    PGPASSWORD: 'environment-secret',
+    PGPORT: '6543',
+    PGOPTIONS: '-c role=postgres',
+    PGAPPNAME: 'environment-app',
+    PGSSLMODE: 'no-verify',
+    PGSSLNEGOTIATION: 'direct',
+    PGCLIENT_ENCODING: 'SQL_ASCII',
+    PGREPLICATION: 'database',
+    PGUSER: 'postgres',
+    PGDATABASE: 'production',
+    PGHOST: 'production.example.com',
+    PGCONNECT_TIMEOUT: '99',
+  };
+  Object.assign(process.env, contamination);
+  let captured;
+  try {
+    const database = createPostgresControlDatabase({
+      connection: localConnection(),
+      localTestOnly: true,
+      poolFactory(config) {
+        captured = config;
+        return createFakePool(createFakeClient());
+      },
+    });
+    assert.equal(Object.hasOwn(captured, 'connectionString'), false);
+    assert.equal(captured.password, 'synthetic');
+    assert.equal(captured.port, 5432);
+    assert.equal(captured.host, '127.0.0.1');
+    assert.equal(captured.database, 'moaon_test_unit');
+    assert.equal(captured.user, 'moaon_control_app');
+    assert.equal(captured.options, '-c search_path=pg_catalog');
+    assert.equal(captured.application_name, 'moaon-control');
+    assert.equal(captured.client_encoding, 'UTF8');
+    assert.equal(captured.replication, 'false');
+    assert.equal(captured.ssl, false);
+    assert.equal(captured.sslnegotiation, 'postgres');
+    assert.equal(captured.connectionTimeoutMillis, 2000);
+    assert.deepEqual(
+      Object.fromEntries(names.map(name => [name, process.env[name]])),
+      contamination
+    );
+    await database.close();
+  } finally {
+    for (const name of names) {
+      if (previous[name] === undefined) delete process.env[name];
+      else process.env[name] = previous[name];
+    }
+  }
+});
+
+test('검증한 TLS config는 caller의 사후 mutation과 unsupported hook에서 격리된다', async () => {
+  const ca = Buffer.from('safe-ca');
+  const cert = Buffer.from('safe-cert');
+  const ssl = {
+    rejectUnauthorized: true,
+    ca: [ca, 'safe-ca-two'],
+    cert,
+    key: 'safe-key',
+    servername: 'db.example.com',
+    minVersion: 'TLSv1.2',
+  };
+  const connection = localConnection({ host: 'db.example.com', ssl });
+  let captured;
+  const database = createPostgresControlDatabase({
+    connection,
+    poolFactory(config) {
+      captured = config;
+      return createFakePool(createFakeClient());
+    },
+  });
+
+  ssl.rejectUnauthorized = false;
+  ca.fill(0);
+  cert.fill(0);
+  ssl.ca[1] = 'mutated';
+  connection.host = 'attacker.example.com';
+  assert.equal(captured.host, 'db.example.com');
+  assert.equal(captured.ssl.rejectUnauthorized, true);
+  assert.equal(captured.ssl.ca[0].toString(), 'safe-ca');
+  assert.equal(captured.ssl.ca[1], 'safe-ca-two');
+  assert.equal(captured.ssl.cert.toString(), 'safe-cert');
+  await database.close();
+
+  assert.throws(() => createPostgresControlDatabase({
+    connection: localConnection({
+      host: 'db.example.com',
+      ssl: { rejectUnauthorized: true, checkServerIdentity() {} },
+    }),
+    testPool: createFakePool(createFakeClient()),
+  }), TypeError);
+});
+
+test('failed setup 전에 존재한 control role은 native cleanup 소유 대상이 아니다', async () => {
+  const statements = [];
+  const supervisorPool = {
+    async query(sql) { statements.push(String(sql)); },
+    async end() {},
+  };
+  await cleanupNativeResources({
+    supervisorPool,
+    databaseCreated: false,
+    controlRoleCreated: false,
+    createdAuxiliaryRoles: [],
+  });
+  assert.equal(statements.some(sql => /drop role.*moaon_control_app/i.test(sql)), false);
+});
+
+test('native cleanup은 한 단계가 실패해도 모든 owned resource를 시도하고 안전하게 보고한다', async () => {
+  const statements = [];
+  const supervisorPool = {
+    async query(sql) {
+      statements.push(String(sql));
+      throw new Error('driver password=secret detail');
+    },
+    async end() {
+      statements.push('SUPERVISOR_END');
+      throw new Error('end secret');
+    },
+  };
+  const adminPool = {
+    async end() {
+      statements.push('ADMIN_END');
+      throw new Error('admin secret');
+    },
+  };
+
+  await assert.rejects(() => cleanupNativeResources({
+    adminPool,
+    supervisorPool,
+    databaseCreated: true,
+    databaseName: 'moaon_test_control_1234_abcd',
+    controlRoleCreated: true,
+    createdAuxiliaryRoles: ['moaon_test_public_1234'],
+  }), error => {
+    assert.equal(error instanceof NativeHarnessCleanupError, true);
+    assert.equal(error.code, 'NATIVE_HARNESS_CLEANUP_FAILED');
+    assert.doesNotMatch(error.message, /secret|password|detail/i);
+    assert.deepEqual(error.steps, [
+      'admin pool close',
+      'database connections terminate',
+      'database drop',
+      'control role drop',
+      'auxiliary role drop',
+      'supervisor pool close',
+    ]);
+    return true;
+  });
+  assert.equal(statements.some(sql => /pg_terminate_backend/i.test(sql)), true);
+  assert.equal(statements.some(sql => /drop database/i.test(sql)), true);
+  assert.equal(statements.some(sql => /drop role if exists moaon_control_app/i.test(sql)), true);
+  assert.equal(statements.some(sql => /drop role if exists "moaon_test_public_1234"/i.test(sql)), true);
+  assert.equal(statements.includes('SUPERVISOR_END'), true);
 });

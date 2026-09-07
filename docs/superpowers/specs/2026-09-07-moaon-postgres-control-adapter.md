@@ -11,11 +11,23 @@ database-client, browser, request-body, role-name, or SQL fallback. Its frozen p
 surface is `{query, transaction, close}`, matching `createTenantControlStore`'s
 database dependency. No route currently composes it.
 
+Host, port, database, fixed user, and a non-empty string password are mandatory,
+including inside a connection URL. The factory parses URLs once and passes a direct,
+owned config snapshot to node-postgres. It supplies fixed safe values for startup
+options, application name, client encoding, replication mode, SSL negotiation, and
+timeouts so `PGPASSWORD`, `PGPORT`, `PGOPTIONS`, `PGAPPNAME`, `PGSSLMODE`, and related
+driver environment values cannot fill omitted fields or alter the session. The
+factory does not mutate `process.env`.
+
 For non-loopback targets, pass an `ssl` object with `rejectUnauthorized: true`.
 Connection URLs must not contain query parameters: node-postgres documents that
 `sslmode`, `sslcert`, `sslkey`, and `sslrootcert` in a URL replace the explicit SSL
 object. Session `options` are also rejected so a URL cannot inject `role` or timeout
 changes. Non-TLS is accepted only with `localTestOnly: true` and a loopback host.
+Supported TLS certificate/string fields use a small allowlist and are copied
+recursively, including arrays and Buffers, before Pool construction. Unsupported TLS
+hooks/options are rejected. Caller mutation therefore cannot change
+`rejectUnauthorized` or certificate material after validation.
 
 The adapter owns a pool bounded to 4 connections by default (maximum configurable
 value 16), a 2-second connection wait, and finite statement, lock, and
@@ -65,8 +77,11 @@ It fails when the variable is missing or when the host is not `127.0.0.1`/`local
 the database does not start with `moaon_test_`, the user is not the synthetic test
 supervisor, or the URL contains query parameters. The harness validates every target
 before connecting, creates one uniquely named disposable database, and drops only
-that generated database and roles it created. The external controller owns the
-PostgreSQL process.
+that generated database and roles recorded as successfully created. A preexisting
+fixed role that aborts setup is never treated as owned. Cleanup attempts every owned
+resource after any individual failure, then raises sanitized failed-step labels
+instead of swallowing driver errors. The external controller owns the PostgreSQL
+process.
 
 The native suite applies `control-plane.sql` and the candidate role SQL only inside
 that disposable database. It provisions a random test-only SCRAM login separately,

@@ -12,6 +12,9 @@ const {
 const {
   createTenantControlStore,
 } = require('../../lib/tenancy/control-store.js');
+const {
+  cleanupNativeResources,
+} = require('./postgres-native-harness-safety.js');
 
 const IDS = Object.freeze({
   tenant: '71000000-0000-4000-8000-000000000001',
@@ -157,6 +160,7 @@ let applicationUrl;
 let serverMetadata;
 let candidateRoleMetadata;
 let databaseCreated = false;
+let controlRoleCreated = false;
 const createdAuxiliaryRoles = [];
 
 async function resetFixtures() {
@@ -280,14 +284,17 @@ test.before(async () => {
   // Prove the candidate refuses an unsafe preexisting LOGIN role rather than
   // silently altering or using it.
   await adminPool.query("create role moaon_control_app login password 'synthetic-unsafe'");
+  controlRoleCreated = true;
   await assert.rejects(() => adminPool.query(roleSql), error => error.code === '42501');
   const stillUnsafe = await adminPool.query(
     "select rolcanlogin from pg_roles where rolname = 'moaon_control_app'"
   );
   assert.equal(stillUnsafe.rows[0].rolcanlogin, true);
   await adminPool.query('drop role moaon_control_app');
+  controlRoleCreated = false;
 
   await adminPool.query(roleSql);
+  controlRoleCreated = true;
   const candidateMetadata = await adminPool.query(`
     select r.rolcanlogin, r.rolsuper, r.rolinherit, r.rolcreaterole,
       r.rolcreatedb, r.rolreplication, r.rolbypassrls,
@@ -319,23 +326,14 @@ test.before(async () => {
 test.beforeEach(resetFixtures);
 
 test.after(async () => {
-  if (adminPool) await adminPool.end().catch(() => {});
-  if (supervisorPool && databaseCreated) {
-    await supervisorPool.query(
-      'select pg_terminate_backend(pid) from pg_stat_activity where datname = $1 and pid <> pg_backend_pid()',
-      [databaseName]
-    ).catch(() => {});
-    await supervisorPool.query(`drop database if exists ${databaseIdentifier}`).catch(() => {});
-  }
-  if (supervisorPool) {
-    await supervisorPool.query('drop role if exists moaon_control_app').catch(() => {});
-    for (const role of createdAuxiliaryRoles.reverse()) {
-      if (/^(anon|authenticated|moaon_test_public_[0-9]+)$/.test(role)) {
-        await supervisorPool.query(`drop role if exists "${role}"`).catch(() => {});
-      }
-    }
-    await supervisorPool.end().catch(() => {});
-  }
+  await cleanupNativeResources({
+    adminPool,
+    supervisorPool,
+    databaseCreated,
+    databaseName,
+    controlRoleCreated,
+    createdAuxiliaryRoles,
+  });
 });
 
 test('native PostgreSQL 17 server와 제한 역할 metadata를 실제로 검증한다', t => {
@@ -494,7 +492,7 @@ test('rollback 뒤 다음 checkout에는 transaction과 SET LOCAL 상태가 남�
       select current_setting('application_name') as application_name,
         txid_current_if_assigned() as transaction_id
     `);
-    assert.equal(clean.rows[0].application_name, '');
+    assert.equal(clean.rows[0].application_name, 'moaon-control');
     assert.equal(clean.rows[0].transaction_id, null);
   } finally {
     await database.close();
