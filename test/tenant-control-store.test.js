@@ -250,6 +250,89 @@ test('OWNER는 선택한 사업장의 pending 초대만 회수하고 audit를 �
   assert.deepEqual(audit.rows, [{ action: 'INVITATION_REVOKED', actor_user_id: IDS.owner }]);
 });
 
+test('초대 회수는 OWNER 확인 전 상태 oracle을 만들지 않고 모든 거부 경로를 무변경으로 유지한다', async () => {
+  const pending = await createInvite({ email: 'pending@example.com' });
+
+  await database.query(`
+    update moaon_control.memberships set role = 'OWNER'
+    where tenant_id = $1::uuid and user_id = $2::uuid
+  `, [IDS.tenantB, IDS.owner]);
+  const foreign = await createInvite({
+    tenantId: IDS.tenantB,
+    expectedMembershipVersion: 7,
+    email: 'foreign@example.com',
+  });
+  await database.query(`
+    update moaon_control.memberships set role = 'VIEWER'
+    where tenant_id = $1::uuid and user_id = $2::uuid
+  `, [IDS.tenantB, IDS.owner]);
+
+  const accepted = await createInvite({ email: 'accepted@example.com' });
+  await database.query(`
+    update moaon_control.invitations
+    set status = 'ACCEPTED', accepted_by = $1::uuid, accepted_at = clock_timestamp()
+    where id = $2::uuid
+  `, [IDS.shared, accepted.invitationId]);
+  const revoked = await createInvite({ email: 'revoked@example.com' });
+  await store.revokeInvitation({
+    sessionCredential: SESSIONS.owner,
+    tenantId: IDS.tenantA,
+    invitationId: revoked.invitationId,
+  });
+  const missingId = '40000000-0000-4000-8000-000000000099';
+
+  const beforeInvitations = await database.query(`
+    select id, tenant_id, status, accepted_by from moaon_control.invitations order by id
+  `);
+  const beforeAudit = await database.query(`
+    select id, tenant_id, actor_user_id, action, target_id from moaon_control.audit_events order by id
+  `);
+
+  for (const invitationId of [
+    pending.invitationId,
+    foreign.invitationId,
+    missingId,
+    accepted.invitationId,
+    revoked.invitationId,
+  ]) {
+    await expectStoreError(
+      () => store.revokeInvitation({
+        sessionCredential: SESSIONS.shared,
+        tenantId: IDS.tenantA,
+        invitationId,
+      }),
+      'TENANT_ACCESS_DENIED',
+      403
+    );
+  }
+
+  for (const invitationId of [
+    foreign.invitationId,
+    missingId,
+    accepted.invitationId,
+    revoked.invitationId,
+  ]) {
+    await expectStoreError(
+      () => store.revokeInvitation({
+        sessionCredential: SESSIONS.owner,
+        tenantId: IDS.tenantA,
+        invitationId,
+      }),
+      'INVITATION_INVALID',
+      400
+    );
+  }
+
+  const afterInvitations = await database.query(`
+    select id, tenant_id, status, accepted_by from moaon_control.invitations order by id
+  `);
+  const afterAudit = await database.query(`
+    select id, tenant_id, actor_user_id, action, target_id from moaon_control.audit_events order by id
+  `);
+  assert.deepEqual(afterInvitations.rows, beforeInvitations.rows);
+  assert.deepEqual(afterAudit.rows, beforeAudit.rows);
+});
+
 test('OWNER의 실제 membership 변경은 버전을 하나 올리고 hard delete 없이 audit를 남긴다', async () => {
   assert.deepEqual(await store.updateMembership({
     sessionCredential: SESSIONS.owner,
@@ -323,19 +406,66 @@ test('fake·만료·검증 중 만료된 세션과 잘못된 식별자를 mutati
       expiresAt: new Date(Date.now() + 250).toISOString(),
     }),
   });
-  await expectStoreError(
+  const revokedInvitation = await createInvite();
+  await store.revokeInvitation({
+    sessionCredential: SESSIONS.owner,
+    tenantId: IDS.tenantA,
+    invitationId: revokedInvitation.invitationId,
+  });
+  await database.query(`
+    update moaon_control.tenants set status = 'SUSPENDED' where id = $1::uuid
+  `, [IDS.tenantB]);
+  const beforeInvitations = await database.query(`
+    select id, status from moaon_control.invitations order by id
+  `);
+  const beforeAudit = await database.query(`
+    select id, action, target_id from moaon_control.audit_events order by id
+  `);
+
+  const expiredDuringLockOperations = [
+    () => lockDelayedStore.createInvitation({
+      sessionCredential: 'expires-during-lock',
+      tenantId: IDS.tenantA,
+      expectedMembershipVersion: 2,
+      email: 'invitee@example.com',
+      role: 'VIEWER',
+    }),
     () => lockDelayedStore.createInvitation({
       sessionCredential: 'expires-during-lock',
       tenantId: IDS.tenantA,
       expectedMembershipVersion: 3,
+      email: 'owner@example.com',
+      role: 'VIEWER',
+    }),
+    () => lockDelayedStore.createInvitation({
+      sessionCredential: 'expires-during-lock',
+      tenantId: IDS.tenantB,
+      expectedMembershipVersion: 7,
       email: 'invitee@example.com',
       role: 'VIEWER',
     }),
-    'AUTH_REQUIRED',
-    401
-  );
-  const invitations = await database.query('select count(*)::integer as count from moaon_control.invitations');
-  assert.equal(invitations.rows[0].count, 0);
+    () => lockDelayedStore.acceptInvitation({
+      sessionCredential: 'expires-during-lock',
+      token: revokedInvitation.token,
+    }),
+    () => lockDelayedStore.revokeInvitation({
+      sessionCredential: 'expires-during-lock',
+      tenantId: IDS.tenantA,
+      invitationId: revokedInvitation.invitationId,
+    }),
+  ];
+  for (const run of expiredDuringLockOperations) {
+    await expectStoreError(run, 'AUTH_REQUIRED', 401);
+  }
+
+  const afterInvitations = await database.query(`
+    select id, status from moaon_control.invitations order by id
+  `);
+  const afterAudit = await database.query(`
+    select id, action, target_id from moaon_control.audit_events order by id
+  `);
+  assert.deepEqual(afterInvitations.rows, beforeInvitations.rows);
+  assert.deepEqual(afterAudit.rows, beforeAudit.rows);
 });
 
 test('active OWNER 자신의 검증된 이메일은 잠금·권한·version 확인 뒤 초대하지 않는다', async () => {
