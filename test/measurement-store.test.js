@@ -67,3 +67,15 @@ test('product option reads page beyond first API page and expose truncation as u
  const s=require(storePath);const db=dbWith(c=>{const start=c.steps.find(x=>x[0]==='range')[1];return {data:c.table==='master_products'&&start===0?Array.from({length:500},(_,i)=>({id:String(i),is_active:true,name:'food'})):[]};});
  assert.equal((await s.loadProducts({db})).available,true);assert.ok(db.calls.some(c=>c.table==='master_products'&&c.steps.some(x=>x[0]==='range'&&x[1]===500)));
 });
+test('cursor rejects nonexistent calendar dates before querying and preserves valid leap-day timestamps',async()=>{
+ const s=require(storePath);const db=dbWith({measurement_links:{data:[]}});
+ const cursor=createdAt=>Buffer.from(JSON.stringify({createdAt,id:row.id})).toString('base64url');
+ for(const timestamp of ['2026-02-30T00:00:00Z','2026-02-29T12:34:56.123456+00:00','2024-04-31T00:00:00Z','2024-02-29T24:00:00Z']){
+  await assert.rejects(()=>s.listLinks({db,after:cursor(timestamp)}),{code:'INVALID_CURSOR',status:400});
+ }
+ assert.equal(db.calls.length,0);
+ for(const timestamp of ['2024-02-29T12:34:56Z','2024-02-29T12:34:56.123456+00:00','2026-09-07T00:00:00.000001Z']){
+  await s.listLinks({db,after:cursor(timestamp)});
+  assert.equal(db.calls.at(-1).steps.find(step=>step[0]==='or')[1],`created_at.lt.${timestamp},and(created_at.eq.${timestamp},id.lt.${row.id})`);
+ }
+});
