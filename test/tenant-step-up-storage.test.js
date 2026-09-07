@@ -58,6 +58,78 @@ async function setAdmin(db, operation) {
   finally { await db.exec('set role service_role'); }
 }
 
+async function runInterleavedDispatchClockCase(target, mode) {
+  const targetPhase = target === 'provider' ? 'afterBegin'
+    : target === 'commit' ? 'afterProvider' : 'beforeDispatch';
+  const targetObservation = target === 'provider' ? 3 : target === 'commit' ? 4 : 2;
+  const observedAt = mode === 'expiry' ? 100_000 : 100_060;
+  const interleavedAt = mode === 'expiry' ? 100_020 : 100_055;
+  let value = 100_000;
+  let phase = 'beforeDispatch';
+  let observations = 0;
+  let interleaved = false;
+  const now = () => {
+    if (phase === targetPhase) {
+      observations += 1;
+      if (observations === targetObservation) {
+        value = observedAt;
+        queueMicrotask(() => {
+          value = interleavedAt;
+          interleaved = true;
+        });
+      }
+    }
+    return value;
+  };
+  const enterPhase = nextPhase => {
+    phase = nextPhase;
+    observations = 0;
+  };
+  const begin = {
+    operationId: OPERATION,
+    startedAt: '1970-01-01T00:01:40.000Z',
+    expiresAt: '1970-01-01T00:02:40.000Z',
+  };
+  const providerValue = providerResult({nowMs: 100_000});
+  const proof = {
+    userId: USER,
+    sessionId: HUB_SESSION,
+    method: 'mfa',
+    verifiedAt: providerValue.evidence.verifiedAt,
+    expiresAt: providerValue.evidence.expiresAt,
+  };
+  const rpcCalls = [];
+  let providerCalls = 0;
+  const service = createStepUpStorage({
+    rpcClient: {rpc: async name => {
+      rpcCalls.push(name);
+      if (name === 'moaon_begin_step_up') {
+        enterPhase('afterBegin');
+        return {data: begin, error: null};
+      }
+      if (name === 'moaon_commit_step_up') return {data: proof, error: null};
+      return {data: true, error: null};
+    }},
+    provider: {verifyTotp: async () => {
+      providerCalls += 1;
+      enterPhase('afterProvider');
+      return providerValue;
+    }},
+    encryptionKey: ENCRYPTION_KEY,
+    keyId: KEY_ID,
+    timeoutMs: mode === 'expiry' ? 10 : 1_000,
+    now,
+  });
+  const operation = target === 'revoke'
+    ? () => service.revoke({userId: USER, sessionId: HUB_SESSION, tokenHash: TOKEN_HASH})
+    : () => service.issue(issueInput());
+  await assert.rejects(operation, error => assertStorageError(error, 'STEP_UP_UNAVAILABLE'));
+  assert.equal(interleaved, true, `${target} ${mode} clock did not interleave`);
+  assert.deepEqual(rpcCalls, target === 'provider' || target === 'commit'
+    ? ['moaon_begin_step_up'] : [], `${target} ${mode} RPC I/O`);
+  assert.equal(providerCalls, target === 'commit' ? 1 : 0, `${target} ${mode} provider I/O`);
+}
+
 test('PGlite stores one encrypted proof and revokes it through the public service seam', async () => {
   const db = await prepareStepUpDatabase();
   try {
@@ -575,7 +647,7 @@ test('partial clock rollback stops provider and commit dispatch even while still
   };
   const cases = [
     ['after begin', [100_000, 100_010, 100_060, 100_055, 100_056, 100_057], 0],
-    ['after provider', [100_000, 100_010, 100_020, 100_030, 100_040, 100_060, 100_055, 100_056], 1],
+    ['after provider', [100_000, 100_010, 100_020, 100_030, 100_040, 100_050, 100_060, 100_055, 100_056], 1],
   ];
   for (const [name, values, expectedProviderCalls] of cases) {
     let index = 0;
@@ -597,6 +669,18 @@ test('partial clock rollback stops provider and commit dispatch even while still
       error => assertStorageError(error, 'STEP_UP_UNAVAILABLE'), name);
     assert.deepEqual(rpcCalls, ['moaon_begin_step_up'], name);
     assert.equal(providerCalls, expectedProviderCalls, name);
+  }
+});
+
+test('an interleaved expiry checkpoint stops every dispatch before its I/O starts', async t => {
+  for (const target of ['begin', 'provider', 'commit', 'revoke']) {
+    await t.test(target, () => runInterleavedDispatchClockCase(target, 'expiry'));
+  }
+});
+
+test('an interleaved partial clock rollback stops every dispatch before its I/O starts', async t => {
+  for (const target of ['begin', 'provider', 'commit', 'revoke']) {
+    await t.test(target, () => runInterleavedDispatchClockCase(target, 'rollback'));
   }
 });
 
