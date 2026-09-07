@@ -8,6 +8,7 @@ const {
 const {
   DashboardIdentityError,
 } = require('../lib/tenancy/dashboard-identity.js');
+const {StepUpStorageError} = require('../lib/tenancy/step-up-storage.js');
 
 const ORIGIN = 'https://hub.example.test';
 const NOW = Date.parse('2026-09-08T12:00:00.000Z');
@@ -193,18 +194,25 @@ test('malformed step-up authority evidence is sanitized before SQL', async () =>
   }
 });
 
-test('step-up evidence values are copied once before a successful request', async () => {
-  const reads = new Map();
-  const evidence = {};
-  for (const [key, value] of Object.entries(proof())) Object.defineProperty(evidence, key, {
-    enumerable: true,
-    get() { reads.set(key, (reads.get(key) || 0) + 1); return value; },
-  });
+test('each step-up evidence response is copied once before a successful request', async () => {
+  const observations = [];
   const response = await createRecoveryReviewRequestHandler(dependencies({
-    verifyStepUp: async () => evidence,
+    verifyStepUp: async () => {
+      const reads = new Map();
+      const evidence = {};
+      for (const [key, value] of Object.entries(proof())) Object.defineProperty(evidence, key, {
+        enumerable: true,
+        get() { reads.set(key, (reads.get(key) || 0) + 1); return value; },
+      });
+      observations.push(reads);
+      return evidence;
+    },
   }))(request());
   assert.equal(response.status, 200);
-  assert.deepEqual(Object.fromEntries(reads), Object.fromEntries(Object.keys(proof()).map(key => [key, 1])));
+  assert.equal(observations.length, 2);
+  for (const reads of observations) {
+    assert.deepEqual(Object.fromEntries(reads), Object.fromEntries(Object.keys(proof()).map(key => [key, 1])));
+  }
 });
 
 test('admission denial returns a fixed retry window and never dispatches resolution', async () => {
@@ -230,6 +238,7 @@ test('admission denial returns a fixed retry window and never dispatches resolut
 test('successful request verifies identity, proof, admission, identity again, then resolution', async () => {
   const events = [];
   let identityCalls = 0;
+  let proofCalls = 0;
   const handler = createRecoveryReviewRequestHandler(dependencies({
     verifySession: async credential => {
       assert.equal(credential, COOKIE);
@@ -239,8 +248,13 @@ test('successful request verifies identity, proof, admission, identity again, th
     },
     verifyStepUp: async context => {
       assert.deepEqual(context, {userId: OPERATOR, sessionId: SESSION});
+      assert.equal(Object.isFrozen(context), true);
+      proofCalls += 1;
       events.push('proof');
-      return proof();
+      return proofCalls === 1 ? proof() : proof({
+        verifiedAt: '2026-09-08T11:59:30.000Z',
+        expiresAt: '2026-09-08T12:04:30.000Z',
+      });
     },
     rpcClient: {async rpc(name, args) {
       events.push(name);
@@ -258,6 +272,7 @@ test('successful request verifies identity, proof, admission, identity again, th
     'proof',
     'moaon_consume_recovery_review',
     'identity:2',
+    'proof',
     'moaon_inspect_recovery_review',
   ]);
 });
@@ -285,6 +300,74 @@ test('identity recheck failures after admission never dispatch resolution', asyn
     }));
     await expectError(await handler(request()), status, code);
     assert.deepEqual(rpcNames, ['moaon_consume_recovery_review']);
+  }
+});
+
+test('fresh proof absence, identity change, expiry and malformed evidence block resolver dispatch', async () => {
+  const throwing = proof();
+  Object.defineProperty(throwing, 'expiresAt', {
+    enumerable: true,
+    get() { throw new Error('private fresh proof store'); },
+  });
+  const cases = [
+    [null, 403, 'STEP_UP_REQUIRED'],
+    [proof({userId: USER}), 403, 'STEP_UP_REQUIRED'],
+    [proof({sessionId: '30000000-0000-4000-8000-000000000009'}), 403, 'STEP_UP_REQUIRED'],
+    [proof({method: 'password'}), 403, 'STEP_UP_REQUIRED'],
+    [proof({expiresAt: '2026-09-08T12:00:00.000Z'}), 403, 'STEP_UP_REQUIRED'],
+    [{...proof(), extra: true}, 503, 'RECOVERY_REVIEW_UNAVAILABLE'],
+    [throwing, 503, 'RECOVERY_REVIEW_UNAVAILABLE'],
+  ];
+  for (const [second, status, code] of cases) {
+    let proofCalls = 0;
+    const proofInputs = [];
+    const rpcNames = [];
+    const handler = createRecoveryReviewRequestHandler(dependencies({
+      verifyStepUp: async context => {
+        proofCalls += 1;
+        proofInputs.push(context);
+        return proofCalls === 1 ? proof() : second;
+      },
+      rpcClient: {async rpc(name) {
+        rpcNames.push(name);
+        return {data: name === 'moaon_consume_recovery_review' ? true : inspection(), error: null};
+      }},
+    }));
+
+    await expectError(await handler(request()), status, code);
+    assert.equal(proofCalls, 2);
+    assert.deepEqual(proofInputs, [
+      {userId: OPERATOR, sessionId: SESSION},
+      {userId: OPERATOR, sessionId: SESSION},
+    ]);
+    assert.equal(proofInputs.every(Object.isFrozen), true);
+    assert.deepEqual(rpcNames, ['moaon_consume_recovery_review']);
+  }
+});
+
+test('only the actual storage STEP_UP_REQUIRED error maps to 403 and all other proof errors stay sanitized', async () => {
+  const cases = [
+    [new StepUpStorageError('STEP_UP_REQUIRED'), 403, 'STEP_UP_REQUIRED'],
+    [new StepUpStorageError('STEP_UP_UNAVAILABLE'), 503, 'RECOVERY_REVIEW_UNAVAILABLE'],
+    [Object.assign(new Error('forged private storage error'), {code: 'STEP_UP_REQUIRED', status: 403}),
+      503, 'RECOVERY_REVIEW_UNAVAILABLE'],
+    [new Error('raw token OTP ciphertext private SQL'), 503, 'RECOVERY_REVIEW_UNAVAILABLE'],
+  ];
+  for (const [proofError, status, code] of cases) {
+    let businessCalls = 0;
+    const handler = createRecoveryReviewRequestHandler(dependencies({
+      verifyStepUp: async () => { throw proofError; },
+      rpcClient: {async rpc() { businessCalls += 1; throw new Error('must not dispatch'); }},
+    }));
+
+    const response = await handler(request());
+
+    const serialized = JSON.stringify(await response.clone().json());
+    await expectError(response, status, code);
+    assert.equal(businessCalls, 0);
+    for (const secret of ['forged private storage error', 'raw token', 'OTP', 'ciphertext', 'private SQL']) {
+      assert.equal(serialized.includes(secret), false);
+    }
   }
 });
 
@@ -328,9 +411,45 @@ test('proof and initial session expiry cannot be extended while admission or ide
     await expectError(await handler(request()), 401, 'AUTH_REQUIRED');
     assert.deepEqual(rpcNames, ['moaon_consume_recovery_review']);
   });
+
+  await t.test('a newer longer proof cannot extend the initial proof expiry', async () => {
+    let current = NOW;
+    let proofCalls = 0;
+    const rpcNames = [];
+    const handler = createRecoveryReviewRequestHandler(dependencies({
+      now: () => current,
+      verifyStepUp: async () => {
+        proofCalls += 1;
+        if (proofCalls === 1) return proof({
+          verifiedAt: '2026-09-08T11:59:59.000Z',
+          expiresAt: '2026-09-08T12:00:00.005Z',
+        });
+        const newer = proof({
+          verifiedAt: '2026-09-08T12:00:00.000Z',
+          expiresAt: '2026-09-08T12:01:00.000Z',
+        });
+        Object.defineProperty(newer, 'expiresAt', {
+          enumerable: true,
+          get() {
+            current = NOW + 5;
+            return '2026-09-08T12:01:00.000Z';
+          },
+        });
+        return newer;
+      },
+      rpcClient: {async rpc(name) {
+        rpcNames.push(name);
+        return {data: name === 'moaon_consume_recovery_review' ? true : inspection(), error: null};
+      }},
+    }));
+
+    await expectError(await handler(request()), 403, 'STEP_UP_REQUIRED');
+    assert.equal(proofCalls, 2);
+    assert.deepEqual(rpcNames, ['moaon_consume_recovery_review']);
+  });
 });
 
-test('a proof that becomes future-dated after clock regression blocks every later RPC dispatch', async t => {
+test('an observed clock rollback blocks every later RPC dispatch as unavailable', async t => {
   const futureProof = () => proof({
     verifiedAt: '2026-09-08T12:00:00.050Z',
     expiresAt: '2026-09-08T12:00:01.000Z',
@@ -367,7 +486,7 @@ test('a proof that becomes future-dated after clock regression blocks every late
       }},
     }));
 
-    await expectError(await handler(request()), 403, 'STEP_UP_REQUIRED');
+    await expectError(await handler(request()), 503, 'RECOVERY_REVIEW_UNAVAILABLE');
     assert.equal(admissionCalls, 0);
   });
 
@@ -404,10 +523,52 @@ test('a proof that becomes future-dated after clock regression blocks every late
       }},
     }));
 
-    await expectError(await handler(request()), 403, 'STEP_UP_REQUIRED');
+    await expectError(await handler(request()), 503, 'RECOVERY_REVIEW_UNAVAILABLE');
     assert.equal(admissionCalls, 1);
     assert.equal(resolverCalls, 0);
   });
+});
+
+test('partial clock rollback after a later observation stops fresh proof and resolver I/O', async () => {
+  let clockState = 'base';
+  let identityCalls = 0;
+  let proofCalls = 0;
+  const rpcNames = [];
+  const handler = createRecoveryReviewRequestHandler(dependencies({
+    now: () => {
+      if (clockState === 'advanced') {
+        clockState = 'regressed';
+        return NOW + 100;
+      }
+      return clockState === 'regressed' ? NOW + 50 : NOW;
+    },
+    verifySession: async () => {
+      identityCalls += 1;
+      if (identityCalls === 1) return identity();
+      const fresh = identity();
+      Object.defineProperty(fresh, 'expiresAt', {
+        enumerable: true,
+        get() {
+          clockState = 'advanced';
+          return '2026-09-08T13:00:00.000Z';
+        },
+      });
+      return fresh;
+    },
+    verifyStepUp: async () => {
+      proofCalls += 1;
+      return proof();
+    },
+    rpcClient: {async rpc(name) {
+      rpcNames.push(name);
+      return {data: name === 'moaon_consume_recovery_review' ? true : inspection(), error: null};
+    }},
+  }));
+
+  const response = await handler(request());
+  assert.equal(proofCalls, 1);
+  assert.deepEqual(rpcNames, ['moaon_consume_recovery_review']);
+  await expectError(response, 503, 'RECOVERY_REVIEW_UNAVAILABLE');
 });
 
 test('malformed or failed admission stays sanitized and never starts resolution', async () => {
@@ -474,7 +635,11 @@ test('factory requires exact trusted server dependencies and a canonical HTTPS o
 
 test('method and same-origin source guards run before authentication and never emit CORS or redirects', async () => {
   let verified = 0;
-  const handler = createRecoveryReviewRequestHandler(dependencies({verifySession: async () => {verified += 1; return identity();}}));
+  let proofReads = 0;
+  const handler = createRecoveryReviewRequestHandler(dependencies({
+    verifySession: async () => {verified += 1; return identity();},
+    verifyStepUp: async () => {proofReads += 1; return proof();},
+  }));
   const cases = [
     [new Request(`${ORIGIN}/internal/recovery-review`, {method: 'GET', headers: {origin: ORIGIN}}), 405, 'METHOD_NOT_ALLOWED'],
     [request(undefined, {url: 'https://evil.example.test/internal/recovery-review'}), 403, 'SOURCE_REJECTED'],
@@ -489,6 +654,7 @@ test('method and same-origin source guards run before authentication and never e
   const method = await handler(request(undefined, {method: 'PUT', body: undefined}));
   assert.equal(method.headers.get('allow'), 'POST');
   assert.equal(verified, 0);
+  assert.equal(proofReads, 0);
 });
 
 test('proxy identity headers are ignored and cannot replace the single opaque cookie', async () => {
@@ -712,6 +878,66 @@ test('abort before dispatch and during verification prevents SQL; RPC timeout di
   pendingRpc.resolve({data: inspection(), error: null});
   await new Promise(resolve => setTimeout(resolve, 10));
   assert.equal(calls, 1);
+});
+
+test('abort or deadline during the second proof read cannot dispatch a late resolver RPC', async t => {
+  await t.test('abort', async () => {
+    const pending = deferred();
+    const secondStarted = deferred();
+    const controller = new AbortController();
+    let proofCalls = 0;
+    const rpcNames = [];
+    const handler = createRecoveryReviewRequestHandler(dependencies({
+      verifySession: async () => identity({expiresAt: new Date(Date.now() + 60_000).toISOString()}),
+      verifyStepUp: async () => {
+        proofCalls += 1;
+        if (proofCalls === 2) {
+          secondStarted.resolve();
+          return pending.promise;
+        }
+        return liveProof();
+      },
+      rpcClient: {async rpc(name) {
+        rpcNames.push(name);
+        return {data: name === 'moaon_consume_recovery_review' ? true : inspection(), error: null};
+      }},
+      now: Date.now,
+    }));
+
+    const responsePromise = handler(request(undefined, {signal: controller.signal}));
+    await secondStarted.promise;
+    controller.abort();
+    await expectError(await responsePromise, 503, 'RECOVERY_REVIEW_UNAVAILABLE');
+    pending.resolve(liveProof());
+    await new Promise(resolve => setTimeout(resolve, 5));
+    assert.equal(proofCalls, 2);
+    assert.deepEqual(rpcNames, ['moaon_consume_recovery_review']);
+  });
+
+  await t.test('deadline', async () => {
+    const pending = deferred();
+    let proofCalls = 0;
+    const rpcNames = [];
+    const handler = createRecoveryReviewRequestHandler(dependencies({
+      verifySession: async () => identity({expiresAt: new Date(Date.now() + 60_000).toISOString()}),
+      verifyStepUp: async () => {
+        proofCalls += 1;
+        return proofCalls === 1 ? liveProof() : pending.promise;
+      },
+      rpcClient: {async rpc(name) {
+        rpcNames.push(name);
+        return {data: name === 'moaon_consume_recovery_review' ? true : inspection(), error: null};
+      }},
+      timeoutMs: 15,
+      now: Date.now,
+    }));
+
+    await expectError(await handler(request()), 503, 'RECOVERY_REVIEW_UNAVAILABLE');
+    pending.resolve(liveProof());
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(proofCalls, 2);
+    assert.deepEqual(rpcNames, ['moaon_consume_recovery_review']);
+  });
 });
 
 test('abort in the admission transport microtask gap cannot dispatch the bound RPC', async () => {
