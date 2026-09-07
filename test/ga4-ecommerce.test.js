@@ -320,6 +320,28 @@ test('transaction paging continues across offsets and detects repeated IDs acros
   assert.doesNotMatch(JSON.stringify(report),/id-999/);
 });
 
+test('transaction coverage stays partial when any page omits its timezone',async()=>{
+  const firstRows=Array.from({length:1000},(_,index)=>transactionRow('purchase',`timezone-${index}`));
+  const secondRows=[transactionRow('purchase','timezone-final')];
+  const completeMetadata={timeZone:'Asia/Seoul',currencyCode:'KRW'};
+  for(const metadataPages of [[{},completeMetadata],[completeMetadata,{}]]){
+    const fixture=apiFixture({
+      events:eventResponse({rows:[eventRow('purchase','1001','900','100000','0')]}),
+      transactionPages:[
+        transactionResponse({rows:firstRows,rowCount:1001,metadata:metadataPages[0]}),
+        transactionResponse({rows:secondRows,rowCount:1001,metadata:metadataPages[1]})
+      ]
+    });
+    const report=await collectEcommerce({config:CONFIG,fetchImpl:fixture.fetchImpl,now:NOW});
+    assert.equal(report.status,'PARTIAL');
+    assert.equal(report.coverage.transactions,'PARTIAL');
+    assert.equal(report.coverage.reasons.includes('TRANSACTIONS_TIME_ZONE_MISSING'),true);
+    assert.deepEqual(report.diagnostics,{
+      missingPurchaseIdEvents:null,missingRefundIdEvents:null,duplicatePurchaseIds:null,repeatedRefundIds:null
+    });
+  }
+});
+
 test('transaction paging stops at 10000 rows and never reports complete diagnostics beyond the cap',async()=>{
   const pages=Array.from({length:10},(_,page)=>transactionResponse({
     rows:Array.from({length:1000},(_,index)=>transactionRow('purchase',`cap-${page}-${index}`)),
