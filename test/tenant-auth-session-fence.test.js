@@ -72,6 +72,42 @@ test('valid ticket receives one canonical DB-derived twelve-hour window without 
   assert.equal((await db.query('select count(*)::int as count from dashboard_sessions')).rows[0].count,0);
 });
 
+test('profile eligibility delay cannot return a window for a ticket expired before the response', async () => {
+  await begin();
+  await db.exec(`
+    create role moaon_clock_test;
+    create function public.moaon_test_profile_delay() returns boolean language plpgsql volatile as $$
+    begin perform pg_sleep(1.5); return true; end $$;
+    create policy moaon_test_state_read on moaon_auth.account_state for all to moaon_clock_test using (true) with check (true);
+    create policy moaon_test_ticket_read on moaon_auth.login_tickets for all to moaon_clock_test using (true) with check (true);
+    create policy moaon_test_profile_delay on public.dashboard_users for all to moaon_clock_test
+      using (public.moaon_test_profile_delay()) with check (true);
+    grant usage on schema moaon_auth to moaon_clock_test;
+    grant select,update on moaon_auth.account_state,moaon_auth.login_tickets,public.dashboard_users to moaon_clock_test;
+    grant execute on function public.moaon_get_session_window(uuid,uuid),public.moaon_test_profile_delay() to moaon_clock_test;
+  `);
+  await db.exec('set role moaon_clock_test');
+  try {
+    assert.equal((await db.query('select count(*)::int as count from moaon_auth.account_state')).rows[0].count,1);
+    assert.equal((await db.query('select count(*)::int as count from moaon_auth.login_tickets')).rows[0].count,1);
+    const delayStarted=Date.now();
+    assert.equal((await db.query('select count(*)::int as count from public.dashboard_users')).rows[0].count,2);
+    assert.ok(Date.now()-delayStarted>=2500);
+    await db.exec('reset role');
+    await db.query("update moaon_auth.login_tickets set expires_at=clock_timestamp()+interval '500 milliseconds'");
+    await db.exec('set role moaon_clock_test');
+    await rejected(()=>windowFor());
+  } finally {
+    await db.exec(`reset role;
+      drop policy moaon_test_state_read on moaon_auth.account_state;
+      drop policy moaon_test_ticket_read on moaon_auth.login_tickets;
+      drop policy moaon_test_profile_delay on public.dashboard_users;
+      drop function public.moaon_test_profile_delay();
+      drop owned by moaon_clock_test;
+      drop role moaon_clock_test;`);
+  }
+});
+
 test('session window rejects wrong, expired, consumed, old-generation, blocked, and inactive eligibility', async () => {
   await rejected(()=>db.query('select public.moaon_get_session_window($1,$2)',[null,ticket]));
   await rejected(()=>db.query('select public.moaon_get_session_window($1,$2)',[user,null]));

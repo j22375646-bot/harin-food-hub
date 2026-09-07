@@ -63,11 +63,13 @@ begin
   if not found or v_state.blocked then raise exception 'AUTH_TRANSITION_REJECTED'; end if;
   select * into v_ticket from moaon_auth.login_tickets
     where id=p_ticket_id and user_id=p_user_id for share;
-  v_now := date_trunc('milliseconds',clock_timestamp());
-  if not found or v_ticket.consumed or v_ticket.expires_at <= v_now
-    or v_ticket.generation <> v_state.generation then raise exception 'AUTH_TRANSITION_REJECTED'; end if;
+  if not found or v_ticket.consumed or v_ticket.generation <> v_state.generation then
+    raise exception 'AUTH_TRANSITION_REJECTED';
+  end if;
   select * into v_profile from public.dashboard_users where user_id=p_user_id and active for share;
   if not found then raise exception 'AUTH_TRANSITION_REJECTED'; end if;
+  v_now := date_trunc('milliseconds',clock_timestamp());
+  if v_ticket.expires_at <= v_now then raise exception 'AUTH_TRANSITION_REJECTED'; end if;
   return jsonb_build_object(
     'issuedAt',to_char(v_now at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
     'expiresAt',to_char((v_now+interval '12 hours') at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
