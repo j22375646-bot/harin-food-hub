@@ -1,0 +1,45 @@
+.sysMeasurementPanel{min-width:0;margin-top:22px;padding:26px;border:1px solid var(--p28-line);border-radius:20px;background:var(--p28-surface);color:var(--p28-ink);font-size:15px;line-height:1.55;}
+.sysMeasurementPanel *{box-sizing:border-box;}
+.sysMeasurementPanel>header>span{color:var(--p28-blue);font-size:13px;font-weight:850;}
+.sysMeasurementPanel h2{margin:5px 0 0;font-size:24px;line-height:1.25;letter-spacing:-.035em;}
+.sysMeasurementPanel h3{margin:0;font-size:20px;line-height:1.4;}
+.sysMeasurementPanel p{margin:8px 0;color:var(--p28-muted);}
+.sysMeasurementReadiness{margin:20px 0 16px;padding:16px;border:1px solid var(--p28-line);border-radius:14px;background:var(--p28-soft);}
+.sysMeasurementReadiness strong{font-size:16px;}
+.sysMeasurementNote{font-size:14px;}
+.sysMeasurementFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:20px;}
+.sysMeasurementFields label{min-width:0;display:grid;gap:7px;font-size:15px;font-weight:800;}
+.sysMeasurementFields small{margin-left:4px;color:var(--p28-muted);font-size:13px;font-weight:600;}
+.sysMeasurementWide{grid-column:1 / -1;}
+.sysMeasurementPanel input:not([type="checkbox"]),.sysMeasurementPanel select,.sysMeasurementPanel textarea{min-width:0;width:100%;min-height:46px;padding:10px 12px;border:1px solid var(--p28-line);border-radius:10px;background:var(--p28-surface);color:var(--p28-ink);font:inherit;font-size:16px;font-weight:500;}
+.sysMeasurementPanel input::placeholder{color:var(--p28-muted);opacity:1;}
+.sysMeasurementPanel textarea{display:block;resize:vertical;overflow-wrap:anywhere;white-space:pre-wrap;line-height:1.55;}
+.sysMeasurementPanel button{min-height:46px;padding:10px 16px;border:1px solid var(--p28-line);border-radius:10px;background:var(--p28-soft);color:var(--p28-ink);font:inherit;font-size:15px;font-weight:800;cursor:pointer;}
+.sysMeasurementPanel button:disabled,.sysMeasurementPanel select:disabled{cursor:not-allowed;opacity:.58;}
+.sysMeasurementPanel :is(input,select,textarea,button):focus-visible{outline:3px solid color-mix(in srgb,var(--p28-blue) 45%,transparent);outline-offset:2px;}
+.sysMeasurementActions{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px;}
+.sysMeasurementActions button:first-child{border-color:color-mix(in srgb,var(--p28-blue) 40%,var(--p28-line));background:color-mix(in srgb,var(--p28-blue) 9%,var(--p28-surface));color:var(--p28-blue);}
+.sysMeasurementPreview{min-width:0;margin-top:20px;padding:18px;border:1px solid color-mix(in srgb,var(--p28-blue) 32%,var(--p28-line));border-radius:14px;background:color-mix(in srgb,var(--p28-blue) 5%,var(--p28-surface));overflow-wrap:anywhere;}
+.sysMeasurementPreview>strong{font-size:17px;}
+.sysMeasurementPreview>span{display:block;margin:8px 0;color:var(--p28-muted);font-size:13px;}
+.sysMeasurementFeedback{margin:14px 0!important;padding:14px;border:1px solid var(--p28-line);border-radius:12px;background:var(--p28-soft);color:var(--p28-ink)!important;overflow-wrap:anywhere;}
+.sysMeasurementSaved{min-width:0;margin-top:28px;padding-top:24px;border-top:1px solid var(--p28-line);}
+.sysMeasurementSaved>header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px;}
+.sysMeasurementSaved>header label{display:flex;align-items:center;min-height:44px;gap:8px;font-size:14px;cursor:pointer;}
+.sysMeasurementSaved input[type="checkbox"]{width:18px;height:18px;accent-color:var(--p28-blue);}
+.sysMeasurementHistory{display:grid;gap:14px;min-width:0;}
+.sysMeasurementHistory article{min-width:0;padding:18px;border:1px solid var(--p28-line);border-radius:14px;overflow-wrap:anywhere;}
+.sysMeasurementHistory article>header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+.sysMeasurementHistory article>header strong{min-width:0;font-size:17px;}
+.sysMeasurementHistory article>header span{flex-shrink:0;padding:4px 9px;border:1px solid var(--p28-line);border-radius:99px;background:var(--p28-soft);color:var(--p28-muted);font-size:13px;}
+.sysMeasurementHistory dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0;}
+.sysMeasurementHistory dl>div{min-width:0;}
+.sysMeasurementHistory dt{color:var(--p28-muted);font-size:13px;}
+.sysMeasurementHistory dd{margin:4px 0 0;font-size:15px;}
+.sysMeasurementHistory footer{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;}
+@media (max-width:760px){
+  .sysMeasurementPanel{padding:17px;border-radius:17px;}
+  .sysMeasurementPanel h2{font-size:21px;}
+  .sysMeasurementFields,.sysMeasurementHistory dl{grid-template-columns:minmax(0,1fr);}
+  .sysMeasurementHistory article,.sysMeasurementPreview{padding:14px;}
+}

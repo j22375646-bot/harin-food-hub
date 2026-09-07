@@ -2,12 +2,15 @@
 
 import {useEffect,useMemo,useState} from 'react';
 import {useRouter} from 'next/navigation';
+import dynamic from 'next/dynamic';
 import HarinIcon from '../../_design-system/harin-icon.js';
 import {Phase28ChannelLogo} from '../primitives/channel-logo.js';
 import {Phase28PageHeading} from '../primitives/page-heading.js';
 import {Phase28RightRailLayout} from '../primitives/right-rail-layout.js';
 import {pushPhase28Route} from '../phase28-navigation-feedback.js';
 import './system-page.css';
+
+const SystemMeasurementPanel=dynamic(()=>import('./system-measurement-panel.js'));
 
 const WORKSPACES=[
   {id:'connections',label:'핵심 연결'},
@@ -109,7 +112,7 @@ export default function Phase28SystemPage({model={}}){
     <nav className="sysWorkspaceTabs" role="tablist" aria-label="시스템 작업공간">{(model.workspaces?.length?model.workspaces:WORKSPACES).map(item=><button type="button" role="tab" aria-selected={workspace===item.id} data-selected={workspace===item.id} onClick={()=>openWorkspace(item.id)} key={item.id}><span>{item.label}</span><small>{item.description}</small></button>)}</nav>
     <Phase28RightRailLayout label="시스템 운영 작업석" rail={<SystemDesk model={model} selected={selected}/>}>
       {workspace==='connections'?<ConnectionsPanel model={model} selectedId={selectedId} onSelect={loadService} detail={detail} busy={busyId===selectedId} error={error}/>:null}
-      {workspace==='datasets'?<DatasetsPanel rows={model.datasets||[]}/>:null}
+      {workspace==='datasets'?<><DatasetsPanel rows={model.datasets||[]}/><SystemMeasurementPanel/></>:null}
       {workspace==='jobs'?<JobsPanel jobs={model.jobs||[]}/>:null}
       {workspace==='recovery'?<RecoveryPanel items={model.recovery||[]}/>:null}
     </Phase28RightRailLayout>
