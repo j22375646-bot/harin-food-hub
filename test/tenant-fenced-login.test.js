@@ -96,6 +96,72 @@ test('fenced login orders ticket, authoritative password auth, and RPC-only sess
   assert.equal(auth.parseSession(result.token).userId,USER_A);
 }));
 
+test('optional durable request limit runs before profile, ticket, password, window, and issue',()=>withSecret(async()=>{
+  const events=[];
+  const base=database();
+  const db={from(table){
+    if(table==='dashboard_users')events.push('profile');
+    return base.db.from(table);
+  }};
+  const result=await auth.authenticateAccount({
+    account:' OWNER-A ',password:'123456',requestLimit:async()=>({allowed:false}),kind:'RECOVERY_MAIL'
+  },db,{
+    requestLimit:async value=>{events.push(`limit:${value.kind}`);assert.deepEqual(value,{kind:'LOGIN',subject:'owner-a'});return {allowed:true};},
+    authClient:{auth:{signInWithPassword:async()=>{events.push('password');return {data:{user:providerUser(),session:{}},error:null};}}},
+    sessionFence:{
+      beginLogin:async()=>{events.push('begin');return true;},
+      getSessionWindow:async()=>{events.push('window');return sessionWindow();},
+      issueSession:async()=>{events.push('issue');return true;},
+    }
+  });
+  assert.deepEqual(events,['limit:LOGIN','profile','begin','password','profile','window','issue']);
+  assert.equal(auth.parseSession(result.token).userId,USER_A);
+}));
+
+test('durable request-limit denial or unavailable result stops all login work',()=>withSecret(async()=>{
+  for(const [requestLimit,code,status] of [
+    [async()=>({allowed:false}),'LOGIN_RATE_LIMITED',429],
+    [async()=>({allowed:true,extra:true}),'LOGIN_AUTH_UNAVAILABLE',503],
+    [async()=>[ {allowed:true} ],'LOGIN_AUTH_UNAVAILABLE',503],
+    [async()=>{throw Error('secret limiter detail');},'LOGIN_AUTH_UNAVAILABLE',503],
+  ]){
+    const events=[];const base=database();
+    const db={from(table){events.push(`db:${table}`);return base.db.from(table);}};
+    await assert.rejects(()=>auth.authenticateAccount({account:'owner-a',password:'123456'},db,{
+      requestLimit,
+      authClient:{auth:{signInWithPassword:async()=>{events.push('password');return {data:{user:providerUser(),session:{}},error:null};}}},
+      sessionFence:{beginLogin:async()=>{events.push('begin');return true;},getSessionWindow,issueSession:async()=>{events.push('issue');return true;}},
+    }),error=>error.code===code&&error.status===status&&!error.message.includes('secret'));
+    assert.deepEqual(events,[]);
+  }
+}));
+
+test('durable request-limit timeout ignores late success and never starts profile or provider work',()=>withSecret(async()=>{
+  const late=deferred();let calls=0;const events=[];const base=database();
+  const db={from(table){events.push(`db:${table}`);return base.db.from(table);}};
+  await assert.rejects(()=>auth.authenticateAccount({account:'owner-a',password:'123456'},db,{
+    requestLimit:()=>{calls++;return late.promise;},fenceTimeoutMs:10,
+    authClient:{auth:{signInWithPassword:async()=>{events.push('password');return {data:{user:providerUser(),session:{}},error:null};}}},
+    sessionFence:{beginLogin:async()=>{events.push('begin');return true;},getSessionWindow,issueSession:async()=>{events.push('issue');return true;}},
+  }),error=>error.code==='LOGIN_AUTH_UNAVAILABLE');
+  late.resolve({allowed:true});await new Promise(resolve=>setTimeout(resolve,20));
+  assert.equal(calls,1);assert.deepEqual(events,[]);
+}));
+
+test('request limit is optional only when undefined, and legacy login remains unchanged',()=>withSecret(async()=>{
+  const state=database();
+  const result=await auth.authenticateAccount({account:'owner-a',password:'123456'},state.db,{
+    authClient:{auth:{signInWithPassword:async()=>({data:{user:providerUser(),session:{}},error:null})}},
+    sessionFence:{beginLogin:async()=>true,getSessionWindow,issueSession:async()=>true},
+  });
+  assert.equal(auth.parseSession(result.token).userId,USER_A);
+  for(const requestLimit of [null,{},true]){
+    await assert.rejects(()=>auth.authenticateAccount({account:'owner-a',password:'123456'},database().db,{
+      requestLimit,authClient:{auth:{signInWithPassword:async()=>({data:{user:providerUser(),session:{}},error:null})}},
+    }),TypeError);
+  }
+}));
+
 test('dynamic unit window reaches the issue stage after the former fixed-fixture boundary',()=>withSecret(async()=>{
   const previousNow=Date.now;
   const futureNow=Date.parse('2030-01-02T03:04:05.678Z');

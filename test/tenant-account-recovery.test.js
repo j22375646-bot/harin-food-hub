@@ -41,10 +41,75 @@ test('limiter failure is unavailable without revealing whether an account exists
 });
 
 test('confirmation fixes signup semantics at provider seam and validates current DB binding',async()=>{
-  const {service}=setup();
+  const {service,calls}=setup();
   assert.deepEqual(await service.confirmEmail({tokenHash:'signup-token'}),{status:'CONFIRMED',membershipCreated:false,requiresFreshLogin:true});
+  assert.deepEqual(calls[0],['limit','EMAIL_CONFIRM']);
   const bad=setup({profiles:{findActiveByEmail:async()=>null,getByUserId:async()=>({...profile,email:'changed@example.test'})}}).service;
   await assert.rejects(()=>bad.confirmEmail({tokenHash:'signup-token'}),e=>e.code==='RECOVERY_REJECTED');
+});
+
+test('confirmation limiter receives only a SHA-256 token digest before provider verification',async()=>{
+  const events=[];
+  const {service}=setup({
+    requestLimit:async value=>{events.push(['limit',value]);return {allowed:true};},
+    provider:{
+      requestRecoveryEmail:async()=>{},
+      confirmEmail:async()=>{events.push(['provider']);return {ok:true,identity};},
+      openRecovery:async()=>{},
+    },
+  });
+  await service.confirmEmail({tokenHash:'signup-token'});
+  assert.deepEqual(events,[
+    ['limit',{kind:'EMAIL_CONFIRM',subject:'932739eece2b7d31922b6d13a4a5f9caa895139a7d8bc549472a5682b624f9b5'}],
+    ['provider'],
+  ]);
+  assert.equal(JSON.stringify(events[0]).includes('signup-token'),false);
+});
+
+test('denied, malformed, failed, or late limits stop each recovery consumer before downstream work',async()=>{
+  const actions=[
+    service=>service.requestRecovery({email:'owner@example.test'}),
+    service=>service.confirmEmail({tokenHash:'signup-token'}),
+    service=>service.completeRecovery({tokenHash:'recovery-token',newPassword:'twelve-chars!'}),
+  ];
+  for(const run of actions){
+    for(const requestLimit of [
+      async()=>({allowed:false}),
+      async()=>({allowed:true,extra:true}),
+      async()=>[{allowed:true}],
+      async()=>{throw Error('secret limiter detail');},
+    ]){
+      const downstream=[];
+      const {service}=setup({
+        requestLimit,
+        provider:{
+          requestRecoveryEmail:async()=>downstream.push('mail'),
+          confirmEmail:async()=>{downstream.push('confirm');return {ok:true,identity};},
+          openRecovery:async()=>{downstream.push('open');return setup().handle;},
+        },
+        profiles:{
+          findActiveByEmail:async()=>{downstream.push('profile-mail');return profile;},
+          getByUserId:async()=>{downstream.push('profile-id');return profile;},
+        },
+        sessionStore:{
+          beginPasswordChange:async()=>downstream.push('begin'),
+          completePasswordChange:async()=>downstream.push('complete'),
+        },
+      });
+      await assert.rejects(()=>run(service),error=>error.code==='RECOVERY_UNAVAILABLE'&&!error.message.includes('secret'));
+      assert.deepEqual(downstream,[]);
+    }
+
+    let resolveLimit;let calls=0;const late=new Promise(resolve=>{resolveLimit=resolve;});const downstream=[];
+    const {service}=setup({
+      timeoutMs:10,requestLimit:()=>{calls++;return late;},
+      provider:{requestRecoveryEmail:async()=>downstream.push('mail'),confirmEmail:async()=>downstream.push('confirm'),openRecovery:async()=>downstream.push('open')},
+      profiles:{findActiveByEmail:async()=>downstream.push('profile-mail'),getByUserId:async()=>downstream.push('profile-id')},
+    });
+    await assert.rejects(()=>run(service),error=>error.code==='RECOVERY_UNAVAILABLE');
+    resolveLimit({allowed:true});await new Promise(resolve=>setTimeout(resolve,20));
+    assert.equal(calls,1);assert.deepEqual(downstream,[]);
+  }
 });
 
 test('successful recovery uses server UUID and exact fenced write order, returning no token or session',async()=>{
