@@ -1,6 +1,6 @@
 # MOAON P1-04-6 — IP and service auth admission
 
-Status: implementation in progress. Base: 6f28e017c4afe47764da9519ab720b56d3d1eb5a.
+Status: implementation, independent review, final build and 2217-test regression complete. Deployment evidence is recorded separately in the development report; production auth remains inactive. Base: 6f28e017c4afe47764da9519ab720b56d3d1eb5a.
 
 ## Goal and global constraints
 
