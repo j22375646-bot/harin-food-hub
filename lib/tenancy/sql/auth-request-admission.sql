@@ -33,15 +33,16 @@ begin
     raise exception 'AUTH_REQUEST_ADMISSION_REJECTED';
   end if;
 
-  insert into moaon_auth.admission_limits(scope, key_hash)
-    values('GLOBAL', v_global_key) on conflict do nothing;
-  select * into strict v_global
-    from moaon_auth.admission_limits
-    where scope = 'GLOBAL' and key_hash = v_global_key
-    for update;
+  insert into moaon_auth.admission_limits as limits(scope, key_hash)
+    values('GLOBAL', v_global_key)
+    on conflict(scope, key_hash) do update set used = limits.used
+    returning * into v_global;
   v_now := clock_timestamp();
 
-  if v_now >= v_global.started_at + v_window then
+  if v_global.used = 0 and v_global.started_at <= v_now then
+    update moaon_auth.admission_limits set started_at = v_now, used = 1
+      where scope = 'GLOBAL' and key_hash = v_global_key;
+  elsif v_now >= v_global.started_at + v_window then
     update moaon_auth.admission_limits set started_at = v_now, used = 1
       where scope = 'GLOBAL' and key_hash = v_global_key;
   elsif v_global.used >= 500 then
@@ -51,14 +52,17 @@ begin
       where scope = 'GLOBAL' and key_hash = v_global_key;
   end if;
 
-  insert into moaon_auth.admission_limits(scope, key_hash)
-    values('IP', p_ip_hash) on conflict do nothing;
-  select * into strict v_ip
-    from moaon_auth.admission_limits
-    where scope = 'IP' and key_hash = p_ip_hash
-    for update;
+  insert into moaon_auth.admission_limits as limits(scope, key_hash)
+    values('IP', p_ip_hash)
+    on conflict(scope, key_hash) do update set used = limits.used
+    returning * into v_ip;
   v_now := clock_timestamp();
 
+  if v_ip.used = 0 and v_ip.started_at <= v_now then
+    update moaon_auth.admission_limits set started_at = v_now, used = 1
+      where scope = 'IP' and key_hash = p_ip_hash;
+    return true;
+  end if;
   if v_now >= v_ip.started_at + v_window then
     update moaon_auth.admission_limits set started_at = v_now, used = 1
       where scope = 'IP' and key_hash = p_ip_hash;

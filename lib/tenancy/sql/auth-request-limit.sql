@@ -40,14 +40,17 @@ begin
     raise exception 'AUTH_REQUEST_LIMIT_REJECTED';
   end if;
 
-  insert into moaon_auth.request_limits(kind, subject_hash)
-    values(p_kind, p_subject_hash) on conflict do nothing;
-  select * into strict v_bucket
-    from moaon_auth.request_limits
-    where kind = p_kind and subject_hash = p_subject_hash
-    for update;
+  insert into moaon_auth.request_limits as limits(kind, subject_hash)
+    values(p_kind, p_subject_hash)
+    on conflict(kind, subject_hash) do update set used = limits.used
+    returning * into v_bucket;
   v_now := clock_timestamp();
 
+  if v_bucket.used = 0 and v_bucket.started_at <= v_now then
+    update moaon_auth.request_limits set started_at = v_now, used = 1
+      where kind = p_kind and subject_hash = p_subject_hash;
+    return true;
+  end if;
   if v_now - v_bucket.started_at >= v_window then
     update moaon_auth.request_limits set started_at = v_now, used = 1
       where kind = p_kind and subject_hash = p_subject_hash;
