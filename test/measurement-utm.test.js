@@ -132,6 +132,15 @@ test('accepts one equal existing UTM value without duplicating it and is idempot
   assert.equal((first.url.match(/utm_source/gi) || []).length, 1);
 });
 
+test('preserves ordinary query keys that match inherited object property names', () => {
+  const result = buildUtmLink({
+    ...VALID_INPUT,
+    landingUrl: 'https://shop.example/item?constructor=plain%20value&toString=kept#result',
+  });
+
+  assert.equal(result.url, 'https://shop.example/item?constructor=plain%20value&toString=kept&utm_source=naver&utm_medium=cpc&utm_campaign=autumn-sale&utm_id=autumn-2026#result');
+});
+
 test('rejects URL and field values above their maximum lengths', () => {
   assertInputError({ ...VALID_INPUT, landingUrl: `https://shop.example/${'a'.repeat(4076)}` }, 'VALUE_TOO_LONG');
   assertInputError({ ...VALID_INPUT, campaign: '가'.repeat(201) }, 'VALUE_TOO_LONG');
@@ -154,6 +163,17 @@ test('rejects control characters in any supplied field', () => {
   assertInputError({ ...VALID_INPUT, campaign: 'sale\nadmin' }, 'CONTROL_CHARACTER');
   assertInputError({ ...VALID_INPUT, landingUrl: 'https://shop.example/item\u0000' }, 'CONTROL_CHARACTER');
 });
+
+for (const [location, landingUrl] of [
+  ['path', 'https://shop.example/item%0Aname'],
+  ['query key', 'https://shop.example/item?note%0Akey=value'],
+  ['query value', 'https://shop.example/item?note=value%C2%85next'],
+  ['fragment', 'https://shop.example/item#details%0Aadmin'],
+]) {
+  test(`rejects percent-encoded control characters in the ${location}`, () => {
+    assertInputError({ ...VALID_INPUT, landingUrl }, 'CONTROL_CHARACTER');
+  });
+}
 
 test('rejects non-UUID productId and normalizes a valid UUID', () => {
   assertInputError({ ...VALID_INPUT, productId: 'product-01' }, 'INVALID_PRODUCT_ID');
