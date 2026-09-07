@@ -330,6 +330,86 @@ test('proof and initial session expiry cannot be extended while admission or ide
   });
 });
 
+test('a proof that becomes future-dated after clock regression blocks every later RPC dispatch', async t => {
+  const futureProof = () => proof({
+    verifiedAt: '2026-09-08T12:00:00.050Z',
+    expiresAt: '2026-09-08T12:00:01.000Z',
+  });
+
+  await t.test('before admission', async () => {
+    let current = NOW;
+    let regressAfterRead = false;
+    let admissionCalls = 0;
+    const handler = createRecoveryReviewRequestHandler(dependencies({
+      now: () => {
+        const value = current;
+        if (regressAfterRead) {
+          regressAfterRead = false;
+          current = NOW;
+        }
+        return value;
+      },
+      verifyStepUp: () => {
+        current = NOW + 100;
+        const evidence = futureProof();
+        Object.defineProperty(evidence, 'expiresAt', {
+          enumerable: true,
+          get() {
+            regressAfterRead = true;
+            return '2026-09-08T12:00:01.000Z';
+          },
+        });
+        return evidence;
+      },
+      rpcClient: {async rpc(name) {
+        if (name === 'moaon_consume_recovery_review') admissionCalls += 1;
+        return {data: name === 'moaon_consume_recovery_review' ? true : inspection(), error: null};
+      }},
+    }));
+
+    await expectError(await handler(request()), 403, 'STEP_UP_REQUIRED');
+    assert.equal(admissionCalls, 0);
+  });
+
+  await t.test('before resolver', async () => {
+    let current = NOW;
+    let identityCalls = 0;
+    let admissionCalls = 0;
+    let resolverCalls = 0;
+    const handler = createRecoveryReviewRequestHandler(dependencies({
+      now: () => current,
+      verifySession: async () => {
+        identityCalls += 1;
+        if (identityCalls === 2) {
+          const fresh = identity();
+          Object.defineProperty(fresh, 'expiresAt', {
+            enumerable: true,
+            get() {
+              current = NOW;
+              return '2026-09-08T13:00:00.000Z';
+            },
+          });
+          return fresh;
+        }
+        return identity();
+      },
+      verifyStepUp: () => {
+        current = NOW + 100;
+        return futureProof();
+      },
+      rpcClient: {async rpc(name) {
+        if (name === 'moaon_consume_recovery_review') admissionCalls += 1;
+        else resolverCalls += 1;
+        return {data: name === 'moaon_consume_recovery_review' ? true : inspection(), error: null};
+      }},
+    }));
+
+    await expectError(await handler(request()), 403, 'STEP_UP_REQUIRED');
+    assert.equal(admissionCalls, 1);
+    assert.equal(resolverCalls, 0);
+  });
+});
+
 test('malformed or failed admission stays sanitized and never starts resolution', async () => {
   for (const result of [
     {data: 1, error: null},
