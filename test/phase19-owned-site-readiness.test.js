@@ -43,6 +43,37 @@ test('a failed provider preserves another provider success',()=>{
   assert.equal(center.services.find(item=>item.key==='crux').status,'FAILED');
 });
 
+test('GA4 ecommerce measurement snapshots never replace legacy connection readiness',()=>{
+  const env={HUB_OWNED_SITE_URL:'https://shop.example.com',GOOGLE_GA4_PROPERTY_ID:'123',GOOGLE_SERVICE_ACCOUNT_EMAIL:'reader@example.test',GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY:'key'};
+  const center=readiness.buildOwnedSiteReadiness({env,now:new Date('2026-08-27T02:00:00Z'),snapshots:[
+    {provider:'GA4',status:'SUCCESS',fetched_at:'2026-08-27T00:00:00Z',metric_summary:{days:7,sessions:10,users:8},metadata:{read_only:true}},
+    {provider:'GA4',status:'FAILED',fetched_at:'2026-08-27T01:00:00Z',error_message:'measurement failure',metadata:{kind:'GA4_ECOMMERCE_V1'}}
+  ]});
+  const ga4=center.services.find(item=>item.key==='ga4');
+  assert.equal(ga4.status,'READY');
+  assert.equal(ga4.lastAttemptAt,'2026-08-27T00:00:00Z');
+  assert.match(ga4.detail,/방문 10회/);
+});
+
+test('legacy owned-site snapshot query excludes ecommerce before applying its bound',async()=>{
+  const calls=[];
+  const query={
+    select(fields){calls.push(['select',fields]);return query;},
+    or(filter){calls.push(['or',filter]);return query;},
+    order(field,options){calls.push(['order',field,options]);return query;},
+    limit(value){calls.push(['limit',value]);return query;},
+    then(resolve){return Promise.resolve({data:[],error:null}).then(resolve);}
+  };
+  const db={from(table){calls.push(['from',table]);return query;}};
+  const result=await readiness.legacySnapshotsQuery(db);
+  assert.deepEqual(result,{data:[],error:null});
+  assert.deepEqual(calls.map(call=>call[0]),['from','select','or','order','limit']);
+  assert.deepEqual(calls.find(call=>call[0]==='or'),['or','metadata->>kind.is.null,metadata->>kind.neq.GA4_ECOMMERCE_V1']);
+  assert.deepEqual(calls.at(-1),['limit',200]);
+  const dashboard=fs.readFileSync(path.join(root,'app/dashboard-route.js'),'utf8');
+  assert.match(dashboard,/ownedSiteReadinessModule\.legacySnapshotsQuery\(db\)/);
+});
+
 test('PageSpeed and CrUX adapters use official endpoints and preserve no-data',async()=>{
   let pageUrl='';
   const page=await pageSpeed.probe({config:{siteUrl:'https://shop.example.com',apiKey:'key'},fetchImpl:async url=>{pageUrl=String(url);return {ok:true,json:async()=>({lighthouseResult:{fetchTime:'2026-08-17T00:00:00Z',categories:{performance:{score:.92}},audits:{'largest-contentful-paint':{numericValue:1400}}}})};}});

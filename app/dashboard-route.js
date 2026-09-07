@@ -1403,7 +1403,7 @@ async function getDashboardData(state) {
         .order('started_at',{ascending:false}).limit(1000)
     ]) : Promise.resolve([{ status:'fulfilled', value:{ data:[], error:null } }]),
     ownedSiteReadiness:view==='collection'&&['owned-site','provider-fallback','provider-runtime'].includes(state?.workspace) ? Promise.allSettled([
-      db.from('owned_site_api_snapshots').select('id,provider,site_url,status,metric_summary,quota_summary,source_timestamp,fetched_at,error_code,error_message,metadata').order('fetched_at',{ascending:false}).limit(200)
+      ownedSiteReadinessModule.legacySnapshotsQuery(db)
     ]) : Promise.resolve([{ status:'fulfilled', value:{ data:[], error:null } }]),
     shippingReference:view==='orders' ? Promise.allSettled([
       // Orders only need the compact holiday calendar used by same-day and

@@ -7,6 +7,7 @@ import scheduleKeys from '../../../../lib/automation/kst-schedule.js';
 import naverSearchTermSync from '../../../../lib/naver/sync.js';
 import naverBidPerformance from '../../../../lib/naver/bid-performance.js';
 import executionGuard from '../../../../lib/infrastructure/execution-route-guard.js';
+import ga4Measurement from '../../../../lib/measurement/ga4-service.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,7 +39,8 @@ export async function GET(request) {
   },async()=>{
   // 연결된 채널만 수집합니다. 쿠팡·네이버 커머스는 서울 고정 IP 작업자 큐로 전달됩니다.
   const collectionResult = await Promise.allSettled([
-    syncModule.syncAllPlatforms({ triggerType:'CRON', now, runOptions:runOptions('ALL_PLATFORM_SYNC') })
+    syncModule.syncAllPlatforms({ triggerType:'CRON', now, runOptions:runOptions('ALL_PLATFORM_SYNC') }),
+    ga4Measurement.runScheduled({db:()=>supabaseModule.getSupabase(),env:process.env,now})
   ]);
   const collection = collectionResult[0].status === 'fulfilled' ? collectionResult[0].value : null;
   const naverAds = collection?.jobs?.find(item => item.name === 'NAVER_ADS');
@@ -52,6 +54,7 @@ export async function GET(request) {
   ]);
   const jobs = [
     settled('CONNECTED_PLATFORM_SYNC', collectionResult[0]),
+    settled('GA4_ECOMMERCE', collectionResult[1]),
     settled('NAVER_SEARCH_TERMS', searchTerms[0]),
     settled('ACTION_EVALUATION', evaluation[0]),
     settled('AB_TEST_EVALUATION', evaluation[1]),
