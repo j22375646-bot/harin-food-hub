@@ -85,7 +85,7 @@ test('unverified, deleted, banned, mismatched, and invalid-clock identities neve
     await assert.rejects(()=>p.openRecovery('token'),e=>e.code==='RECOVERY_REJECTED');
   }
   const p=provider(fixture({'POST /auth/v1/verify':{body:session}}),{now:()=>Number.NaN});
-  await assert.rejects(()=>p.openRecovery('token'),e=>e.code==='RECOVERY_REJECTED');
+  await assert.rejects(()=>p.openRecovery('token'),e=>e.code==='RECOVERY_UNAVAILABLE');
 });
 
 test('concurrent recovery handles retain isolated session tokens',async()=>{
@@ -123,4 +123,86 @@ test('timed-out SDK fetch is aborted and cannot be mistaken for success',async()
   const p=provider(fetch,{timeoutMs:10});
   await assert.rejects(()=>p.requestRecoveryEmail('owner@example.test'),e=>e.code==='RECOVERY_UNAVAILABLE');
   assert.equal(aborted,true);
+});
+
+test('verified temporary session is cleaned when authoritative lookup fails or mismatches',async()=>{
+  for(const adminResponse of [
+    {status:503,body:{code:'provider_down',message:'internal secret'}},
+    {body:{...user,email:'changed@example.test'}},
+  ]){
+    const calls=[];
+    const p=provider(fixture({
+      'POST /auth/v1/verify':{body:session},
+      [`GET /auth/v1/admin/users/${USER_ID}`]:adminResponse,
+      'POST /auth/v1/logout?scope=local':{},
+    },calls));
+    await assert.rejects(()=>p.openRecovery('token'),e=>['RECOVERY_REJECTED','RECOVERY_UNAVAILABLE'].includes(e.code)&&!e.message.includes('secret'));
+    const cleanup=calls.find(c=>c.url.includes('scope=local'));
+    assert.ok(cleanup,'verified temporary session must be cleaned');
+    assert.equal(cleanup.authorization,'Bearer access-secret');
+  }
+});
+
+test('throwing provider clock is sanitized and cleans a verified temporary session',async()=>{
+  const calls=[];
+  const p=provider(fixture({'POST /auth/v1/verify':{body:session},'POST /auth/v1/logout?scope=local':{}},calls),{now:()=>{throw Error('clock secret');}});
+  await assert.rejects(()=>p.openRecovery('token'),e=>e.code==='RECOVERY_UNAVAILABLE'&&!e.message.includes('secret'));
+  assert.ok(calls.some(c=>c.url.includes('scope=local')));
+});
+
+test('SDK update timeout aborts transport and cannot advance to global signout',async()=>{
+  const calls=[];let updateAborted=false;
+  const fetch=async(url,init={})=>{
+    const u=new URL(url);calls.push(u.pathname+u.search);
+    if(u.pathname.endsWith('/verify'))return new Response(JSON.stringify(session),{status:200,headers:{'content-type':'application/json'}});
+    if(u.pathname.includes('/admin/users/'))return new Response(JSON.stringify(user),{status:200,headers:{'content-type':'application/json'}});
+    if(u.pathname.endsWith('/user'))return new Promise((_r,reject)=>init.signal.addEventListener('abort',()=>{updateAborted=true;reject(Error('update secret'));}));
+    return new Response(null,{status:200});
+  };
+  const p=provider(fetch,{timeoutMs:10}),handle=await p.openRecovery('token');
+  await assert.rejects(()=>handle.updatePassword('twelve-chars!'),e=>e.code==='RECOVERY_UNAVAILABLE');
+  assert.equal(updateAborted,true);
+  assert.equal(calls.some(value=>value.includes('scope=global')),false);
+  await handle.dispose();
+});
+
+test('SDK admin global-signout timeout aborts and never advances to authoritative recheck',async()=>{
+  const calls=[];let signoutAborted=false,adminReads=0;
+  const fetch=async(url,init={})=>{
+    const u=new URL(url);calls.push(u.pathname+u.search);
+    if(u.pathname.endsWith('/verify'))return new Response(JSON.stringify(session),{status:200,headers:{'content-type':'application/json'}});
+    if(u.pathname.includes('/admin/users/')){adminReads++;return new Response(JSON.stringify(user),{status:200,headers:{'content-type':'application/json'}});}
+    if(u.pathname.endsWith('/user'))return new Response(JSON.stringify({user}),{status:200,headers:{'content-type':'application/json'}});
+    if(u.search.includes('scope=global'))return new Promise((_r,reject)=>init.signal.addEventListener('abort',()=>{signoutAborted=true;reject(Error('signout secret'));}));
+    return new Response(null,{status:200});
+  };
+  const p=provider(fetch,{timeoutMs:10}),handle=await p.openRecovery('token');
+  await handle.updatePassword('twelve-chars!');
+  await assert.rejects(()=>handle.signOutGlobal(),e=>e.code==='RECOVERY_UNAVAILABLE');
+  assert.equal(signoutAborted,true);
+  assert.equal(adminReads,1,'failed signout must not trigger a recheck');
+  await handle.dispose();
+});
+
+test('SDK error-bearing update and global-signout responses are sanitized failures',async()=>{
+  for(const failurePath of ['update','signout']){
+    const calls=[];
+    const fetch=async(url,init={})=>{
+      const u=new URL(url);calls.push(u.pathname+u.search);
+      if(u.pathname.endsWith('/verify'))return new Response(JSON.stringify(session),{status:200,headers:{'content-type':'application/json'}});
+      if(u.pathname.includes('/admin/users/'))return new Response(JSON.stringify(user),{status:200,headers:{'content-type':'application/json'}});
+      if(u.pathname.endsWith('/user'))return new Response(JSON.stringify(failurePath==='update'?{code:'provider_error',message:'update secret'}:{user}),{status:failurePath==='update'?500:200,headers:{'content-type':'application/json','x-supabase-api-version':'2024-01-01'}});
+      if(u.search.includes('scope=global'))return new Response(JSON.stringify({code:'provider_error',message:'signout secret'}),{status:failurePath==='signout'?500:200,headers:{'content-type':'application/json','x-supabase-api-version':'2024-01-01'}});
+      return new Response(null,{status:200});
+    };
+    const handle=await provider(fetch).openRecovery('token');
+    if(failurePath==='update'){
+      await assert.rejects(()=>handle.updatePassword('twelve-chars!'),e=>e.code==='RECOVERY_UNAVAILABLE'&&!e.message.includes('secret'));
+      assert.equal(calls.some(value=>value.includes('scope=global')),false);
+    }else{
+      await handle.updatePassword('twelve-chars!');
+      await assert.rejects(()=>handle.signOutGlobal(),e=>e.code==='RECOVERY_UNAVAILABLE'&&!e.message.includes('secret'));
+    }
+    await handle.dispose();
+  }
 });

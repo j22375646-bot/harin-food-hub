@@ -87,6 +87,24 @@ test('any failure or timeout after fence begins stays blocked and never complete
   assert.equal(calls.some(c=>c[0]==='signout'||c[0]==='complete'),false);
 });
 
+test('late global-signout completion cannot advance to authoritative recheck or fence completion',async()=>{
+  let resolveSignout;const late=new Promise(r=>{resolveSignout=r;});
+  const {service,calls}=setup({timeoutMs:10,provider:{requestRecoveryEmail:async()=>{},confirmEmail:async()=>{},openRecovery:async()=>({identity,updatePassword:async()=>identity,signOutGlobal:()=>late,currentIdentity:async()=>{calls.push(['current']);return identity;},dispose:async()=>calls.push(['dispose'])})}});
+  assert.deepEqual(await service.completeRecovery({tokenHash:'x',newPassword:'twelve-chars!'}),{status:'REVIEW_REQUIRED'});
+  resolveSignout();await new Promise(r=>setTimeout(r,20));
+  assert.equal(calls.some(c=>c[0]==='current'||c[0]==='complete'),false);
+});
+
+test('recovery handle returned after coordinator timeout is still disposed without starting a fence',async()=>{
+  let resolveOpen,disposed=0;const lateOpen=new Promise(r=>{resolveOpen=r;});
+  const {service,calls}=setup({timeoutMs:10,provider:{requestRecoveryEmail:async()=>{},confirmEmail:async()=>{},openRecovery:()=>lateOpen}});
+  await assert.rejects(()=>service.completeRecovery({tokenHash:'x',newPassword:'twelve-chars!'}),e=>e.code==='RECOVERY_UNAVAILABLE');
+  resolveOpen({identity,updatePassword:async()=>identity,signOutGlobal:async()=>{},currentIdentity:async()=>identity,dispose:async()=>{disposed++;}});
+  await new Promise(r=>setTimeout(r,20));
+  assert.equal(disposed,1);
+  assert.equal(calls.some(c=>c[0]==='begin'),false);
+});
+
 test('provider signout failure, changed identity, and fence errors never unlock',async()=>{
   for(const point of ['begin','signout','changed','complete']){
     const {service,calls,deps}=setup();
