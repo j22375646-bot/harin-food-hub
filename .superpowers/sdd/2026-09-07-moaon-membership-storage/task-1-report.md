@@ -91,3 +91,43 @@ This is a single-connection WASM test engine. It is not proof for the read-only 
 
 - Implementation: `2a5de01` (`feat: add transactional tenant membership store`)
 - This report is committed separately so it can record the immutable implementation commit.
+
+## Round 1 review fix
+
+Status: DONE
+
+Review finding fixed in `b22ef8b` (`fix: enforce post-lock tenant authorization order`).
+
+- `lockTenant` now returns the locked row without making a state decision.
+- Every mutation reads authoritative `clock_timestamp()` and rejects an expired session immediately after the tenant lock, before tenant state, actor version, self-email, target, or invitation-state decisions.
+- Invitation revocation now verifies an active OWNER after the freshness/tenant checks and before looking up the supplied invitation ID, preventing a pending-versus-foreign/missing/non-pending authorization oracle.
+- Rejected freshness and authorization paths assert that invitation and audit rows remain byte-for-byte equivalent at the observed DTO boundary.
+
+### Round 1 RED
+
+Command:
+
+`node --test --test-name-pattern="fake·만료" test/tenant-control-store.test.js`
+
+Result before the fix: exit 1, 0 pass / 1 fail. The stale-version case returned `MEMBERSHIP_VERSION_CONFLICT` instead of the required post-lock `AUTH_REQUIRED`.
+
+### Round 1 targeted GREEN
+
+Commands and results:
+
+- `node --test --test-name-pattern="fake·만료" test/tenant-control-store.test.js`: exit 0, 1 pass / 0 fail.
+- `node --test --test-name-pattern="초대 회수는 OWNER" test/tenant-control-store.test.js`: exit 0, 1 pass / 0 fail.
+
+The expiry test covers stale actor version, own verified email, suspended tenant, and revoked invitation state for both accept/revoke after lock delay. Every path returns `AUTH_REQUIRED` and leaves invitation/audit rows unchanged.
+
+The revocation-oracle test covers a non-OWNER against pending, foreign, missing, accepted, and revoked IDs; all return the same `TENANT_ACCESS_DENIED`. An authorized OWNER receives the same generic `INVITATION_INVALID` for foreign, missing, accepted, and revoked IDs. All rejected paths leave invitation/audit rows unchanged.
+
+### Round 1 focused compatibility GREEN
+
+Command:
+
+`node --test test/tenant-context.test.js test/tenant-permissions.test.js test/tenant-control-store.test.js`
+
+Result: exit 0, 35 pass / 0 fail / 0 cancelled / 0 skipped.
+
+Per controller instruction, the full 1,988-test suite was not repeated for this focused review fix. The earlier full-suite result remains recorded above.
