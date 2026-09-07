@@ -26,8 +26,8 @@ export const initialGa4MeasurementState={measurement:null,pending:'',error:'',me
 
 function successMessage(measurement,kind){
   if(kind!=='POST')return '';
-  if(measurement?.status==='FAILED')return '';
   if(measurement?.status==='IN_FLIGHT')return '다른 확인 작업이 진행 중입니다. 저장 상태만 다시 확인할 수 있어요.';
+  if(!['OBSERVED','NO_DATA','PARTIAL'].includes(measurement?.status))return '';
   if(measurement?.runtime?.cached||measurement?.runtime?.deduplicated)return '저장된 최신 자료를 확인했습니다. 새 Google 수집 완료를 뜻하지 않습니다.';
   if(measurement?.status==='NO_DATA')return 'GA4를 새로 확인했지만 선택 범위에서 관측 자료가 없었습니다.';
   if(measurement?.status==='PARTIAL')return 'GA4 자료를 확인해 일부 관측 상태를 저장했습니다.';
@@ -156,7 +156,12 @@ function ReportPanel({measurement,pending,error}){
     return <section className="ga4NoReport"><strong>저장 상태 확인 전</strong><p>화면이 준비되면 서버에 저장된 GA4 관측 자료와 설정 상태를 확인합니다.</p></section>;
   }
   const report=measurement?.report;
-  if(!report)return <section className="ga4NoReport"><strong>저장된 GA4 관측 자료가 아직 없습니다.</strong><p>설정이 준비되면 수동 확인으로 저장된 상태를 만들 수 있어요. 실제 태그 동작은 GA4 DebugView에서 별도로 검증합니다.</p></section>;
+  if(!report){
+    if(measurement.status==='SETUP_REQUIRED')return <section className="ga4NoReport"><strong>저장 자료 확인 전</strong><p>필수 서버 설정이 없어 저장 자료 유무를 확인하지 않았습니다. 설정을 준비한 뒤 저장 상태를 다시 확인해 주세요.</p></section>;
+    if(measurement.status==='LOCKED')return <section className="ga4NoReport"><strong>저장 자료 확인 불가</strong><p>서버 안전 스위치가 잠겨 있어 저장 자료 유무를 확인하지 않았습니다. 운영 정책을 확인해 주세요.</p></section>;
+    if(measurement.status==='VERIFY_REQUIRED')return <section className="ga4NoReport"><strong>저장된 GA4 관측 자료가 아직 없습니다.</strong><p>수동 확인으로 저장된 상태를 만들 수 있어요. 실제 태그 동작은 GA4 DebugView에서 별도로 검증합니다.</p></section>;
+    return <section className="ga4NoReport"><strong>저장 자료 확인 필요</strong><p>현재 서버 상태만으로 저장 자료 유무를 확정할 수 없습니다. 상태와 최근 시도를 확인해 주세요.</p></section>;
+  }
   const range=reportDateRange(report);
   const reportStatus=statusMeta(report.status);
   const stages=STAGE_DEFINITIONS.map(([eventName,label])=>({eventName,label,eventCount:null,users:null,observed:false,...(report.stages||[]).find(stage=>stage?.eventName===eventName)}));

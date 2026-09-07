@@ -51,7 +51,7 @@ Data API 보고서와 별도로 다음 수동 검증을 수행합니다.
 3. 공식몰에서 테스트 상품 조회, 장바구니, 결제 시작을 차례로 수행합니다.
 4. 승인된 테스트 주문으로 `purchase` 이벤트를 확인합니다. `transaction_id`, 통화, 값, 상품 항목이 테스트 주문과 일치하는지 확인합니다.
 5. 같은 테스트 주문의 승인된 환불 절차로 `refund` 이벤트를 확인합니다. 전체 또는 부분 환불 금액과 원래 `transaction_id`의 연결을 확인합니다.
-6. DebugView, 실시간 보고서, 다음 날의 일반 보고서를 각각 확인합니다. 일반 보고서와 탐색 보고서는 반영까지 최대 24시간이 걸릴 수 있습니다.
+6. DebugView, 실시간 보고서, 다음 날의 일반 보고서를 각각 확인합니다. 일반 보고서는 보통 24~48시간의 처리가 필요할 수 있고 더 지연되거나 값이 바뀔 수 있습니다.
 
 동의 관리가 분석 쿠키를 허용하지 않으면 DebugView에도 이벤트가 나타나지 않을 수 있습니다. 동의 상태를 우회하지 말고 테스트 기기에서 허용 상태와 거부 상태를 구분해 기록합니다.
 
@@ -86,3 +86,5 @@ Data API 보고서와 별도로 다음 수동 검증을 수행합니다.
 - [권장 전자상거래 이벤트](https://support.google.com/analytics/answer/9267735)
 - [전자상거래 이벤트 설정과 보고 지연](https://support.google.com/analytics/answer/12200568)
 - [DebugView로 이벤트 확인](https://support.google.com/analytics/answer/7201382)
+- [GA4 데이터 최신성과 처리 지연](https://support.google.com/analytics/answer/11198161?hl=en)
+- [데이터 수집 확인과 일반 보고서 처리 시간](https://support.google.com/analytics/answer/9333790?hl=en)

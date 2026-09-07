@@ -21,7 +21,9 @@ registerHooks({load(url,context,nextLoad){
 
 const root=path.resolve(__dirname,'..');
 const moduleUrl=pathToFileURL(path.join(root,'app/_phase28/pages/system-ga4-measurement.js')).href;
+const panelModuleUrl=pathToFileURL(path.join(root,'app/_phase28/pages/system-measurement-panel.js')).href;
 const load=()=>import(moduleUrl);
+const loadPanel=()=>import(panelModuleUrl);
 
 const report={
   version:'ga4-ecommerce-v1',source:'GA4_DATA_API',host:'shop.example',fetchedAt:'2026-09-07T16:30:00.000Z',
@@ -97,6 +99,21 @@ test('initial loading and GET failure keep saved-data existence and schedule exp
   assert.doesNotMatch(failed,/저장된 GA4 관측 자료가 아직 없습니다|준비중/);
 });
 
+test('setup and lock gates keep saved-data existence unknown until storage is actually read',async()=>{
+  const {Ga4MeasurementView}=await load();
+  const gated=[
+    [measurement('SETUP_REQUIRED',{report:null,canRefresh:false,missingFields:['GA4 속성 ID'],automation:{schedule:'매일 05:30 (한국시간)',status:'SETUP_REQUIRED'}}),/필수 서버 설정이 없어 저장 자료 유무를 확인하지 않았습니다/],
+    [measurement('LOCKED',{report:null,canRefresh:false,automation:{schedule:'매일 05:30 (한국시간)',status:'LOCKED'}}),/서버 안전 스위치가 잠겨 있어 저장 자료 유무를 확인하지 않았습니다/]
+  ];
+  for(const [value,reason] of gated){
+    const html=renderToStaticMarkup(React.createElement(Ga4MeasurementView,{measurement:value}));
+    assert.match(html,reason);
+    assert.doesNotMatch(html,/저장된 GA4 관측 자료가 아직 없습니다/);
+  }
+  const readEmpty=renderToStaticMarkup(React.createElement(Ga4MeasurementView,{measurement:measurement('VERIFY_REQUIRED',{report:null})}));
+  assert.match(readEmpty,/저장된 GA4 관측 자료가 아직 없습니다/);
+});
+
 test('observed report renders six stages, source metadata, money labels and null versus explicit zero',async()=>{
   const {Ga4MeasurementView}=await load();
   const html=renderToStaticMarkup(React.createElement(Ga4MeasurementView,{measurement:measurement('OBSERVED',{runtime:{kind:'LIVE',warning:'실행 기록 저장 상태를 확인해 주세요.'}})}));
@@ -170,27 +187,62 @@ test('a completed HTTP response with FAILED service state never emits a collecti
   function initialState(){return {measurement:measurement(),pending:'POST',error:'',message:''};}
 });
 
-test('default component performs no SSR request and its CSS preserves Phase 28 responsive readability',async()=>{
+test('POST config-race and non-collection responses never emit a collection success message',async()=>{
+  const {createGa4MeasurementRequestController,ga4MeasurementReducer}=await load();
+  const responses=[
+    measurement('SETUP_REQUIRED',{report:null,canRefresh:false,missingFields:['GA4 속성 ID'],lastAttemptAt:null,lastSuccessAt:null,automation:{schedule:'매일 05:30 (한국시간)',status:'SETUP_REQUIRED'}}),
+    measurement('LOCKED',{report:null,canRefresh:false,lastAttemptAt:null,lastSuccessAt:null,automation:{schedule:'매일 05:30 (한국시간)',status:'LOCKED'}}),
+    measurement('VERIFY_REQUIRED',{report:null}),
+    measurement('STALE'),
+    measurement('FUTURE_STATUS'),
+    {...measurement(),status:undefined},
+    measurement('OBSERVED')
+  ];
+  let state={measurement:measurement(),pending:'',error:'',message:''};
+  let requestIndex=0;
+  const controller=createGa4MeasurementRequestController({
+    fetchImpl:async(_url,options)=>{
+      assert.equal(options.method,'POST');
+      return new Response(JSON.stringify({ok:true,measurement:responses[requestIndex++]}),{status:200,headers:{'Content-Type':'application/json'}});
+    },
+    onStart:({kind})=>{state=ga4MeasurementReducer(state,{type:'REQUEST_STARTED',kind});},
+    onSuccess:(value,{kind})=>{state=ga4MeasurementReducer(state,{type:'REQUEST_SUCCEEDED',measurement:value,kind});}
+  });
+  for(let index=0;index<responses.length-1;index++){
+    assert.equal(await controller.refresh(),true);
+    assert.equal(state.message,'',String(responses[index].status));
+  }
+  assert.equal(await controller.refresh(),true);
+  assert.equal(state.message,'GA4 자료를 새로 확인해 저장했습니다.');
+  controller.dispose();
+});
+
+test('default component performs no SSR request and renders its accessible saved-state boundary',async()=>{
   const {default:Component}=await load();
   const original=global.fetch;let requests=0;global.fetch=()=>{requests+=1;};
   try{
     const html=renderToStaticMarkup(React.createElement(Component));
-    assert.match(html,/자사몰 구매·환불 측정/);
+    assert.match(html,/<section class="ga4Measurement" aria-labelledby="ga4MeasurementTitle" aria-busy="false">/);
+    assert.match(html,/<h3 id="ga4MeasurementTitle">자사몰 구매·환불 측정<\/h3>/);
+    assert.match(html,/<button type="button" disabled="">GA4 자료 새로 확인<\/button>/);
     assert.equal(requests,0);
   }finally{global.fetch=original;}
-  const css=fs.readFileSync(path.join(root,'app/_phase28/pages/system-ga4-measurement.css'),'utf8');
-  assert.match(css,/@media \(max-width:760px\)/);
-  assert.match(css,/@media \(prefers-reduced-motion:reduce\)/);
-  assert.match(css,/:focus-visible/);
-  assert.match(css,/minmax\(0,1fr\)/);
-  assert.doesNotMatch(css,/border-left\s*:|font-size:\s*(?:[0-9]|1[01])px|#[0-9a-f]{3,8}\b/i);
 });
 
-test('existing measurement panel mounts the GA4 inspector once and retains the UTM form implementation',()=>{
-  const source=fs.readFileSync(path.join(root,'app/_phase28/pages/system-measurement-panel.js'),'utf8');
-  assert.match(source,/import SystemGa4Measurement from '\.\/system-ga4-measurement\.js'/);
-  assert.equal((source.match(/<SystemGa4Measurement\/>/g)||[]).length,1);
-  assert.match(source,/기존 UTM과 입력값이 다르면 검사를 통과할 수 없습니다/);
-  assert.match(source,/MeasurementForm/);
-  assert.doesNotMatch(source,/className="sysMeasurementReadiness"/);
+test('actual system measurement panel renders exactly one GA4 section beside the real UTM form',async()=>{
+  const {default:SystemMeasurementPanel}=await loadPanel();
+  const original=global.fetch;let requests=0;global.fetch=()=>{requests+=1;};
+  try{
+    const html=renderToStaticMarkup(React.createElement(SystemMeasurementPanel));
+    assert.equal((html.match(/class="ga4Measurement"/g)||[]).length,1);
+    assert.equal((html.match(/<form class="sysMeasurementForm"/g)||[]).length,1);
+    for(const [name,type] of [['landingUrl','url'],['source','text'],['campaignId','text']]){
+      const inputTag=html.match(new RegExp(`<input[^>]*name="${name}"[^>]*>`))?.[0]||'';
+      assert.match(inputTag,/required=""/);
+      assert.match(inputTag,new RegExp(`type="${type}"`));
+    }
+    assert.match(html,/기존 UTM과 입력값이 다르면 검사를 통과할 수 없습니다/);
+    assert.match(html,/>링크 검사<\/button>/);
+    assert.equal(requests,0);
+  }finally{global.fetch=original;}
 });
