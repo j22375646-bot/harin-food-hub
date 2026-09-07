@@ -4,7 +4,7 @@
 
 여러 사업자가 모아온에 각자 로그인해 사용하는 구조를 위해, 중요한 계정 복구 작업 전에 본인을 한 번 더 확인하는 서버 모듈을 만든다. P1-04-10이 인증 증거를 검사하는 문지기였다면, 이번 단계는 인증 서비스에 실제 SDK로 인증번호를 확인하고 결과를 검증하는 연결부다.
 
-구현·집중 검사·빌드·독립 검토 및 수정분 재검토를 완료했다. 운영 배포는 아래 증거가 기록되기 전까지 미확인이다. 실제 운영 계정 인증이나 기능 활성화 완료를 뜻하지 않는다.
+구현·집중/전체 검사·빌드·독립 검토 및 수정분 재검토·v1.53.0 운영 코드 배포를 완료했다. 실제 운영 계정의 MFA 인증이나 새 인증 기능 활성화 완료를 뜻하지 않는다.
 
 ## 변경 범위
 
@@ -47,3 +47,19 @@
 - [전체 개발 계획](./2026-09-07-multi-business-desktop-master-plan.md)
 - [이번 명세](../specs/2026-09-08-moaon-step-up-provider.md)
 - [운영 활성화 점검표](../specs/2026-09-08-moaon-recovery-activation-checklist.md)
+
+## 운영 배포 증거
+
+- main fast-forward 반영 후 전체 **2,409/2,409** 재통과(51.94초), 실패·취소·건너뛰기0.
+- 태그 `v1.53.0`, 소스 `e84ba099fe84fdbe50b5a75c3bed2ec218f95ea0`.
+- Git 자동 배포 `dpl_b8ivpyyKhd5jxfjgwoJDvUVauth7`: production **READY**, 위 소스 커밋과 일치, 운영 별칭 연결, aliasError 없음. 빌드 약27초. 중복 수동 배포나 새 유료 자원 생성 없음.
+- [운영 허브](https://harin-cafe24-sync.vercel.app/) · [배포 상세](https://vercel.com/j22375646-6156s-projects/harin-cafe24-sync/b8ivpyyKhd5jxfjgwoJDvUVauth7) · [v1.53.0 소스](https://github.com/j22375646-bot/harin-food-hub/tree/v1.53.0)
+
+| 비로그인 경로 | 실제 배포 후 응답 |
+|---|---|
+| `/login` | 200 · v1.53.0 |
+| `/orders` | 307 · `/login?next=%2Forders` · v1.53.0 |
+| `/api/orders/page` | 401 · v1.53.0 |
+| `/api/navigation/operation-snapshot` | 401 · v1.53.0 |
+
+위 네 경로의 최근1시간 조회 가능한 Vercel 런타임 오류 집계는0건이었다. 배포 직후 짧은 관찰이므로 전체 업무 정상이나 장기 무오류를 보장하지 않는다. 비밀번호 자동 입력·실제 로그인 후 업무 쓰기·실제 계정 MFA는 수행하지 않았다.
