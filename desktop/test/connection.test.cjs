@@ -165,6 +165,7 @@ test('orders payload is deeply frozen, limited to 20, and projected without PII 
     quantity: null,
     amount: null,
     orderedAt: '2026-09-01T01:02:03.000Z',
+    details: {externalOrderId:'',items:[{name:'',option:'',quantity:null}],invoice:null,delivery:null,cancelled:null,cancellationRequested:null},
   });
   assert.equal(JSON.stringify(result).includes('비공개'), false);
   assert.equal(JSON.stringify(result).includes('never-return-this'), false);

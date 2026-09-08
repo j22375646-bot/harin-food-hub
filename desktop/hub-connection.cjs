@@ -51,6 +51,25 @@ function safeFiniteNumber(value) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function projectOrderDetails(order) {
+  const invoice = order?.invoice;
+  const delivery = order?.listDeliveryBadge;
+  return Object.freeze({
+    externalOrderId: safeString(order?.externalOrderId),
+    items: Object.freeze((Array.isArray(order?.items) ? order.items.slice(0, 8) : []).map(item => Object.freeze({
+      name: safeString(item?.name),
+      option: safeString(item?.option),
+      quantity: Number.isSafeInteger(item?.quantity) && item.quantity > 0 ? item.quantity : null,
+    }))),
+    invoice: ['REGISTERED', 'ISSUED'].includes(invoice?.status) && typeof invoice?.number === 'string' && /^\d{13}$/.test(invoice.number)
+      ? Object.freeze({ status: invoice.status, number: invoice.number }) : null,
+    delivery: ['RESERVED', 'IN_TRANSIT', 'DELIVERED', 'CHECK_REQUIRED'].includes(delivery?.status) && ['EPOST', 'CHANNEL'].includes(delivery?.source)
+      ? Object.freeze({ status: delivery.status, source: delivery.source }) : null,
+    cancelled: typeof order?.cancelled === 'boolean' ? order.cancelled : null,
+    cancellationRequested: typeof order?.cancellationRequested === 'boolean' ? order.cancellationRequested : null,
+  });
+}
+
 function projectOrdersPayload(payload, checkedAt, options = {}) {
   const requestedOffset = options.requestedOffset ?? 0;
   const expectedSnapshot = options.expectedSnapshot ?? null;
@@ -90,6 +109,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     quantity: safeFiniteNumber(order?.quantity),
     amount: safeFiniteNumber(order?.amount),
     orderedAt: order?.orderedAt === null ? null : safeString(order?.orderedAt),
+    details: projectOrderDetails(order),
   })));
   const partial = payload.partial;
 

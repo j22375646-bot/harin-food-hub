@@ -141,7 +141,26 @@ function showOrderDetail(order, button) {
     body.append(makeElement('p', 'detail-notice', '이 시제품에는 송장 발급, 인쇄, 주문 상태 변경 버튼이 없습니다.'));
   } else {
     addDetailSection(body, '주문', order.hubOrderId || '주문번호 확인 필요', `${order.platform || '채널 확인 필요'} · ${stageLabel(order.stage)}`);
+    const details = order.details || {};
+    addDetailSection(body, '플랫폼 주문번호', details.externalOrderId || '확인 필요', '위 허브 주문번호와 구분되는 쇼핑몰 원본 번호입니다.');
     addDetailSection(body, '상품', order.productName || '상품 정보 확인 필요', `${formatNumber(order.quantity, '개')} · ${formatNumber(order.amount, '원')}`);
+    if (details.items?.length) {
+      for (const [index, item] of details.items.entries()) {
+        addDetailSection(body, `상품 구성 ${index + 1}`, item.name || '상품명 확인 필요', `${item.option || '옵션 정보 없음'} · ${formatNumber(item.quantity, '개')}`);
+      }
+      body.append(makeElement('p', 'detail-notice', '목록 API가 제공한 상품 구성입니다. 최대 8개까지만 표시되며 전체 구성은 웹 허브에서 확인하세요.'));
+    } else addDetailSection(body, '상품 구성', '세부 상품 정보 확인 필요', '대표 상품만으로 전체 포장 구성을 판단하지 마세요.');
+    addDetailSection(body, '저장된 송장', details.invoice?.number || '송장 정보 확인 필요', details.invoice
+      ? details.invoice.status === 'REGISTERED' ? '플랫폼 등록 완료 · 저장 자료 기준' : '발급 완료 · 플랫폼 등록 필요'
+      : '정보가 없다고 미발급으로 확정하지 않습니다.');
+    const deliveryLabels = {RESERVED:'예약',IN_TRANSIT:'배송중',DELIVERED:'배송완료',CHECK_REQUIRED:'확인 필요'};
+    addDetailSection(body, '저장된 배송상태', deliveryLabels[details.delivery?.status] || '배송상태 확인 필요', details.delivery
+      ? `${details.delivery.source === 'EPOST' ? '우체국 조회 자료 기준' : '쇼핑몰 상태 기준'} · 실시간 재조회 아님`
+      : '확인된 배송상태 자료가 없습니다.');
+    const cancellation = details.cancelled === true || order.stage === 'CANCELLED' ? '취소된 주문 · 출고하지 마세요'
+      : details.cancellationRequested === true ? '취소 요청 있음 · 출고 전 확인 필요'
+      : details.cancelled === false && details.cancellationRequested === false ? '저장 자료에 취소 요청 없음' : '취소 여부 확인 필요';
+    addDetailSection(body, '출고 전 확인', cancellation, '최신 채널 상태를 확인하세요. 이 표시는 출고 가능 승인이나 발급 실행이 아닙니다.');
     addDetailSection(body, '주문 시각', order.orderedAt ? formatTime(order.orderedAt) : '확인 필요', `목록 확인 ${formatTime(connectionResult?.checkedAt)}`);
     body.append(makeElement('p', 'detail-notice', `${selectedScopeDetail().description} 플랫폼 동기화 성공을 의미하지 않으며 발급·변경·전송 기능은 없습니다.`));
   }
@@ -310,6 +329,8 @@ function applyHubResult(result) {
       quantity: typeof order.quantity === 'number' && Number.isFinite(order.quantity) ? order.quantity : null,
       amount: typeof order.amount === 'number' && Number.isFinite(order.amount) ? order.amount : null,
       orderedAt: typeof order.orderedAt === 'string' ? order.orderedAt : null,
+      // The Main-process projection already strips provider fields and bounds this DTO.
+      details: order.details || null,
     })));
     orderSearch.value = '';
     closeOrderDetail();
