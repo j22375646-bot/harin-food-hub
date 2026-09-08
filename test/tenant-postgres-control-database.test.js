@@ -28,6 +28,14 @@ const SAFE_ROLE = Object.freeze({
   has_role_membership: false,
 });
 
+test('transport diagnostic reveals only failure stage and safe SQLSTATE',async()=>{
+ const events=[];
+ const client=createFakeClient(()=>{throw Object.assign(Error('secret SQL credential'),{code:'ECONNRESET'});});
+ const database=createPostgresControlDatabase({connection:localConnection(),localTestOnly:true,testPool:createFakePool(client),diagnostic:e=>events.push(e)});
+ try{await assert.rejects(database.query('select 1'));assert.deepEqual(events,[{stage:'prepare',code:'ECONNRESET'}]);}
+ finally{await database.close();}
+});
+
 test('실제 역할 검사 SQL은 관리자 방향과 앱의 상속 방향을 구분한다', async () => {
   const { PGlite } = require('@electric-sql/pglite');
   const pg = new PGlite();
