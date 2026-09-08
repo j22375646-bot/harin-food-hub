@@ -90,6 +90,18 @@ test('Coupang delivery timeout resumes the same job and logout discards late rec
  release(Response.json({ok:true,order:{shipmentBoxId:'123',receiver:{name:'DO NOT DISPLAY',address:'OLD'}}}));
  assert.equal((await pending).status,'DISCONNECTED');
 });
+test('Coupang server recheck refreshes delivery eligibility without a shipping write',async()=>{
+ const receiver={name:'시험',address:'가상 주소',contact:'05012345678',postCode:'12345'};
+ const order={...reviewOrder(),hubOrderId:'HR-CP-1234ABCD',platform:'COUPANG',shipmentId:'123',receiver:null};let refreshed=false;
+ const {connection}=makeConnection(makeRemoteSession(async(url,options)=>{
+  assert.equal(options.method,'GET');
+  return Response.json(makePagePayload({orders:[{...order,receiver:refreshed?receiver:null}]}));
+ }));
+ const before=await connection.refresh();assert.equal(before.orders[0].issueAndRegisterEligible,false);
+ refreshed=true;const after=await connection.recheckPage();
+ assert.equal(after.orders[0].issueAndRegisterEligible,true);assert.equal(after.orders[0].details.receiver.address,'가상 주소');
+ refreshed=false;const unavailable=await connection.recheckPage();assert.equal(unavailable.orders[0].issueAndRegisterEligible,false);
+});
 test('authenticated order read exposes only explicit delivery fields and logout removes them',async()=>{
  const order=reviewOrder();order.receiver={...order.receiver,addressDetail:'가상 101호',message:'문 앞',token:'NEVER_EXPOSE'};
  const {connection}=makeConnection(makeRemoteSession(async()=>Response.json(makePagePayload({orders:[order]}))));

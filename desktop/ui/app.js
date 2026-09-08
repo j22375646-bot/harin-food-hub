@@ -277,6 +277,14 @@ function showOrderDetail(order, button, options = {}) {
           if(result?.status!=='READY'){state.textContent=result?.status==='PENDING'?'쿠팡 조회 처리 대기 중 · 잠시 뒤 다시 확인하세요.':'배송정보 조회 확인 필요 · 다시 확인해주세요.';retry.hidden=false;return;}
           const fresh=result.receiver||{},values=[fresh.name,fresh.contact,fresh.postCode,[fresh.address,fresh.addressDetail].filter(Boolean).join(' '),fresh.message||'배송 메모 없음'];
           fields.querySelectorAll('dd').forEach((node,index)=>node.textContent=values[index]||'확인 필요');state.textContent='배송정보 조회 완료';
+          if(!order.issueAndRegisterEligible&&order.preflight?.route==='HUB'){
+            state.textContent='배송정보 조회 완료 · 발급 가능 여부는 서버 주문을 다시 확인해야 합니다.';
+            const verify=makeElement('button','secondary-action','발급 조건 다시 확인');verify.type='button';
+            verify.addEventListener('click',()=>{
+              if(!current()||registrationBusy||verify.disabled)return;
+              verify.disabled=true;void recheckSelectedOrder();
+            });delivery.append(verify);
+          }
         }catch{if(current()){state.textContent='배송정보 조회 확인 필요';retry.hidden=false;}}
         finally{busy=false;delivery.removeAttribute('aria-busy');}
       };
