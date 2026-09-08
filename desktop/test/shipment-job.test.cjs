@@ -15,6 +15,44 @@ function fixture() {
         poll:async id=>{calls.push(['GET',id]); return {status:202,body:{ok:true,request:{id:requestId,hubOrderId:order,status:'RUNNING'}}};}}},
   };
 }
+
+test('disconnect during intent persistence prevents later dispatch and hides order state',async()=>{
+  const f=fixture();let release,started;
+  const entered=new Promise(resolve=>{started=resolve;});
+  const write=f.options.store.write;
+  f.options.store.write=async value=>{started();await new Promise(resolve=>{release=resolve;});await write(value);};
+  const job=await createShipmentJob(f.options);
+  const pending=job.submit({hubOrderId:order,confirm:true});await entered;
+  job.suspend();release();await pending;
+  assert.deepEqual(job.snapshot(),{status:'DISCONNECTED',hubOrderId:null,requestId:null});
+  await job.submit({hubOrderId:order,confirm:true});await job.poll();
+  assert.equal(f.calls.length,0);
+});
+
+test('disconnect aborts an in-flight request without retry or late state disclosure',async()=>{
+  const f=fixture();let finish,signal,started;
+  const entered=new Promise(resolve=>{started=resolve;});
+  f.options.transport.submit=async (_body,options)=>{f.calls.push(['POST']);signal=options.signal;started();return new Promise(resolve=>{finish=resolve;});};
+  const job=await createShipmentJob(f.options);
+  const pending=job.submit({hubOrderId:order,confirm:true});await entered;job.suspend();
+  assert.equal(signal.aborted,true);
+  await pending;
+  finish({status:202,body:{ok:true,results:[{hubOrderId:order,ok:true,request:{id:requestId,status:'PENDING'}}]}});
+  await Promise.resolve();
+  assert.deepEqual(job.snapshot(),{status:'DISCONNECTED',hubOrderId:null,requestId:null});
+  const restored=await createShipmentJob(f.options);
+  assert.equal(restored.snapshot().status,'UNKNOWN');
+  await restored.submit({hubOrderId:order,confirm:true});assert.equal(f.calls.length,1);
+});
+
+test('disconnected known job retains its journal for a new authenticated controller to poll',async()=>{
+  const f=fixture();const job=await createShipmentJob(f.options);
+  await job.submit({hubOrderId:order,confirm:true});job.suspend();
+  await job.poll();assert.equal(f.calls.length,1);
+  const restored=await createShipmentJob(f.options);
+  assert.equal((await restored.poll()).status,'RUNNING');
+  assert.deepEqual(f.calls.map(row=>row[0]),['POST','GET']);
+});
 test('confirmation and canonical supported channel are required before any write', async()=>{
   const f=fixture(), job=await createShipmentJob(f.options);
   for (const input of [{hubOrderId:order,confirm:false},{hubOrderId:'HR-NV-1234ABCD',confirm:true},{hubOrderId:'HR-C24-1234abcd',confirm:true}]) {

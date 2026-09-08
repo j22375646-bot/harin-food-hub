@@ -43,7 +43,14 @@ async function createShipmentJob({businessId,store,transport,timeoutMs=15000}={}
     || typeof store?.read !== 'function' || typeof store?.write !== 'function'
     || typeof transport?.submit !== 'function' || typeof transport?.poll !== 'function'
     || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60000) throw new TypeError('Invalid shipment job dependencies');
-  let state=empty(), busy=false;
+  let state=empty(), busy=false, suspended=false, interrupt=null;
+  const disconnected=Object.freeze({status:'DISCONNECTED',hubOrderId:null,requestId:null});
+  const snapshot=()=>suspended ? disconnected : state;
+  function suspend() {
+    suspended=true;
+    interrupt?.();
+    return snapshot();
+  }
   try {
     const record=await store.read();
     if (record !== null) {
@@ -61,45 +68,52 @@ async function createShipmentJob({businessId,store,transport,timeoutMs=15000}={}
   }
 
   async function bounded(action) {
+    if(suspended)throw Error('Shipment connection closed');
     const controller=new AbortController();
     let timer;
     try {
       return await Promise.race([
-        Promise.resolve().then(()=>action(controller.signal)),
+        Promise.resolve().then(()=>{
+          if(suspended)throw Error('Shipment connection closed');
+          return action(controller.signal);
+        }),
+        new Promise((_,reject)=>{interrupt=()=>{controller.abort();reject(Error('Shipment connection closed'));};}),
         new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('Unconfirmed shipment result'));},timeoutMs);}),
       ]);
-    } finally {clearTimeout(timer);}
+    } finally {clearTimeout(timer);interrupt=null;}
   }
 
   async function submit(input) {
-    if (busy || state.status !== 'EMPTY') return state;
+    if (suspended || busy || state.status !== 'EMPTY') return snapshot();
     if (input?.confirm !== true || typeof input.hubOrderId !== 'string' || !ORDER.test(input.hubOrderId)) throw new TypeError('Shipment confirmation and supported order are required');
     const hubOrderId=input.hubOrderId;
     busy=true;
     try {
-      if (!await save({status:'SUBMITTING',hubOrderId,requestId:null})) return state;
+      if (!await save({status:'SUBMITTING',hubOrderId,requestId:null}) || suspended) return snapshot();
       let outcome;
       try {outcome=accepted(await bounded(signal=>transport.submit({confirm:true,orderIds:[hubOrderId]},{signal})),hubOrderId);}
       catch {outcome=null;}
-      await save({hubOrderId,requestId:outcome?.requestId || null,status:outcome?.status || 'UNKNOWN'});
-      return state;
+      if(!suspended)await save({hubOrderId,requestId:outcome?.requestId || null,status:outcome?.status || 'UNKNOWN'});
+      return snapshot();
     } finally {busy=false;}
   }
 
   async function poll() {
-    if (busy || TERMINAL.has(state.status) || !state.requestId) return state;
+    if (suspended || busy || TERMINAL.has(state.status) || !state.requestId) return snapshot();
     busy=true;
     try {
       let status;
       try {status=polled(await bounded(signal=>transport.poll(state.requestId,{signal})),state);}
       catch {status='UNKNOWN';}
-      await save({...state,status});
-      return state;
+      if(!suspended)await save({...state,status});
+      return snapshot();
     } finally {busy=false;}
   }
 
   // No reset/retry API: ambiguous or failed work needs explicit reconciliation.
-  return Object.freeze({snapshot:()=>state,submit,poll});
+  // Host must suspend before clearing a session and await its pending operation
+  // before replacing this controller. Abort does not undo a server-side issue.
+  return Object.freeze({snapshot,submit,poll,suspend});
 }
 
 module.exports=Object.freeze({createShipmentJob});
