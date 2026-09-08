@@ -110,6 +110,73 @@ test.before(async () => {
 test.beforeEach(resetFixtures);
 test.after(async () => database?.close());
 
+test('사업장 목록은 인증된 본인의 활성 회원 정보만 최소 필드로 반환한다', async () => {
+  const result = await store.listBusinesses({ sessionCredential: SESSIONS.owner, userId: IDS.invitee });
+  assert.deepEqual(result, [
+    {tenantId:IDS.tenantA,displayName:'사업장 A',role:'OWNER',membershipVersion:3},
+    {tenantId:IDS.tenantB,displayName:'사업장 B',role:'VIEWER',membershipVersion:7},
+  ]);
+  assert.equal(Object.isFrozen(result),true);
+  assert.equal(Object.isFrozen(result[0]),true);
+  assert.deepEqual(await store.listBusinesses({sessionCredential:SESSIONS.invitee}),[]);
+});
+
+test('사업장 목록에서 정지 사업장과 정지 및 탈퇴 회원을 제외한다', async () => {
+  await database.query("update moaon_control.tenants set status='SUSPENDED' where id=$1",[IDS.tenantB]);
+  for(const status of ['SUSPENDED','REMOVED']){
+    await database.query('update moaon_control.memberships set status=$1 where user_id=$2 and tenant_id=$3',[status,IDS.owner,IDS.tenantA]);
+    assert.deepEqual(await store.listBusinesses({sessionCredential:SESSIONS.owner}),[]);
+  }
+  assert.deepEqual(await store.listBusinesses({sessionCredential:SESSIONS.shared}),[
+    {tenantId:IDS.tenantA,displayName:'사업장 A',role:'OPERATOR',membershipVersion:2},
+  ]);
+});
+
+test('사업장 목록 인증 실패를 빈 목록으로 바꾸지 않는다',async()=>{
+  for(const credential of ['', 'invalid', SESSIONS.expired]){
+    await expectStoreError(()=>store.listBusinesses({sessionCredential:credential}),'AUTH_REQUIRED',401);
+  }
+});
+
+test('사업장 목록 조회 실패와 조회 중 세션 만료는 자료를 반환하지 않는다',async()=>{
+  const failedStore=createTenantControlStore({verifySession,database:{
+    transaction:database.transaction.bind(database),
+    query:async(sql,args)=>{
+      if(sql.includes('t.display_name'))throw Error('private database details');
+      return database.query(sql,args);
+    },
+  }});
+  await expectStoreError(()=>failedStore.listBusinesses({sessionCredential:SESSIONS.owner}),'CONTROL_STORE_UNAVAILABLE',503);
+  let clocks=0;
+  const expiredStore=createTenantControlStore({verifySession,database:{
+    transaction:database.transaction.bind(database),
+    query:async(sql,args)=>sql.includes('clock_timestamp')
+      ?{rows:[{database_now:++clocks<3?'2098-01-01T00:00:00Z':'2100-01-01T00:00:00Z'}]}
+      :database.query(sql,args),
+  }});
+  await expectStoreError(()=>expiredStore.listBusinesses({sessionCredential:SESSIONS.owner}),'AUTH_REQUIRED',401);
+});
+
+test('목록 조회 뒤 권한 변경은 다음 조회에 즉시 반영된다',async()=>{
+  await store.listBusinesses({sessionCredential:SESSIONS.shared});
+  await database.query("update moaon_control.memberships set role='VIEWER', version=version+1 where tenant_id=$1 and user_id=$2",[IDS.tenantA,IDS.shared]);
+  assert.equal((await store.listBusinesses({sessionCredential:SESSIONS.shared}))[0].role,'VIEWER');
+  assert.equal((await store.listBusinesses({sessionCredential:SESSIONS.shared}))[0].membershipVersion,3);
+});
+
+test('사업장 목록 200개까지 반환하고 초과하면 조용히 잘라내지 않는다',async()=>{
+  await database.exec(`
+    insert into moaon_control.tenants(id,display_name,status)
+    select ('40000000-0000-4000-8000-' || lpad(n::text,12,'0'))::uuid, '추가 사업장 ' || n, 'ACTIVE'
+    from generate_series(1,199) n;
+    insert into moaon_control.memberships(tenant_id,user_id,role,status,version)
+    select id, '${IDS.invitee}'::uuid,'VIEWER','ACTIVE',1 from moaon_control.tenants;
+  `);
+  await expectStoreError(()=>store.listBusinesses({sessionCredential:SESSIONS.invitee}),'BUSINESS_LIST_LIMIT',409);
+  await database.query('delete from moaon_control.memberships where user_id=$1 and tenant_id=$2',[IDS.invitee,IDS.tenantB]);
+  assert.equal((await store.listBusinesses({sessionCredential:SESSIONS.invitee})).length,200);
+});
+
 test('검증된 세션 본인의 활성 사업장 membership만 resolveTenantContext 형태로 반환한다', async () => {
   assert.deepEqual(
     await store.findMembership({ sessionCredential: SESSIONS.owner, tenantId: IDS.tenantA }),
