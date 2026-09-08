@@ -274,6 +274,7 @@ function createHubConnection({
   let pageCursor = null;
   let currentScope = 'ACTIVE';
   let currentChannel = 'ALL';
+  let currentFilters=Object.freeze({delayOnly:false,giftOnly:false});
   let loadedOrders=EMPTY_ORDERS;
   const registrationAttempts=new Set();
   let registrationController=null;
@@ -540,6 +541,8 @@ function createHubConnection({
     pageCursor = null;
     loadedOrders=EMPTY_ORDERS;
   }
+  const ordersScopeUrl=(scope=currentScope,channel=currentChannel)=>currentFilters.delayOnly||currentFilters.giftOnly?buildOrdersScopeUrl(scope,channel,currentFilters):buildOrdersScopeUrl(scope,channel);
+  const ordersPageUrl=(offset,snapshot,scope=currentScope,channel=currentChannel)=>currentFilters.delayOnly||currentFilters.giftOnly?buildOrdersPageUrl(offset,snapshot,scope,channel,currentFilters):buildOrdersPageUrl(offset,snapshot,scope,channel);
 
   async function performRead(readGeneration, { url, requestedOffset, expectedSnapshot, scope }) {
     const controller = new AbortController();
@@ -589,7 +592,7 @@ function createHubConnection({
         scope,
       });
       loadedOrders=result.orders;
-      return Object.freeze({...result,channel:currentChannel});
+      return Object.freeze({...result,channel:currentChannel,filters:currentFilters});
     } catch {
       if (readGeneration === generation) invalidateCursor();
       return readGeneration === generation
@@ -627,7 +630,7 @@ function createHubConnection({
   function refresh() {
     if (activeRead) return activeRead;
     invalidateCursor();
-    return startRead({ url: buildOrdersScopeUrl(currentScope,currentChannel), requestedOffset: 0, expectedSnapshot: null, scope: currentScope });
+    return startRead({ url: ordersScopeUrl(), requestedOffset: 0, expectedSnapshot: null, scope: currentScope });
   }
 
   function nextPage() {
@@ -637,7 +640,7 @@ function createHubConnection({
       return Promise.resolve(safeEmpty('UNAVAILABLE', '이동할 다음 주문 페이지가 없습니다. 첫 페이지를 다시 조회하세요.'));
     }
     return startRead({
-      url: buildOrdersPageUrl(cursor.nextOffset, cursor.snapshot, currentScope,currentChannel),
+      url: ordersPageUrl(cursor.nextOffset,cursor.snapshot),
       requestedOffset: cursor.nextOffset,
       expectedSnapshot: cursor.snapshot,
       scope: currentScope,
@@ -652,7 +655,7 @@ function createHubConnection({
     }
     const previousOffset = cursor.offset - PAGE_SIZE;
     return startRead({
-      url: buildOrdersPageUrl(previousOffset, cursor.snapshot, currentScope,currentChannel),
+      url: ordersPageUrl(previousOffset,cursor.snapshot),
       requestedOffset: previousOffset,
       expectedSnapshot: cursor.snapshot,
       scope: currentScope,
@@ -665,7 +668,7 @@ function createHubConnection({
     if (activeRead) return Promise.resolve(safeEmpty('UNAVAILABLE', '조회가 진행 중입니다. 완료 후 다시 확인하세요.'));
     const cursor = pageCursor;
     if (!cursor) return Promise.resolve(safeEmpty('UNAVAILABLE', '목록을 먼저 조회하세요.'));
-    return startRead({url:buildOrdersPageUrl(cursor.offset,cursor.snapshot,currentScope,currentChannel),requestedOffset:cursor.offset,expectedSnapshot:cursor.snapshot,scope:currentScope});
+    return startRead({url:ordersPageUrl(cursor.offset,cursor.snapshot),requestedOffset:cursor.offset,expectedSnapshot:cursor.snapshot,scope:currentScope});
   }
 
   // Main-process preparation only, not an IPC method or a shipment permit.
@@ -1132,14 +1135,26 @@ function createHubConnection({
     invalidateCursor();
     activeRead = null;
     activeAbortController?.abort();
-    return startRead({ url: buildOrdersScopeUrl(scope,currentChannel), requestedOffset: 0, expectedSnapshot: null, scope });
+    return startRead({ url: ordersScopeUrl(scope), requestedOffset: 0, expectedSnapshot: null, scope });
   }
 
   function viewChannel(channel){
     if(!ORDER_CHANNELS.includes(channel))throw new TypeError('Invalid orders channel');
     const blocked=blockedReadResult();if(blocked)return blocked;
     generation++;void stopShipments();currentChannel=channel;invalidateCursor();activeRead=null;activeAbortController?.abort();
-    return startRead({url:buildOrdersScopeUrl(currentScope,currentChannel),requestedOffset:0,expectedSnapshot:null,scope:currentScope});
+    return startRead({url:ordersScopeUrl(),requestedOffset:0,expectedSnapshot:null,scope:currentScope});
+  }
+
+  function setOrderFilters(filters){
+    if(!filters||typeof filters!=='object'||Array.isArray(filters)||Object.keys(filters).length!==2||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean')return Promise.resolve(safeEmpty('UNAVAILABLE','올바른 주문 필터를 선택하세요.'));
+    if(registrationController||automaticController||reviewingShipment||collectionWorkActive||trackingController||findingOrder)return Promise.resolve(safeEmpty('UNAVAILABLE','다른 작업이 진행 중입니다. 완료 후 필터를 변경하세요.'));
+    generation++;void stopShipments();currentFilters=Object.freeze({...filters});invalidateCursor();activeRead=null;activeAbortController?.abort();
+    return startRead({url:ordersScopeUrl(),requestedOffset:0,expectedSnapshot:null,scope:currentScope});
+  }
+  function resetOrderFilters(){
+    if(registrationController||automaticController||reviewingShipment||collectionWorkActive||trackingController||findingOrder)return Promise.resolve(safeEmpty('UNAVAILABLE','다른 작업이 진행 중입니다. 완료 후 필터를 초기화하세요.'));
+    generation++;void stopShipments();currentChannel='ALL';currentFilters=Object.freeze({delayOnly:false,giftOnly:false});invalidateCursor();activeRead=null;activeAbortController?.abort();
+    return startRead({url:ordersScopeUrl(),requestedOffset:0,expectedSnapshot:null,scope:currentScope});
   }
 
   const viewActive = () => viewScope('ACTIVE');
@@ -1280,6 +1295,7 @@ function createHubConnection({
     const shipmentShutdown=stopShipments();
     currentScope = 'ACTIVE';
     currentChannel = 'ALL';
+    currentFilters=Object.freeze({delayOnly:false,giftOnly:false});
     invalidateCursor();
     activeRead = null;
     activeAbortController?.abort();
@@ -1325,6 +1341,7 @@ function createHubConnection({
     void stopShipments();
     currentScope = 'ACTIVE';
     currentChannel = 'ALL';
+    currentFilters=Object.freeze({delayOnly:false,giftOnly:false});
     invalidateCursor();
     activeRead = null;
     activeAbortController?.abort();
@@ -1338,7 +1355,7 @@ function createHubConnection({
     if(findingOrder||activeRead||registrationController||automaticController||disconnecting||cleanupFailed||isLoginWindowActive())return {status:'BUSY'};
     findingOrder=true;let count=0,last,partial=false;
     try{
-      currentScope='ACTIVE';
+      currentScope='ACTIVE';currentFilters=Object.freeze({delayOnly:false,giftOnly:false});
       let pending=viewChannel(id.startsWith('HR-CP-')?'COUPANG':'CAFE24'),expected=generation;
       for(const scope of ORDER_SCOPES){
         if(scope!=='ACTIVE'){pending=viewScope(scope);expected=generation;}
@@ -1391,7 +1408,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-  return Object.freeze({ exportSelectedCsv, previewLabels, previewWorklist, collectOrders, checkOrderCollection, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ exportSelectedCsv, previewLabels, previewWorklist, collectOrders, checkOrderCollection, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1428,6 +1445,17 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
     if(args.length!==1||!ORDER_CHANNELS.includes(args[0]))throw Error('Invalid channel arguments');
     return connection.viewChannel(args[0]);
+  });
+  ipcMain.handle('moaon-hub:set-order-filters',async(event,...args)=>{
+    if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+    const filters=args[0];
+    if(args.length!==1||!filters||typeof filters!=='object'||Array.isArray(filters)||Object.keys(filters).length!==2||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean')throw Error('Invalid filter arguments');
+    return connection.setOrderFilters(filters);
+  });
+  ipcMain.handle('moaon-hub:reset-order-filters',async(event,...args)=>{
+    if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+    if(args.length)throw Error('Arguments are not allowed');
+    return connection.resetOrderFilters();
   });
   ipcMain.handle('moaon-hub:register-invoices',async(event,...args)=>{
     if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');

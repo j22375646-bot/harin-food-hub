@@ -21,6 +21,7 @@ test('confirmed invoice registration uses one fixed POST and verifies stored reg
  let registered=false,dialogs=0;
  const {connection,calls}=setup({read:url=>registered&&new URL(url).searchParams.get('stage')==='ACTIVE'?[]:[{...order(),stage:'READY_TO_SHIP',invoice:{status:registered?'REGISTERED':'ISSUED',number:'1234567890123'}}],post:()=>{registered=true;return {ok:true,results:[{hubOrderId:order().hubOrderId,ok:true,status:'SUCCESS'}]};},dialog:async(_parent,options)=>{dialogs++;assert.equal(options.defaultId,0);assert.match(options.detail,/1234567890123/);return {response:1};}});
  const page=await connection.refresh();assert.equal(page.orders[0].registrationEligible,true);
+ await connection.setOrderFilters({delayOnly:false,giftOnly:true});
  const result=await connection.registerInvoices([order().hubOrderId]);
  assert.deepEqual(result,{status:'COMPLETED',results:[{hubOrderId:order().hubOrderId,status:'REGISTERED',trackingStatus:'CHECK_REQUIRED'}]});
  const tracking=calls.filter(call=>call.url.endsWith('/api/shipping/tracking'));
@@ -29,6 +30,10 @@ test('confirmed invoice registration uses one fixed POST and verifies stored reg
  assert.equal(posts[0].url,'https://harin-cafe24-sync.vercel.app/api/shipping/actions');
  assert.equal(posts[0].options.headers.Origin,'https://harin-cafe24-sync.vercel.app');
  assert.deepEqual(JSON.parse(posts[0].options.body),{confirm:true,action:'UPLOAD_INVOICE',orders:[{hubOrderId:order().hubOrderId,invoiceNumber:'1234567890123',deliveryCompanyCode:'0012'}]});
+ const fresh=calls.filter(call=>call.options.method==='GET'&&new URL(call.url).searchParams.get('stage')==='ACTIVE').at(-1).url;
+ const recovery=calls.filter(call=>call.options.method==='GET'&&new URL(call.url).searchParams.get('stage')==='REGISTER');
+ assert.match(fresh,/delayOnly=false&giftOnly=true/,'selected-order fresh recheck keeps current filters');
+ assert.ok(recovery.length>0&&recovery.every(call=>!call.url.includes('giftOnly=')),'post-registration recovery deliberately ignores list filters');
 });
 test('Coupang seller registration returns pending instead of claiming registration',async()=>{
  const cp={...order(),hubOrderId:'HR-CP-1234ABCD',platform:'COUPANG',shipmentId:'123'};

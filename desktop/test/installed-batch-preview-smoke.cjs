@@ -9,7 +9,7 @@ const {_electron}=require('playwright');
  try{
   const page=await app.firstWindow();
   await page.waitForFunction(()=>document.querySelector('#entry-screen')?.hidden,{},{timeout:30000});
-  assert.equal(await app.evaluate(({app})=>app.getVersion()),'0.35.0');
+  assert.equal(await app.evaluate(({app})=>app.getVersion()),'0.36.0');
   // Defence in depth: this acceptance never dispatches a print job.
   await app.evaluate(({app})=>{globalThis.acceptancePrints=0;globalThis.acceptancePreview=[];app.on('browser-window-created',(_event,win)=>{win.webContents.print=()=>{globalThis.acceptancePrints++;throw Error('Printing forbidden in acceptance');};const inspect=win.webContents.executeJavaScriptInIsolatedWorld.bind(win.webContents);win.webContents.executeJavaScriptInIsolatedWorld=async(...args)=>{const value=await inspect(...args);if(Array.isArray(value)&&value.some(row=>typeof row?.fit==='boolean'))globalThis.acceptancePreview.push(value.map(row=>({fit:row.fit})));return value;};});});
   const result=await page.evaluate(async()=>{

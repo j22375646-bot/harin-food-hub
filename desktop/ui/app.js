@@ -55,6 +55,7 @@ let selectedOrderId = null;
 const selectedOrderIds = new Set();
 let registrationBusy = false;
 let selectedChannel = 'ALL';
+let serverFilters=Object.freeze({delayOnly:false,giftOnly:false});
 let selectedOrderButton = null;
 let displayMode = 'sample';
 let collectionState=null,collectionBusy=false,collectionGeneration=0;
@@ -608,6 +609,7 @@ function createOrderRow(order) {
 
 function renderSelection(){
   renderCollection();
+  renderServerFilterControls();
   const count=selectedOrderIds.size;
   const autoEligible=displayMode==='live'&&count>0&&count<=20&&[...selectedOrderIds].every(id=>displayedOrders.some(order=>orderId(order)===id&&order.issueAndRegisterEligible===true));
   document.querySelector('#selection-auto-ship').disabled=registrationBusy||!autoEligible;
@@ -642,6 +644,15 @@ function renderSelection(){
   all.checked=selectable.length>0&&count===selectable.length;all.indeterminate=count>0&&count<selectable.length;all.disabled=registrationBusy||selectable.length===0;
 }
 
+const orderToolsBusy=()=>registrationBusy||collectionBusy||collectionShipmentLocks.size>0;
+function renderServerFilterControls(){
+  const live=displayMode==='live',busy=orderToolsBusy();
+  const delay=document.querySelector('#order-delay-only'),gift=document.querySelector('#order-gift-only');
+  delay.checked=serverFilters.delayOnly;gift.checked=serverFilters.giftOnly;
+  delay.disabled=!live||busy;gift.disabled=!live||busy;
+  document.querySelector('#order-tools-reset').disabled=busy||!(live||isSampleMode());
+}
+
 function renderOrders() {
   const query = orderSearch.value.trim().toLocaleLowerCase('ko-KR');
   const channelOf = order => isSampleMode() ? order.channel : order.platform;
@@ -652,7 +663,7 @@ function renderOrders() {
   orderChannel.value=channel;
   const toolsEnabled=displayMode==='live'||isSampleMode();
   orderChannel.disabled=!toolsEnabled;orderSort.disabled=!toolsEnabled;
-  document.querySelector('#order-tools-reset').disabled=!toolsEnabled;
+  renderServerFilterControls();
   const searchedOrders = displayedOrders.filter((order) => {
     const fields = isSampleMode()
       ? [order.id, order.customer, order.product, order.channel]
@@ -660,7 +671,8 @@ function renderOrders() {
     return (channel==='ALL'||channelOf(order)===channel)&&fields.join(' ').toLocaleLowerCase('ko-KR').includes(query);
   });
   renderReviewFilters(searchedOrders);
-  document.querySelector('.order-more-filters summary').textContent = reviewFilter !== 'ALL' || orderSort.value !== 'DEFAULT' ? '추가 필터 · 적용 중' : '추가 필터';
+  const serverFilterLabels=[serverFilters.delayOnly?'배송 지연만':'',serverFilters.giftOnly?'사은품 동봉만':''].filter(Boolean);
+  document.querySelector('.order-more-filters summary').textContent = serverFilterLabels.length||reviewFilter !== 'ALL'||orderSort.value !== 'DEFAULT' ? '추가 필터 · 적용 중' : '추가 필터';
   const visibleOrders = displayMode === 'live' && reviewFilter !== 'ALL'
     ? searchedOrders.filter(order => reviewStatus(order) === reviewFilter) : searchedOrders;
   if(['AMOUNT_ASC','AMOUNT_DESC'].includes(orderSort.value)){
@@ -679,7 +691,7 @@ function renderOrders() {
     resultCount.textContent = query ? `검색 결과 · 샘플 ${visibleOrders.length}건` : `샘플 ${visibleOrders.length}건 표시`;
     orderEmpty.textContent = '검색 결과가 없습니다. 다른 주문번호, 고객명 또는 상품명을 입력하세요.';
   } else if (displayMode === 'live') {
-    resultCount.textContent = `현재 페이지 ${query ? '검색 · ' : ''}${channel==='ALL'?'':`${channel} · `}${reviewLabels[reviewFilter]} ${visibleOrders.length}건`;
+    resultCount.textContent = `${serverFilterLabels.length?`전체 조회 ${serverFilterLabels.join(' · ')} · `:''}현재 페이지 ${query ? '검색 · ' : ''}${reviewLabels[reviewFilter]} ${visibleOrders.length}건`;
     orderEmpty.textContent = query || reviewFilter !== 'ALL' || channel!=='ALL' ? '현재 페이지에서 조건에 맞는 주문이 없습니다. 검색·필터 초기화로 다시 확인하세요.' : '현재 페이지에 표시할 주문이 없습니다.';
   } else {
     resultCount.textContent = displayMode === 'connecting' ? '연결 확인 중 · 주문 목록 비움' : '표시 중인 실제 주문 없음';
@@ -811,11 +823,12 @@ function applyHubResult(result) {
   if (result?.status === 'READY' || result?.status === 'PARTIAL') {
     if (scopeDetails[result.scope]) selectedScope = result.scope;
     if(['ALL','CAFE24','NAVER','COUPANG'].includes(result.channel))selectedChannel=result.channel;
+    if(result.filters&&typeof result.filters.delayOnly==='boolean'&&typeof result.filters.giftOnly==='boolean')serverFilters=Object.freeze({...result.filters});
     scopeControlsAvailable = true;
     displayMode = 'live';
     if(!businessLoaded){businessLoaded=true;void refreshBusinesses();}
     connectionResult = result;
-    if(selectedChannel==='ALL')overviewValues[result.scope]={status:result.status,total:result.total,checkedAt:result.checkedAt};
+    if(selectedChannel==='ALL'&&!serverFilters.delayOnly&&!serverFilters.giftOnly)overviewValues[result.scope]={status:result.status,total:result.total,checkedAt:result.checkedAt};
     displayedOrders = Object.freeze(result.orders.map((order) => Object.freeze({
       hubOrderId: typeof order.hubOrderId === 'string' ? order.hubOrderId : '', platform: typeof order.platform === 'string' ? order.platform : '',
       productName: typeof order.productName === 'string' ? order.productName : '', stage: typeof order.stage === 'string' ? order.stage : '',
@@ -1082,6 +1095,14 @@ async function changeOrderChannel(channel){
   }catch{if(generation===actionGeneration)clearDisplayedOrders('error','채널 주문을 조회하지 못했습니다. 다시 조회하세요.');}
 }
 
+async function changeServerFilters(next){
+ if(displayMode!=='live'||registrationBusy||collectionBusy||collectionShipmentLocks.size>0)return renderOrders();
+ const generation=++actionGeneration;serverFilters=Object.freeze({...next});reviewFilter='ALL';orderSearch.value='';orderSort.value='DEFAULT';
+ selectedOrderIds.clear();clearDisplayedOrders('connecting','전체 조회 조건을 적용해 첫 페이지를 조회하고 있습니다.');
+ try{const result=await window.moaonHub.setOrderFilters(serverFilters);if(generation===actionGeneration)applyHubResult(result);}
+ catch{if(generation===actionGeneration)clearDisplayedOrders('error','주문 필터를 적용하지 못했습니다. 이전 결과를 정상 목록으로 표시하지 않습니다.');}
+}
+
 async function registerSelectedInvoices(){
   if(registrationBusy||displayMode!=='live')return;
   const ids=[...selectedOrderIds];
@@ -1155,6 +1176,7 @@ async function returnToSample() {
   if (generation !== actionGeneration) return;
   displayMode = 'sample';
   selectedChannel='ALL';
+  serverFilters=Object.freeze({delayOnly:false,giftOnly:false});
   selectedScope = 'ACTIVE';
   scopeControlsAvailable = false;
   displayedOrders = sampleOrders;
@@ -1178,6 +1200,8 @@ for (const button of themeButtons) button.addEventListener('click', () => applyT
 for (const button of connectionButtons) button.addEventListener('click', () => button.dataset.action === 'sample-mode' ? void returnToSample() : void runHubAction(button.dataset.action.replace('hub-', '')));
 orderSearch.addEventListener('input', renderOrders);
 orderChannel.addEventListener('change',()=>void changeOrderChannel(orderChannel.value));
+document.querySelector('#order-delay-only').addEventListener('change',event=>void changeServerFilters({...serverFilters,delayOnly:event.target.checked}));
+document.querySelector('#order-gift-only').addEventListener('change',event=>void changeServerFilters({...serverFilters,giftOnly:event.target.checked}));
 orderSort.addEventListener('change',renderOrders);
 document.querySelector('#selection-clear').addEventListener('click',()=>{selectedOrderIds.clear();closeOrderDetail({restoreFocus:true});renderSelection();});
 document.querySelector('#order-select-all').addEventListener('change',event=>{
@@ -1203,8 +1227,14 @@ document.querySelector('#selection-review').addEventListener('click',()=>{
   if(order&&button)showOrderDetail(order,button);
 });
 document.querySelector('#order-tools-reset').addEventListener('click',()=>{
+  if(orderToolsBusy())return;
   orderSearch.value='';orderSort.value='DEFAULT';reviewFilter='ALL';
-  if(selectedChannel!=='ALL')void changeOrderChannel('ALL');else renderOrders();
+  if(selectedChannel!=='ALL'||serverFilters.delayOnly||serverFilters.giftOnly){
+    selectedChannel='ALL';serverFilters=Object.freeze({delayOnly:false,giftOnly:false});selectedOrderIds.clear();
+    const generation=++actionGeneration;clearDisplayedOrders('connecting','검색과 전체 조회 조건을 초기화해 첫 페이지를 조회하고 있습니다.');
+    void window.moaonHub.resetOrderFilters().then(result=>{if(generation===actionGeneration)applyHubResult(result);}).catch(()=>{if(generation===actionGeneration)clearDisplayedOrders('error','필터 초기화를 완료하지 못했습니다.');});
+  }
+  else renderOrders();
   orderSearch.focus();
 });
 document.querySelector('#sidebar-toggle').addEventListener('click', (event) => {

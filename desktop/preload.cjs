@@ -32,6 +32,11 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   previousPage: () => ipcRenderer.invoke('moaon-hub:previous-page'),
   viewActive: () => ipcRenderer.invoke('moaon-hub:view-active'),
   viewChannel: (channel) => ipcRenderer.invoke('moaon-hub:view-channel',channel),
+  setOrderFilters: (filters) => {
+    if(!filters||typeof filters!=='object'||Array.isArray(filters)||Object.keys(filters).length!==2||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean')throw Error('Invalid filter arguments');
+    return ipcRenderer.invoke('moaon-hub:set-order-filters',filters);
+  },
+  resetOrderFilters: () => ipcRenderer.invoke('moaon-hub:reset-order-filters'),
   registerInvoices: (ids) => ipcRenderer.invoke('moaon-hub:register-invoices',ids),
   viewRegistered: () => ipcRenderer.invoke('moaon-hub:view-registered'),
   viewInTransit: () => ipcRenderer.invoke('moaon-hub:view-in-transit'),

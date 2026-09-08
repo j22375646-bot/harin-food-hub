@@ -15,14 +15,18 @@ const LOGIN_QUERY_KEYS = new Set(['error', 'next']);
 const ORDERS_PAGE_SIZE = 20;
 const SNAPSHOT_PATTERN = /^[0-9a-f]{64}$/;
 
-function buildOrdersScopeUrl(scope = 'ACTIVE', channel = 'ALL') {
+function validFilters(filters){return filters&&typeof filters==='object'&&!Array.isArray(filters)&&Object.keys(filters).length===2&&typeof filters.delayOnly==='boolean'&&typeof filters.giftOnly==='boolean';}
+function buildOrdersScopeUrl(scope = 'ACTIVE', channel = 'ALL', filters = {delayOnly:false,giftOnly:false}) {
   if (!ORDER_SCOPE_SET.has(scope)) throw new TypeError('Invalid orders scope');
   if (!ORDER_CHANNELS.includes(channel)) throw new TypeError('Invalid orders channel');
-  return `${ORDERS_PATH}${scope}&platform=${channel}`;
+  if(!validFilters(filters))throw new TypeError('Invalid orders filters');
+  return `${ORDERS_PATH}${scope}&platform=${channel}${filters.delayOnly||filters.giftOnly?`&delayOnly=${filters.delayOnly}&giftOnly=${filters.giftOnly}`:''}`;
 }
 
-function buildOrdersPageUrl(offset, snapshot, scope = 'ACTIVE', channel = 'ALL') {
-  const ordersUrl = buildOrdersScopeUrl(scope,channel);
+function buildOrdersPageUrl(offset, snapshot, scope = 'ACTIVE', channel = 'ALL', filters = {delayOnly:false,giftOnly:false}) {
+  buildOrdersScopeUrl(scope,channel,filters);
+  const includeFilters=arguments.length>=5;
+  const ordersUrl = `${ORDERS_PATH}${scope}&platform=${channel}${includeFilters?`&delayOnly=${filters.delayOnly}&giftOnly=${filters.giftOnly}`:''}`;
   if (
     !Number.isSafeInteger(offset)
     || offset < 0
@@ -38,12 +42,13 @@ function buildOrdersPageUrl(offset, snapshot, scope = 'ACTIVE', channel = 'ALL')
 function parseOrdersPageUrl(value) {
   if (typeof value !== 'string') return null;
   const escapedPath = ORDERS_PATH.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = value.match(new RegExp(`^${escapedPath}(ACTIVE|REGISTER|IN_TRANSIT|COMPLETED)&platform=(?:ALL|CAFE24|NAVER|COUPANG)(?:&offset=([0-9]+)&snapshot=([0-9a-f]{64}))?$`));
+  const match = value.match(new RegExp(`^${escapedPath}(ACTIVE|REGISTER|IN_TRANSIT|COMPLETED)&platform=(?:ALL|CAFE24|NAVER|COUPANG)(?:&delayOnly=(true|false)&giftOnly=(true|false))?(?:&offset=([0-9]+)&snapshot=([0-9a-f]{64}))?$`));
   if (!match) return null;
-  if (match[2] === undefined) return Object.freeze({ scope: match[1], offset: 0, snapshot: null });
-  const offset = Number(match[2]);
-  if (!Number.isSafeInteger(offset) || offset < 0 || offset % ORDERS_PAGE_SIZE !== 0 || String(offset) !== match[2]) return null;
-  return Object.freeze({ scope: match[1], offset, snapshot: match[3] });
+  const filters=Object.freeze({delayOnly:match[2]==='true',giftOnly:match[3]==='true'});
+  if (match[4] === undefined) return Object.freeze({ scope: match[1], offset: 0, snapshot: null, filters });
+  const offset = Number(match[4]);
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset % ORDERS_PAGE_SIZE !== 0 || String(offset) !== match[4]) return null;
+  return Object.freeze({ scope: match[1], offset, snapshot: match[5], filters });
 }
 
 function isSafeLoginUrl(url) {

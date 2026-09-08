@@ -10,7 +10,7 @@ const {_electron}=require('playwright');
   const page=await app.firstWindow();
   await page.waitForFunction(()=>document.querySelector('#entry-screen')?.hidden,{},{timeout:30000});
   assert.equal(await page.evaluate(()=>typeof window.moaonHub.previewWorklist),'function');
-  assert.equal(await app.evaluate(({app})=>app.getVersion()),'0.35.0');
+  assert.equal(await app.evaluate(({app})=>app.getVersion()),'0.36.0');
   await app.evaluate(({app})=>{globalThis.acceptancePrints=0;app.on('browser-window-created',(_event,win)=>{win.webContents.print=()=>{globalThis.acceptancePrints++;throw Error('Printing forbidden in acceptance');};});});
   const results=[];
   for(const type of ['packing','dispatch']){

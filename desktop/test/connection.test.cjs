@@ -478,6 +478,7 @@ test('remote request policy allows only the fixed login, assets, login POST and 
     { method: 'GET', url: `${HARIN_ORIGIN}/favicon.ico`, webContentsId: 41 },
     { method: 'POST', url: `${HARIN_ORIGIN}/api/dashboard/login`, webContentsId: 41 },
     { method: 'GET', url: ORDERS_URL, webContentsId: 0 },
+    { method: 'GET', url: `${ORDERS_URL}&delayOnly=true&giftOnly=false`, webContentsId: 0 },
     ...['REGISTER', 'IN_TRANSIT', 'COMPLETED'].map((scope) => ({
       method: 'GET',
       url: `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=${scope}&platform=ALL`,
@@ -507,6 +508,9 @@ test('remote request policy allows only the fixed login, assets, login POST and 
     { method: 'GET', url: `${ORDERS_URL}&offset=${Number.MAX_SAFE_INTEGER + 1}&snapshot=${snapshot}`, webContentsId: 0 },
     { method: 'GET', url: `${ORDERS_URL}&offset=20&snapshot=${snapshot}&offset=40`, webContentsId: 0 },
     { method: 'GET', url: `${ORDERS_URL}&offset=20&snapshot=${snapshot}&extra=1`, webContentsId: 0 },
+    { method: 'GET', url: `${ORDERS_URL}&delayOnly=1&giftOnly=false`, webContentsId: 0 },
+    { method: 'GET', url: `${ORDERS_URL}&delayOnly=true`, webContentsId: 0 },
+    { method: 'GET', url: `${ORDERS_URL}&delayOnly=true&giftOnly=false&extra=true`, webContentsId: 0 },
     { method: 'GET', url: `${ORDERS_URL}&offset=20&snapshot=${'A'.repeat(64)}`, webContentsId: 0 },
     { method: 'GET', url: `${ORDERS_URL}&offset=20&snapshot=${snapshot}#orders`, webContentsId: 0 },
     { method: 'GET', url: `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=ACTIVE&platform=ALL`, webContentsId: 41 },
@@ -536,6 +540,8 @@ test('orders page URL builder emits only canonical bounded cursor URLs', () => {
 
   assert.equal(buildOrdersPageUrl(0, snapshot), `${ORDERS_URL}&offset=0&snapshot=${snapshot}`);
   assert.equal(buildOrdersPageUrl(40, snapshot), `${ORDERS_URL}&offset=40&snapshot=${snapshot}`);
+  assert.equal(buildOrdersPageUrl(40,snapshot,'ACTIVE','ALL',{delayOnly:true,giftOnly:false}),`${ORDERS_URL}&delayOnly=true&giftOnly=false&offset=40&snapshot=${snapshot}`);
+  for(const filters of [{delayOnly:'true',giftOnly:false},{delayOnly:true},{delayOnly:true,giftOnly:false,extra:false},[]])assert.throws(()=>buildOrdersPageUrl(20,snapshot,'ACTIVE','ALL',filters),/Invalid orders filters/);
   assert.deepEqual(ORDER_SCOPES, ['ACTIVE', 'REGISTER', 'IN_TRANSIT', 'COMPLETED']);
   for (const scope of ORDER_SCOPES) {
     assert.equal(
@@ -1228,7 +1234,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
     for(const args of [[],[''],[[]],['HR-C24-1234ABCD',{invoice:'1234567890123'}]])await assert.rejects(handlers.get(channel)(trusted,...args),/Invalid tracking/);
   }
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-tracking','moaon-hub:refresh-tracking','moaon-hub:read-delivery','moaon-hub:preview-worklist','moaon-hub:preview-labels','moaon-hub:export-selected-csv','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:collect-orders','moaon-hub:check-order-collection','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-tracking','moaon-hub:refresh-tracking','moaon-hub:read-delivery','moaon-hub:preview-worklist','moaon-hub:preview-labels','moaon-hub:export-selected-csv','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:set-order-filters','moaon-hub:reset-order-filters','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:collect-orders','moaon-hub:check-order-collection','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
   for(const channel of ['moaon-hub:preview-labels','moaon-hub:export-selected-csv']){
     await assert.rejects(handlers.get(channel)({sender:{},senderFrame:null},['HR-C24-1234ABCD']),/Untrusted renderer/);
     for(const args of [[],[[]],[['bad']],[['HR-C24-1234ABCD','HR-C24-1234ABCD']],[['HR-C24-1234ABCD'],'evil.csv']])await assert.rejects(handlers.get(channel)(trusted,...args),/Invalid document/);
@@ -1286,7 +1292,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['collectOrders','checkOrderCollection','readTracking','refreshTracking','readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','previewLabels','previewWorklist','exportSelectedCsv','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['collectOrders','checkOrderCollection','readTracking','refreshTracking','readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','previewLabels','previewWorklist','exportSelectedCsv','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'setOrderFilters', 'resetOrderFilters', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   await bridge.listBusinesses('ignored');
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });
@@ -1376,6 +1382,46 @@ test('recheck rereads the current page and rejects a changed snapshot', async ()
   const count=urls.length;
   assert.equal((await connection.recheckPage()).status,'UNAVAILABLE');
   assert.equal(urls.length,count);
+});
+
+test('server filter change resets cursor and discards an older response',async()=>{
+ const calls=[];let release;
+ const remote=makeRemoteSession(async url=>{
+  calls.push(url);const params=new URL(url).searchParams,offset=Number(params.get('offset')||0);
+  if(calls.length===1)return new Promise(resolve=>release=resolve);
+  return Response.json(makePagePayload({orders:[],total:0,offset:0,nextOffset:null,snapshot:TEST_SNAPSHOT}));
+ });
+ const {connection}=makeConnection(remote);
+ const old=connection.refresh();
+ const filtered=connection.setOrderFilters({delayOnly:true,giftOnly:false});
+ release(Response.json(makePagePayload()));
+ assert.equal((await old).status,'DISCONNECTED');
+ assert.equal((await filtered).status,'READY');
+ assert.match(calls.at(-1),/[?&]delayOnly=true&giftOnly=false$/);
+ assert.equal((await connection.setOrderFilters({delayOnly:'true',giftOnly:false})).status,'UNAVAILABLE');
+});
+test('server filters persist through next, previous, recheck and channel transition; logout discards late filtered data',async()=>{
+ const calls=[];let release;
+ const remote=makeRemoteSession(async url=>{
+  calls.push(url);const query=new URL(url).searchParams,offset=Number(query.get('offset')||0);
+  if(query.get('platform')==='COUPANG'&&offset===20)return new Promise(resolve=>release=resolve);
+  const orders=Array.from({length:20},(_,i)=>({hubOrderId:`FILTER-${offset+i}`}));
+  return Response.json(makePagePayload({orders,total:40,offset,nextOffset:offset===0?20:null}));
+ });
+ const {connection}=makeConnection(remote);
+ await connection.setOrderFilters({delayOnly:true,giftOnly:true});
+ await connection.nextPage();await connection.previousPage();await connection.recheckPage();await connection.viewChannel('COUPANG');
+ for(const url of calls.slice(-4))assert.match(url,/delayOnly=true&giftOnly=true/,url);
+ const pending=connection.nextPage();await new Promise(resolve=>setImmediate(resolve));await connection.disconnect();
+ release(Response.json(makePagePayload({orders:[],total:0})));
+ assert.equal((await pending).status,'DISCONNECTED');
+});
+test('filter reset clears channel and both server conditions with one new read',async()=>{
+ const calls=[],remote=makeRemoteSession(async url=>{calls.push(url);return Response.json(makePagePayload());});
+ const {connection}=makeConnection(remote);await connection.viewChannel('COUPANG');await connection.setOrderFilters({delayOnly:false,giftOnly:true});
+ const before=calls.length,result=await connection.resetOrderFilters();
+ assert.equal(calls.length,before+1);assert.equal(calls.at(-1),'https://harin-cafe24-sync.vercel.app/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=ACTIVE&platform=ALL');
+ assert.deepEqual(result.filters,{delayOnly:false,giftOnly:false});assert.equal(result.channel,'ALL');
 });
 
 function makeConnection(remoteSession, overrides = {}) {

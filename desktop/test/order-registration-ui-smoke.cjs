@@ -31,11 +31,11 @@ async function main(){
   });
   await page.evaluate(async()=>{await runHubAction('disconnect');await runHubAction('viewActive');showRoute('orders');});
   assert.equal(await page.locator('.order-select:not(:disabled)').count(),5,'selection also supports content review of ineligible orders');
-  await page.getByLabel('현재 페이지 채널').selectOption('COUPANG');
+  await page.getByLabel('전체 조회 판매 채널').selectOption('COUPANG');
   await page.waitForFunction(()=>displayMode==='live'&&selectedChannel==='COUPANG');
   assert.equal(await page.locator('.order-row').count(),0);
   assert.deepEqual(await page.locator('#order-channel option').evaluateAll(options=>options.map(option=>option.value)),['ALL','CAFE24','NAVER','COUPANG']);
-  await page.getByLabel('현재 페이지 채널').selectOption('ALL');await page.waitForFunction(()=>displayMode==='live'&&displayedOrders.length===5);
+  await page.getByLabel('전체 조회 판매 채널').selectOption('ALL');await page.waitForFunction(()=>displayMode==='live'&&displayedOrders.length===5);
   await page.locator('.order-row').first().click();
   assert.equal(await page.getByRole('button',{name:'이 주문 송장 등록',exact:true}).isVisible(),true);
   await page.locator('.order-select').nth(1).check();
@@ -79,7 +79,7 @@ async function main(){
   await page.evaluate(()=>applyTheme('light'));
   assert.equal(await page.locator('.order-select:checked').count(),0);
   assert.equal(await page.getByRole('button',{name:'이 주문 송장 등록',exact:true}).isDisabled(),true);
-  await page.getByLabel('현재 페이지 채널').selectOption('NAVER');await page.waitForFunction(()=>displayMode==='live'&&selectedChannel==='NAVER');
+  await page.getByLabel('전체 조회 판매 채널').selectOption('NAVER');await page.waitForFunction(()=>displayMode==='live'&&selectedChannel==='NAVER');
   assert.equal(await page.locator('#registration-results').isVisible(),false);
   assert.equal(await page.locator('[data-manual-history-refresh]').count(),0,'navigation clears the old manual history action');
   assert.equal(await page.locator('#shipping-followup .auto-shipping-item').count(),3,'manual follow-up survives channel navigation');
