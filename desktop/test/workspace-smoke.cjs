@@ -32,6 +32,11 @@ async function main() {
     await page.getByRole('button', { name: '이전 주문 상세', exact: true }).click();
     assert.ok((await page.locator('#order-detail').innerText()).includes('MOAON-S001'));
     assert.equal(await page.getByRole('button', { name: '이전 주문 상세', exact: true }).isDisabled(), true);
+    await page.locator('#order-search').fill('MOAON-S001');
+    assert.equal(await page.getByRole('button', { name: '다음 주문 상세', exact: true }).isDisabled(), true, 'filtering updates open detail navigation without reselecting');
+    assert.equal(await page.locator('#order-search').evaluate(el => el === document.activeElement), true, 'updating detail must not steal search focus');
+    await page.locator('#order-search').fill('');
+    assert.equal(await page.getByRole('button', { name: '다음 주문 상세', exact: true }).isDisabled(), false);
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('.order-row').first().evaluate(el => el === document.activeElement), true);
     fs.mkdirSync(path.join(root, 'artifacts'), { recursive: true });

@@ -146,8 +146,14 @@ function showOrderDetail(order, button) {
     body.append(makeElement('p', 'detail-notice', `${selectedScopeDetail().description} 플랫폼 동기화 성공을 의미하지 않으며 발급·변경·전송 기능은 없습니다.`));
   }
   detailPanel.append(header, body);
+  renderDetailNavigation();
+  closeButton.focus();
+}
+
+function renderDetailNavigation() {
+  detailPanel.querySelector('.detail-navigation')?.remove();
   const rows = [...orderList.querySelectorAll('.order-row')];
-  const index = rows.indexOf(button);
+  const index = rows.indexOf(selectedOrderButton);
   const navigation = makeElement('div', 'detail-navigation');
   navigation.setAttribute('aria-label', '현재 목록 상세 이동');
   for (const [label, position] of [['이전 주문 상세', index - 1], ['다음 주문 상세', index + 1]]) {
@@ -165,7 +171,6 @@ function showOrderDetail(order, button) {
     navigation.append(move);
   }
   detailPanel.append(navigation);
-  closeButton.focus();
 }
 
 function createOrderRow(order) {
@@ -218,7 +223,10 @@ function renderOrders() {
     orderEmpty.textContent = displayMode === 'connecting' ? '하린식품 연결 상태를 확인하고 있습니다.' : '연결 상태를 확인하거나 샘플 화면으로 돌아가세요.';
   }
   if (selectedOrderId && !visibleOrders.some((order) => orderId(order) === selectedOrderId)) closeOrderDetail();
-  else if (selectedOrderId) selectedOrderButton = [...orderList.querySelectorAll('.order-row')].find((button) => button.dataset.orderId === selectedOrderId) || null;
+  else if (selectedOrderId) {
+    selectedOrderButton = [...orderList.querySelectorAll('.order-row')].find((button) => button.dataset.orderId === selectedOrderId) || null;
+    renderDetailNavigation();
+  }
 }
 
 function setButtons(mode) {
