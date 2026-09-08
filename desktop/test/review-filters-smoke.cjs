@@ -24,10 +24,13 @@ async function main() {
         return new Response(JSON.stringify({ok:true,orders,total:4,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false}),{status:200});
       };
     });
-    await page.locator('[data-action="hub-connect"]:visible').first().click();
+    await page.evaluate(async()=>{await runHubAction('disconnect');await runHubAction('viewActive');});
+    await page.locator('[data-action="hub-refresh"]:visible').first().waitFor();
     await page.getByRole('button',{name:'주문·배송',exact:true}).click();
+    await page.locator('details.order-more-filters > summary').click();
     const filters = page.getByRole('group',{name:'현재 페이지 출고 사전 확인 필터',exact:true});
     assert.equal(await filters.count(),1,'stored review must have a filter group');
+    const initialFetches = await app.evaluate(()=>globalThis.reviewFetches);
     await filters.getByRole('button',{name:'확인 필요 1건',exact:true}).click();
     assert.equal(await page.locator('.order-row').count(),1);
     assert.ok((await page.locator('.order-row').innerText()).includes('누락 상품'));
@@ -42,7 +45,7 @@ async function main() {
     assert.equal(await filters.getByRole('button',{name:'별도 처리 1건',exact:true}).count(),1);
     await filters.getByRole('button',{name:'확인 후보 0건',exact:true}).click();
     assert.equal(await page.locator('.order-row').count(),0);
-    assert.equal(await app.evaluate(()=>globalThis.reviewFetches),1,'filters do not collect or request additional orders');
+    assert.equal(await app.evaluate(()=>globalThis.reviewFetches),initialFetches,'filters do not collect or request additional orders');
     await page.locator('#order-search').fill('');
     await filters.getByRole('button',{name:'전체 4건',exact:true}).click();
     for (const theme of ['light','dark']) {

@@ -162,44 +162,33 @@
           <section class="page orders-page" data-page="orders" aria-labelledby="orders-title" hidden>
             <header class="page-heading compact-heading">
               <p class="context-line"><i aria-hidden="true"></i> <span id="orders-context">주문·배송 · 샘플 3건</span></p>
-              <h1 id="orders-title" aria-label="주문·배송" tabindex="-1"><em id="orders-title-mode" class="page-title-accent">가상 주문만</em> 살펴봅니다</h1>
+              <h1 id="orders-title" aria-label="주문 작업실" tabindex="-1"><span id="orders-title-mode">주문 작업실</span></h1>
               <p id="orders-description">검색하거나 주문을 선택해 우측 상세를 확인할 수 있습니다. 발급과 상태 변경은 없습니다.</p>
             </header>
 
             <div class="orders-layout">
               <section class="orders-workspace panel" aria-labelledby="order-list-title">
-                <div class="orders-toolbar">
-                  <div>
-                    <span id="orders-eyebrow" class="eyebrow">SAMPLE ORDERS</span>
-                    <h2 id="order-list-title">주문 목록</h2>
-                  </div>
-                  <label class="search-field">
-                    <span class="visually-hidden">주문 검색</span>
-                    <span aria-hidden="true">⌕</span>
-                    <input id="order-search" type="search" aria-label="현재 페이지 검색" placeholder="현재 페이지 주문번호, 상품, 채널 검색" autocomplete="off">
-                    <kbd>Ctrl K</kbd>
-                  </label>
-                </div>
+                <div class="orders-toolbar visually-hidden"><span id="orders-eyebrow">SAMPLE ORDERS</span><h2 id="order-list-title">주문 목록</h2></div>
                 <div class="connection-actions order-scope-actions" role="group" aria-label="주문 상태 범위">
                   <button class="secondary-action" type="button" data-action="hub-viewActive" aria-pressed="true" hidden>송장 발급 전</button>
                   <button class="secondary-action" type="button" data-action="hub-viewRegistered" aria-pressed="false" hidden>송장 등록 후</button>
                   <button class="secondary-action" type="button" data-action="hub-viewInTransit" aria-pressed="false" hidden>배송중</button>
                   <button class="secondary-action" type="button" data-action="hub-viewCompleted" aria-pressed="false" hidden>완료·취소</button>
                 </div>
-                <section id="review-overview" class="review-overview" hidden>
-                  <p>현재 페이지 검색 범위 · 저장 자료 기준 · 발급 승인 아님</p>
-                  <div id="review-filters" role="group" aria-label="현재 페이지 출고 사전 확인 필터"></div>
-                </section>
                 <div class="order-tools" aria-label="현재 페이지 작업 도구">
+                  <label class="search-field"><span aria-hidden="true">⌕</span><input id="order-search" type="search" aria-label="현재 페이지 검색" placeholder="현재 페이지 주문 검색" autocomplete="off"><kbd>Ctrl K</kbd></label>
                   <label>채널<select id="order-channel" aria-label="현재 페이지 채널"><option value="ALL">모든 채널</option></select></label>
-                  <label>정렬<select id="order-sort" aria-label="현재 페이지 정렬"><option value="DEFAULT">불러온 순서</option><option value="AMOUNT_DESC">금액 높은 순</option><option value="AMOUNT_ASC">금액 낮은 순</option></select></label>
                   <button id="order-tools-reset" type="button" aria-label="검색·필터 초기화" title="검색어·채널·정렬·사전 확인 필터 초기화">초기화</button>
-                  <small>현재 페이지에만 적용 · 상세 이동 Alt+↑↓</small>
+                  <details class="order-more-filters"><summary>추가 필터</summary><div class="order-more-content">
+                    <label>정렬<select id="order-sort" aria-label="현재 페이지 정렬"><option value="DEFAULT">불러온 순서</option><option value="AMOUNT_DESC">금액 높은 순</option><option value="AMOUNT_ASC">금액 낮은 순</option></select></label>
+                    <section id="review-overview" class="review-overview" hidden><p>현재 페이지 · 저장 자료 기준 · 발급 승인 아님</p><div id="review-filters" role="group" aria-label="현재 페이지 출고 사전 확인 필터"></div></section>
+                  </div></details>
                 </div>
                 <div class="list-state">
                   <span id="order-result-count" aria-live="polite">샘플 3건 표시</span>
                   <span id="orders-range-label">실제 발급 버튼 없음</span>
                 </div>
+                <div class="order-table-heading" aria-hidden="true"><span>상품 · 옵션</span><span>채널</span><span>결제금액</span><span>상태</span></div>
                 <div id="order-list" class="order-list" aria-label="샘플 주문 목록"></div>
                 <p id="order-empty" class="empty-state" hidden>검색 결과가 없습니다. 다른 주문번호, 고객명 또는 상품명을 입력하세요.</p>
                 <button id="issued-order-list" class="secondary-action" type="button" hidden>송장 등록 후 목록 열기</button>
@@ -208,6 +197,7 @@
                   <button class="secondary-action" type="button" data-action="hub-refresh" hidden>첫 페이지 새로고침</button>
                   <button class="secondary-action" type="button" data-action="hub-nextPage" hidden>다음</button>
                 </div>
+                <div id="order-selection" class="selection-toolbar" aria-label="선택 주문 도구" hidden><span>1건 선택</span><button id="selection-review" type="button">내용 확인</button><button id="selection-clear" type="button">선택 해제</button></div>
               </section>
 
               <aside id="order-detail" class="detail-panel panel" aria-label="주문 상세" aria-live="polite">

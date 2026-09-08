@@ -31,6 +31,7 @@ async function main(){
   await page.getByText('발급 완료 · 주문 목록을 새로 확인하세요',{exact:true}).waitFor({timeout:10000});
   assert.deepEqual(await app.evaluate(()=>globalThis.shipmentCalls),{post:1,poll:1,dialog:1});
   assert.equal(await page.getByRole('button',{name:'우체국 송장 발급',exact:true}).isDisabled(),true);
+  await page.locator('details.detail-action-more > summary').click();
   await page.getByRole('button',{name:'발급 상태 확인',exact:true}).click();
   await page.getByText('발급 완료 · 주문 목록을 새로 확인하세요',{exact:true}).waitFor();
   assert.equal(await app.evaluate(()=>globalThis.shipmentCalls.post),1,'Rechecking a completed job must not submit another shipment');
@@ -40,6 +41,7 @@ async function main(){
    await page.getByRole('button',{name:'송장 등록 후 목록 열기',exact:true}).click({timeout:3000});
    await page.locator('.order-row').first().click();
   }
+  await page.locator('details.detail-action-more > summary').click();
   await page.getByRole('button',{name:'기존 송장 미리보기·인쇄',exact:true}).waitFor({timeout:5000});
   assert.equal(await app.evaluate(()=>globalThis.shipmentCalls.post),1);
   await page.screenshot({path:path.join(__dirname,'..','dist','shipment-smoke.png'),fullPage:true,animations:'disabled'});

@@ -191,6 +191,7 @@ function formatTime(value) {
 
 function closeOrderDetail(options = {}) {
   selectedOrderId = null;
+  document.querySelector('#order-selection').hidden = true;
   for (const button of orderList.querySelectorAll('.order-row')) button.setAttribute('aria-pressed', 'false');
   detailPanel.replaceChildren();
   const empty = makeElement('div', 'detail-empty');
@@ -213,6 +214,7 @@ function addDetailSection(parent, title, primary, secondary) {
 
 function showOrderDetail(order, button, options = {}) {
   selectedOrderId = orderId(order);
+  document.querySelector('#order-selection').hidden = false;
   selectedOrderButton = button;
   for (const orderButton of orderList.querySelectorAll('.order-row')) {
     orderButton.setAttribute('aria-pressed', String(orderButton.dataset.orderId === selectedOrderId));
@@ -220,7 +222,9 @@ function showOrderDetail(order, button, options = {}) {
   detailPanel.replaceChildren();
   const header = makeElement('header', 'detail-header');
   const heading = makeElement('div');
-  heading.append(makeElement('span', 'eyebrow', isSampleMode() ? 'SAMPLE DETAIL' : 'HARIN ORDER DESK'), makeElement('h2', '', '주문 상세'));
+  const detailTitle=makeElement('h2','','선택한 주문');
+  detailTitle.setAttribute('aria-label','주문 상세');
+  heading.append(makeElement('span', 'eyebrow', isSampleMode() ? 'SAMPLE DETAIL' : 'HARIN ORDER DESK'),detailTitle);
   const closeButton = makeElement('button', '', '×');
   closeButton.type = 'button';
   closeButton.setAttribute('aria-label', '주문 상세 닫기');
@@ -234,12 +238,21 @@ function showOrderDetail(order, button, options = {}) {
   const present=giftBadge(order);
   if(present)productText.append(present);
   productHero.append(productThumbnail(order),productText);body.append(productHero);
+  const facts=makeElement('dl','detail-facts');
+  const fact=(title,value)=>facts.append(makeElement('dt','',title),makeElement('dd','',value));
+  fact('결제금액',isSampleMode()?`${order.amount} · 샘플`:formatNumber(order.amount,'원'));
+  fact('수량',isSampleMode()?order.option:formatNumber(order.quantity,'개'));
+  fact('수취 정보',isSampleMode()?`${order.customer} · ${order.address}`:'웹 허브에서 확인');
+  body.append(facts);
+  const more=makeElement('details','detail-more');
+  more.append(makeElement('summary','','주문 · 배송 추가 정보'));
   for(const gift of order.visual?.gifts||[])addDetailSection(body,'동봉할 사은품',gift.name,gift.quantity+'개 · 조회 시점 캘린더 이벤트 판정');
   if (isSampleMode()) {
-    addDetailSection(body, '주문', order.id, `${order.channel} · ${order.status}`);
-    addDetailSection(body, '고객', order.customer, order.address);
-    addDetailSection(body, '상품', order.product, `${order.option} · ${order.amount} (샘플)`);
-    addDetailSection(body, '배송 메모', order.note, '가상 정보이며 배송에 사용되지 않습니다.');
+    addDetailSection(more, '주문', order.id, `${order.channel} · ${order.status}`);
+    addDetailSection(more, '고객', order.customer, order.address);
+    addDetailSection(more, '상품', order.product, `${order.option} · ${order.amount} (샘플)`);
+    addDetailSection(more, '배송 메모', order.note, '가상 정보이며 배송에 사용되지 않습니다.');
+    body.append(more);
     body.append(makeElement('p', 'detail-notice', '샘플 주문은 발급·인쇄·상태 변경을 실행하지 않습니다.'));
   } else {
     const preflight = order.preflight;
@@ -252,31 +265,31 @@ function showOrderDetail(order, button, options = {}) {
     checkSection.append(makeElement('h3', '', '출고 사전 확인 · 저장 자료 기준'), makeElement('strong', '', preflightLabels[preflight?.status] || '출고 전 정보 확인 필요'));
     const reasons = makeElement('ul');
     for (const code of preflight?.codes || []) reasons.append(makeElement('li', '', reasonLabels[code] || '추가 확인 필요'));
-    checkSection.append(reasons, makeElement('span', '', '발급 승인 아님 · 수취 정보와 최신 주문·송장 이력은 웹 허브에서 최종 확인하세요.'));
-    body.append(checkSection);
-    addDetailSection(body, '주문', order.hubOrderId || '주문번호 확인 필요', `${order.platform || '채널 확인 필요'} · ${stageLabel(order.stage)}`);
+    const reasonDetails=makeElement('details','preflight-reasons');
+    reasonDetails.append(makeElement('summary','',`확인할 항목 ${reasons.childElementCount}개`),reasons,makeElement('span','','발급 승인 아님 · 수취 정보와 최신 주문·송장 이력은 웹 허브에서 확인하세요.'));
+    checkSection.append(reasonDetails);
+    addDetailSection(more, '주문', order.hubOrderId || '주문번호 확인 필요', `${order.platform || '채널 확인 필요'} · ${stageLabel(order.stage)}`);
     const details = order.details || {};
-    addDetailSection(body, '플랫폼 주문번호', details.externalOrderId || '확인 필요', '위 허브 주문번호와 구분되는 쇼핑몰 원본 번호입니다.');
-    addDetailSection(body, '상품', order.productName || '상품 정보 확인 필요', `${formatNumber(order.quantity, '개')} · ${formatNumber(order.amount, '원')}`);
+    addDetailSection(more, '플랫폼 주문번호', details.externalOrderId || '확인 필요', '위 허브 주문번호와 구분되는 쇼핑몰 원본 번호입니다.');
     if (details.items?.length) {
       for (const [index, item] of details.items.entries()) {
-        addDetailSection(body, `상품 구성 ${index + 1}`, item.name || '상품명 확인 필요', `${item.option || '옵션 정보 없음'} · ${formatNumber(item.quantity, '개')}`);
+        addDetailSection(more, `상품 구성 ${index + 1}`, item.name || '상품명 확인 필요', `${item.option || '옵션 정보 없음'} · ${formatNumber(item.quantity, '개')}`);
       }
-      body.append(makeElement('p', 'detail-notice', '목록 API가 제공한 상품 구성입니다. 최대 8개까지만 표시되며 전체 구성은 웹 허브에서 확인하세요.'));
-    } else addDetailSection(body, '상품 구성', '세부 상품 정보 확인 필요', '대표 상품만으로 전체 포장 구성을 판단하지 마세요.');
-    addDetailSection(body, '저장된 송장', details.invoice?.number || '송장 정보 확인 필요', details.invoice
+      more.append(makeElement('p', 'detail-notice', '목록 API가 제공한 상품 구성입니다. 최대 8개까지만 표시되며 전체 구성은 웹 허브에서 확인하세요.'));
+    } else addDetailSection(more, '상품 구성', '세부 상품 정보 확인 필요', '대표 상품만으로 전체 포장 구성을 판단하지 마세요.');
+    addDetailSection(more, '저장된 송장', details.invoice?.number || '송장 정보 확인 필요', details.invoice
       ? details.invoice.status === 'REGISTERED' ? '플랫폼 등록 완료 · 저장 자료 기준' : '발급 완료 · 플랫폼 등록 필요'
       : '정보가 없다고 미발급으로 확정하지 않습니다.');
     const deliveryLabels = {RESERVED:'예약',IN_TRANSIT:'배송중',DELIVERED:'배송완료',CHECK_REQUIRED:'확인 필요'};
-    addDetailSection(body, '저장된 배송상태', deliveryLabels[details.delivery?.status] || '배송상태 확인 필요', details.delivery
+    addDetailSection(more, '저장된 배송상태', deliveryLabels[details.delivery?.status] || '배송상태 확인 필요', details.delivery
       ? `${details.delivery.source === 'EPOST' ? '우체국 조회 자료 기준' : '쇼핑몰 상태 기준'} · 실시간 재조회 아님`
       : '확인된 배송상태 자료가 없습니다.');
     const cancellation = details.cancelled === true || order.stage === 'CANCELLED' ? '취소된 주문 · 출고하지 마세요'
       : details.cancellationRequested === true ? '취소 요청 있음 · 출고 전 확인 필요'
       : details.cancelled === false && details.cancellationRequested === false ? '저장 자료에 취소 요청 없음' : '취소 여부 확인 필요';
-    addDetailSection(body, '출고 전 확인', cancellation, '최신 채널 상태를 확인하세요. 이 표시는 출고 가능 승인이나 발급 실행이 아닙니다.');
-    addDetailSection(body, '주문 시각', order.orderedAt ? formatTime(order.orderedAt) : '확인 필요', `목록 확인 ${formatTime(connectionResult?.checkedAt)}`);
-    body.append(makeElement('p', 'detail-notice', `${selectedScopeDetail().description} 송장 발급은 아래 확인창에서 승인한 한 주문만 처리합니다. 플랫폼 송장 등록·출력은 별도입니다.`));
+    addDetailSection(more, '출고 전 확인', cancellation, '최신 채널 상태를 확인하세요. 이 표시는 출고 가능 승인이나 발급 실행이 아닙니다.');
+    addDetailSection(more, '주문 시각', order.orderedAt ? formatTime(order.orderedAt) : '확인 필요', `목록 확인 ${formatTime(connectionResult?.checkedAt)}`);
+    body.append(more,checkSection);
   }
   detailPanel.append(header, body);
   if (!isSampleMode()) {
@@ -292,6 +305,7 @@ function showOrderDetail(order, button, options = {}) {
       const confirm=makeElement('button','secondary-action','출고 내용 확인 (발급 안 함)');
       confirm.type='button';
       confirm.addEventListener('click',async()=>{
+        const reasons=detailPanel.querySelector('.preflight-reasons');if(reasons)reasons.open=true;
         const generation=actionGeneration,id=selectedOrderId;
         confirm.disabled=true;
         const label=actions.querySelector('.review-result');
@@ -308,7 +322,7 @@ function showOrderDetail(order, button, options = {}) {
     if(/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(order.hubOrderId)){
       const issue=makeElement('button','primary-action','우체국 송장 발급');issue.type='button';
       const check=makeElement('button','secondary-action','발급 상태 확인');check.type='button';
-      const label=makeElement('p','detail-notice','발급은 확인창 승인 후 실행됩니다. 네이버·로켓그로스는 별도 처리합니다.');
+      const label=makeElement('p','detail-notice','최종 확인 후 발급 · 네이버·로켓그로스 별도 처리');
       label.setAttribute('role','status');label.setAttribute('aria-live','polite');
       const eligible=order.preflight?.status==='REVIEW_ONLY'&&order.preflight?.route==='HUB';
       issue.disabled=!eligible;
@@ -327,6 +341,7 @@ function showOrderDetail(order, button, options = {}) {
       };
       async function runShipment(submit){
         if(busy)return;busy=true;issue.disabled=true;check.disabled=true;reloadIssued.hidden=true;
+        if(submit){const reasons=detailPanel.querySelector('.preflight-reasons');if(reasons)reasons.open=true;}
         const id=order.hubOrderId,generation=actionGeneration;
         const current=()=>generation===actionGeneration&&selectedOrderId===id&&actions.isConnected&&!document.hidden;
         let status='UNAVAILABLE';
@@ -365,6 +380,13 @@ function showOrderDetail(order, button, options = {}) {
         actions.append(preview);
       }
     }
+    const actionMore=makeElement('details','detail-action-more');
+    actionMore.append(makeElement('summary','','발급 상태·출력 도구'));
+    for(const action of [...actions.querySelectorAll('button.secondary-action')]){
+      if(action.textContent==='발급 결과 주문 다시 조회')continue;
+      actionMore.append(action);
+    }
+    if(actionMore.childElementCount>1)actions.append(actionMore);
     detailPanel.append(actions);
   }
   renderDetailNavigation();
@@ -461,13 +483,16 @@ function createOrderRow(order) {
     const delivery={RESERVED:'예약',IN_TRANSIT:'배송중',DELIVERED:'배송완료'};
     const status=makeElement('span','delivery-badge',delivery[order.details?.delivery?.status]||stage);
     status.dataset.state=order.details?.delivery?.status||order.stage;
-    secondary.append(channelBadge,status);
+    secondary.append(channelBadge);
+    status.classList.add('order-state');
+    button.append(status);
     const option=order.details?.items?.[0]?.option;
     if(option)primary.append(makeElement('small','product-option',option));
     const gift=giftBadge(order);if(gift)primary.append(gift);
-    amount.append(makeElement('strong', '', formatNumber(order.amount, '원')), makeElement('span', 'order-tag live-tag', reviewLabels[reviewStatus(order)]));
+    amount.append(makeElement('strong', '', formatNumber(order.amount, '원')));
   }
-  button.append(productThumbnail(order),primary, secondary, amount);
+  const state=button.querySelector('.order-state')||makeElement('span','order-state delivery-badge',order.status||'확인 필요');
+  button.append(productThumbnail(order),primary, secondary, amount,state);
   button.addEventListener('click', () => showOrderDetail(order, button));
   return button;
 }
@@ -491,6 +516,7 @@ function renderOrders() {
     return (channel==='ALL'||channelOf(order)===channel)&&fields.join(' ').toLocaleLowerCase('ko-KR').includes(query);
   });
   renderReviewFilters(searchedOrders);
+  document.querySelector('.order-more-filters summary').textContent = reviewFilter !== 'ALL' || orderSort.value !== 'DEFAULT' ? '추가 필터 · 적용 중' : '추가 필터';
   const visibleOrders = displayMode === 'live' && reviewFilter !== 'ALL'
     ? searchedOrders.filter(order => reviewStatus(order) === reviewFilter) : searchedOrders;
   if(['AMOUNT_ASC','AMOUNT_DESC'].includes(orderSort.value)){
@@ -566,8 +592,8 @@ function updateConnectionChrome(message) {
   statusElements.todayTitleTail.textContent = live ? ' 확인하고 출고를 준비합니다' : sample ? '부터 확인하세요' : ' 연결 상태를 확인합니다';
   statusElements.todayDescription.textContent = live ? '저장된 주문 상태를 확인하고 필요한 업무로 이동하세요. 플랫폼 자동 수집 성공이나 오늘의 매출을 뜻하지 않습니다.' : sample ? '실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.' : message;
   statusElements.ordersContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? '주문·배송 · 샘플 3건' : '하린식품 · 연결 상태 확인 필요';
-  statusElements.ordersTitleMode.textContent = live ? scope.title : sample ? '가상 주문만' : scopeControlsAvailable ? scope.title : '비운 목록을';
-  statusElements.ordersDescription.textContent = live ? `${scope.description} 검색은 현재 페이지에만 적용됩니다. 상세에서 주문별 우체국 발급과 상태를 확인하세요.` : sample ? '검색하거나 주문을 선택해 우측 상세를 확인할 수 있습니다. 샘플 주문은 발급하지 않습니다.' : message;
+  statusElements.ordersTitleMode.textContent = '주문 작업실';
+  statusElements.ordersDescription.textContent = live ? '주문을 선택하고, 확인부터 출고까지.' : sample ? '샘플 주문으로 화면을 살펴보세요.' : message;
   statusElements.ordersEyebrow.textContent = live ? 'HARIN STORED ORDERS' : sample ? 'SAMPLE ORDERS' : 'NO LIVE DATA';
   statusElements.ordersRange.textContent = live ? pageRange : sample ? '실제 발급 버튼 없음' : '실제 주문 자료 비움';
   statusElements.settingsChip.textContent = live ? partial ? '부분 확인' : '연결됨' : sample ? '샘플' : '확인 필요';
@@ -713,6 +739,11 @@ for (const button of connectionButtons) button.addEventListener('click', () => b
 orderSearch.addEventListener('input', renderOrders);
 orderChannel.addEventListener('change',renderOrders);
 orderSort.addEventListener('change',renderOrders);
+document.querySelector('#selection-clear').addEventListener('click',()=>closeOrderDetail({restoreFocus:true}));
+document.querySelector('#selection-review').addEventListener('click',()=>{
+  const order=displayedOrders.find(item=>orderId(item)===selectedOrderId);
+  if(order&&selectedOrderButton)showOrderDetail(order,selectedOrderButton);
+});
 document.querySelector('#order-tools-reset').addEventListener('click',()=>{
   orderSearch.value='';orderChannel.value='ALL';orderSort.value='DEFAULT';reviewFilter='ALL';renderOrders();orderSearch.focus();
 });

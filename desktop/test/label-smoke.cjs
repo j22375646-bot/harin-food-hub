@@ -31,6 +31,7 @@ async function main(){
   await page.evaluate(async()=>{await runHubAction('viewActive');await runHubAction('viewActive');});
   await page.locator('[data-action="hub-refresh"]:visible').first().waitFor();
   await page.getByRole('button',{name:'주문·배송',exact:true}).click();await page.locator('.order-row').first().click();
+  await page.locator('details.detail-action-more > summary').click();
   await page.getByRole('button',{name:'기존 송장 미리보기·인쇄',exact:true}).click({timeout:3000});
   await page.getByText('미리보기 창을 열었습니다 · 인쇄는 창의 메뉴에서 선택하세요',{exact:true}).waitFor({timeout:18000}).catch(async error=>{console.log(JSON.stringify(await app.evaluate(()=>globalThis.labelEvents)));console.log(await page.locator('.review-actions').innerText());throw error;});
   const result=await app.evaluate(async({BrowserWindow})=>{

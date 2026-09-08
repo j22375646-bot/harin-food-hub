@@ -20,19 +20,14 @@ async function main() {
         receiver:{name:'PRIVATE',contact:'PRIVATE'},
       }]}),{status:200,headers:{'Content-Type':'application/json'}});
     });
-    const opened = app.waitForEvent('window');
-    await app.evaluate(({session}) => {
-      const ses=session.fromPartition('persist:moaon-harin-readonly',{cache:false});
-      const fetch=ses.fetch;
-      ses.fetch=async (...args) => { ses.fetch=fetch; return new Response('',{status:401}); };
-    });
-    await page.locator('[data-action="hub-connect"]:visible').first().click();
-    await opened;
-    await app.evaluate(({BrowserWindow}) => BrowserWindow.getAllWindows().find(w=>w.getParentWindow()).webContents.emit('will-redirect',{preventDefault(){}},'https://harin-cafe24-sync.vercel.app/'));
+    await page.evaluate(async()=>{await runHubAction('disconnect');await runHubAction('viewActive');});
+    await page.locator('[data-action="hub-refresh"]:visible').first().waitFor();
     await page.getByRole('button',{name:'주문·배송',exact:true}).click();
     await page.locator('.order-row').filter({hasText:'TEST-HUB'}).waitFor();
     await page.locator('.order-row').first().click();
     const detail = page.locator('#order-detail');
+    await detail.locator('details.detail-more > summary').click();
+    await detail.locator('details.preflight-reasons > summary').click();
     assert.ok((await detail.innerText()).includes('TEST-CHANNEL'),'platform order ID shown separately');
     assert.ok((await detail.innerText()).includes('30개입'));
     assert.ok((await detail.innerText()).includes('1234567890123'));
@@ -48,6 +43,8 @@ async function main() {
     await page.locator('[data-action="hub-refresh"]:visible').click();
     await page.locator('.order-row').filter({hasText:'TEST-HUB'}).waitFor();
     await page.locator('.order-row').first().click();
+    await detail.locator('details.detail-more > summary').click();
+    await detail.locator('details.preflight-reasons > summary').click();
     const missing = await detail.innerText();
     assert.ok(missing.includes('송장 정보 확인 필요'));
     assert.ok(missing.includes('취소 여부 확인 필요'));

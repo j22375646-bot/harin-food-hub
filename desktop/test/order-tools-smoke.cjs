@@ -41,6 +41,7 @@ async function main(){
   const reads=await app.evaluate(()=>globalThis.toolReads);
   await page.getByLabel('현재 페이지 채널').selectOption('CAFE24');
   assert.equal(await page.locator('.order-row').count(),3);
+  await page.locator('details.order-more-filters > summary').click();
   await page.getByLabel('현재 페이지 정렬').selectOption('AMOUNT_DESC');
   assert.match(await page.locator('.order-row').first().innerText(),/높은 금액/);
   assert.match(await page.locator('.order-row').last().innerText(),/미확인 금액/);
@@ -54,6 +55,7 @@ async function main(){
   assert.equal(await page.getByRole('heading',{name:'주문 상세',exact:true}).count(),0);
   await page.locator('#order-search').fill('없는 주문');
   assert.equal(await page.locator('.order-row').count(),0);
+  await page.locator('details.order-more-filters > summary').click();
   await page.getByRole('button',{name:'검색·필터 초기화',exact:true}).click();
   assert.equal(await page.locator('.order-row').count(),4);
   assert.equal(await page.getByLabel('현재 페이지 정렬').inputValue(),'DEFAULT');
