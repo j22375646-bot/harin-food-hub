@@ -347,7 +347,8 @@ function showOrderDetail(order, button, options = {}) {
     const fields=makeElement('dl','detail-facts');
     for(const [label,value] of [['받는 분',receiver.name],['연락처',receiver.contact],['우편번호',receiver.postCode],['주소',[receiver.address,receiver.addressDetail].filter(Boolean).join(' ')],['배송 메모',receiver.message||'배송 메모 없음']])fields.append(makeElement('dt','',label),makeElement('dd','',value||'확인 필요'));
     delivery.append(fields);body.append(delivery);
-    if((!receiver.name||!receiver.address)&&['CAFE24','COUPANG'].includes(order.platform)&&window.moaonHub?.readDelivery){
+    const hasRequiredDelivery=value=>['name','address','contact','postCode'].every(key=>typeof value?.[key]==='string'&&value[key].trim().length>0);
+    if(!hasRequiredDelivery(receiver)&&['CAFE24','COUPANG'].includes(order.platform)&&window.moaonHub?.readDelivery){
       const state=makeElement('p','detail-notice','배송정보 불러오는 중…');delivery.append(state);
       state.setAttribute('role','status');
       const retry=makeElement('button','secondary-action','배송정보 다시 확인');retry.type='button';retry.hidden=true;delivery.append(retry);
@@ -361,6 +362,10 @@ function showOrderDetail(order, button, options = {}) {
           if(result?.status!=='READY'){state.textContent=result?.status==='PENDING'?'쿠팡 조회 처리 대기 중 · 잠시 뒤 다시 확인하세요.':'배송정보 조회 확인 필요 · 다시 확인해주세요.';retry.hidden=false;return;}
           const fresh=result.receiver||{},values=[fresh.name,fresh.contact,fresh.postCode,[fresh.address,fresh.addressDetail].filter(Boolean).join(' '),fresh.message||'배송 메모 없음'];
           fields.querySelectorAll('dd').forEach((node,index)=>node.textContent=values[index]||'확인 필요');state.textContent='배송정보 조회 완료';
+          if(!hasRequiredDelivery(fresh)){
+            state.textContent='필수 배송정보가 아직 누락되어 있습니다. 다시 조회하거나 판매 채널의 원본 정보를 확인하세요.';
+            retry.hidden=false;return;
+          }
           if(!order.issueAndRegisterEligible&&order.preflight?.route==='HUB'){
             state.textContent='배송정보 조회 완료 · 발급 가능 여부는 서버 주문을 다시 확인해야 합니다.';
             const verify=makeElement('button','secondary-action','발급 조건 다시 확인');verify.type='button';
