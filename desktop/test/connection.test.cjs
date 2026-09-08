@@ -537,6 +537,29 @@ test('rejected login load destroys a close-blocked child and settles the pending
   assert.equal(JSON.stringify(result).includes('private load error'), false);
 });
 
+test('native login form navigation allows only the exact submission endpoint', async () => {
+  const fixture = makeConnection(makeRemoteSession(async () => new Response('', { status: 401 })));
+  const pending = fixture.connection.connect();
+  const window = fixture.browserWindows[0];
+  try {
+    for (const [target, expectedBlocked] of [
+      [`${HARIN_ORIGIN}/api/dashboard/login`, false],
+      [`${HARIN_ORIGIN}/api/dashboard/login?next=/`, true],
+      [`${HARIN_ORIGIN}/api/dashboard/login#x`, true],
+      [`${HARIN_ORIGIN}/api/dashboard/login/`, true],
+      ['https://example.invalid/api/dashboard/login', true],
+      [`${HARIN_ORIGIN}/orders`, true],
+    ]) {
+      let blocked = false;
+      window.webContents.emit('will-navigate', { preventDefault() { blocked = true; } }, target);
+      assert.equal(blocked, expectedBlocked, target);
+    }
+  } finally {
+    window.close();
+    await pending;
+  }
+});
+
 test('an intercepted root redirect closes login and verifies authorization with a fresh order GET', async () => {
   let fetchCount = 0;
   const remoteSession = makeRemoteSession(async () => {

@@ -350,7 +350,10 @@ function createHubConnection({
       let allowed = false;
       try {
         const url = new URL(targetUrl);
-        allowed = url.origin === HARIN_ORIGIN && url.pathname === '/login';
+        // Native form POST is a main-frame navigation too. The session policy
+        // separately restricts this exact endpoint to POST from this login window.
+        allowed = (url.origin === HARIN_ORIGIN && url.pathname === '/login')
+          || targetUrl === `${HARIN_ORIGIN}/api/dashboard/login`;
       } catch {
         allowed = false;
       }
