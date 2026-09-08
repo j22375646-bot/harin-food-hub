@@ -27,6 +27,8 @@ const navButtons = [...document.querySelectorAll('[data-route]')];
 const pages = [...document.querySelectorAll('[data-page]')];
 const orderList = document.querySelector('#order-list');
 const orderSearch = document.querySelector('#order-search');
+const orderChannel = document.querySelector('#order-channel');
+const orderSort = document.querySelector('#order-sort');
 const orderEmpty = document.querySelector('#order-empty');
 const resultCount = document.querySelector('#order-result-count');
 const detailPanel = document.querySelector('#order-detail');
@@ -403,15 +405,33 @@ function createOrderRow(order) {
 
 function renderOrders() {
   const query = orderSearch.value.trim().toLocaleLowerCase('ko-KR');
+  const channelOf = order => isSampleMode() ? order.channel : order.platform;
+  const channels = [...new Set(displayedOrders.map(channelOf).filter(Boolean))];
+  const channel = channels.includes(orderChannel.value) ? orderChannel.value : 'ALL';
+  orderChannel.replaceChildren(...[['ALL','모든 채널'],...channels.map(value=>[value,value])].map(([value,label])=>{
+    const option=makeElement('option','',label);option.value=value;return option;
+  }));
+  orderChannel.value=channel;
+  const toolsEnabled=displayMode==='live'||isSampleMode();
+  orderChannel.disabled=!toolsEnabled;orderSort.disabled=!toolsEnabled;
+  document.querySelector('#order-tools-reset').disabled=!toolsEnabled;
   const searchedOrders = displayedOrders.filter((order) => {
     const fields = isSampleMode()
       ? [order.id, order.customer, order.product, order.channel]
       : [order.hubOrderId, order.productName, order.platform, order.stage, stageLabel(order.stage)];
-    return fields.join(' ').toLocaleLowerCase('ko-KR').includes(query);
+    return (channel==='ALL'||channelOf(order)===channel)&&fields.join(' ').toLocaleLowerCase('ko-KR').includes(query);
   });
   renderReviewFilters(searchedOrders);
   const visibleOrders = displayMode === 'live' && reviewFilter !== 'ALL'
     ? searchedOrders.filter(order => reviewStatus(order) === reviewFilter) : searchedOrders;
+  if(['AMOUNT_ASC','AMOUNT_DESC'].includes(orderSort.value)){
+    const amountOf=order=>isSampleMode()?Number(order.amount.replace(/[,원\s]/g,'')):order.amount;
+    visibleOrders.sort((a,b)=>{
+      const left=amountOf(a),right=amountOf(b),hasLeft=typeof left==='number'&&Number.isFinite(left),hasRight=typeof right==='number'&&Number.isFinite(right);
+      if(!hasLeft||!hasRight)return hasLeft?-1:hasRight?1:0;
+      return orderSort.value==='AMOUNT_ASC'?left-right:right-left;
+    });
+  }
   orderList.replaceChildren(...visibleOrders.map(createOrderRow));
   orderList.hidden = visibleOrders.length === 0;
   orderEmpty.hidden = visibleOrders.length !== 0;
@@ -419,8 +439,8 @@ function renderOrders() {
     resultCount.textContent = query ? `검색 결과 · 샘플 ${visibleOrders.length}건` : `샘플 ${visibleOrders.length}건 표시`;
     orderEmpty.textContent = '검색 결과가 없습니다. 다른 주문번호, 고객명 또는 상품명을 입력하세요.';
   } else if (displayMode === 'live') {
-    resultCount.textContent = `현재 페이지 ${query ? '검색 · ' : ''}${reviewLabels[reviewFilter]} ${visibleOrders.length}건`;
-    orderEmpty.textContent = query || reviewFilter !== 'ALL' ? '현재 페이지에서 조건에 맞는 주문이 없습니다. 검색어 또는 사전 확인 필터를 바꿔보세요.' : '현재 페이지에 표시할 주문이 없습니다.';
+    resultCount.textContent = `현재 페이지 ${query ? '검색 · ' : ''}${channel==='ALL'?'':`${channel} · `}${reviewLabels[reviewFilter]} ${visibleOrders.length}건`;
+    orderEmpty.textContent = query || reviewFilter !== 'ALL' || channel!=='ALL' ? '현재 페이지에서 조건에 맞는 주문이 없습니다. 검색·필터 초기화로 다시 확인하세요.' : '현재 페이지에 표시할 주문이 없습니다.';
   } else {
     resultCount.textContent = displayMode === 'connecting' ? '연결 확인 중 · 주문 목록 비움' : '표시 중인 실제 주문 없음';
     orderEmpty.textContent = displayMode === 'connecting' ? '하린식품 연결 상태를 확인하고 있습니다.' : '연결 상태를 확인하거나 샘플 화면으로 돌아가세요.';
@@ -496,6 +516,7 @@ function clearDisplayedOrders(mode, message) {
   displayedOrders = Object.freeze([]);
   connectionResult = null;
   orderSearch.value = '';
+  orderChannel.value = 'ALL';orderSort.value = 'DEFAULT';
   closeOrderDetail();
   renderOrders();
   updateConnectionChrome(message);
@@ -616,6 +637,11 @@ for (const button of navButtons) button.addEventListener('click', () => showRout
 for (const button of themeButtons) button.addEventListener('click', () => applyTheme(button.dataset.themeChoice));
 for (const button of connectionButtons) button.addEventListener('click', () => button.dataset.action === 'sample-mode' ? void returnToSample() : void runHubAction(button.dataset.action.replace('hub-', '')));
 orderSearch.addEventListener('input', renderOrders);
+orderChannel.addEventListener('change',renderOrders);
+orderSort.addEventListener('change',renderOrders);
+document.querySelector('#order-tools-reset').addEventListener('click',()=>{
+  orderSearch.value='';orderChannel.value='ALL';orderSort.value='DEFAULT';reviewFilter='ALL';renderOrders();orderSearch.focus();
+});
 document.querySelector('#sidebar-toggle').addEventListener('click', (event) => {
   const collapsed = document.querySelector('.preview-shell').classList.toggle('is-sidebar-collapsed');
   event.currentTarget.setAttribute('aria-expanded', String(!collapsed));
@@ -626,6 +652,12 @@ document.querySelector('#quick-search').addEventListener('click', () => { showRo
 document.querySelector('#theme-toggle').addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
 document.addEventListener('keydown', (event) => {
   if (event.isComposing) return;
+  if(event.altKey&&!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&['ArrowUp','ArrowDown'].includes(event.key)&&selectedOrderId&&!document.querySelector('[data-page="orders"]').hidden){
+    if(event.target.closest?.('input,textarea,select,[contenteditable="true"]'))return;
+    const label=event.key==='ArrowUp'?'이전 주문 상세':'다음 주문 상세';
+    const move=detailPanel.querySelector(`[aria-label="${label}"]`);
+    if(move&&!move.disabled){event.preventDefault();move.click();}return;
+  }
   if (event.altKey && !event.ctrlKey && !event.metaKey && ['1', '2', '3'].includes(event.key)) {
     event.preventDefault();
     showRoute({ '1': 'today', '2': 'orders', '3': 'settings' }[event.key], { focusHeading: true });

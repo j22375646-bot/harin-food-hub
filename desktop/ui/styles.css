@@ -32,6 +32,13 @@
 .business-actions button, #business-list-refresh { min-height:42px; padding:0 14px; border:1px solid var(--line-strong); border-radius:10px; font-family:inherit; font-size:14px; font-weight:700; cursor:pointer; white-space:nowrap; }
 .business-actions button:disabled { opacity:.6; cursor:default; }
 
+.order-tools { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; padding:10px 16px; border-bottom:1px solid var(--line); background:var(--surface-soft); }
+.order-tools label { display:flex; align-items:center; gap:7px; font-size:14px; color:var(--muted); white-space:nowrap; }
+.order-tools select,.order-tools button { min-height:36px; padding:6px 10px; border:1px solid var(--line-strong); border-radius:8px; background:var(--surface); color:var(--ink); font-family:inherit; font-size:14px; }
+.order-tools button { cursor:pointer; }
+.order-tools small { flex-basis:100%; font-size:12px; color:var(--muted); }
+.order-tools :disabled { opacity:.55; cursor:default; }
+
 .entry-screen { min-height:100%; height:100%; overflow:auto; display:grid; grid-template-rows:auto 1fr auto; padding:32px 44px 24px; background:radial-gradient(ellipse at 80% 15%,var(--blue-soft),transparent 58%),var(--canvas); }
 .entry-brand { display:flex; align-items:center; gap:12px; }
 .entry-brand strong { font-size:20px; letter-spacing:-.05em; }

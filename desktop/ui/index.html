@@ -182,6 +182,12 @@
                   <p>현재 페이지 검색 범위 · 저장 자료 기준 · 발급 승인 아님</p>
                   <div id="review-filters" role="group" aria-label="현재 페이지 출고 사전 확인 필터"></div>
                 </section>
+                <div class="order-tools" aria-label="현재 페이지 작업 도구">
+                  <label>채널<select id="order-channel" aria-label="현재 페이지 채널"><option value="ALL">모든 채널</option></select></label>
+                  <label>정렬<select id="order-sort" aria-label="현재 페이지 정렬"><option value="DEFAULT">불러온 순서</option><option value="AMOUNT_DESC">금액 높은 순</option><option value="AMOUNT_ASC">금액 낮은 순</option></select></label>
+                  <button id="order-tools-reset" type="button" aria-label="검색·필터 초기화" title="검색어·채널·정렬·사전 확인 필터 초기화">초기화</button>
+                  <small>현재 페이지에만 적용 · 상세 이동 Alt+↑↓</small>
+                </div>
                 <div class="list-state">
                   <span id="order-result-count" aria-live="polite">샘플 3건 표시</span>
                   <span id="orders-range-label">실제 발급 버튼 없음</span>
@@ -234,7 +240,7 @@
                   <div><dt>이름</dt><dd>모아온 Preview</dd></div>
                   <div><dt>버전</dt><dd data-app-version>버전 확인 중</dd></div>
                   <div><dt>화면 이동</dt><dd>Alt+1 오늘 · Alt+2 주문 · Alt+3 설정</dd></div>
-                  <div><dt>주문 탐색</dt><dd>Ctrl+K 검색 · Esc 상세 닫기</dd></div>
+                  <div><dt>주문 탐색</dt><dd>Ctrl+K 검색 · Alt+↑↓ 이전·다음 상세 · Esc 닫기</dd></div>
                   <div><dt>자료 범위</dt><dd id="program-data-scope">가상 사업장 · 샘플 주문</dd></div>
                   <div><dt>네트워크</dt><dd id="program-network-state">연결 안 됨</dd></div>
                 </dl>
