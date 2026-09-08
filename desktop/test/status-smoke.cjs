@@ -19,7 +19,7 @@ async function main() {
     const page = await app.firstWindow();
     await page.waitForLoadState('domcontentloaded');
     assert.deepEqual(await page.evaluate(() => Object.keys(window.moaonHub || {})), [
-      'connect', 'refresh', 'nextPage', 'previousPage',
+      'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage',
       'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect',
     ]);
 

@@ -748,7 +748,7 @@ test('an intercepted root redirect closes login and verifies authorization with 
   assert.equal(result.orders[0].productName, '검증용 상품');
 });
 
-test('IPC registration rejects arguments and untrusted senders before dispatching nine fixed methods', async () => {
+test('IPC registration rejects arguments and untrusted senders before dispatching fixed methods', async () => {
   const handlers = new Map();
   const ipcMain = { handle: (channel, handler) => handlers.set(channel, handler) };
   const mainFrame = { url: 'moaon://app/index.html' };
@@ -785,7 +785,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   assert.deepEqual(calls, ['refresh', 'nextPage', 'previousPage', 'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted']);
 });
 
-test('preload exposes only a frozen nine-method moaonHub bridge with fixed no-argument channels', async () => {
+test('preload exposes only a frozen moaonHub bridge with fixed no-argument channels', async () => {
   const exposed = new Map();
   const invocations = [];
   const originalLoad = Module._load;
