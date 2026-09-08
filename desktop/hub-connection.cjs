@@ -4,6 +4,7 @@ const {
   HARIN_ORIGIN,
   LOGIN_URL,
   ORDER_SCOPES,
+  ORDER_CHANNELS,
   READONLY_PARTITION,
   buildOrdersPageUrl,
   buildOrdersScopeUrl,
@@ -24,6 +25,16 @@ const {createHash}=require('node:crypto');
 // Private identity-bound fingerprint, never included in IPC payloads or logs.
 const shipmentFingerprints=new WeakMap();
 const labelReceivers=new WeakMap();
+const REGISTRATION_URL=`${HARIN_ORIGIN}/api/shipping/actions`;
+function validRegistrationIds(ids){return Array.isArray(ids)&&ids.length>0&&ids.length<=20&&ids.every(id=>typeof id==='string'&&/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id))&&new Set(ids).size===ids.length;}
+function canRegister(order,partial){
+  return partial===false&&['CAFE24','COUPANG'].includes(order?.platform)&&order.fulfillment==='SELLER'
+    &&(order.platform==='CAFE24'?/^HR-C24-[A-F0-9]{8}$/:/^HR-CP-[A-F0-9]{8}$/).test(order.hubOrderId)
+    &&order.shippingEligible===true&&order.shippingHistoryStatus==='READY'&&order.cancelled===false&&order.cancellationRequested===false
+    &&['PAID','PREPARING','READY_TO_SHIP'].includes(order.stage)&&typeof order.externalOrderId==='string'&&order.externalOrderId.length>0
+    &&(order.platform!=='COUPANG'||typeof order.shipmentId==='string'&&order.shipmentId.length>0)
+    &&order.invoice?.status==='ISSUED'&&typeof order.invoice.number==='string'&&/^\d{13}$/.test(order.invoice.number);
+}
 
 const STATUS_MESSAGES = Object.freeze({
   READY: '저장된 주문을 조회했습니다.',
@@ -151,6 +162,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     orderedAt: order?.orderedAt === null ? null : safeString(order?.orderedAt),
     details: projectOrderDetails(order),
     preflight: projectPreflight(order, payload.partial),
+    registrationEligible: canRegister(order,payload.partial),
     ...(projectVisual(order)?{visual:projectVisual(order)}:{}),
     });
     const inputs={};
@@ -244,6 +256,11 @@ function createHubConnection({
   let generation = 0;
   let pageCursor = null;
   let currentScope = 'ACTIVE';
+  let currentChannel = 'ALL';
+  let loadedOrders=EMPTY_ORDERS;
+  const registrationAttempts=new Set();
+  let registrationController=null;
+  let registrationRequestActive=false;
   let reviewingShipment = false;
   let shipmentRegistry=null;
   let shipmentDrain=Promise.resolve();
@@ -294,6 +311,7 @@ function createHubConnection({
     }finally{businessReads.delete(controller);}
   }
   function stopShipments() {
+    registrationController?.abort();
     for(const controller of businessReads)controller.abort();
     labelPreview?.close();
     for(const controller of shipmentAuthReads)controller.abort();
@@ -339,6 +357,7 @@ function createHubConnection({
             loginWindowActive: isLoginWindowActive(),
             loginWebContentsId: isLoginWindowActive() ? loginWindow.webContents.id : null,
             shipmentRequestActive: shipmentPermits.has(`${details.method} ${details.url}`),
+            registrationRequestActive,
             ...labelPreview?.context(),
           }),
         });
@@ -351,6 +370,7 @@ function createHubConnection({
 
   function invalidateCursor() {
     pageCursor = null;
+    loadedOrders=EMPTY_ORDERS;
   }
 
   async function performRead(readGeneration, { url, requestedOffset, expectedSnapshot, scope }) {
@@ -394,7 +414,8 @@ function createHubConnection({
         snapshot: payload.snapshot,
         scope,
       });
-      return result;
+      loadedOrders=result.orders;
+      return Object.freeze({...result,channel:currentChannel});
     } catch {
       if (readGeneration === generation) invalidateCursor();
       return readGeneration === generation
@@ -431,7 +452,7 @@ function createHubConnection({
   function refresh() {
     if (activeRead) return activeRead;
     invalidateCursor();
-    return startRead({ url: buildOrdersScopeUrl(currentScope), requestedOffset: 0, expectedSnapshot: null, scope: currentScope });
+    return startRead({ url: buildOrdersScopeUrl(currentScope,currentChannel), requestedOffset: 0, expectedSnapshot: null, scope: currentScope });
   }
 
   function nextPage() {
@@ -441,7 +462,7 @@ function createHubConnection({
       return Promise.resolve(safeEmpty('UNAVAILABLE', '이동할 다음 주문 페이지가 없습니다. 첫 페이지를 다시 조회하세요.'));
     }
     return startRead({
-      url: buildOrdersPageUrl(cursor.nextOffset, cursor.snapshot, currentScope),
+      url: buildOrdersPageUrl(cursor.nextOffset, cursor.snapshot, currentScope,currentChannel),
       requestedOffset: cursor.nextOffset,
       expectedSnapshot: cursor.snapshot,
       scope: currentScope,
@@ -456,7 +477,7 @@ function createHubConnection({
     }
     const previousOffset = cursor.offset - PAGE_SIZE;
     return startRead({
-      url: buildOrdersPageUrl(previousOffset, cursor.snapshot, currentScope),
+      url: buildOrdersPageUrl(previousOffset, cursor.snapshot, currentScope,currentChannel),
       requestedOffset: previousOffset,
       expectedSnapshot: cursor.snapshot,
       scope: currentScope,
@@ -469,7 +490,7 @@ function createHubConnection({
     if (activeRead) return Promise.resolve(safeEmpty('UNAVAILABLE', '조회가 진행 중입니다. 완료 후 다시 확인하세요.'));
     const cursor = pageCursor;
     if (!cursor) return Promise.resolve(safeEmpty('UNAVAILABLE', '목록을 먼저 조회하세요.'));
-    return startRead({url:buildOrdersPageUrl(cursor.offset,cursor.snapshot,currentScope),requestedOffset:cursor.offset,expectedSnapshot:cursor.snapshot,scope:currentScope});
+    return startRead({url:buildOrdersPageUrl(cursor.offset,cursor.snapshot,currentScope,currentChannel),requestedOffset:cursor.offset,expectedSnapshot:cursor.snapshot,scope:currentScope});
   }
 
   // Main-process preparation only, not an IPC method or a shipment permit.
@@ -529,6 +550,83 @@ function createHubConnection({
   }
 
   const issueShipment=hubOrderId=>confirmShipmentReview(hubOrderId,true);
+  async function registerInvoices(ids){
+    if(!validRegistrationIds(ids))throw new TypeError('Invalid invoice selection');
+    const empty=status=>({status,results:[]});
+    if(reviewingShipment)return empty('BUSY');
+    if(disconnecting||cleanupFailed||isLoginWindowActive()||typeof showShipmentReview!=='function')return empty('UNAVAILABLE');
+    const selected=ids.map(id=>loadedOrders.filter(row=>row.hubOrderId===id));
+    if(selected.some(rows=>rows.length!==1||!rows[0].registrationEligible))return empty('CHECK_REQUIRED');
+    const expected=generation,initial=selected.map(rows=>rows[0]);
+    const alive=()=>expected===generation&&!disconnecting&&!cleanupFailed&&!isLoginWindowActive()&&getMainWindow()&&!getMainWindow().isDestroyed();
+    const same=(left,right)=>left&&right&&left.hubOrderId===right.hubOrderId&&right.registrationEligible&&shipmentFingerprints.get(left)===shipmentFingerprints.get(right);
+    const reread=async baseline=>{
+      const page=await recheckPage();if(!alive()||page.status!=='READY')return null;
+      const rows=ids.map(id=>page.orders.filter(order=>order.hubOrderId===id));
+      return rows.every((row,i)=>row.length===1&&same(baseline[i],row[0]))?rows.map(row=>row[0]):null;
+    };
+    reviewingShipment=true;let sent=false,timer;
+    try{
+      const before=await reread(initial);if(!before)return empty(alive()?'ORDER_CHANGED':'DISCONNECTED');
+      const keys=before.map(row=>`${row.hubOrderId}:${row.details.invoice.number}`);
+      if(keys.some(key=>registrationAttempts.has(key)))return empty('CHECK_REQUIRED');
+      const answer=await showShipmentReview(getMainWindow(),{type:'warning',title:'모아온 · 쇼핑몰 송장 등록',message:`선택한 ${ids.length}건의 발급 송장을 쇼핑몰에 등록할까요?`,detail:`하린식품\n${before.map(row=>`${row.platform} · ${row.hubOrderId} · ${row.details.invoice.number}`).join('\n')}\n쿠팡은 처리 대기 상태로 접수될 수 있습니다.`,buttons:['취소','송장 등록'],defaultId:0,cancelId:0,noLink:true});
+      if(!alive())return empty('DISCONNECTED');
+      if(answer?.response!==1)return empty('REVIEW_CANCELLED');
+      const approved=await reread(before);if(!approved)return empty(alive()?'ORDER_CHANGED':'DISCONNECTED');
+      const controller=new AbortController();registrationController=controller;
+      const stopped=new Promise((_,reject)=>{controller.signal.addEventListener('abort',()=>reject(Error('Registration stopped')),{once:true});timer=setTimeout(()=>controller.abort(),timeoutMs);});
+      const request=(async()=>{
+        if(!alive())throw Error('Disconnected');
+        keys.forEach(key=>registrationAttempts.add(key));sent=true;registrationRequestActive=true;
+        try{
+          const response=await getRemoteSession().fetch(REGISTRATION_URL,{method:'POST',credentials:'include',redirect:'error',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json',Origin:HARIN_ORIGIN},body:JSON.stringify({confirm:true,action:'UPLOAD_INVOICE',orders:approved.map(row=>({hubOrderId:row.hubOrderId,invoiceNumber:row.details.invoice.number,deliveryCompanyCode:row.platform==='CAFE24'?'0012':'EPOST'}))})});
+          if(!alive()||controller.signal.aborted)throw Error('Disconnected');
+          if(![200,202,409].includes(response.status))throw Error('Registration unavailable');
+          return await readBoundedJson(response,controller);
+        }finally{registrationRequestActive=false;}
+      })();
+      const payload=await Promise.race([request,stopped]);
+      if(!alive())return empty('DISCONNECTED');
+      // Successful rows move from ACTIVE to REGISTER. Read that fixed workspace
+      // privately without changing the user's displayed scope or page cursor.
+      const verify=async()=>{
+        const found=[];let offset=0,snapshot=null;
+        const successIds=ids.filter(id=>Array.isArray(payload?.results)&&payload.results.some(row=>row?.hubOrderId===id&&row.ok===true&&row.status==='SUCCESS'));
+        if(!successIds.length)return {status:'READY',orders:[]};
+        for(let page=0;page<5;page++){
+          if(!alive()||controller.signal.aborted)throw Error('Verification stopped');
+          const url=snapshot===null?buildOrdersScopeUrl('REGISTER',currentChannel):buildOrdersPageUrl(offset,snapshot,'REGISTER',currentChannel);
+          const response=await getRemoteSession().fetch(url,{method:'GET',credentials:'include',redirect:'error',cache:'no-store',signal:controller.signal});
+          if(response.status!==200)return {status:'UNAVAILABLE',orders:[]};
+          const body=await readBoundedJson(response,controller);
+          if(!alive()||controller.signal.aborted)throw Error('Verification stopped');
+          const result=projectOrdersPayload(body,now().toISOString(),{requestedOffset:offset,expectedSnapshot:snapshot,scope:'REGISTER'});
+          if(result.status!=='READY')return {status:'UNAVAILABLE',orders:[]};
+          found.push(...result.orders);
+          if(successIds.every(id=>found.some(row=>row.hubOrderId===id))||body.nextOffset===null)break;
+          snapshot=body.snapshot;offset=body.nextOffset;
+        }
+        return {status:'READY',orders:found};
+      };
+      const verified=await Promise.race([verify(),stopped]).catch(()=>({status:'UNAVAILABLE',orders:[]}));
+      if(!alive())return empty('DISCONNECTED');
+      const results=ids.map((hubOrderId,index)=>{
+        const outcomes=Array.isArray(payload?.results)?payload.results.filter(row=>row?.hubOrderId===hubOrderId):[];
+        const outcome=outcomes.length===1?outcomes[0]:null;
+        let status='CHECK_REQUIRED';
+        if(outcome?.ok===false)status='FAILED';
+        else if(outcome?.ok===true&&['QUEUED','RUNNING'].includes(outcome.status))status='PENDING';
+        else if(outcome?.ok===true&&outcome.status==='SUCCESS'&&verified.status==='READY'){
+          const rows=verified.orders.filter(row=>row.hubOrderId===hubOrderId);
+          if(rows.length===1&&rows[0].details.invoice?.status==='REGISTERED'&&rows[0].details.invoice.number===approved[index].details.invoice.number)status='REGISTERED';
+        }
+        return {hubOrderId,status};
+      });
+      return {status:results.every(row=>row.status==='REGISTERED')?'COMPLETED':'PARTIAL',results};
+    }catch{return alive()?{status:sent?'PARTIAL':'UNAVAILABLE',results:sent?ids.map(hubOrderId=>({hubOrderId,status:'CHECK_REQUIRED'})):[]}:empty('DISCONNECTED');}
+    finally{clearTimeout(timer);registrationController=null;registrationRequestActive=false;reviewingShipment=false;}
+  }
   async function previewLabel(hubOrderId){
     if(typeof hubOrderId!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(hubOrderId))throw Error('Invalid label order');
     const expected=generation;
@@ -592,7 +690,14 @@ function createHubConnection({
     invalidateCursor();
     activeRead = null;
     activeAbortController?.abort();
-    return startRead({ url: buildOrdersScopeUrl(scope), requestedOffset: 0, expectedSnapshot: null, scope });
+    return startRead({ url: buildOrdersScopeUrl(scope,currentChannel), requestedOffset: 0, expectedSnapshot: null, scope });
+  }
+
+  function viewChannel(channel){
+    if(!ORDER_CHANNELS.includes(channel))throw new TypeError('Invalid orders channel');
+    const blocked=blockedReadResult();if(blocked)return blocked;
+    generation++;void stopShipments();currentChannel=channel;invalidateCursor();activeRead=null;activeAbortController?.abort();
+    return startRead({url:buildOrdersScopeUrl(currentScope,currentChannel),requestedOffset:0,expectedSnapshot:null,scope:currentScope});
   }
 
   const viewActive = () => viewScope('ACTIVE');
@@ -731,6 +836,7 @@ function createHubConnection({
     generation += 1;
     const shipmentShutdown=stopShipments();
     currentScope = 'ACTIVE';
+    currentChannel = 'ALL';
     invalidateCursor();
     activeRead = null;
     activeAbortController?.abort();
@@ -774,6 +880,7 @@ function createHubConnection({
     generation += 1;
     void stopShipments();
     currentScope = 'ACTIVE';
+    currentChannel = 'ALL';
     invalidateCursor();
     activeRead = null;
     activeAbortController?.abort();
@@ -781,10 +888,20 @@ function createHubConnection({
     loginWindow = null;
   }
 
-  return Object.freeze({ readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, checkShipment, previewLabel, nextPage, previousPage, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
+  ipcMain.handle('moaon-hub:view-channel',async(event,...args)=>{
+    if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+    if(args.length!==1||!ORDER_CHANNELS.includes(args[0]))throw Error('Invalid channel arguments');
+    return connection.viewChannel(args[0]);
+  });
+  ipcMain.handle('moaon-hub:register-invoices',async(event,...args)=>{
+    if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+    if(args.length!==1||!validRegistrationIds(args[0]))throw Error('Invalid registration arguments');
+    return connection.registerInvoices(args[0]);
+  });
   for(const [channel,method] of [['moaon-hub:preview-label','previewLabel'],['moaon-hub:issue-shipment','issueShipment'],['moaon-hub:check-shipment','checkShipment']]){
     ipcMain.handle(channel,async(event,...args)=>{
       if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');

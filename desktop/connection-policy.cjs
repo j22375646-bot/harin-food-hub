@@ -5,6 +5,7 @@ const HARIN_ORIGIN = 'https://harin-cafe24-sync.vercel.app';
 const LOGIN_URL = `${HARIN_ORIGIN}/login`;
 const ORDER_SCOPES = Object.freeze(['ACTIVE', 'REGISTER', 'IN_TRANSIT', 'COMPLETED']);
 const ORDER_SCOPE_SET = new Set(ORDER_SCOPES);
+const ORDER_CHANNELS = Object.freeze(['ALL','CAFE24','NAVER','COUPANG']);
 // Keep legacy storage bound to Harin until independent business storage exists.
 const ORDERS_PATH = `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=`;
 const ORDERS_URL = `${ORDERS_PATH}ACTIVE&platform=ALL`;
@@ -14,13 +15,14 @@ const LOGIN_QUERY_KEYS = new Set(['error', 'next']);
 const ORDERS_PAGE_SIZE = 20;
 const SNAPSHOT_PATTERN = /^[0-9a-f]{64}$/;
 
-function buildOrdersScopeUrl(scope = 'ACTIVE') {
+function buildOrdersScopeUrl(scope = 'ACTIVE', channel = 'ALL') {
   if (!ORDER_SCOPE_SET.has(scope)) throw new TypeError('Invalid orders scope');
-  return `${ORDERS_PATH}${scope}&platform=ALL`;
+  if (!ORDER_CHANNELS.includes(channel)) throw new TypeError('Invalid orders channel');
+  return `${ORDERS_PATH}${scope}&platform=${channel}`;
 }
 
-function buildOrdersPageUrl(offset, snapshot, scope = 'ACTIVE') {
-  const ordersUrl = buildOrdersScopeUrl(scope);
+function buildOrdersPageUrl(offset, snapshot, scope = 'ACTIVE', channel = 'ALL') {
+  const ordersUrl = buildOrdersScopeUrl(scope,channel);
   if (
     !Number.isSafeInteger(offset)
     || offset < 0
@@ -36,7 +38,7 @@ function buildOrdersPageUrl(offset, snapshot, scope = 'ACTIVE') {
 function parseOrdersPageUrl(value) {
   if (typeof value !== 'string') return null;
   const escapedPath = ORDERS_PATH.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = value.match(new RegExp(`^${escapedPath}(ACTIVE|REGISTER|IN_TRANSIT|COMPLETED)&platform=ALL(?:&offset=([0-9]+)&snapshot=([0-9a-f]{64}))?$`));
+  const match = value.match(new RegExp(`^${escapedPath}(ACTIVE|REGISTER|IN_TRANSIT|COMPLETED)&platform=(?:ALL|CAFE24|NAVER|COUPANG)(?:&offset=([0-9]+)&snapshot=([0-9a-f]{64}))?$`));
   if (!match) return null;
   if (match[2] === undefined) return Object.freeze({ scope: match[1], offset: 0, snapshot: null });
   const offset = Number(match[2]);
@@ -82,6 +84,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if (url.username || url.password) return false;
 
   const method = details.method.toUpperCase();
+  if(method==='POST'&&details.url===`${HARIN_ORIGIN}/api/shipping/actions`&&context.registrationRequestActive===true)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&details.url===`${HARIN_ORIGIN}/api/moaon/businesses`)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&Number.isInteger(context.labelWebContentsId)&&context.labelWebContentsId>0&&details.webContentsId===context.labelWebContentsId&&details.url===context.labelUrl
     && /^https:\/\/harin-cafe24-sync\.vercel\.app\/api\/shipping\/print\?type=label&ids=HR-(?:C24|CP)-[A-F0-9]{8}$/.test(details.url))return true;
@@ -129,6 +132,7 @@ module.exports = Object.freeze({
   HARIN_ORIGIN,
   LOGIN_URL,
   ORDER_SCOPES,
+  ORDER_CHANNELS,
   ORDERS_URL,
   READONLY_PARTITION,
   buildOrdersPageUrl,

@@ -23,7 +23,9 @@ async function main(){
      {...base,hubOrderId:'HR-C24-00000002',productName:'미확인 금액',amount:null},
      {...base,hubOrderId:'HR-C24-00000003',productName:'높은 금액',amount:30000},
      {...base,hubOrderId:'NAVER-TEST',productName:'네이버 상품',platform:'NAVER',amount:20000}];
-    return Response.json({ok:true,orders,total:4,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});
+    const channel=new URL(url).searchParams.get('platform');
+    const filtered=channel==='ALL'?orders:orders.filter(order=>order.platform===channel);
+    return Response.json({ok:true,orders:filtered,total:filtered.length,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});
    };
   });
   await page.evaluate(()=>runHubAction('disconnect'));
@@ -40,7 +42,10 @@ async function main(){
   assert.equal(await visualRow.locator('.product-thumbnail').innerText(),'이미지 확인');
   const reads=await app.evaluate(()=>globalThis.toolReads);
   await page.getByLabel('현재 페이지 채널').selectOption('CAFE24');
+  await page.waitForFunction(()=>displayMode==='live'&&selectedChannel==='CAFE24');
   assert.equal(await page.locator('.order-row').count(),3);
+  const afterChannelReads=await app.evaluate(()=>globalThis.toolReads);
+  assert.equal(afterChannelReads,reads+1,'channel must perform exactly one server-filtered page read');
   await page.locator('details.order-more-filters > summary').click();
   await page.getByLabel('현재 페이지 정렬').selectOption('AMOUNT_DESC');
   assert.match(await page.locator('.order-row').first().innerText(),/높은 금액/);
@@ -51,15 +56,18 @@ async function main(){
   await page.getByLabel('현재 페이지 정렬').selectOption('AMOUNT_ASC');
   assert.match(await page.locator('.order-row').first().innerText(),/낮은 금액/);
   assert.match(await page.locator('.order-row').last().innerText(),/미확인 금액/);
+  assert.equal(await app.evaluate(()=>globalThis.toolReads),afterChannelReads,'sorting and keyboard navigation stay local');
   await page.getByLabel('현재 페이지 채널').selectOption('NAVER');
+  await page.waitForFunction(()=>displayMode==='live'&&selectedChannel==='NAVER');
   assert.equal(await page.getByRole('heading',{name:'주문 상세',exact:true}).count(),0);
   await page.locator('#order-search').fill('없는 주문');
   assert.equal(await page.locator('.order-row').count(),0);
   await page.locator('details.order-more-filters > summary').click();
   await page.getByRole('button',{name:'검색·필터 초기화',exact:true}).click();
+  await page.waitForFunction(()=>displayMode==='live'&&selectedChannel==='ALL');
   assert.equal(await page.locator('.order-row').count(),4);
   assert.equal(await page.getByLabel('현재 페이지 정렬').inputValue(),'DEFAULT');
-  assert.equal(await app.evaluate(()=>globalThis.toolReads),reads,'local tools must not trigger collection or API requests');
+  assert.equal(await app.evaluate(()=>globalThis.toolReads),reads+3,'only two channel changes and resetting channel perform reads; local tools do not');
   fs.mkdirSync(path.join(root,'artifacts'),{recursive:true});
   for(const theme of ['light','dark']){
    await page.evaluate(theme=>applyTheme(theme),theme);

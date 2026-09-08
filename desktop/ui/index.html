@@ -188,7 +188,7 @@
                   <span id="order-result-count" aria-live="polite">샘플 3건 표시</span>
                   <span id="orders-range-label">실제 발급 버튼 없음</span>
                 </div>
-                <div class="order-table-heading" aria-hidden="true"><span>상품 · 옵션</span><span>채널</span><span>결제금액</span><span>상태</span></div>
+                <div class="order-table-head"><input id="order-select-all" type="checkbox" aria-label="현재 페이지 모두 선택"><div class="order-table-heading" aria-hidden="true"><span>상품 · 옵션</span><span>채널</span><span>결제금액</span><span>상태</span></div></div>
                 <div id="order-list" class="order-list" aria-label="샘플 주문 목록"></div>
                 <p id="order-empty" class="empty-state" hidden>검색 결과가 없습니다. 다른 주문번호, 고객명 또는 상품명을 입력하세요.</p>
                 <button id="issued-order-list" class="secondary-action" type="button" hidden>송장 등록 후 목록 열기</button>
@@ -197,7 +197,8 @@
                   <button class="secondary-action" type="button" data-action="hub-refresh" hidden>첫 페이지 새로고침</button>
                   <button class="secondary-action" type="button" data-action="hub-nextPage" hidden>다음</button>
                 </div>
-                <div id="order-selection" class="selection-toolbar" aria-label="선택 주문 도구" hidden><span>1건 선택</span><button id="selection-review" type="button">내용 확인</button><button id="selection-clear" type="button">선택 해제</button></div>
+                <div id="order-selection" class="selection-toolbar" aria-label="선택 주문 도구" hidden><span id="selection-count">0건 선택</span><button id="selection-review" type="button">내용 확인</button><button id="selection-register" type="button">선택 송장 등록</button><button id="selection-clear" type="button">선택 해제</button></div>
+                <section id="registration-results" class="registration-results" aria-live="polite" hidden><strong id="registration-status"></strong><ul id="registration-items"></ul><p>우체국에서 발급된 번호를 채널에 등록합니다. 처리 중·확인 필요는 등록 완료가 아닙니다.</p></section>
               </section>
 
               <aside id="order-detail" class="detail-panel panel" aria-label="주문 상세" aria-live="polite">

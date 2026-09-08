@@ -52,6 +52,9 @@ const statusElements = {
 const sampleOnlySections = [...document.querySelectorAll('[data-sample-only]')];
 
 let selectedOrderId = null;
+const selectedOrderIds = new Set();
+let registrationBusy = false;
+let selectedChannel = 'ALL';
 let selectedOrderButton = null;
 let displayMode = 'sample';
 let displayedOrders = sampleOrders;
@@ -191,7 +194,10 @@ function formatTime(value) {
 
 function closeOrderDetail(options = {}) {
   selectedOrderId = null;
-  document.querySelector('#order-selection').hidden = true;
+  document.querySelector('.orders-layout').classList.add('is-detail-closed');
+  detailPanel.inert = true;
+  detailPanel.setAttribute('aria-hidden','true');
+  renderSelection();
   for (const button of orderList.querySelectorAll('.order-row')) button.setAttribute('aria-pressed', 'false');
   detailPanel.replaceChildren();
   const empty = makeElement('div', 'detail-empty');
@@ -213,8 +219,11 @@ function addDetailSection(parent, title, primary, secondary) {
 }
 
 function showOrderDetail(order, button, options = {}) {
+  document.querySelector('.orders-layout').classList.remove('is-detail-closed');
+  detailPanel.inert = false;
+  detailPanel.removeAttribute('aria-hidden');
   selectedOrderId = orderId(order);
-  document.querySelector('#order-selection').hidden = false;
+  renderSelection();
   selectedOrderButton = button;
   for (const orderButton of orderList.querySelectorAll('.order-row')) {
     orderButton.setAttribute('aria-pressed', String(orderButton.dataset.orderId === selectedOrderId));
@@ -301,6 +310,15 @@ function showOrderDetail(order, button, options = {}) {
     recheck.type = 'button';
     recheck.addEventListener('click', () => void recheckSelectedOrder());
     actions.append(recheck);
+    if(order.registrationEligible===true){
+      const register=makeElement('button','primary-action','이 주문 송장 등록');
+      register.type='button';register.dataset.invoiceRegistration=orderId(order);register.disabled=registrationBusy;
+      register.addEventListener('click',()=>{
+        if(registrationBusy)return;
+        selectedOrderIds.clear();selectedOrderIds.add(orderId(order));renderSelection();void registerSelectedInvoices();
+      });
+      actions.append(register);
+    }
     if(order.preflight?.status==='REVIEW_ONLY'&&order.preflight?.route==='HUB'){
       const confirm=makeElement('button','secondary-action','출고 내용 확인 (발급 안 함)');
       confirm.type='button';
@@ -494,15 +512,42 @@ function createOrderRow(order) {
   const state=button.querySelector('.order-state')||makeElement('span','order-state delivery-badge',order.status||'확인 필요');
   button.append(productThumbnail(order),primary, secondary, amount,state);
   button.addEventListener('click', () => showOrderDetail(order, button));
-  return button;
+  const row = makeElement('div','order-item');
+  const checkbox = document.createElement('input');
+  checkbox.type='checkbox';checkbox.className='order-select';checkbox.checked=selectedOrderIds.has(id);
+  checkbox.disabled=registrationBusy;
+  checkbox.setAttribute('aria-label',`주문 선택 ${id}`);
+  checkbox.addEventListener('change',()=>{if(checkbox.checked)selectedOrderIds.add(id);else selectedOrderIds.delete(id);renderSelection();});
+  row.append(checkbox,button);
+  return row;
+}
+
+function renderSelection(){
+  const count=selectedOrderIds.size;
+  const bar=document.querySelector('#order-selection');
+  bar.hidden=count===0&&!selectedOrderId;
+  document.querySelector('#selection-count').textContent=count?`${count}건 선택`:'상세 보기';
+  document.querySelector('#selection-review').disabled=registrationBusy||(!selectedOrderId&&count===0);
+  document.querySelector('#selection-review').textContent=count>1?'첫 선택 내용 확인':'내용 확인';
+  const eligible=displayMode==='live'&&count>0&&count<=20&&[...selectedOrderIds].every(id=>displayedOrders.some(order=>orderId(order)===id&&order.registrationEligible===true));
+  document.querySelector('#selection-register').disabled=registrationBusy||!eligible;
+  document.querySelector('#selection-clear').disabled=registrationBusy;
+  const boxes=[...document.querySelectorAll('.order-select')];
+  for(const box of boxes){
+    const id=box.closest('.order-item')?.querySelector('.order-row')?.dataset.orderId;
+    box.checked=selectedOrderIds.has(id);box.disabled=registrationBusy;
+  }
+  for(const button of detailPanel.querySelectorAll('[data-invoice-registration]'))button.disabled=registrationBusy||!displayedOrders.some(order=>orderId(order)===button.dataset.invoiceRegistration&&order.registrationEligible===true);
+  const all=document.querySelector('#order-select-all');
+  const selectable=boxes.filter(box=>!box.disabled);
+  all.checked=selectable.length>0&&count===selectable.length;all.indeterminate=count>0&&count<selectable.length;all.disabled=registrationBusy||selectable.length===0;
 }
 
 function renderOrders() {
   const query = orderSearch.value.trim().toLocaleLowerCase('ko-KR');
   const channelOf = order => isSampleMode() ? order.channel : order.platform;
-  const channels = [...new Set(displayedOrders.map(channelOf).filter(Boolean))];
-  const channel = channels.includes(orderChannel.value) ? orderChannel.value : 'ALL';
-  orderChannel.replaceChildren(...[['ALL','모든 채널'],...channels.map(value=>[value,value])].map(([value,label])=>{
+  const channel = selectedChannel;
+  orderChannel.replaceChildren(...[['ALL','모든 채널'],['CAFE24','Cafe24'],['NAVER','네이버'],['COUPANG','쿠팡 판매자배송']].map(([value,label])=>{
     const option=makeElement('option','',label);option.value=value;return option;
   }));
   orderChannel.value=channel;
@@ -527,6 +572,7 @@ function renderOrders() {
       return orderSort.value==='AMOUNT_ASC'?left-right:right-left;
     });
   }
+  for(const id of selectedOrderIds)if(!visibleOrders.some(order=>orderId(order)===id))selectedOrderIds.delete(id);
   orderList.replaceChildren(...visibleOrders.map(createOrderRow));
   orderList.hidden = visibleOrders.length === 0;
   orderEmpty.hidden = visibleOrders.length !== 0;
@@ -545,6 +591,7 @@ function renderOrders() {
     selectedOrderButton = [...orderList.querySelectorAll('.order-row')].find((button) => button.dataset.orderId === selectedOrderId) || null;
     renderDetailNavigation();
   }
+  renderSelection();
 }
 
 function setButtons(mode) {
@@ -608,12 +655,14 @@ function updateConnectionChrome(message) {
 }
 
 function clearDisplayedOrders(mode, message) {
+  clearRegistrationResults();
+  selectedOrderIds.clear();
   document.querySelector('#issued-order-list').hidden=true;
   displayMode = mode;
   displayedOrders = Object.freeze([]);
   connectionResult = null;
   orderSearch.value = '';
-  orderChannel.value = 'ALL';orderSort.value = 'DEFAULT';
+  orderChannel.value = selectedChannel;orderSort.value = 'DEFAULT';
   closeOrderDetail();
   renderOrders();
   updateConnectionChrome(message);
@@ -630,11 +679,12 @@ function applyHubResult(result) {
   }
   if (result?.status === 'READY' || result?.status === 'PARTIAL') {
     if (scopeDetails[result.scope]) selectedScope = result.scope;
+    if(['ALL','CAFE24','NAVER','COUPANG'].includes(result.channel))selectedChannel=result.channel;
     scopeControlsAvailable = true;
     displayMode = 'live';
     if(!businessLoaded){businessLoaded=true;void refreshBusinesses();}
     connectionResult = result;
-    overviewValues[result.scope]={status:result.status,total:result.total,checkedAt:result.checkedAt};
+    if(selectedChannel==='ALL')overviewValues[result.scope]={status:result.status,total:result.total,checkedAt:result.checkedAt};
     displayedOrders = Object.freeze(result.orders.map((order) => Object.freeze({
       hubOrderId: typeof order.hubOrderId === 'string' ? order.hubOrderId : '', platform: typeof order.platform === 'string' ? order.platform : '',
       productName: typeof order.productName === 'string' ? order.productName : '', stage: typeof order.stage === 'string' ? order.stage : '',
@@ -645,6 +695,7 @@ function applyHubResult(result) {
       details: order.details || null,
       visual: order.visual || null,
       preflight: order.preflight || null,
+      registrationEligible: order.registrationEligible === true,
     })));
     orderSearch.value = '';
     closeOrderDetail();
@@ -662,6 +713,7 @@ function applyHubResult(result) {
 }
 
 async function runHubAction(action) {
+  selectedOrderIds.clear();
   const generation = ++actionGeneration;
   const requestedScope = scopeByAction[action];
   if (requestedScope) {
@@ -675,6 +727,7 @@ async function runHubAction(action) {
   }
   if (action === 'nextPage' || action === 'previousPage') clearDisplayedOrders('connecting', action === 'nextPage' ? '다음 주문 페이지를 조회하고 있습니다.' : '이전 주문 페이지를 조회하고 있습니다.');
   if (action === 'disconnect') {
+    selectedChannel='ALL';
     clearOverview();
     clearBusinesses();
     selectedScope = 'ACTIVE';
@@ -699,6 +752,58 @@ async function runHubAction(action) {
   }
 }
 
+function clearRegistrationResults(){
+  document.querySelector('#registration-results').hidden=true;
+  document.querySelector('#registration-status').textContent='';
+  document.querySelector('#registration-items').replaceChildren();
+}
+
+async function changeOrderChannel(channel){
+  if(!['ALL','CAFE24','NAVER','COUPANG'].includes(channel))return;
+  const generation=++actionGeneration;
+  selectedChannel=channel;reviewFilter='ALL';
+  clearDisplayedOrders('connecting','선택한 채널의 저장 주문을 조회하고 있습니다.');
+  try{
+    const result=await window.moaonHub.viewChannel(channel);
+    if(generation===actionGeneration)applyHubResult(result);
+  }catch{if(generation===actionGeneration)clearDisplayedOrders('error','채널 주문을 조회하지 못했습니다. 다시 조회하세요.');}
+}
+
+async function registerSelectedInvoices(){
+  if(registrationBusy||displayMode!=='live')return;
+  const ids=[...selectedOrderIds];
+  if(!ids.length||ids.length>20||ids.some(id=>!displayedOrders.some(order=>orderId(order)===id&&order.registrationEligible===true)))return;
+  const generation=actionGeneration;
+  registrationBusy=true;clearRegistrationResults();renderSelection();
+  const panel=document.querySelector('#registration-results'),status=document.querySelector('#registration-status'),items=document.querySelector('#registration-items');
+  panel.hidden=false;status.textContent='선택한 발급 송장의 등록 내용을 확인하고 있습니다.';
+  const current=()=>generation===actionGeneration&&displayMode==='live';
+  const disableAttempted=()=>{
+    const attempted=new Set(ids);
+    displayedOrders=Object.freeze(displayedOrders.map(order=>attempted.has(orderId(order))?Object.freeze({...order,registrationEligible:false}):order));
+    selectedOrderIds.clear();
+  };
+  try{
+    const result=await window.moaonHub.registerInvoices(ids);
+    if(!current())return;
+    const messages={REGISTERED:'쇼핑몰 등록 완료',PENDING:'처리 대기 · 등록 완료 아님',FAILED:'등록 실패 · 웹 허브에서 확인',CHECK_REQUIRED:'등록 여부 확인 필요 · 재전송하지 마세요'};
+    if(['COMPLETED','PARTIAL'].includes(result?.status)){
+      const rows=ids.map(id=>{
+        const matches=Array.isArray(result.results)?result.results.filter(row=>row?.hubOrderId===id):[];
+        return {id,state:matches.length===1&&Object.hasOwn(messages,matches[0].status)?matches[0].status:'CHECK_REQUIRED'};
+      });
+      status.textContent=rows.every(row=>row.state==='REGISTERED')?'선택 송장 등록 완료':'송장 등록 결과를 확인하세요';
+      items.replaceChildren(...rows.map(row=>makeElement('li','',`${row.id} · ${messages[row.state]}`)));
+      disableAttempted();
+    }else{
+      const messages={REVIEW_CANCELLED:'송장 등록을 취소했습니다 · 전송하지 않았습니다',ORDER_CHANGED:'주문이 변경되었습니다 · 목록을 다시 조회하세요',CHECK_REQUIRED:'송장 등록 조건 확인 필요 · 웹 허브에서 확인하세요',BUSY:'다른 확인 작업이 진행 중입니다',DISCONNECTED:'연결이 변경되어 등록 결과를 확인하지 못했습니다',UNAVAILABLE:'등록 여부 확인 필요 · 웹 허브에서 확인하세요'};
+      status.textContent=messages[result?.status]||'등록 결과 확인 필요 · 웹 허브에서 확인하세요';
+      if(!['REVIEW_CANCELLED','BUSY'].includes(result?.status))disableAttempted();
+    }
+  }catch{if(current()){status.textContent='등록 결과 확인 필요 · 재전송하지 말고 웹 허브에서 확인하세요';disableAttempted();}}
+  finally{registrationBusy=false;renderSelection();}
+}
+
 async function returnToSample() {
   clearBusinesses();
   const generation = ++actionGeneration;
@@ -715,6 +820,7 @@ async function returnToSample() {
   }
   if (generation !== actionGeneration) return;
   displayMode = 'sample';
+  selectedChannel='ALL';
   selectedScope = 'ACTIVE';
   scopeControlsAvailable = false;
   displayedOrders = sampleOrders;
@@ -737,15 +843,24 @@ for (const button of navButtons) button.addEventListener('click', () => showRout
 for (const button of themeButtons) button.addEventListener('click', () => applyTheme(button.dataset.themeChoice));
 for (const button of connectionButtons) button.addEventListener('click', () => button.dataset.action === 'sample-mode' ? void returnToSample() : void runHubAction(button.dataset.action.replace('hub-', '')));
 orderSearch.addEventListener('input', renderOrders);
-orderChannel.addEventListener('change',renderOrders);
+orderChannel.addEventListener('change',()=>void changeOrderChannel(orderChannel.value));
 orderSort.addEventListener('change',renderOrders);
-document.querySelector('#selection-clear').addEventListener('click',()=>closeOrderDetail({restoreFocus:true}));
+document.querySelector('#selection-clear').addEventListener('click',()=>{selectedOrderIds.clear();closeOrderDetail({restoreFocus:true});renderSelection();});
+document.querySelector('#order-select-all').addEventListener('change',event=>{
+  selectedOrderIds.clear();
+  if(event.target.checked)for(const box of orderList.querySelectorAll('.order-select:not(:disabled)'))selectedOrderIds.add(box.closest('.order-item').querySelector('.order-row').dataset.orderId);
+  renderSelection();
+});
+document.querySelector('#selection-register').addEventListener('click',()=>void registerSelectedInvoices());
 document.querySelector('#selection-review').addEventListener('click',()=>{
-  const order=displayedOrders.find(item=>orderId(item)===selectedOrderId);
-  if(order&&selectedOrderButton)showOrderDetail(order,selectedOrderButton);
+  const id=[...selectedOrderIds][0]||selectedOrderId,order=displayedOrders.find(item=>orderId(item)===id);
+  const button=[...orderList.querySelectorAll('.order-row')].find(row=>row.dataset.orderId===id);
+  if(order&&button)showOrderDetail(order,button);
 });
 document.querySelector('#order-tools-reset').addEventListener('click',()=>{
-  orderSearch.value='';orderChannel.value='ALL';orderSort.value='DEFAULT';reviewFilter='ALL';renderOrders();orderSearch.focus();
+  orderSearch.value='';orderSort.value='DEFAULT';reviewFilter='ALL';
+  if(selectedChannel!=='ALL')void changeOrderChannel('ALL');else renderOrders();
+  orderSearch.focus();
 });
 document.querySelector('#sidebar-toggle').addEventListener('click', (event) => {
   const collapsed = document.querySelector('.preview-shell').classList.toggle('is-sidebar-collapsed');

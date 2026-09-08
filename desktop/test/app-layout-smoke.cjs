@@ -20,10 +20,20 @@ const {launchDesktop}=require('./launch.cjs');
    for(const theme of ['light','dark']){
     await page.evaluate(theme=>applyTheme(theme),theme);
     await page.locator('.order-row').first().click();
+    await page.waitForFunction(()=>!document.querySelector('.orders-layout').classList.contains('is-detail-closed'));
+    await page.waitForTimeout(350);
     const geometry=await page.evaluate(()=>({top:document.querySelector('.order-row').getBoundingClientRect().top,rail:document.querySelector('.sidebar').getBoundingClientRect().width,overflow:document.documentElement.scrollWidth>innerWidth,list:document.querySelector('#order-list').clientHeight}));
     assert.ok(geometry.top<320,'first product must be visible without a web-style header/filter stack');
     assert.equal(geometry.rail,84);assert.equal(geometry.overflow,false);assert.ok(geometry.list>250);
     assert.ok(await page.locator('.detail-panel').evaluate(el=>el.getBoundingClientRect().width)>=280);
+    await page.getByRole('button',{name:'주문 상세 닫기',exact:true}).click();
+    assert.equal(await page.locator('.detail-panel').getAttribute('aria-hidden'),'true');
+    assert.equal(await page.locator('.detail-panel').evaluate(el=>el.inert),true);
+    await page.waitForTimeout(350);
+    assert.ok(await page.locator('.detail-panel').evaluate(el=>el.getBoundingClientRect().width)<=1,'X collapses the inspector track');
+    await page.locator('.order-row').first().click();
+    await page.waitForTimeout(350);
+    assert.ok(await page.locator('.detail-panel').evaluate(el=>el.getBoundingClientRect().width)>=280,'selecting a row reopens the full inspector');
     await page.screenshot({path:path.join(root,'dist',`app-layout-${width}-${theme}.png`),animations:'disabled'});
    }
   }

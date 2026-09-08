@@ -16,7 +16,9 @@ async function main(){
   assert.deepEqual(await page.locator('.order-table-heading > span').allTextContents(),['상품 · 옵션','채널','결제금액','상태']);
   assert.equal(await page.locator('#order-selection').isVisible(),false);
   await page.locator('.order-row').click();
-  assert.match(await page.locator('#order-selection').innerText(),/1건 선택/);
+  assert.match(await page.locator('#order-selection').innerText(),/상세 보기/);
+  assert.equal(await page.locator('.order-select:checked').count(),0,'opening content is separate from invoice selection');
+  assert.equal(await page.locator('#selection-register').isDisabled(),true,'unissued fixture is not eligible for invoice registration');
   assert.match(await page.locator('.detail-facts').innerText(),/확인 필요/);
   assert.match(await page.locator('.detail-facts').innerText(),/수취 정보\n웹 허브에서 확인/);
   assert.equal(await page.locator('.detail-more').getAttribute('open'),null);
