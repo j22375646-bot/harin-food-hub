@@ -2,9 +2,11 @@
 const assert=require('node:assert/strict'),path=require('node:path');
 const {launchDesktop}=require('./launch.cjs');
 (async()=>{
+ if(!process.argv.includes('--isolated'))throw Error('Use --isolated to avoid the real profile');
  const app=await launchDesktop({root:path.resolve(__dirname,'..'),executablePath:require('electron'),packaged:process.argv.includes('--packaged'),override:-1});
  try{
   const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');
+  await page.waitForFunction(()=>typeof runHubAction==='function');
   await app.evaluate(({session})=>{session.fromPartition('persist:moaon-harin-readonly').fetch=async()=>Response.json({ok:true,orders:[],businesses:[],total:0,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});});
   await page.evaluate(()=>runHubAction('disconnect'));await page.evaluate(()=>runHubAction('viewActive'));
   for(const width of [1040,1440]){
