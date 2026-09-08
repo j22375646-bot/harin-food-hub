@@ -341,10 +341,51 @@ test('pre-abort, late abort, hang and timeout are sanitized and never retry or d
 
 test('deadline uses a monotonic clock rather than mutable wall time', async () => {
   const originalNow = Date.now;
-  const handler = createSessionLogoutRequestHandler({allowedOrigins: [ORIGIN], timeoutMs: 100,
-    logout: async () => { Date.now = () => -1; await new Promise(r => setTimeout(r, 5)); return true; }});
+  const originalSetTimeout = global.setTimeout;
+  const originalClearTimeout = global.clearTimeout;
+  const performance = require('node:perf_hooks').performance;
+  const originalPerformanceNow = Object.getOwnPropertyDescriptor(performance, 'now');
+  let wallClock = originalNow();
+  let monotonicClock = 100;
+  let timerId = 0;
+  const timers = new Map();
+  let calls = 0;
+  let resolveLogout;
+  let markDispatched;
+  const dispatched = new Promise(resolve => { markDispatched = resolve; });
+  const logoutPending = new Promise(resolve => { resolveLogout = resolve; });
+  Object.defineProperty(performance, 'now', {configurable: true, value: () => monotonicClock});
+  global.setTimeout = (callback, delay) => {
+    const id = ++timerId;
+    timers.set(id, {callback, delay});
+    return id;
+  };
+  global.clearTimeout = id => { timers.delete(id); };
+  Date.now = () => wallClock;
+  const handler = createSessionLogoutRequestHandler({allowedOrigins: [ORIGIN], timeoutMs: 30,
+    logout: () => {
+      calls += 1;
+      markDispatched();
+      return logoutPending;
+    }});
   try {
-    const response = await handler(request());
-    assert.equal(response.status, 200);
-  } finally { Date.now = originalNow; }
+    const pending = handler(request());
+    await dispatched;
+    assert.deepEqual([...timers.values()].map(timer => timer.delay), [30]);
+    wallClock -= 60_000;
+    monotonicClock = 130;
+    resolveLogout(true);
+    const response = await pending;
+    assert.equal(response.status, 503);
+    assert.deepEqual(await body(response), {ok: false, code: 'LOGOUT_UNAVAILABLE'});
+    assert.equal(response.headers.has('set-cookie'), false);
+    assert.equal(calls, 1);
+  } finally {
+    Date.now = originalNow;
+    global.setTimeout = originalSetTimeout;
+    global.clearTimeout = originalClearTimeout;
+    if (originalPerformanceNow) Object.defineProperty(performance, 'now', originalPerformanceNow);
+    else delete performance.now;
+    resolveLogout?.(true);
+  }
 });
