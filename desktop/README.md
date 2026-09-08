@@ -1,4 +1,4 @@
-# 모아온 Windows Preview 0.4.0
+# 모아온 Windows Preview 0.5.0
 
 Windows 앱 시제품이다. 기본은 샘플 모드이며, 사용자가 '하린식품 연결'을 선택하면 기존 하린식품 HTTPS 로그인 창에서 직접 로그인한 뒤 저장된 주문을 조회한다. 다른 사업장 가입/플랫폼 키 입력/송장 발급/인쇄는 제공하지 않는다. 독립 창 실행은 오프라인 업무를 뜻하지 않는다.
 
@@ -16,7 +16,7 @@ npm run pack
 
 Electron은 명시 실행한 공식 installer가 고정 버전 checksum을 확인해 다운로드한다. 빌드 도구는 추가 빌드용 바이너리를 다운로드할 수 있다. 설치는 OS 전역 개발도구/클라우드 자원을 만들지 않는다. npm lockfile을 보존한다.
 
-- 설치파일: `dist/Moaon-Preview-0.4.0-Setup.exe`
+- 설치파일: `dist/Moaon-Preview-0.5.0-Setup.exe`
 - 폴더 실행본: `dist/win-unpacked/MoaonPreview.exe` (폴더 전체가 필요; exe만 복사하지 않는다)
 - 공개 업로드·자동 업데이트·자동 시작은 사용하지 않는다.
 - 개인 시험용 미서명 빌드로 Windows에서 게시자 미확인/SmartScreen 경고가 나타날 수 있다. 보안 기능을 끄지 않는다.
@@ -33,5 +33,9 @@ Electron은 명시 실행한 공식 installer가 고정 버전 checksum을 확�
 검증 명령: `npm test`, `node test/smoke.cjs`, `node test/connection-smoke.cjs` 및 각 `--packaged`. 연결 검사는 합성 HTTP 응답을 사용하므로 실제 사용자 로그인 성공과 구분한다. `--isolated`는 별도 임시 프로필과 개발 Electron 바이너리로 동일 런타임 소스를 실행하는 테스트 전용 방식이다. `--packaged --isolated`도 app.asar 검증이며 직접 설치 EXE 실행 검증과 구분한다. 테스트 bootstrap은 제품 패키지에 포함하지 않는다.
 
 ## 다음 인도
+
+0.5.0은 PC 작업 공간 UI를 제공한다. 상단 메뉴 접기/검색/테마 전환, Alt+1/2/3 화면 이동, 목록과 상세의 독립 스크롤, 현재 검색 결과 안의 이전/다음 상세 조회를 지원한다. 창 제목줄과 Windows 기본 창 조작은 유지한다. 메뉴 접기 상태는 앱 실행 중에만 유지하고 테마만 저장한다. 새 데이터 필드나 외부 쓰기 권한은 추가하지 않는다.
+
+UI 검증: `node test/workspace-smoke.cjs --isolated` (1040×720, 1440×900, 1920×1080 창; 라이트·다크). 설치 EXE 검증은 `--executable "절대경로"`로 실행한다. `--isolated`와 `--executable`은 함께 사용하지 않는다.
 
 사용자가 0.3.1 연결 성공을 확인했다. 상태별 조회 이후 단계에서 상세 정보와 출고·인쇄 업무를 넓힌다. 다사업장 실사용은 P1/P2/P3 격리 조건을 충족한 뒤 활성화한다. 서명 인증서 구매·공개 배포는 별도 승인 대상이다. 버전별 실행 검증 결과와 아직 미검증된 사항은 각 인도 보고서를 따른다.

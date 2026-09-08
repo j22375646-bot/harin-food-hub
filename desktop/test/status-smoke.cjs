@@ -103,6 +103,26 @@ async function main() {
     await page.getByText('REGISTER 검증 상품 1', { exact: true }).waitFor();
     assert.equal(await page.getByText('출고대기', { exact: true }).count(), 20);
 
+    // A long real-DTO-shaped page scrolls only the list; toolbar and pagination stay reachable.
+    await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1040, 720));
+    await page.locator('.order-row').last().click();
+    assert.ok((await page.locator('#order-detail').innerText()).includes('REGISTER-20'));
+    assert.equal(await page.getByRole('button', { name: '다음 주문 상세', exact: true }).isDisabled(), true);
+    const bounds = await page.evaluate(() => {
+      const list = document.querySelector('#order-list');
+      const bottom = document.querySelector('.orders-pagination').getBoundingClientRect().bottom;
+      const footer = document.querySelector('.statusbar').getBoundingClientRect().top;
+      return { scrolled:list.scrollTop > 0, independent:getComputedStyle(list).overflowY, bottom, footer };
+    });
+    assert.equal(bounds.scrolled, true);
+    assert.equal(bounds.independent, 'auto');
+    assert.ok(bounds.bottom <= bounds.footer + 1);
+    await page.locator('#order-search').fill('REGISTER-20');
+    await page.locator('.order-row').click();
+    assert.equal(await page.getByRole('button', { name: '이전 주문 상세', exact: true }).isDisabled(), true);
+    assert.equal(await page.getByRole('button', { name: '다음 주문 상세', exact: true }).isDisabled(), true);
+    await page.locator('#order-search').fill('');
+
     await page.locator('[data-action="hub-nextPage"]:visible').click();
     await page.getByText('REGISTER 검증 상품 21', { exact: true }).waitFor();
     await page.locator('[data-action="hub-viewCompleted"]:visible').click();

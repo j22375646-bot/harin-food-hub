@@ -18,7 +18,7 @@
           <div class="brand-mark" aria-hidden="true">모</div>
           <div>
             <strong>모아온</strong>
-            <span>Windows Preview</span>
+            <span>PC WORKSPACE</span>
           </div>
         </div>
 
@@ -31,7 +31,7 @@
         <nav class="primary-nav" aria-label="모아온 Preview 메뉴">
           <button class="nav-button is-active" type="button" data-route="today" aria-label="오늘" aria-current="page">
             <span class="nav-icon" aria-hidden="true">⌂</span>
-            <span><strong>오늘</strong><small>시제품 범위 확인</small></span>
+            <span><strong>오늘</strong><small>업무 시작</small></span>
           </button>
           <button class="nav-button" type="button" data-route="orders" aria-label="주문·배송">
             <span class="nav-icon" aria-hidden="true">▤</span>
@@ -51,6 +51,7 @@
 
       <div class="app-area">
         <header class="topbar">
+          <button id="sidebar-toggle" class="chrome-button" type="button" aria-label="메뉴 접기" aria-expanded="true" title="메뉴 접기">☰</button>
           <div class="preview-warning" role="status">
             <span id="global-mode-badge" aria-hidden="true">시험</span>
             <strong id="global-connection-status">시험 자료 · 하린식품 연결 안 됨</strong>
@@ -58,6 +59,10 @@
           <div class="top-business">
             <span>현재 사업장</span>
             <strong id="top-business-name">모아온 데모</strong>
+          </div>
+          <div class="chrome-actions">
+            <button id="quick-search" class="chrome-button" type="button" aria-label="주문 검색" title="주문 검색 · Ctrl+K">검색 <kbd>Ctrl K</kbd></button>
+            <button id="theme-toggle" class="chrome-button" type="button" aria-label="화면 테마 전환" aria-pressed="false" title="라이트·다크 전환">◐</button>
           </div>
         </header>
 
@@ -84,7 +89,7 @@
               <div>
                 <span class="eyebrow">EXISTING HARIN · READ ONLY</span>
                 <h2 id="today-connection-title">기존 하린식품 계정으로 조회</h2>
-                <p>별도 로그인 창에서 직접 인증한 뒤 저장된 활성 주문을 20건씩 읽습니다. 수집·발급·변경은 실행하지 않습니다.</p>
+                <p>로그인 후 저장된 주문을 상태별로 20건씩 조회합니다. 수집·발급·변경은 실행하지 않습니다.</p>
               </div>
               <div class="connection-actions">
                 <button class="primary-action" type="button" data-action="hub-connect">하린식품 연결</button>
@@ -208,7 +213,9 @@
                 <header><div><span class="eyebrow">PROGRAM</span><h2 id="version-title">프로그램 정보</h2></div><span class="status-chip status-sample">Preview</span></header>
                 <dl class="program-list">
                   <div><dt>이름</dt><dd>모아온 Preview</dd></div>
-                  <div><dt>버전</dt><dd>0.4.0</dd></div>
+                  <div><dt>버전</dt><dd>0.5.0</dd></div>
+                  <div><dt>화면 이동</dt><dd>Alt+1 오늘 · Alt+2 주문 · Alt+3 설정</dd></div>
+                  <div><dt>주문 탐색</dt><dd>Ctrl+K 검색 · Esc 상세 닫기</dd></div>
                   <div><dt>자료 범위</dt><dd id="program-data-scope">가상 사업장 · 샘플 주문</dd></div>
                   <div><dt>네트워크</dt><dd id="program-network-state">연결 안 됨</dd></div>
                 </dl>

@@ -146,6 +146,25 @@ function showOrderDetail(order, button) {
     body.append(makeElement('p', 'detail-notice', `${selectedScopeDetail().description} 플랫폼 동기화 성공을 의미하지 않으며 발급·변경·전송 기능은 없습니다.`));
   }
   detailPanel.append(header, body);
+  const rows = [...orderList.querySelectorAll('.order-row')];
+  const index = rows.indexOf(button);
+  const navigation = makeElement('div', 'detail-navigation');
+  navigation.setAttribute('aria-label', '현재 목록 상세 이동');
+  for (const [label, position] of [['이전 주문 상세', index - 1], ['다음 주문 상세', index + 1]]) {
+    const move = makeElement('button', 'secondary-action', label.startsWith('이전') ? '← 이전 주문' : '다음 주문 →');
+    move.type = 'button';
+    move.setAttribute('aria-label', label);
+    move.disabled = position < 0 || position >= rows.length;
+    move.addEventListener('click', () => {
+      rows[position]?.click();
+      rows[position]?.scrollIntoView({ block: 'nearest' });
+      // Keep keyboard users on the same navigation action when it remains available.
+      const next = [...detailPanel.querySelectorAll('.detail-navigation button')].find(item => item.getAttribute('aria-label') === label);
+      if (next && !next.disabled) next.focus();
+    });
+    navigation.append(move);
+  }
+  detailPanel.append(navigation);
   closeButton.focus();
 }
 
@@ -346,6 +365,7 @@ async function returnToSample() {
 function applyTheme(theme) {
   const normalizedTheme = theme === 'dark' ? 'dark' : 'light';
   document.documentElement.dataset.theme = normalizedTheme;
+  document.querySelector('#theme-toggle').setAttribute('aria-pressed', String(normalizedTheme === 'dark'));
   for (const button of themeButtons) button.setAttribute('aria-pressed', String(button.dataset.themeChoice === normalizedTheme));
   try { localStorage.setItem('moaon-preview-theme', normalizedTheme); } catch { /* Visible theme still applies. */ }
 }
@@ -354,7 +374,21 @@ for (const button of navButtons) button.addEventListener('click', () => showRout
 for (const button of themeButtons) button.addEventListener('click', () => applyTheme(button.dataset.themeChoice));
 for (const button of connectionButtons) button.addEventListener('click', () => button.dataset.action === 'sample-mode' ? void returnToSample() : void runHubAction(button.dataset.action.replace('hub-', '')));
 orderSearch.addEventListener('input', renderOrders);
+document.querySelector('#sidebar-toggle').addEventListener('click', (event) => {
+  const collapsed = document.querySelector('.preview-shell').classList.toggle('is-sidebar-collapsed');
+  event.currentTarget.setAttribute('aria-expanded', String(!collapsed));
+  event.currentTarget.setAttribute('aria-label', collapsed ? '메뉴 펼치기' : '메뉴 접기');
+  event.currentTarget.title = collapsed ? '메뉴 펼치기' : '메뉴 접기';
+});
+document.querySelector('#quick-search').addEventListener('click', () => { showRoute('orders'); orderSearch.focus(); orderSearch.select(); });
+document.querySelector('#theme-toggle').addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
 document.addEventListener('keydown', (event) => {
+  if (event.isComposing) return;
+  if (event.altKey && !event.ctrlKey && !event.metaKey && ['1', '2', '3'].includes(event.key)) {
+    event.preventDefault();
+    showRoute({ '1': 'today', '2': 'orders', '3': 'settings' }[event.key], { focusHeading: true });
+    return;
+  }
   if (event.key === 'Escape' && selectedOrderId) { event.preventDefault(); closeOrderDetail({ restoreFocus: true }); return; }
   if (event.ctrlKey && event.key.toLocaleLowerCase('en-US') === 'k') { event.preventDefault(); showRoute('orders'); orderSearch.focus(); orderSearch.select(); return; }
   if (event.ctrlKey && event.key.toLocaleLowerCase('en-US') === 'p') { event.preventDefault(); statusbar.lastElementChild.textContent = '출력: 이 버전에서 비활성'; }
