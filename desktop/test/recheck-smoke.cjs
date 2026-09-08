@@ -22,7 +22,14 @@ async function main(){
   assert.ok((await page.locator('#order-detail').innerText()).includes('RECHECK-1'));
   for(const theme of ['light','dark']){
    await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
-   await new Promise(resolve=>setTimeout(resolve,300));
+   for(const [width,height] of [[1040,720],[1920,1080],[1440,960]]) {
+    await app.evaluate(({BrowserWindow},size)=>BrowserWindow.getAllWindows().find(w=>!w.getParentWindow()).setSize(...size),[width,height]);
+    await new Promise(resolve=>setTimeout(resolve,300));
+    const layout=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth,body:document.querySelector('.detail-body').clientHeight,button:document.querySelector('.review-actions button').getBoundingClientRect().bottom,viewport:innerHeight}));
+    assert.equal(layout.overflow,false);
+    assert.ok(layout.body>40,'detail body remains scrollable');
+    assert.ok(layout.button<=layout.viewport,'review action stays on screen');
+   }
    await page.screenshot({path:path.join(require('node:os').tmpdir(),`moaon-p509-${theme}.png`)});
   }
   await app.evaluate(()=>{globalThis.recheckChanged=true;});
