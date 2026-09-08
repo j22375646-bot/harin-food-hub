@@ -345,6 +345,7 @@ test('orders payload is deeply frozen, limited to 20, and projected without PII 
     amount: null,
     orderedAt: '2026-09-01T01:02:03.000Z',
     registrationEligible: false,
+    issueAndRegisterEligible: false,
     details: {externalOrderId:'',items:[{name:'',option:'',quantity:null}],invoice:null,delivery:null,cancelled:null,cancellationRequested:null},
     preflight: {status:'CHECK_REQUIRED',route:'HUB',codes:['ROUTE_UNKNOWN','CANCEL_UNKNOWN','INVOICE_UNKNOWN','ORDER_ID','HISTORY_UNAVAILABLE','SERVER_CHECK','DELIVERY_INFO','QUANTITY','PARTIAL']},
   });
@@ -951,7 +952,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
   const trusted = { sender: webContents, senderFrame: mainFrame };
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:view-channel','moaon-hub:register-invoices','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:register-invoices','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
   const businessHandler=handlers.get('moaon-hub:list-businesses');
   await assert.rejects(handlers.get('moaon-hub:read-overview')({sender:{},senderFrame:null}),/Untrusted renderer/);
   assert.deepEqual(await businessHandler(trusted),{status:'READY',businesses:[]});
@@ -1000,7 +1001,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','issueShipment','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   await bridge.listBusinesses('ignored');
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });

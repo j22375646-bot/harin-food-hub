@@ -1,0 +1,39 @@
+'use strict';
+const assert=require('node:assert/strict'),path=require('node:path');
+const {launchDesktop}=require('./launch.cjs');
+(async()=>{
+ if(!process.argv.includes('--isolated'))throw Error('Isolated profile required');
+ const app=await launchDesktop({root:path.resolve(__dirname,'..'),executablePath:require('electron'),packaged:process.argv.includes('--packaged'),override:-1});
+ try{
+  const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');
+  await page.evaluate(()=>runHubAction('disconnect'));
+  const seed=()=>page.evaluate(()=>applyHubResult({status:'READY',scope:'ACTIVE',channel:'ALL',total:2,offset:0,hasMore:false,hasPrevious:false,checkedAt:new Date().toISOString(),orders:[1,2].map(i=>({hubOrderId:`HR-C24-0000000${i}`,platform:'CAFE24',productName:`자동출고 시험 ${i}`,stage:'PREPARING',amount:30000,quantity:1,issueAndRegisterEligible:true,registrationEligible:false,preflight:{status:'REVIEW_ONLY',route:'HUB',codes:[]},details:{cancelled:false,cancellationRequested:false,items:[]}}))}));
+  await seed();await page.getByRole('button',{name:'주문·배송',exact:true}).click();
+  const auto=page.locator('#selection-auto-ship');assert.equal(await auto.count(),1);
+  await app.evaluate(({ipcMain})=>{
+    globalThis.autoCalls=0;ipcMain.removeHandler('moaon-hub:issue-and-register');
+    ipcMain.handle('moaon-hub:issue-and-register',async(_event,ids)=>{globalThis.autoCalls++;await new Promise(resolve=>setTimeout(resolve,100));return {status:'PARTIAL',results:ids.map((hubOrderId,i)=>({hubOrderId,phase:i?'ISSUE':'REGISTER',status:i?'PENDING':'REGISTERED'}))};});
+  });
+  await page.locator('#order-select-all').check();await auto.click();
+  await page.evaluate(()=>runAutomaticShipping());
+  await page.waitForFunction(()=>document.querySelector('#auto-shipping-results')?.textContent.includes('등록 완료'));
+  assert.equal(await app.evaluate(()=>globalThis.autoCalls),1);
+  assert.match(await page.locator('#auto-shipping-results').innerText(),/발급.*대기/s);
+  assert.equal(await page.locator('.order-select:checked').count(),0);
+  await app.evaluate(({ipcMain})=>{ipcMain.removeHandler('moaon-hub:issue-and-register');ipcMain.handle('moaon-hub:issue-and-register',()=>({status:'REVIEW_CANCELLED',results:[]}));});
+  await page.getByRole('button',{name:'진행 다시 확인',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('#auto-shipping-results').textContent.includes('기존 작업은 취소되지'));
+  assert.equal(await page.locator('.auto-shipping-item').count(),2);
+  assert.match(await page.locator('#auto-shipping-results').innerText(),/등록 완료/);
+  assert.match(await page.locator('#auto-shipping-results').innerText(),/처리 대기/);
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1040,800));
+  await page.waitForTimeout(550);
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  await page.screenshot({path:path.join(__dirname,'../artifacts/p435-auto-results.png')});
+  await seed();await page.locator('.order-row').first().click();
+  assert.equal(await page.locator('#order-detail').getByRole('button',{name:'자동 발급·등록',exact:true}).count(),1);
+  await page.evaluate(async()=>{const work=runAutomaticShipping(['HR-C24-00000001']);await runHubAction('disconnect');await work;});
+  assert.equal(await page.locator('#auto-shipping-results').isVisible(),false);
+  console.log('PASS: auto shipping bulk/single entry, truthful per-order outcomes and logout clearing; synthetic only');
+ }finally{await app.close();}
+})().catch(error=>{console.error(error);process.exitCode=1;});

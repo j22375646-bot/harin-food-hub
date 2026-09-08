@@ -15,6 +15,7 @@ test('transport fixes destination and submits only the host-bound order',async()
   assert.equal(calls[0].options.body,JSON.stringify({confirm:true,orderIds:[order]}));
   assert.equal(calls[0].options.credentials,'include');assert.equal(calls[0].options.redirect,'error');
   assert.equal(calls[0].options.cache,'no-store');assert.equal(calls[0].options.method,'POST');
+  assert.equal(calls[0].options.headers.Origin,'https://harin-cafe24-sync.vercel.app');
   for(const body of [{confirm:false,orderIds:[order]},{confirm:true,orderIds:['HR-CP-1234ABCD']},{confirm:true,orderIds:[order,order]}])await assert.rejects(()=>transport.submit(body,signal()));
   assert.equal(calls.length,1);
 });

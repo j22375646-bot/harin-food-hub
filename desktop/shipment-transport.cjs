@@ -27,7 +27,7 @@ function createShipmentTransport({fetch,hubOrderId}={}) {
     const work=async()=>{
       if(parent.aborted||controller.signal.aborted)throw Error();
       response=await fetch(url,{method,credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal,
-        headers:{Accept:'application/json',...(method==='POST'?{'Content-Type':'application/json'}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
+        headers:{Accept:'application/json',...(method==='POST'?{'Content-Type':'application/json',Origin:HARIN_ORIGIN}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
       if(controller.signal.aborted){void response.body?.cancel().catch(()=>{});throw Error();}
       if(![200,202,409].includes(response.status)){
         void response.body?.cancel().catch(()=>{});

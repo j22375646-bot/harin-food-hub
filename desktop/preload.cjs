@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   inspectPrinters: () => ipcRenderer.invoke('moaon-hub:inspect-printers'),
   previewLabel: (id) => ipcRenderer.invoke('moaon-hub:preview-label',id),
   issueShipment: (id) => ipcRenderer.invoke('moaon-hub:issue-shipment',id),
+  issueAndRegister: (ids) => ipcRenderer.invoke('moaon-hub:issue-and-register',ids),
   checkShipment: (id) => ipcRenderer.invoke('moaon-hub:check-shipment',id),
   confirmShipmentReview: (id) => ipcRenderer.invoke('moaon-hub:confirm-shipment-review',id),
   connect: () => ipcRenderer.invoke('moaon-hub:connect'),

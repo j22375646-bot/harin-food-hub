@@ -27,11 +27,11 @@ async function main(){
   await page.evaluate(async()=>{await runHubAction('disconnect');await runHubAction('viewActive');});
   await page.locator('[data-action="hub-refresh"]:visible').first().waitFor();
   await page.getByRole('button',{name:'주문·배송',exact:true}).click();await page.locator('.order-row').first().click();
+  await page.locator('details.detail-action-more > summary').click();
   await page.getByRole('button',{name:'우체국 송장 발급',exact:true}).click({timeout:3000});
   await page.getByText('발급 완료 · 주문 목록을 새로 확인하세요',{exact:true}).waitFor({timeout:10000});
   assert.deepEqual(await app.evaluate(()=>globalThis.shipmentCalls),{post:1,poll:1,dialog:1});
   assert.equal(await page.getByRole('button',{name:'우체국 송장 발급',exact:true}).isDisabled(),true);
-  await page.locator('details.detail-action-more > summary').click();
   await page.getByRole('button',{name:'발급 상태 확인',exact:true}).click();
   await page.getByText('발급 완료 · 주문 목록을 새로 확인하세요',{exact:true}).waitFor();
   assert.equal(await app.evaluate(()=>globalThis.shipmentCalls.post),1,'Rechecking a completed job must not submit another shipment');

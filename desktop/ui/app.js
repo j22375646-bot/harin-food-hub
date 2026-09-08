@@ -314,6 +314,10 @@ function showOrderDetail(order, button, options = {}) {
     recheck.type = 'button';
     recheck.addEventListener('click', () => void recheckSelectedOrder());
     actions.append(recheck);
+    if(order.issueAndRegisterEligible===true){
+      const automatic=makeElement('button','primary-action','자동 발급·등록');automatic.type='button';automatic.dataset.autoShip=orderId(order);automatic.disabled=registrationBusy;
+      automatic.addEventListener('click',()=>void runAutomaticShipping([orderId(order)]));actions.append(automatic);
+    }
     if(order.registrationEligible===true){
       const register=makeElement('button','primary-action','이 주문 송장 등록');
       register.type='button';register.dataset.invoiceRegistration=orderId(order);register.disabled=registrationBusy;
@@ -342,7 +346,7 @@ function showOrderDetail(order, button, options = {}) {
       actions.append(confirm);
     }
     if(/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(order.hubOrderId)){
-      const issue=makeElement('button','primary-action','우체국 송장 발급');issue.type='button';
+      const issue=makeElement('button','secondary-action','우체국 송장 발급');issue.type='button';
       const check=makeElement('button','secondary-action','발급 상태 확인');check.type='button';
       const label=makeElement('p','detail-notice','최종 확인 후 발급 · 네이버·로켓그로스 별도 처리');
       label.setAttribute('role','status');label.setAttribute('aria-live','polite');
@@ -528,6 +532,9 @@ function createOrderRow(order) {
 
 function renderSelection(){
   const count=selectedOrderIds.size;
+  const autoEligible=displayMode==='live'&&count>0&&count<=20&&[...selectedOrderIds].every(id=>displayedOrders.some(order=>orderId(order)===id&&order.issueAndRegisterEligible===true));
+  document.querySelector('#selection-auto-ship').disabled=registrationBusy||!autoEligible;
+  for(const button of detailPanel.querySelectorAll('[data-auto-ship]'))button.disabled=registrationBusy||!displayedOrders.some(order=>orderId(order)===button.dataset.autoShip&&order.issueAndRegisterEligible);
   const bar=document.querySelector('#order-selection');
   bar.hidden=count===0&&!selectedOrderId;
   document.querySelector('#selection-count').textContent=count?`${count}건 선택`:'상세 보기';
@@ -700,6 +707,7 @@ function applyHubResult(result) {
       visual: order.visual || null,
       preflight: order.preflight || null,
       registrationEligible: order.registrationEligible === true,
+      issueAndRegisterEligible: order.issueAndRegisterEligible === true,
     })));
     orderSearch.value = '';
     closeOrderDetail();
@@ -757,9 +765,64 @@ async function runHubAction(action) {
 }
 
 function clearRegistrationResults(){
+  document.querySelector('#auto-shipping-results').hidden=true;
+  document.querySelector('#auto-shipping-results').replaceChildren();
   document.querySelector('#registration-results').hidden=true;
   document.querySelector('#registration-status').textContent='';
   document.querySelector('#registration-items').replaceChildren();
+}
+
+async function runAutomaticShipping(explicitIds){
+  if(registrationBusy||displayMode!=='live')return;
+  const ids=explicitIds||[...selectedOrderIds];
+  if(!ids.length||ids.length>20||ids.some(id=>!displayedOrders.some(order=>orderId(order)===id&&order.issueAndRegisterEligible)))return;
+  const generation=actionGeneration;
+  const panel=document.querySelector('#auto-shipping-results');
+  const previousNodes=[...panel.childNodes],previousRows=[...panel.querySelectorAll('.auto-shipping-item')];
+  registrationBusy=true;clearRegistrationResults();renderSelection();
+  panel.hidden=false;panel.setAttribute('aria-busy','true');
+  panel.append(makeElement('strong','','자동 출고 처리'),makeElement('p','','준비 확인 → 우체국 발급 → 플랫폼 등록'),makeElement('p','','확인창에서 승인하면 진행합니다. 대기 작업은 완료 확인 전까지 성공으로 표시하지 않습니다.'));
+  const current=()=>generation===actionGeneration&&displayMode==='live';
+  try{
+    const result=await window.moaonHub.issueAndRegister(ids);
+    if(!current())return;
+    panel.replaceChildren(makeElement('strong','','자동 발급·등록 결과'));
+    if(['COMPLETED','PARTIAL'].includes(result?.status)){
+      const phases={PREPARE:'준비 처리',ISSUE:'송장 발급',REGISTER:'플랫폼 등록'};
+      const labels={REGISTERED:'등록 완료',PENDING:'처리 대기 · 완료 아님',FAILED:'실패 · 원인 확인 필요',CHECK_REQUIRED:'결과 확인 필요 · 재발급 금지'};
+      const complete=new Set();
+      const rowsById=new Map(previousRows.map(line=>[line.dataset.orderId,line]));
+      for(const id of ids){
+        const matches=Array.isArray(result.results)?result.results.filter(row=>row?.hubOrderId===id):[];
+        const row=matches.length===1?matches[0]:{};
+        const line=makeElement('div','auto-shipping-item');
+        line.dataset.orderId=id;
+        line.dataset.state=labels[row.status]?row.status:'CHECK_REQUIRED';
+        line.append(makeElement('span','',`${id} · ${phases[row.phase]||'출고 처리'}`),makeElement('strong','',labels[row.status]||labels.CHECK_REQUIRED));
+        if(row.status==='REGISTERED')complete.add(id);
+        if(row.status==='PENDING'){
+          const resume=makeElement('button','secondary-action','진행 다시 확인');resume.type='button';
+          resume.addEventListener('click',()=>void runAutomaticShipping([id]));line.append(resume);
+        }
+        rowsById.set(id,line);
+      }
+      panel.append(...rowsById.values());
+      displayedOrders=Object.freeze(displayedOrders.map(order=>complete.has(orderId(order))?Object.freeze({...order,issueAndRegisterEligible:false,registrationEligible:false}):order));
+      selectedOrderIds.clear();
+      panel.append(makeElement('p','','발급 번호는 재사용합니다. 결과 불명·실패 주문은 새 번호를 발급하지 말고 기존 작업을 확인하세요.'));
+      if(complete.size){
+        const openRegistered=makeElement('button','auto-result-navigation','등록된 주문 보기');openRegistered.type='button';
+        openRegistered.addEventListener('click',()=>void runHubAction('viewRegistered'));panel.append(openRegistered);
+      }
+    }else{
+      const messages={REVIEW_CANCELLED:'취소했습니다. 새 작업을 전송하지 않았습니다.',BUSY:'다른 출고 작업이 진행 중입니다.',CHECK_REQUIRED:'주문 정보 또는 기존 작업 확인이 필요합니다.',DISCONNECTED:'연결이 변경됐습니다. 기존 작업 결과를 먼저 확인하세요.',UNAVAILABLE:'작업 결과를 확인하지 못했습니다. 재발급하지 말고 기존 작업을 확인하세요.'};
+      if(previousNodes.length){
+        panel.replaceChildren(...previousNodes);
+        panel.append(makeElement('p','',result?.status==='REVIEW_CANCELLED'?'이번 재확인만 취소했습니다. 기존 작업은 취소되지 않았습니다.':messages[result?.status]||messages.CHECK_REQUIRED));
+      }else panel.append(makeElement('p','',messages[result?.status]||messages.CHECK_REQUIRED));
+    }
+  }catch{if(current())panel.replaceChildren(...previousNodes,makeElement('strong','','결과 확인 필요'),makeElement('p','','통신을 확인하지 못했습니다. 새로 발급하지 말고 기존 작업 상태를 확인하세요.'));}
+  finally{registrationBusy=false;panel.removeAttribute('aria-busy');renderSelection();}
 }
 
 async function changeOrderChannel(channel){
@@ -856,6 +919,7 @@ document.querySelector('#order-select-all').addEventListener('change',event=>{
   renderSelection();
 });
 document.querySelector('#selection-register').addEventListener('click',()=>void registerSelectedInvoices());
+document.querySelector('#selection-auto-ship').addEventListener('click',()=>void runAutomaticShipping());
 document.querySelector('#selection-review').addEventListener('click',()=>{
   const id=[...selectedOrderIds][0]||selectedOrderId,order=displayedOrders.find(item=>orderId(item)===id);
   const button=[...orderList.querySelectorAll('.order-row')].find(row=>row.dataset.orderId===id);

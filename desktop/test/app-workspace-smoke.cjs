@@ -29,8 +29,9 @@ async function main(){
   assert.match(await page.locator('.preflight-reasons').innerText(),/수취 정보와 최신 주문·송장 이력은 웹 허브에서 확인/);
   await page.locator('.preflight-reasons summary').click();
   assert.equal(await page.locator('.detail-action-more').getAttribute('open'),null);
-  assert.equal(await page.getByRole('button',{name:'우체국 송장 발급',exact:true}).isVisible(),true);
+  assert.equal(await page.getByRole('button',{name:'우체국 송장 발급',exact:true}).isVisible(),false);
   await page.locator('.detail-action-more summary').click();
+  assert.equal(await page.getByRole('button',{name:'우체국 송장 발급',exact:true}).isVisible(),true);
   assert.equal(await page.getByRole('button',{name:'발급 상태 확인',exact:true}).isVisible(),true);
   await page.locator('.detail-action-more summary').click();
   await page.locator('.detail-more summary').click();

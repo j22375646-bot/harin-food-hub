@@ -20,11 +20,13 @@ const EMPTY_ORDERS = Object.freeze([]);
 const {createShipmentRegistry}=require('./shipment-registry.cjs');
 const {createShipmentTransport}=require('./shipment-transport.cjs');
 const {createBusinessTransport}=require('./business-transport.cjs');
+const {createShippingActionJournal}=require('./shipping-action-journal.cjs');
 const {projectVisual}=require('./order-visual.cjs');
 const {createHash}=require('node:crypto');
 // Private identity-bound fingerprint, never included in IPC payloads or logs.
 const shipmentFingerprints=new WeakMap();
 const labelReceivers=new WeakMap();
+const workflowFingerprints=new WeakMap();
 const REGISTRATION_URL=`${HARIN_ORIGIN}/api/shipping/actions`;
 function validRegistrationIds(ids){return Array.isArray(ids)&&ids.length>0&&ids.length<=20&&ids.every(id=>typeof id==='string'&&/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id))&&new Set(ids).size===ids.length;}
 function canRegister(order,partial){
@@ -163,11 +165,14 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     details: projectOrderDetails(order),
     preflight: projectPreflight(order, payload.partial),
     registrationEligible: canRegister(order,payload.partial),
+    issueAndRegisterEligible: canRegister(order,payload.partial)||(projectPreflight(order,payload.partial).status==='REVIEW_ONLY'&&order?.fulfillment==='SELLER'&&['CAFE24','COUPANG'].includes(order?.platform)&&(order.platform!=='COUPANG'||typeof order.shipmentId==='string'&&order.shipmentId.length>0)),
     ...(projectVisual(order)?{visual:projectVisual(order)}:{}),
     });
     const inputs={};
     for(const key of ['hubOrderId','platform','fulfillment','externalOrderId','shipmentId','productName','quantity','items','receiver','invoiceNumber','issuedInvoiceNumber','invoice','stage','cancelled','cancellationRequested'])inputs[key]=order?.[key]??null;
     shipmentFingerprints.set(projected,createHash('sha256').update(JSON.stringify(inputs)).digest('hex'));
+    const stable={};for(const key of ['hubOrderId','platform','fulfillment','externalOrderId','shipmentId','productName','quantity','items','receiver'])stable[key]=order?.[key]??null;
+    workflowFingerprints.set(projected,createHash('sha256').update(JSON.stringify(stable)).digest('hex'));
     labelReceivers.set(projected,Object.freeze({...order?.receiver}));
     return projected;
   }));
@@ -240,10 +245,13 @@ function createHubConnection({
   showShipmentReview = null,
   shipmentDirectory = null,
   labelPreview = null,
+  automaticPollDelayMs = 1000,
+  automaticTimeoutMs = 60000,
 }) {
   if (!BrowserWindow || !session || typeof getMainWindow !== 'function') {
     throw new TypeError('Hub connection dependencies are required');
   }
+  if(!Number.isSafeInteger(automaticPollDelayMs)||automaticPollDelayMs<0||automaticPollDelayMs>2000||!Number.isSafeInteger(automaticTimeoutMs)||automaticTimeoutMs<1||automaticTimeoutMs>60000)throw new TypeError('Invalid automatic workflow timing');
 
   let remoteSession = null;
   let policyInstalled = false;
@@ -261,6 +269,8 @@ function createHubConnection({
   const registrationAttempts=new Set();
   let registrationController=null;
   let registrationRequestActive=false;
+  let automaticController=null;
+  const automaticPermits=new Set();
   let reviewingShipment = false;
   let shipmentRegistry=null;
   let shipmentDrain=Promise.resolve();
@@ -311,6 +321,7 @@ function createHubConnection({
     }finally{businessReads.delete(controller);}
   }
   function stopShipments() {
+    automaticController?.abort();
     registrationController?.abort();
     for(const controller of businessReads)controller.abort();
     labelPreview?.close();
@@ -358,6 +369,7 @@ function createHubConnection({
             loginWebContentsId: isLoginWindowActive() ? loginWindow.webContents.id : null,
             shipmentRequestActive: shipmentPermits.has(`${details.method} ${details.url}`),
             registrationRequestActive,
+            automaticRequestActive:automaticPermits.has(details.url),
             ...labelPreview?.context(),
           }),
         });
@@ -550,6 +562,203 @@ function createHubConnection({
   }
 
   const issueShipment=hubOrderId=>confirmShipmentReview(hubOrderId,true);
+  async function issueAndRegister(ids){
+    if(!validRegistrationIds(ids))throw new TypeError('Invalid automatic shipping selection');
+    const empty=status=>({status,results:[]});
+    if(reviewingShipment)return empty('BUSY');
+    if(disconnecting||cleanupFailed||isLoginWindowActive()||!shipmentDirectory||typeof showShipmentReview!=='function')return empty('UNAVAILABLE');
+    const initial=ids.map(id=>loadedOrders.filter(row=>row.hubOrderId===id));
+    if(initial.some(rows=>rows.length!==1||rows[0].issueAndRegisterEligible!==true))return empty('CHECK_REQUIRED');
+    const expected=generation,results=[];
+    const alive=()=>generation===expected&&!disconnecting&&!cleanupFailed&&!isLoginWindowActive()&&getMainWindow()&&!getMainWindow().isDestroyed();
+    const same=(left,right)=>left&&right&&workflowFingerprints.get(left)===workflowFingerprints.get(right);
+    const controller=new AbortController();let deadline;
+    const uploadJournal=row=>createShippingActionJournal({directory:shipmentDirectory,hubOrderId:row.hubOrderId,action:'UPLOAD_INVOICE',fingerprint:createHash('sha256').update(`${workflowFingerprints.get(row)}:${row.details.invoice.number}`).digest('hex')});
+    async function hasCheckpoint(row){
+      const stable=workflowFingerprints.get(row);
+      const prepare=await createShippingActionJournal({directory:shipmentDirectory,hubOrderId:row.hubOrderId,action:'PREPARE',fingerprint:createHash('sha256').update(`${stable}:`).digest('hex')}).read();
+      const issued=await createShippingActionJournal({directory:shipmentDirectory,hubOrderId:row.hubOrderId,action:'ISSUE',fingerprint:stable}).read();
+      const upload=row.details.invoice?await uploadJournal(row).read():null;
+      return prepare!==null||issued!==null||upload!==null;
+    }
+    async function freshRecoveryRow(hubOrderId){
+      for(const scope of ['ACTIVE','REGISTER']){
+        let offset=0,snapshot=null;
+        for(let page=0;page<5;page++){
+          if(!alive()||controller.signal.aborted)return null;
+          const local=new AbortController();let timer;
+          const stop=()=>local.abort();controller.signal.addEventListener('abort',stop,{once:true});
+          try{
+            const response=await Promise.race([(async()=>{
+              const value=await getRemoteSession().fetch(snapshot===null?buildOrdersScopeUrl(scope,currentChannel):buildOrdersPageUrl(offset,snapshot,scope,currentChannel),{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:local.signal});
+              if(value.status!==200)throw Error('Recovery read unavailable');
+              return await readBoundedJson(value,local);
+            })(),new Promise((_,reject)=>{local.signal.addEventListener('abort',()=>reject(Error('Recovery stopped')),{once:true});timer=setTimeout(stop,timeoutMs);})]);
+            if(!alive()||controller.signal.aborted)return null;
+            const result=projectOrdersPayload(response,now().toISOString(),{requestedOffset:offset,expectedSnapshot:snapshot,scope});
+            if(result.status!=='READY')return null;
+            const rows=result.orders.filter(row=>row.hubOrderId===hubOrderId);if(rows.length)return rows.length===1?rows[0]:null;
+            if(response.nextOffset===null)break;offset=response.nextOffset;snapshot=response.snapshot;
+          }finally{clearTimeout(timer);controller.signal.removeEventListener('abort',stop);}
+        }
+      }
+      return null;
+    }
+    reviewingShipment=true;
+    automaticController=controller;
+    try{
+      let recovery;
+      try{recovery=await Promise.all(initial.map(([row])=>hasCheckpoint(row)));}catch{return empty('CHECK_REQUIRED');}
+      let targets;
+      if(recovery.some(Boolean)){
+        targets=[];
+        for(const [index,[original]] of initial.entries()){
+          const row=await freshRecoveryRow(original.hubOrderId);
+          if(!row||!same(original,row)||!recovery[index]&&shipmentFingerprints.get(original)!==shipmentFingerprints.get(row))return empty('CHECK_REQUIRED');
+          const completed=row.details.invoice?.status==='REGISTERED'&&await uploadJournal(row).read()!==null;
+          if(!row.issueAndRegisterEligible&&!completed)return empty('CHECK_REQUIRED');
+          targets.push([row]);
+        }
+      }else{
+        const before=await recheckPage();if(!alive())return empty('DISCONNECTED');
+        if(before.status!=='READY')return empty('CHECK_REQUIRED');
+        targets=ids.map(id=>before.orders.filter(row=>row.hubOrderId===id));
+        if(targets.some((rows,i)=>rows.length!==1||!rows[0].issueAndRegisterEligible||shipmentFingerprints.get(rows[0])!==shipmentFingerprints.get(initial[i][0])))return empty('CHECK_REQUIRED');
+      }
+      if(!alive())return empty('DISCONNECTED');
+      const answer=await showShipmentReview(getMainWindow(),{type:'warning',title:'모아온 · 송장 발급·쇼핑몰 등록',message:`선택한 ${ids.length}건의 실제 우체국 송장을 발급하고 쇼핑몰에 등록할까요?`,detail:`하린식품\n${targets.map(([row])=>`${row.platform} · ${row.hubOrderId} · ${row.quantity}개 · ${row.details.invoice?.status==='REGISTERED'?'등록 결과 확인':row.registrationEligible?'기존 발급 번호 등록':'실제 계약소포 발급'}`).join('\n')}\n결제완료 주문은 상품준비중으로 변경합니다. 기존 발급 작업은 재발급하지 않고 상태를 확인합니다.`,buttons:['취소','실제 발급·쇼핑몰 등록'],defaultId:0,cancelId:0,noLink:true});
+      if(!alive())return empty('DISCONNECTED');if(answer?.response!==1)return empty('REVIEW_CANCELLED');
+      if(recovery.some(Boolean)){
+        for(const [row] of targets){const latest=await freshRecoveryRow(row.hubOrderId);if(!latest||shipmentFingerprints.get(row)!==shipmentFingerprints.get(latest))return empty('CHECK_REQUIRED');}
+      }else{
+        const after=await recheckPage();if(!alive())return empty('DISCONNECTED');
+        if(after.status!=='READY'||targets.some(([row])=>{const matches=after.orders.filter(other=>other.hubOrderId===row.hubOrderId);return matches.length!==1||shipmentFingerprints.get(row)!==shipmentFingerprints.get(matches[0]);}))return empty('CHECK_REQUIRED');
+      }
+      if(!alive())return empty('DISCONNECTED');
+      automaticController=controller;
+      deadline=setTimeout(()=>{controller.abort();void stopShipments();},automaticTimeoutMs);
+      const active=()=>alive()&&!controller.signal.aborted;
+      const pause=()=>new Promise(resolve=>{if(!active())return resolve();const timer=setTimeout(done,automaticPollDelayMs);function done(){clearTimeout(timer);controller.signal.removeEventListener('abort',done);resolve();}controller.signal.addEventListener('abort',done,{once:true});});
+      async function jsonRequest(url,method='GET',body){
+        if(!active())throw Error('Workflow stopped');
+        const local=new AbortController();const stop=()=>local.abort();controller.signal.addEventListener('abort',stop,{once:true});let timer;
+        const aborted=new Promise((_,reject)=>{local.signal.addEventListener('abort',()=>reject(Error('Request stopped')),{once:true});timer=setTimeout(stop,15000);});
+        automaticPermits.add(url);if(method==='POST')registrationRequestActive=true;
+        try{return await Promise.race([(async()=>{
+          const response=await getRemoteSession().fetch(url,{method,credentials:'include',cache:'no-store',redirect:'error',signal:local.signal,headers:{Accept:'application/json',...(method==='POST'?{'Content-Type':'application/json',Origin:HARIN_ORIGIN}:{})},...(body?{body:JSON.stringify(body)}:{})});
+          if(!active()||local.signal.aborted)throw Error('Request stopped');
+          if([401,403].includes(response.status)){controller.abort();throw Error('Authorization expired');}
+          return {status:response.status,body:await readBoundedJson(response,local)};
+        })(),aborted]);}finally{clearTimeout(timer);controller.signal.removeEventListener('abort',stop);automaticPermits.delete(url);if(method==='POST')registrationRequestActive=false;}
+      }
+      async function readTarget(id,scope){
+        let offset=0,snapshot=null;
+        for(let page=0;page<5&&active();page++){
+          const response=await jsonRequest(snapshot===null?buildOrdersScopeUrl(scope,currentChannel):buildOrdersPageUrl(offset,snapshot,scope,currentChannel));
+          if(response.status!==200)return null;
+          const result=projectOrdersPayload(response.body,now().toISOString(),{requestedOffset:offset,expectedSnapshot:snapshot,scope});
+          if(result.status!=='READY')return null;
+          const matches=result.orders.filter(row=>row.hubOrderId===id);if(matches.length)return matches.length===1?matches[0]:null;
+          if(response.body.nextOffset===null)return null;offset=response.body.nextOffset;snapshot=response.body.snapshot;
+        }
+        return null;
+      }
+      async function action(row,kind){
+        const fingerprint=createHash('sha256').update(`${workflowFingerprints.get(row)}:${kind==='UPLOAD_INVOICE'?row.details.invoice.number:''}`).digest('hex');
+        const journal=createShippingActionJournal({directory:shipmentDirectory,hubOrderId:row.hubOrderId,action:kind,fingerprint});
+        let record=await journal.read();
+        if(record===null){
+          record=await journal.write({status:'INTENT'});if(!active())return 'CHECK_REQUIRED';
+          const input={hubOrderId:row.hubOrderId,...(kind==='UPLOAD_INVOICE'?{invoiceNumber:row.details.invoice.number,deliveryCompanyCode:row.platform==='CAFE24'?'0012':'EPOST'}:{})};
+          const response=await jsonRequest(REGISTRATION_URL,'POST',{confirm:true,action:kind,orders:[input]});
+          const matches=Array.isArray(response.body?.results)?response.body.results.filter(item=>item?.hubOrderId===row.hubOrderId):[];
+          const item=matches.length===1?matches[0]:null;
+          const status=response.status===200&&response.body?.ok===true&&item?.ok===true&&item.status==='SUCCESS'?'SUCCESS':response.status===409&&response.body?.ok===false&&item?.ok===false?'FAILED':response.status===202&&response.body?.ok===true&&item?.ok===true&&['QUEUED','RUNNING'].includes(item.status)&&row.platform==='COUPANG'&&typeof item.requestId==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.requestId)?'PENDING':'UNKNOWN';
+          record=await journal.write({status,requestId:status==='PENDING'?item.requestId:null});
+        }
+        for(let poll=0;active()&&poll<5&&['PENDING','RUNNING'].includes(record.status);poll++){
+          if(poll)await pause();if(!active())break;
+          const response=await jsonRequest(`${HARIN_ORIGIN}/api/coupang/operations/${record.requestId}`);
+          const item=response.body?.request;
+          const status=response.status===202&&response.body?.ok===true&&item?.id===record.requestId&&['PENDING','RUNNING'].includes(item.status)?item.status:response.status===200&&response.body?.ok===true&&item?.id===record.requestId&&item.status==='SUCCESS'?'SUCCESS':response.status===502&&response.body?.ok===false&&response.body.code==='COUPANG_FIXED_IP_OPERATION_FAILED'?'FAILED':'UNKNOWN';
+          record=await journal.write({status,requestId:record.requestId});
+        }
+        return record.status==='SUCCESS'?'SUCCESS':record.status==='FAILED'?'FAILED':['PENDING','RUNNING'].includes(record.status)?'PENDING':'CHECK_REQUIRED';
+      }
+      const registry=await getShipmentRegistry(expected);
+      async function confirmedInvoice(hubOrderId,issued){
+        const transport=createShipmentTransport({hubOrderId,fetch:async(url,options)=>{
+          if(!active())throw Error('Stopped');const key=`${options.method} ${url}`;shipmentPermits.set(key,(shipmentPermits.get(key)||0)+1);
+          try{return await getRemoteSession().fetch(url,options);}finally{const count=(shipmentPermits.get(key)||0)-1;if(count>0)shipmentPermits.set(key,count);else shipmentPermits.delete(key);}
+        }});
+        const proof=await transport.poll(issued.requestId,{signal:controller.signal});
+        const value=proof.body?.result?.trackingNo;
+        return proof.status===200&&proof.body?.ok===true&&proof.body.request?.id===issued.requestId&&proof.body.request?.hubOrderId===hubOrderId&&proof.body.request?.status==='SUCCESS'&&typeof value==='string'&&/^\d{13}$/.test(value)?value:null;
+      }
+      for(const [approved] of targets){
+        const hubOrderId=approved.hubOrderId;let phase=approved.registrationEligible?'REGISTER':approved.stage==='PAID'?'PREPARE':'ISSUE';
+        try{
+          if(!active()){results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});continue;}
+          let row=await readTarget(hubOrderId,'ACTIVE');
+          if(!row&&approved.details.invoice?.status==='REGISTERED')row=await readTarget(hubOrderId,'REGISTER');
+          if(row&&same(approved,row)&&row.details.invoice?.status==='REGISTERED'&&await uploadJournal(row).read()!==null){
+            const outcome=await action(row,'UPLOAD_INVOICE');
+            const verified=outcome==='SUCCESS'?await readTarget(hubOrderId,'REGISTER'):null;
+            results.push({hubOrderId,phase:'REGISTER',status:outcome==='SUCCESS'?verified&&same(approved,verified)&&verified.details.invoice?.status==='REGISTERED'&&verified.details.invoice.number===row.details.invoice.number?'REGISTERED':'CHECK_REQUIRED':outcome});continue;
+          }
+          if(!row||!same(approved,row)||!row.issueAndRegisterEligible){results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});continue;}
+          if(row.registrationEligible){
+            // A resumed automatic issue must still be bound to its original
+            // private identity and authoritative tracking number after restart.
+            const identity=await createShippingActionJournal({directory:shipmentDirectory,hubOrderId,action:'ISSUE',fingerprint:workflowFingerprints.get(row)}).read();
+            if(identity!==null){
+              let issued=await registry.snapshot(hubOrderId);
+              for(let poll=0;active()&&poll<5&&['PENDING','RUNNING','SUBMITTING'].includes(issued.status);poll++){if(poll)await pause();if(!active())break;issued=await registry.poll(hubOrderId);}
+              if(issued.status!=='SUCCEEDED'||await confirmedInvoice(hubOrderId,issued)!==row.details.invoice.number){results.push({hubOrderId,phase:'ISSUE',status:['PENDING','RUNNING'].includes(issued.status)?'PENDING':'CHECK_REQUIRED'});continue;}
+            }
+          }
+          const prepareRecord=await createShippingActionJournal({directory:shipmentDirectory,hubOrderId,action:'PREPARE',fingerprint:createHash('sha256').update(`${workflowFingerprints.get(row)}:`).digest('hex')}).read();
+          if(!row.registrationEligible&&row.stage==='PAID'||prepareRecord!==null&&prepareRecord.status!=='SUCCESS'){
+            const prepared=await action(row,'PREPARE');
+            if(prepared!=='SUCCESS'){results.push({hubOrderId,phase:'PREPARE',status:prepared});continue;}
+            row=await readTarget(hubOrderId,'ACTIVE');
+            // PREPARE confirms the provider update, not a local order sync.
+            // /api/epost/issue itself permits PAID as well as prepared stages.
+            if(!row||!same(approved,row)||!row.issueAndRegisterEligible||!['PAID','PREPARING','READY_TO_SHIP'].includes(row.stage)){results.push({hubOrderId,phase:'PREPARE',status:'CHECK_REQUIRED'});continue;}
+          }
+          if(!row.registrationEligible){
+            phase='ISSUE';let issued=await registry.snapshot(hubOrderId);
+            const identityJournal=createShippingActionJournal({directory:shipmentDirectory,hubOrderId,action:'ISSUE',fingerprint:workflowFingerprints.get(row)});
+            const identity=await identityJournal.read();
+            if(issued.status==='EMPTY'){
+              if(identity!==null||!active()){results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});continue;}
+              await identityJournal.write({status:'INTENT'});
+              if(!active())throw Error('Stopped');issued=await registry.submit(hubOrderId,{confirm:true});
+            }else if(identity===null){results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});continue;}
+            for(let poll=0;active()&&poll<5&&['PENDING','RUNNING','SUBMITTING'].includes(issued.status);poll++){if(poll)await pause();if(!active())break;issued=await registry.poll(hubOrderId);}
+            if(issued.status!=='SUCCEEDED'){results.push({hubOrderId,phase,status:['PENDING','RUNNING','SUBMITTING'].includes(issued.status)?'PENDING':['FAILED','CANCELLED'].includes(issued.status)?'FAILED':'CHECK_REQUIRED'});continue;}
+            // The durable issuance job intentionally stores no tracking number.
+            // Re-read its authoritative result and require the stored order to
+            // carry exactly that invoice before sending it to the platform.
+            const confirmed=await confirmedInvoice(hubOrderId,issued);
+            if(confirmed===null){results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});continue;}
+            row=await readTarget(hubOrderId,'ACTIVE');
+            if(!row||!same(approved,row)||!row.registrationEligible||row.details.invoice.number!==confirmed){results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});continue;}
+            await identityJournal.write({status:'SUCCESS',requestId:issued.requestId});
+          }
+          phase='REGISTER';
+          if(!active())throw Error('Stopped');
+          const registered=await action(row,'UPLOAD_INVOICE');
+          if(registered!=='SUCCESS'){results.push({hubOrderId,phase,status:registered});continue;}
+          const verified=await readTarget(hubOrderId,'REGISTER');
+          results.push({hubOrderId,phase,status:verified&&same(approved,verified)&&verified.details.invoice?.status==='REGISTERED'&&verified.details.invoice.number===row.details.invoice.number?'REGISTERED':'CHECK_REQUIRED'});
+        }catch{results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});}
+      }
+      if(!alive())return empty('DISCONNECTED');
+      return {status:results.every(row=>row.status==='REGISTERED')?'COMPLETED':'PARTIAL',results};
+    }catch{return alive()?{status:'UNAVAILABLE',results}:empty('DISCONNECTED');}
+    finally{clearTimeout(deadline);controller.abort();if(automaticController===controller)automaticController=null;reviewingShipment=false;}
+  }
   async function registerInvoices(ids){
     if(!validRegistrationIds(ids))throw new TypeError('Invalid invoice selection');
     const empty=status=>({status,results:[]});
@@ -570,10 +779,21 @@ function createHubConnection({
       const before=await reread(initial);if(!before)return empty(alive()?'ORDER_CHANGED':'DISCONNECTED');
       const keys=before.map(row=>`${row.hubOrderId}:${row.details.invoice.number}`);
       if(keys.some(key=>registrationAttempts.has(key)))return empty('CHECK_REQUIRED');
+      const uploadJournals=[];
+      if(shipmentDirectory)for(const row of before){
+        const fingerprint=createHash('sha256').update(`${workflowFingerprints.get(row)}:${row.details.invoice.number}`).digest('hex');
+        const journal=createShippingActionJournal({directory:shipmentDirectory,hubOrderId:row.hubOrderId,action:'UPLOAD_INVOICE',fingerprint});
+        if(await journal.read()!==null)return empty('CHECK_REQUIRED');
+        uploadJournals.push(journal);
+      }
       const answer=await showShipmentReview(getMainWindow(),{type:'warning',title:'모아온 · 쇼핑몰 송장 등록',message:`선택한 ${ids.length}건의 발급 송장을 쇼핑몰에 등록할까요?`,detail:`하린식품\n${before.map(row=>`${row.platform} · ${row.hubOrderId} · ${row.details.invoice.number}`).join('\n')}\n쿠팡은 처리 대기 상태로 접수될 수 있습니다.`,buttons:['취소','송장 등록'],defaultId:0,cancelId:0,noLink:true});
       if(!alive())return empty('DISCONNECTED');
       if(answer?.response!==1)return empty('REVIEW_CANCELLED');
       const approved=await reread(before);if(!approved)return empty(alive()?'ORDER_CHANGED':'DISCONNECTED');
+      // The manual and automatic paths share one durable upload intent. A lost
+      // manual response must never become a fresh automatic registration POST.
+      for(const journal of uploadJournals)await journal.write({status:'INTENT'});
+      if(!alive())return empty('DISCONNECTED');
       const controller=new AbortController();registrationController=controller;
       const stopped=new Promise((_,reject)=>{controller.signal.addEventListener('abort',()=>reject(Error('Registration stopped')),{once:true});timer=setTimeout(()=>controller.abort(),timeoutMs);});
       const request=(async()=>{
@@ -583,11 +803,17 @@ function createHubConnection({
           const response=await getRemoteSession().fetch(REGISTRATION_URL,{method:'POST',credentials:'include',redirect:'error',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json',Origin:HARIN_ORIGIN},body:JSON.stringify({confirm:true,action:'UPLOAD_INVOICE',orders:approved.map(row=>({hubOrderId:row.hubOrderId,invoiceNumber:row.details.invoice.number,deliveryCompanyCode:row.platform==='CAFE24'?'0012':'EPOST'}))})});
           if(!alive()||controller.signal.aborted)throw Error('Disconnected');
           if(![200,202,409].includes(response.status))throw Error('Registration unavailable');
-          return await readBoundedJson(response,controller);
+          return {httpStatus:response.status,body:await readBoundedJson(response,controller)};
         }finally{registrationRequestActive=false;}
       })();
-      const payload=await Promise.race([request,stopped]);
+      const received=await Promise.race([request,stopped]),payload=received.body;
       if(!alive())return empty('DISCONNECTED');
+      for(const [index,journal] of uploadJournals.entries()){
+        const rows=Array.isArray(payload?.results)?payload.results.filter(row=>row?.hubOrderId===ids[index]):[];
+        const row=rows.length===1?rows[0]:null;
+        const pending=received.httpStatus===202&&payload?.ok===true&&row?.ok===true&&['QUEUED','RUNNING'].includes(row.status)&&typeof row.requestId==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(row.requestId);
+        await journal.write({status:pending?'PENDING':[200,202].includes(received.httpStatus)&&payload?.ok===true&&row?.ok===true&&row.status==='SUCCESS'?'SUCCESS':row?.ok===false?'FAILED':'UNKNOWN',requestId:pending?row.requestId:null});
+      }
       // Successful rows move from ACTIVE to REGISTER. Read that fixed workspace
       // privately without changing the user's displayed scope or page cursor.
       const verify=async()=>{
@@ -888,10 +1114,15 @@ function createHubConnection({
     loginWindow = null;
   }
 
-  return Object.freeze({ readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
+  ipcMain.handle('moaon-hub:issue-and-register',async(event,...args)=>{
+    if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+    if(args.length!==1||!validRegistrationIds(args[0]))throw Error('Invalid automatic shipping arguments');
+    return connection.issueAndRegister(args[0]);
+  });
   ipcMain.handle('moaon-hub:view-channel',async(event,...args)=>{
     if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
     if(args.length!==1||!ORDER_CHANNELS.includes(args[0]))throw Error('Invalid channel arguments');

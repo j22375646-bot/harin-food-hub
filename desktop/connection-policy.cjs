@@ -85,6 +85,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
 
   const method = details.method.toUpperCase();
   if(method==='POST'&&details.url===`${HARIN_ORIGIN}/api/shipping/actions`&&context.registrationRequestActive===true)return isMainProcessRequest(details.webContentsId);
+  if(method==='GET'&&context.automaticRequestActive===true&&new RegExp(`^${HARIN_ORIGIN.replaceAll('.','\\.')}\/api\/coupang\/operations\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`,'i').test(details.url))return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&details.url===`${HARIN_ORIGIN}/api/moaon/businesses`)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&Number.isInteger(context.labelWebContentsId)&&context.labelWebContentsId>0&&details.webContentsId===context.labelWebContentsId&&details.url===context.labelUrl
     && /^https:\/\/harin-cafe24-sync\.vercel\.app\/api\/shipping\/print\?type=label&ids=HR-(?:C24|CP)-[A-F0-9]{8}$/.test(details.url))return true;
