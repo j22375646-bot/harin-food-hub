@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ko" data-theme="light">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; base-uri 'none'; connect-src 'none'; font-src 'self'; form-action 'none'; frame-ancestors 'none'; img-src 'self' data:; object-src 'none'; script-src 'self'; style-src 'self'"
+    >
+    <title>모아온 Preview</title>
+    <link rel="stylesheet" href="moaon://app/styles.css">
+    <script src="moaon://app/app.js" defer></script>
+  </head>
+  <body>
+    <div class="preview-shell">
+      <aside class="sidebar" aria-label="주요 메뉴">
+        <div class="brand-block">
+          <div class="brand-mark" aria-hidden="true">모</div>
+          <div>
+            <strong>모아온</strong>
+            <span>Windows Preview</span>
+          </div>
+        </div>
+
+        <section class="business-card" aria-label="현재 사업장">
+          <span><i aria-hidden="true"></i> 가상 사업장</span>
+          <strong>모아온 데모</strong>
+          <small>시험 자료만 표시 중</small>
+        </section>
+
+        <nav class="primary-nav" aria-label="모아온 Preview 메뉴">
+          <button class="nav-button is-active" type="button" data-route="today" aria-label="오늘" aria-current="page">
+            <span class="nav-icon" aria-hidden="true">⌂</span>
+            <span><strong>오늘</strong><small>시제품 범위 확인</small></span>
+          </button>
+          <button class="nav-button" type="button" data-route="orders" aria-label="주문·배송">
+            <span class="nav-icon" aria-hidden="true">▤</span>
+            <span><strong>주문·배송</strong><small>샘플 주문 3건</small></span>
+          </button>
+          <button class="nav-button" type="button" data-route="settings" aria-label="앱 설정">
+            <span class="nav-icon" aria-hidden="true">⚙</span>
+            <span><strong>앱 설정</strong><small>화면과 버전</small></span>
+          </button>
+        </nav>
+
+        <div class="sidebar-note">
+          <strong>실업무 기능 비활성</strong>
+          <span>로그인 · 수집 · 발급 · 전송 없음</span>
+        </div>
+      </aside>
+
+      <div class="app-area">
+        <header class="topbar">
+          <div class="preview-warning" role="status">
+            <span aria-hidden="true">시험</span>
+            <strong>시험 자료 · 실제 업무 연결 안 됨</strong>
+          </div>
+          <div class="top-business">
+            <span>현재 사업장</span>
+            <strong>모아온 데모</strong>
+          </div>
+        </header>
+
+        <main id="main-content" tabindex="-1">
+          <section class="page is-visible" data-page="today" aria-labelledby="today-title">
+            <header class="page-heading">
+              <p class="context-line"><i aria-hidden="true"></i> Windows 시제품 · 샘플 모드</p>
+              <h1 id="today-title" aria-label="오늘" tabindex="-1"><em class="page-title-accent">지금 가능한 일</em>부터 확인하세요</h1>
+              <p>실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.</p>
+            </header>
+
+            <section class="readiness-card">
+              <div>
+                <span class="eyebrow">PREVIEW READINESS</span>
+                <h2>업무 연결 전 화면 점검</h2>
+                <p>표시된 수치와 주문은 모두 가상 자료이며 저장되거나 전송되지 않습니다.</p>
+              </div>
+              <div class="readiness-score" aria-label="시제품 화면 준비 3개 항목">
+                <strong>3</strong><span>화면 준비<br><small>모두 샘플</small></span>
+              </div>
+            </section>
+
+            <div class="today-grid">
+              <section class="panel capability-panel">
+                <header>
+                  <div><span class="eyebrow">사용 가능</span><h2>이 시제품에서 확인할 수 있어요</h2></div>
+                  <span class="status-chip status-ready">화면 동작</span>
+                </header>
+                <ul class="capability-list">
+                  <li><span class="check-mark" aria-hidden="true">✓</span><div><strong>세 화면 이동</strong><small>오늘, 주문·배송, 앱 설정 메뉴</small></div></li>
+                  <li><span class="check-mark" aria-hidden="true">✓</span><div><strong>주문 검색과 상세</strong><small>샘플 3건 검색, 선택, 상세 닫기</small></div></li>
+                  <li><span class="check-mark" aria-hidden="true">✓</span><div><strong>라이트·다크 테마</strong><small>이 PC의 미리보기 화면 설정</small></div></li>
+                </ul>
+              </section>
+
+              <section class="panel capability-panel">
+                <header>
+                  <div><span class="eyebrow muted">연결 안 됨</span><h2>아직 할 수 없어요</h2></div>
+                  <span class="status-chip status-blocked">비활성</span>
+                </header>
+                <ul class="capability-list unavailable">
+                  <li><span aria-hidden="true">—</span><div><strong>실제 사업장 로그인과 가입</strong><small>계정이나 사업자 정보를 입력받지 않습니다.</small></div></li>
+                  <li><span aria-hidden="true">—</span><div><strong>플랫폼 연결과 주문 수집</strong><small>네트워크와 운영 API에 연결하지 않습니다.</small></div></li>
+                  <li><span aria-hidden="true">—</span><div><strong>송장 발급·출력·상태 변경</strong><small>외부 쓰기 작업은 모두 제공하지 않습니다.</small></div></li>
+                </ul>
+              </section>
+            </div>
+
+            <section class="sample-summary" aria-labelledby="sample-summary-title">
+              <header><div><span class="eyebrow">SAMPLE SNAPSHOT</span><h2 id="sample-summary-title">오늘의 가상 현황</h2></div><span>실제 수치 아님</span></header>
+              <div class="metric-grid">
+                <article><small>새 주문 · 샘플</small><strong>3건</strong><span>상세 화면 점검용</span></article>
+                <article><small>발송 대기 · 샘플</small><strong>2건</strong><span>업무 처리 불가</span></article>
+                <article><small>표시 매출 · 샘플</small><strong>86,200원</strong><span>계산 기준 없음</span></article>
+              </div>
+            </section>
+          </section>
+
+          <section class="page orders-page" data-page="orders" aria-labelledby="orders-title" hidden>
+            <header class="page-heading compact-heading">
+              <p class="context-line"><i aria-hidden="true"></i> 주문·배송 · 샘플 3건</p>
+              <h1 id="orders-title" aria-label="주문·배송" tabindex="-1"><em class="page-title-accent">가상 주문만</em> 살펴봅니다</h1>
+              <p>검색하거나 주문을 선택해 우측 상세를 확인할 수 있습니다. 발급과 상태 변경은 없습니다.</p>
+            </header>
+
+            <div class="orders-layout">
+              <section class="orders-workspace panel" aria-labelledby="order-list-title">
+                <div class="orders-toolbar">
+                  <div>
+                    <span class="eyebrow">SAMPLE ORDERS</span>
+                    <h2 id="order-list-title">주문 목록</h2>
+                  </div>
+                  <label class="search-field">
+                    <span class="visually-hidden">주문 검색</span>
+                    <span aria-hidden="true">⌕</span>
+                    <input id="order-search" type="search" aria-label="주문 검색" placeholder="주문번호, 고객, 상품 검색" autocomplete="off">
+                    <kbd>Ctrl K</kbd>
+                  </label>
+                </div>
+                <div class="list-state">
+                  <span id="order-result-count" aria-live="polite">샘플 3건 표시</span>
+                  <span>실제 발급 버튼 없음</span>
+                </div>
+                <div id="order-list" class="order-list" role="listbox" aria-label="샘플 주문 목록"></div>
+                <p id="order-empty" class="empty-state" hidden>검색 결과가 없습니다. 다른 주문번호, 고객명 또는 상품명을 입력하세요.</p>
+              </section>
+
+              <aside id="order-detail" class="detail-panel panel" aria-label="주문 상세" aria-live="polite">
+                <div class="detail-empty">
+                  <span aria-hidden="true">▤</span>
+                  <strong>주문을 선택하세요</strong>
+                  <p>선택한 샘플 주문의 고객, 상품, 배송 정보를 여기에 표시합니다.</p>
+                </div>
+              </aside>
+            </div>
+          </section>
+
+          <section class="page settings-page" data-page="settings" aria-labelledby="settings-title" hidden>
+            <header class="page-heading compact-heading">
+              <p class="context-line"><i aria-hidden="true"></i> 이 PC · 화면 설정</p>
+              <h1 id="settings-title" aria-label="앱 설정" tabindex="-1"><em class="page-title-accent">편안한 화면</em>을 선택하세요</h1>
+              <p>테마만 이 미리보기에 저장됩니다. 계정, 사업장, 플랫폼 설정은 아직 연결하지 않습니다.</p>
+            </header>
+
+            <div class="settings-grid">
+              <section class="panel setting-card" aria-labelledby="theme-title">
+                <header><div><span class="eyebrow">APPEARANCE</span><h2 id="theme-title">화면 테마</h2></div><span class="status-chip status-ready">이 PC</span></header>
+                <p>밝은 화면과 어두운 화면 중 편한 쪽을 고르세요.</p>
+                <div class="theme-options" role="group" aria-label="화면 테마 선택">
+                  <button type="button" data-theme-choice="light" aria-label="라이트 테마 사용" aria-pressed="true">
+                    <span class="theme-preview light-preview" aria-hidden="true"><i></i><i></i><i></i></span>
+                    <strong>라이트</strong><small>밝은 작업 공간</small>
+                  </button>
+                  <button type="button" data-theme-choice="dark" aria-label="다크 테마 사용" aria-pressed="false">
+                    <span class="theme-preview dark-preview" aria-hidden="true"><i></i><i></i><i></i></span>
+                    <strong>다크</strong><small>어두운 작업 공간</small>
+                  </button>
+                </div>
+              </section>
+
+              <section class="panel setting-card" aria-labelledby="version-title">
+                <header><div><span class="eyebrow">PROGRAM</span><h2 id="version-title">프로그램 정보</h2></div><span class="status-chip status-sample">Preview</span></header>
+                <dl class="program-list">
+                  <div><dt>이름</dt><dd>모아온 Preview</dd></div>
+                  <div><dt>버전</dt><dd>0.1.0</dd></div>
+                  <div><dt>자료 범위</dt><dd>가상 사업장 · 샘플 주문</dd></div>
+                  <div><dt>네트워크</dt><dd>연결 안 됨</dd></div>
+                </dl>
+              </section>
+
+              <section class="panel limits-card" aria-labelledby="limits-title">
+                <div class="limit-icon" aria-hidden="true">i</div>
+                <div>
+                  <span class="eyebrow muted">PREVIEW LIMITS</span>
+                  <h2 id="limits-title">이 버전의 제한</h2>
+                  <p>한 대의 Windows PC에서 앱 창과 샘플 상호작용을 확인하는 시제품입니다. 실제 로그인, 새 사업장 가입, 주문 수집, 송장 발급, 인쇄, 자동 업데이트는 제공하지 않습니다.</p>
+                </div>
+              </section>
+            </div>
+          </section>
+        </main>
+
+        <footer class="statusbar" aria-label="앱 상태">
+          <span><i aria-hidden="true"></i> 데이터: 시험 자료 · 네트워크 연결 없음</span>
+          <span>외부 쓰기: 비활성</span>
+        </footer>
+      </div>
+    </div>
+  </body>
+</html>
