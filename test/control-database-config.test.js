@@ -33,6 +33,7 @@ test('session pooler is explicit, project-scoped and never accepts transaction m
   const config = readControlDatabaseConfig(env);
   assert.equal(config.connection.user,'moaon_control_app.abcdefghijklmnopqrst');
   assert.equal(config.connection.sessionPoolerProjectRef,'abcdefghijklmnopqrst');
+  assert.equal(config.maxConnections, 1);
   const db = createConfiguredControlDatabase(env);
   await db.close();
   for (const change of [{MOAON_CONTROL_DB_PORT:'6543'},

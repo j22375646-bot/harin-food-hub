@@ -132,6 +132,10 @@ test('session pooler routing username never replaces the actual role safety chec
     sent = config; return createFakePool(client);
   }});
   await db.query('select 1');
+  assert.deepEqual(client.releases, [true], 'session pooler must not retain an idle server lease');
+  await db.transaction(async tx => { await tx.query('select 2'); });
+  assert.deepEqual(client.releases, [true, true]);
+  assert.equal(client.calls.filter(call => call.text === 'COMMIT').length, 1);
   assert.equal(sent.user,'moaon_control_app.abcdefghijklmnopqrst');
   assert.equal(sent.sessionPoolerProjectRef,undefined);
   await db.close();
