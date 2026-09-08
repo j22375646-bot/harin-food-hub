@@ -951,6 +951,7 @@ test('abort in the admission transport microtask gap cannot dispatch the bound R
     const controller = new AbortController();
     const events = [];
     const handler = createRecoveryReviewRequestHandler(dependencies({
+      verifySession: async () => identity({expiresAt: new Date(Date.now() + 60_000).toISOString()}),
       verifyStepUp: async () => {
         let pending = Promise.resolve();
         for (let step = 0; step < delay; step += 1) pending = pending.then(() => {});
