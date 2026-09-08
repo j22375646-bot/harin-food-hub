@@ -12,7 +12,22 @@
     <script src="moaon://app/app.js" defer></script>
   </head>
   <body>
-    <div class="preview-shell">
+    <section id="entry-screen" class="entry-screen" aria-labelledby="entry-title">
+      <header class="entry-brand"><span class="brand-mark" aria-hidden="true">모</span><strong>모아온<small>BUSINESS WORKSPACE</small></strong></header>
+      <div class="entry-card">
+        <div class="entry-symbol" aria-hidden="true"><span>모</span><i></i></div>
+        <p class="entry-eyebrow">하린식품 · 업무 공간</p>
+        <h1 id="entry-title">오늘도, 모아온에서.</h1>
+        <p class="entry-description">로그인하고 오늘의 업무를 이어가세요.</p>
+        <p id="entry-status" class="entry-status" role="status" aria-live="polite">저장된 로그인 상태를 확인하고 있습니다.</p>
+        <button id="entry-login" class="primary-action" type="button">로그인하고 시작하기 <span aria-hidden="true">→</span></button>
+        <p class="entry-security">비밀번호는 별도의 보안 로그인 창에서 입력합니다.<br>유효한 로그인은 다시 입력하지 않아도 됩니다.</p>
+        <button id="entry-printers" class="entry-link" type="button">출고 PC 프린터 점검</button>
+        <button id="entry-reset" class="entry-link" type="button">저장된 로그인 해제</button>
+      </div>
+      <footer class="entry-footer">내 사업의 하루를, 한 곳에.</footer>
+    </section>
+    <div class="preview-shell" hidden inert>
       <aside class="sidebar" aria-label="주요 메뉴">
         <div class="brand-block">
           <div class="brand-mark" aria-hidden="true">모</div>

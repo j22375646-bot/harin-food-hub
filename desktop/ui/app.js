@@ -461,6 +461,13 @@ function clearDisplayedOrders(mode, message) {
 }
 
 function applyHubResult(result) {
+  const gate=document.querySelector('#entry-screen'),shell=document.querySelector('.preview-shell');
+  if(result?.status==='READY'||result?.status==='PARTIAL'){
+    gate.hidden=true;shell.hidden=false;shell.inert=false;
+  }else if(!gate.hidden||['LOGIN_REQUIRED','LOGIN_OPEN','DISCONNECTED'].includes(result?.status)){
+    gate.hidden=false;shell.hidden=true;shell.inert=true;
+    document.querySelector('#entry-status').textContent=result?.status==='LOGIN_REQUIRED'?'로그인이 필요합니다. 아래 버튼으로 시작하세요.':result?.status==='LOGIN_OPEN'?'열려 있는 보안 로그인 창에서 계속해주세요.':result?.status==='DISCONNECTED'?'로그아웃했습니다. 다시 로그인할 수 있습니다.':result?.message||'연결을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.';
+  }
   if (result?.status === 'READY' || result?.status === 'PARTIAL') {
     if (scopeDetails[result.scope]) selectedScope = result.scope;
     scopeControlsAvailable = true;
@@ -520,7 +527,10 @@ async function runHubAction(action) {
     } else result = await bridge[action]();
     if (generation === actionGeneration) applyHubResult(result);
   } catch {
-    if (generation === actionGeneration) clearDisplayedOrders('error', '하린식품 연결 요청을 완료하지 못했습니다.');
+    if (generation === actionGeneration) {
+      clearDisplayedOrders('error', '하린식품 연결 요청을 완료하지 못했습니다.');
+      if(!document.querySelector('#entry-screen').hidden)document.querySelector('#entry-status').textContent='연결을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.';
+    }
   }
 }
 
@@ -582,6 +592,22 @@ document.addEventListener('keydown', (event) => {
 });
 
 let savedTheme = 'light';
+let entryBusy=false;
+async function enterWorkspace(){
+ if(entryBusy)return;entryBusy=true;const button=document.querySelector('#entry-login');button.disabled=true;
+ document.querySelector('#entry-status').textContent='로그인을 확인합니다. 필요한 경우 보안 로그인 창이 열립니다.';
+ try{await runHubAction('connect');}finally{entryBusy=false;button.disabled=false;}
+}
+document.querySelector('#entry-login').addEventListener('click',enterWorkspace);
+document.querySelector('#entry-reset').addEventListener('click',async event=>{
+ if(entryBusy)return;entryBusy=true;const button=event.currentTarget;button.disabled=true;
+ try{await runHubAction('disconnect');}finally{entryBusy=false;button.disabled=false;}
+});
+document.querySelector('#entry-printers').addEventListener('click',async event=>{
+ const button=event.currentTarget;button.disabled=true;
+ try{const result=await window.moaonHub.inspectPrinters();if(result.status!=='SHOWN')document.querySelector('#entry-status').textContent='프린터를 조회하지 못했습니다. 잠시 후 다시 확인하세요.';}
+ catch{document.querySelector('#entry-status').textContent='프린터 조회에 실패했습니다.';}finally{button.disabled=false;}
+});
 document.querySelector('#printer-check').addEventListener('click',async event=>{
  const button=event.currentTarget,status=document.querySelector('#printer-check-status');
  button.disabled=true;status.textContent='Windows 프린터 목록을 확인하고 있습니다.';
@@ -594,3 +620,5 @@ applyTheme(savedTheme);
 closeOrderDetail();
 renderOrders();
 updateConnectionChrome('현재는 샘플 화면입니다. 사용자가 연결을 누르기 전에는 운영 서버를 조회하지 않습니다.');
+// Check only existing authorization. Password collection stays on the trusted remote form.
+void runHubAction('viewActive');
