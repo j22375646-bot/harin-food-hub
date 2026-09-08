@@ -288,38 +288,57 @@ test('one total deadline stops a late database completion from dispatching clean
 
 test('a backward wall-clock jump during database revoke cannot extend the cleanup deadline', () => withSecret(async () => {
   const originalNow = Date.now;
+  const originalSetTimeout = global.setTimeout;
+  const originalClearTimeout = global.clearTimeout;
+  const performance = require('node:perf_hooks').performance;
+  const originalPerformanceNow = Object.getOwnPropertyDescriptor(performance, 'now');
   const token = sessionToken();
   const events = [];
   let wallClock = originalNow();
+  let monotonicClock = 100;
+  let timerId = 0;
+  const timers = new Map();
   let resolveDatabase;
   let resolveCleanup;
+  let markCleanupStarted;
   const databasePending = new Promise(resolve => { resolveDatabase = resolve; });
   const cleanupPending = new Promise(resolve => { resolveCleanup = resolve; });
+  const cleanupStarted = new Promise(resolve => { markCleanupStarted = resolve; });
+  Object.defineProperty(performance, 'now', {configurable: true, value: () => monotonicClock});
+  global.setTimeout = (callback, delay) => {
+    const id = ++timerId;
+    timers.set(id, {callback, delay});
+    return id;
+  };
+  global.clearTimeout = id => { timers.delete(id); };
   const service = createSessionLogout({
     db: database({events, pending: databasePending}),
-    stepUpStorage: storage({events, pending: cleanupPending}),
+    stepUpStorage: storage({events, pending: cleanupPending, inspect: markCleanupStarted}),
     timeoutMs: 30,
   });
   let operation;
   try {
     Date.now = () => wallClock;
     operation = service.logout(token);
-    setTimeout(() => {
-      wallClock -= 60_000;
-      resolveDatabase({error: null});
-    }, 5);
-    const outcome = await Promise.race([
-      operation.then(value => ({type: 'resolved', value}), error => ({type: 'rejected', error})),
-      new Promise(resolve => setTimeout(() => resolve({type: 'guard'}), 100)),
-    ]);
+    wallClock -= 60_000;
+    resolveDatabase({error: null});
+    await cleanupStarted;
+    assert.deepEqual([...timers.values()].map(timer => timer.delay), [30]);
+    monotonicClock = 130;
     resolveCleanup(true);
-    await operation.catch(() => {});
+    const outcome = await operation.then(
+      value => ({type: 'resolved', value}),
+      error => ({type: 'rejected', error}));
 
     assert.equal(outcome.type, 'rejected');
     assertUnavailable(outcome.error);
     assert.equal(events.filter(event => event === 'storage:revoke').length, 1);
   } finally {
     Date.now = originalNow;
+    global.setTimeout = originalSetTimeout;
+    global.clearTimeout = originalClearTimeout;
+    if (originalPerformanceNow) Object.defineProperty(performance, 'now', originalPerformanceNow);
+    else delete performance.now;
     resolveDatabase?.({error: null});
     resolveCleanup?.(true);
     await operation?.catch(() => {});
