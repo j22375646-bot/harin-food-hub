@@ -782,9 +782,12 @@ async function runHubAction(action) {
   }
 }
 
-function clearRegistrationResults(){
-  document.querySelector('#auto-shipping-results').hidden=true;
-  document.querySelector('#auto-shipping-results').replaceChildren();
+function clearRegistrationResults(kind='all'){
+  if(kind!=='manual'){
+    document.querySelector('#auto-shipping-results').hidden=true;
+    document.querySelector('#auto-shipping-results').replaceChildren();
+  }
+  if(kind==='auto')return;
   document.querySelector('#registration-results').hidden=true;
   document.querySelector('#registration-status').textContent='';
   document.querySelector('#registration-items').replaceChildren();
@@ -797,7 +800,7 @@ async function runAutomaticShipping(explicitIds){
   const generation=actionGeneration;
   const panel=document.querySelector('#auto-shipping-results');
   const previousNodes=[...panel.childNodes],previousRows=[...panel.querySelectorAll('.auto-shipping-item')];
-  registrationBusy=true;clearRegistrationResults();renderSelection();
+  registrationBusy=true;clearRegistrationResults('auto');renderSelection();
   panel.hidden=false;panel.setAttribute('aria-busy','true');
   panel.append(makeElement('strong','','자동 출고 처리'),makeElement('p','','준비 확인 → 우체국 발급 → 플랫폼 등록'),makeElement('p','','확인창에서 승인하면 진행합니다. 대기 작업은 완료 확인 전까지 성공으로 표시하지 않습니다.'));
   const current=()=>generation===actionGeneration&&displayMode==='live';
@@ -828,7 +831,7 @@ async function runAutomaticShipping(explicitIds){
       displayedOrders=Object.freeze(displayedOrders.map(order=>complete.has(orderId(order))?Object.freeze({...order,issueAndRegisterEligible:false,registrationEligible:false}):order));
       selectedOrderIds.clear();
       panel.append(makeElement('p','','발급 번호는 재사용합니다. 결과 불명·실패 주문은 새 번호를 발급하지 말고 기존 작업을 확인하세요.'));
-      if(complete.size){
+      if([...rowsById.values()].some(line=>line.dataset.state==='REGISTERED')){
         const openRegistered=makeElement('button','auto-result-navigation','등록된 주문 보기');openRegistered.type='button';
         openRegistered.addEventListener('click',()=>void runHubAction('viewRegistered'));panel.append(openRegistered);
       }
@@ -859,7 +862,7 @@ async function registerSelectedInvoices(){
   const ids=[...selectedOrderIds];
   if(!ids.length||ids.length>20||ids.some(id=>!displayedOrders.some(order=>orderId(order)===id&&order.registrationEligible===true)))return;
   const generation=actionGeneration;
-  registrationBusy=true;clearRegistrationResults();renderSelection();
+  registrationBusy=true;clearRegistrationResults('manual');renderSelection();
   const panel=document.querySelector('#registration-results'),status=document.querySelector('#registration-status'),items=document.querySelector('#registration-items');
   panel.hidden=false;status.textContent='선택한 발급 송장의 등록 내용을 확인하고 있습니다.';
   const current=()=>generation===actionGeneration&&displayMode==='live';
