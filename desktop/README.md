@@ -24,7 +24,7 @@ Electron은 명시 실행한 공식 installer가 고정 버전 checksum을 확�
 
 ## 보안 경계
 
-로컬 custom protocol과 sandbox/context isolation을 유지한다. 로컬 preload는 연결/조회/해제 세 메서드만 제공하고 Main이 호출 창과 프레임을 검증한다. 원격 로그인 창은 preload/Node가 없고 고정된 하린식품 서버의 로그인 폼만 사용한다. 비밀번호를 채팅이나 앱 설정에 넣지 않는다.
+로컬 custom protocol과 sandbox/context isolation을 유지한다. 로컬 preload는 `connect`/`refresh`/`nextPage`/`previousPage`/`disconnect` 다섯 메서드만 제공하고 Main이 호출 창과 프레임을 검증한다. 원격 로그인 창은 preload/Node가 없고 고정된 하린식품 서버의 로그인 폼만 사용한다. 비밀번호를 채팅이나 앱 설정에 넣지 않는다.
 
 주문 GET 요청은 기존 서버의 세션 검증을 통과해야 한다. 조회 대상은 '송장 발급 전' 저장 주문이며 한 페이지 최대20건, 이전/다음 페이지 이동을 제공한다. 검색은 현재 페이지 안에서만 실행한다. 목록 변경이 감지되면 기존 목록을 비우고 첫 페이지 재조회가 필요함을 표시한다. 이는 저장된 주문 조회이지 채널의 신규 주문 수집 성공을 뜻하지 않는다. 앱은 고객 이름·연락처·주소를 전달/저장하지 않고 필요한 상품·주문 정보만 메모리에 표시한다.
 
