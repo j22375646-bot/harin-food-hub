@@ -1,5 +1,7 @@
 # P4-06 운영 제어 스키마·NOLOGIN 역할 준비
 
+> P4-07 정정: 아래 runtime adapter 충돌 판단은 잘못됐다. adapter는 앱이 다른 역할의 member인 방향만 검사하므로 관리자 관계는 차단하지 않는다. 양방향 검사는 후보 provisioning SQL의 재실행 검사다. [검증 및 정정](./2026-09-08-moaon-p4-07-role-direction-report.md)
+
 ## 실제 적용 결과
 
 사용자가 승인한 전용 제어 스키마·최소권한 역할 준비 범위에서 운영 프로젝트 llnlphdmcmwgjnpndaam에 적용했다. 관리 도구 연결이 이번에는 정상 동작했다. 적용 전 SQL 카탈로그에서 moaon_control 스키마 없음, moaon_control_app 역할 없음 확인.

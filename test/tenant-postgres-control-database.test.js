@@ -28,6 +28,36 @@ const SAFE_ROLE = Object.freeze({
   has_role_membership: false,
 });
 
+test('실제 역할 검사 SQL은 관리자 방향과 앱의 상속 방향을 구분한다', async () => {
+  const { PGlite } = require('@electric-sql/pglite');
+  const pg = new PGlite();
+  const client = createFakeClient();
+  const database = createDatabase(createFakePool(client));
+  try {
+    await database.query('select 1');
+    const sql = client.calls.find(call => /from pg_roles/i.test(call.text)).text;
+    await pg.exec(`
+      create role moaon_control_app nologin noinherit;
+      create role synthetic_parent;
+      grant moaon_control_app to postgres with admin true, inherit false, set false;
+      set session authorization moaon_control_app;
+    `);
+    const before = (await pg.query(sql)).rows[0];
+    assert.equal(before.current_user, 'moaon_control_app');
+    assert.equal(before.session_user, 'moaon_control_app');
+    assert.equal(before.has_role_membership, false);
+    await pg.exec(`
+      set session authorization postgres;
+      grant synthetic_parent to moaon_control_app;
+      set session authorization moaon_control_app;
+    `);
+    assert.equal((await pg.query(sql)).rows[0].has_role_membership, true);
+  } finally {
+    await database.close();
+    await pg.close();
+  }
+});
+
 function localConnection(overrides = {}) {
   return {
     host: '127.0.0.1',
