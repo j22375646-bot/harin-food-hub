@@ -6,6 +6,16 @@ const Module = require('node:module');
 const path = require('node:path');
 const test = require('node:test');
 const TEST_SNAPSHOT = '0123456789abcdef'.repeat(4);
+test('history restoration requires fresh authenticated read and never writes shipping requests',async()=>{
+ const fs=require('node:fs/promises'),os=require('node:os');const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-restore-'));
+ try{
+  await require('../shipping-action-journal.cjs').createShippingActionJournal({directory,hubOrderId:'HR-CP-1234ABCD',action:'ISSUE',fingerprint:'a'.repeat(64)}).write({status:'UNKNOWN'});
+  let allowed=true;
+  const {connection}=makeConnection(makeRemoteSession(async(_url,options)=>{assert.equal(options.method,'GET');return allowed?Response.json(makePagePayload()):new Response('',{status:401});}),{shipmentDirectory:directory});
+  await connection.refresh();assert.equal((await connection.restoreShippingHistory()).orders.length,1);
+  allowed=false;assert.deepEqual(await connection.restoreShippingHistory(),{status:'CHECK_REQUIRED',orders:[]});
+ }finally{await fs.rm(directory,{recursive:true,force:true});}
+});
 
 test('overview returns only counts and preserves selected order scope',async()=>{
  const remote=makeRemoteSession(async url=>{
@@ -1038,7 +1048,9 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
   const trusted = { sender: webContents, senderFrame: mainFrame };
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-delivery','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:register-invoices','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-delivery','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:register-invoices','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  await assert.rejects(handlers.get('moaon-hub:restore-shipping-history')({sender:{},senderFrame:null}),/Untrusted renderer/);
+  await assert.rejects(handlers.get('moaon-hub:restore-shipping-history')(trusted,'other-business'),/Arguments are not allowed/);
   const deliveryHandler=handlers.get('moaon-hub:read-delivery');
   await assert.rejects(deliveryHandler({sender:{},senderFrame:null},'HR-C24-1234ABCD'),/Untrusted renderer/);
   for(const args of [[],['https://other.invalid'],['HR-C24-1234ABCD','other-tenant']])await assert.rejects(deliveryHandler(trusted,...args),/Invalid delivery/);
@@ -1090,7 +1102,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['readDelivery','readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['restoreShippingHistory','readDelivery','readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   await bridge.listBusinesses('ignored');
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });

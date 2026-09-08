@@ -61,6 +61,12 @@ const {launchDesktop}=require('./launch.cjs');
   await page.evaluate(async()=>{const work=runAutomaticShipping(['HR-C24-00000001']);await runHubAction('disconnect');await work;});
   assert.equal(await page.locator('#auto-shipping-results').isVisible(),false);
   assert.equal(await followup.isVisible(),false);assert.equal(await followup.innerText(),'');
+  await seed();
+  await app.evaluate(({ipcMain})=>{ipcMain.removeHandler('moaon-hub:restore-shipping-history');ipcMain.handle('moaon-hub:restore-shipping-history',()=>({status:'READY',orders:[{hubOrderId:'HR-C24-00000002',status:'CHECK_REQUIRED'}]}));});
+  await page.getByRole('button',{name:'이전 출고 기록 불러오기',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('#shipping-history-status').textContent.includes('1건 복원'));
+  assert.match(await followup.textContent(),/HR-C24-00000002/);
+  await page.evaluate(()=>runHubAction('disconnect'));assert.equal(await followup.isVisible(),false);
   console.log('PASS: auto shipping bulk/single entry, truthful per-order outcomes and logout clearing; synthetic only');
  }finally{await app.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

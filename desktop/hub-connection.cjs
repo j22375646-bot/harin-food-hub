@@ -20,7 +20,7 @@ const EMPTY_ORDERS = Object.freeze([]);
 const {createShipmentRegistry}=require('./shipment-registry.cjs');
 const {createShipmentTransport}=require('./shipment-transport.cjs');
 const {createBusinessTransport}=require('./business-transport.cjs');
-const {createShippingActionJournal}=require('./shipping-action-journal.cjs');
+const {createShippingActionJournal,readShippingHistory}=require('./shipping-action-journal.cjs');
 const {projectVisual}=require('./order-visual.cjs');
 const {createHash}=require('node:crypto');
 // Private identity-bound fingerprint, never included in IPC payloads or logs.
@@ -1174,7 +1174,15 @@ function createHubConnection({
     loginWindow = null;
   }
 
-  return Object.freeze({ readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  async function restoreShippingHistory(){
+    const expected=generation;
+    if(!shipmentDirectory||disconnecting||cleanupFailed||registrationController||automaticController)return {status:'CHECK_REQUIRED',orders:[]};
+    const auth=await recheckPage();
+    if(expected!==generation||!['READY','PARTIAL'].includes(auth.status))return {status:'CHECK_REQUIRED',orders:[]};
+    const result=await readShippingHistory(shipmentDirectory);
+    return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
+  }
+  return Object.freeze({ restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1211,6 +1219,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     return connection.confirmShipmentReview(args[0]);
   });
   const methods = [
+    ['moaon-hub:restore-shipping-history', 'restoreShippingHistory'],
     ['moaon-hub:read-overview', 'readOverview'],
     ['moaon-hub:list-businesses', 'listBusinesses'],
     ['moaon-hub:connect', 'connect'],

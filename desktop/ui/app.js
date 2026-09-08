@@ -805,12 +805,28 @@ async function runHubAction(action) {
 }
 
 const shippingFollowup=new Map();
+document.querySelector('#shipping-history-load').addEventListener('click',async()=>{
+  const button=document.querySelector('#shipping-history-load'),status=document.querySelector('#shipping-history-status');
+  if(button.disabled||displayMode!=='live'||registrationBusy)return;
+  const expected=actionGeneration;button.disabled=true;status.textContent='이전 기록 확인 중…';
+  try{
+    const result=await window.moaonHub.restoreShippingHistory();
+    if(expected!==actionGeneration||displayMode!=='live')return;
+    if(result?.status!=='READY'){status.textContent='기록 확인 필요 · 목록을 새로 조회한 뒤 다시 확인하세요.';return;}
+    for(const row of result.orders||[])if(/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(row.hubOrderId))shippingFollowup.set(row.hubOrderId,{status:'CHECK_REQUIRED'});
+    status.textContent=result.orders?.length?`${result.orders.length}건 복원 · 과거 기록이며 현재 상태 확인이 필요합니다.`:'복원할 미확정 기록이 없습니다.';
+    renderShippingFollowup();
+  }catch{if(expected===actionGeneration)status.textContent='기록 확인 필요 · 잠시 뒤 다시 확인하세요.';}
+  finally{button.disabled=false;}
+});
 function renderShippingFollowup(){
+  document.querySelector('.shipping-history-tools').hidden=displayMode!=='live';
+  if(displayMode!=='live')document.querySelector('#shipping-history-status').textContent='';
   const panel=document.querySelector('#shipping-followup');
   panel.replaceChildren();panel.hidden=displayMode!=='live'||!shippingFollowup.size;
   if(panel.hidden)return;
-  panel.append(makeElement('summary','',`이번 실행의 출고 확인 목록 · ${shippingFollowup.size}건`));
-  panel.append(makeElement('p','','이전 결과입니다. 현재 처리 상태는 주문을 다시 확인하세요. 로그아웃·앱 종료 시 이 목록은 비워집니다.'));
+  panel.append(makeElement('summary','',`출고 확인 목록 · ${shippingFollowup.size}건`));
+  panel.append(makeElement('p','','이전 결과입니다. 현재 처리 상태는 주문을 다시 확인하세요. 화면 목록은 로그아웃 시 비워지며 이전 기록은 로그인 후 불러올 수 있습니다.'));
   for(const [id,result] of shippingFollowup){
     const row=makeElement('div','auto-shipping-item');
     const state={PENDING:'처리 대기',FAILED:'실패',CHECK_REQUIRED:'결과 확인 필요'}[result.status]||'결과 확인 필요';
