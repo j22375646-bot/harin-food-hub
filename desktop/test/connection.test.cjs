@@ -48,6 +48,38 @@ test('business list uses the private session and disconnect discards an in-fligh
 });
 
 const reviewOrder=()=>({hubOrderId:'HR-C24-1234ABCD',externalOrderId:'TEST-1',platform:'CAFE24',fulfillment:'SELLER',stage:'PAID',quantity:1,productName:'시험 상품',cancelled:false,cancellationRequested:false,invoiceNumber:'',issuedInvoiceNumber:'',shippingHistoryStatus:'READY',shippingEligible:true,selectionEligible:true,receiver:{name:'시험',address:'시험 주소',postCode:'12345',contact:'01012345678'}});
+test('authenticated order read exposes only explicit delivery fields and logout removes them',async()=>{
+ const order=reviewOrder();order.receiver={...order.receiver,addressDetail:'가상 101호',message:'문 앞',token:'NEVER_EXPOSE'};
+ const {connection}=makeConnection(makeRemoteSession(async()=>Response.json(makePagePayload({orders:[order]}))));
+ const result=await connection.refresh();
+ assert.deepEqual(result.orders[0].details.receiver,{name:'시험',address:'시험 주소',postCode:'12345',contact:'01012345678',addressDetail:'가상 101호',message:'문 앞'});
+ assert.equal(JSON.stringify(result).includes('NEVER_EXPOSE'),false);
+ assert.deepEqual((await connection.disconnect()).orders,[]);
+});
+test('delivery detail fetch binds Cafe24 API to loaded order and discards response after logout',async()=>{
+ let release;const order=reviewOrder();delete order.receiver;
+ const {connection}=makeConnection(makeRemoteSession(async url=>{
+  if(url.includes('/delivery-detail?')){assert.ok(url.endsWith('orderId=TEST-1'));return new Promise(resolve=>{release=resolve;});}
+  return Response.json(makePagePayload({orders:[order]}));
+ }));
+ await connection.refresh();
+ assert.equal((await connection.readDelivery('HR-C24-FFFFFFFF')).status,'UNAVAILABLE');
+ const pending=connection.readDelivery(order.hubOrderId);await connection.disconnect();
+ release(Response.json({ok:true,receiver:{name:'DO NOT DISPLAY'}}));assert.equal((await pending).status,'DISCONNECTED');
+});
+test('Cafe24 detail reads the exact permitted URL and returns bounded delivery fields',async()=>{
+ const order=reviewOrder();delete order.receiver;let remote;
+ remote=makeRemoteSession(async(url,options)=>{
+  if(!url.includes('/delivery-detail?'))return Response.json(makePagePayload({orders:[order]}));
+  assert.equal(options.method,'GET');assert.equal(options.redirect,'error');
+  let cancelled;remote.beforeRequestHandler({url,method:'GET',webContentsId:0},r=>cancelled=r.cancel);assert.equal(cancelled,false);
+  remote.beforeRequestHandler({url,method:'GET',webContentsId:8},r=>cancelled=r.cancel);assert.equal(cancelled,true);
+  remote.beforeRequestHandler({url:url+'&tenant=other',method:'GET',webContentsId:0},r=>cancelled=r.cancel);assert.equal(cancelled,true);
+  return Response.json({ok:true,receiver:{name:'시험',address:'가상 주소',message:'m'.repeat(700),token:'NO'}});
+ });
+ const {connection}=makeConnection(remote);await connection.refresh();const result=await connection.readDelivery(order.hubOrderId);
+ assert.equal(result.status,'READY');assert.equal(result.receiver.name,'시험');assert.equal(result.receiver.message.length,500);assert.equal('token' in result.receiver,false);
+});
 test('label preview requires registered invoice and revalidates private shipping inputs before print',async()=>{
   let order={...reviewOrder(),invoice:{status:'REGISTERED',number:'1234567890123'}},opened;
   const preview={context:()=>({}),close(){},open:async target=>{opened=target;return {status:'PREVIEW_OPEN'};}};
@@ -159,7 +191,7 @@ test('shipment review rereads authenticated page and returns only matching safe 
   const result=await connection.reviewShipment(order.hubOrderId);
   assert.equal(result.status,'REVIEW_ONLY');assert.equal(result.order.productName,'변경된 상품');
   assert.equal(calls[1].url,buildOrdersPageUrl(0,TEST_SNAPSHOT));assert.equal(calls[1].options.credentials,'include');
-  assert.equal(JSON.stringify(result).includes('01012345678'),false);
+  assert.equal(result.order.details.receiver.contact,'01012345678');
 });
 test('shipment review rejects bad identifiers and missing cursor without network calls',async()=>{
   let calls=0;const {connection}=makeConnection(makeRemoteSession(async()=>{calls++;throw Error();}));
@@ -299,7 +331,7 @@ test('IPC sender must be the exact local main frame and fixed app URL', () => {
   assert.equal(isTrustedRenderer({ sender: webContents, senderFrame: null }, mainWindow), false);
 });
 
-test('orders payload is deeply frozen, limited to 20, and projected without PII or provider fields', () => {
+test('orders payload is deeply frozen, limited to 20, and excludes non-delivery provider fields', () => {
   const source = Array.from({ length: 20 }, (_, index) => ({
     hubOrderId: `H-${index + 1}`,
     platform: index % 2 ? 'NAVER' : 'CAFE24',
@@ -346,10 +378,10 @@ test('orders payload is deeply frozen, limited to 20, and projected without PII 
     orderedAt: '2026-09-01T01:02:03.000Z',
     registrationEligible: false,
     issueAndRegisterEligible: false,
-    details: {externalOrderId:'',items:[{name:'',option:'',quantity:null}],invoice:null,delivery:null,cancelled:null,cancellationRequested:null},
+    details: {externalOrderId:'',receiver:{name:'비공개',address:'비공개',contact:'',postCode:'',addressDetail:'',message:''},items:[{name:'',option:'',quantity:null}],invoice:null,delivery:null,cancelled:null,cancellationRequested:null},
     preflight: {status:'CHECK_REQUIRED',route:'HUB',codes:['ROUTE_UNKNOWN','CANCEL_UNKNOWN','INVOICE_UNKNOWN','ORDER_ID','HISTORY_UNAVAILABLE','SERVER_CHECK','DELIVERY_INFO','QUANTITY','PARTIAL']},
   });
-  assert.equal(JSON.stringify(result).includes('비공개'), false);
+  assert.equal(Object.isFrozen(result.orders[0].details.receiver), true);
   assert.equal(JSON.stringify(result).includes('never-return-this'), false);
   assert.equal(JSON.stringify(result).includes('raw provider warning'), false);
   assert.equal(Object.isFrozen(result), true);
@@ -455,7 +487,7 @@ test('refresh uses fixed fetch options and maps partial data while retaining no 
   assert.ok(fetchCalls[0].options.signal instanceof AbortSignal);
   assert.equal(result.status, 'PARTIAL');
   assert.equal(result.orders[0].amount, null);
-  assert.equal(JSON.stringify(result).includes('PII'), false);
+  assert.equal(result.orders[0].details.receiver.name, 'PII');
 });
 
 test('page actions fetch exactly 20 plus 20 plus 5 rows, move backward, stop at bounds, and refresh from page one', async () => {
@@ -952,7 +984,10 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
   const trusted = { sender: webContents, senderFrame: mainFrame };
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:register-invoices','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-delivery','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:register-invoices','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  const deliveryHandler=handlers.get('moaon-hub:read-delivery');
+  await assert.rejects(deliveryHandler({sender:{},senderFrame:null},'HR-C24-1234ABCD'),/Untrusted renderer/);
+  for(const args of [[],['https://other.invalid'],['HR-C24-1234ABCD','other-tenant']])await assert.rejects(deliveryHandler(trusted,...args),/Invalid delivery/);
   const businessHandler=handlers.get('moaon-hub:list-businesses');
   await assert.rejects(handlers.get('moaon-hub:read-overview')({sender:{},senderFrame:null}),/Untrusted renderer/);
   assert.deepEqual(await businessHandler(trusted),{status:'READY',businesses:[]});
@@ -1001,7 +1036,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['readDelivery','readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   await bridge.listBusinesses('ignored');
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });

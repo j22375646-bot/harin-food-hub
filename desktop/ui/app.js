@@ -255,8 +255,25 @@ function showOrderDetail(order, button, options = {}) {
   const fact=(title,value)=>facts.append(makeElement('dt','',title),makeElement('dd','',value));
   fact('결제금액',isSampleMode()?`${order.amount} · 샘플`:formatNumber(order.amount,'원'));
   fact('수량',isSampleMode()?order.option:formatNumber(order.quantity,'개'));
-  fact('수취 정보',isSampleMode()?`${order.customer} · ${order.address}`:'웹 허브에서 확인');
   body.append(facts);
+  if(!isSampleMode()){
+    const receiver=order.details?.receiver||{};
+    const delivery=makeElement('section','detail-section delivery-information');delivery.setAttribute('aria-label','배송정보');
+    delivery.append(makeElement('h3','','배송정보'));
+    const fields=makeElement('dl','detail-facts');
+    for(const [label,value] of [['받는 분',receiver.name],['연락처',receiver.contact],['우편번호',receiver.postCode],['주소',[receiver.address,receiver.addressDetail].filter(Boolean).join(' ')],['배송 메모',receiver.message||'배송 메모 없음']])fields.append(makeElement('dt','',label),makeElement('dd','',value||'확인 필요'));
+    delivery.append(fields);body.append(delivery);
+    if((!receiver.name||!receiver.address)&&order.platform==='CAFE24'&&window.moaonHub?.readDelivery){
+      const state=makeElement('p','detail-notice','배송정보 불러오는 중…');delivery.append(state);
+      const expected=actionGeneration;
+      window.moaonHub.readDelivery(orderId(order)).then(result=>{
+        if(expected!==actionGeneration||!delivery.isConnected||selectedOrderId!==orderId(order))return;
+        if(result.status!=='READY'){state.textContent='배송정보 조회 확인 필요 · 주문을 다시 선택해 재조회하세요.';return;}
+        const fresh=result.receiver||{},values=[fresh.name,fresh.contact,fresh.postCode,[fresh.address,fresh.addressDetail].filter(Boolean).join(' '),fresh.message||'배송 메모 없음'];
+        fields.querySelectorAll('dd').forEach((node,index)=>node.textContent=values[index]||'확인 필요');state.textContent='배송정보 조회 완료';
+      }).catch(()=>{if(delivery.isConnected)state.textContent='배송정보 조회 확인 필요';});
+    }
+  }
   const more=makeElement('details','detail-more');
   more.append(makeElement('summary','','주문 · 배송 추가 정보'));
   for(const gift of order.visual?.gifts||[])addDetailSection(body,'동봉할 사은품',gift.name,gift.quantity+'개 · 조회 시점 캘린더 이벤트 판정');
@@ -279,7 +296,7 @@ function showOrderDetail(order, button, options = {}) {
     const reasons = makeElement('ul');
     for (const code of preflight?.codes || []) reasons.append(makeElement('li', '', reasonLabels[code] || '추가 확인 필요'));
     const reasonDetails=makeElement('details','preflight-reasons');
-    reasonDetails.append(makeElement('summary','',`확인할 항목 ${reasons.childElementCount}개`),reasons,makeElement('span','','발급 승인 아님 · 수취 정보와 최신 주문·송장 이력은 웹 허브에서 확인하세요.'));
+    reasonDetails.append(makeElement('summary','',`확인할 항목 ${reasons.childElementCount}개`),reasons,makeElement('span','','발급 직전에 최신 주문·배송정보·송장 이력을 다시 확인합니다.'));
     checkSection.append(reasonDetails);
     addDetailSection(more, '주문', order.hubOrderId || '주문번호 확인 필요', `${order.platform || '채널 확인 필요'} · ${stageLabel(order.stage)}`);
     const details = order.details || {};
@@ -536,7 +553,8 @@ function renderSelection(){
   document.querySelector('#selection-auto-ship').disabled=registrationBusy||!autoEligible;
   for(const button of detailPanel.querySelectorAll('[data-auto-ship]'))button.disabled=registrationBusy||!displayedOrders.some(order=>orderId(order)===button.dataset.autoShip&&order.issueAndRegisterEligible);
   const bar=document.querySelector('#order-selection');
-  bar.hidden=count===0&&!selectedOrderId;
+  bar.hidden=count===0;
+  if(!count)bar.querySelector('details')?.removeAttribute('open');
   document.querySelector('#selection-count').textContent=count?`${count}건 선택`:'상세 보기';
   document.querySelector('#selection-review').disabled=registrationBusy||(!selectedOrderId&&count===0);
   document.querySelector('#selection-review').textContent=count>1?'첫 선택 내용 확인':'내용 확인';

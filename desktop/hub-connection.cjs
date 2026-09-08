@@ -77,6 +77,7 @@ function projectOrderDetails(order) {
   const delivery = order?.listDeliveryBadge;
   return Object.freeze({
     externalOrderId: safeString(order?.externalOrderId),
+    receiver: Object.freeze(Object.fromEntries(['name','contact','postCode','address','addressDetail','message'].map(key=>[key,safeString(order?.receiver?.[key])]))),
     items: Object.freeze((Array.isArray(order?.items) ? order.items.slice(0, 8) : []).map(item => Object.freeze({
       name: safeString(item?.name),
       option: safeString(item?.option),
@@ -271,6 +272,28 @@ function createHubConnection({
   let registrationRequestActive=false;
   let automaticController=null;
   const automaticPermits=new Set();
+  const deliveryPermits=new Set();
+  async function readDelivery(id){
+    const row=loadedOrders.find(order=>order.hubOrderId===id);
+    if(disconnecting||cleanupFailed||!row)return {status:'UNAVAILABLE'};
+    if(row.details.receiver.name&&row.details.receiver.address)return {status:'READY',receiver:row.details.receiver};
+    if(row.platform!=='CAFE24'||!/^HR-C24-[A-F0-9]{8}$/.test(id)||!/^[-A-Za-z0-9_]{1,80}$/.test(row.details.externalOrderId))return {status:'CHECK_REQUIRED'};
+    const expected=generation,controller=new AbortController();businessReads.add(controller);
+    const url=`${HARIN_ORIGIN}/api/cafe24/orders/delivery-detail?orderId=${encodeURIComponent(row.details.externalOrderId)}`;
+    deliveryPermits.add(url);let timer;
+    try{
+      const operation=(async()=>{
+        const response=await getRemoteSession().fetch(url,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
+        if(response.status!==200)return {status:'CHECK_REQUIRED'};
+        const payload=await readBoundedJson(response,controller);
+        if(payload?.ok!==true||!payload.receiver)return {status:'CHECK_REQUIRED'};
+        return {status:'READY',receiver:projectOrderDetails({receiver:payload.receiver}).receiver};
+      })();
+      const result=await Promise.race([operation,new Promise(resolve=>{timer=setTimeout(()=>{controller.abort();resolve({status:'CHECK_REQUIRED'});},timeoutMs);}),new Promise(resolve=>controller.signal.addEventListener('abort',()=>resolve({status:'CHECK_REQUIRED'}),{once:true}))]);
+      return expected!==generation||!loadedOrders.includes(row)?{status:'DISCONNECTED'}:result;
+    }catch{return {status:expected!==generation?'DISCONNECTED':'CHECK_REQUIRED'};}
+    finally{clearTimeout(timer);deliveryPermits.delete(url);businessReads.delete(controller);}
+  }
   let reviewingShipment = false;
   let shipmentRegistry=null;
   let shipmentDrain=Promise.resolve();
@@ -370,6 +393,7 @@ function createHubConnection({
             shipmentRequestActive: shipmentPermits.has(`${details.method} ${details.url}`),
             registrationRequestActive,
             automaticRequestActive:automaticPermits.has(details.url),
+            deliveryRequestActive:deliveryPermits.has(details.url),
             ...labelPreview?.context(),
           }),
         });
@@ -1114,10 +1138,15 @@ function createHubConnection({
     loginWindow = null;
   }
 
-  return Object.freeze({ readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
+  ipcMain.handle('moaon-hub:read-delivery',async(event,...args)=>{
+    if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+    if(args.length!==1||typeof args[0]!=='string'||!/^HR-(?:C24|CP|NV)-[A-F0-9]{8}$/.test(args[0]))throw Error('Invalid delivery arguments');
+    return connection.readDelivery(args[0]);
+  });
   ipcMain.handle('moaon-hub:issue-and-register',async(event,...args)=>{
     if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
     if(args.length!==1||!validRegistrationIds(args[0]))throw Error('Invalid automatic shipping arguments');

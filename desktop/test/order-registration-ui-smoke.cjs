@@ -38,6 +38,7 @@ async function main(){
   await page.locator('.order-row').first().click();
   assert.equal(await page.getByRole('button',{name:'이 주문 송장 등록',exact:true}).isVisible(),true);
   await page.locator('.order-select').nth(1).check();
+  await page.getByText('추가 작업',{exact:true}).click();
   await page.locator('#selection-review').click();
   assert.match(await page.locator('.detail-product').innerText(),/검증 상품 2/,'content review follows checked order rather than previous inspector');
   await page.getByLabel('현재 페이지 모두 선택').check();
