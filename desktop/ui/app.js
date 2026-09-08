@@ -57,6 +57,31 @@ let connectionResult = null;
 let actionGeneration = 0;
 let selectedScope = 'ACTIVE';
 let scopeControlsAvailable = false;
+let businessGeneration=0,businessLoaded=false,businessBusy=false;
+function clearBusinesses(){
+ businessGeneration++;businessLoaded=false;businessBusy=false;
+ document.querySelector('#business-list').replaceChildren();
+ document.querySelector('#business-list-status').textContent='로그인 후 사업장 목록을 확인합니다.';
+ document.querySelector('#business-list-refresh').disabled=true;
+}
+async function refreshBusinesses(){
+ if(businessBusy||displayMode!=='live')return;
+ const expected=++businessGeneration;businessBusy=true;
+ const button=document.querySelector('#business-list-refresh'),status=document.querySelector('#business-list-status'),list=document.querySelector('#business-list');
+ button.disabled=true;list.replaceChildren();status.textContent='소속 사업장을 확인하고 있습니다.';
+ try{
+  const result=await window.moaonHub.listBusinesses();
+  if(expected!==businessGeneration)return;
+  const messages={LOGIN_REQUIRED:'로그인이 만료되었습니다. 다시 로그인해주세요.',FORBIDDEN:'사업장 목록을 볼 권한이 없습니다.',TIMEOUT:'조회 시간이 초과됐습니다. 다시 확인해주세요.',UNAVAILABLE:'목록을 불러오지 못했습니다. 잠시 후 다시 확인해주세요.',DISCONNECTED:'연결이 해제됐습니다.',CANCELLED:'조회가 취소됐습니다.'};
+  if(result.status!=='READY'){status.textContent=messages[result.status]||messages.UNAVAILABLE;return;}
+  status.textContent=result.businesses.length?`소속 사업장 ${result.businesses.length}개 · 업무 전환 기능은 준비 중입니다.`:'등록된 소속 사업장이 없습니다. 기존 하린식품 업무 연결과는 별도입니다.';
+  list.replaceChildren(...result.businesses.map(business=>{
+   const item=makeElement('li');item.append(makeElement('strong','',business.displayName),makeElement('span','',({OWNER:'소유자',OPERATOR:'운영자',VIEWER:'조회 담당자'})[business.role]));return item;
+  }));
+ }catch{if(expected===businessGeneration)status.textContent='목록을 불러오지 못했습니다. 다시 확인해주세요.';}
+ finally{if(expected===businessGeneration){businessBusy=false;button.disabled=false;}}
+}
+document.querySelector('#business-list-refresh').addEventListener('click',refreshBusinesses);
 let reviewFilter = 'ALL';
 const reviewLabels = Object.freeze({ALL:'전체',REVIEW_ONLY:'확인 후보',BLOCKED:'제외',EXTERNAL:'별도 처리',CHECK_REQUIRED:'확인 필요'});
 const reviewStatus = order => Object.hasOwn(reviewLabels, order.preflight?.status) && order.preflight.status !== 'ALL'
@@ -461,6 +486,7 @@ function clearDisplayedOrders(mode, message) {
 }
 
 function applyHubResult(result) {
+  if(!['READY','PARTIAL'].includes(result?.status))clearBusinesses();
   const gate=document.querySelector('#entry-screen'),shell=document.querySelector('.preview-shell');
   if(result?.status==='READY'||result?.status==='PARTIAL'){
     gate.hidden=true;shell.hidden=false;shell.inert=false;
@@ -472,6 +498,7 @@ function applyHubResult(result) {
     if (scopeDetails[result.scope]) selectedScope = result.scope;
     scopeControlsAvailable = true;
     displayMode = 'live';
+    if(!businessLoaded){businessLoaded=true;void refreshBusinesses();}
     connectionResult = result;
     displayedOrders = Object.freeze(result.orders.map((order) => Object.freeze({
       hubOrderId: typeof order.hubOrderId === 'string' ? order.hubOrderId : '', platform: typeof order.platform === 'string' ? order.platform : '',
@@ -512,6 +539,7 @@ async function runHubAction(action) {
   }
   if (action === 'nextPage' || action === 'previousPage') clearDisplayedOrders('connecting', action === 'nextPage' ? '다음 주문 페이지를 조회하고 있습니다.' : '이전 주문 페이지를 조회하고 있습니다.');
   if (action === 'disconnect') {
+    clearBusinesses();
     selectedScope = 'ACTIVE';
     scopeControlsAvailable = false;
     clearDisplayedOrders('connecting', '실제 주문을 비우고 연결 정보를 지우고 있습니다.');
@@ -535,6 +563,7 @@ async function runHubAction(action) {
 }
 
 async function returnToSample() {
+  clearBusinesses();
   const generation = ++actionGeneration;
   clearDisplayedOrders('connecting', '실제 주문을 비우고 샘플 화면으로 돌아가고 있습니다.');
   try {
