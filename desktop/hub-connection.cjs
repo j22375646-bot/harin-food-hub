@@ -278,6 +278,31 @@ function createHubConnection({
   let serverHistoryRequestActive=false;
   let trackingController=null;
   let trackingRequestMethod=null;
+  let automaticTrackingRequestActive=false;
+  async function enqueueRegisteredTracking(row,approved,controller,alive){
+    const id=row?.hubOrderId;
+    if(!alive()||controller.signal.aborted||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id||'')
+      ||row.platform!==(id.startsWith('HR-C24-')?'CAFE24':'COUPANG')
+      ||row.preflight.route!=='HUB'||row.preflight.codes.some(code=>['PARTIAL','ORDER_ID','ROUTE_UNKNOWN'].includes(code))
+      ||row.details.cancelled!==false||row.details.cancellationRequested!==false||row.stage==='CANCELLED'
+      ||row.details.invoice?.status!=='REGISTERED'||row.details.invoice.number!==approved.details.invoice?.number
+      ||workflowFingerprints.get(row)!==workflowFingerprints.get(approved))return 'CHECK_REQUIRED';
+    const local=new AbortController(),stop=()=>local.abort();let timer;
+    controller.signal.addEventListener('abort',stop,{once:true});
+    automaticTrackingRequestActive=true;
+    try{
+      const stopped=new Promise(resolve=>{local.signal.addEventListener('abort',()=>resolve('CHECK_REQUIRED'),{once:true});timer=setTimeout(stop,timeoutMs);});
+      return await Promise.race([(async()=>{
+        const response=await getRemoteSession().fetch(`${HARIN_ORIGIN}/api/shipping/tracking`,{method:'POST',credentials:'include',cache:'no-store',redirect:'error',signal:local.signal,headers:{'Content-Type':'application/json',Origin:HARIN_ORIGIN},body:JSON.stringify({orderIds:[id],mode:'automatic'})});
+        if(!alive()||local.signal.aborted||![200,202].includes(response.status))return 'CHECK_REQUIRED';
+        const payload=await readBoundedJson(response,local),queued=payload?.queued?.[0];
+        return alive()&&!local.signal.aborted&&payload?.ok===true&&Array.isArray(payload.queued)&&payload.queued.length===1
+          &&queued?.trackingNo===row.details.invoice.number&&Array.isArray(queued.hubOrderIds)&&queued.hubOrderIds.includes(id)
+          &&['PENDING','RUNNING','SUCCESS'].includes(queued.status)?'PENDING':'CHECK_REQUIRED';
+      })(),stopped]);
+    }catch{return 'CHECK_REQUIRED';}
+    finally{clearTimeout(timer);controller.signal.removeEventListener('abort',stop);local.abort();automaticTrackingRequestActive=false;}
+  }
   function trackingRow(id){
     if(typeof id!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id)||loadedOrders.length>20)return null;
     const rows=loadedOrders.filter(row=>row.hubOrderId===id);
@@ -482,6 +507,7 @@ function createHubConnection({
             registrationRequestActive,
             serverHistoryRequestActive,
             trackingRequestMethod,
+            automaticTrackingRequestActive,
             automaticRequestActive:automaticPermits.has(details.url),
             deliveryRequestActive:deliveryPermits.has(details.url),
             ...labelPreview?.context(),
@@ -740,7 +766,7 @@ function createHubConnection({
         if(targets.some((rows,i)=>rows.length!==1||!rows[0].issueAndRegisterEligible||shipmentFingerprints.get(rows[0])!==shipmentFingerprints.get(initial[i][0])))return empty('CHECK_REQUIRED');
       }
       if(!alive())return empty('DISCONNECTED');
-      const answer=await showShipmentReview(getMainWindow(),{type:'warning',title:'모아온 · 송장 발급·쇼핑몰 등록',message:`선택한 ${ids.length}건의 실제 우체국 송장을 발급하고 쇼핑몰에 등록할까요?`,detail:`하린식품\n${targets.map(([row])=>`${row.platform} · ${row.hubOrderId} · ${row.quantity}개 · ${row.details.invoice?.status==='REGISTERED'?'등록 결과 확인':row.registrationEligible?'기존 발급 번호 등록':'실제 계약소포 발급'}`).join('\n')}\n결제완료 주문은 상품준비중으로 변경합니다. 기존 발급 작업은 재발급하지 않고 상태를 확인합니다.`,buttons:['취소','실제 발급·쇼핑몰 등록'],defaultId:0,cancelId:0,noLink:true});
+      const answer=await showShipmentReview(getMainWindow(),{type:'warning',title:'모아온 · 송장 발급·쇼핑몰 등록',message:`선택한 ${ids.length}건의 실제 우체국 송장을 발급하고 쇼핑몰에 등록할까요?`,detail:`하린식품\n${targets.map(([row])=>`${row.platform} · ${row.hubOrderId} · ${row.quantity}개 · ${row.details.invoice?.status==='REGISTERED'?'등록 결과 확인':row.registrationEligible?'기존 발급 번호 등록':'실제 계약소포 발급'}`).join('\n')}\n결제완료 주문은 상품준비중으로 변경합니다. 기존 발급 작업은 재발급하지 않고 상태를 확인합니다. 등록 확인 후 배송 추적 조회를 요청합니다.`,buttons:['취소','실제 발급·쇼핑몰 등록'],defaultId:0,cancelId:0,noLink:true});
       if(!alive())return empty('DISCONNECTED');if(answer?.response!==1)return empty('REVIEW_CANCELLED');
       if(recovery.some(Boolean)){
         for(const [row] of targets){const latest=await freshRecoveryRow(row.hubOrderId);if(!latest||shipmentFingerprints.get(row)!==shipmentFingerprints.get(latest))return empty('CHECK_REQUIRED');}
@@ -818,7 +844,10 @@ function createHubConnection({
           if(row&&same(approved,row)&&row.details.invoice?.status==='REGISTERED'&&await uploadJournal(row).read()!==null){
             const outcome=await action(row,'UPLOAD_INVOICE');
             const verified=outcome==='SUCCESS'?await readTarget(hubOrderId,'REGISTER'):null;
-            results.push({hubOrderId,phase:'REGISTER',status:outcome==='SUCCESS'?verified&&same(approved,verified)&&verified.details.invoice?.status==='REGISTERED'&&verified.details.invoice.number===row.details.invoice.number?'REGISTERED':'CHECK_REQUIRED':outcome});continue;
+            const result={hubOrderId,phase:'REGISTER',status:outcome==='SUCCESS'?verified&&same(approved,verified)&&verified.details.invoice?.status==='REGISTERED'&&verified.details.invoice.number===row.details.invoice.number?'REGISTERED':'CHECK_REQUIRED':outcome};
+            results.push(result);
+            if(result.status==='REGISTERED')result.trackingStatus=await enqueueRegisteredTracking(verified,row,controller,active);
+            continue;
           }
           if(!row||!same(approved,row)||!row.issueAndRegisterEligible){results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});continue;}
           if(row.registrationEligible){
@@ -865,7 +894,9 @@ function createHubConnection({
           const registered=await action(row,'UPLOAD_INVOICE');
           if(registered!=='SUCCESS'){results.push({hubOrderId,phase,status:registered});continue;}
           const verified=await readTarget(hubOrderId,'REGISTER');
-          results.push({hubOrderId,phase,status:verified&&same(approved,verified)&&verified.details.invoice?.status==='REGISTERED'&&verified.details.invoice.number===row.details.invoice.number?'REGISTERED':'CHECK_REQUIRED'});
+          const result={hubOrderId,phase,status:verified&&same(approved,verified)&&verified.details.invoice?.status==='REGISTERED'&&verified.details.invoice.number===row.details.invoice.number?'REGISTERED':'CHECK_REQUIRED'};
+          results.push(result);
+          if(result.status==='REGISTERED')result.trackingStatus=await enqueueRegisteredTracking(verified,row,controller,active);
         }catch{results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});}
       }
       if(!alive())return empty('DISCONNECTED');
@@ -900,7 +931,7 @@ function createHubConnection({
         if(await journal.read()!==null)return empty('CHECK_REQUIRED');
         uploadJournals.push(journal);
       }
-      const answer=await showShipmentReview(getMainWindow(),{type:'warning',title:'모아온 · 쇼핑몰 송장 등록',message:`선택한 ${ids.length}건의 발급 송장을 쇼핑몰에 등록할까요?`,detail:`하린식품\n${before.map(row=>`${row.platform} · ${row.hubOrderId} · ${row.details.invoice.number}`).join('\n')}\n쿠팡은 처리 대기 상태로 접수될 수 있습니다.`,buttons:['취소','송장 등록'],defaultId:0,cancelId:0,noLink:true});
+      const answer=await showShipmentReview(getMainWindow(),{type:'warning',title:'모아온 · 쇼핑몰 송장 등록',message:`선택한 ${ids.length}건의 발급 송장을 쇼핑몰에 등록할까요?`,detail:`하린식품\n${before.map(row=>`${row.platform} · ${row.hubOrderId} · ${row.details.invoice.number}`).join('\n')}\n쿠팡은 처리 대기 상태로 접수될 수 있습니다. 등록 확인 후 배송 추적 조회를 요청합니다.`,buttons:['취소','송장 등록'],defaultId:0,cancelId:0,noLink:true});
       if(!alive())return empty('DISCONNECTED');
       if(answer?.response!==1)return empty('REVIEW_CANCELLED');
       const approved=await reread(before);if(!approved)return empty(alive()?'ORDER_CHANGED':'DISCONNECTED');
@@ -959,10 +990,12 @@ function createHubConnection({
         else if(outcome?.ok===true&&['QUEUED','RUNNING'].includes(outcome.status))status='PENDING';
         else if(outcome?.ok===true&&outcome.status==='SUCCESS'&&verified.status==='READY'){
           const rows=verified.orders.filter(row=>row.hubOrderId===hubOrderId);
-          if(rows.length===1&&rows[0].details.invoice?.status==='REGISTERED'&&rows[0].details.invoice.number===approved[index].details.invoice.number)status='REGISTERED';
+          if(rows.length===1&&rows[0].details.invoice?.status==='REGISTERED'&&rows[0].details.invoice.number===approved[index].details.invoice.number&&workflowFingerprints.get(rows[0])===workflowFingerprints.get(approved[index]))status='REGISTERED';
         }
         return {hubOrderId,status};
       });
+      for(const [index,result] of results.entries())if(result.status==='REGISTERED')result.trackingStatus=await enqueueRegisteredTracking(verified.orders.find(row=>row.hubOrderId===result.hubOrderId),approved[index],controller,alive);
+      if(!alive())return empty('DISCONNECTED');
       return {status:results.every(row=>row.status==='REGISTERED')?'COMPLETED':'PARTIAL',results};
     }catch{return alive()?{status:sent?'PARTIAL':'UNAVAILABLE',results:sent?ids.map(hubOrderId=>({hubOrderId,status:'CHECK_REQUIRED'})):[]}:empty('DISCONNECTED');}
     finally{clearTimeout(timer);registrationController=null;registrationRequestActive=false;reviewingShipment=false;}

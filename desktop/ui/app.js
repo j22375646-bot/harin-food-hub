@@ -230,12 +230,13 @@ function trackingSection(order){
   const buttons=makeElement('div','tracking-actions');
   const read=makeElement('button','secondary-action','저장 추적 조회'),refresh=makeElement('button','secondary-action','배송상태 갱신 요청');
   read.type=refresh.type='button';buttons.append(read,refresh);
+  const reload=makeElement('button','secondary-action','주문 목록 다시 조회');reload.type='button';reload.hidden=true;buttons.append(reload);
   panel.append(makeElement('h3','','우체국 배송추적'),state,time,buttons);
   let busy=false;
   const current=()=>generation===actionGeneration&&displayMode==='live'&&selectedOrderId===id&&panel.isConnected;
   const run=async renew=>{
     if(!current()||busy||registrationBusy)return;
-    busy=true;read.disabled=refresh.disabled=true;panel.setAttribute('aria-busy','true');
+    busy=true;reload.hidden=true;read.disabled=refresh.disabled=true;panel.setAttribute('aria-busy','true');
     state.textContent=renew?'배송상태 갱신 요청 중…':'저장 추적 조회 중…';time.textContent='';
     try{
       const result=await (renew?window.moaonHub.refreshTracking(id):window.moaonHub.readTracking(id));
@@ -245,12 +246,14 @@ function trackingSection(order){
       }else if(result?.status==='READY'&&result.state){
         const labels={WAITING:'배송 이동 확인 전',IN_TRANSIT:'배송중',DELIVERED:'배송완료',PENDING:'조회 처리 대기',CHECK_REQUIRED:'추적 확인 필요'};
         state.textContent=labels[result.state.status]||labels.CHECK_REQUIRED;
+        reload.hidden=!['WAITING','IN_TRANSIT','DELIVERED'].includes(result.state.status);
         time.textContent=result.state.checkedAt?`기록 확인 ${formatTime(result.state.checkedAt)} · 저장 추적 기준`:'확인 시각 없음 · 저장 추적 기준';
       }else{state.textContent='추적 확인 필요';time.textContent='기록이 없거나 조회하지 못했습니다. 잠시 뒤 다시 확인하세요.';}
     }catch{if(current()){state.textContent='추적 확인 필요';time.textContent='연결을 확인한 뒤 다시 조회하세요.';}}
     finally{busy=false;read.disabled=refresh.disabled=false;panel.removeAttribute('aria-busy');}
   };
   read.addEventListener('click',()=>void run(false));refresh.addEventListener('click',()=>void run(true));
+  reload.addEventListener('click',()=>{if(current()&&!busy&&!registrationBusy)void runHubAction('refresh');});
   return panel;
 }
 
@@ -940,6 +943,14 @@ function appendManualHistoryRefresh(panel,generation){
   panel.append(refresh);
 }
 
+function appendTrackingOutcome(parent,id,status,generation){
+  const note=makeElement('div','registration-tracking');
+  note.append(makeElement('span','',status==='PENDING'?'배송추적 요청 접수 · 완료 아님':'송장 등록 완료 · 배송추적 확인 필요'));
+  const open=makeElement('button','secondary-action','주문·추적 열기');open.type='button';
+  open.addEventListener('click',()=>{if(generation===actionGeneration&&displayMode==='live'&&!registrationBusy)void findFollowupOrder(id);});
+  note.append(open);parent.append(note);
+}
+
 async function runAutomaticShipping(explicitIds){
   if(registrationBusy||displayMode!=='live')return;
   const ids=explicitIds||[...selectedOrderIds];
@@ -969,7 +980,7 @@ async function runAutomaticShipping(explicitIds){
         if(row.status==='REGISTERED')shippingFollowup.delete(id);
         else shippingFollowup.set(id,{status:labels[row.status]?row.status:'CHECK_REQUIRED'});
         line.append(makeElement('span','',`${id} · ${phases[row.phase]||'출고 처리'}`),makeElement('strong','',labels[row.status]||labels.CHECK_REQUIRED));
-        if(row.status==='REGISTERED')complete.add(id);
+        if(row.status==='REGISTERED'){complete.add(id);appendTrackingOutcome(line,id,row.trackingStatus,generation);}
         if(row.status==='PENDING'){
           const resume=makeElement('button','secondary-action','진행 다시 확인');resume.type='button';
           resume.addEventListener('click',()=>void runAutomaticShipping([id]));line.append(resume);
@@ -1028,7 +1039,7 @@ async function registerSelectedInvoices(){
     if(['COMPLETED','PARTIAL'].includes(result?.status)){
       const rows=ids.map(id=>{
         const matches=Array.isArray(result.results)?result.results.filter(row=>row?.hubOrderId===id):[];
-        return {id,state:matches.length===1&&Object.hasOwn(messages,matches[0].status)?matches[0].status:'CHECK_REQUIRED'};
+        return {id,state:matches.length===1&&Object.hasOwn(messages,matches[0].status)?matches[0].status:'CHECK_REQUIRED',trackingStatus:matches.length===1?matches[0].trackingStatus:undefined};
       });
       for(const row of rows){
         if(row.state==='REGISTERED')shippingFollowup.delete(row.id);
@@ -1039,6 +1050,7 @@ async function registerSelectedInvoices(){
         const item=makeElement('li','registration-result-item');
         item.dataset.state=row.state;
         item.append(makeElement('span','',row.id),makeElement('strong','',messages[row.state]));
+        if(row.state==='REGISTERED')appendTrackingOutcome(item,row.id,row.trackingStatus,generation);
         return item;
       }));
       if(rows.some(row=>row.state!=='REGISTERED'))appendManualHistoryRefresh(panel,generation);

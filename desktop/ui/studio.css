@@ -107,6 +107,8 @@ html body::-webkit-scrollbar,html body *::-webkit-scrollbar{display:none!importa
 .registration-results ul{margin:6px 0;padding-left:18px}.registration-results p{margin:4px 0;color:var(--muted)}
 .registration-result-item{display:grid;grid-template-columns:minmax(145px,1fr) minmax(190px,auto);align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--line)}
 .registration-result-item>strong{justify-self:end;text-align:right;color:var(--ink)}
+.registration-tracking{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding-top:6px;color:var(--muted);font-size:12px;flex-basis:100%}
+.registration-tracking button{border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface-soft);color:var(--ink);font:inherit;min-height:32px;cursor:pointer}
 @media(max-width:720px){.registration-result-item{grid-template-columns:1fr}.registration-result-item>strong{justify-self:start;text-align:left}}
 .registration-results>.secondary-action,.server-history-tools>.secondary-action,.shipping-history-tools>.secondary-action{min-height:32px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface-soft);color:var(--ink);font:inherit;cursor:pointer}
 .registration-results>.secondary-action:hover,.server-history-tools>.secondary-action:hover,.shipping-history-tools>.secondary-action:hover{border-color:var(--blue);background:var(--blue-soft)}

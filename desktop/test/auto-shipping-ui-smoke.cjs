@@ -12,12 +12,14 @@ const {launchDesktop}=require('./launch.cjs');
   const auto=page.locator('#selection-auto-ship');assert.equal(await auto.count(),1);
   await app.evaluate(({ipcMain})=>{
     globalThis.autoCalls=0;ipcMain.removeHandler('moaon-hub:issue-and-register');
-    ipcMain.handle('moaon-hub:issue-and-register',async(_event,ids)=>{globalThis.autoCalls++;await new Promise(resolve=>setTimeout(resolve,100));return {status:'PARTIAL',results:ids.map((hubOrderId,i)=>({hubOrderId,phase:i?'ISSUE':'REGISTER',status:i?'PENDING':'REGISTERED'}))};});
+    ipcMain.handle('moaon-hub:issue-and-register',async(_event,ids)=>{globalThis.autoCalls++;await new Promise(resolve=>setTimeout(resolve,100));return {status:'PARTIAL',results:ids.map((hubOrderId,i)=>({hubOrderId,phase:i?'ISSUE':'REGISTER',status:i?'PENDING':'REGISTERED',trackingStatus:i?undefined:'PENDING'}))};});
   });
   await page.locator('#order-select-all').check();await auto.click();
   await page.evaluate(()=>runAutomaticShipping());
   await page.waitForFunction(()=>document.querySelector('#auto-shipping-results')?.textContent.includes('등록 완료'));
   assert.equal(await app.evaluate(()=>globalThis.autoCalls),1);
+  assert.match(await page.locator('#auto-shipping-results').innerText(),/배송추적 요청 접수 · 완료 아님/);
+  assert.equal(await page.getByRole('button',{name:'주문·추적 열기',exact:true}).count(),1);
   assert.match(await page.locator('#auto-shipping-results').innerText(),/발급.*대기/s);
   assert.equal(await page.locator('.order-select:checked').count(),0);
   await app.evaluate(({ipcMain})=>{ipcMain.removeHandler('moaon-hub:issue-and-register');ipcMain.handle('moaon-hub:issue-and-register',()=>({status:'REVIEW_CANCELLED',results:[]}));});

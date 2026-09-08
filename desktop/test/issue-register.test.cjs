@@ -31,15 +31,40 @@ test('one native approval prepares, journals issue, rereads invoice and register
   let confirmations=0;const env=host(directory,{dialog:async(_parent,options)=>{confirmations++;assert.match(options.message,/발급.*등록/);assert.equal(options.defaultId,0);return {response:1};}});
   await env.connection.refresh();assert.equal(typeof env.connection.issueAndRegister,'function');
   const result=await env.connection.issueAndRegister([id]);
-  assert.deepEqual(result,{status:'COMPLETED',results:[{hubOrderId:id,phase:'REGISTER',status:'REGISTERED'}]});
+  assert.deepEqual(result,{status:'COMPLETED',results:[{hubOrderId:id,phase:'REGISTER',status:'REGISTERED',trackingStatus:'CHECK_REQUIRED'}]});
   assert.equal(confirmations,1);
   const posts=env.calls.filter(call=>call.options.method==='POST');
   assert.ok(posts.every(call=>call.options.headers.Origin==='https://harin-cafe24-sync.vercel.app'));
-  assert.deepEqual(posts.map(call=>JSON.parse(call.options.body).action||'ISSUE'),['PREPARE','ISSUE','UPLOAD_INVOICE']);
+  assert.deepEqual(posts.map(call=>JSON.parse(call.options.body).action||JSON.parse(call.options.body).mode||'ISSUE'),['PREPARE','ISSUE','UPLOAD_INVOICE','automatic']);
+  assert.deepEqual(JSON.parse(posts[3].options.body),{orderIds:[id],mode:'automatic'});
   assert.equal(JSON.parse(posts[2].options.body).orders[0].invoiceNumber,'1234567890123');
   await env.connection.disconnect();
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });
+test('tracking enqueue is exact, bounded and cannot erase verified registration',async()=>{
+ for(const mode of ['success','failure','timeout','logout']){
+  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-auto-test-'));
+  try{
+   const env=host(directory,{automaticTimeoutMs:150}),original=env.remote.fetch;let trackingCalls=0;
+   env.remote.fetch=async(url,options)=>{
+    if(!url.endsWith('/api/shipping/tracking'))return original(url,options);
+    trackingCalls++;assert.equal(options.method,'POST');assert.deepEqual(JSON.parse(options.body),{orderIds:[id],mode:'automatic'});
+    let decision;env.remote.guard({url,method:'POST',webContentsId:0},value=>{decision=value;});assert.equal(decision.cancel,false);
+    if(mode==='failure')throw Error('Tracking failed');
+    if(mode==='timeout')return new Promise(()=>{});
+    if(mode==='logout'){await env.connection.disconnect();return new Promise(()=>{});}
+    return Response.json({ok:true,queued:[{trackingNo:'1234567890123',hubOrderIds:[id],status:'PENDING'}]},{status:202});
+   };
+   await env.connection.refresh();const result=await env.connection.issueAndRegister([id]);
+   assert.equal(trackingCalls,1);
+   if(mode==='logout')assert.equal(result.status,'DISCONNECTED');
+   else assert.deepEqual(result.results,[{hubOrderId:id,phase:'REGISTER',status:'REGISTERED',trackingStatus:mode==='success'?'PENDING':'CHECK_REQUIRED'}]);
+   let decision;env.remote.guard({url:'https://harin-cafe24-sync.vercel.app/api/shipping/tracking',method:'POST',webContentsId:0},value=>{decision=value;});assert.equal(decision.cancel,true);
+   await env.connection.disconnect();
+  }finally{await fs.rm(directory,{recursive:true,force:true});}
+ }
+});
+
 test('native cancellation and changed private receiver prevent all automatic writes',async()=>{
  for(const mode of ['cancel','changed','logout']){
   const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-auto-test-'));
@@ -80,7 +105,7 @@ test('pending issue resumes its durable request after restart without another is
   const current=env.getOrder();await env.connection.disconnect();
   const resumed=host(directory,{initial:current});await resumed.connection.refresh();
   const result=await resumed.connection.issueAndRegister([id]);assert.equal(result.status,'COMPLETED');
-  assert.deepEqual(resumed.calls.filter(call=>call.options.method==='POST').map(call=>JSON.parse(call.options.body).action),['UPLOAD_INVOICE']);
+  assert.deepEqual(resumed.calls.filter(call=>call.options.method==='POST'&&call.url.endsWith('/actions')).map(call=>JSON.parse(call.options.body).action),['UPLOAD_INVOICE']);
   await resumed.connection.disconnect();
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });
@@ -128,7 +153,7 @@ test('Coupang queued prepare survives restart, polls once resumed, then issues a
    return next(url,options);
   };
   await resumed.connection.refresh();assert.equal((await resumed.connection.issueAndRegister([cpId])).status,'COMPLETED');
-  const posts=resumed.calls.filter(call=>call.options.method==='POST');assert.deepEqual(posts.map(call=>JSON.parse(call.options.body).action||'ISSUE'),['ISSUE','UPLOAD_INVOICE']);
+  const posts=resumed.calls.filter(call=>call.options.method==='POST'&&!call.url.endsWith('/tracking'));assert.deepEqual(posts.map(call=>JSON.parse(call.options.body).action||'ISSUE'),['ISSUE','UPLOAD_INVOICE']);
   assert.equal(JSON.parse(posts[1].options.body).orders[0].deliveryCompanyCode,'EPOST');await resumed.connection.disconnect();
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });
@@ -167,6 +192,7 @@ test('a missing second preparation outcome cannot hide behind another completed 
  try{
   const env=host(directory),rows=new Map([[id,base()],[second,{...base(),hubOrderId:second}]]),issuedIds=[];
   env.remote.fetch=async(url,options)=>{
+   if(url.endsWith('/api/shipping/tracking'))return Response.json({ok:false},{status:503});
    if(options.method==='POST'){
     const body=JSON.parse(options.body),target=body.orders?.[0]?.hubOrderId||body.orderIds?.[0];
     if(body.action==='PREPARE'){
@@ -180,7 +206,7 @@ test('a missing second preparation outcome cannot hide behind another completed 
    const registered=new URL(url).searchParams.get('stage')==='REGISTER',orders=[...rows.values()].filter(row=>(row.invoice?.status==='REGISTERED')===registered);
    return Response.json({ok:true,orders,total:orders.length,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});
   };
-  await env.connection.refresh();assert.deepEqual(await env.connection.issueAndRegister([id,second]),{status:'PARTIAL',results:[{hubOrderId:id,phase:'REGISTER',status:'REGISTERED'},{hubOrderId:second,phase:'PREPARE',status:'CHECK_REQUIRED'}]});
+  await env.connection.refresh();assert.deepEqual(await env.connection.issueAndRegister([id,second]),{status:'PARTIAL',results:[{hubOrderId:id,phase:'REGISTER',status:'REGISTERED',trackingStatus:'CHECK_REQUIRED'},{hubOrderId:second,phase:'PREPARE',status:'CHECK_REQUIRED'}]});
   assert.deepEqual(issuedIds,[id]);await env.connection.disconnect();
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });
@@ -197,7 +223,7 @@ test('pending platform registration resumes only GET after restart and never rei
   await env.connection.refresh();assert.deepEqual((await env.connection.issueAndRegister([cpId])).results,[{hubOrderId:cpId,phase:'REGISTER',status:'PENDING'}]);assert.equal(posts,1);await env.connection.disconnect();
   const resumed=host(directory,{initial}),next=resumed.remote.fetch;
   resumed.remote.fetch=async(url,options)=>{
-   assert.notEqual(options.method,'POST');
+   if(!url.endsWith('/api/shipping/tracking'))assert.notEqual(options.method,'POST');
    if(url.includes('/api/coupang/operations/')){resumed.setOrder({...initial,invoiceNumber:'1234567890123',invoice:{status:'REGISTERED',number:'1234567890123'}});return Response.json({ok:true,request:{id:requestId,status:'SUCCESS'}});}
    return next(url,options);
   };
@@ -221,13 +247,13 @@ test('same-connection pending registration verifies a row already moved to REGIS
   const initial={...base(),hubOrderId:cpId,platform:'COUPANG',shipmentId:'123',stage:'PREPARING',issuedInvoiceNumber:'1234567890123',invoice:{status:'ISSUED',number:'1234567890123'}};
   const env=host(directory,{initial}),original=env.remote.fetch;let pending=true,posts=0;
   env.remote.fetch=async(url,options)=>{
-   if(options.method==='POST'){posts++;return Response.json({ok:true,results:[{hubOrderId:cpId,ok:true,status:'QUEUED',requestId}]},{status:202});}
+   if(options.method==='POST'&&url.endsWith('/actions')){posts++;return Response.json({ok:true,results:[{hubOrderId:cpId,ok:true,status:'QUEUED',requestId}]},{status:202});}
    if(url.includes('/api/coupang/operations/'))return Response.json({ok:true,request:{id:requestId,status:pending?'PENDING':'SUCCESS'}},{status:pending?202:200});
    return original(url,options);
   };
   await env.connection.refresh();assert.equal((await env.connection.issueAndRegister([cpId])).results[0].status,'PENDING');
   pending=false;env.setOrder({...initial,stage:'SHIPPING',invoiceNumber:'1234567890123',invoice:{status:'REGISTERED',number:'1234567890123'}});
-  assert.deepEqual(await env.connection.issueAndRegister([cpId]),{status:'COMPLETED',results:[{hubOrderId:cpId,phase:'REGISTER',status:'REGISTERED'}]});assert.equal(posts,1);await env.connection.disconnect();
+  assert.deepEqual(await env.connection.issueAndRegister([cpId]),{status:'COMPLETED',results:[{hubOrderId:cpId,phase:'REGISTER',status:'REGISTERED',trackingStatus:'CHECK_REQUIRED'}]});assert.equal(posts,1);await env.connection.disconnect();
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });
 test('manual ambiguous upload cannot be resent automatically in same process or after restart',async()=>{

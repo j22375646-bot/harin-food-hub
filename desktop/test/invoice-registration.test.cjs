@@ -22,8 +22,10 @@ test('confirmed invoice registration uses one fixed POST and verifies stored reg
  const {connection,calls}=setup({read:url=>registered&&new URL(url).searchParams.get('stage')==='ACTIVE'?[]:[{...order(),stage:'READY_TO_SHIP',invoice:{status:registered?'REGISTERED':'ISSUED',number:'1234567890123'}}],post:()=>{registered=true;return {ok:true,results:[{hubOrderId:order().hubOrderId,ok:true,status:'SUCCESS'}]};},dialog:async(_parent,options)=>{dialogs++;assert.equal(options.defaultId,0);assert.match(options.detail,/1234567890123/);return {response:1};}});
  const page=await connection.refresh();assert.equal(page.orders[0].registrationEligible,true);
  const result=await connection.registerInvoices([order().hubOrderId]);
- assert.deepEqual(result,{status:'COMPLETED',results:[{hubOrderId:order().hubOrderId,status:'REGISTERED'}]});
- const posts=calls.filter(call=>call.options.method==='POST');assert.equal(posts.length,1);assert.equal(dialogs,1);
+ assert.deepEqual(result,{status:'COMPLETED',results:[{hubOrderId:order().hubOrderId,status:'REGISTERED',trackingStatus:'CHECK_REQUIRED'}]});
+ const tracking=calls.filter(call=>call.url.endsWith('/api/shipping/tracking'));
+ assert.equal(tracking.length,1);assert.deepEqual(JSON.parse(tracking[0].options.body),{orderIds:[order().hubOrderId],mode:'automatic'});
+ const posts=calls.filter(call=>call.options.method==='POST'&&call.url.endsWith('/actions'));assert.equal(posts.length,1);assert.equal(dialogs,1);
  assert.equal(posts[0].url,'https://harin-cafe24-sync.vercel.app/api/shipping/actions');
  assert.equal(posts[0].options.headers.Origin,'https://harin-cafe24-sync.vercel.app');
  assert.deepEqual(JSON.parse(posts[0].options.body),{confirm:true,action:'UPLOAD_INVOICE',orders:[{hubOrderId:order().hubOrderId,invoiceNumber:'1234567890123',deliveryCompanyCode:'0012'}]});
@@ -85,6 +87,22 @@ test('registration transport is allowed only for active Main POST and rejects re
  const url='https://harin-cafe24-sync.vercel.app/api/shipping/actions';
  assert.equal(isAllowedRemoteRequest({url,method:'POST',webContentsId:0},{registrationRequestActive:true}),true);
  for(const [request,context] of [[{url,method:'POST',webContentsId:3},{registrationRequestActive:true}],[{url,method:'POST',webContentsId:0},{}],[{url:url+'?evil=1',method:'POST',webContentsId:0},{registrationRequestActive:true}],[{url,method:'GET',webContentsId:0},{registrationRequestActive:true}]])assert.equal(isAllowedRemoteRequest(request,context),false);
+});
+
+test('automatic tracking permit allows only exact Main POST while active',()=>{
+ const url='https://harin-cafe24-sync.vercel.app/api/shipping/tracking',context={automaticTrackingRequestActive:true};
+ assert.equal(isAllowedRemoteRequest({url,method:'POST',webContentsId:0},context),true);
+ for(const request of [{url,method:'GET',webContentsId:0},{url,method:'POST',webContentsId:3},{url:url+'?mode=automatic',method:'POST',webContentsId:0},{url:url+'/',method:'POST',webContentsId:0}])assert.equal(isAllowedRemoteRequest(request,context),false);
+ assert.equal(isAllowedRemoteRequest({url,method:'POST',webContentsId:0},{}),false);
+});
+
+test('changed invoice, private identity or cancelled verification cannot enqueue tracking',async()=>{
+ for(const patch of [{invoice:{status:'REGISTERED',number:'9999999999999'}},{externalOrderId:'OTHER'},{cancelled:true},{cancellationRequested:true}]){
+  const env=setup({read:url=>[{...order(),...(new URL(url).searchParams.get('stage')==='REGISTER'?{invoice:{status:'REGISTERED',number:'1234567890123'},...patch}:{})}]});
+  await env.connection.refresh();const result=await env.connection.registerInvoices([order().hubOrderId]);
+  assert.equal(env.calls.some(call=>call.url.endsWith('/tracking')),false);
+  assert.notEqual(result.results[0].trackingStatus,'PENDING');
+ }
 });
 test('new IPC methods validate caller, arity, enum and unique current order ids',async()=>{
  const handlers=new Map(),frame={url:'moaon://app/index.html'},calls=[];
