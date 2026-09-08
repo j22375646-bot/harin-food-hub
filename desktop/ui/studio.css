@@ -101,6 +101,12 @@ html body::-webkit-scrollbar,html body *::-webkit-scrollbar{display:none!importa
 .orders-layout{--order-scrollbar-width:0px}
 .registration-results{flex:0 0 auto;max-height:160px;overflow:auto;padding:12px 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface-soft);font-size:12px;line-height:1.6}
 .registration-results ul{margin:6px 0;padding-left:18px}.registration-results p{margin:4px 0;color:var(--muted)}
+.registration-result-item{display:grid;grid-template-columns:minmax(145px,1fr) minmax(190px,auto);align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--line)}
+.registration-result-item>strong{justify-self:end;text-align:right;color:var(--ink)}
+@media(max-width:720px){.registration-result-item{grid-template-columns:1fr}.registration-result-item>strong{justify-self:start;text-align:left}}
+.registration-results>.secondary-action,.server-history-tools>.secondary-action,.shipping-history-tools>.secondary-action{min-height:32px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface-soft);color:var(--ink);font:inherit;cursor:pointer}
+.registration-results>.secondary-action:hover,.server-history-tools>.secondary-action:hover,.shipping-history-tools>.secondary-action:hover{border-color:var(--blue);background:var(--blue-soft)}
+.registration-results>.secondary-action:focus-visible,.server-history-tools>.secondary-action:focus-visible,.shipping-history-tools>.secondary-action:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .selection-toolbar{flex-wrap:wrap;max-width:100%}
 
 /* One alignment contract for headings and badges; the amount remains right aligned. */

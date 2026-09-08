@@ -815,7 +815,7 @@ document.querySelector('#server-history-load').addEventListener('click',async()=
     if(result?.status!=='READY'){status.textContent='서버 이력 확인 필요 · 잠시 뒤 다시 조회하세요.';return;}
     status.textContent=result.orders.length?`${result.orders.length}건 · 서버 저장 기록 기준`:'조회 범위에 서버 송장 등록 기록이 없습니다.';
     if(!result.orders.length)return;
-    panel.hidden=false;panel.append(makeElement('summary','',`서버 송장 등록 이력 · ${result.orders.length}건`),makeElement('p','','서버의 최근 등록 작업 최대 300개 기준입니다. 우체국 발급 전체 이력이나 현재 배송상태가 아닙니다.'));
+    panel.hidden=false;panel.open=true;panel.append(makeElement('summary','',`서버 송장 등록 이력 · ${result.orders.length}건`),makeElement('p','','서버의 최근 등록 작업 최대 300개 기준입니다. 우체국 발급 전체 이력이나 현재 배송상태가 아닙니다.'));
     const labels={REGISTERED:'등록 성공 기록',PENDING:'처리 대기 기록',FAILED:'실패 기록',CHECK_REQUIRED:'결과 확인 필요'};
     for(const row of result.orders){
       const item=makeElement('div','auto-shipping-item');item.append(makeElement('span','',row.hubOrderId),makeElement('strong','',labels[row.status]||labels.CHECK_REQUIRED));
@@ -893,6 +893,18 @@ function clearRegistrationResults(kind='all'){
   document.querySelector('#registration-results').hidden=true;
   document.querySelector('#registration-status').textContent='';
   document.querySelector('#registration-items').replaceChildren();
+  document.querySelectorAll('[data-manual-history-refresh]').forEach(button=>button.remove());
+}
+
+function appendManualHistoryRefresh(panel,generation){
+  panel.querySelectorAll('[data-manual-history-refresh]').forEach(button=>button.remove());
+  const refresh=makeElement('button','secondary-action','서버 등록 이력 다시 확인');refresh.type='button';
+  refresh.dataset.manualHistoryRefresh='';
+  refresh.addEventListener('click',()=>{
+    if(generation!==actionGeneration||displayMode!=='live'||registrationBusy)return;
+    document.querySelector('#server-history-load').click();
+  });
+  panel.append(refresh);
 }
 
 async function runAutomaticShipping(explicitIds){
@@ -985,16 +997,35 @@ async function registerSelectedInvoices(){
         const matches=Array.isArray(result.results)?result.results.filter(row=>row?.hubOrderId===id):[];
         return {id,state:matches.length===1&&Object.hasOwn(messages,matches[0].status)?matches[0].status:'CHECK_REQUIRED'};
       });
+      for(const row of rows){
+        if(row.state==='REGISTERED')shippingFollowup.delete(row.id);
+        else shippingFollowup.set(row.id,{status:row.state});
+      }
       status.textContent=rows.every(row=>row.state==='REGISTERED')?'선택 송장 등록 완료':'송장 등록 결과를 확인하세요';
-      items.replaceChildren(...rows.map(row=>makeElement('li','',`${row.id} · ${messages[row.state]}`)));
+      items.replaceChildren(...rows.map(row=>{
+        const item=makeElement('li','registration-result-item');
+        item.dataset.state=row.state;
+        item.append(makeElement('span','',row.id),makeElement('strong','',messages[row.state]));
+        return item;
+      }));
+      if(rows.some(row=>row.state!=='REGISTERED'))appendManualHistoryRefresh(panel,generation);
       disableAttempted();
     }else{
       const messages={REVIEW_CANCELLED:'송장 등록을 취소했습니다 · 전송하지 않았습니다',ORDER_CHANGED:'주문이 변경되었습니다 · 목록을 다시 조회하세요',CHECK_REQUIRED:'송장 등록 조건 확인 필요 · 웹 허브에서 확인하세요',BUSY:'다른 확인 작업이 진행 중입니다',DISCONNECTED:'연결이 변경되어 등록 결과를 확인하지 못했습니다',UNAVAILABLE:'등록 여부 확인 필요 · 웹 허브에서 확인하세요'};
       status.textContent=messages[result?.status]||'등록 결과 확인 필요 · 웹 허브에서 확인하세요';
-      if(!['REVIEW_CANCELLED','BUSY'].includes(result?.status))disableAttempted();
+      if(!['REVIEW_CANCELLED','BUSY'].includes(result?.status)){
+        for(const id of ids)shippingFollowup.set(id,{status:'CHECK_REQUIRED'});
+        appendManualHistoryRefresh(panel,generation);
+        disableAttempted();
+      }
     }
-  }catch{if(current()){status.textContent='등록 결과 확인 필요 · 재전송하지 말고 웹 허브에서 확인하세요';disableAttempted();}}
-  finally{registrationBusy=false;renderSelection();}
+  }catch{if(current()){
+    status.textContent='등록 결과 확인 필요 · 재전송하지 말고 웹 허브에서 확인하세요';
+    for(const id of ids)shippingFollowup.set(id,{status:'CHECK_REQUIRED'});
+    appendManualHistoryRefresh(panel,generation);
+    disableAttempted();
+  }}
+  finally{registrationBusy=false;renderSelection();renderShippingFollowup();}
 }
 
 async function returnToSample() {
