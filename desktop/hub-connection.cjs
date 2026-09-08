@@ -69,6 +69,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     || payload.orders.length > PAGE_SIZE
     || payload.total < payload.offset + payload.orders.length
     || (payload.orders.length === 0 && (payload.offset !== 0 || payload.total !== 0))
+    || typeof payload.snapshot !== 'string'
     || !SNAPSHOT_PATTERN.test(payload.snapshot)
     || (expectedSnapshot !== null && payload.snapshot !== expectedSnapshot)
     || payload.nextOffset !== (payload.offset + PAGE_SIZE < payload.total ? payload.offset + PAGE_SIZE : null)

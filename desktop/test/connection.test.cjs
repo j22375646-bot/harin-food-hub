@@ -185,6 +185,37 @@ test('orders payload rejects inconsistent paging metadata and an unexpected navi
     requestedOffset: 20,
     expectedSnapshot: TEST_SNAPSHOT,
   }), /Invalid orders payload/);
+  for (const snapshot of [[TEST_SNAPSHOT], { value: TEST_SNAPSHOT }, 123]) {
+    assert.throws(() => projectOrdersPayload({
+      ...makePagePayload({ orders: [{ hubOrderId: 'H-1' }], total: 1 }),
+      snapshot,
+    }, '2026-09-08T12:00:00.000Z'), /Invalid orders payload/);
+  }
+});
+
+test('non-string snapshots fail refresh closed, invalidate the cursor, and block a later next-page fetch', async () => {
+  for (const snapshot of [[TEST_SNAPSHOT], { value: TEST_SNAPSHOT }, 123]) {
+    let fetchCount = 0;
+    const remoteSession = makeRemoteSession(async () => {
+      fetchCount += 1;
+      if (fetchCount === 1) {
+        return new Response(JSON.stringify(makePagePayload({
+          orders: Array.from({ length: 20 }, () => ({})),
+          total: 21,
+        })), { status: 200 });
+      }
+      return new Response(JSON.stringify({
+        ...makePagePayload({ orders: Array.from({ length: 20 }, () => ({})), total: 21 }),
+        snapshot,
+      }), { status: 200 });
+    });
+    const { connection } = makeConnection(remoteSession);
+
+    assert.equal((await connection.refresh()).status, 'READY');
+    assert.equal((await connection.refresh()).status, 'UNAVAILABLE');
+    assert.equal((await connection.nextPage()).status, 'UNAVAILABLE');
+    assert.equal(fetchCount, 2);
+  }
 });
 
 test('refresh uses fixed fetch options and maps partial data while retaining no raw response', async () => {
