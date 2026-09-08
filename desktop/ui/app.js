@@ -592,6 +592,10 @@ document.addEventListener('keydown', (event) => {
 });
 
 let savedTheme = 'light';
+Promise.resolve().then(()=>window.moaonHub.appInfo()).then(info=>{
+ const label=typeof info?.version==='string'&&/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(info.version)?`v${info.version}`:'버전 확인 필요';
+ for(const item of document.querySelectorAll('[data-app-version]'))item.textContent=label;
+}).catch(()=>{for(const item of document.querySelectorAll('[data-app-version]'))item.textContent='버전 확인 필요';});
 let entryBusy=false;
 async function enterWorkspace(){
  if(entryBusy)return;entryBusy=true;const button=document.querySelector('#entry-login');button.disabled=true;

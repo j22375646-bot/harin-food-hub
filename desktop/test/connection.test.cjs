@@ -953,7 +953,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['inspectPrinters','previewLabel','issueShipment','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['appInfo','inspectPrinters','previewLabel','issueShipment','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });
   await bridge.recheckPage({ ignored: true });

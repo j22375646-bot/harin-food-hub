@@ -13,6 +13,9 @@ async function main(){
    remote.protocol.handle('https',()=>new Response('<html><body><main class="loginPage"><section class="loginFrame"><header class="loginTopbar">모아온</header><section class="loginAccess"><header class="accessHeader"><h2>로그인</h2></header><form class="loginForm"><label>비밀번호<input type="password"></label><button>로그인</button></form></section></section></main></body></html>',{headers:{'Content-Type':'text/html; charset=utf-8'}}));
   });
   await page.evaluate(()=>runHubAction('viewActive'));await page.getByText('로그인이 필요합니다. 아래 버튼으로 시작하세요.',{exact:true}).waitFor({timeout:20000});
+  const hostVersion=await app.evaluate(({app})=>app.getVersion());
+  await page.locator('#entry-screen [data-app-version]').filter({hasText:`v${hostVersion}`}).waitFor();
+  assert.deepEqual(await page.locator('[data-app-version]').allTextContents(),[`v${hostVersion}`,`v${hostVersion}`]);
   assert.equal(await page.locator('.preview-shell').isVisible(),false);
   await page.screenshot({path:path.resolve(__dirname,'../dist/login-entry-light.png')});
   await page.evaluate(()=>document.documentElement.dataset.theme='dark');
