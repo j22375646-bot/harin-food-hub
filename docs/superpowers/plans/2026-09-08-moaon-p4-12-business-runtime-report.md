@@ -22,6 +22,22 @@ Vercel Production Sensitive 변수는 `env run`으로 다운로드되지 않는 
 
 집중 테스트 24개 통과, Next.js 16.3.0 운영 빌드 성공. 별도 코드 검토에서 사양·품질 모두 PASS. 기존 전체 테스트에서 회복 요청 테스트 1개가 고정된 세션 만료시각 때문에 401로 조기 종료하는 문제를 재현했다. 해당 테스트만 현재 시각 기준 유효 세션으로 수정했고, 대상 38개 통과했다. 실제 인증 로직은 변경하지 않았다.
 
-전체 재검증·배포 결과는 아래에 최종 기록한다.
+전체 재검증 `pnpm test`: 2,587개 통과, 실패/스킵 0개. 로컬 운영 빌드와 Vercel 운영 빌드 모두 성공했다. 코드와 테스트 수정의 독립 검토는 최종 PASS다.
+
+첫 웹 배포에서 desktop/dist EXE 산출물과 desktop/node_modules가 포함되어 파일 크기 제한에 걸렸다. .vercelignore에 두 경로를 제외해 해결했다. 앱 설치파일 자체는 삭제/교체하지 않았다.
+
+운영 배포: 2026-09-08 23:34 KST 생성, 코드 기준 713b842, deployment dpl_4YjvzxH8d5WwD4smJQQk9uXr3MPg, READY 및 https://harin-cafe24-sync.vercel.app 별칭 연결 확인.
+
+배포 후 비로그인 API는 401 UNAUTHENTICATED와 no-store를 반환했고 로그인 화면 HTTP 200을 확인했다. 로그인 쿠키가 없는 현재 브라우저에서는 사업장 목록 성공 응답과 Vercel 내부 DB 접속을 아직 확인할 수 없다. 확인용 로그인 창은 열어두었다. 인증을 우회하거나 가짜 사용자 세션을 발급하지 않았다. 따라서 코드·배포는 완료지만 로그인 후 목록 1건 실인수는 남아 있다.
+
+## 다음 단계
+
+1. 실제 로그인 후 /api/moaon/businesses에서 하린식품 OWNER 목록 1건과 오류 없음 확인.
+2. 그 결과를 앱의 사업장 선택/표시 화면에 연결하고 빈 목록·만료·지연·재시도를 구분.
+3. 기존 OWNER-only 경계는 타 사업자 업무 자료 격리 완료 전까지 유지. 별도 계정이 하린식품 주문/정산을 조회할 수 있도록 임의 개방하지 않음.
+
+[운영 허브](https://harin-cafe24-sync.vercel.app/)
+
+[로그인 후 사업장 목록 확인](https://harin-cafe24-sync.vercel.app/login?next=%2Fapi%2Fmoaon%2Fbusinesses)
 
 [전체 계획](./2026-09-07-multi-business-desktop-master-plan.md)
