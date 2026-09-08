@@ -4,6 +4,8 @@
 
 ## 현재 어디까지 왔나요?
 
+**최신 점검: P4-05 운영 연결 준비 상태.** 기존 Supabase의 활성 프로필 1개와 세션 테이블 응답을 읽기 전용으로 확인했다. 제한 제어 DB 연결 설정은 로컬에서 확인되지 않았고 Supabase 관리 도구는 오류다. 운영 역할/계정 매핑 확인과 비밀 설정 제공이 선행되어야 하므로 새 기능 활성화는 하지 않았다. [P4-05 점검·필요 조치](./2026-09-08-moaon-p4-05-readiness-report.md)
+
 **최신 코드 작업: P4-04 인증·회원 저장소·HTTP 목록 연결.** 서버 composition 함수 추가와 서명 쿠키를 사용한 두 사용자 로컬 통합 검증. 관련 88개 시험 통과. 실제 운영 adapter 주입·제한 DB 역할 인수·선택 UI는 미완료이며 운영 route는 SETUP_REQUIRED 유지. [P4-04 보고서](./2026-09-08-moaon-p4-04-business-service-report.md)
 
 **최신 코드 작업: P4-03 사업장 목록 HTTP 요청 경로.** 쿠키 입력·no-store·안전한 오류 응답의 GET 경로 추가, 관련 86개 시험 및 Next 빌드 확인. route는 저장소 미연결 상태로 SETUP_REQUIRED를 반환한다. 운영 인증 composition·선택 화면은 미완료, 앱 0.15.1 유지. [P4-03 보고서](./2026-09-08-moaon-p4-03-business-request-report.md)
