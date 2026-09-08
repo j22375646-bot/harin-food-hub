@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   appInfo: () => ipcRenderer.invoke('moaon-hub:app-info'),
   inspectPrinters: () => ipcRenderer.invoke('moaon-hub:inspect-printers'),
   previewLabel: (id) => ipcRenderer.invoke('moaon-hub:preview-label',id),
+  previewLabels: (ids) => ipcRenderer.invoke('moaon-hub:preview-labels',ids),
+  exportSelectedCsv: (ids) => ipcRenderer.invoke('moaon-hub:export-selected-csv',ids),
   issueShipment: (id) => ipcRenderer.invoke('moaon-hub:issue-shipment',id),
   issueAndRegister: (ids) => ipcRenderer.invoke('moaon-hub:issue-and-register',ids),
   checkShipment: (id) => ipcRenderer.invoke('moaon-hub:check-shipment',id),

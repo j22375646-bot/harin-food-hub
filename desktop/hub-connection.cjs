@@ -24,6 +24,7 @@ const {createOrderCollection}=require('./order-collection.cjs');
 const {createShippingActionJournal,readShippingHistory}=require('./shipping-action-journal.cjs');
 const {projectVisual}=require('./order-visual.cjs');
 const {createHash}=require('node:crypto');
+const {validDocumentIds,renderSelectedCsv}=require('./selected-documents.cjs');
 // Private identity-bound fingerprint, never included in IPC payloads or logs.
 const shipmentFingerprints=new WeakMap();
 const labelReceivers=new WeakMap();
@@ -249,6 +250,7 @@ function createHubConnection({
   showShipmentReview = null,
   shipmentDirectory = null,
   labelPreview = null,
+  selectedDocuments = null,
   automaticPollDelayMs = 1000,
   automaticTimeoutMs = 60000,
 }) {
@@ -285,7 +287,9 @@ function createHubConnection({
     permit:(url,method)=>{collectionPermit=method?{url,method}:null;},timeoutMs:Math.min(timeoutMs*3,45000),
     blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive()||registrationController||automaticController||reviewingShipment),
   });
-  const collectOrders=()=>collection.collect(),checkOrderCollection=()=>collection.check();
+  let collectionWorkActive=false;
+  async function runCollection(check){if(collectionWorkActive)return {status:'BUSY'};collectionWorkActive=true;try{return await collection[check?'check':'collect']();}finally{collectionWorkActive=false;}}
+  const collectOrders=()=>runCollection(false),checkOrderCollection=()=>runCollection(true);
   async function enqueueRegisteredTracking(row,approved,controller,alive){
     const id=row?.hubOrderId;
     if(!alive()||controller.signal.aborted||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id||'')
@@ -537,14 +541,19 @@ function createHubConnection({
     const controller = new AbortController();
     activeAbortController = controller;
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    // Abort must settle the host read even when an external transport/body ignores it.
+    let stop;
+    const stopped=new Promise((_,reject)=>{stop=()=>reject(Error('Order read stopped'));controller.signal.addEventListener('abort',stop,{once:true});});
+    const bounded=promise=>Promise.race([promise,stopped]);
     try {
-      const response = await getRemoteSession().fetch(url, {
+      const response = await bounded(getRemoteSession().fetch(url, {
         method: 'GET',
         credentials: 'include',
         cache: 'no-store',
         redirect: 'error',
         signal: controller.signal,
-      });
+      }));
+      if(controller.signal.aborted)throw Error('Order read stopped');
       if (readGeneration !== generation) return safeEmpty('DISCONNECTED');
       if (response.status === 401) {
         void stopShipments();
@@ -565,7 +574,8 @@ function createHubConnection({
         return safeEmpty('UNAVAILABLE');
       }
 
-      const payload = await readBoundedJson(response, controller);
+      const payload = await bounded(readBoundedJson(response, controller));
+      if(controller.signal.aborted)throw Error('Order read stopped');
       if (readGeneration !== generation) return safeEmpty('DISCONNECTED');
       const result = projectOrdersPayload(payload, now().toISOString(), { requestedOffset, expectedSnapshot, scope });
       pageCursor = Object.freeze({
@@ -583,6 +593,7 @@ function createHubConnection({
         : safeEmpty('DISCONNECTED');
     } finally {
       clearTimeout(timeout);
+      controller.signal.removeEventListener('abort',stop);
       if (activeAbortController === controller) activeAbortController = null;
     }
   }
@@ -1010,8 +1021,11 @@ function createHubConnection({
   }
   async function previewLabel(hubOrderId){
     if(typeof hubOrderId!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(hubOrderId))throw Error('Invalid label order');
+    if(reviewingShipment||collectionWorkActive||trackingController)return {status:'BUSY'};
     const expected=generation;
+    let opening=true;reviewingShipment=true;
     const readTarget=async()=>{
+      if(collectionWorkActive||trackingController||(!opening&&reviewingShipment))return null;
       const page=await recheckPage();
       if(expected!==generation||page.status!=='READY')return null;
       const rows=page.orders.filter(order=>order.hubOrderId===hubOrderId);
@@ -1027,7 +1041,40 @@ function createHubConnection({
       }});
       return expected===generation?result:{status:'DISCONNECTED'};
     }catch{return {status:'PRINT_UNAVAILABLE'};}
+    finally{opening=false;reviewingShipment=false;}
   }
+  async function selectedDocument(ids,kind){
+    if(!validDocumentIds(ids)||(kind==='label'&&!validRegistrationIds(ids)))throw Error('Invalid document selection');
+    if(reviewingShipment||registrationController||automaticController||trackingController||collectionWorkActive)return {status:'BUSY'};
+    const expected=generation,scope=currentScope,channel=currentChannel,offset=pageCursor?.offset;
+    const initial=ids.map(id=>loadedOrders.filter(row=>row.hubOrderId===id));
+    if(offset==null||initial.some(rows=>rows.length!==1))return {status:'DOCUMENT_CHANGED'};
+    const baseline=initial.map(rows=>rows[0]);
+    const alive=()=>generation===expected&&currentScope===scope&&currentChannel===channel&&pageCursor?.offset===offset&&!disconnecting&&!cleanupFailed&&!isLoginWindowActive();
+    const fingerprint=row=>shipmentFingerprints.get(row)+'|'+renderSelectedCsv([row]);
+    let opening=true;
+    const read=async()=>{
+      if(!alive()||collectionWorkActive||trackingController||(!opening&&reviewingShipment))return null;
+      const page=await recheckPage();
+      if(!alive()||page.status!=='READY'||page.offset!==offset)return null;
+      const rows=ids.map(id=>page.orders.filter(row=>row.hubOrderId===id));
+      if(rows.some((found,index)=>found.length!==1||fingerprint(found[0])!==fingerprint(baseline[index])))return null;
+      const selected=rows.map(found=>found[0]);
+      if(selected.some(row=>row.platform!==(row.hubOrderId.startsWith('HR-C24-')?'CAFE24':row.hubOrderId.startsWith('HR-CP-')?'COUPANG':'NAVER')))return null;
+      if(kind==='label'&&(selected.some(row=>row.preflight.route!=='HUB'||row.stage==='CANCELLED'||row.details.cancelled!==false||row.details.cancellationRequested!==false||row.details.invoice?.status!=='REGISTERED')||new Set(selected.map(row=>row.details.invoice.number)).size!==selected.length))return null;
+      return selected;
+    };
+    reviewingShipment=true;
+    try{
+      const rows=await read();if(!rows)return {status:'DOCUMENT_CHANGED'};
+      const validate=async()=>!!await read();
+      const result=kind==='csv'?await selectedDocuments?.save({orders:rows,validate}):await labelPreview?.open({labels:rows.map(row=>({hubOrderId:row.hubOrderId,trackingNo:row.details.invoice.number,expectedReceiver:labelReceivers.get(row),goodsName:row.productName,quantity:row.quantity,businessName:'하린식품',channelLabel:row.platform})),validate});
+      return generation===expected?(result||{status:'DOCUMENT_UNAVAILABLE'}):{status:'DISCONNECTED'};
+    }catch{return {status:'DOCUMENT_UNAVAILABLE'};}
+    finally{opening=false;reviewingShipment=false;}
+  }
+  const previewLabels=ids=>selectedDocument(ids,'label');
+  const exportSelectedCsv=ids=>selectedDocument(ids,'csv');
   async function verifyShipmentSession() {
     if(disconnecting||cleanupFailed||isLoginWindowActive())return 'UNAVAILABLE';
     const controller=new AbortController();shipmentAuthReads.add(controller);
@@ -1330,7 +1377,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-  return Object.freeze({ collectOrders, checkOrderCollection, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ exportSelectedCsv, previewLabels, collectOrders, checkOrderCollection, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1346,6 +1393,13 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     if(args.length!==1||typeof args[0]!=='string'||!/^HR-(?:C24|CP|NV)-[A-F0-9]{8}$/.test(args[0]))throw Error('Invalid delivery arguments');
     return connection.readDelivery(args[0]);
   });
+  for(const [channel,method,valid] of [['moaon-hub:preview-labels','previewLabels',validRegistrationIds],['moaon-hub:export-selected-csv','exportSelectedCsv',validDocumentIds]]){
+    ipcMain.handle(channel,async(event,...args)=>{
+      if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+      if(args.length!==1||!valid(args[0]))throw Error('Invalid document arguments');
+      return connection[method](args[0]);
+    });
+  }
   ipcMain.handle('moaon-hub:issue-and-register',async(event,...args)=>{
     if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
     if(args.length!==1||!validRegistrationIds(args[0]))throw Error('Invalid automatic shipping arguments');

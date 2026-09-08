@@ -403,6 +403,7 @@ function showOrderDetail(order, button, options = {}) {
       const confirm=makeElement('button','secondary-action','출고 내용 확인 (발급 안 함)');
       confirm.type='button';
       confirm.addEventListener('click',async()=>{
+        if(registrationBusy)return;
         const reasons=detailPanel.querySelector('.preflight-reasons');if(reasons)reasons.open=true;
         const generation=actionGeneration,id=selectedOrderId;
         confirm.disabled=true;
@@ -438,7 +439,7 @@ function showOrderDetail(order, button, options = {}) {
         CHECK_REQUIRED:'발급 조건 확인 필요 · 목록을 새로 확인하세요',BUSY:'다른 확인 작업이 진행 중입니다',
       };
       async function runShipment(submit){
-        if(busy)return;busy=true;issue.disabled=true;check.disabled=true;reloadIssued.hidden=true;
+        if(busy||registrationBusy)return;busy=true;issue.disabled=true;check.disabled=true;reloadIssued.hidden=true;
         const collectionLock={};collectionShipmentLocks.add(collectionLock);renderCollection();
         if(submit){const reasons=detailPanel.querySelector('.preflight-reasons');if(reasons)reasons.open=true;}
         const id=order.hubOrderId,generation=actionGeneration;
@@ -469,6 +470,7 @@ function showOrderDetail(order, button, options = {}) {
       if(order.details?.invoice?.status==='REGISTERED'){
         const preview=makeElement('button','secondary-action','기존 송장 미리보기·인쇄');preview.type='button';
         preview.addEventListener('click',async()=>{
+          if(registrationBusy||collectionBusy)return;
           preview.disabled=true;const generation=actionGeneration,id=order.hubOrderId;
           try{
             const result=await window.moaonHub.previewLabel(id);
@@ -618,6 +620,14 @@ function renderSelection(){
   document.querySelector('#selection-review').textContent=count>1?'첫 선택 내용 확인':'내용 확인';
   const eligible=displayMode==='live'&&count>0&&count<=20&&[...selectedOrderIds].every(id=>displayedOrders.some(order=>orderId(order)===id&&order.registrationEligible===true));
   document.querySelector('#selection-register').disabled=registrationBusy||!eligible;
+  const documentRows=[...selectedOrderIds].map(id=>displayedOrders.find(order=>orderId(order)===id));
+  const csvEligible=displayMode==='live'&&count>0&&count<=20&&documentRows.every(row=>row&&/^HR-(?:C24|CP|NV)-[A-F0-9]{8}$/.test(row.hubOrderId));
+  const labelRows=documentRows.filter(row=>row&&/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(row.hubOrderId)&&row.preflight?.route==='HUB'&&row.stage!=='CANCELLED'&&row.details?.cancelled===false&&row.details?.cancellationRequested===false&&row.details?.invoice?.status==='REGISTERED'&&row.details.receiver?.name&&row.details.receiver?.address&&/^\d{5}$/.test(row.details.receiver?.postCode)&&/^\d{9,12}$/.test((row.details.receiver?.contact||'').replace(/[\s-]/g,''))&&Number.isSafeInteger(row.quantity)&&row.quantity>0&&row.productName);
+  const duplicate=labelRows.length!==new Set(labelRows.map(row=>row.details.invoice.number)).size;
+  const documentLocked=registrationBusy||collectionBusy||collectionShipmentLocks.size>0;
+  document.querySelector('#selection-labels').disabled=documentLocked||!csvEligible||labelRows.length!==count||duplicate;
+  document.querySelector('#selection-csv').disabled=documentLocked||!csvEligible;
+  document.querySelector('#selection-document-hint').textContent=`송장 가능 ${labelRows.length}건 · 제외 ${count-labelRows.length}건${duplicate?' · 중복 송장 확인 필요':count!==labelRows.length?' · 등록·배송정보 또는 지원 채널 확인':''}`;
   document.querySelector('#selection-clear').disabled=registrationBusy;
   const boxes=[...document.querySelectorAll('.order-select')];
   for(const box of boxes){
@@ -1043,6 +1053,22 @@ async function runAutomaticShipping(explicitIds){
   finally{registrationBusy=false;panel.removeAttribute('aria-busy');renderSelection();renderShippingFollowup();}
 }
 
+async function runSelectedDocument(kind){
+  if(!['csv','labels'].includes(kind)||registrationBusy||collectionBusy||collectionShipmentLocks.size>0||displayMode!=='live'||document.querySelector(kind==='csv'?'#selection-csv':'#selection-labels').disabled)return;
+  const ids=[...selectedOrderIds],expected=actionGeneration;
+  registrationBusy=true;clearRegistrationResults('documents');renderSelection();
+  const detailButtons=[...detailPanel.querySelectorAll('button')].map(button=>({button,disabled:button.disabled}));
+  for(const {button} of detailButtons)button.disabled=true;
+  const panel=document.querySelector('#registration-results'),status=document.querySelector('#registration-status');
+  panel.hidden=false;status.textContent=kind==='csv'?'선택 주문을 확인하고 CSV 저장 위치를 선택합니다.':'선택 송장과 배송정보를 확인하고 있습니다.';
+  try{
+    const result=await window.moaonHub[kind==='csv'?'exportSelectedCsv':'previewLabels'](ids);
+    if(expected!==actionGeneration||displayMode!=='live')return;
+    const messages={PREVIEW_OPEN:`송장 ${ids.length}건 미리보기를 열었습니다 · 인쇄는 미리보기 창에서 진행하세요`,CSV_SAVED:`선택 주문 ${ids.length}건 CSV를 저장했습니다`,SAVE_CANCELLED:'CSV 저장을 취소했습니다',FILE_EXISTS:'같은 이름의 파일이 있습니다 · 다른 이름으로 저장하세요',DOCUMENT_CHANGED:'주문이나 연결이 변경되었습니다 · 목록을 다시 조회하세요',DOCUMENT_UNAVAILABLE:'문서를 준비하지 못했습니다 · 주문과 저장 위치를 확인하세요',PRINT_UNAVAILABLE:'송장 미리보기 확인 필요 · 배송정보와 용지 크기를 확인하세요',BUSY:'다른 작업이 진행 중입니다'};
+    status.textContent=result?.status==='SAVE_CHECK_REQUIRED'?'CSV 저장 결과 확인 필요 · 다시 저장하기 전에 선택한 폴더의 파일을 확인하세요':messages[result?.status]||'문서 처리 결과 확인 필요 · 목록을 다시 조회하세요';
+  }catch{if(expected===actionGeneration&&displayMode==='live')status.textContent='문서를 준비하지 못했습니다 · 다시 확인하세요';}
+  finally{registrationBusy=false;for(const {button,disabled} of detailButtons)if(button.isConnected)button.disabled=disabled;renderSelection();}
+}
 async function changeOrderChannel(channel){
   if(!['ALL','CAFE24','NAVER','COUPANG'].includes(channel))return;
   const generation=++actionGeneration;
@@ -1158,6 +1184,8 @@ document.querySelector('#order-select-all').addEventListener('change',event=>{
   renderSelection();
 });
 document.querySelector('#selection-register').addEventListener('click',()=>void registerSelectedInvoices());
+document.querySelector('#selection-labels').addEventListener('click',()=>void runSelectedDocument('labels'));
+document.querySelector('#selection-csv').addEventListener('click',()=>void runSelectedDocument('csv'));
 const selectionMenu=document.querySelector('.selection-more');
 selectionMenu.addEventListener('click',event=>{if(event.target.closest('button:not(:disabled)'))selectionMenu.open=false;});
 document.addEventListener('pointerdown',event=>{if(selectionMenu.open&&!selectionMenu.contains(event.target))selectionMenu.open=false;});

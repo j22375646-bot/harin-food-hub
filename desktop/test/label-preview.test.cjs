@@ -4,14 +4,14 @@ const assert=require('node:assert/strict');
 const {EventEmitter}=require('node:events');
 const {createLabelPreview}=require('../label-preview.cjs');
 const target={hubOrderId:'HR-C24-1234ABCD',trackingNo:'1234567890123',goodsName:'시험 상품',quantity:1,validate:async()=>true,expectedReceiver:{name:'TEST',contact:'01012345678',postCode:'12345',address:'TEST ADDRESS'}};
-function fixture({valid=true,answer=1,printer=null}={}){
+function fixture({valid=true,answer=1,printer=null,batch=null,onDialog=null}={}){
   const windows=[],dialogs=[];let prints=0,menu;
   class Window extends EventEmitter{
-    constructor(options){super();this.options=options;this.dead=false;windows.push(this);this.webContents=Object.assign(new EventEmitter(),{id:55,getURL:()=>this.url,setWindowOpenHandler(){},insertCSS:async()=>{},executeJavaScriptInIsolatedWorld:async()=>valid?{ok:true,count:1,id:target.hubOrderId,invoice:target.trackingNo,receiverValid:true,name:'TEST',contact:'01012345678',address:'(12345) TEST ADDRESS'}:{count:0},print:(options,callback)=>{assert.equal(options.silent,false);prints++;if(printer)printer(callback);else callback(true,'');}});}
+    constructor(options){super();this.options=options;this.dead=false;windows.push(this);this.webContents=Object.assign(new EventEmitter(),{id:55,getURL:()=>this.url,setWindowOpenHandler(){},insertCSS:async()=>{},executeJavaScriptInIsolatedWorld:async(_world,scripts)=>batch&&scripts[0].code.includes('Array.from')?batch():valid?{ok:true,count:1,id:target.hubOrderId,invoice:target.trackingNo,receiverValid:true,name:'TEST',contact:'01012345678',address:'(12345) TEST ADDRESS'}:{count:0},print:(options,callback)=>{assert.equal(options.silent,false);prints++;if(printer)printer(callback);else callback(true,'');}});}
     isDestroyed(){return this.dead;}destroy(){this.dead=true;this.emit('closed');}show(){}setTitle(value){this.title=value;}setMenu(value){menu=value;}
     async loadURL(url){this.url=url;}
   }
-  const preview=createLabelPreview({BrowserWindow:Window,Menu:{buildFromTemplate:items=>({getMenuItemById:id=>items.find(item=>item.id===id)})},dialog:{showMessageBox:async(_win,options)=>{dialogs.push(options);return {response:answer};}},getParent:()=>({isDestroyed:()=>false})});
+  const preview=createLabelPreview({BrowserWindow:Window,Menu:{buildFromTemplate:items=>({getMenuItemById:id=>items.find(item=>item.id===id)})},dialog:{showMessageBox:async(_win,options)=>{dialogs.push(options);onDialog?.();return {response:answer};}},getParent:()=>({isDestroyed:()=>false})});
   return {preview,windows,dialogs,print:()=>menu.getMenuItemById('print').click(),enabled:()=>menu.getMenuItemById('print').enabled,prints:()=>prints};
 }
 test('verified label opens without printing; explicit menu confirmation uses non-silent print',async()=>{
@@ -50,6 +50,23 @@ test('wrong document and cancelled print do not send a print job',async()=>{
 });
 test('missing expected recipient fails closed',async()=>{
  const f=fixture();assert.equal((await f.preview.open({...target,expectedReceiver:null})).status,'PRINT_UNAVAILABLE');
+});
+test('batch rejects repeated invoices and closes when any fresh target validation fails',async()=>{
+ const f=fixture();
+ assert.equal((await f.preview.open({labels:[target,{...target,hubOrderId:'HR-CP-ABCDEF12'}],validate:async()=>true})).status,'PRINT_UNAVAILABLE');
+ assert.equal(f.windows.length,0);
+});
+test('batch checks every identity and page fit before opening and rechecks after print confirmation',async()=>{
+ const labels=[target,{...target,hubOrderId:'HR-CP-ABCDEF12',trackingNo:'9876543210123'}];
+ const rows=labels.map(row=>({id:row.hubOrderId,invoice:row.trackingNo,fit:true,name:'TEST',contact:'01012345678',address:'(12345) TEST ADDRESS'}));
+ for(const mode of ['valid','wrong-id','overflow','mutation','auth']){
+  let confirmed=false;
+  const f=fixture({onDialog:()=>{confirmed=true;},batch:()=>rows.map((row,index)=>index===1?{...row,...(mode==='wrong-id'?{id:'WRONG'}:mode==='overflow'?{fit:false}:mode==='mutation'&&confirmed?{invoice:'0000000000000'}:{})}:row)});
+  const result=await f.preview.open({labels,validate:async()=>!(mode==='auth'&&confirmed)});
+  if(['wrong-id','overflow'].includes(mode))assert.equal(result.status,'PRINT_UNAVAILABLE');
+  else{assert.equal(result.status,'PREVIEW_OPEN');await f.print();assert.match(f.dialogs[0].message,/2건/);assert.equal(f.prints(),mode==='valid'?1:0);}
+  f.preview.close();
+ }
 });
 test('different recipient and empty address cannot open a label',async()=>{
  for(const receiver of [{...target.expectedReceiver,name:'OTHER'},{...target.expectedReceiver,address:''}]){

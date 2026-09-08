@@ -15,6 +15,7 @@ const {
 
 const APP_NAME = '모아온 Preview';
 const {createLabelPreview}=require('./label-preview.cjs');
+const {createSelectedDocuments}=require('./selected-documents.cjs');
 const {createPrinterInspection,registerPrinterInspection}=require('./printer-inspection.cjs');
 const {isTrustedRenderer}=require('./connection-policy.cjs');
 const {registerAppInfo}=require('./app-info.cjs');
@@ -158,6 +159,7 @@ if (!hasSingleInstanceLock) {
     }
     hubConnection = createHubConnection({
       labelPreview: createLabelPreview({BrowserWindow,Menu,dialog,getParent:()=>mainWindow}),
+      selectedDocuments: createSelectedDocuments({dialog,getParent:()=>mainWindow,writeFile:(...args)=>fs.writeFile(...args)}),
       shipmentDirectory: path.join(app.getPath('userData'),'shipments'),
       showShipmentReview: (parent, options) => dialog.showMessageBox(parent, options),
       BrowserWindow,
