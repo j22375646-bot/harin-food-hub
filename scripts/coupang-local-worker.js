@@ -32,6 +32,8 @@ const naverCustomerService = require("../lib/naver-commerce/customer-service.js"
 const epostConfig = require("../lib/epost/config.js");
 const epostClient = require("../lib/epost/client.js");
 const epostTracking = require("../lib/epost/tracking.js");
+const unifiedShippingOrders = require('../lib/orders/unified-orders.js');
+const {assertCurrentShippingOrder} = require('../lib/epost/dispatch-guard.js');
 const {createHeartbeatWriter}=require('../lib/operations/worker-heartbeat.js');
 
 const logPath = path.join(root, "tmp", "coupang-local-worker.log");
@@ -398,6 +400,10 @@ async function dispatchOperation(
           0,
         ),
       };
+    }
+    if (request.target_type === 'HUB_ORDER') {
+      const current = await unifiedShippingOrders.loadUnifiedOrders({db});
+      assertCurrentShippingOrder(current, order, request.target_id);
     }
     return { epostLive: await epostClient.issueShipment(order) };
   }
