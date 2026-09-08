@@ -37,6 +37,14 @@ async function main(){
     assert.equal(await page.locator('#business-list-title').innerText(),'내 사업장');
     assert.ok(await page.locator('#business-list button:enabled').count()<=1);
     if(process.argv.includes('--authenticated')&&run===0){
+     const workspaceOpen=page.getByRole('button',{name:'주문 업무 열기',exact:true});
+     assert.equal(await workspaceOpen.count(),1,'Bound owner workspace has one entry button');
+     await workspaceOpen.click();
+     await page.locator('[data-page="orders"]:visible').waitFor({timeout:20000});
+     const workspaceRead=await page.evaluate(()=>({status:connectionResult?.status,scope:connectionResult?.scope}));
+     assert.ok(['READY','PARTIAL'].includes(workspaceRead.status));
+     assert.equal(workspaceRead.scope,'ACTIVE');
+     orderReads.push({...workspaceRead,action:'workspaceButton'});
      for(const [action,scope] of [['viewActive','ACTIVE'],['viewRegistered','REGISTER'],['viewInTransit','IN_TRANSIT'],['viewCompleted','COMPLETED']]){
       const startedRead=Date.now();
       const read=await page.evaluate(async action=>{
