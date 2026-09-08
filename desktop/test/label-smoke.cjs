@@ -24,7 +24,7 @@ async function main(){
     if(request.method!=='GET')return new Response('',{status:403});
     if(request.url.startsWith('https://harin-cafe24-sync.vercel.app/api/orders/page?'))return orders();
     if(request.url!=='https://harin-cafe24-sync.vercel.app/api/shipping/print?type=label&ids=HR-C24-1234ABCD')return new Response('',{status:403});
-    return new Response('<!doctype html><html><head><meta charset="utf-8"></head><body><script>globalThis.untrustedRan=true</script><div class="actions">hidden actions</div><article class="label"><section class="receiver"><h1>시험 수취인</h1><strong>01012345678</strong><p>(12345) 시험 주소</p></section><section class="barcode"><b>1234567890123</b></section><footer><span>HR-C24-1234ABCD</span></footer></article></body></html>',{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
+    return new Response('<!doctype html><html><head><meta charset="utf-8"></head><body><script>document.body.dataset.unsafe="ran"</script><div class="actions">hidden actions</div><article class="label"><section class="receiver"><h1>TEST</h1><strong>01012345678</strong><p>(12345) TEST</p></section><section class="barcode"><b>1234567890123</b></section><footer><span>HR-C24-1234ABCD</span></footer></article></body></html>',{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
    });
   });
   await page.locator('[data-action="hub-connect"]:visible').first().click();
@@ -34,9 +34,10 @@ async function main(){
   await page.getByText('미리보기 창을 열었습니다 · 인쇄는 창의 메뉴에서 선택하세요',{exact:true}).waitFor({timeout:18000}).catch(async error=>{console.log(JSON.stringify(await app.evaluate(()=>globalThis.labelEvents)));console.log(await page.locator('.review-actions').innerText());throw error;});
   const result=await app.evaluate(async({BrowserWindow})=>{
    const win=BrowserWindow.getAllWindows().find(item=>item.webContents.getURL().includes('/api/shipping/print'));
-   return {script:await win.webContents.executeJavaScript('globalThis.untrustedRan===true'),sandbox:win.webContents.getLastWebPreferences().sandbox};
+   return {script:await win.webContents.executeJavaScriptInIsolatedWorld(999,[{code:'document.body.dataset.unsafe==="ran"'}]),sandbox:win.webContents.getLastWebPreferences().sandbox};
   });
   assert.deepEqual(result,{script:false,sandbox:true});
+  await page.getByRole('button',{name:'오늘',exact:true}).click();
   await page.locator('[data-action="hub-disconnect"]:visible').first().click();
   await page.getByText('하린식품 연결을 해제했습니다.',{exact:false}).first().waitFor();
   assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().filter(win=>win.webContents.getURL().includes('/api/shipping/print')).length),0);

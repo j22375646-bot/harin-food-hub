@@ -24,8 +24,10 @@ function createLabelPreview({BrowserWindow,Menu,dialog,getParent}){
     let printing=false,timer;
     async function verify(){
       if(!alive()||win.webContents.getURL()!==url)return false;
-      const data=await win.webContents.executeJavaScript(INSPECT);
-      const actual=await win.webContents.executeJavaScript(`(()=>{const r=document.querySelector('article.label .receiver');return {name:r?.querySelector('h1')?.textContent,contact:r?.querySelector('strong')?.textContent,address:r?.querySelector('p')?.textContent};})()`);
+      // World 0 follows javascript:false; only this fixed host-owned isolated code runs.
+      const inspect=code=>win.webContents.executeJavaScriptInIsolatedWorld(999,[{code}]);
+      const data=await inspect(INSPECT);
+      const actual=await inspect(`(()=>{const r=document.querySelector('article.label .receiver');return {name:r?.querySelector('h1')?.textContent,contact:r?.querySelector('strong')?.textContent,address:r?.querySelector('p')?.textContent};})()`);
       return alive()&&data?.count===1&&data.id===hubOrderId&&data.invoice===trackingNo&&data.receiverValid===true&&clean(actual?.name)===expected.name&&clean(actual?.contact).replace(/[\s-]/g,'')===expected.contact&&clean(actual?.address)===expected.address;
     }
     const menu=Menu.buildFromTemplate([

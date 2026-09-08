@@ -49,6 +49,8 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 app.setName(APP_NAME);
+// Keep the Korean window title, but HTTP headers must not contain that title.
+app.userAgentFallback = app.userAgentFallback.replace(/[^\x20-\x7e]/g, '');
 app.setPath(
   'userData',
   path.join(app.getPath('appData'), 'Moaon Preview', 'preview-user-data'),

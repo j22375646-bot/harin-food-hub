@@ -7,7 +7,7 @@ const target={hubOrderId:'HR-C24-1234ABCD',trackingNo:'1234567890123',validate:a
 function fixture({valid=true,answer=1}={}){
   const windows=[];let prints=0,menu;
   class Window extends EventEmitter{
-    constructor(options){super();this.options=options;this.dead=false;windows.push(this);this.webContents=Object.assign(new EventEmitter(),{id:55,getURL:()=>this.url,setWindowOpenHandler(){},insertCSS:async()=>{},executeJavaScript:async()=>valid?{count:1,id:target.hubOrderId,invoice:target.trackingNo,receiverValid:true,name:'TEST',contact:'01012345678',address:'(12345) TEST ADDRESS'}:{count:0},print:(options,callback)=>{assert.equal(options.silent,false);prints++;callback(true,'');}});}
+    constructor(options){super();this.options=options;this.dead=false;windows.push(this);this.webContents=Object.assign(new EventEmitter(),{id:55,getURL:()=>this.url,setWindowOpenHandler(){},insertCSS:async()=>{},executeJavaScriptInIsolatedWorld:async()=>valid?{count:1,id:target.hubOrderId,invoice:target.trackingNo,receiverValid:true,name:'TEST',contact:'01012345678',address:'(12345) TEST ADDRESS'}:{count:0},print:(options,callback)=>{assert.equal(options.silent,false);prints++;callback(true,'');}});}
     isDestroyed(){return this.dead;}destroy(){this.dead=true;this.emit('closed');}show(){}setTitle(){}setMenu(value){menu=value;}
     async loadURL(url){this.url=url;}
   }
