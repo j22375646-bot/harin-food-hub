@@ -33,7 +33,8 @@ test('signed cookies, identity checks and actual membership SQL isolate two user
    },
   };}};
   const authAdmin={async getUserById(id){return {data:{user:{id,email:id+'@example.com',is_anonymous:false,email_confirmed_at:'2020-01-01T00:00:00Z',banned_until:null,deleted_at:null}},error:null};}};
-  const handle=createBusinessListService({database,identityDb,authAdmin});
+  const diagnostics=[];
+  const handle=createBusinessListService({database,identityDb,authAdmin,diagnostic:event=>diagnostics.push(event)});
   const send=token=>handle(new Request('https://hub.example/api/moaon/businesses',{headers:{cookie:'harin_dashboard_session='+token}}));
   const responses=await Promise.all(sessions.map(row=>send(row.token)));
   for(let i=0;i<2;i++){
@@ -48,6 +49,13 @@ test('signed cookies, identity checks and actual membership SQL isolate two user
   const changed=(signature[0]==='a'?'b':'a')+signature.slice(1);
   assert.equal((await send(payload+'.'+changed)).status,401);
   active=false;assert.equal((await send(sessions[0].token)).status,401);
+  assert.ok(diagnostics.some(event=>event.stage==='identity'&&event.outcome==='ok'));
+  assert.ok(diagnostics.some(event=>event.stage==='control-query'&&event.outcome==='ok'));
+  assert.ok(diagnostics.some(event=>event.stage==='identity'&&event.outcome==='failed'));
+  for(const event of diagnostics){
+   assert.deepEqual(Object.keys(event).sort(),['durationMs','outcome','stage']);
+   assert.ok(Number.isFinite(event.durationMs)&&event.durationMs>=0);
+  }
  }finally{
   await database.close();keys.forEach((key,i)=>{if(previous[i]===undefined)delete process.env[key];else process.env[key]=previous[i];});
  }
