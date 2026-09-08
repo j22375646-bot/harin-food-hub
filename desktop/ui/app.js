@@ -140,6 +140,16 @@ function showOrderDetail(order, button) {
     addDetailSection(body, '배송 메모', order.note, '가상 정보이며 배송에 사용되지 않습니다.');
     body.append(makeElement('p', 'detail-notice', '이 시제품에는 송장 발급, 인쇄, 주문 상태 변경 버튼이 없습니다.'));
   } else {
+    const preflight = order.preflight;
+    const preflightLabels = {BLOCKED:'출고 대상에서 제외',EXTERNAL:'별도 플랫폼에서 처리',CHECK_REQUIRED:'출고 전 정보 확인 필요',REVIEW_ONLY:'웹 허브 최종 확인 후보'};
+    const reasonLabels = {CANCELLED:'취소된 주문',CANCEL_REQUEST:'취소·반품 요청 먼저 확인',SHIPPED:'배송 진행 또는 완료 상태',INVOICE_EXISTS:'기존 송장 기록 확인',NAVER_ROUTE:'네이버에서 송장 처리',ROCKET_ROUTE:'로켓그로스는 쿠팡에서 출고',ROUTE_UNKNOWN:'처리 경로 확인 필요',STAGE_UNKNOWN:'주문 단계 확인 필요',CANCEL_UNKNOWN:'취소 여부 확인 필요',INVOICE_UNKNOWN:'송장 이력 확인 필요',ORDER_ID:'주문 식별번호 확인 필요',SERVER_CHECK:'웹 허브의 출고 제한 확인 필요',DELIVERY_INFO:'배송정보 누락 또는 형식 확인 필요',QUANTITY:'상품 수량 확인 필요',PARTIAL:'일부 채널 자료 누락'};
+    const checkSection = makeElement('section', 'detail-section preflight-summary');
+    checkSection.setAttribute('aria-label', '출고 사전 확인');
+    checkSection.append(makeElement('h3', '', '출고 사전 확인 · 저장 자료 기준'), makeElement('strong', '', preflightLabels[preflight?.status] || '출고 전 정보 확인 필요'));
+    const reasons = makeElement('ul');
+    for (const code of preflight?.codes || []) reasons.append(makeElement('li', '', reasonLabels[code] || '추가 확인 필요'));
+    checkSection.append(reasons, makeElement('span', '', '발급 승인 아님 · 수취 정보와 최신 주문·송장 이력은 웹 허브에서 최종 확인하세요.'));
+    body.append(checkSection);
     addDetailSection(body, '주문', order.hubOrderId || '주문번호 확인 필요', `${order.platform || '채널 확인 필요'} · ${stageLabel(order.stage)}`);
     const details = order.details || {};
     addDetailSection(body, '플랫폼 주문번호', details.externalOrderId || '확인 필요', '위 허브 주문번호와 구분되는 쇼핑몰 원본 번호입니다.');
@@ -331,6 +341,7 @@ function applyHubResult(result) {
       orderedAt: typeof order.orderedAt === 'string' ? order.orderedAt : null,
       // The Main-process projection already strips provider fields and bounds this DTO.
       details: order.details || null,
+      preflight: order.preflight || null,
     })));
     orderSearch.value = '';
     closeOrderDetail();

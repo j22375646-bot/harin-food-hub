@@ -37,6 +37,8 @@ async function main() {
     assert.ok((await detail.innerText()).includes('<b>티백</b>'));
     assert.equal(await detail.locator('b').count(),0,'product text never parsed as HTML');
     assert.equal((await detail.innerText()).includes('PRIVATE'),false);
+    assert.ok((await detail.innerText()).includes('출고 대상에서 제외'));
+    assert.ok((await detail.innerText()).includes('기존 송장 기록 확인'));
     await app.evaluate(()=>{globalThis.detailFixtureMissing=true;});
     await page.locator('[data-action="hub-refresh"]:visible').click();
     await page.locator('.order-row').filter({hasText:'TEST-HUB'}).waitFor();
@@ -45,6 +47,8 @@ async function main() {
     assert.ok(missing.includes('송장 정보 확인 필요'));
     assert.ok(missing.includes('취소 여부 확인 필요'));
     assert.ok(missing.includes('세부 상품 정보 확인 필요'));
+    assert.ok(missing.includes('출고 전 정보 확인 필요'));
+    assert.ok(missing.includes('배송정보 누락 또는 형식 확인 필요'));
     assert.equal(missing.includes('1234567890123'),false,'old invoice cleared on refreshed detail');
     console.log(JSON.stringify({status:'PASS',runtime:override>=0?'installed executable':packaged?'packaged':'source',scope:'synthetic details; no credentials or writes'}));
   } finally { await app.close(); }

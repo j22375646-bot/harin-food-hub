@@ -70,6 +70,34 @@ function projectOrderDetails(order) {
   });
 }
 
+// A stored-data review aid only. This result is never accepted as a write permit.
+function projectPreflight(order, partial) {
+  const codes = [];
+  const route = order?.fulfillment === 'ROCKET_GROWTH' ? 'COUPANG_ROCKET' : order?.platform === 'NAVER' ? 'NAVER'
+    : ['CAFE24', 'COUPANG'].includes(order?.platform) ? 'HUB' : 'UNKNOWN';
+  if (order?.cancelled === true || order?.stage === 'CANCELLED') codes.push('CANCELLED');
+  if (order?.cancellationRequested === true) codes.push('CANCEL_REQUEST');
+  if (['SHIPPING', 'DELIVERED', 'WAITING_FOR_CARRIER'].includes(order?.stage)
+    || ['IN_TRANSIT', 'DELIVERED'].includes(order?.listDeliveryBadge?.status)) codes.push('SHIPPED');
+  if ([order?.invoiceNumber, order?.issuedInvoiceNumber].some(value => value != null && value !== '') || order?.invoice != null) codes.push('INVOICE_EXISTS');
+  const blocked = codes.length > 0;
+  if (route === 'NAVER') codes.push('NAVER_ROUTE');
+  if (route === 'COUPANG_ROCKET') codes.push('ROCKET_ROUTE');
+  if (route === 'UNKNOWN' || !['SELLER', 'ROCKET_GROWTH'].includes(order?.fulfillment)) codes.push('ROUTE_UNKNOWN');
+  if (!['PAID','PREPARING','READY_TO_SHIP'].includes(order?.stage) && !codes.includes('SHIPPED') && !codes.includes('CANCELLED')) codes.push('STAGE_UNKNOWN');
+  if (typeof order?.cancelled !== 'boolean' || typeof order?.cancellationRequested !== 'boolean') codes.push('CANCEL_UNKNOWN');
+  if (typeof order?.invoiceNumber !== 'string' || typeof order?.issuedInvoiceNumber !== 'string') codes.push('INVOICE_UNKNOWN');
+  if (!safeString(order?.hubOrderId).trim() || !safeString(order?.externalOrderId).trim()) codes.push('ORDER_ID');
+  if (order?.shippingEligible !== true || order?.selectionEligible !== true) codes.push('SERVER_CHECK');
+  const receiver = order?.receiver;
+  const contact = typeof receiver?.contact === 'string' ? receiver.contact.replace(/[\s-]/g, '') : '';
+  if (!safeString(receiver?.name).trim() || !safeString(receiver?.address).trim()
+    || !/^\d{5}$/.test(typeof receiver?.postCode === 'string' ? receiver.postCode : '') || !/^\d{9,12}$/.test(contact)) codes.push('DELIVERY_INFO');
+  if (!Number.isSafeInteger(order?.quantity) || order.quantity <= 0) codes.push('QUANTITY');
+  if (partial) codes.push('PARTIAL');
+  return Object.freeze({ status: blocked ? 'BLOCKED' : ['NAVER','COUPANG_ROCKET'].includes(route) ? 'EXTERNAL' : codes.length ? 'CHECK_REQUIRED' : 'REVIEW_ONLY', route, codes:Object.freeze(codes) });
+}
+
 function projectOrdersPayload(payload, checkedAt, options = {}) {
   const requestedOffset = options.requestedOffset ?? 0;
   const expectedSnapshot = options.expectedSnapshot ?? null;
@@ -110,6 +138,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     amount: safeFiniteNumber(order?.amount),
     orderedAt: order?.orderedAt === null ? null : safeString(order?.orderedAt),
     details: projectOrderDetails(order),
+    preflight: projectPreflight(order, payload.partial),
   })));
   const partial = payload.partial;
 
