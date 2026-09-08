@@ -691,8 +691,7 @@ test('an interleaved partial clock rollback stops every dispatch before its I/O 
 test('each successful operation uses a fresh IV and atomically invalidates the previous verified cipher', async () => {
   const db = await prepareStepUpDatabase();
   try {
-    const value = providerResult();
-    const service = storageFor(db, {verifyTotp: async () => value});
+    const service = storageFor(db, {verifyTotp: async () => providerResult()});
     await service.issue(issueInput());
     const first = (await db.query('select sealed_session from moaon_auth.step_up_attempts where operation_id=$1', [OPERATION])).rows[0].sealed_session;
     await service.issue(issueInput({operationId: SECOND_OPERATION}));
