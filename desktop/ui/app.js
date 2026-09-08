@@ -57,6 +57,28 @@ let connectionResult = null;
 let actionGeneration = 0;
 let selectedScope = 'ACTIVE';
 let scopeControlsAvailable = false;
+let reviewFilter = 'ALL';
+const reviewLabels = Object.freeze({ALL:'전체',REVIEW_ONLY:'확인 후보',BLOCKED:'제외',EXTERNAL:'별도 처리',CHECK_REQUIRED:'확인 필요'});
+const reviewStatus = order => Object.hasOwn(reviewLabels, order.preflight?.status) && order.preflight.status !== 'ALL'
+  ? order.preflight.status : 'CHECK_REQUIRED';
+
+function renderReviewFilters(orders) {
+  const overview = document.querySelector('#review-overview');
+  const group = document.querySelector('#review-filters');
+  overview.hidden = displayMode !== 'live';
+  if (overview.hidden) { group.replaceChildren(); reviewFilter = 'ALL'; return; }
+  const focused = group.contains(document.activeElement) ? document.activeElement.dataset.reviewFilter : null;
+  group.replaceChildren(...Object.entries(reviewLabels).map(([status, label]) => {
+    const count = status === 'ALL' ? orders.length : orders.filter(order => reviewStatus(order) === status).length;
+    const button = makeElement('button', 'secondary-action', `${label} ${count}건`);
+    button.type = 'button';
+    button.dataset.reviewFilter = status;
+    button.setAttribute('aria-pressed', String(reviewFilter === status));
+    button.addEventListener('click', () => { reviewFilter = status; renderOrders(); });
+    return button;
+  }));
+  if (focused) [...group.children].find(button => button.dataset.reviewFilter === focused)?.focus();
+}
 
 function makeElement(tagName, className, text) {
   const element = document.createElement(tagName);
@@ -254,10 +276,10 @@ function createOrderRow(order) {
     const product = order.productName || '상품 정보 확인 필요';
     const channel = order.platform || '채널 확인 필요';
     const stage = stageLabel(order.stage);
-    button.setAttribute('aria-label', `${id || '주문번호 확인 필요'}, ${product}, ${channel}, ${stage}, 조회 전용 주문 상세 열기`);
+    button.setAttribute('aria-label', `${id || '주문번호 확인 필요'}, ${product}, ${channel}, ${stage}, ${reviewLabels[reviewStatus(order)]}, 조회 전용 주문 상세 열기`);
     primary.append(makeElement('strong', '', product), makeElement('span', '', id || '주문번호 확인 필요'));
     secondary.append(makeElement('strong', '', channel), makeElement('span', '', stage));
-    amount.append(makeElement('strong', '', formatNumber(order.amount, '원')), makeElement('span', 'order-tag live-tag', '조회 전용'));
+    amount.append(makeElement('strong', '', formatNumber(order.amount, '원')), makeElement('span', 'order-tag live-tag', reviewLabels[reviewStatus(order)]));
   }
   button.append(primary, secondary, amount);
   button.addEventListener('click', () => showOrderDetail(order, button));
@@ -266,12 +288,15 @@ function createOrderRow(order) {
 
 function renderOrders() {
   const query = orderSearch.value.trim().toLocaleLowerCase('ko-KR');
-  const visibleOrders = displayedOrders.filter((order) => {
+  const searchedOrders = displayedOrders.filter((order) => {
     const fields = isSampleMode()
       ? [order.id, order.customer, order.product, order.channel]
       : [order.hubOrderId, order.productName, order.platform, order.stage, stageLabel(order.stage)];
     return fields.join(' ').toLocaleLowerCase('ko-KR').includes(query);
   });
+  renderReviewFilters(searchedOrders);
+  const visibleOrders = displayMode === 'live' && reviewFilter !== 'ALL'
+    ? searchedOrders.filter(order => reviewStatus(order) === reviewFilter) : searchedOrders;
   orderList.replaceChildren(...visibleOrders.map(createOrderRow));
   orderList.hidden = visibleOrders.length === 0;
   orderEmpty.hidden = visibleOrders.length !== 0;
@@ -279,8 +304,8 @@ function renderOrders() {
     resultCount.textContent = query ? `검색 결과 · 샘플 ${visibleOrders.length}건` : `샘플 ${visibleOrders.length}건 표시`;
     orderEmpty.textContent = '검색 결과가 없습니다. 다른 주문번호, 고객명 또는 상품명을 입력하세요.';
   } else if (displayMode === 'live') {
-    resultCount.textContent = query ? `현재 페이지 검색 · ${visibleOrders.length}건` : `현재 페이지 ${displayedOrders.length}건`;
-    orderEmpty.textContent = query ? '현재 페이지에서 검색 결과가 없습니다.' : '현재 페이지에 표시할 주문이 없습니다.';
+    resultCount.textContent = `현재 페이지 ${query ? '검색 · ' : ''}${reviewLabels[reviewFilter]} ${visibleOrders.length}건`;
+    orderEmpty.textContent = query || reviewFilter !== 'ALL' ? '현재 페이지에서 조건에 맞는 주문이 없습니다. 검색어 또는 사전 확인 필터를 바꿔보세요.' : '현재 페이지에 표시할 주문이 없습니다.';
   } else {
     resultCount.textContent = displayMode === 'connecting' ? '연결 확인 중 · 주문 목록 비움' : '표시 중인 실제 주문 없음';
     orderEmpty.textContent = displayMode === 'connecting' ? '하린식품 연결 상태를 확인하고 있습니다.' : '연결 상태를 확인하거나 샘플 화면으로 돌아가세요.';
