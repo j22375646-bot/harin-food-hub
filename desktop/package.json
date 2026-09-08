@@ -1,0 +1,29 @@
+{
+  "name": "moaon-desktop-preview",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Moaon Windows preview - synthetic data only",
+  "author": "Moaon",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.cjs",
+    "pack": "electron-builder --win nsis --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "44.2.0",
+    "electron-builder": "26.15.3",
+    "playwright": "1.63.0"
+  },
+  "build": {
+    "appId": "com.moaon.preview",
+    "productName": "Moaon Preview",
+    "asar": true,
+    "directories": {"output": "dist"},
+    "files": ["main.cjs", "security.cjs", "ui/**/*"],
+    "win": {"target": "nsis", "executableName": "MoaonPreview", "signAndEditExecutable": false},
+    "nsis": {"oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "runAfterFinish": false, "createDesktopShortcut": true},
+    "artifactName": "Moaon-Preview-${version}-Setup.${ext}",
+    "publish": null
+  }
+}
