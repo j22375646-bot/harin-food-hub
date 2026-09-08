@@ -2,15 +2,44 @@
 const fs=require('node:fs/promises');
 const path=require('node:path');
 const {createHash,randomUUID}=require('node:crypto');
+const {isShipmentRecord}=require('./shipment-job.cjs');
 const MAX_BYTES=4096;
 
 // Host-owned private directory; never accept a path or business from renderer IPC.
-// One live job/controller per business, protected by Electron's single-instance lock.
+// The host must own one registry, protected by Electron's single-instance lock.
 // File sync + same-directory rename covers process interruption; this is not a
 // guarantee against disk failure or power loss on every Windows filesystem.
 function createShipmentJournal({directory,businessId}={}) {
   if(typeof directory!=='string'||!path.isAbsolute(directory)||typeof businessId!=='string'||!businessId||businessId.length>128) throw new TypeError('Invalid journal scope');
   const name=createHash('sha256').update(businessId).digest('hex')+'.json';
+  return fileJournal(directory,name);
+}
+
+function createOrderShipmentJournal({directory,businessId,hubOrderId}={}) {
+  const legacy=createShipmentJournal({directory,businessId});
+  if(typeof hubOrderId!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(hubOrderId))throw new TypeError('Invalid journal order');
+  const name='order-'+createHash('sha256').update(JSON.stringify([businessId,hubOrderId])).digest('hex')+'.json';
+  const current=fileJournal(directory,name);
+  const matches=row=>isShipmentRecord(row,businessId)&&row.hubOrderId===hubOrderId;
+  return Object.freeze({
+    async read() {
+      const row=await current.read();
+      if(row!==null) {if(!matches(row))throw Error('Shipment journal scope mismatch');return row;}
+      const prior=await legacy.read();
+      if(prior===null)return null;
+      if(!isShipmentRecord(prior,businessId))throw Error('Legacy shipment journal unavailable');
+      // Keep the original file. Recovery never turns an uncertain old job into
+      // a fresh order. A subsequent state save writes only the order file.
+      return prior.hubOrderId===hubOrderId ? prior : null;
+    },
+    async write(row) {
+      if(!matches(row))throw Error('Shipment journal scope mismatch');
+      await current.write(row);
+    },
+  });
+}
+
+function fileJournal(directory,name) {
   const filename=path.join(directory,name);
   async function read() {
     let handle;
@@ -47,4 +76,4 @@ function createShipmentJournal({directory,businessId}={}) {
   }
   return Object.freeze({read,write});
 }
-module.exports=Object.freeze({createShipmentJournal});
+module.exports=Object.freeze({createShipmentJournal,createOrderShipmentJournal});

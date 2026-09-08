@@ -116,4 +116,4 @@ async function createShipmentJob({businessId,store,transport,timeoutMs=15000}={}
   return Object.freeze({snapshot,submit,poll,suspend});
 }
 
-module.exports=Object.freeze({createShipmentJob});
+module.exports=Object.freeze({createShipmentJob,isShipmentRecord:validRecord});

@@ -5,8 +5,43 @@ const fs=require('node:fs/promises');
 const os=require('node:os');
 const path=require('node:path');
 const {createShipmentJournal}=require('../shipment-journal.cjs');
+const {createOrderShipmentJournal}=require('../shipment-journal.cjs');
 const {createShipmentJob}=require('../shipment-job.cjs');
 const order='HR-C24-1234ABCD';
+test('order journals separate orders and businesses without losing prior submission records',async()=>{
+  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-journal-test-'));
+  try {
+    const scope={directory,businessId:'harin'};
+    const first=createOrderShipmentJournal({...scope,hubOrderId:order});
+    const second=createOrderShipmentJournal({...scope,hubOrderId:'HR-CP-87654321'});
+    const row={version:1,businessId:'harin',hubOrderId:order,requestId:null,status:'UNKNOWN'};
+    await first.write(row);
+    assert.deepEqual(await first.read(),row);
+    assert.equal(await second.read(),null);
+    assert.equal(await createOrderShipmentJournal({...scope,businessId:'dumor',hubOrderId:order}).read(),null);
+    await assert.rejects(()=>second.write(row));
+    assert.deepEqual(await first.read(),row);
+  } finally {await fs.rm(directory,{recursive:true,force:true});}
+});
+test('legacy unknown job is recovered without deletion and does not occupy another order',async()=>{
+  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-journal-test-'));
+  try {
+    const scope={directory,businessId:'harin'};
+    const legacy=createShipmentJournal(scope);
+    const row={version:1,businessId:'harin',hubOrderId:order,requestId:null,status:'SUBMITTING'};
+    await legacy.write(row);
+    const store=createOrderShipmentJournal({...scope,hubOrderId:order});
+    const job=await createShipmentJob({businessId:'harin',store,transport:{submit:async()=>assert.fail('no retry'),poll:async()=>assert.fail('no request')}});
+    assert.equal((await job.submit({hubOrderId:order,confirm:true})).status,'UNKNOWN');
+    assert.equal(await createOrderShipmentJournal({...scope,hubOrderId:'HR-CP-87654321'}).read(),null);
+    assert.deepEqual(await legacy.read(),row);
+    await store.write({...row,status:'UNKNOWN'});
+    assert.equal((await store.read()).status,'UNKNOWN');
+    assert.deepEqual(await legacy.read(),row);
+    await legacy.write({status:'invalid'});
+    await assert.rejects(()=>createOrderShipmentJournal({...scope,hubOrderId:'HR-CP-87654321'}).read());
+  } finally {await fs.rm(directory,{recursive:true,force:true});}
+});
 test('actual disk journal recovers unknown submission after app process replacement',async()=>{
   const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-journal-test-'));
   try {
