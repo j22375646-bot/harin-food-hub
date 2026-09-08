@@ -11,14 +11,26 @@ const loginRequest = require('../lib/dashboard-login-request.js');
 const quotaError = { message:'Service for this project is restricted due to the following violations: exceed_egress_quota.' };
 
 // Run the real handler; only the external authentication operation is replaced.
-function loginHandler(authenticateAccount) {
+function loginHandler(authenticateAccount, method = 'POST') {
   const source = fs.readFileSync(path.join(__dirname,'../app/api/dashboard/login/route.js'),'utf8')
     .replace(/^import .*;\r?\n/gm,'').replace('export const runtime','const runtime')
-    .replace('export async function POST','async function POST');
-  return new Function('authModule','loginRequestModule','NextResponse',`${source}\nreturn POST;`)(
+    .replace(/export async function /g,'async function ');
+  return new Function('authModule','loginRequestModule','NextResponse',`${source}\nreturn typeof ${method} === 'function' ? ${method} : undefined;`)(
     {...auth,authenticateAccount},loginRequest,NextResponse
   );
 }
+
+test('opening the login processing URL returns to the form without authentication or query forwarding', async()=>{
+  let calls = 0;
+  const GET = loginHandler(async()=>{calls++; throw new Error('must not authenticate');}, 'GET');
+  assert.equal(typeof GET, 'function', 'direct navigation needs a recovery handler');
+  const response = await GET(new Request('https://hub.example/api/dashboard/login?next=https://foreign.example&password=do-not-forward'));
+  assert.equal(response.status,303);
+  assert.equal(response.headers.get('location'),'https://hub.example/login');
+  assert.equal(response.headers.get('set-cookie'),null);
+  assert.equal(response.headers.get('cache-control'),'no-store');
+  assert.equal(calls,0);
+});
 
 for (const [label,error,expected] of [
   ['quota message without SDK status',quotaError,'restricted'],

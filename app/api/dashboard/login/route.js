@@ -4,6 +4,13 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
+// Direct navigation is not a login attempt. Recover without forwarding query credentials.
+export async function GET(request) {
+  const response = NextResponse.redirect(new URL('/login', request.url), 303);
+  response.headers.set('Cache-Control', 'no-store');
+  return response;
+}
+
 function sourceIp(request) {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
     || request.headers.get('x-real-ip')
