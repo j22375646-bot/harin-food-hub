@@ -6,6 +6,52 @@ const Module = require('node:module');
 const path = require('node:path');
 const test = require('node:test');
 const TEST_SNAPSHOT = '0123456789abcdef'.repeat(4);
+test('collection retains Cafe24 partial result across a successful worker GET',async()=>{
+ const id='12345678-1234-4123-8123-123456789abc';let poll=false;
+ const {connection}=makeConnection(makeRemoteSession(async url=>url.includes('/live-refresh')?Response.json(poll?{ok:true,partial:false,requests:{naver:{id,status:'SUCCESS'}}}:{ok:true,partial:true,cafe24:{status:'PARTIAL',finishedAt:'2026-09-09T00:00:00Z'},requests:{naver:{id,status:'PENDING'}}}):Response.json(makePagePayload())));
+ assert.equal((await connection.collectOrders()).channels.cafe24.status,'PARTIAL');poll=true;
+ const result=await connection.checkOrderCollection();assert.equal(result.channels.cafe24.status,'PARTIAL');assert.equal(result.status,'CHECK_REQUIRED');assert.equal(result.channels.cafe24.observedAt,'2026-09-09T00:00:00Z');
+});
+test('collection reauthentication failure never replays an earlier success',async()=>{
+ const id='12345678-1234-4123-8123-123456789abc';let auth=true;
+ const {connection}=makeConnection(makeRemoteSession(async(url)=>url.includes('/live-refresh')?Response.json({ok:true,cafe24:{status:'SUCCESS'},requests:{naver:{id,status:'SUCCESS'},coupang:{id,status:'SUCCESS'}}}):auth?Response.json(makePagePayload()):new Response('',{status:401})));
+ assert.equal((await connection.collectOrders()).status,'SUCCESS');auth=false;
+ const checked=await connection.checkOrderCollection();assert.notEqual(checked.status,'SUCCESS');assert.equal(checked.verifiedTerminal,false);assert.equal(checked.channels.cafe24.status,'CHECK_REQUIRED');
+});
+test('collection rejects auth, invalid IDs/statuses, concurrent calls and uncertain retries; logout discards late data',async()=>{
+ const base='https://harin-cafe24-sync.vercel.app/api/orders/live-refresh',id='12345678-1234-4123-8123-123456789abc';
+ for(const status of [401,403]){let posts=0;const {connection}=makeConnection(makeRemoteSession(async(_url,o)=>{if(o.method==='POST')posts++;return new Response('',{status});}));assert.equal((await connection.collectOrders()).status,'CHECK_REQUIRED');assert.equal(posts,0);}
+ for(const row of [{id:'bad',status:'SUCCESS'},{id,status:'QUEUED'},{id,status:'success'}]){
+  let posts=0;const {connection}=makeConnection(makeRemoteSession(async(url)=>{if(url.startsWith(base)){posts++;return Response.json({ok:true,cafe24:{status:'PARTIAL',finishedAt:'2026-09-09T00:00:00Z'},requests:{naver:row}});}return Response.json(makePagePayload());}));
+  const result=await connection.collectOrders();assert.equal(result.channels.naver.status,'CHECK_REQUIRED');assert.equal(result.channels.cafe24.status,'PARTIAL');assert.equal(result.verifiedTerminal,false);await connection.collectOrders();assert.equal(posts,1);
+ }
+ let release,posts=0;const {connection}=makeConnection(makeRemoteSession(async(url)=>{if(url.startsWith(base)){posts++;return new Promise(resolve=>release=resolve);}return Response.json(makePagePayload());}),{timeoutMs:10});
+ const pending=connection.collectOrders();assert.equal((await connection.collectOrders()).status,'BUSY');await pending;await connection.collectOrders();assert.equal(posts,1);
+ await connection.disconnect();release(Response.json({ok:true,cafe24:{status:'SUCCESS'},requests:{naver:{id,status:'PENDING'}}}));await new Promise(r=>setImmediate(r));assert.equal((await connection.checkOrderCollection()).canCheck,false);
+ const next=connection.collectOrders();await new Promise(r=>setImmediate(r));await connection.disconnect();assert.equal((await next).status,'DISCONNECTED');
+});
+test('collection keeps original requests through page changes and rejects swapped response identity',async()=>{
+ const base='https://harin-cafe24-sync.vercel.app/api/orders/live-refresh',id='12345678-1234-4123-8123-123456789abc';let poll=false;
+ const {connection}=makeConnection(makeRemoteSession(async(url)=>url.startsWith(base)?Response.json({ok:true,cafe24:{status:'SUCCESS',finishedAt:'bad'},requests:{naver:{id:poll?'12345678-1234-4123-8123-123456789abd':id,status:poll?'SUCCESS':'PENDING'}}}):Response.json(makePagePayload())));
+ await connection.collectOrders();await connection.viewActive();poll=true;const result=await connection.checkOrderCollection();assert.equal(result.channels.naver.status,'CHECK_REQUIRED');assert.equal(result.channels.cafe24.observedAt,null);assert.equal(result.canCheck,true);assert.equal(result.verifiedTerminal,false);
+});
+test('collection is authenticated all-channel POST then original-ID GET with private response projection',async()=>{
+ const id='12345678-1234-4123-8123-123456789abc',base='https://harin-cafe24-sync.vercel.app/api/orders/live-refresh';let remote;const calls=[];
+ remote=makeRemoteSession(async(url,options)=>{
+  if(!url.startsWith(base))return Response.json(makePagePayload());
+  calls.push([url,options.method]);assert.equal(options.credentials,'include');assert.equal(options.redirect,'error');
+  for(const [target,method,wc,expected] of [[url,options.method,0,false],[url,options.method,8,true],[url+'&evil=1',options.method,0,true],[url,options.method==='POST'?'GET':'POST',0,true]]){
+   let cancel;remote.beforeRequestHandler({url:target,method,webContentsId:wc},r=>cancel=r.cancel);assert.equal(cancel,expected);
+  }
+  return Response.json(options.method==='POST'?{ok:true,partial:true,cafe24Error:'failed',requests:{naver:{id,status:'PENDING'}}}:{ok:true,partial:false,requests:{naver:{id,status:'SUCCESS',executed_at:'2026-09-09T01:00:00Z'}},center:{customer:'PRIVATE'}});
+ });
+ const {connection}=makeConnection(remote);
+ const first=await connection.collectOrders();assert.equal(first.status,'PENDING');assert.equal(first.channels.cafe24.status,'CHECK_REQUIRED');
+ assert.deepEqual(await connection.collectOrders(),first);
+ const last=await connection.checkOrderCollection();assert.equal(last.status,'CHECK_REQUIRED');assert.equal(last.channels.naver.status,'SUCCESS');assert.equal(last.channels.cafe24.status,'CHECK_REQUIRED');
+ assert.equal(JSON.stringify(last).includes(id),false);assert.equal(JSON.stringify(last).includes('PRIVATE'),false);
+ assert.deepEqual(calls,[[base,'POST'],[base+'?naverRequestId='+id,'GET']]);
+});
 test('tracking refresh refuses incoherent platform IDs and missing external identity before POST',async()=>{
  for(const changes of [{platform:'COUPANG'},{externalOrderId:''}]){
   const order={...reviewOrder(),invoiceNumber:'1234567890123',invoice:{status:'REGISTERED',number:'1234567890123'},...changes};let posts=0;
@@ -1171,6 +1217,10 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   };
   registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
   const trusted = { sender: webContents, senderFrame: mainFrame };
+  for(const channel of ['moaon-hub:collect-orders','moaon-hub:check-order-collection']){
+    await assert.rejects(handlers.get(channel)({sender:{},senderFrame:null}),/Untrusted renderer/);
+    for(const argument of ['https://evil.invalid','12345678-1234-4123-8123-123456789abc',{},null])await assert.rejects(handlers.get(channel)(trusted,argument),/Arguments are not allowed/);
+  }
 
   for(const channel of ['moaon-hub:read-tracking','moaon-hub:refresh-tracking']){
     assert.equal(typeof handlers.get(channel),'function');
@@ -1178,7 +1228,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
     for(const args of [[],[''],[[]],['HR-C24-1234ABCD',{invoice:'1234567890123'}]])await assert.rejects(handlers.get(channel)(trusted,...args),/Invalid tracking/);
   }
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-tracking','moaon-hub:refresh-tracking','moaon-hub:read-delivery','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-tracking','moaon-hub:refresh-tracking','moaon-hub:read-delivery','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:collect-orders','moaon-hub:check-order-collection','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
   await assert.rejects(handlers.get('moaon-hub:restore-shipping-history')({sender:{},senderFrame:null}),/Untrusted renderer/);
   await assert.rejects(handlers.get('moaon-hub:restore-shipping-history')(trusted,'other-business'),/Arguments are not allowed/);
   const deliveryHandler=handlers.get('moaon-hub:read-delivery');
@@ -1232,7 +1282,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['readTracking','refreshTracking','readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['collectOrders','checkOrderCollection','readTracking','refreshTracking','readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   await bridge.listBusinesses('ignored');
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });

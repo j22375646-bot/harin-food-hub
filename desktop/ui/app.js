@@ -57,6 +57,8 @@ let registrationBusy = false;
 let selectedChannel = 'ALL';
 let selectedOrderButton = null;
 let displayMode = 'sample';
+let collectionState=null,collectionBusy=false,collectionGeneration=0;
+const collectionShipmentLocks=new Set();
 let displayedOrders = sampleOrders;
 let connectionResult = null;
 let actionGeneration = 0;
@@ -437,6 +439,7 @@ function showOrderDetail(order, button, options = {}) {
       };
       async function runShipment(submit){
         if(busy)return;busy=true;issue.disabled=true;check.disabled=true;reloadIssued.hidden=true;
+        const collectionLock={};collectionShipmentLocks.add(collectionLock);renderCollection();
         if(submit){const reasons=detailPanel.querySelector('.preflight-reasons');if(reasons)reasons.open=true;}
         const id=order.hubOrderId,generation=actionGeneration;
         const current=()=>generation===actionGeneration&&selectedOrderId===id&&actions.isConnected&&!document.hidden;
@@ -456,6 +459,7 @@ function showOrderDetail(order, button, options = {}) {
         }catch{if(current())label.textContent='결과 확인 필요 · 발급 상태 확인을 눌러주세요';}
         finally{
           busy=false;check.disabled=false;
+          collectionShipmentLocks.delete(collectionLock);renderCollection();
           issue.disabled=!eligible||['SUBMITTING','PENDING','RUNNING','SUCCEEDED','FAILED','CANCELLED','UNKNOWN','STORAGE_ERROR'].includes(status);
         }
       }
@@ -601,6 +605,7 @@ function createOrderRow(order) {
 }
 
 function renderSelection(){
+  renderCollection();
   const count=selectedOrderIds.size;
   const autoEligible=displayMode==='live'&&count>0&&count<=20&&[...selectedOrderIds].every(id=>displayedOrders.some(order=>orderId(order)===id&&order.issueAndRegisterEligible===true));
   document.querySelector('#selection-auto-ship').disabled=registrationBusy||!autoEligible;
@@ -676,7 +681,37 @@ function renderOrders() {
   renderSelection();
 }
 
+function clearCollection(){collectionGeneration++;collectionState=null;collectionBusy=false;collectionShipmentLocks.clear();renderCollection();}
+function renderCollection(){
+ const panel=document.querySelector('#order-collection');panel.hidden=displayMode!=='live';
+ const locked=collectionBusy||registrationBusy||collectionShipmentLocks.size>0||displayMode!=='live';
+ document.querySelector('#collect-orders').disabled=locked||collectionState?.canCollect===false;
+ const check=document.querySelector('#check-order-collection');check.hidden=collectionState?.canCheck!==true;check.disabled=locked;
+ const reload=document.querySelector('#collection-reload');reload.hidden=collectionState?.verifiedTerminal!==true;reload.disabled=locked;
+ panel.setAttribute('aria-busy',String(collectionBusy));
+ document.querySelector('#collection-message').textContent=collectionBusy?'전체 채널 수집 상태 확인 중…':!collectionState?'Cafe24·네이버·쿠팡 전체 수집 · 아래 채널 필터와 무관합니다.':collectionState.status==='PENDING'?'요청 접수 · 완료 아님. 수집 결과 확인으로 진행 상태를 조회하세요.':collectionState.status==='SUCCESS'?'전체 채널 수집 완료 · 저장 목록을 다시 조회하면 선택한 주문은 해제됩니다.':collectionState.status==='BUSY'?'다른 작업을 마친 뒤 다시 확인하세요.':collectionState.canCollect===false&&!collectionState.canCheck?'수집 결과 확인 필요 · 중복 수집 방지를 위해 재요청이 잠겼습니다. 저장 목록과 웹 허브 수집 상태를 확인하세요.':'일부 채널 확인 필요 · 완료된 채널과 확인이 필요한 채널을 구분해 확인하세요.';
+ const chips=document.querySelector('#collection-channels');chips.replaceChildren();
+ const labels={SUCCESS:'완료',PARTIAL:'일부 수집 · 확인 필요',PENDING:'대기 · 완료 아님',RUNNING:'수집 중',FAILED:'실패',CHECK_REQUIRED:'확인 필요'};
+ for(const [key,name] of [['cafe24','Cafe24'],['naver','네이버'],['coupang','쿠팡']]){
+  if(!collectionState)break;const row=collectionState.channels?.[key];
+  const chip=makeElement('span','collection-chip',`${name} · ${labels[row?.status]||'확인 필요'}`);
+  const date=typeof row?.observedAt==='string'?new Date(row.observedAt):null;
+  chip.append(makeElement('small','',date&&Number.isFinite(date.getTime())?`기록 시각 ${date.toLocaleString('ko-KR')}`:'기록 시각 없음'));chips.append(chip);
+ }
+}
+async function runCollection(check){
+ if(collectionBusy||registrationBusy||collectionShipmentLocks.size>0||displayMode!=='live'||(!check&&collectionState?.canCollect===false))return;
+ const expected=collectionGeneration;collectionBusy=true;renderCollection();
+ try{const result=await window.moaonHub[check?'checkOrderCollection':'collectOrders']();if(expected===collectionGeneration)collectionState=result;}
+ catch{if(expected===collectionGeneration)collectionState={...collectionState,status:'CHECK_REQUIRED',canCollect:false};}
+ finally{if(expected===collectionGeneration){collectionBusy=false;renderCollection();}}
+}
+document.querySelector('#collect-orders').addEventListener('click',()=>void runCollection(false));
+document.querySelector('#check-order-collection').addEventListener('click',()=>void runCollection(true));
+document.querySelector('#collection-reload').addEventListener('click',()=>{if(!collectionBusy&&!registrationBusy&&collectionState?.verifiedTerminal)void runHubAction('refresh');});
+
 function setButtons(mode) {
+  renderCollection();
   const busy = mode === 'connecting';
   for (const button of connectionButtons) {
     const action = button.dataset.action;
@@ -814,6 +849,7 @@ async function runHubAction(action) {
   }
   if (action === 'nextPage' || action === 'previousPage') clearDisplayedOrders('connecting', action === 'nextPage' ? '다음 주문 페이지를 조회하고 있습니다.' : '이전 주문 페이지를 조회하고 있습니다.');
   if (action === 'disconnect') {
+    clearCollection();
     shippingFollowup.clear();
     selectedChannel='ALL';
     clearOverview();
@@ -1074,6 +1110,7 @@ async function registerSelectedInvoices(){
 }
 
 async function returnToSample() {
+  clearCollection();
   clearBusinesses();
   const generation = ++actionGeneration;
   clearDisplayedOrders('connecting', '실제 주문을 비우고 샘플 화면으로 돌아가고 있습니다.');

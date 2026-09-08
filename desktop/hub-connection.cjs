@@ -20,6 +20,7 @@ const EMPTY_ORDERS = Object.freeze([]);
 const {createShipmentRegistry}=require('./shipment-registry.cjs');
 const {createShipmentTransport}=require('./shipment-transport.cjs');
 const {createBusinessTransport}=require('./business-transport.cjs');
+const {createOrderCollection}=require('./order-collection.cjs');
 const {createShippingActionJournal,readShippingHistory}=require('./shipping-action-journal.cjs');
 const {projectVisual}=require('./order-visual.cjs');
 const {createHash}=require('node:crypto');
@@ -279,6 +280,12 @@ function createHubConnection({
   let trackingController=null;
   let trackingRequestMethod=null;
   let automaticTrackingRequestActive=false;
+  let collectionPermit=null;
+  const collection=createOrderCollection({authorize:verifyShipmentSession,fetch:(url,options)=>getRemoteSession().fetch(url,options),readJson:readBoundedJson,
+    permit:(url,method)=>{collectionPermit=method?{url,method}:null;},timeoutMs:Math.min(timeoutMs*3,45000),
+    blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive()||registrationController||automaticController||reviewingShipment),
+  });
+  const collectOrders=()=>collection.collect(),checkOrderCollection=()=>collection.check();
   async function enqueueRegisteredTracking(row,approved,controller,alive){
     const id=row?.hubOrderId;
     if(!alive()||controller.signal.aborted||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id||'')
@@ -508,6 +515,7 @@ function createHubConnection({
             serverHistoryRequestActive,
             trackingRequestMethod,
             automaticTrackingRequestActive,
+            collectionPermit,
             automaticRequestActive:automaticPermits.has(details.url),
             deliveryRequestActive:deliveryPermits.has(details.url),
             ...labelPreview?.context(),
@@ -1206,6 +1214,7 @@ function createHubConnection({
 
   function disconnect() {
     if (disconnecting) return disconnecting;
+    collection.reset();
     generation += 1;
     const shipmentShutdown=stopShipments();
     currentScope = 'ACTIVE';
@@ -1250,6 +1259,7 @@ function createHubConnection({
   }
 
   function closeChildren() {
+    collection.reset();
     generation += 1;
     void stopShipments();
     currentScope = 'ACTIVE';
@@ -1320,7 +1330,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-  return Object.freeze({ readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ collectOrders, checkOrderCollection, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1364,6 +1374,8 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     return connection.confirmShipmentReview(args[0]);
   });
   const methods = [
+    ['moaon-hub:collect-orders', 'collectOrders'],
+    ['moaon-hub:check-order-collection', 'checkOrderCollection'],
     ['moaon-hub:server-shipping-history', 'readServerShippingHistory'],
     ['moaon-hub:restore-shipping-history', 'restoreShippingHistory'],
     ['moaon-hub:read-overview', 'readOverview'],

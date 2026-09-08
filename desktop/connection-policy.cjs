@@ -84,6 +84,8 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if (url.username || url.password) return false;
 
   const method = details.method.toUpperCase();
+  if(context.collectionPermit?.url===details.url&&context.collectionPermit.method===method&&['GET','POST'].includes(method)
+    &&url.origin===HARIN_ORIGIN&&url.pathname==='/api/orders/live-refresh'&&!url.hash)return isMainProcessRequest(details.webContentsId);
   if(method==='POST'&&context.automaticTrackingRequestActive===true&&details.url===`${HARIN_ORIGIN}/api/shipping/tracking`)return isMainProcessRequest(details.webContentsId);
   if(['GET','POST'].includes(method)&&context.trackingRequestMethod===method&&details.url===`${HARIN_ORIGIN}/api/shipping/tracking`)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.serverHistoryRequestActive===true&&details.url===`${HARIN_ORIGIN}/api/shipping/actions`)return isMainProcessRequest(details.webContentsId);

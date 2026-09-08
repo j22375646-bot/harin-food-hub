@@ -99,7 +99,11 @@ button:focus-visible,summary:focus-visible{outline:2px solid var(--blue);outline
 html body,html body *{scrollbar-width:none!important;scrollbar-gutter:auto!important}
 html body::-webkit-scrollbar,html body *::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
 .orders-layout{--order-scrollbar-width:0px}
-.order-result-stack{order:6;flex:0 1 auto;min-height:0;max-height:35%;overflow:auto;overscroll-behavior:contain}
+.order-result-stack{order:6;flex:0 1 auto;min-height:0;max-height:25%;overflow:auto;overscroll-behavior:contain}
+.orders-layout:has(.order-collection){overflow:clip}
+.orders-layout .orders-workspace:has(#order-collection){overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+.orders-workspace:has(#order-collection) #order-list{min-height:150px;flex-shrink:0}
+.orders-workspace:has(#order-collection) .order-result-stack{min-height:90px;flex-shrink:0}
 .tracking-section{display:grid;gap:8px;margin:12px 0;padding:14px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface-soft);color:var(--ink)}
 .tracking-section h3,.tracking-section p{margin:0;font-size:12px}.tracking-section p{color:var(--muted);line-height:1.6}.tracking-actions{display:flex;flex-wrap:wrap;gap:6px}
 .tracking-actions button{font:inherit;font-size:12px;min-height:34px;padding:6px 9px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);cursor:pointer}.tracking-actions button:disabled{opacity:.55;cursor:wait}
