@@ -68,6 +68,12 @@ const {launchDesktop}=require('./launch.cjs');
   await page.getByRole('button',{name:'이전 출고 기록 불러오기',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('#shipping-history-status').textContent.includes('1건 복원'));
   assert.match(await followup.textContent(),/HR-C24-00000002/);
+  await app.evaluate(({ipcMain})=>{ipcMain.removeHandler('moaon-hub:server-shipping-history');ipcMain.handle('moaon-hub:server-shipping-history',()=>({status:'READY',orders:[{hubOrderId:'HR-C24-00000001',status:'REGISTERED'},{hubOrderId:'HR-C24-00000002',status:'PENDING'}]}));});
+  await page.getByRole('button',{name:'서버 송장 등록 이력 조회',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('#server-history-status').textContent.includes('2건'));
+  const serverPanel=page.locator('#server-shipping-history');await serverPanel.locator('summary').click();
+  assert.match(await serverPanel.innerText(),/등록 성공 기록/);assert.match(await serverPanel.innerText(),/처리 대기 기록/);
+  await page.evaluate(()=>runHubAction('disconnect'));assert.equal(await serverPanel.isVisible(),false);assert.equal(await serverPanel.textContent(),'');
   await page.evaluate(()=>runHubAction('disconnect'));assert.equal(await followup.isVisible(),false);
   console.log('PASS: auto shipping bulk/single entry, truthful per-order outcomes and logout clearing; synthetic only');
  }finally{await app.close();}

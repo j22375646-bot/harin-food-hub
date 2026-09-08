@@ -275,6 +275,7 @@ function createHubConnection({
   let automaticController=null;
   const automaticPermits=new Set();
   const deliveryPermits=new Set();
+  let serverHistoryRequestActive=false;
   const deliveryReads=new Map(),deliveryJobs=new WeakMap();
   function readDelivery(id){
     const row=loadedOrders.find(order=>order.hubOrderId===id);
@@ -428,6 +429,7 @@ function createHubConnection({
             loginWebContentsId: isLoginWindowActive() ? loginWindow.webContents.id : null,
             shipmentRequestActive: shipmentPermits.has(`${details.method} ${details.url}`),
             registrationRequestActive,
+            serverHistoryRequestActive,
             automaticRequestActive:automaticPermits.has(details.url),
             deliveryRequestActive:deliveryPermits.has(details.url),
             ...labelPreview?.context(),
@@ -1199,6 +1201,32 @@ function createHubConnection({
       return {status:partial?'CHECK_REQUIRED':'NOT_FOUND',page:last};
     }finally{findingOrder=false;}
   }
+  async function readServerShippingHistory(){
+    const empty=()=>({status:'CHECK_REQUIRED',orders:[]});
+    if(serverHistoryRequestActive||disconnecting||cleanupFailed||registrationController||automaticController||findingOrder)return empty();
+    const expected=generation,controller=new AbortController();let timer;
+    serverHistoryRequestActive=true;businessReads.add(controller);
+    try{
+      const operation=(async()=>{
+        const auth=await recheckPage();
+        if(expected!==generation||controller.signal.aborted||!['READY','PARTIAL'].includes(auth.status))return empty();
+        const response=await getRemoteSession().fetch(REGISTRATION_URL,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
+        if(response.status!==200)return empty();
+        const payload=await readBoundedJson(response,controller);
+        if(payload?.ok!==true||!Array.isArray(payload.results)||payload.results.length>300)return empty();
+        const seen=new Set(),orders=[];
+        for(const row of payload.results){
+          if(!row||typeof row.hubOrderId!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(row.hubOrderId)||seen.has(row.hubOrderId))return empty();
+          if(row.platform!==(row.hubOrderId.startsWith('HR-CP-')?'COUPANG':'CAFE24'))return empty();
+          seen.add(row.hubOrderId);orders.push({hubOrderId:row.hubOrderId,status:row.status==='SUCCESS'?'REGISTERED':['QUEUED','PENDING','RUNNING'].includes(row.status)?'PENDING':row.status==='FAILED'?'FAILED':'CHECK_REQUIRED'});
+        }
+        return {status:'READY',orders};
+      })();
+      const result=await Promise.race([operation,new Promise(resolve=>{timer=setTimeout(()=>{controller.abort();resolve(empty());},timeoutMs);}),new Promise(resolve=>controller.signal.addEventListener('abort',()=>resolve(empty()),{once:true}))]);
+      return expected===generation&&!disconnecting?result:empty();
+    }catch{return empty();}
+    finally{clearTimeout(timer);serverHistoryRequestActive=false;businessReads.delete(controller);}
+  }
   async function restoreShippingHistory(){
     const expected=generation;
     if(!shipmentDirectory||disconnecting||cleanupFailed||registrationController||automaticController)return {status:'CHECK_REQUIRED',orders:[]};
@@ -1207,7 +1235,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-  return Object.freeze({ findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1244,6 +1272,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     return connection.confirmShipmentReview(args[0]);
   });
   const methods = [
+    ['moaon-hub:server-shipping-history', 'readServerShippingHistory'],
     ['moaon-hub:restore-shipping-history', 'restoreShippingHistory'],
     ['moaon-hub:read-overview', 'readOverview'],
     ['moaon-hub:list-businesses', 'listBusinesses'],

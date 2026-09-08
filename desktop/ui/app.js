@@ -805,6 +805,25 @@ async function runHubAction(action) {
 }
 
 const shippingFollowup=new Map();
+document.querySelector('#server-history-load').addEventListener('click',async()=>{
+  const button=document.querySelector('#server-history-load'),status=document.querySelector('#server-history-status'),panel=document.querySelector('#server-shipping-history');
+  if(button.disabled||displayMode!=='live'||registrationBusy)return;
+  const expected=actionGeneration;button.disabled=true;panel.hidden=true;panel.replaceChildren();status.textContent='서버 기록 조회 중…';
+  try{
+    const result=await window.moaonHub.readServerShippingHistory();
+    if(expected!==actionGeneration||displayMode!=='live')return;
+    if(result?.status!=='READY'){status.textContent='서버 이력 확인 필요 · 잠시 뒤 다시 조회하세요.';return;}
+    status.textContent=result.orders.length?`${result.orders.length}건 · 서버 저장 기록 기준`:'조회 범위에 서버 송장 등록 기록이 없습니다.';
+    if(!result.orders.length)return;
+    panel.hidden=false;panel.append(makeElement('summary','',`서버 송장 등록 이력 · ${result.orders.length}건`),makeElement('p','','서버의 최근 등록 작업 최대 300개 기준입니다. 우체국 발급 전체 이력이나 현재 배송상태가 아닙니다.'));
+    const labels={REGISTERED:'등록 성공 기록',PENDING:'처리 대기 기록',FAILED:'실패 기록',CHECK_REQUIRED:'결과 확인 필요'};
+    for(const row of result.orders){
+      const item=makeElement('div','auto-shipping-item');item.append(makeElement('span','',row.hubOrderId),makeElement('strong','',labels[row.status]||labels.CHECK_REQUIRED));
+      const find=makeElement('button','secondary-action','주문 찾기');find.type='button';find.addEventListener('click',()=>{if(expected===actionGeneration)void findFollowupOrder(row.hubOrderId);});item.append(find);panel.append(item);
+    }
+  }catch{if(expected===actionGeneration)status.textContent='서버 이력 확인 필요 · 다시 조회하세요.';}
+  finally{button.disabled=false;}
+});
 document.querySelector('#shipping-history-load').addEventListener('click',async()=>{
   const button=document.querySelector('#shipping-history-load'),status=document.querySelector('#shipping-history-status');
   if(button.disabled||displayMode!=='live'||registrationBusy)return;
@@ -837,6 +856,8 @@ async function findFollowupOrder(id){
   }catch{if(expected===actionGeneration)clearDisplayedOrders('error','주문 찾기에 실패했습니다. 다시 조회하세요.');}
 }
 function renderShippingFollowup(){
+  document.querySelector('.server-history-tools').hidden=displayMode!=='live';
+  if(displayMode!=='live'){document.querySelector('#server-history-status').textContent='';const serverPanel=document.querySelector('#server-shipping-history');serverPanel.hidden=true;serverPanel.replaceChildren();}
   document.querySelector('.shipping-history-tools').hidden=displayMode!=='live';
   if(displayMode!=='live')document.querySelector('#shipping-history-status').textContent='';
   const panel=document.querySelector('#shipping-followup');
