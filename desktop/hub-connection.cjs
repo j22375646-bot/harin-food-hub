@@ -19,6 +19,7 @@ const EMPTY_ORDERS = Object.freeze([]);
 const {createShipmentRegistry}=require('./shipment-registry.cjs');
 const {createShipmentTransport}=require('./shipment-transport.cjs');
 const {createBusinessTransport}=require('./business-transport.cjs');
+const {projectVisual}=require('./order-visual.cjs');
 const {createHash}=require('node:crypto');
 // Private identity-bound fingerprint, never included in IPC payloads or logs.
 const shipmentFingerprints=new WeakMap();
@@ -150,6 +151,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     orderedAt: order?.orderedAt === null ? null : safeString(order?.orderedAt),
     details: projectOrderDetails(order),
     preflight: projectPreflight(order, payload.partial),
+    ...(projectVisual(order)?{visual:projectVisual(order)}:{}),
     });
     const inputs={};
     for(const key of ['hubOrderId','platform','fulfillment','externalOrderId','shipmentId','productName','quantity','items','receiver','invoiceNumber','issuedInvoiceNumber','invoice','stage','cancelled','cancellationRequested'])inputs[key]=order?.[key]??null;

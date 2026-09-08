@@ -7,16 +7,19 @@ async function main(){
  const app=await launchDesktop({root,executablePath:require('electron'),packaged,override:-1});
  try{
   const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');
+  page.on('console',m=>{if(m.type()==='error')console.log('renderer:',m.text());});
+  page.on('requestfailed',r=>console.log('request failed',r.failure()?.errorText));
   await page.evaluate(()=>document.fonts.load('400 15px "Moaon Pretendard"','모아온'));
   assert.equal(await page.evaluate(()=>[...document.fonts].some(f=>f.family==='Moaon Pretendard'&&f.status==='loaded')),true,'bundled font must load without relying on an installed font');
   assert.equal(await page.getByLabel('현재 페이지 채널').count(),1,'channel tools must exist');
   await app.evaluate(({session})=>{
+   session.defaultSession.protocol.handle('https',()=>new Response(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aJ1sAAAAASUVORK5CYII=','base64'),{headers:{'Content-Type':'image/png'}}));
    globalThis.toolReads=0;
    session.fromPartition('persist:moaon-harin-readonly').fetch=async url=>{
     if(url.endsWith('/api/moaon/businesses'))return Response.json({ok:true,businesses:[]});
     globalThis.toolReads++;
     const base={platform:'CAFE24',fulfillment:'SELLER',stage:'PAID',quantity:1,externalOrderId:'TEST',shippingHistoryStatus:'READY'};
-    const orders=[{...base,hubOrderId:'HR-C24-00000001',productName:'낮은 금액',amount:1000},
+    const orders=[{...base,hubOrderId:'HR-C24-00000001',productName:'낮은 금액',amount:1000,items:[{name:'차',option:'30T 1상자',quantity:1,imageUrl:'https://shop-phinf.pstatic.net/product/tea.png'}],giftRequired:true,gifts:[{giftName:'보리차',quantity:2}],listDeliveryBadge:{status:'RESERVED',source:'EPOST'}},
      {...base,hubOrderId:'HR-C24-00000002',productName:'미확인 금액',amount:null},
      {...base,hubOrderId:'HR-C24-00000003',productName:'높은 금액',amount:30000},
      {...base,hubOrderId:'NAVER-TEST',productName:'네이버 상품',platform:'NAVER',amount:20000}];
@@ -25,6 +28,16 @@ async function main(){
   });
   await page.evaluate(()=>runHubAction('disconnect'));
   await page.evaluate(()=>runHubAction('viewActive'));await page.keyboard.press('Alt+2');
+  const visualRow=page.locator('.order-row').filter({hasText:'낮은 금액'});
+  await visualRow.locator('img').waitFor({timeout:6000});
+  await page.waitForFunction(()=>document.querySelector('.order-row img')?.naturalWidth>0);
+  assert.equal(await visualRow.locator('.gift-badge').innerText(),'사은품 동봉');
+  assert.equal(await visualRow.locator('.delivery-badge').innerText(),'예약');
+  await visualRow.click();
+  assert.match(await page.locator('.detail-body').innerText(),/보리차/);
+  assert.match(await page.locator('.detail-body').innerText(),/2개 · 조회 시점/);
+  await visualRow.locator('img').evaluate(img=>img.dispatchEvent(new Event('error')));
+  assert.equal(await visualRow.locator('.product-thumbnail').innerText(),'이미지 확인');
   const reads=await app.evaluate(()=>globalThis.toolReads);
   await page.getByLabel('현재 페이지 채널').selectOption('CAFE24');
   assert.equal(await page.locator('.order-row').count(),3);

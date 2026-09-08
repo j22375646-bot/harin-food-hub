@@ -227,6 +227,14 @@ function showOrderDetail(order, button, options = {}) {
   closeButton.addEventListener('click', () => closeOrderDetail({ restoreFocus: true }));
   header.append(heading, closeButton);
   const body = makeElement('div', 'detail-body');
+  const productHero=makeElement('section','detail-product');
+  const productText=makeElement('div');
+  productText.append(makeElement('small','',isSampleMode()?order.channel:order.platform||'채널 확인 필요'),makeElement('h2','',order.productName||order.product||'상품 확인 필요'));
+  productText.append(makeElement('span','',isSampleMode()?order.option:order.details?.items?.[0]?.option||formatNumber(order.quantity,'개')));
+  const present=giftBadge(order);
+  if(present)productText.append(present);
+  productHero.append(productThumbnail(order),productText);body.append(productHero);
+  for(const gift of order.visual?.gifts||[])addDetailSection(body,'동봉할 사은품',gift.name,gift.quantity+'개 · 조회 시점 캘린더 이벤트 판정');
   if (isSampleMode()) {
     addDetailSection(body, '주문', order.id, `${order.channel} · ${order.status}`);
     addDetailSection(body, '고객', order.customer, order.address);
@@ -411,6 +419,22 @@ function renderDetailNavigation() {
   detailPanel.append(navigation);
 }
 
+function productThumbnail(order) {
+  const box=makeElement('span','product-thumbnail','이미지 없음');
+  if(order.visual?.imageUrl){
+    const img=document.createElement('img');
+    img.alt='';img.loading='lazy';img.decoding='async';img.referrerPolicy='no-referrer';
+    img.addEventListener('error',()=>{img.remove();box.textContent='이미지 확인';},{once:true});
+    img.src=order.visual.imageUrl;box.replaceChildren(img);
+  }
+  return box;
+}
+function giftBadge(order) {
+  if(!order.visual?.gifts?.length)return null;
+  const badge=makeElement('span','gift-badge','사은품 동봉');
+  badge.title=order.visual.gifts.map(g=>g.name+' '+g.quantity+'개').join(' · ');
+  return badge;
+}
 function createOrderRow(order) {
   const id = orderId(order);
   const button = makeElement('button', 'order-row');
@@ -431,10 +455,19 @@ function createOrderRow(order) {
     const stage = stageLabel(order.stage);
     button.setAttribute('aria-label', `${id || '주문번호 확인 필요'}, ${product}, ${channel}, ${stage}, ${reviewLabels[reviewStatus(order)]}, 조회 전용 주문 상세 열기`);
     primary.append(makeElement('strong', '', product), makeElement('span', '', id || '주문번호 확인 필요'));
-    secondary.append(makeElement('strong', '', channel), makeElement('span', '', stage));
+    const channels={CAFE24:'Cafe24',NAVER:'네이버',COUPANG:'쿠팡'};
+    const channelBadge=makeElement('strong','channel-badge',channels[channel]||channel);
+    channelBadge.dataset.channel=channel;
+    const delivery={RESERVED:'예약',IN_TRANSIT:'배송중',DELIVERED:'배송완료'};
+    const status=makeElement('span','delivery-badge',delivery[order.details?.delivery?.status]||stage);
+    status.dataset.state=order.details?.delivery?.status||order.stage;
+    secondary.append(channelBadge,status);
+    const option=order.details?.items?.[0]?.option;
+    if(option)primary.append(makeElement('small','product-option',option));
+    const gift=giftBadge(order);if(gift)primary.append(gift);
     amount.append(makeElement('strong', '', formatNumber(order.amount, '원')), makeElement('span', 'order-tag live-tag', reviewLabels[reviewStatus(order)]));
   }
-  button.append(primary, secondary, amount);
+  button.append(productThumbnail(order),primary, secondary, amount);
   button.addEventListener('click', () => showOrderDetail(order, button));
   return button;
 }
@@ -584,6 +617,7 @@ function applyHubResult(result) {
       orderedAt: typeof order.orderedAt === 'string' ? order.orderedAt : null,
       // The Main-process projection already strips provider fields and bounds this DTO.
       details: order.details || null,
+      visual: order.visual || null,
       preflight: order.preflight || null,
     })));
     orderSearch.value = '';

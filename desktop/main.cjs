@@ -18,6 +18,7 @@ const {createLabelPreview}=require('./label-preview.cjs');
 const {createPrinterInspection,registerPrinterInspection}=require('./printer-inspection.cjs');
 const {isTrustedRenderer}=require('./connection-policy.cjs');
 const {registerAppInfo}=require('./app-info.cjs');
+const {isImageRequest}=require('./order-visual.cjs');
 const UI_ROOT = path.join(__dirname, 'ui');
 const CONTENT_TYPES = new Map([
   ['.html', 'text/html; charset=utf-8'],
@@ -32,7 +33,7 @@ const CONTENT_SECURITY_POLICY = [
   "font-src 'self'",
   "form-action 'none'",
   "frame-ancestors 'none'",
-  "img-src 'self' data:",
+  "img-src 'self' data: https://*.pstatic.net https://*.coupangcdn.com https://*.cafe24img.com https://ecimg.cafe24.com",
   "object-src 'none'",
   "script-src 'self'",
   "style-src 'self'",
@@ -106,7 +107,12 @@ if (!hasSingleInstanceLock) {
       callback(false);
     });
     appSession.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
-      callback({ cancel: !isAllowedAppUrl(details.url) });
+      callback({ cancel: !isAllowedAppUrl(details.url) && !isImageRequest(details) });
+    });
+    appSession.webRequest.onBeforeSendHeaders({urls:['https://*/*']},(details,callback)=>{
+      const headers={...details.requestHeaders};
+      for(const key of Object.keys(headers))if(['cookie','authorization','referer'].includes(key.toLowerCase()))delete headers[key];
+      callback({requestHeaders:headers});
     });
     appSession.on('will-download', (event) => event.preventDefault());
 
