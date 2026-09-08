@@ -10,7 +10,7 @@ const {_electron}=require('playwright');
   const page=await app.firstWindow();
   await page.waitForFunction(()=>document.querySelector('#entry-screen')?.hidden,{},{timeout:30000});
   assert.equal(await page.evaluate(()=>typeof window.moaonHub.setOrderFilters),'function','Installed app must expose server order filters');
-  assert.equal(await app.evaluate(({app})=>app.getVersion()),'0.37.0');
+  assert.equal(await app.evaluate(({app})=>app.getVersion()),require('../package.json').version);
   await app.evaluate(({session})=>{
    const current=session.fromPartition('persist:moaon-harin-readonly'),original=current.fetch.bind(current);
    globalThis.filterReads=[];
