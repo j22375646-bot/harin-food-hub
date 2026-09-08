@@ -6,11 +6,15 @@ const path = require('node:path');
 const { launchDesktop } = require('./launch.cjs');
 
 const root = path.resolve(__dirname, '..');
-const executablePath = require('electron');
+const packaged = process.argv.includes('--packaged');
+const override = process.argv.indexOf('--executable');
+const executablePath = override >= 0
+  ? process.argv[override + 1]
+  : packaged ? path.join(root, 'dist/win-unpacked/MoaonPreview.exe') : require('electron');
 const snapshot = 'c'.repeat(64);
 
 async function main() {
-  const app = await launchDesktop({ root, executablePath, packaged: false, override: -1 });
+  const app = await launchDesktop({ root, executablePath, packaged, override });
   try {
     const page = await app.firstWindow();
     await page.waitForLoadState('domcontentloaded');
@@ -130,7 +134,12 @@ async function main() {
     assert.equal(await page.locator('[data-action^="hub-view"]:visible').count(), 0);
     assert.equal(await page.getByText('상품 준비 전', { exact: true }).count(), 1);
     assert.equal(await page.locator('.order-row').count(), 3);
-    console.log(JSON.stringify({ status: 'PASS', scope: 'isolated Electron scope reads with synthetic HTTP; no production writes or credentials' }));
+    console.log(JSON.stringify({
+      status: 'PASS',
+      packaged,
+      runtime: packaged ? 'packaged app.asar' : override >= 0 ? 'provided executable' : 'development source',
+      scope: 'isolated Electron scope reads with synthetic HTTP; no production writes or credentials',
+    }));
   } finally {
     await app.close();
   }
