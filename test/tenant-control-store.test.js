@@ -7,6 +7,38 @@ const path = require('node:path');
 const { PGlite } = require('@electric-sql/pglite');
 const { createTenantControlStore } = require('../lib/tenancy/control-store.js');
 const { resolveTenantContext } = require('../lib/tenancy/context.js');
+const { authorizeAction } = require('../lib/tenancy/permissions.js');
+
+test('실제 소속과 인증으로 발급한 context는 사업장별 역할을 분리한다', async () => {
+  assert.equal(typeof store.resolveContext, 'function');
+  const a = await store.resolveContext({sessionCredential: SESSIONS.owner, tenantId: IDS.tenantA, role: 'VIEWER'});
+  const b = await store.resolveContext({sessionCredential: SESSIONS.owner, tenantId: IDS.tenantB, role: 'OWNER'});
+  assert.equal(a.tenantId, IDS.tenantA);
+  assert.equal(a.role, 'OWNER');
+  assert.equal(a.membershipVersion, 3);
+  assert.equal(b.role, 'VIEWER');
+  assert.equal(authorizeAction(a, 'orders.write'), true);
+  assert.equal(authorizeAction(b, 'workspace.read'), true);
+  assert.throws(() => authorizeAction(b, 'orders.write'), {code:'PERMISSION_DENIED'});
+  assert.equal(Object.isFrozen(a), true);
+});
+
+test('context 조회는 소속 제거와 사업장 정지를 캐시하지 않고 재검증한다', async () => {
+  assert.equal(typeof store.resolveContext, 'function');
+  const input = {sessionCredential: SESSIONS.owner, tenantId: IDS.tenantA};
+  await store.resolveContext(input);
+  await database.query("update moaon_control.memberships set status='REMOVED', version=version+1 where tenant_id=$1 and user_id=$2", [IDS.tenantA, IDS.owner]);
+  await assert.rejects(() => store.resolveContext(input), {code:'TENANT_ACCESS_DENIED'});
+  await database.query("update moaon_control.tenants set status='SUSPENDED' where id=$1", [IDS.tenantB]);
+  await assert.rejects(() => store.resolveContext({...input,tenantId:IDS.tenantB}), {code:'TENANT_ACCESS_DENIED'});
+});
+
+test('context 발급은 무소속 사용자와 만료 인증 및 잘못된 사업장을 거부한다', async () => {
+  assert.equal(typeof store.resolveContext, 'function');
+  await assert.rejects(() => store.resolveContext({sessionCredential:SESSIONS.invitee,tenantId:IDS.tenantA}), {code:'TENANT_ACCESS_DENIED'});
+  await assert.rejects(() => store.resolveContext({sessionCredential:SESSIONS.expired,tenantId:IDS.tenantA}), {code:'AUTH_REQUIRED'});
+  await assert.rejects(() => store.resolveContext({sessionCredential:SESSIONS.owner,tenantId:'bad'}), {code:'TENANT_REQUIRED'});
+});
 
 const IDS = Object.freeze({
   tenantA: '10000000-0000-4000-8000-000000000001',
