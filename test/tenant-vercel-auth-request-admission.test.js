@@ -125,6 +125,80 @@ test('native Vercel headers drive the actual IP then subject admission with cano
     }
   }));
 
+test('ignored proxy and host headers cannot substitute for required Vercel IP headers', () =>
+  withProductionRuntime(async () => {
+    const ignored = [
+      ['forwarded', 'for=198.51.100.77'],
+      ['cf-connecting-ip', '198.51.100.77'],
+      ['true-client-ip', '198.51.100.77'],
+      ['x-client-ip', '198.51.100.77'],
+      ['host', 'attacker.example.test'],
+      ['x-vercel-id', 'iad1::attacker'],
+    ];
+    const calls = [];
+    const admit = createAdmission({rpc: async (name, args) => {
+      calls.push({name, args});
+      return {data: true, error: null};
+    }});
+    const errors = [];
+
+    for (const [header, value] of ignored) {
+      const error = await captureRejection(() => admit(
+        nativeRequest({headers: new Headers([[header, value]])}),
+        {kind: 'LOGIN', subject: 'owner'},
+      ));
+      assertIngressError(error, [KEY, value, 'owner']);
+      errors.push(error);
+    }
+
+    const combined = Object.fromEntries(ignored);
+    const combinedError = await captureRejection(() => admit(
+      nativeRequest({headers: new Headers(combined)}),
+      {kind: 'LOGIN', subject: 'owner'},
+    ));
+    assertIngressError(combinedError, [KEY, ...Object.values(combined), 'owner']);
+    errors.push(combinedError);
+
+    assert.equal(new Set(errors).size, ignored.length + 1);
+    assert.equal(calls.length, 0);
+  }));
+
+test('required Vercel IP headers win over contradictory ignored headers with canonical quota hashes', () =>
+  withProductionRuntime(async () => {
+    const calls = [];
+    const admit = createAdmission({rpc: async (name, args) => {
+      calls.push({name, args});
+      return {data: true, error: null};
+    }});
+    const ignored = {
+      forwarded: 'for=198.51.100.77',
+      'cf-connecting-ip': '198.51.100.77',
+      'true-client-ip': '198.51.100.77',
+      'x-client-ip': '198.51.100.77',
+      host: 'attacker.example.test',
+      'x-vercel-id': 'iad1::attacker',
+    };
+    const ipv4 = await admit(nativeRequest({headers: new Headers({
+      ...ignored,
+      'x-vercel-forwarded-for': '192.0.2.128',
+      'x-forwarded-for': '192.0.2.128',
+    })}), {kind: 'LOGIN', subject: 'owner'});
+    const ipv6 = await admit(nativeRequest({headers: new Headers({
+      ...ignored,
+      'x-vercel-forwarded-for': '2001:0db8:0:0:0:0:0:1',
+      'x-forwarded-for': '2001:db8::1',
+    })}), {kind: 'LOGIN', subject: 'owner'});
+
+    assert.deepEqual(ipv4, {allowed: true});
+    assert.deepEqual(ipv6, {allowed: true});
+    assert.deepEqual(calls, [
+      {name: 'moaon_consume_auth_admission', args: {p_ip_hash: IPV4_HASH}},
+      {name: 'moaon_consume_auth_request', args: {p_kind: 'LOGIN', p_subject_hash: OWNER_HASH}},
+      {name: 'moaon_consume_auth_admission', args: {p_ip_hash: IPV6_HASH}},
+      {name: 'moaon_consume_auth_request', args: {p_kind: 'LOGIN', p_subject_hash: OWNER_HASH}},
+    ]);
+  }));
+
 test('construction accepts only exact data configuration without executing accessors or RPC', () =>
   withProductionRuntime(async () => {
     let rpcCalls = 0;
