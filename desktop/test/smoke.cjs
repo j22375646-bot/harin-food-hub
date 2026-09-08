@@ -25,14 +25,14 @@ async function main(){
     assert.equal(await page.evaluate(()=>typeof process),'undefined');
     await page.getByRole('button',{name:'주문·배송',exact:true}).click();
     await page.getByRole('heading',{name:'주문·배송',exact:true}).waitFor();
-    assert.equal(await page.getByRole('option').count(),3);
+    assert.equal(await page.locator('.order-row').count(),3);
     await page.locator('#order-search').fill('MOAON-S002');
-    assert.equal(await page.getByRole('option').count(),1);
-    await page.getByRole('option').click();
+    assert.equal(await page.locator('.order-row').count(),1);
+    await page.locator('.order-row').click();
     await page.getByRole('heading',{name:'주문 상세',exact:true}).waitFor();
     await page.getByRole('button',{name:'주문 상세 닫기'}).click();
     await page.locator('#order-search').fill('없는주문');
-    assert.equal(await page.getByRole('option').count(),0);
+    assert.equal(await page.locator('.order-row').count(),0);
     await page.locator('#order-search').fill('');
     await page.getByRole('button',{name:'앱 설정',exact:true}).click();
     await page.getByRole('heading',{name:'앱 설정',exact:true}).waitFor();
@@ -54,7 +54,7 @@ async function main(){
     await page.locator('[data-route="settings"]').click();
     await page.locator('[data-theme-choice="light"]').click();
     await page.locator('[data-route="orders"]').click();
-    await page.getByRole('option').first().click();
+    await page.locator('.order-row').first().click();
     await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1040,720));
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     await page.evaluate(()=>Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{}))));

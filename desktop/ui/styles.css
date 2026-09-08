@@ -153,7 +153,7 @@ button {
   align-items: center;
   gap: 7px;
   color: #aebbd3;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -173,7 +173,7 @@ button {
 
 .business-card small {
   color: #aebbd3;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .primary-nav {
@@ -238,7 +238,7 @@ button {
 .nav-button small {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .sidebar-note {
@@ -253,12 +253,12 @@ button {
 
 .sidebar-note strong {
   color: var(--rose);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .sidebar-note span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 14px;
   line-height: 1.5;
 }
 
@@ -314,7 +314,7 @@ button {
 
 .top-business span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .top-business strong {
@@ -478,14 +478,14 @@ button {
 
 .readiness-score span {
   color: #d9e1ee;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
   line-height: 1.45;
 }
 
 .readiness-score small {
   color: #9cb2f0;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .today-grid {
@@ -592,7 +592,7 @@ button {
 .capability-list small {
   margin-top: 3px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.5;
 }
 
@@ -637,7 +637,7 @@ button {
 .metric-grid small,
 .metric-grid span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .metric-grid strong {
@@ -729,7 +729,7 @@ button {
   border-bottom: 1px solid var(--line);
   background: var(--surface-soft);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -760,7 +760,7 @@ button {
   transform: translateY(-1px);
 }
 
-.order-row[aria-selected="true"] {
+.order-row[aria-pressed="true"] {
   border-color: color-mix(in srgb, var(--blue) 42%, var(--line));
   background: var(--blue-soft);
 }
@@ -793,12 +793,12 @@ button {
 .order-amount span {
   margin-top: 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .order-secondary strong {
   overflow: hidden;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -822,7 +822,7 @@ button {
   border-radius: 6px;
   background: var(--amber-soft);
   color: var(--amber) !important;
-  font-size: 11px !important;
+  font-size: 14px !important;
   font-weight: 900;
 }
 
@@ -872,7 +872,7 @@ button {
   max-width: 240px;
   margin: 7px 0 0;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .detail-header {
@@ -913,7 +913,7 @@ button {
 .detail-section h3 {
   margin: 0 0 8px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 900;
 }
 
@@ -931,7 +931,7 @@ button {
 .detail-section span {
   margin-top: 4px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.55;
 }
 
@@ -942,7 +942,7 @@ button {
   border-radius: 10px;
   background: var(--amber-soft);
   color: var(--amber);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
   line-height: 1.55;
 }
@@ -1049,7 +1049,7 @@ button {
 
 .theme-options small {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .program-list {
@@ -1072,7 +1072,7 @@ button {
 
 .program-list dt {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -1128,7 +1128,7 @@ button {
   border-top: 1px solid var(--line);
   background: var(--surface);
   color: var(--muted);
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
 }
 

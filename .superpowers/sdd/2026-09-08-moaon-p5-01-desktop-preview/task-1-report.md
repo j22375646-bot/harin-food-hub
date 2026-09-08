@@ -39,3 +39,8 @@
 
 - 이 결과는 한 대 Windows PC의 합성 자료 Preview다. 모든 PC, 인쇄, 자동 업데이트, 운영 API/DB 연결을 검증한 결과가 아니다.
 - installer/unpacked EXE 빌드, 해시, packaged E2E와 최종 산출물 보고는 parent 범위다.
+
+## 리뷰 후속 수정
+
+- 실제 설명·주문·상세·설정 메타데이터와 하단 상태 문구를 14px 이상으로 올렸다. 11–12px은 eyebrow, badge, 단축키 같은 보조 utility 표기에만 남겼다.
+- 주문 목록의 불완전한 `listbox`/`option` 의미를 제거하고 일반 버튼과 `aria-pressed` 선택 상태로 변경했다. 기존 마우스·Tab·Enter·Space·상세 닫기 후 포커스 복귀 동작은 유지한다.

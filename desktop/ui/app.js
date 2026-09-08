@@ -80,7 +80,7 @@ function showRoute(route, options = {}) {
 function closeOrderDetail(options = {}) {
   selectedOrderId = null;
   for (const button of orderList.querySelectorAll('.order-row')) {
-    button.setAttribute('aria-selected', 'false');
+    button.setAttribute('aria-pressed', 'false');
   }
 
   detailPanel.replaceChildren();
@@ -116,7 +116,7 @@ function showOrderDetail(order, button) {
 
   for (const orderButton of orderList.querySelectorAll('.order-row')) {
     orderButton.setAttribute(
-      'aria-selected',
+      'aria-pressed',
       String(orderButton.dataset.orderId === selectedOrderId),
     );
   }
@@ -156,8 +156,7 @@ function createOrderRow(order) {
   const button = makeElement('button', 'order-row');
   button.type = 'button';
   button.dataset.orderId = order.id;
-  button.setAttribute('role', 'option');
-  button.setAttribute('aria-selected', String(order.id === selectedOrderId));
+  button.setAttribute('aria-pressed', String(order.id === selectedOrderId));
   button.setAttribute(
     'aria-label',
     `${order.id}, ${order.customer}, ${order.product}, ${order.amount}, 샘플 주문 상세 열기`,
