@@ -44,3 +44,5 @@
 
 - 실제 설명·주문·상세·설정 메타데이터와 하단 상태 문구를 14px 이상으로 올렸다. 11–12px은 eyebrow, badge, 단축키 같은 보조 utility 표기에만 남겼다.
 - 주문 목록의 불완전한 `listbox`/`option` 의미를 제거하고 일반 버튼과 `aria-pressed` 선택 상태로 변경했다. 기존 마우스·Tab·Enter·Space·상세 닫기 후 포커스 복귀 동작은 유지한다.
+- 검색으로 주문 목록 DOM이 교체돼도 선택 주문의 포커스 복귀 대상을 새 행으로 갱신한다. 선택 → 해당 주문 검색 → `Esc` 후 현재 행으로 포커스가 돌아오는 실행 검증을 추가했다.
+- 외부 fetch 차단 검증은 DNS 실패 가능성을 제거하고 `securitypolicyviolation`의 `effectiveDirective: connect-src`와 `blockedURI: https://example.invalid/`를 직접 확인한다.

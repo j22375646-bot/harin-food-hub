@@ -34,6 +34,11 @@ async function main(){
     await page.locator('#order-search').fill('없는주문');
     assert.equal(await page.locator('.order-row').count(),0);
     await page.locator('#order-search').fill('');
+    await page.locator('.order-row').first().click();
+    await page.locator('#order-search').fill('MOAON-S001');
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('.order-row').evaluate(element=>element===document.activeElement),true);
+    await page.locator('#order-search').fill('');
     await page.getByRole('button',{name:'앱 설정',exact:true}).click();
     await page.getByRole('heading',{name:'앱 설정',exact:true}).waitFor();
     await page.locator('[data-theme-choice="dark"]').click();
@@ -43,10 +48,20 @@ async function main(){
     const before=page.url();
     await page.evaluate(()=>window.open('https://example.invalid','_blank'));
     assert.equal((await app.windows()).length,1);
-    const networkBlocked=await page.evaluate(async()=>{
-      try{await fetch('https://example.invalid');return false;}catch{return true;}
+    const policyViolation=await page.evaluate(async()=>{
+      const violation=new Promise((resolve,reject)=>{
+        const timeout=setTimeout(()=>reject(new Error('Timed out waiting for CSP violation')),3000);
+        document.addEventListener('securitypolicyviolation',event=>{
+          if(event.effectiveDirective!=='connect-src')return;
+          clearTimeout(timeout);
+          resolve({effectiveDirective:event.effectiveDirective,blockedURI:event.blockedURI});
+        },{once:true});
+      });
+      void fetch('https://example.invalid').catch(()=>{});
+      return violation;
     });
-    assert.equal(networkBlocked,true);
+    assert.equal(policyViolation.effectiveDirective,'connect-src');
+    assert.match(policyViolation.blockedURI,/^https:\/\/example\.invalid\/?$/);
     assert.equal(page.url(),before);
     fs.mkdirSync(path.join(root,'artifacts'),{recursive:true});
     await page.evaluate(()=>Promise.all(document.getAnimations().map(a=>a.finished.catch(()=>{}))));

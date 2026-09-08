@@ -203,6 +203,9 @@ function renderOrders() {
 
   if (selectedOrderId && !visibleOrders.some((order) => order.id === selectedOrderId)) {
     closeOrderDetail();
+  } else if (selectedOrderId) {
+    selectedOrderButton = [...orderList.querySelectorAll('.order-row')]
+      .find((button) => button.dataset.orderId === selectedOrderId) || null;
   }
 }
 
