@@ -6,6 +6,80 @@ const Module = require('node:module');
 const path = require('node:path');
 const test = require('node:test');
 const TEST_SNAPSHOT = '0123456789abcdef'.repeat(4);
+test('tracking refresh refuses incoherent platform IDs and missing external identity before POST',async()=>{
+ for(const changes of [{platform:'COUPANG'},{externalOrderId:''}]){
+  const order={...reviewOrder(),invoiceNumber:'1234567890123',invoice:{status:'REGISTERED',number:'1234567890123'},...changes};let posts=0;
+  const {connection}=makeConnection(makeRemoteSession(async(url,options)=>{
+   if(options.method==='POST'){posts++;return Response.json({ok:true,queued:[{trackingNo:order.invoiceNumber,hubOrderIds:[order.hubOrderId],status:'PENDING'}]},{status:202});}
+   return Response.json(makePagePayload({orders:[order]}));
+  }));
+  await connection.refresh();assert.deepEqual(await connection.refreshTracking(order.hubOrderId),{status:'CHECK_REQUIRED'});assert.equal(posts,0);
+ }
+});
+test('tracking deadline, concurrent refresh and logout cannot dispatch duplicate or late work',async()=>{
+ const order={...reviewOrder(),invoiceNumber:'1234567890123',invoice:{status:'REGISTERED',number:'1234567890123'}};
+ let posts=0,release;
+ const remote=makeRemoteSession(async url=>{
+  if(url.endsWith('/api/shipping/tracking')){posts++;return new Promise(resolve=>release=resolve);}
+  return Response.json(makePagePayload({orders:[order]}));
+ });
+ const {connection}=makeConnection(remote,{timeoutMs:20});await connection.refresh();
+ const first=connection.refreshTracking(order.hubOrderId);
+ assert.deepEqual(await connection.refreshTracking(order.hubOrderId),{status:'CHECK_REQUIRED'});
+ assert.deepEqual(await first,{status:'CHECK_REQUIRED'});assert.equal(posts,1);
+ release(Response.json({ok:true,queued:[]}));
+ const second=connection.readTracking(order.hubOrderId);await new Promise(resolve=>setImmediate(resolve));
+ await connection.disconnect();assert.deepEqual(await second,{status:'READY',state:{status:'CHECK_REQUIRED',checkedAt:null}});
+ release(Response.json({ok:true,states:[{hubOrderId:order.hubOrderId,trackingNo:order.invoiceNumber,status:'SUCCESS',statusCode:'DELIVERED',checkedAt:'2026-09-09T00:00:00Z'}]}));
+});
+test('tracking refuses missing current evidence, rocket, auth failures and failed stale delivery',async()=>{
+ for(const mode of ['rocket','issued','auth','failed','date','missing']){
+  const order={...reviewOrder(),fulfillment:mode==='rocket'?'ROCKET_GROWTH':'SELLER',invoiceNumber:'1234567890123',invoice:{status:mode==='issued'?'ISSUED':'REGISTERED',number:'1234567890123'}};
+  let initial=true,calls=0;
+  const {connection}=makeConnection(makeRemoteSession(async url=>{
+   if(url.endsWith('/api/shipping/tracking')){calls++;return Response.json({ok:true,states:mode==='missing'?[]:[{hubOrderId:order.hubOrderId,trackingNo:order.invoiceNumber,status:mode==='failed'?'FAILED':'SUCCESS',statusCode:'DELIVERED',checkedAt:mode==='date'?'bad':'2026-09-09T00:00:00Z'}]});}
+   return !initial&&mode==='auth'?new Response('',{status:401}):Response.json(makePagePayload({orders:[order]}));
+  }));
+  await connection.refresh();initial=false;
+  assert.deepEqual(await connection.readTracking(order.hubOrderId),{status:'READY',state:{status:'CHECK_REQUIRED',checkedAt:null}});
+  if(['rocket','issued','auth'].includes(mode))assert.equal(calls,0);
+ }
+});
+test('tracking refresh dispatches only selected current invoice after recheck and returns pending',async()=>{
+ let order={...reviewOrder(),invoiceNumber:'1234567890123',invoice:{status:'REGISTERED',number:'1234567890123'}},posts=0,remote;
+ remote=makeRemoteSession(async(url,options)=>{
+  if(url.endsWith('/api/shipping/tracking')){
+   posts++;assert.equal(options.method,'POST');assert.deepEqual(JSON.parse(options.body),{orderIds:['HR-C24-1234ABCD'],mode:'manual'});
+   for(const [suffix,webContentsId,method,want] of [['',0,'POST',false],['',8,'POST',true],['?all=1',0,'POST',true],['',0,'GET',true]]){
+    let cancel;remote.beforeRequestHandler({url:url+suffix,webContentsId,method},value=>cancel=value.cancel);assert.equal(cancel,want);
+   }
+   return Response.json({ok:true,pending:false,queued:[{trackingNo:'1234567890123',hubOrderIds:[order.hubOrderId],status:'SUCCESS',requestId:'PRIVATE'}]});
+  }return Response.json(makePagePayload({orders:[order]}));
+ });
+ const {connection}=makeConnection(remote);await connection.refresh();assert.equal(typeof connection.refreshTracking,'function');
+ assert.deepEqual(await connection.refreshTracking(order.hubOrderId),{status:'PENDING'});
+ order={...order,invoice:{status:'REGISTERED',number:'9999999999999'}};
+ assert.equal((await connection.refreshTracking(order.hubOrderId)).status,'CHECK_REQUIRED');
+ for(const id of ['',[],null,'HR-NV-1234ABCD','HR-CP-FFFFFFFF'])assert.equal((await connection.refreshTracking(id)).status,'CHECK_REQUIRED');
+ assert.equal(posts,1);
+ let cancel;remote.beforeRequestHandler({url:'https://harin-cafe24-sync.vercel.app/api/shipping/tracking',method:'POST',webContentsId:0},value=>cancel=value.cancel);assert.equal(cancel,true);
+});
+test('tracking reads bind current invoice and hide queue metadata and stale delivery',async()=>{
+ const order={...reviewOrder(),invoiceNumber:'1234567890123',invoice:{status:'REGISTERED',number:'1234567890123'}};
+ let state={hubOrderId:order.hubOrderId,trackingNo:order.invoiceNumber,status:'SUCCESS',statusCode:'DELIVERED',checkedAt:'2026-09-09T01:00:00.000Z',error:'PRIVATE',events:['PRIVATE']};
+ const {connection}=makeConnection(makeRemoteSession(async url=>Response.json(url.endsWith('/api/shipping/tracking')?{ok:true,states:[state]}:makePagePayload({orders:[order]}))));
+ await connection.refresh();assert.equal(typeof connection.readTracking,'function');
+ assert.deepEqual(await connection.readTracking(order.hubOrderId),{status:'READY',state:{status:'DELIVERED',checkedAt:'2026-09-09T01:00:00.000Z'}});
+ for(const statusCode of ['ACCEPTED','NOT_FOUND']){
+  state={...state,statusCode};
+  assert.deepEqual(await connection.readTracking(order.hubOrderId),{status:'READY',state:{status:'WAITING',checkedAt:'2026-09-09T01:00:00.000Z'}});
+ }
+ state={...state,statusCode:'DELIVERED'};
+ state={...state,status:'QUEUED'};
+ assert.deepEqual(await connection.readTracking(order.hubOrderId),{status:'READY',state:{status:'PENDING',checkedAt:null}});
+ state={...state,status:'SUCCESS',trackingNo:'9999999999999'};
+ assert.deepEqual(await connection.readTracking(order.hubOrderId),{status:'READY',state:{status:'CHECK_REQUIRED',checkedAt:null}});
+});
 test('server shipping history returns bounded safe statuses over authenticated GET only',async()=>{
  let remote;remote=makeRemoteSession(async(url,options)=>{
   assert.equal(options.method,'GET');
@@ -1098,7 +1172,13 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
   const trusted = { sender: webContents, senderFrame: mainFrame };
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-delivery','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  for(const channel of ['moaon-hub:read-tracking','moaon-hub:refresh-tracking']){
+    assert.equal(typeof handlers.get(channel),'function');
+    await assert.rejects(handlers.get(channel)({sender:{},senderFrame:null},'HR-C24-1234ABCD'),/Untrusted renderer/);
+    for(const args of [[],[''],[[]],['HR-C24-1234ABCD',{invoice:'1234567890123'}]])await assert.rejects(handlers.get(channel)(trusted,...args),/Invalid tracking/);
+  }
+
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-tracking','moaon-hub:refresh-tracking','moaon-hub:read-delivery','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
   await assert.rejects(handlers.get('moaon-hub:restore-shipping-history')({sender:{},senderFrame:null}),/Untrusted renderer/);
   await assert.rejects(handlers.get('moaon-hub:restore-shipping-history')(trusted,'other-business'),/Arguments are not allowed/);
   const deliveryHandler=handlers.get('moaon-hub:read-delivery');
@@ -1152,7 +1232,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['readTracking','refreshTracking','readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   await bridge.listBusinesses('ignored');
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });

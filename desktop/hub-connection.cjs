@@ -276,6 +276,57 @@ function createHubConnection({
   const automaticPermits=new Set();
   const deliveryPermits=new Set();
   let serverHistoryRequestActive=false;
+  let trackingController=null;
+  let trackingRequestMethod=null;
+  function trackingRow(id){
+    if(typeof id!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id)||loadedOrders.length>20)return null;
+    const rows=loadedOrders.filter(row=>row.hubOrderId===id);
+    const row=rows[0];
+    return rows.length===1&&row.preflight.route==='HUB'&&!row.preflight.codes.includes('ROUTE_UNKNOWN')&&!row.preflight.codes.includes('ORDER_ID')
+      &&row.platform===(id.startsWith('HR-C24-')?'CAFE24':'COUPANG')
+      &&row.details.cancelled===false&&row.details.cancellationRequested===false&&row.stage!=='CANCELLED'
+      &&row.details.invoice?.status==='REGISTERED'?row:null;
+  }
+  const trackingUnknown=()=>({status:'READY',state:{status:'CHECK_REQUIRED',checkedAt:null}});
+  function readTracking(id){return performTracking(id,'GET');}
+  async function refreshTracking(id){
+    const result=await performTracking(id,'POST');
+    return result.status==='PENDING'?result:{status:'CHECK_REQUIRED'};
+  }
+  async function performTracking(id,method){
+    const initial=trackingRow(id);
+    if(!initial||trackingController||activeRead||registrationController||automaticController||findingOrder||disconnecting||cleanupFailed||isLoginWindowActive())return trackingUnknown();
+    const expected=generation,controller=new AbortController();let timer;
+    trackingController=controller;businessReads.add(controller);
+    const alive=()=>expected===generation&&!controller.signal.aborted&&!disconnecting&&!cleanupFailed&&!isLoginWindowActive();
+    try{
+      const operation=(async()=>{
+        const auth=await recheckPage();
+        const row=trackingRow(id);
+        if(!alive()||auth.status!=='READY'||!row||row.details.invoice.number!==initial.details.invoice.number||workflowFingerprints.get(row)!==workflowFingerprints.get(initial))return trackingUnknown();
+        trackingRequestMethod=method;
+        const response=await getRemoteSession().fetch(`${HARIN_ORIGIN}/api/shipping/tracking`,{method,credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal,...(method==='POST'?{headers:{'Content-Type':'application/json',Origin:HARIN_ORIGIN},body:JSON.stringify({orderIds:[id],mode:'manual'})}:{})});
+        if(!alive()||!loadedOrders.includes(row)||![200,...(method==='POST'?[202]:[])].includes(response.status))return trackingUnknown();
+        const payload=await readBoundedJson(response,controller);
+        if(method==='POST'){
+          if(!alive()||!loadedOrders.includes(row)||payload?.ok!==true||!Array.isArray(payload.queued)||payload.queued.length!==1)return trackingUnknown();
+          const queued=payload.queued[0];
+          return queued?.trackingNo===row.details.invoice.number&&Array.isArray(queued.hubOrderIds)&&queued.hubOrderIds.includes(id)&&['PENDING','RUNNING','SUCCESS'].includes(queued.status)?{status:'PENDING'}:trackingUnknown();
+        }
+        if(!alive()||!loadedOrders.includes(row)||payload?.ok!==true||!Array.isArray(payload.states)||payload.states.length>1000)return trackingUnknown();
+        const matches=payload.states.filter(state=>state?.hubOrderId===id&&state.trackingNo===row.details.invoice.number);
+        if(matches.length!==1)return trackingUnknown();
+        const state=matches[0];
+        if(['QUEUED','PENDING','RUNNING'].includes(state.status))return {status:'READY',state:{status:'PENDING',checkedAt:null}};
+        const checkedAt=typeof state.checkedAt==='string'&&/^\d{4}-\d\d-\d\dT/.test(state.checkedAt)&&Number.isFinite(Date.parse(state.checkedAt))?new Date(state.checkedAt).toISOString():null;
+        const status={ACCEPTED:'WAITING',NOT_FOUND:'WAITING',WAITING:'WAITING',IN_TRANSIT:'IN_TRANSIT',DELIVERED:'DELIVERED'}[state.statusCode];
+        if(state.status!=='SUCCESS'||!checkedAt||!['WAITING','IN_TRANSIT','DELIVERED'].includes(status))return trackingUnknown();
+        return {status:'READY',state:{status,checkedAt}};
+      })();
+      return await Promise.race([operation,new Promise(resolve=>{timer=setTimeout(()=>{controller.abort();resolve(trackingUnknown());},timeoutMs);}),new Promise(resolve=>controller.signal.addEventListener('abort',()=>resolve(trackingUnknown()),{once:true}))]);
+    }catch{return trackingUnknown();}
+    finally{clearTimeout(timer);trackingRequestMethod=null;businessReads.delete(controller);if(trackingController===controller)trackingController=null;}
+  }
   const deliveryReads=new Map(),deliveryJobs=new WeakMap();
   function readDelivery(id){
     const row=loadedOrders.find(order=>order.hubOrderId===id);
@@ -430,6 +481,7 @@ function createHubConnection({
             shipmentRequestActive: shipmentPermits.has(`${details.method} ${details.url}`),
             registrationRequestActive,
             serverHistoryRequestActive,
+            trackingRequestMethod,
             automaticRequestActive:automaticPermits.has(details.url),
             deliveryRequestActive:deliveryPermits.has(details.url),
             ...labelPreview?.context(),
@@ -1235,10 +1287,17 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-  return Object.freeze({ readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
+  for(const [channel,method] of [['moaon-hub:read-tracking','readTracking'],['moaon-hub:refresh-tracking','refreshTracking']]){
+    ipcMain.handle(channel,async(event,...args)=>{
+      if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+      if(args.length!==1||typeof args[0]!=='string'||!/^HR-(?:C24|CP|NV)-[A-F0-9]{8}$/.test(args[0]))throw Error('Invalid tracking arguments');
+      return connection[method](args[0]);
+    });
+  }
   ipcMain.handle('moaon-hub:read-delivery',async(event,...args)=>{
     if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
     if(args.length!==1||typeof args[0]!=='string'||!/^HR-(?:C24|CP|NV)-[A-F0-9]{8}$/.test(args[0]))throw Error('Invalid delivery arguments');

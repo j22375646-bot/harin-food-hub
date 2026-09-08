@@ -99,6 +99,10 @@ button:focus-visible,summary:focus-visible{outline:2px solid var(--blue);outline
 html body,html body *{scrollbar-width:none!important;scrollbar-gutter:auto!important}
 html body::-webkit-scrollbar,html body *::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
 .orders-layout{--order-scrollbar-width:0px}
+.order-result-stack{order:6;flex:0 1 auto;min-height:0;max-height:35%;overflow:auto;overscroll-behavior:contain}
+.tracking-section{display:grid;gap:8px;margin:12px 0;padding:14px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface-soft);color:var(--ink)}
+.tracking-section h3,.tracking-section p{margin:0;font-size:12px}.tracking-section p{color:var(--muted);line-height:1.6}.tracking-actions{display:flex;flex-wrap:wrap;gap:6px}
+.tracking-actions button{font:inherit;font-size:12px;min-height:34px;padding:6px 9px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);cursor:pointer}.tracking-actions button:disabled{opacity:.55;cursor:wait}
 .registration-results{flex:0 0 auto;max-height:160px;overflow:auto;padding:12px 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface-soft);font-size:12px;line-height:1.6}
 .registration-results ul{margin:6px 0;padding-left:18px}.registration-results p{margin:4px 0;color:var(--muted)}
 .registration-result-item{display:grid;grid-template-columns:minmax(145px,1fr) minmax(190px,auto);align-items:center;gap:8px;padding:5px 0;border-top:1px solid var(--line)}

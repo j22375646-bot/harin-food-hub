@@ -222,6 +222,38 @@ function addDetailSection(parent, title, primary, secondary) {
   parent.append(section);
 }
 
+function trackingSection(order){
+  const panel=makeElement('section','tracking-section'),generation=actionGeneration,id=orderId(order);
+  panel.setAttribute('role','region');panel.setAttribute('aria-label','우체국 배송추적');
+  const state=makeElement('strong','','추적 기록 확인 전'),time=makeElement('p','','송장 등록과 실제 배송 상태는 다릅니다.');
+  state.setAttribute('role','status');
+  const buttons=makeElement('div','tracking-actions');
+  const read=makeElement('button','secondary-action','저장 추적 조회'),refresh=makeElement('button','secondary-action','배송상태 갱신 요청');
+  read.type=refresh.type='button';buttons.append(read,refresh);
+  panel.append(makeElement('h3','','우체국 배송추적'),state,time,buttons);
+  let busy=false;
+  const current=()=>generation===actionGeneration&&displayMode==='live'&&selectedOrderId===id&&panel.isConnected;
+  const run=async renew=>{
+    if(!current()||busy||registrationBusy)return;
+    busy=true;read.disabled=refresh.disabled=true;panel.setAttribute('aria-busy','true');
+    state.textContent=renew?'배송상태 갱신 요청 중…':'저장 추적 조회 중…';time.textContent='';
+    try{
+      const result=await (renew?window.moaonHub.refreshTracking(id):window.moaonHub.readTracking(id));
+      if(!current())return;
+      if(result?.status==='PENDING'){
+        state.textContent='조회 요청 접수 · 완료 아님';time.textContent='잠시 뒤 저장 추적 조회로 결과를 확인하세요. 송장을 새로 발급하지 않습니다.';
+      }else if(result?.status==='READY'&&result.state){
+        const labels={WAITING:'배송 이동 확인 전',IN_TRANSIT:'배송중',DELIVERED:'배송완료',PENDING:'조회 처리 대기',CHECK_REQUIRED:'추적 확인 필요'};
+        state.textContent=labels[result.state.status]||labels.CHECK_REQUIRED;
+        time.textContent=result.state.checkedAt?`기록 확인 ${formatTime(result.state.checkedAt)} · 저장 추적 기준`:'확인 시각 없음 · 저장 추적 기준';
+      }else{state.textContent='추적 확인 필요';time.textContent='기록이 없거나 조회하지 못했습니다. 잠시 뒤 다시 확인하세요.';}
+    }catch{if(current()){state.textContent='추적 확인 필요';time.textContent='연결을 확인한 뒤 다시 조회하세요.';}}
+    finally{busy=false;read.disabled=refresh.disabled=false;panel.removeAttribute('aria-busy');}
+  };
+  read.addEventListener('click',()=>void run(false));refresh.addEventListener('click',()=>void run(true));
+  return panel;
+}
+
 function showOrderDetail(order, button, options = {}) {
   document.querySelector('.orders-layout').classList.remove('is-detail-closed');
   detailPanel.inert = false;
@@ -291,6 +323,7 @@ function showOrderDetail(order, button, options = {}) {
       retry.addEventListener('click',()=>void load());queueMicrotask(()=>void load());
     }
   }
+  if(!isSampleMode()&&['CAFE24','COUPANG'].includes(order.platform)&&order.details?.invoice?.status==='REGISTERED'&&/^\d{13}$/.test(order.details.invoice.number||''))body.append(trackingSection(order));
   const more=makeElement('details','detail-more');
   more.append(makeElement('summary','','주문 · 배송 추가 정보'));
   for(const gift of order.visual?.gifts||[])addDetailSection(body,'동봉할 사은품',gift.name,gift.quantity+'개 · 조회 시점 캘린더 이벤트 판정');

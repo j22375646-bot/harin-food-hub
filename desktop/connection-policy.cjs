@@ -84,6 +84,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if (url.username || url.password) return false;
 
   const method = details.method.toUpperCase();
+  if(['GET','POST'].includes(method)&&context.trackingRequestMethod===method&&details.url===`${HARIN_ORIGIN}/api/shipping/tracking`)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.serverHistoryRequestActive===true&&details.url===`${HARIN_ORIGIN}/api/shipping/actions`)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.deliveryRequestActive===true&&url.origin===HARIN_ORIGIN&&!url.hash&&(
     url.pathname==='/api/coupang/orders/detail'&&/^\?shipmentBoxId=\d{1,30}$/.test(url.search)
