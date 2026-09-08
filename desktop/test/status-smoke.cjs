@@ -24,6 +24,8 @@ async function main() {
       globalThis.__moaonStatusRequests = [];
       globalThis.__moaonReleaseRegistered = null;
       globalThis.__moaonHoldRegistered = true;
+      globalThis.__moaonFailFirstRead = true;
+      globalThis.__moaonStatusOverride = null;
       ses.fetch = async (url, options) => {
         if (options.method !== 'GET') throw new Error('Unexpected method');
         const parsed = new URL(url);
@@ -31,6 +33,11 @@ async function main() {
         const offset = Number(parsed.searchParams.get('offset') || 0);
         if (!['ACTIVE', 'REGISTER', 'IN_TRANSIT', 'COMPLETED'].includes(scope)) throw new Error('Unexpected scope');
         globalThis.__moaonStatusRequests.push({ scope, offset, url });
+        if (globalThis.__moaonFailFirstRead) {
+          globalThis.__moaonFailFirstRead = false;
+          return new Response('', { status: 500 });
+        }
+        if (globalThis.__moaonStatusOverride) return new Response('', { status: globalThis.__moaonStatusOverride });
         if (scope === 'REGISTER' && globalThis.__moaonHoldRegistered) {
           await new Promise((resolve) => { globalThis.__moaonReleaseRegistered = resolve; });
           globalThis.__moaonHoldRegistered = false;
@@ -70,6 +77,12 @@ async function main() {
       child.webContents.emit('will-redirect', { preventDefault() {} }, 'https://harin-cafe24-sync.vercel.app/');
     });
     await page.getByRole('button', { name: '주문·배송', exact: true }).click();
+    const activeScopeButton = page.locator('[data-action="hub-viewActive"]');
+    await page.locator('[data-action="hub-refresh"]:visible').waitFor();
+    assert.equal(await activeScopeButton.isVisible(), true);
+    assert.equal(await activeScopeButton.getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('.order-row').count(), 0);
+    await activeScopeButton.click();
     await page.getByText('ACTIVE 검증 상품 1', { exact: true }).waitFor();
     for (const label of ['결제완료', '준비중', '출고대기', '배송대기중', '배송중', '배송완료', '취소']) {
       assert.equal(await page.locator('#order-list').getByText(label, { exact: true }).count(), 1, label);
@@ -100,9 +113,14 @@ async function main() {
     await page.locator('#order-search').fill('MYSTERY_STATUS');
     assert.equal(await page.locator('.order-row').count(), 1);
 
+    await app.evaluate(() => { globalThis.__moaonStatusOverride = 401; });
+    await page.locator('[data-action="hub-refresh"]:visible').click();
+    await page.waitForFunction(() => document.querySelector('#global-connection-status')?.textContent === '하린식품 로그인이 필요합니다.');
+    assert.equal(await activeScopeButton.isVisible(), false);
+
     const requests = await app.evaluate(() => globalThis.__moaonStatusRequests);
     assert.deepEqual(requests.map(({ scope, offset }) => [scope, offset]), [
-      ['ACTIVE', 0], ['REGISTER', 0], ['REGISTER', 20], ['COMPLETED', 0], ['IN_TRANSIT', 0],
+      ['ACTIVE', 0], ['ACTIVE', 0], ['REGISTER', 0], ['REGISTER', 20], ['COMPLETED', 0], ['IN_TRANSIT', 0], ['IN_TRANSIT', 0],
     ]);
 
     await page.getByRole('button', { name: '오늘', exact: true }).click();

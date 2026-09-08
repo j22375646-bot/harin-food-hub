@@ -295,7 +295,7 @@ function applyHubResult(result) {
     clearDisplayedOrders('connecting', result.message || '하린식품 로그인 창에서 로그인을 완료하세요.');
     return;
   }
-  if (['LOGIN_REQUIRED', 'FORBIDDEN', 'DISCONNECTED'].includes(result?.status)) scopeControlsAvailable = false;
+  scopeControlsAvailable = ['UNAVAILABLE', 'SNAPSHOT_CHANGED'].includes(result?.status);
   clearDisplayedOrders(result?.status === 'DISCONNECTED' ? 'disconnected' : 'error', result?.message || '주문 조회를 완료하지 못했습니다. 잠시 후 다시 확인하세요.');
 }
 
