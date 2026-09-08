@@ -1,0 +1,464 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const { EventEmitter } = require('node:events');
+const Module = require('node:module');
+const path = require('node:path');
+const test = require('node:test');
+
+const {
+  HARIN_ORIGIN,
+  LOGIN_URL,
+  ORDERS_URL,
+  READONLY_PARTITION,
+  isAllowedRemoteRequest,
+  isTrustedRenderer,
+} = require('../connection-policy.cjs');
+const {
+  createHubConnection,
+  projectOrdersPayload,
+  registerConnectionIpc,
+} = require('../hub-connection.cjs');
+
+test('remote request policy allows only the fixed login, assets, login POST and main-process order GET', () => {
+  const context = { loginWindowActive: true, loginWebContentsId: 41 };
+  const allowed = [
+    { method: 'GET', url: LOGIN_URL, webContentsId: 41 },
+    { method: 'GET', url: `${LOGIN_URL}?error=invalid&next=%2F`, webContentsId: 41 },
+    { method: 'GET', url: `${HARIN_ORIGIN}/_next/static/chunks/login-123.js`, webContentsId: 41 },
+    { method: 'GET', url: `${HARIN_ORIGIN}/favicon.ico`, webContentsId: 41 },
+    { method: 'POST', url: `${HARIN_ORIGIN}/api/dashboard/login`, webContentsId: 41 },
+    { method: 'GET', url: ORDERS_URL, webContentsId: 0 },
+  ];
+
+  for (const request of allowed) {
+    assert.equal(isAllowedRemoteRequest(request, context), true, JSON.stringify(request));
+  }
+
+  const denied = [
+    { method: 'GET', url: `${HARIN_ORIGIN}/`, webContentsId: 41 },
+    { method: 'GET', url: `${HARIN_ORIGIN}/api/orders/page?platform=ALL&stage=ACTIVE`, webContentsId: 0 },
+    { method: 'GET', url: `${HARIN_ORIGIN}/api/orders/page?stage=ACTIVE&platform=ALL&offset=20`, webContentsId: 0 },
+    { method: 'GET', url: `${HARIN_ORIGIN}/api/orders/page?stage=ACTIVE&platform=ALL`, webContentsId: 41 },
+    { method: 'GET', url: ORDERS_URL, webContentsId: '0' },
+    { method: 'POST', url: `${HARIN_ORIGIN}/api/dashboard/login`, webContentsId: 99 },
+    { method: 'POST', url: `${HARIN_ORIGIN}/api/dashboard/login`, webContentsId: 41, loginWindowActive: false },
+    { method: 'GET', url: `${HARIN_ORIGIN}/_next/static/../server.js`, webContentsId: 41 },
+    { method: 'GET', url: `${HARIN_ORIGIN}/api/_next/static/orders`, webContentsId: 41 },
+    { method: 'GET', url: `${HARIN_ORIGIN}/login?password=secret`, webContentsId: 41 },
+    { method: 'GET', url: `${HARIN_ORIGIN}/login?${'x'.repeat(600)}`, webContentsId: 41 },
+    { method: 'GET', url: 'https://user:password@harin-cafe24-sync.vercel.app/login', webContentsId: 41 },
+    { method: 'GET', url: 'https://user@harin-cafe24-sync.vercel.app/_next/static/chunks/app.js', webContentsId: 41 },
+    { method: 'GET', url: 'https://example.invalid/login', webContentsId: 41 },
+    { method: 'PUT', url: LOGIN_URL, webContentsId: 41 },
+  ];
+
+  for (const request of denied) {
+    const requestContext = request.loginWindowActive === false
+      ? { ...context, loginWindowActive: false }
+      : context;
+    assert.equal(isAllowedRemoteRequest(request, requestContext), false, JSON.stringify(request));
+  }
+});
+
+test('IPC sender must be the exact local main frame and fixed app URL', () => {
+  const mainFrame = { url: 'moaon://app/index.html' };
+  const webContents = { mainFrame, getURL: () => 'moaon://app/index.html' };
+  const mainWindow = { isDestroyed: () => false, webContents };
+
+  assert.equal(isTrustedRenderer({ sender: webContents, senderFrame: mainFrame }, mainWindow), true);
+  assert.equal(isTrustedRenderer({ sender: { ...webContents }, senderFrame: mainFrame }, mainWindow), false);
+  assert.equal(isTrustedRenderer({ sender: webContents, senderFrame: { url: mainFrame.url } }, mainWindow), false);
+  assert.equal(isTrustedRenderer({ sender: webContents, senderFrame: { ...mainFrame, url: 'moaon://app/styles.css' } }, mainWindow), false);
+  assert.equal(isTrustedRenderer({ sender: webContents, senderFrame: null }, mainWindow), false);
+});
+
+test('orders payload is deeply frozen, capped at 20, and projected without PII or provider fields', () => {
+  const source = Array.from({ length: 21 }, (_, index) => ({
+    hubOrderId: `H-${index + 1}`,
+    platform: index % 2 ? 'NAVER' : 'CAFE24',
+    productName: `상품 ${index + 1}`,
+    stage: 'PAID',
+    quantity: index === 0 ? '2' : index + 1,
+    amount: index === 0 ? null : index * 1000,
+    orderedAt: `2026-09-${String(index + 1).padStart(2, '0')}T01:02:03.000Z`,
+    receiver: { name: '비공개', address: '비공개' },
+    items: [{ imageUrl: 'https://secret.invalid/image.jpg' }],
+    token: 'never-return-this',
+  }));
+
+  const result = projectOrdersPayload({
+    ok: true,
+    orders: source,
+    total: 21,
+    nextOffset: 20,
+    partial: true,
+    warning: 'raw provider warning',
+  }, '2026-09-08T12:00:00.000Z');
+
+  assert.deepEqual(Object.keys(result), ['status', 'orders', 'total', 'hasMore', 'checkedAt', 'partial', 'message']);
+  assert.equal(result.status, 'PARTIAL');
+  assert.equal(result.orders.length, 20);
+  assert.equal(result.total, 21);
+  assert.equal(result.hasMore, true);
+  assert.equal(result.checkedAt, '2026-09-08T12:00:00.000Z');
+  assert.equal(result.partial, true);
+  assert.equal(result.message, '일부 채널 자료를 확인하지 못했습니다. 표시된 저장 주문만 확인하세요.');
+  assert.deepEqual(result.orders[0], {
+    hubOrderId: 'H-1',
+    platform: 'CAFE24',
+    productName: '상품 1',
+    stage: 'PAID',
+    quantity: null,
+    amount: null,
+    orderedAt: '2026-09-01T01:02:03.000Z',
+  });
+  assert.equal(JSON.stringify(result).includes('비공개'), false);
+  assert.equal(JSON.stringify(result).includes('never-return-this'), false);
+  assert.equal(JSON.stringify(result).includes('raw provider warning'), false);
+  assert.equal(Object.isFrozen(result), true);
+  assert.equal(Object.isFrozen(result.orders), true);
+  assert.equal(Object.isFrozen(result.orders[0]), true);
+});
+
+test('malformed successful payloads fail closed rather than claiming zero orders', () => {
+  for (const payload of [null, {}, { ok: true }, { ok: true, orders: [], total: '0', nextOffset: null }]) {
+    assert.throws(() => projectOrdersPayload(payload, '2026-09-08T12:00:00.000Z'), /Invalid orders payload/);
+  }
+});
+
+test('refresh uses fixed fetch options and maps partial data while retaining no raw response', async () => {
+  const fetchCalls = [];
+  const remoteSession = makeRemoteSession(async (url, options) => {
+    fetchCalls.push({ url, options });
+    return new Response(JSON.stringify({
+      ok: true,
+      orders: [{ hubOrderId: 'H-1', platform: 'NAVER', productName: '김', stage: 'PAID', quantity: 1, amount: null, orderedAt: null, receiver: { name: 'PII' } }],
+      total: 21,
+      nextOffset: 20,
+      partial: true,
+      warning: 'provider detail',
+    }), { status: 200, headers: { 'content-type': 'application/json' } });
+  });
+  const { connection, sessionModule } = makeConnection(remoteSession);
+
+  const result = await connection.refresh();
+
+  assert.equal(sessionModule.calls[0].partition, READONLY_PARTITION);
+  assert.deepEqual(sessionModule.calls[0].options, { cache: false });
+  assert.equal(fetchCalls.length, 1);
+  assert.equal(fetchCalls[0].url, ORDERS_URL);
+  assert.equal(fetchCalls[0].options.method, 'GET');
+  assert.equal(fetchCalls[0].options.credentials, 'include');
+  assert.equal(fetchCalls[0].options.cache, 'no-store');
+  assert.equal(fetchCalls[0].options.redirect, 'error');
+  assert.ok(fetchCalls[0].options.signal instanceof AbortSignal);
+  assert.equal(result.status, 'PARTIAL');
+  assert.equal(result.orders[0].amount, null);
+  assert.equal(JSON.stringify(result).includes('PII'), false);
+});
+
+test('remote session observes every URL so an external-origin request reaches the deny policy', async () => {
+  const remoteSession = makeRemoteSession(async () => new Response(JSON.stringify({
+    ok: true,
+    orders: [],
+    total: 0,
+    nextOffset: null,
+    partial: false,
+  }), { status: 200 }));
+  const { connection } = makeConnection(remoteSession);
+  await connection.refresh();
+
+  assert.deepEqual(remoteSession.beforeRequestFilter, { urls: ['<all_urls>'] });
+  let decision;
+  remoteSession.beforeRequestHandler({
+    method: 'GET',
+    url: 'https://example.invalid/tracker.js',
+    webContentsId: 41,
+  }, (result) => { decision = result; });
+  assert.deepEqual(decision, { cancel: true });
+});
+
+test('authorization failures return safe empty state and never reuse prior orders', async () => {
+  let response = new Response(JSON.stringify({
+    ok: true,
+    orders: [{ hubOrderId: 'H-1', platform: 'NAVER', productName: '김', stage: 'PAID', quantity: 1, amount: 1000, orderedAt: null }],
+    total: 1,
+    nextOffset: null,
+    partial: false,
+  }), { status: 200 });
+  const remoteSession = makeRemoteSession(async () => response);
+  const { connection } = makeConnection(remoteSession);
+  assert.equal((await connection.refresh()).orders.length, 1);
+
+  response = new Response('', { status: 401 });
+  const unauthorized = await connection.refresh();
+
+  assert.equal(unauthorized.status, 'LOGIN_REQUIRED');
+  assert.deepEqual(unauthorized.orders, []);
+  assert.equal(unauthorized.total, null);
+  assert.equal(unauthorized.hasMore, null);
+  assert.equal(unauthorized.checkedAt, null);
+});
+
+test('forbidden, unavailable, oversized, and invalid JSON responses map to fixed safe statuses', async () => {
+  const cases = [
+    [new Response('', { status: 403 }), 'FORBIDDEN'],
+    [new Response('', { status: 502 }), 'UNAVAILABLE'],
+    [new Response('x'.repeat(5 * 1024 * 1024 + 1), { status: 200 }), 'UNAVAILABLE'],
+    [new Response('{not json', { status: 200 }), 'UNAVAILABLE'],
+  ];
+
+  for (const [response, expectedStatus] of cases) {
+    const { connection } = makeConnection(makeRemoteSession(async () => response));
+    const result = await connection.refresh();
+    assert.equal(result.status, expectedStatus);
+    assert.deepEqual(result.orders, []);
+  }
+});
+
+test('timeout aborts a read and returns unavailable without exposing the thrown error', async () => {
+  const remoteSession = makeRemoteSession((_url, { signal }) => new Promise((_resolve, reject) => {
+    signal.addEventListener('abort', () => reject(new Error('secret timeout detail')), { once: true });
+  }));
+  const { connection } = makeConnection(remoteSession, { timeoutMs: 5 });
+
+  const result = await connection.refresh();
+
+  assert.equal(result.status, 'UNAVAILABLE');
+  assert.equal(JSON.stringify(result).includes('secret timeout detail'), false);
+});
+
+test('disconnect aborts the read, clears the ephemeral session, and late completion stays disconnected', async () => {
+  let finishFetch;
+  const remoteSession = makeRemoteSession(() => new Promise((resolve) => {
+    finishFetch = resolve;
+  }));
+  const { connection } = makeConnection(remoteSession);
+  const pending = connection.refresh();
+  await Promise.resolve();
+
+  const disconnected = await connection.disconnect();
+  finishFetch(new Response(JSON.stringify({
+    ok: true,
+    orders: [{ hubOrderId: 'LATE', platform: 'NAVER', productName: '늦은 자료', stage: 'PAID', quantity: 1, amount: 1, orderedAt: null }],
+    total: 1,
+    nextOffset: null,
+    partial: false,
+  }), { status: 200 }));
+  const late = await pending;
+
+  assert.equal(disconnected.status, 'DISCONNECTED');
+  assert.equal(late.status, 'DISCONNECTED');
+  assert.deepEqual(late.orders, []);
+  assert.equal(remoteSession.clearStorageDataCalls, 1);
+  assert.equal(remoteSession.clearCacheCalls, 1);
+  assert.equal(remoteSession.clearAuthCacheCalls, 1);
+});
+
+test('disconnect gates new reads until session clearing finishes', async () => {
+  let releaseClear;
+  let fetchCount = 0;
+  const remoteSession = makeRemoteSession(async () => {
+    fetchCount += 1;
+    return new Response(JSON.stringify({ ok: true, orders: [], total: 0, nextOffset: null, partial: false }), { status: 200 });
+  });
+  remoteSession.clearStorageData = () => new Promise((resolve) => { releaseClear = resolve; });
+  const { connection } = makeConnection(remoteSession);
+  await connection.refresh();
+  fetchCount = 0;
+
+  const disconnecting = connection.disconnect();
+  const blockedRead = await connection.refresh();
+  assert.equal(blockedRead.status, 'UNAVAILABLE');
+  assert.equal(fetchCount, 0);
+  releaseClear();
+  assert.equal((await disconnecting).status, 'DISCONNECTED');
+});
+
+test('failed session clearing blocks cookie reuse until app restart', async () => {
+  let fetchCount = 0;
+  const remoteSession = makeRemoteSession(async () => {
+    fetchCount += 1;
+    return new Response(JSON.stringify({ ok: true, orders: [], total: 0, nextOffset: null, partial: false }), { status: 200 });
+  });
+  remoteSession.clearStorageData = () => { throw new Error('sensitive clear failure detail'); };
+  const { connection } = makeConnection(remoteSession);
+  await connection.refresh();
+  fetchCount = 0;
+
+  const failedDisconnect = await connection.disconnect();
+  const blockedRead = await connection.refresh();
+
+  assert.equal(failedDisconnect.status, 'UNAVAILABLE');
+  assert.equal(blockedRead.status, 'UNAVAILABLE');
+  assert.equal(fetchCount, 0);
+  assert.equal(JSON.stringify(failedDisconnect).includes('sensitive clear failure detail'), false);
+});
+
+test('disconnecting an open login invalidates its late cancellation result', async () => {
+  const remoteSession = makeRemoteSession(async () => new Response('', { status: 401 }));
+  const { connection } = makeConnection(remoteSession);
+
+  const pendingLogin = connection.connect();
+  const disconnected = await connection.disconnect();
+  const lateLogin = await pendingLogin;
+
+  assert.equal(disconnected.status, 'DISCONNECTED');
+  assert.equal(lateLogin.status, 'DISCONNECTED');
+  assert.deepEqual(lateLogin.orders, []);
+});
+
+test('an intercepted root redirect closes login and verifies authorization with a fresh order GET', async () => {
+  let fetchCount = 0;
+  const remoteSession = makeRemoteSession(async () => {
+    fetchCount += 1;
+    return new Response(JSON.stringify({
+      ok: true,
+      orders: [{ hubOrderId: 'SYNTHETIC-1', platform: 'CAFE24', productName: '검증용 상품', stage: 'PAID', quantity: 2, amount: null, orderedAt: null }],
+      total: 21,
+      nextOffset: 20,
+      partial: true,
+    }), { status: 200 });
+  });
+  const { connection, browserWindows } = makeConnection(remoteSession);
+  const pendingLogin = connection.connect();
+  const loginWindow = browserWindows[0];
+  loginWindow.blockClose = true;
+  let prevented = false;
+
+  loginWindow.webContents.emit('will-redirect', { preventDefault: () => { prevented = true; } }, `${HARIN_ORIGIN}/`);
+  const result = await Promise.race([
+    pendingLogin,
+    new Promise((resolve) => setTimeout(() => resolve({ status: 'TIMED_OUT' }), 20)),
+  ]);
+
+  assert.equal(prevented, true);
+  assert.equal(loginWindow.isDestroyed(), true);
+  assert.equal(fetchCount, 1);
+  assert.equal(result.status, 'PARTIAL');
+  assert.equal(result.orders[0].productName, '검증용 상품');
+});
+
+test('IPC registration rejects arguments and untrusted senders before dispatching three fixed methods', async () => {
+  const handlers = new Map();
+  const ipcMain = { handle: (channel, handler) => handlers.set(channel, handler) };
+  const mainFrame = { url: 'moaon://app/index.html' };
+  const webContents = { mainFrame, getURL: () => mainFrame.url };
+  const mainWindow = { isDestroyed: () => false, webContents };
+  const calls = [];
+  const connection = {
+    connect: async () => calls.push('connect') && { status: 'LOGIN_OPEN' },
+    refresh: async () => calls.push('refresh') && { status: 'READY' },
+    disconnect: async () => calls.push('disconnect') && { status: 'DISCONNECTED' },
+  };
+  registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
+  const trusted = { sender: webContents, senderFrame: mainFrame };
+
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:disconnect']);
+  assert.equal((await handlers.get('moaon-hub:refresh')(trusted)).status, 'READY');
+  await assert.rejects(handlers.get('moaon-hub:connect')(trusted, 'https://evil.invalid'), /Arguments are not allowed/);
+  await assert.rejects(handlers.get('moaon-hub:disconnect')({ sender: {}, senderFrame: null }), /Untrusted renderer/);
+  assert.deepEqual(calls, ['refresh']);
+});
+
+test('preload exposes only a frozen three-method moaonHub bridge with fixed no-argument channels', async () => {
+  const exposed = new Map();
+  const invocations = [];
+  const originalLoad = Module._load;
+  const preloadPath = path.resolve(__dirname, '..', 'preload.cjs');
+  delete require.cache[preloadPath];
+  Module._load = function patchedLoad(request, parent, isMain) {
+    if (request === 'electron') {
+      return {
+        contextBridge: { exposeInMainWorld: (name, value) => exposed.set(name, value) },
+        ipcRenderer: { invoke: (...args) => invocations.push(args) && Promise.resolve(args[0]) },
+      };
+    }
+    return originalLoad.call(this, request, parent, isMain);
+  };
+
+  try {
+    require(preloadPath);
+  } finally {
+    Module._load = originalLoad;
+    delete require.cache[preloadPath];
+  }
+
+  assert.deepEqual([...exposed.keys()], ['moaonHub']);
+  const bridge = exposed.get('moaonHub');
+  assert.equal(Object.isFrozen(bridge), true);
+  assert.deepEqual(Object.keys(bridge), ['connect', 'refresh', 'disconnect']);
+  await bridge.connect('ignored');
+  await bridge.refresh({ ignored: true });
+  await bridge.disconnect('ignored');
+  assert.deepEqual(invocations, [
+    ['moaon-hub:connect'],
+    ['moaon-hub:refresh'],
+    ['moaon-hub:disconnect'],
+  ]);
+});
+
+function makeRemoteSession(fetchImpl) {
+  const remoteSession = {
+    fetch: fetchImpl,
+    webRequest: { onBeforeRequest: (filter, handler) => {
+      remoteSession.beforeRequestFilter = filter;
+      remoteSession.beforeRequestHandler = handler;
+    } },
+    on() {},
+    setPermissionCheckHandler() {},
+    setPermissionRequestHandler() {},
+    async clearStorageData() { this.clearStorageDataCalls = (this.clearStorageDataCalls || 0) + 1; },
+    async clearCache() { this.clearCacheCalls = (this.clearCacheCalls || 0) + 1; },
+    async clearAuthCache() { this.clearAuthCacheCalls = (this.clearAuthCacheCalls || 0) + 1; },
+  };
+  return remoteSession;
+}
+
+function makeConnection(remoteSession, overrides = {}) {
+  const browserWindows = [];
+  class FakeBrowserWindow extends EventEmitter {
+    constructor(options) {
+      super();
+      this.options = options;
+      this.destroyed = false;
+      this.webContents = Object.assign(new EventEmitter(), {
+        id: 41,
+        session: remoteSession,
+        getURL: () => LOGIN_URL,
+        setWindowOpenHandler() {},
+      });
+      browserWindows.push(this);
+    }
+
+    isDestroyed() { return this.destroyed; }
+    show() {}
+    async loadURL() {}
+    close() {
+      if (this.blockClose) return;
+      this.destroyed = true;
+      this.emit('closed');
+    }
+    destroy() {
+      this.destroyed = true;
+      this.emit('closed');
+    }
+  }
+  const sessionModule = {
+    calls: [],
+    fromPartition(partition, options) {
+      this.calls.push({ partition, options });
+      return remoteSession;
+    },
+  };
+  const mainWindow = { isDestroyed: () => false, webContents: { id: 7 } };
+  const connection = createHubConnection({
+    BrowserWindow: FakeBrowserWindow,
+    session: sessionModule,
+    getMainWindow: () => mainWindow,
+    now: () => new Date('2026-09-08T12:00:00.000Z'),
+    ...overrides,
+  });
+  return { connection, sessionModule, browserWindows };
+}

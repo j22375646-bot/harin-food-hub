@@ -2,12 +2,16 @@
 
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { app, BrowserWindow, Menu, protocol, session } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, protocol, session } = require('electron');
 const {
   APP_ENTRY_URL,
   isAllowedAppUrl,
   resolveAppResource,
 } = require('./security.cjs');
+const {
+  createHubConnection,
+  registerConnectionIpc,
+} = require('./hub-connection.cjs');
 
 const APP_NAME = '모아온 Preview';
 const UI_ROOT = path.join(__dirname, 'ui');
@@ -55,6 +59,7 @@ if (!hasSingleInstanceLock) {
   app.quit();
 } else {
   let mainWindow = null;
+  let hubConnection = null;
 
   app.on('second-instance', () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -109,6 +114,7 @@ if (!hasSingleInstanceLock) {
       autoHideMenuBar: true,
       backgroundColor: '#f3f6fa',
       webPreferences: {
+        preload: path.join(__dirname, 'preload.cjs'),
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: true,
@@ -127,8 +133,20 @@ if (!hasSingleInstanceLock) {
     mainWindow.webContents.on('will-redirect', (event, targetUrl) => {
       if (targetUrl !== APP_ENTRY_URL) event.preventDefault();
     });
+    hubConnection = createHubConnection({
+      BrowserWindow,
+      session,
+      getMainWindow: () => mainWindow,
+    });
+    registerConnectionIpc({
+      ipcMain,
+      getMainWindow: () => mainWindow,
+      connection: hubConnection,
+    });
     mainWindow.once('ready-to-show', () => mainWindow.show());
     mainWindow.on('closed', () => {
+      hubConnection?.closeChildren();
+      hubConnection = null;
       mainWindow = null;
     });
 

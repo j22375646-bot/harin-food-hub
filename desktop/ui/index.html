@@ -23,9 +23,9 @@
         </div>
 
         <section class="business-card" aria-label="현재 사업장">
-          <span><i aria-hidden="true"></i> 가상 사업장</span>
-          <strong>모아온 데모</strong>
-          <small>시험 자료만 표시 중</small>
+          <span><i aria-hidden="true"></i> <b id="business-status">가상 사업장</b></span>
+          <strong id="business-name">모아온 데모</strong>
+          <small id="business-detail">시험 자료만 표시 중</small>
         </section>
 
         <nav class="primary-nav" aria-label="모아온 Preview 메뉴">
@@ -35,7 +35,7 @@
           </button>
           <button class="nav-button" type="button" data-route="orders" aria-label="주문·배송">
             <span class="nav-icon" aria-hidden="true">▤</span>
-            <span><strong>주문·배송</strong><small>샘플 주문 3건</small></span>
+            <span><strong>주문·배송</strong><small id="orders-nav-detail">샘플 주문 3건</small></span>
           </button>
           <button class="nav-button" type="button" data-route="settings" aria-label="앱 설정">
             <span class="nav-icon" aria-hidden="true">⚙</span>
@@ -44,32 +44,32 @@
         </nav>
 
         <div class="sidebar-note">
-          <strong>실업무 기능 비활성</strong>
-          <span>로그인 · 수집 · 발급 · 전송 없음</span>
+          <strong>외부 쓰기 비활성</strong>
+          <span>하린식품 저장 주문 조회만 연결 가능</span>
         </div>
       </aside>
 
       <div class="app-area">
         <header class="topbar">
           <div class="preview-warning" role="status">
-            <span aria-hidden="true">시험</span>
-            <strong>시험 자료 · 실제 업무 연결 안 됨</strong>
+            <span id="global-mode-badge" aria-hidden="true">시험</span>
+            <strong id="global-connection-status">시험 자료 · 하린식품 연결 안 됨</strong>
           </div>
           <div class="top-business">
             <span>현재 사업장</span>
-            <strong>모아온 데모</strong>
+            <strong id="top-business-name">모아온 데모</strong>
           </div>
         </header>
 
         <main id="main-content" tabindex="-1">
           <section class="page is-visible" data-page="today" aria-labelledby="today-title">
             <header class="page-heading">
-              <p class="context-line"><i aria-hidden="true"></i> Windows 시제품 · 샘플 모드</p>
-              <h1 id="today-title" aria-label="오늘" tabindex="-1"><em class="page-title-accent">지금 가능한 일</em>부터 확인하세요</h1>
-              <p>실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.</p>
+              <p class="context-line"><i aria-hidden="true"></i> <span id="today-context">Windows 시제품 · 샘플 모드</span></p>
+              <h1 id="today-title" aria-label="오늘" tabindex="-1"><em id="today-title-mode" class="page-title-accent">지금 가능한 일</em><span id="today-title-tail">부터 확인하세요</span></h1>
+              <p id="today-description">실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.</p>
             </header>
 
-            <section class="readiness-card">
+            <section class="readiness-card" data-sample-only>
               <div>
                 <span class="eyebrow">PREVIEW READINESS</span>
                 <h2>업무 연결 전 화면 점검</h2>
@@ -80,7 +80,22 @@
               </div>
             </section>
 
-            <div class="today-grid">
+            <section class="panel connection-card" aria-labelledby="today-connection-title">
+              <div>
+                <span class="eyebrow">EXISTING HARIN · READ ONLY</span>
+                <h2 id="today-connection-title">기존 하린식품 계정으로 조회</h2>
+                <p>별도 로그인 창에서 직접 인증한 뒤 저장된 활성 주문의 첫 20건만 읽습니다. 수집·발급·변경은 실행하지 않습니다.</p>
+              </div>
+              <div class="connection-actions">
+                <button class="primary-action" type="button" data-action="hub-connect">하린식품 연결</button>
+                <button class="secondary-action" type="button" data-action="hub-refresh" hidden>다시 조회</button>
+                <button class="secondary-action" type="button" data-action="hub-disconnect" hidden>연결 해제</button>
+                <button class="secondary-action" type="button" data-action="sample-mode" hidden>샘플 화면으로</button>
+              </div>
+              <p class="connection-message" data-connection-message aria-live="polite">현재는 샘플 화면입니다. 사용자가 연결을 누르기 전에는 운영 서버를 조회하지 않습니다.</p>
+            </section>
+
+            <div class="today-grid" data-sample-only>
               <section class="panel capability-panel">
                 <header>
                   <div><span class="eyebrow">사용 가능</span><h2>이 시제품에서 확인할 수 있어요</h2></div>
@@ -99,14 +114,14 @@
                   <span class="status-chip status-blocked">비활성</span>
                 </header>
                 <ul class="capability-list unavailable">
-                  <li><span aria-hidden="true">—</span><div><strong>실제 사업장 로그인과 가입</strong><small>계정이나 사업자 정보를 입력받지 않습니다.</small></div></li>
-                  <li><span aria-hidden="true">—</span><div><strong>플랫폼 연결과 주문 수집</strong><small>네트워크와 운영 API에 연결하지 않습니다.</small></div></li>
+                  <li><span aria-hidden="true">—</span><div><strong>새 사업장 가입과 추가 연결</strong><small>기존 하린식품 이외의 계정이나 사업자 정보를 입력받지 않습니다.</small></div></li>
+                  <li><span aria-hidden="true">—</span><div><strong>플랫폼 주문 자동 수집</strong><small>저장 주문 조회가 플랫폼 동기화 성공을 의미하지 않습니다.</small></div></li>
                   <li><span aria-hidden="true">—</span><div><strong>송장 발급·출력·상태 변경</strong><small>외부 쓰기 작업은 모두 제공하지 않습니다.</small></div></li>
                 </ul>
               </section>
             </div>
 
-            <section class="sample-summary" aria-labelledby="sample-summary-title">
+            <section class="sample-summary" data-sample-only aria-labelledby="sample-summary-title">
               <header><div><span class="eyebrow">SAMPLE SNAPSHOT</span><h2 id="sample-summary-title">오늘의 가상 현황</h2></div><span>실제 수치 아님</span></header>
               <div class="metric-grid">
                 <article><small>새 주문 · 샘플</small><strong>3건</strong><span>상세 화면 점검용</span></article>
@@ -118,28 +133,28 @@
 
           <section class="page orders-page" data-page="orders" aria-labelledby="orders-title" hidden>
             <header class="page-heading compact-heading">
-              <p class="context-line"><i aria-hidden="true"></i> 주문·배송 · 샘플 3건</p>
-              <h1 id="orders-title" aria-label="주문·배송" tabindex="-1"><em class="page-title-accent">가상 주문만</em> 살펴봅니다</h1>
-              <p>검색하거나 주문을 선택해 우측 상세를 확인할 수 있습니다. 발급과 상태 변경은 없습니다.</p>
+              <p class="context-line"><i aria-hidden="true"></i> <span id="orders-context">주문·배송 · 샘플 3건</span></p>
+              <h1 id="orders-title" aria-label="주문·배송" tabindex="-1"><em id="orders-title-mode" class="page-title-accent">가상 주문만</em> 살펴봅니다</h1>
+              <p id="orders-description">검색하거나 주문을 선택해 우측 상세를 확인할 수 있습니다. 발급과 상태 변경은 없습니다.</p>
             </header>
 
             <div class="orders-layout">
               <section class="orders-workspace panel" aria-labelledby="order-list-title">
                 <div class="orders-toolbar">
                   <div>
-                    <span class="eyebrow">SAMPLE ORDERS</span>
+                    <span id="orders-eyebrow" class="eyebrow">SAMPLE ORDERS</span>
                     <h2 id="order-list-title">주문 목록</h2>
                   </div>
                   <label class="search-field">
                     <span class="visually-hidden">주문 검색</span>
                     <span aria-hidden="true">⌕</span>
-                    <input id="order-search" type="search" aria-label="주문 검색" placeholder="주문번호, 고객, 상품 검색" autocomplete="off">
+                    <input id="order-search" type="search" aria-label="주문 검색" placeholder="주문번호, 상품, 채널 검색" autocomplete="off">
                     <kbd>Ctrl K</kbd>
                   </label>
                 </div>
                 <div class="list-state">
                   <span id="order-result-count" aria-live="polite">샘플 3건 표시</span>
-                  <span>실제 발급 버튼 없음</span>
+                  <span id="orders-range-label">실제 발급 버튼 없음</span>
                 </div>
                 <div id="order-list" class="order-list" aria-label="샘플 주문 목록"></div>
                 <p id="order-empty" class="empty-state" hidden>검색 결과가 없습니다. 다른 주문번호, 고객명 또는 상품명을 입력하세요.</p>
@@ -182,10 +197,22 @@
                 <header><div><span class="eyebrow">PROGRAM</span><h2 id="version-title">프로그램 정보</h2></div><span class="status-chip status-sample">Preview</span></header>
                 <dl class="program-list">
                   <div><dt>이름</dt><dd>모아온 Preview</dd></div>
-                  <div><dt>버전</dt><dd>0.1.0</dd></div>
-                  <div><dt>자료 범위</dt><dd>가상 사업장 · 샘플 주문</dd></div>
-                  <div><dt>네트워크</dt><dd>연결 안 됨</dd></div>
+                  <div><dt>버전</dt><dd>0.2.0</dd></div>
+                  <div><dt>자료 범위</dt><dd id="program-data-scope">가상 사업장 · 샘플 주문</dd></div>
+                  <div><dt>네트워크</dt><dd id="program-network-state">연결 안 됨</dd></div>
                 </dl>
+              </section>
+
+              <section class="panel setting-card connection-setting" aria-labelledby="settings-connection-title">
+                <header><div><span class="eyebrow">HARIN CONNECTION</span><h2 id="settings-connection-title">하린식품 조회 연결</h2></div><span id="settings-connection-chip" class="status-chip status-sample">샘플</span></header>
+                <p>운영 비밀번호는 별도 하린식품 로그인 창에만 입력하며, 이 앱은 저장된 활성 주문의 첫 20건만 조회합니다.</p>
+                <div class="connection-actions setting-actions">
+                  <button class="primary-action" type="button" data-action="hub-connect">하린식품 연결</button>
+                  <button class="secondary-action" type="button" data-action="hub-refresh" hidden>다시 조회</button>
+                  <button class="secondary-action" type="button" data-action="hub-disconnect" hidden>연결 해제</button>
+                  <button class="secondary-action" type="button" data-action="sample-mode" hidden>샘플 화면으로</button>
+                </div>
+                <p class="connection-message setting-message" data-connection-message aria-live="polite">자동 연결하지 않습니다.</p>
               </section>
 
               <section class="panel limits-card" aria-labelledby="limits-title">
@@ -193,7 +220,7 @@
                 <div>
                   <span class="eyebrow muted">PREVIEW LIMITS</span>
                   <h2 id="limits-title">이 버전의 제한</h2>
-                  <p>한 대의 Windows PC에서 앱 창과 샘플 상호작용을 확인하는 시제품입니다. 실제 로그인, 새 사업장 가입, 주문 수집, 송장 발급, 인쇄, 자동 업데이트는 제공하지 않습니다.</p>
+                  <p>한 대의 Windows PC에서 샘플 화면과 기존 하린식품 저장 주문 조회를 확인합니다. 새 사업장 가입, 주문 자동 수집, 송장 발급, 상태 변경, 인쇄, 내보내기, 자동 업데이트는 제공하지 않습니다.</p>
                 </div>
               </section>
             </div>
@@ -201,7 +228,7 @@
         </main>
 
         <footer class="statusbar" aria-label="앱 상태">
-          <span><i aria-hidden="true"></i> 데이터: 시험 자료 · 네트워크 연결 없음</span>
+          <span><i aria-hidden="true"></i> <b id="statusbar-data">데이터: 시험 자료 · 네트워크 연결 없음</b></span>
           <span>외부 쓰기: 비활성</span>
         </footer>
       </div>

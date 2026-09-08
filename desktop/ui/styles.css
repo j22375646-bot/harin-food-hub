@@ -430,6 +430,97 @@ button {
   color: #ffffff;
 }
 
+.connection-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px 24px;
+  margin-top: 16px;
+  padding: 21px 23px;
+  box-shadow: none;
+}
+
+.connection-card h2 {
+  margin: 5px 0 0;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+}
+
+.connection-card > div:first-child > p,
+.connection-message {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.connection-card > div:first-child > p {
+  max-width: 720px;
+  margin: 7px 0 0;
+}
+
+.connection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.connection-actions button {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.connection-actions button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.primary-action {
+  border-color: var(--blue) !important;
+  background: var(--blue);
+  color: #ffffff;
+}
+
+.secondary-action {
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+
+.connection-message {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-weight: 800;
+}
+
+.connection-setting {
+  min-height: 260px;
+}
+
+.setting-actions {
+  justify-content: flex-start;
+  padding: 17px 19px 0;
+}
+
+.setting-message {
+  margin: 15px 19px 20px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.live-tag {
+  background: var(--blue-soft);
+  color: var(--blue) !important;
+}
+
 .eyebrow {
   display: block;
   color: var(--blue);
@@ -1185,6 +1276,14 @@ button {
 
   .search-field kbd {
     display: none;
+  }
+
+  .connection-card {
+    grid-template-columns: 1fr;
+  }
+
+  .connection-card .connection-actions {
+    justify-content: flex-start;
   }
 
   .order-row {
