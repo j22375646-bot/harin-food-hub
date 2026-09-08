@@ -153,6 +153,9 @@ if (!hasSingleInstanceLock) {
     mainWindow.webContents.on('will-redirect', (event, targetUrl) => {
       if (targetUrl !== APP_ENTRY_URL) event.preventDefault();
     });
+    mainWindow.on('restore', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('moaon-hub:window-restored');
+    });
     const cleanupMarker = path.join(app.getPath('userData'), 'session-cleanup-pending');
     let initialCleanupPending = true;
     try { await fs.access(cleanupMarker); } catch (error) {

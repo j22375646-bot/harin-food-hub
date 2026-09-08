@@ -63,6 +63,9 @@ const collectionShipmentLocks=new Set();
 let displayedOrders = sampleOrders;
 let connectionResult = null;
 let actionGeneration = 0;
+let freshnessGeneration = 0;
+let freshnessChanged = false;
+let freshnessReloadBusy = false;
 let selectedScope = 'ACTIVE';
 let scopeControlsAvailable = false;
 let businessGeneration=0,businessLoaded=false,businessBusy=false;
@@ -180,7 +183,50 @@ function showRoute(route, options = {}) {
     page.classList.toggle('is-visible', active);
   }
   if (options.focusHeading) selectedPage.querySelector('h1')?.focus();
+  if(route==='orders')void checkVisibleOrderFreshness();
 }
+
+const freshnessRow=document.querySelector('#order-freshness');
+const freshnessStatus=document.querySelector('#order-freshness-status');
+const freshnessCheckedAt=document.querySelector('#order-freshness-checked-at');
+const freshnessReload=document.querySelector('#order-freshness-reload');
+const ordersAreVisible=()=>displayMode==='live'&&!document.hidden&&document.querySelector('[data-page="orders"]')?.classList.contains('is-visible');
+function renderFreshness(status='IDLE',checkedAt=null){
+  freshnessRow.hidden=displayMode!=='live';
+  if(freshnessRow.hidden)return;
+  const effective=freshnessChanged&&!['UNAVAILABLE','AUTH_REQUIRED'].includes(status)?'CHANGED':status;
+  freshnessRow.dataset.status=effective;
+  freshnessStatus.textContent=effective==='CHANGED'?'주문 또는 사은품 기준이 변경됐어요':effective==='CURRENT'?'새 변경 없음':effective==='AUTH_REQUIRED'?'로그인 상태 확인 필요':effective==='UNAVAILABLE'?'변경 여부 확인 필요':'새 주문 변경을 확인합니다.';
+  freshnessCheckedAt.textContent=checkedAt?`${formatTime(checkedAt)} 확인`:'';
+  freshnessCheckedAt.dateTime=checkedAt||'';
+  freshnessReload.hidden=!freshnessChanged;freshnessReload.disabled=freshnessReloadBusy||orderToolsBusy();
+}
+async function checkVisibleOrderFreshness(){
+  if(!ordersAreVisible()||freshnessReloadBusy||typeof window.moaonHub?.checkOrderFreshness!=='function')return;
+  const expectedAction=actionGeneration,expectedFreshness=++freshnessGeneration;
+  try{
+    const result=await window.moaonHub.checkOrderFreshness();
+    if(expectedAction!==actionGeneration||expectedFreshness!==freshnessGeneration||!ordersAreVisible())return;
+    if(result?.status==='CHANGED')freshnessChanged=true;
+    if(['CURRENT','CHANGED','UNAVAILABLE','AUTH_REQUIRED'].includes(result?.status))renderFreshness(result.status,result.checkedAt);
+  }catch{if(expectedAction===actionGeneration&&expectedFreshness===freshnessGeneration&&ordersAreVisible())renderFreshness('UNAVAILABLE');}
+}
+freshnessReload.addEventListener('click',async()=>{
+  if(freshnessReloadBusy||orderToolsBusy()||!freshnessChanged||!ordersAreVisible())return;
+  freshnessReloadBusy=true;freshnessReload.disabled=true;selectedOrderIds.clear();closeOrderDetail();renderOrders();renderCollection();
+  const expected=++actionGeneration;++freshnessGeneration;
+  try{
+    const result=await window.moaonHub.refresh();
+    if(expected!==actionGeneration)return;
+    if(result?.status==='READY'){freshnessChanged=false;applyHubResult(result);renderFreshness('CURRENT',result.checkedAt);}
+    else renderFreshness(result?.status==='LOGIN_REQUIRED'||result?.status==='FORBIDDEN'?'AUTH_REQUIRED':'UNAVAILABLE');
+  }catch{if(expected===actionGeneration)renderFreshness('UNAVAILABLE');}
+  finally{freshnessReloadBusy=false;if(expected===actionGeneration){renderOrders();renderCollection();}}
+});
+setInterval(()=>void checkVisibleOrderFreshness(),60_000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)void checkVisibleOrderFreshness();});
+window.addEventListener('focus',()=>void checkVisibleOrderFreshness());
+window.moaonHub?.onWindowRestored?.(()=>void checkVisibleOrderFreshness());
 
 const isSampleMode = () => displayMode === 'sample';
 const orderId = (order) => isSampleMode() ? order.id : order.hubOrderId;
@@ -632,19 +678,20 @@ function renderSelection(){
   document.querySelector('#selection-packing').disabled=documentLocked||!csvEligible;
   document.querySelector('#selection-dispatch').disabled=documentLocked||!csvEligible;
   document.querySelector('#selection-document-hint').textContent=`송장 가능 ${labelRows.length}건 · 제외 ${count-labelRows.length}건${duplicate?' · 중복 송장 확인 필요':count!==labelRows.length?' · 등록·배송정보 또는 지원 채널 확인':''}`;
-  document.querySelector('#selection-clear').disabled=registrationBusy;
+  document.querySelector('#selection-clear').disabled=orderToolsBusy();
   const boxes=[...document.querySelectorAll('.order-select')];
   for(const box of boxes){
     const id=box.closest('.order-item')?.querySelector('.order-row')?.dataset.orderId;
-    box.checked=selectedOrderIds.has(id);box.disabled=registrationBusy;
+    box.checked=selectedOrderIds.has(id);box.disabled=orderToolsBusy();
   }
   for(const button of detailPanel.querySelectorAll('[data-invoice-registration]'))button.disabled=registrationBusy||!displayedOrders.some(order=>orderId(order)===button.dataset.invoiceRegistration&&order.registrationEligible===true);
   const all=document.querySelector('#order-select-all');
   const selectable=boxes.filter(box=>!box.disabled);
-  all.checked=selectable.length>0&&count===selectable.length;all.indeterminate=count>0&&count<selectable.length;all.disabled=registrationBusy||selectable.length===0;
+  all.checked=selectable.length>0&&count===selectable.length;all.indeterminate=count>0&&count<selectable.length;all.disabled=orderToolsBusy()||selectable.length===0;
+  if(freshnessReload)freshnessReload.disabled=freshnessReloadBusy||registrationBusy||collectionBusy||collectionShipmentLocks.size>0;
 }
 
-const orderToolsBusy=()=>registrationBusy||collectionBusy||collectionShipmentLocks.size>0;
+const orderToolsBusy=()=>registrationBusy||collectionBusy||collectionShipmentLocks.size>0||freshnessReloadBusy;
 function renderServerFilterControls(){
   const live=displayMode==='live',busy=orderToolsBusy();
   const delay=document.querySelector('#order-delay-only'),gift=document.querySelector('#order-gift-only');
@@ -708,7 +755,7 @@ function renderOrders() {
 function clearCollection(){collectionGeneration++;collectionState=null;collectionBusy=false;collectionShipmentLocks.clear();renderCollection();}
 function renderCollection(){
  const panel=document.querySelector('#order-collection');panel.hidden=displayMode!=='live';
- const locked=collectionBusy||registrationBusy||collectionShipmentLocks.size>0||displayMode!=='live';
+ const locked=orderToolsBusy()||displayMode!=='live';
  document.querySelector('#collect-orders').disabled=locked||collectionState?.canCollect===false;
  const check=document.querySelector('#check-order-collection');check.hidden=collectionState?.canCheck!==true;check.disabled=locked;
  const reload=document.querySelector('#collection-reload');reload.hidden=collectionState?.verifiedTerminal!==true;reload.disabled=locked;
@@ -724,7 +771,7 @@ function renderCollection(){
  }
 }
 async function runCollection(check){
- if(collectionBusy||registrationBusy||collectionShipmentLocks.size>0||displayMode!=='live'||(!check&&collectionState?.canCollect===false))return;
+ if(orderToolsBusy()||displayMode!=='live'||(!check&&collectionState?.canCollect===false))return;
  const expected=collectionGeneration;collectionBusy=true;renderCollection();
  try{const result=await window.moaonHub[check?'checkOrderCollection':'collectOrders']();if(expected===collectionGeneration)collectionState=result;}
  catch{if(expected===collectionGeneration)collectionState={...collectionState,status:'CHECK_REQUIRED',canCollect:false};}
@@ -796,6 +843,8 @@ function updateConnectionChrome(message) {
 }
 
 function clearDisplayedOrders(mode, message) {
+  ++freshnessGeneration;
+  if(['sample','disconnected'].includes(mode)){freshnessChanged=false;freshnessReloadBusy=false;}
   clearRegistrationResults();
   selectedOrderIds.clear();
   document.querySelector('#issued-order-list').hidden=true;
@@ -808,6 +857,7 @@ function clearDisplayedOrders(mode, message) {
   renderOrders();
   updateConnectionChrome(message);
   renderShippingFollowup();
+  renderFreshness();
 }
 
 function applyHubResult(result) {
@@ -847,6 +897,7 @@ function applyHubResult(result) {
     renderOrders();
     updateConnectionChrome(result.message);
     renderShippingFollowup();
+    renderFreshness(result.status==='PARTIAL'?'UNAVAILABLE':freshnessChanged?'CHANGED':'CURRENT',result.checkedAt);
     return;
   }
   if (result?.status === 'LOGIN_OPEN') {
@@ -859,6 +910,7 @@ function applyHubResult(result) {
 }
 
 async function runHubAction(action) {
+  if(freshnessReloadBusy)return;
   selectedOrderIds.clear();
   const generation = ++actionGeneration;
   const requestedScope = scopeByAction[action];
@@ -1013,7 +1065,7 @@ function appendTrackingOutcome(parent,id,status,generation){
 }
 
 async function runAutomaticShipping(explicitIds){
-  if(registrationBusy||displayMode!=='live')return;
+  if(orderToolsBusy()||displayMode!=='live')return;
   const ids=explicitIds||[...selectedOrderIds];
   if(!ids.length||ids.length>20||ids.some(id=>!displayedOrders.some(order=>orderId(order)===id&&order.issueAndRegisterEligible)))return;
   const generation=actionGeneration;
@@ -1086,6 +1138,7 @@ async function runSelectedDocument(kind){
 }
 async function changeOrderChannel(channel){
   if(!['ALL','CAFE24','NAVER','COUPANG'].includes(channel))return;
+  if(orderToolsBusy())return renderOrders();
   const generation=++actionGeneration;
   selectedChannel=channel;reviewFilter='ALL';
   clearDisplayedOrders('connecting','선택한 채널의 저장 주문을 조회하고 있습니다.');
@@ -1096,7 +1149,7 @@ async function changeOrderChannel(channel){
 }
 
 async function changeServerFilters(next){
- if(displayMode!=='live'||registrationBusy||collectionBusy||collectionShipmentLocks.size>0)return renderOrders();
+ if(displayMode!=='live'||orderToolsBusy())return renderOrders();
  const generation=++actionGeneration;serverFilters=Object.freeze({...next});reviewFilter='ALL';orderSearch.value='';orderSort.value='DEFAULT';
  selectedOrderIds.clear();clearDisplayedOrders('connecting','전체 조회 조건을 적용해 첫 페이지를 조회하고 있습니다.');
  try{const result=await window.moaonHub.setOrderFilters(serverFilters);if(generation===actionGeneration)applyHubResult(result);}

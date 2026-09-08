@@ -3,10 +3,18 @@
 const { contextBridge, ipcRenderer } = require('electron');
 const validWorklistIds=ids=>Array.isArray(ids)&&ids.length>0&&ids.length<=20&&ids.every(id=>typeof id==='string'&&/^HR-(?:C24|CP|NV)-[A-F0-9]{8}$/.test(id))&&new Set(ids).size===ids.length;
 const previewWorklist=(ids,type)=>{if(!validWorklistIds(ids)||!['packing','dispatch'].includes(type))throw Error('Invalid worklist arguments');return ipcRenderer.invoke('moaon-hub:preview-worklist',ids,type);};
+const onWindowRestored=listener=>{
+  if(typeof listener!=='function')throw Error('Invalid restore listener');
+  const handler=()=>listener();
+  ipcRenderer.on('moaon-hub:window-restored',handler);
+  return ()=>ipcRenderer.removeListener('moaon-hub:window-restored',handler);
+};
 
 contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   collectOrders: () => ipcRenderer.invoke('moaon-hub:collect-orders'),
   checkOrderCollection: () => ipcRenderer.invoke('moaon-hub:check-order-collection'),
+  checkOrderFreshness: () => ipcRenderer.invoke('moaon-hub:check-order-freshness'),
+  onWindowRestored,
   readTracking: (id) => ipcRenderer.invoke('moaon-hub:read-tracking',id),
   refreshTracking: (id) => ipcRenderer.invoke('moaon-hub:refresh-tracking',id),
   readServerShippingHistory: () => ipcRenderer.invoke('moaon-hub:server-shipping-history'),

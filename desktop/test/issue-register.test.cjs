@@ -45,7 +45,10 @@ test('tracking enqueue is exact, bounded and cannot erase verified registration'
  for(const mode of ['success','failure','timeout','logout']){
   const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-auto-test-'));
   try{
-   const env=host(directory,{automaticTimeoutMs:150}),original=env.remote.fetch;let trackingCalls=0;
+   // This deadline covers prepare, durable journal I/O, registration and the
+   // final tracking enqueue. Keep the timeout case bounded without making a
+   // successful full workflow depend on sub-150 ms host scheduling.
+   const env=host(directory,{automaticTimeoutMs:1000}),original=env.remote.fetch;let trackingCalls=0;
    env.remote.fetch=async(url,options)=>{
     if(!url.endsWith('/api/shipping/tracking'))return original(url,options);
     trackingCalls++;assert.equal(options.method,'POST');assert.deepEqual(JSON.parse(options.body),{orderIds:[id],mode:'automatic'});

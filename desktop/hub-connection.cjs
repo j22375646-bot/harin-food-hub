@@ -14,6 +14,7 @@ const {
 
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 15_000;
+const FRESHNESS_INTERVAL_MS = 60_000;
 const PAGE_SIZE = 20;
 const SNAPSHOT_PATTERN = /^[0-9a-f]{64}$/;
 const EMPTY_ORDERS = Object.freeze([]);
@@ -276,6 +277,10 @@ function createHubConnection({
   let currentChannel = 'ALL';
   let currentFilters=Object.freeze({delayOnly:false,giftOnly:false});
   let loadedOrders=EMPTY_ORDERS;
+  let freshnessRead=null;
+  let freshnessLastAt=-Infinity;
+  let freshnessLastIdentity=null;
+  let freshnessLastResult=null;
   const registrationAttempts=new Set();
   let registrationController=null;
   let registrationRequestActive=false;
@@ -540,9 +545,55 @@ function createHubConnection({
   function invalidateCursor() {
     pageCursor = null;
     loadedOrders=EMPTY_ORDERS;
+    freshnessLastIdentity=null;
+    freshnessLastResult=null;
   }
   const ordersScopeUrl=(scope=currentScope,channel=currentChannel)=>currentFilters.delayOnly||currentFilters.giftOnly?buildOrdersScopeUrl(scope,channel,currentFilters):buildOrdersScopeUrl(scope,channel);
   const ordersPageUrl=(offset,snapshot,scope=currentScope,channel=currentChannel)=>currentFilters.delayOnly||currentFilters.giftOnly?buildOrdersPageUrl(offset,snapshot,scope,channel,currentFilters):buildOrdersPageUrl(offset,snapshot,scope,channel);
+
+  function freshnessIdentity(){
+    if(!pageCursor||loadedOrders===EMPTY_ORDERS)return null;
+    return JSON.stringify([generation,currentScope,currentChannel,currentFilters.delayOnly,currentFilters.giftOnly,pageCursor.offset,pageCursor.snapshot]);
+  }
+  function freshnessResult(status){return Object.freeze({status,checkedAt:now().toISOString()});}
+  function sameFreshnessPage(candidate){
+    if(candidate.total!==pageCursor.total&&pageCursor.total!==undefined)return false;
+    if(candidate.offset!==pageCursor.offset||candidate.orders.length!==loadedOrders.length)return false;
+    return candidate.orders.every((row,index)=>row.hubOrderId===loadedOrders[index]?.hubOrderId&&shipmentFingerprints.get(row)===shipmentFingerprints.get(loadedOrders[index]));
+  }
+  function checkOrderFreshness(){
+    const identity=freshnessIdentity();
+    if(!identity)return Promise.resolve(freshnessResult('SKIPPED'));
+    const mainWindow=getMainWindow();
+    if(!mainWindow||mainWindow.isDestroyed?.()||mainWindow.isMinimized?.())return Promise.resolve(freshnessResult('SKIPPED'));
+    if(activeRead||registrationController||automaticController||reviewingShipment||collectionWorkActive||trackingController||findingOrder||disconnecting||cleanupFailed||isLoginWindowActive()||serverHistoryRequestActive||businessReads.size)return Promise.resolve(freshnessResult('BUSY'));
+    if(freshnessRead)return freshnessRead;
+    const tick=now().getTime();
+    if(tick-freshnessLastAt<FRESHNESS_INTERVAL_MS)return Promise.resolve(identity===freshnessLastIdentity&&freshnessLastResult?freshnessLastResult:freshnessResult('SKIPPED'));
+    freshnessLastAt=tick;freshnessLastIdentity=identity;
+    const expectedGeneration=generation,cursor=pageCursor,baseline=loadedOrders,controller=new AbortController();let timer,stop;
+    const alive=()=>identity===freshnessIdentity()&&expectedGeneration===generation&&pageCursor===cursor&&loadedOrders===baseline&&!controller.signal.aborted;
+    const stopped=new Promise(resolve=>{stop=()=>resolve(freshnessResult('UNAVAILABLE'));controller.signal.addEventListener('abort',stop,{once:true});timer=setTimeout(()=>controller.abort(),timeoutMs);});
+    const operation=(async()=>{
+      try{
+        const response=await Promise.race([getRemoteSession().fetch(ordersPageUrl(cursor.offset,cursor.snapshot),{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal}),stopped]);
+        if(response?.status==='UNAVAILABLE')return response;
+        if(!alive()||!response||typeof response.status!=='number')return freshnessResult('SKIPPED');
+        if(response.status===409)return freshnessResult('CHANGED');
+        if([401,403].includes(response.status))return freshnessResult('AUTH_REQUIRED');
+        if(response.status!==200)return freshnessResult('UNAVAILABLE');
+        const payload=await Promise.race([readBoundedJson(response,controller),stopped]);
+        if(payload?.status==='UNAVAILABLE')return payload;
+        if(!alive())return freshnessResult('SKIPPED');
+        const candidate=projectOrdersPayload(payload,now().toISOString(),{requestedOffset:cursor.offset,expectedSnapshot:cursor.snapshot,scope:currentScope});
+        if(candidate.partial)return freshnessResult('UNAVAILABLE');
+        return freshnessResult(sameFreshnessPage(candidate)?'CURRENT':'CHANGED');
+      }catch{return freshnessResult(alive()?'UNAVAILABLE':'SKIPPED');}
+      finally{clearTimeout(timer);controller.signal.removeEventListener('abort',stop);controller.abort();}
+    })();
+    let tracked;tracked=operation.then(result=>{if(identity===freshnessIdentity()){freshnessLastResult=result;}return result;}).finally(()=>{if(freshnessRead===tracked)freshnessRead=null;});
+    freshnessRead=tracked;return tracked;
+  }
 
   async function performRead(readGeneration, { url, requestedOffset, expectedSnapshot, scope }) {
     const controller = new AbortController();
@@ -589,9 +640,12 @@ function createHubConnection({
         offset: payload.offset,
         nextOffset: payload.nextOffset,
         snapshot: payload.snapshot,
+        total: payload.total,
         scope,
       });
       loadedOrders=result.orders;
+      freshnessLastIdentity=null;
+      freshnessLastResult=null;
       return Object.freeze({...result,channel:currentChannel,filters:currentFilters});
     } catch {
       if (readGeneration === generation) invalidateCursor();
@@ -1408,7 +1462,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-  return Object.freeze({ exportSelectedCsv, previewLabels, previewWorklist, collectOrders, checkOrderCollection, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ exportSelectedCsv, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1477,6 +1531,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
   const methods = [
     ['moaon-hub:collect-orders', 'collectOrders'],
     ['moaon-hub:check-order-collection', 'checkOrderCollection'],
+    ['moaon-hub:check-order-freshness', 'checkOrderFreshness'],
     ['moaon-hub:server-shipping-history', 'readServerShippingHistory'],
     ['moaon-hub:restore-shipping-history', 'restoreShippingHistory'],
     ['moaon-hub:read-overview', 'readOverview'],

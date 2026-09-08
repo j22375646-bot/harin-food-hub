@@ -1210,6 +1210,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   const calls = [];
   const connection = {
     listBusinesses: async()=>({status:'READY',businesses:[]}),
+    checkOrderFreshness: async()=>({status:'CURRENT',checkedAt:'2026-09-09T00:00:00Z'}),
     connect: async () => calls.push('connect') && { status: 'LOGIN_OPEN' },
     refresh: async () => calls.push('refresh') && { status: 'READY' },
     recheckPage: async () => calls.push('recheckPage') && { status: 'READY' },
@@ -1223,7 +1224,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   };
   registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
   const trusted = { sender: webContents, senderFrame: mainFrame };
-  for(const channel of ['moaon-hub:collect-orders','moaon-hub:check-order-collection']){
+  for(const channel of ['moaon-hub:collect-orders','moaon-hub:check-order-collection','moaon-hub:check-order-freshness']){
     await assert.rejects(handlers.get(channel)({sender:{},senderFrame:null}),/Untrusted renderer/);
     for(const argument of ['https://evil.invalid','12345678-1234-4123-8123-123456789abc',{},null])await assert.rejects(handlers.get(channel)(trusted,argument),/Arguments are not allowed/);
   }
@@ -1234,7 +1235,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
     for(const args of [[],[''],[[]],['HR-C24-1234ABCD',{invoice:'1234567890123'}]])await assert.rejects(handlers.get(channel)(trusted,...args),/Invalid tracking/);
   }
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-tracking','moaon-hub:refresh-tracking','moaon-hub:read-delivery','moaon-hub:preview-worklist','moaon-hub:preview-labels','moaon-hub:export-selected-csv','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:set-order-filters','moaon-hub:reset-order-filters','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:collect-orders','moaon-hub:check-order-collection','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-tracking','moaon-hub:refresh-tracking','moaon-hub:read-delivery','moaon-hub:preview-worklist','moaon-hub:preview-labels','moaon-hub:export-selected-csv','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:set-order-filters','moaon-hub:reset-order-filters','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:collect-orders','moaon-hub:check-order-collection','moaon-hub:check-order-freshness','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
   for(const channel of ['moaon-hub:preview-labels','moaon-hub:export-selected-csv']){
     await assert.rejects(handlers.get(channel)({sender:{},senderFrame:null},['HR-C24-1234ABCD']),/Untrusted renderer/);
     for(const args of [[],[[]],[['bad']],[['HR-C24-1234ABCD','HR-C24-1234ABCD']],[['HR-C24-1234ABCD'],'evil.csv']])await assert.rejects(handlers.get(channel)(trusted,...args),/Invalid document/);
@@ -1269,6 +1270,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
 test('preload exposes only a frozen moaonHub bridge with fixed no-argument channels', async () => {
   const exposed = new Map();
   const invocations = [];
+  const listeners = new Map();
   const originalLoad = Module._load;
   const preloadPath = path.resolve(__dirname, '..', 'preload.cjs');
   delete require.cache[preloadPath];
@@ -1276,7 +1278,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
     if (request === 'electron') {
       return {
         contextBridge: { exposeInMainWorld: (name, value) => exposed.set(name, value) },
-        ipcRenderer: { invoke: (...args) => invocations.push(args) && Promise.resolve(args[0]) },
+        ipcRenderer: { invoke: (...args) => invocations.push(args) && Promise.resolve(args[0]), on:(channel,listener)=>listeners.set(channel,listener), removeListener:(channel,listener)=>{if(listeners.get(channel)===listener)listeners.delete(channel);} },
       };
     }
     return originalLoad.call(this, request, parent, isMain);
@@ -1292,7 +1294,8 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['collectOrders','checkOrderCollection','readTracking','refreshTracking','readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','previewLabels','previewWorklist','exportSelectedCsv','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'setOrderFilters', 'resetOrderFilters', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['collectOrders','checkOrderCollection','checkOrderFreshness','onWindowRestored','readTracking','refreshTracking','readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','previewLabels','previewWorklist','exportSelectedCsv','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'setOrderFilters', 'resetOrderFilters', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  let restored=0;assert.throws(()=>bridge.onWindowRestored('bad'),/Invalid restore listener/);const unsubscribe=bridge.onWindowRestored(()=>restored++);listeners.get('moaon-hub:window-restored')({private:'event'},'ignored');assert.equal(restored,1);unsubscribe();assert.equal(listeners.has('moaon-hub:window-restored'),false);
   await bridge.listBusinesses('ignored');
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });
