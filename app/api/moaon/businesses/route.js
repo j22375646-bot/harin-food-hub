@@ -1,9 +1,7 @@
-import businessListRequest from '../../../../lib/tenancy/business-list-request.js';
+import businessListRuntime from '../../../../lib/tenancy/business-list-runtime.js';
 
 export const runtime = 'nodejs';
-// Intentionally fail closed until the verified identity and restricted control
-// database adapters are composed. Do not substitute the legacy global owner.
-const handle = businessListRequest.createBusinessListRequest();
+const runtimeComposition = businessListRuntime.createBusinessListRuntime();
 export async function GET(request) {
-  return handle(request);
+  return runtimeComposition.handle(request);
 }
