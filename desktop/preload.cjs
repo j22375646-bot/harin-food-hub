@@ -3,6 +3,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
+  confirmShipmentReview: (id) => ipcRenderer.invoke('moaon-hub:confirm-shipment-review',id),
   connect: () => ipcRenderer.invoke('moaon-hub:connect'),
   refresh: () => ipcRenderer.invoke('moaon-hub:refresh'),
   recheckPage: () => ipcRenderer.invoke('moaon-hub:recheck-page'),

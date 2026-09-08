@@ -2,7 +2,7 @@
 
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { app, BrowserWindow, Menu, ipcMain, protocol, session } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, protocol, session, dialog } = require('electron');
 const {
   APP_ENTRY_URL,
   isAllowedAppUrl,
@@ -139,6 +139,7 @@ if (!hasSingleInstanceLock) {
       if (error.code === 'ENOENT') initialCleanupPending = false;
     }
     hubConnection = createHubConnection({
+      showShipmentReview: (parent, options) => dialog.showMessageBox(parent, options),
       BrowserWindow,
       session,
       getMainWindow: () => mainWindow,

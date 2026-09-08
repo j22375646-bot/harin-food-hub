@@ -8,6 +8,23 @@ const test = require('node:test');
 const TEST_SNAPSHOT = '0123456789abcdef'.repeat(4);
 
 const reviewOrder=()=>({hubOrderId:'HR-C24-1234ABCD',externalOrderId:'TEST-1',platform:'CAFE24',fulfillment:'SELLER',stage:'PAID',quantity:1,productName:'시험 상품',cancelled:false,cancellationRequested:false,invoiceNumber:'',issuedInvoiceNumber:'',shippingHistoryStatus:'READY',shippingEligible:true,selectionEligible:true,receiver:{name:'시험',address:'시험 주소',postCode:'12345',contact:'01012345678'}});
+test('native review confirms server-read content then rereads without issuing',async()=>{
+  let calls=0,dialogs=0;const order=reviewOrder();
+  const {connection}=makeConnection(makeRemoteSession(async(_url,options)=>{assert.equal(options.method,'GET');calls++;return new Response(JSON.stringify(makePagePayload({orders:[order]})),{status:200});}),{showShipmentReview:async(_parent,options)=>{dialogs++;assert.equal(options.defaultId,0);assert.equal(options.cancelId,0);assert.ok(options.detail.includes(order.hubOrderId));assert.ok(!options.detail.includes('01012345678'));return {response:1};}});
+  await connection.refresh();assert.equal((await connection.confirmShipmentReview(order.hubOrderId)).status,'REVIEW_CONFIRMED');assert.equal(calls,3);assert.equal(dialogs,1);
+});
+test('native review cancellation and changed order never confirm',async()=>{
+  for(const kind of ['cancel','change','disconnect']){
+    let order=reviewOrder(),calls=0;
+    const {connection}=makeConnection(makeRemoteSession(async()=>{calls++;return new Response(JSON.stringify(makePagePayload({orders:[order]})),{status:200});}),{showShipmentReview:async()=>{
+      if(kind==='change')order={...order,quantity:2};
+      if(kind==='disconnect')await connection.disconnect();
+      return {response:kind==='cancel'?0:1};
+    }});
+    await connection.refresh();const result=await connection.confirmShipmentReview(order.hubOrderId);
+    assert.equal(result.status,kind==='cancel'?'REVIEW_CANCELLED':kind==='change'?'ORDER_CHANGED':'DISCONNECTED');assert.equal(result.order,undefined);
+  }
+});
 test('shipment review rereads authenticated page and returns only matching safe order',async()=>{
   const calls=[];let order=reviewOrder();
   const {connection}=makeConnection(makeRemoteSession(async(url,options)=>{calls.push({url,options});return new Response(JSON.stringify(makePagePayload({orders:[order]})),{status:200});}));
@@ -805,7 +822,10 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
   const trusted = { sender: webContents, senderFrame: mainFrame };
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:confirm-shipment-review','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  const confirmHandler=handlers.get('moaon-hub:confirm-shipment-review');
+  await assert.rejects(confirmHandler({sender:{},senderFrame:null},'HR-C24-1234ABCD'),/Untrusted renderer/);
+  for(const args of [[],['HR-NV-1234ABCD'],[['HR-C24-1234ABCD']],['HR-C24-1234ABCD',true]])await assert.rejects(confirmHandler(trusted,...args),/Invalid review arguments/);
   await assert.rejects(handlers.get('moaon-hub:recheck-page')(trusted, 'order-id'), /Arguments are not allowed/);
   await assert.rejects(handlers.get('moaon-hub:recheck-page')({sender:{},senderFrame:null}), /Untrusted renderer/);
   assert.equal((await handlers.get('moaon-hub:refresh')(trusted)).status, 'READY');
@@ -846,7 +866,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });
   await bridge.recheckPage({ ignored: true });
@@ -984,6 +1004,7 @@ function makeConnection(remoteSession, overrides = {}) {
     initialCleanupPending: overrides.initialCleanupPending,
     markCleanupPending: overrides.markCleanupPending,
     finishCleanup: overrides.finishCleanup,
+    showShipmentReview: overrides.showShipmentReview,
   });
   return { connection, sessionModule, browserWindows };
 }

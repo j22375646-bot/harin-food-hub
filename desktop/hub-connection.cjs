@@ -209,6 +209,7 @@ function createHubConnection({
   markCleanupPending = () => {},
   finishCleanup = () => {},
   initialCleanupPending = false,
+  showShipmentReview = null,
 }) {
   if (!BrowserWindow || !session || typeof getMainWindow !== 'function') {
     throw new TypeError('Hub connection dependencies are required');
@@ -225,6 +226,7 @@ function createHubConnection({
   let generation = 0;
   let pageCursor = null;
   let currentScope = 'ACTIVE';
+  let reviewingShipment = false;
 
   function isLoginWindowActive() {
     return Boolean(loginWindow && !loginWindow.isDestroyed());
@@ -386,6 +388,36 @@ function createHubConnection({
     const order=matches[0];
     if(order.preflight.status!=='REVIEW_ONLY'||order.preflight.route!=='HUB')return refused('CHECK_REQUIRED');
     return Object.freeze({status:'REVIEW_ONLY',order,checkedAt:result.checkedAt});
+  }
+
+  async function confirmShipmentReview(hubOrderId) {
+    const result=status=>Object.freeze({status});
+    if(reviewingShipment)return result('BUSY');
+    if(typeof showShipmentReview!=='function')return result('UNAVAILABLE');
+    reviewingShipment=true;
+    const reviewGeneration=generation;
+    try {
+      const before=await reviewShipment(hubOrderId);
+      if(before.status!=='REVIEW_ONLY')return result(before.status);
+      const parent=getMainWindow();
+      if(!parent||parent.isDestroyed())return result('DISCONNECTED');
+      const order=before.order;
+      const answer=await showShipmentReview(parent,{
+        type:'info',title:'모아온 · 출고 내용 확인',
+        message:'내용 확인만 합니다. 송장을 발급하지 않습니다.',
+        detail:`하린식품\n주문: ${order.hubOrderId}\n상품: ${order.productName}\n수량: ${order.quantity}\n확인 후 저장 주문을 다시 조회합니다.`,
+        buttons:['취소','내용 확인'],defaultId:0,cancelId:0,noLink:true,
+      });
+      if(reviewGeneration!==generation)return result('DISCONNECTED');
+      if(answer?.response!==1)return result('REVIEW_CANCELLED');
+      const after=await reviewShipment(hubOrderId);
+      if(reviewGeneration!==generation)return result('DISCONNECTED');
+      if(after.status!=='REVIEW_ONLY')return result(after.status);
+      if(JSON.stringify(before.order)!==JSON.stringify(after.order))return result('ORDER_CHANGED');
+      // Informational acknowledgement only; never accepted as an execution token.
+      return result('REVIEW_CONFIRMED');
+    } catch {return result('UNAVAILABLE');}
+    finally {reviewingShipment=false;}
   }
 
   function viewScope(scope) {
@@ -575,10 +607,15 @@ function createHubConnection({
     loginWindow = null;
   }
 
-  return Object.freeze({ connect, refresh, recheckPage, reviewShipment, nextPage, previousPage, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, nextPage, previousPage, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
+  ipcMain.handle('moaon-hub:confirm-shipment-review',async(event,...args)=>{
+    if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+    if(args.length!==1||typeof args[0]!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(args[0]))throw Error('Invalid review arguments');
+    return connection.confirmShipmentReview(args[0]);
+  });
   const methods = [
     ['moaon-hub:connect', 'connect'],
     ['moaon-hub:refresh', 'refresh'],

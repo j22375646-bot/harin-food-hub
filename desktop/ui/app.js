@@ -208,6 +208,23 @@ function showOrderDetail(order, button, options = {}) {
     recheck.type = 'button';
     recheck.addEventListener('click', () => void recheckSelectedOrder());
     actions.append(recheck);
+    if(order.preflight?.status==='REVIEW_ONLY'&&order.preflight?.route==='HUB'){
+      const confirm=makeElement('button','primary-action','출고 내용 확인 (발급 안 함)');
+      confirm.type='button';
+      confirm.addEventListener('click',async()=>{
+        const generation=actionGeneration,id=selectedOrderId;
+        confirm.disabled=true;
+        const label=actions.querySelector('.review-result');
+        label.setAttribute('role','status');label.textContent='저장 주문 확인 중…';
+        try{
+          const result=await window.moaonHub.confirmShipmentReview(id);
+          if(generation!==actionGeneration||selectedOrderId!==id||!actions.isConnected)return;
+          label.textContent=result.status==='REVIEW_CONFIRMED'?'내용 확인 완료 · 송장 발급 안 함':result.status==='REVIEW_CANCELLED'?'내용 확인 취소 · 송장 발급 안 함':'확인 불가 · 저장 주문을 다시 확인하세요';
+        }catch{if(actions.isConnected)label.textContent='확인 실패 · 저장 주문을 다시 확인하세요';}
+        finally{confirm.disabled=false;}
+      });
+      actions.append(confirm);
+    }
     detailPanel.append(actions);
   }
   renderDetailNavigation();
