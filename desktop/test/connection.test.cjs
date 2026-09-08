@@ -5,12 +5,14 @@ const { EventEmitter } = require('node:events');
 const Module = require('node:module');
 const path = require('node:path');
 const test = require('node:test');
+const TEST_SNAPSHOT = '0123456789abcdef'.repeat(4);
 
 const {
   HARIN_ORIGIN,
   LOGIN_URL,
   ORDERS_URL,
   READONLY_PARTITION,
+  buildOrdersPageUrl,
   isAllowedRemoteRequest,
   isTrustedRenderer,
 } = require('../connection-policy.cjs');
@@ -21,6 +23,7 @@ const {
 } = require('../hub-connection.cjs');
 
 test('remote request policy allows only the fixed login, assets, login POST and main-process order GET', () => {
+  const snapshot = 'a'.repeat(64);
   const context = { loginWindowActive: true, loginWebContentsId: 41 };
   const allowed = [
     { method: 'GET', url: LOGIN_URL, webContentsId: 41 },
@@ -29,6 +32,8 @@ test('remote request policy allows only the fixed login, assets, login POST and 
     { method: 'GET', url: `${HARIN_ORIGIN}/favicon.ico`, webContentsId: 41 },
     { method: 'POST', url: `${HARIN_ORIGIN}/api/dashboard/login`, webContentsId: 41 },
     { method: 'GET', url: ORDERS_URL, webContentsId: 0 },
+    { method: 'GET', url: `${ORDERS_URL}&offset=0&snapshot=${snapshot}`, webContentsId: 0 },
+    { method: 'GET', url: `${ORDERS_URL}&offset=20&snapshot=${snapshot}`, webContentsId: undefined },
   ];
 
   for (const request of allowed) {
@@ -39,6 +44,14 @@ test('remote request policy allows only the fixed login, assets, login POST and 
     { method: 'GET', url: `${HARIN_ORIGIN}/`, webContentsId: 41 },
     { method: 'GET', url: `${HARIN_ORIGIN}/api/orders/page?platform=ALL&stage=ACTIVE`, webContentsId: 0 },
     { method: 'GET', url: `${HARIN_ORIGIN}/api/orders/page?stage=ACTIVE&platform=ALL&offset=20`, webContentsId: 0 },
+    { method: 'GET', url: `${ORDERS_URL}&snapshot=${snapshot}&offset=20`, webContentsId: 0 },
+    { method: 'GET', url: `${ORDERS_URL}&offset=020&snapshot=${snapshot}`, webContentsId: 0 },
+    { method: 'GET', url: `${ORDERS_URL}&offset=21&snapshot=${snapshot}`, webContentsId: 0 },
+    { method: 'GET', url: `${ORDERS_URL}&offset=${Number.MAX_SAFE_INTEGER + 1}&snapshot=${snapshot}`, webContentsId: 0 },
+    { method: 'GET', url: `${ORDERS_URL}&offset=20&snapshot=${snapshot}&offset=40`, webContentsId: 0 },
+    { method: 'GET', url: `${ORDERS_URL}&offset=20&snapshot=${snapshot}&extra=1`, webContentsId: 0 },
+    { method: 'GET', url: `${ORDERS_URL}&offset=20&snapshot=${'A'.repeat(64)}`, webContentsId: 0 },
+    { method: 'GET', url: `${ORDERS_URL}&offset=20&snapshot=${snapshot}#orders`, webContentsId: 0 },
     { method: 'GET', url: `${HARIN_ORIGIN}/api/orders/page?stage=ACTIVE&platform=ALL`, webContentsId: 41 },
     { method: 'GET', url: ORDERS_URL, webContentsId: '0' },
     { method: 'POST', url: `${HARIN_ORIGIN}/api/dashboard/login`, webContentsId: 99 },
@@ -61,6 +74,18 @@ test('remote request policy allows only the fixed login, assets, login POST and 
   }
 });
 
+test('orders page URL builder emits only canonical bounded cursor URLs', () => {
+  const snapshot = '0123456789abcdef'.repeat(4);
+
+  assert.equal(buildOrdersPageUrl(0, snapshot), `${ORDERS_URL}&offset=0&snapshot=${snapshot}`);
+  assert.equal(buildOrdersPageUrl(40, snapshot), `${ORDERS_URL}&offset=40&snapshot=${snapshot}`);
+  for (const [offset, cursor] of [
+    [-20, snapshot], [1, snapshot], [Number.MAX_SAFE_INTEGER, snapshot], [20, 'A'.repeat(64)], [20, ''],
+  ]) {
+    assert.throws(() => buildOrdersPageUrl(offset, cursor), /Invalid orders page cursor/);
+  }
+});
+
 test('IPC sender must be the exact local main frame and fixed app URL', () => {
   const mainFrame = { url: 'moaon://app/index.html' };
   const webContents = { mainFrame, getURL: () => 'moaon://app/index.html' };
@@ -73,8 +98,8 @@ test('IPC sender must be the exact local main frame and fixed app URL', () => {
   assert.equal(isTrustedRenderer({ sender: webContents, senderFrame: null }, mainWindow), false);
 });
 
-test('orders payload is deeply frozen, capped at 20, and projected without PII or provider fields', () => {
-  const source = Array.from({ length: 21 }, (_, index) => ({
+test('orders payload is deeply frozen, limited to 20, and projected without PII or provider fields', () => {
+  const source = Array.from({ length: 20 }, (_, index) => ({
     hubOrderId: `H-${index + 1}`,
     platform: index % 2 ? 'NAVER' : 'CAFE24',
     productName: `상품 ${index + 1}`,
@@ -91,15 +116,19 @@ test('orders payload is deeply frozen, capped at 20, and projected without PII o
     ok: true,
     orders: source,
     total: 21,
+    offset: 0,
     nextOffset: 20,
+    snapshot: TEST_SNAPSHOT,
     partial: true,
     warning: 'raw provider warning',
   }, '2026-09-08T12:00:00.000Z');
 
-  assert.deepEqual(Object.keys(result), ['status', 'orders', 'total', 'hasMore', 'checkedAt', 'partial', 'message']);
+  assert.deepEqual(Object.keys(result), ['status', 'orders', 'total', 'offset', 'hasPrevious', 'hasMore', 'checkedAt', 'partial', 'message']);
   assert.equal(result.status, 'PARTIAL');
   assert.equal(result.orders.length, 20);
   assert.equal(result.total, 21);
+  assert.equal(result.offset, 0);
+  assert.equal(result.hasPrevious, false);
   assert.equal(result.hasMore, true);
   assert.equal(result.checkedAt, '2026-09-08T12:00:00.000Z');
   assert.equal(result.partial, true);
@@ -127,16 +156,48 @@ test('malformed successful payloads fail closed rather than claiming zero orders
   }
 });
 
+test('orders payload rejects inconsistent paging metadata and an unexpected navigation snapshot', () => {
+  const base = {
+    ok: true,
+    orders: [{ hubOrderId: 'H-21' }],
+    total: 45,
+    offset: 20,
+    nextOffset: 40,
+    snapshot: TEST_SNAPSHOT,
+    partial: false,
+  };
+  const invalid = [
+    { ...base, offset: 21 },
+    { ...base, nextOffset: 20 },
+    { ...base, nextOffset: 60 },
+    { ...base, total: 20 },
+    { ...base, orders: Array.from({ length: 21 }, () => ({})) },
+    { ...base, snapshot: 'A'.repeat(64) },
+  ];
+
+  for (const payload of invalid) {
+    assert.throws(() => projectOrdersPayload(payload, '2026-09-08T12:00:00.000Z', {
+      requestedOffset: 20,
+      expectedSnapshot: TEST_SNAPSHOT,
+    }), /Invalid orders payload/);
+  }
+  assert.throws(() => projectOrdersPayload({ ...base, snapshot: 'f'.repeat(64) }, '2026-09-08T12:00:00.000Z', {
+    requestedOffset: 20,
+    expectedSnapshot: TEST_SNAPSHOT,
+  }), /Invalid orders payload/);
+});
+
 test('refresh uses fixed fetch options and maps partial data while retaining no raw response', async () => {
   const fetchCalls = [];
   const remoteSession = makeRemoteSession(async (url, options) => {
     fetchCalls.push({ url, options });
     return new Response(JSON.stringify({
-      ok: true,
+      ...makePagePayload({
       orders: [{ hubOrderId: 'H-1', platform: 'NAVER', productName: '김', stage: 'PAID', quantity: 1, amount: null, orderedAt: null, receiver: { name: 'PII' } }],
       total: 21,
       nextOffset: 20,
       partial: true,
+      }),
       warning: 'provider detail',
     }), { status: 200, headers: { 'content-type': 'application/json' } });
   });
@@ -158,14 +219,115 @@ test('refresh uses fixed fetch options and maps partial data while retaining no 
   assert.equal(JSON.stringify(result).includes('PII'), false);
 });
 
+test('page actions fetch exactly 20 plus 20 plus 5 rows, move backward, stop at bounds, and refresh from page one', async () => {
+  const fetchUrls = [];
+  const remoteSession = makeRemoteSession(async (url) => {
+    fetchUrls.push(url);
+    const offset = url === ORDERS_URL ? 0 : Number(new URL(url).searchParams.get('offset'));
+    const count = offset === 40 ? 5 : 20;
+    return new Response(JSON.stringify(makePagePayload({
+      orders: Array.from({ length: count }, (_, index) => ({ hubOrderId: `H-${offset + index + 1}` })),
+      total: 45,
+      offset,
+      nextOffset: offset < 40 ? offset + 20 : null,
+    })), { status: 200 });
+  });
+  const { connection } = makeConnection(remoteSession);
+
+  const first = await connection.refresh();
+  const second = await connection.nextPage();
+  const third = await connection.nextPage();
+  const atEnd = await connection.nextPage();
+  const previous = await connection.previousPage();
+  const refreshed = await connection.refresh();
+
+  assert.deepEqual([first.offset, second.offset, third.offset, previous.offset, refreshed.offset], [0, 20, 40, 20, 0]);
+  assert.deepEqual([first.orders.length, second.orders.length, third.orders.length], [20, 20, 5]);
+  assert.deepEqual([first.hasPrevious, second.hasPrevious, third.hasMore], [false, true, false]);
+  assert.equal(atEnd.status, 'UNAVAILABLE');
+  assert.deepEqual(fetchUrls, [
+    ORDERS_URL,
+    buildOrdersPageUrl(20, TEST_SNAPSHOT),
+    buildOrdersPageUrl(40, TEST_SNAPSHOT),
+    buildOrdersPageUrl(20, TEST_SNAPSHOT),
+    ORDERS_URL,
+  ]);
+});
+
+test('snapshot change and authorization failures invalidate page navigation until a fresh first-page read', async () => {
+  const responses = [
+    new Response(JSON.stringify(makePagePayload({ orders: Array.from({ length: 20 }, (_, index) => ({ hubOrderId: `A-${index}` })), total: 45 })), { status: 200 }),
+    new Response('', { status: 409 }),
+    new Response(JSON.stringify(makePagePayload({ orders: Array.from({ length: 20 }, (_, index) => ({ hubOrderId: `B-${index}` })), total: 45 })), { status: 200 }),
+    new Response('', { status: 401 }),
+  ];
+  let fetchCount = 0;
+  const { connection } = makeConnection(makeRemoteSession(async () => responses[fetchCount++]));
+
+  await connection.refresh();
+  const changed = await connection.nextPage();
+  const blockedAfterChange = await connection.nextPage();
+  await connection.refresh();
+  const unauthorized = await connection.nextPage();
+  const blockedAfterAuth = await connection.previousPage();
+
+  assert.equal(changed.status, 'SNAPSHOT_CHANGED');
+  assert.equal(changed.message, '주문 목록이 변경되었습니다. 첫 페이지를 다시 조회하세요.');
+  assert.equal(blockedAfterChange.status, 'UNAVAILABLE');
+  assert.equal(unauthorized.status, 'LOGIN_REQUIRED');
+  assert.equal(blockedAfterAuth.status, 'UNAVAILABLE');
+  assert.equal(fetchCount, 4);
+});
+
+test('duplicate pending navigation shares one operation and issues one page request', async () => {
+  let releaseNext;
+  let fetchCount = 0;
+  const remoteSession = makeRemoteSession(async () => {
+    fetchCount += 1;
+    if (fetchCount === 1) return new Response(JSON.stringify(makePagePayload({ orders: Array.from({ length: 20 }, () => ({})), total: 21 })), { status: 200 });
+    return new Promise((resolve) => { releaseNext = () => resolve(new Response(JSON.stringify(makePagePayload({ orders: [{}], total: 21, offset: 20 })), { status: 200 })); });
+  });
+  const { connection } = makeConnection(remoteSession);
+  await connection.refresh();
+
+  const first = connection.nextPage();
+  const duplicate = connection.nextPage();
+  assert.equal(first, duplicate);
+  assert.equal(fetchCount, 2);
+  releaseNext();
+  assert.equal((await first).offset, 20);
+});
+
+test('disconnect detaches an abort-ignoring old read so a fresh read wins and keeps its cursor', async () => {
+  const freshSnapshot = 'f'.repeat(64);
+  let releaseOld;
+  let fetchCount = 0;
+  const urls = [];
+  const remoteSession = makeRemoteSession(async (url) => {
+    urls.push(url);
+    fetchCount += 1;
+    if (fetchCount === 1) return new Promise((resolve) => { releaseOld = resolve; });
+    if (fetchCount === 2) return new Response(JSON.stringify(makePagePayload({ orders: Array.from({ length: 20 }, () => ({ hubOrderId: 'FRESH' })), total: 21, snapshot: freshSnapshot })), { status: 200 });
+    return new Response(JSON.stringify(makePagePayload({ orders: [{ hubOrderId: 'FRESH-21' }], total: 21, offset: 20, snapshot: freshSnapshot })), { status: 200 });
+  });
+  const { connection } = makeConnection(remoteSession);
+  const oldRead = connection.refresh();
+  await Promise.resolve();
+  await connection.disconnect();
+
+  const fresh = await connection.refresh();
+  releaseOld(new Response(JSON.stringify(makePagePayload({ orders: [{ hubOrderId: 'STALE' }] })), { status: 200 }));
+  const stale = await oldRead;
+  const next = await connection.nextPage();
+
+  assert.equal(fresh.orders[0].hubOrderId, 'FRESH');
+  assert.equal(stale.status, 'DISCONNECTED');
+  assert.equal(next.orders[0].hubOrderId, 'FRESH-21');
+  assert.equal(urls[2], buildOrdersPageUrl(20, freshSnapshot));
+});
+
 test('remote session observes every URL so an external-origin request reaches the deny policy', async () => {
-  const remoteSession = makeRemoteSession(async () => new Response(JSON.stringify({
-    ok: true,
-    orders: [],
-    total: 0,
-    nextOffset: null,
-    partial: false,
-  }), { status: 200 }));
+  const remoteSession = makeRemoteSession(async () => new Response(JSON.stringify(makePagePayload()), { status: 200 }));
   const { connection } = makeConnection(remoteSession);
   await connection.refresh();
 
@@ -180,13 +342,10 @@ test('remote session observes every URL so an external-origin request reaches th
 });
 
 test('authorization failures return safe empty state and never reuse prior orders', async () => {
-  let response = new Response(JSON.stringify({
-    ok: true,
+  let response = new Response(JSON.stringify(makePagePayload({
     orders: [{ hubOrderId: 'H-1', platform: 'NAVER', productName: '김', stage: 'PAID', quantity: 1, amount: 1000, orderedAt: null }],
     total: 1,
-    nextOffset: null,
-    partial: false,
-  }), { status: 200 });
+  })), { status: 200 });
   const remoteSession = makeRemoteSession(async () => response);
   const { connection } = makeConnection(remoteSession);
   assert.equal((await connection.refresh()).orders.length, 1);
@@ -239,13 +398,10 @@ test('disconnect aborts the read, clears the ephemeral session, and late complet
   await Promise.resolve();
 
   const disconnected = await connection.disconnect();
-  finishFetch(new Response(JSON.stringify({
-    ok: true,
+  finishFetch(new Response(JSON.stringify(makePagePayload({
     orders: [{ hubOrderId: 'LATE', platform: 'NAVER', productName: '늦은 자료', stage: 'PAID', quantity: 1, amount: 1, orderedAt: null }],
     total: 1,
-    nextOffset: null,
-    partial: false,
-  }), { status: 200 }));
+  })), { status: 200 }));
   const late = await pending;
 
   assert.equal(disconnected.status, 'DISCONNECTED');
@@ -261,7 +417,7 @@ test('disconnect gates new reads until session clearing finishes', async () => {
   let fetchCount = 0;
   const remoteSession = makeRemoteSession(async () => {
     fetchCount += 1;
-    return new Response(JSON.stringify({ ok: true, orders: [], total: 0, nextOffset: null, partial: false }), { status: 200 });
+    return new Response(JSON.stringify(makePagePayload()), { status: 200 });
   });
   remoteSession.clearStorageData = () => new Promise((resolve) => { releaseClear = resolve; });
   const { connection } = makeConnection(remoteSession);
@@ -280,7 +436,7 @@ test('failed session clearing blocks cookie reuse until app restart', async () =
   let fetchCount = 0;
   const remoteSession = makeRemoteSession(async () => {
     fetchCount += 1;
-    return new Response(JSON.stringify({ ok: true, orders: [], total: 0, nextOffset: null, partial: false }), { status: 200 });
+    return new Response(JSON.stringify(makePagePayload()), { status: 200 });
   });
   remoteSession.clearStorageData = () => { throw new Error('sensitive clear failure detail'); };
   const { connection } = makeConnection(remoteSession);
@@ -309,17 +465,57 @@ test('disconnecting an open login invalidates its late cancellation result', asy
   assert.deepEqual(lateLogin.orders, []);
 });
 
+test('login cancellation and main-frame load failure return distinct safe results', async () => {
+  const cancelledFixture = makeConnection(makeRemoteSession(async () => new Response('', { status: 401 })));
+  const cancelledLogin = cancelledFixture.connection.connect();
+  cancelledFixture.browserWindows[0].close();
+  const cancelled = await cancelledLogin;
+
+  const failedFixture = makeConnection(makeRemoteSession(async () => new Response('', { status: 401 })));
+  const failedLogin = failedFixture.connection.connect();
+  const failedWindow = failedFixture.browserWindows[0];
+  failedWindow.blockClose = true;
+  failedWindow.webContents.emit('did-fail-load', {}, -105, 'network unavailable', LOGIN_URL, true);
+  const failed = await Promise.race([
+    failedLogin,
+    new Promise((resolve) => setTimeout(() => resolve({ status: 'TIMED_OUT' }), 20)),
+  ]);
+
+  assert.equal(cancelled.status, 'LOGIN_REQUIRED');
+  assert.equal(cancelled.message, '하린식품 로그인이 취소되었습니다.');
+  assert.equal(failedWindow.isDestroyed(), true);
+  assert.equal(failed.status, 'UNAVAILABLE');
+  assert.equal(failed.message, '하린식품 로그인 화면을 열지 못했습니다.');
+});
+
+test('rejected login load destroys a close-blocked child and settles the pending connect', async () => {
+  const fixture = makeConnection(makeRemoteSession(async () => new Response('', { status: 401 })), {
+    loadURL: async (window) => {
+      window.blockClose = true;
+      throw new Error('private load error');
+    },
+  });
+
+  const result = await Promise.race([
+    fixture.connection.connect(),
+    new Promise((resolve) => setTimeout(() => resolve({ status: 'TIMED_OUT' }), 20)),
+  ]);
+
+  assert.equal(fixture.browserWindows[0].isDestroyed(), true);
+  assert.equal(result.status, 'UNAVAILABLE');
+  assert.equal(JSON.stringify(result).includes('private load error'), false);
+});
+
 test('an intercepted root redirect closes login and verifies authorization with a fresh order GET', async () => {
   let fetchCount = 0;
   const remoteSession = makeRemoteSession(async () => {
     fetchCount += 1;
-    return new Response(JSON.stringify({
-      ok: true,
+    return new Response(JSON.stringify(makePagePayload({
       orders: [{ hubOrderId: 'SYNTHETIC-1', platform: 'CAFE24', productName: '검증용 상품', stage: 'PAID', quantity: 2, amount: null, orderedAt: null }],
       total: 21,
       nextOffset: 20,
       partial: true,
-    }), { status: 200 });
+    })), { status: 200 });
   });
   const { connection, browserWindows } = makeConnection(remoteSession);
   const pendingLogin = connection.connect();
@@ -340,7 +536,7 @@ test('an intercepted root redirect closes login and verifies authorization with 
   assert.equal(result.orders[0].productName, '검증용 상품');
 });
 
-test('IPC registration rejects arguments and untrusted senders before dispatching three fixed methods', async () => {
+test('IPC registration rejects arguments and untrusted senders before dispatching five fixed methods', async () => {
   const handlers = new Map();
   const ipcMain = { handle: (channel, handler) => handlers.set(channel, handler) };
   const mainFrame = { url: 'moaon://app/index.html' };
@@ -350,19 +546,23 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   const connection = {
     connect: async () => calls.push('connect') && { status: 'LOGIN_OPEN' },
     refresh: async () => calls.push('refresh') && { status: 'READY' },
+    nextPage: async () => calls.push('nextPage') && { status: 'READY' },
+    previousPage: async () => calls.push('previousPage') && { status: 'READY' },
     disconnect: async () => calls.push('disconnect') && { status: 'DISCONNECTED' },
   };
   registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
   const trusted = { sender: webContents, senderFrame: mainFrame };
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:disconnect']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:disconnect']);
   assert.equal((await handlers.get('moaon-hub:refresh')(trusted)).status, 'READY');
+  assert.equal((await handlers.get('moaon-hub:next-page')(trusted)).status, 'READY');
+  assert.equal((await handlers.get('moaon-hub:previous-page')(trusted)).status, 'READY');
   await assert.rejects(handlers.get('moaon-hub:connect')(trusted, 'https://evil.invalid'), /Arguments are not allowed/);
   await assert.rejects(handlers.get('moaon-hub:disconnect')({ sender: {}, senderFrame: null }), /Untrusted renderer/);
-  assert.deepEqual(calls, ['refresh']);
+  assert.deepEqual(calls, ['refresh', 'nextPage', 'previousPage']);
 });
 
-test('preload exposes only a frozen three-method moaonHub bridge with fixed no-argument channels', async () => {
+test('preload exposes only a frozen five-method moaonHub bridge with fixed no-argument channels', async () => {
   const exposed = new Map();
   const invocations = [];
   const originalLoad = Module._load;
@@ -388,13 +588,17 @@ test('preload exposes only a frozen three-method moaonHub bridge with fixed no-a
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['connect', 'refresh', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['connect', 'refresh', 'nextPage', 'previousPage', 'disconnect']);
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });
+  await bridge.nextPage({ ignored: true });
+  await bridge.previousPage({ ignored: true });
   await bridge.disconnect('ignored');
   assert.deepEqual(invocations, [
     ['moaon-hub:connect'],
     ['moaon-hub:refresh'],
+    ['moaon-hub:next-page'],
+    ['moaon-hub:previous-page'],
     ['moaon-hub:disconnect'],
   ]);
 });
@@ -416,6 +620,17 @@ function makeRemoteSession(fetchImpl) {
   return remoteSession;
 }
 
+function makePagePayload({
+  orders = [],
+  total = orders.length,
+  offset = 0,
+  nextOffset = offset + 20 < total ? offset + 20 : null,
+  snapshot = TEST_SNAPSHOT,
+  partial = false,
+} = {}) {
+  return { ok: true, orders, total, offset, nextOffset, snapshot, partial };
+}
+
 function makeConnection(remoteSession, overrides = {}) {
   const browserWindows = [];
   class FakeBrowserWindow extends EventEmitter {
@@ -434,7 +649,9 @@ function makeConnection(remoteSession, overrides = {}) {
 
     isDestroyed() { return this.destroyed; }
     show() {}
-    async loadURL() {}
+    async loadURL(url) {
+      if (typeof overrides.loadURL === 'function') return overrides.loadURL(this, url);
+    }
     close() {
       if (this.blockClose) return;
       this.destroyed = true;
@@ -458,7 +675,7 @@ function makeConnection(remoteSession, overrides = {}) {
     session: sessionModule,
     getMainWindow: () => mainWindow,
     now: () => new Date('2026-09-08T12:00:00.000Z'),
-    ...overrides,
+    timeoutMs: overrides.timeoutMs,
   });
   return { connection, sessionModule, browserWindows };
 }

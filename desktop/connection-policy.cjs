@@ -7,6 +7,31 @@ const ORDERS_URL = `${HARIN_ORIGIN}/api/orders/page?stage=ACTIVE&platform=ALL`;
 const READONLY_PARTITION = 'moaon-harin-readonly';
 const MAX_LOGIN_QUERY_LENGTH = 512;
 const LOGIN_QUERY_KEYS = new Set(['error', 'next']);
+const ORDERS_PAGE_SIZE = 20;
+const SNAPSHOT_PATTERN = /^[0-9a-f]{64}$/;
+
+function buildOrdersPageUrl(offset, snapshot) {
+  if (
+    !Number.isSafeInteger(offset)
+    || offset < 0
+    || offset % ORDERS_PAGE_SIZE !== 0
+    || typeof snapshot !== 'string'
+    || !SNAPSHOT_PATTERN.test(snapshot)
+  ) {
+    throw new TypeError('Invalid orders page cursor');
+  }
+  return `${ORDERS_URL}&offset=${offset}&snapshot=${snapshot}`;
+}
+
+function parseOrdersPageUrl(value) {
+  if (value === ORDERS_URL) return Object.freeze({ offset: 0, snapshot: null });
+  if (typeof value !== 'string') return null;
+  const match = value.match(new RegExp(`^${ORDERS_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}&offset=([0-9]+)&snapshot=([0-9a-f]{64})$`));
+  if (!match) return null;
+  const offset = Number(match[1]);
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset % ORDERS_PAGE_SIZE !== 0 || String(offset) !== match[1]) return null;
+  return Object.freeze({ offset, snapshot: match[2] });
+}
 
 function isSafeLoginUrl(url) {
   if (url.origin !== HARIN_ORIGIN || url.pathname !== '/login') return false;
@@ -50,7 +75,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
     && Number.isInteger(context.loginWebContentsId)
     && details.webContentsId === context.loginWebContentsId;
 
-  if (method === 'GET' && details.url === ORDERS_URL) {
+  if (method === 'GET' && parseOrdersPageUrl(details.url)) {
     return isMainProcessRequest(details.webContentsId);
   }
 
@@ -85,6 +110,7 @@ module.exports = Object.freeze({
   LOGIN_URL,
   ORDERS_URL,
   READONLY_PARTITION,
+  buildOrdersPageUrl,
   isAllowedRemoteRequest,
   isTrustedRenderer,
 });

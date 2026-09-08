@@ -834,6 +834,14 @@ button {
   gap: 7px;
 }
 
+.orders-pagination {
+  min-height: 64px;
+  align-items: center;
+  padding: 10px 19px;
+  border-top: 1px solid var(--line);
+  background: var(--surface-soft);
+}
+
 .order-row {
   min-height: 96px;
   display: grid;

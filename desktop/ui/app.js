@@ -171,8 +171,8 @@ function renderOrders() {
     resultCount.textContent = query ? `검색 결과 · 샘플 ${visibleOrders.length}건` : `샘플 ${visibleOrders.length}건 표시`;
     orderEmpty.textContent = '검색 결과가 없습니다. 다른 주문번호, 고객명 또는 상품명을 입력하세요.';
   } else if (displayMode === 'live') {
-    resultCount.textContent = query ? `검색 결과 · 조회 주문 ${visibleOrders.length}건` : `활성 주문 첫 ${displayedOrders.length}건 · 저장된 전체 ${connectionResult.total.toLocaleString('ko-KR')}건`;
-    orderEmpty.textContent = query ? '현재 조회 범위에서 검색 결과가 없습니다.' : '현재 조회 범위에 표시할 주문이 없습니다.';
+    resultCount.textContent = query ? `현재 페이지 검색 · ${visibleOrders.length}건` : `현재 페이지 ${displayedOrders.length}건`;
+    orderEmpty.textContent = query ? '현재 페이지에서 검색 결과가 없습니다.' : '현재 페이지에 표시할 주문이 없습니다.';
   } else {
     resultCount.textContent = displayMode === 'connecting' ? '연결 확인 중 · 주문 목록 비움' : '표시 중인 실제 주문 없음';
     orderEmpty.textContent = displayMode === 'connecting' ? '하린식품 연결 상태를 확인하고 있습니다.' : '연결 상태를 확인하거나 샘플 화면으로 돌아가세요.';
@@ -187,7 +187,15 @@ function setButtons(mode) {
     const action = button.dataset.action;
     button.disabled = busy && action !== 'hub-disconnect';
     if (action === 'hub-connect') button.hidden = !['sample', 'error', 'disconnected'].includes(mode);
-    if (action === 'hub-refresh') button.hidden = mode !== 'live';
+    if (action === 'hub-refresh') button.hidden = !['live', 'error'].includes(mode);
+    if (action === 'hub-previousPage') {
+      button.hidden = mode !== 'live';
+      button.disabled = busy || connectionResult?.hasPrevious !== true;
+    }
+    if (action === 'hub-nextPage') {
+      button.hidden = mode !== 'live';
+      button.disabled = busy || connectionResult?.hasMore !== true;
+    }
     if (action === 'hub-disconnect') button.hidden = !['connecting', 'live', 'error'].includes(mode);
     if (action === 'sample-mode') button.hidden = mode === 'sample';
   }
@@ -197,25 +205,28 @@ function updateConnectionChrome(message) {
   const live = displayMode === 'live';
   const sample = displayMode === 'sample';
   const partial = connectionResult?.status === 'PARTIAL';
+  const pageStart = live && displayedOrders.length ? connectionResult.offset + 1 : 0;
+  const pageEnd = live ? connectionResult.offset + displayedOrders.length : 0;
+  const pageRange = live ? `${pageStart.toLocaleString('ko-KR')}–${pageEnd.toLocaleString('ko-KR')} / 저장된 활성 주문 ${connectionResult.total.toLocaleString('ko-KR')}건` : '';
   statusElements.businessStatus.textContent = sample ? '가상 사업장' : live ? '조회 전용' : '연결 확인';
   statusElements.businessName.textContent = live ? '하린식품' : sample ? '모아온 데모' : '하린식품';
-  statusElements.businessDetail.textContent = live ? `활성 주문 첫 ${displayedOrders.length}건` : sample ? '시험 자료만 표시 중' : '실제 주문 표시 안 함';
+  statusElements.businessDetail.textContent = live ? `활성 주문 ${pageStart.toLocaleString('ko-KR')}–${pageEnd.toLocaleString('ko-KR')}` : sample ? '시험 자료만 표시 중' : '실제 주문 표시 안 함';
   statusElements.topBusinessName.textContent = live ? '하린식품' : sample ? '모아온 데모' : '하린식품';
   statusElements.global.textContent = live ? `하린식품 · 저장 주문 조회 전용${partial ? ' · 부분 확인' : ''}` : sample ? '시험 자료 · 하린식품 연결 안 됨' : message;
   statusElements.globalBadge.textContent = live ? '조회' : sample ? '시험' : '확인';
-  statusElements.nav.textContent = live ? `활성 주문 첫 ${displayedOrders.length}건` : sample ? '샘플 주문 3건' : '실제 주문 표시 안 함';
+  statusElements.nav.textContent = live ? `활성 주문 ${pageStart.toLocaleString('ko-KR')}–${pageEnd.toLocaleString('ko-KR')}` : sample ? '샘플 주문 3건' : '실제 주문 표시 안 함';
   statusElements.todayContext.textContent = live ? `하린식품 · 저장된 활성 주문 · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? 'Windows 시제품 · 샘플 모드' : '하린식품 · 연결 상태 확인 필요';
   statusElements.todayTitleMode.textContent = live ? '하린식품 주문을' : sample ? '지금 가능한 일' : '실제 주문을 비우고';
   statusElements.todayTitleTail.textContent = live ? ' 조회 전용으로 확인합니다' : sample ? '부터 확인하세요' : ' 연결 상태를 확인합니다';
-  statusElements.todayDescription.textContent = live ? '저장된 활성 주문의 첫 20건만 표시합니다. 플랫폼 동기화 성공이나 전체 주문 현황을 뜻하지 않습니다.' : sample ? '실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.' : message;
+  statusElements.todayDescription.textContent = live ? '저장된 활성 주문을 페이지 단위로 표시합니다. 플랫폼 동기화 성공이나 전체 주문 현황을 뜻하지 않습니다.' : sample ? '실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.' : message;
   statusElements.ordersContext.textContent = live ? `하린식품 · 저장된 활성 주문 · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? '주문·배송 · 샘플 3건' : '하린식품 · 연결 상태 확인 필요';
-  statusElements.ordersTitleMode.textContent = live ? '활성 주문 첫 20건을' : sample ? '가상 주문만' : '비운 목록을';
-  statusElements.ordersDescription.textContent = live ? '저장된 활성 주문의 첫 20건만 조회합니다. 플랫폼 동기화·전체 주문·실업무 처리 화면이 아닙니다.' : sample ? '검색하거나 주문을 선택해 우측 상세를 확인할 수 있습니다. 발급과 상태 변경은 없습니다.' : message;
+  statusElements.ordersTitleMode.textContent = live ? '활성 주문을' : sample ? '가상 주문만' : '비운 목록을';
+  statusElements.ordersDescription.textContent = live ? '저장된 활성 주문을 20건씩 조회하며 검색은 현재 페이지에만 적용됩니다. 플랫폼 동기화·실업무 처리 화면이 아닙니다.' : sample ? '검색하거나 주문을 선택해 우측 상세를 확인할 수 있습니다. 발급과 상태 변경은 없습니다.' : message;
   statusElements.ordersEyebrow.textContent = live ? 'HARIN STORED ORDERS · READ ONLY' : sample ? 'SAMPLE ORDERS' : 'NO LIVE DATA';
-  statusElements.ordersRange.textContent = live ? connectionResult.hasMore ? '20건 이후 자료 있음 · 조회 전용' : '현재 조회 범위 끝 · 조회 전용' : sample ? '실제 발급 버튼 없음' : '실제 주문 자료 비움';
+  statusElements.ordersRange.textContent = live ? pageRange : sample ? '실제 발급 버튼 없음' : '실제 주문 자료 비움';
   statusElements.settingsChip.textContent = live ? partial ? '부분 확인' : '조회 전용' : sample ? '샘플' : '확인 필요';
   statusElements.settingsChip.className = `status-chip ${live && !partial ? 'status-ready' : sample ? 'status-sample' : 'status-blocked'}`;
-  statusElements.programDataScope.textContent = live ? '하린식품 · 활성 주문 첫 20건' : sample ? '가상 사업장 · 샘플 주문' : '실제 주문 표시 안 함';
+  statusElements.programDataScope.textContent = live ? '하린식품 · 활성 주문 페이지 조회' : sample ? '가상 사업장 · 샘플 주문' : '실제 주문 표시 안 함';
   statusElements.programNetwork.textContent = live ? '명시적 조회만' : sample ? '연결 안 됨' : '연결 상태 확인 필요';
   statusElements.statusbarData.textContent = live ? `데이터: 하린식품 저장 주문 조회 전용 · ${formatTime(connectionResult.checkedAt)}` : sample ? '데이터: 시험 자료 · 네트워크 연결 없음' : '데이터: 실제 주문 자료 비움';
   for (const section of sampleOnlySections) section.hidden = !sample;
@@ -260,6 +271,7 @@ function applyHubResult(result) {
 async function runHubAction(action) {
   const generation = ++actionGeneration;
   if (action === 'connect' || action === 'refresh') clearDisplayedOrders('connecting', action === 'connect' ? '별도 하린식품 로그인 창을 확인하세요. 로그인 완료 후 저장 주문을 조회합니다.' : '저장된 활성 주문을 다시 조회하고 있습니다.');
+  if (action === 'nextPage' || action === 'previousPage') clearDisplayedOrders('connecting', action === 'nextPage' ? '다음 주문 페이지를 조회하고 있습니다.' : '이전 주문 페이지를 조회하고 있습니다.');
   if (action === 'disconnect') clearDisplayedOrders('connecting', '실제 주문을 비우고 연결 정보를 지우고 있습니다.');
   try {
     const bridge = window.moaonHub;
