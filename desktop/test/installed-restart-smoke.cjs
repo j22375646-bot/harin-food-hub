@@ -16,16 +16,17 @@ async function main(){
   const started=Date.now();const app=await _electron.launch({executablePath,args:[],timeout:30000});
   try{
    const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');
-   await page.locator('[data-app-version]').first().filter({hasText:'v0.19.0'}).waitFor();
+   await page.locator('[data-app-version]').first().filter({hasText:'v0.20.0'}).waitFor();
    const errors=[];page.on('pageerror',error=>errors.push(error.name));
    const state=await app.evaluate(({app})=>({version:app.getVersion(),profile:app.getPath('userData')}));
-   assert.equal(state.version,'0.19.0');assert.equal(path.resolve(state.profile),path.resolve(profile));
+   assert.equal(state.version,'0.20.0');assert.equal(path.resolve(state.profile),path.resolve(profile));
    const theme=await page.evaluate(()=>({visible:document.documentElement.dataset.theme,saved:localStorage.getItem('moaon-preview-theme')}));
    assert.equal(theme.visible,theme.saved);assert.ok(['light','dark'].includes(theme.visible));
    assert.equal(page.url(),'moaon://app/index.html');
    const localUiReadyMs=Date.now()-started;
    await page.waitForFunction(()=>document.querySelector('#entry-screen').hidden||document.querySelector('#entry-status').textContent!=='저장된 로그인 상태를 확인하고 있습니다.',{},{timeout:30000});
    const entryVisible=await page.locator('#entry-screen').isVisible();
+   const entryReadyMs=Date.now()-started;
    if(process.argv.includes('--authenticated'))assert.equal(entryVisible,false,'Saved login must reach workspace');
    if(entryVisible){
     assert.equal(await page.locator('.preview-shell').isVisible(),false);
@@ -82,7 +83,7 @@ async function main(){
    assert.deepEqual(errors,[]);
    const sessionResult=entryVisible?await page.locator('#entry-status').innerText():'업무 화면 진입';
    const businessStatus=entryVisible?'로그인 필요':await page.locator('#business-list-status').innerText();
-   results.push({version:state.version,theme:theme.saved,entryVisible,localUiReadyMs,sessionCheckMs:Date.now()-started,sessionResult,businessStatus});
+   results.push({version:state.version,theme:theme.saved,entryVisible,localUiReadyMs,entryReadyMs,runTotalMs:Date.now()-started,sessionResult,businessStatus});
   }finally{await app.close();}
  }
  assert.equal(results[0].theme,results[1].theme);

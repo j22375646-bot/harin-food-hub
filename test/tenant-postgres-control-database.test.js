@@ -165,6 +165,31 @@ async function expectSafeDatabaseError(run, code = 'CONTROL_DATABASE_UNAVAILABLE
   });
 }
 
+test('connection capacity rejection retries before any SQL, then recovers', async () => {
+  const client = createFakeClient();
+  const pool = createFakePool(client);
+  pool.connect = async () => {
+    pool.connects += 1;
+    if (pool.connects < 3) throw Object.assign(new Error('capacity'), {code:'53300'});
+    return client;
+  };
+  const db = createDatabase(pool);
+  await db.query('select 42');
+  assert.equal(pool.connects, 3);
+  assert.equal(client.calls.filter(call => call.text === 'select 42').length, 1);
+  await db.close();
+});
+
+test('persistent capacity rejection is bounded and runs no SQL', async () => {
+  const client = createFakeClient();
+  const pool = createFakePool(client, {connectError:Object.assign(new Error('capacity'), {code:'53300'})});
+  const db = createDatabase(pool);
+  await expectSafeDatabaseError(() => db.query('select 42'));
+  assert.equal(pool.connects, 3);
+  assert.deepEqual(client.calls, []);
+  await db.close();
+});
+
 test('제한 PostgreSQL adapter는 query, transaction, close 공개 seam만 반환한다', async () => {
   const client = createFakeClient();
   const pool = createFakePool(client);

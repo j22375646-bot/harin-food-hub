@@ -124,6 +124,8 @@ if (!hasSingleInstanceLock) {
       minHeight: 720,
       show: false,
       frame: true,
+      titleBarStyle: 'hidden',
+      titleBarOverlay: {color:'#00000000',symbolColor:'#8b819e',height:48},
       autoHideMenuBar: true,
       backgroundColor: '#f3f6fa',
       webPreferences: {
