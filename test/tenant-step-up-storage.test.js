@@ -133,14 +133,18 @@ async function runInterleavedDispatchClockCase(target, mode) {
 test('PGlite stores one encrypted proof and revokes it through the public service seam', async () => {
   const db = await prepareStepUpDatabase();
   try {
-    const expectedProvider = providerResult();
+    let expectedProvider;
     const rpcArguments = [];
     const service = createStepUpStorage({
       rpcClient: rpcFor(db, (name, args) => rpcArguments.push([name, args])),
-      provider: {verifyTotp: async () => expectedProvider},
+      provider: {verifyTotp: async () => {
+        expectedProvider = providerResult();
+        return expectedProvider;
+      }},
       encryptionKey: ENCRYPTION_KEY,
       keyId: KEY_ID,
     });
+    const issued = await service.issue(issueInput());
     const expectedProof = {
       userId: USER,
       sessionId: HUB_SESSION,
@@ -149,7 +153,7 @@ test('PGlite stores one encrypted proof and revokes it through the public servic
       expiresAt: expectedProvider.evidence.expiresAt,
     };
 
-    assert.deepEqual(await service.issue(issueInput()), expectedProof);
+    assert.deepEqual(issued, expectedProof);
     assert.deepEqual(await service.verifyStepUp({userId: USER, sessionId: HUB_SESSION}), expectedProof);
     assert.deepEqual(await service.loadSession({userId: USER, sessionId: HUB_SESSION}), {
       accessToken: expectedProvider.session.accessToken,
