@@ -1283,7 +1283,15 @@ const selectionMenu=document.querySelector('.selection-more');
 selectionMenu.addEventListener('click',event=>{if(event.target.closest('button:not(:disabled)'))selectionMenu.open=false;});
 document.addEventListener('pointerdown',event=>{if(selectionMenu.open&&!selectionMenu.contains(event.target))selectionMenu.open=false;});
 document.addEventListener('keydown',event=>{
-  if(event.key==='Escape'&&selectionMenu.open){event.preventDefault();event.stopImmediatePropagation();selectionMenu.open=false;selectionMenu.querySelector('summary').focus();}
+  if(event.key!=='Escape'||event.isComposing)return;
+  if(selectionMenu.open){event.preventDefault();event.stopImmediatePropagation();selectionMenu.open=false;selectionMenu.querySelector('summary').focus();return;}
+  const filters=document.querySelector('.order-more-filters');
+  if(filters.open&&filters.contains(event.target)){
+    event.preventDefault();event.stopImmediatePropagation();filters.open=false;filters.querySelector('summary').focus();return;
+  }
+  if(!globalPanel.hidden&&(globalPanel.contains(event.target)||event.target===globalToggle)){
+    event.preventDefault();event.stopImmediatePropagation();globalToggle.setAttribute('aria-expanded','false');globalPanel.hidden=true;globalPanel.inert=true;globalToggle.focus();
+  }
 },true);
 document.querySelector('#selection-auto-ship').addEventListener('click',()=>void runAutomaticShipping());
 document.querySelector('#selection-review').addEventListener('click',()=>{
