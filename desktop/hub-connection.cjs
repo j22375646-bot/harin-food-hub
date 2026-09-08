@@ -87,7 +87,10 @@ function projectPreflight(order, partial) {
   if (!['PAID','PREPARING','READY_TO_SHIP'].includes(order?.stage) && !codes.includes('SHIPPED') && !codes.includes('CANCELLED')) codes.push('STAGE_UNKNOWN');
   if (typeof order?.cancelled !== 'boolean' || typeof order?.cancellationRequested !== 'boolean') codes.push('CANCEL_UNKNOWN');
   if (typeof order?.invoiceNumber !== 'string' || typeof order?.issuedInvoiceNumber !== 'string') codes.push('INVOICE_UNKNOWN');
-  if (!safeString(order?.hubOrderId).trim() || !safeString(order?.externalOrderId).trim()) codes.push('ORDER_ID');
+  const hubIdPattern = order?.platform === 'CAFE24' ? /^HR-C24-[A-F0-9]{8}$/ : /^HR-CP-[A-F0-9]{8}$/;
+  if (!safeString(order?.hubOrderId).trim() || !safeString(order?.externalOrderId).trim()
+    || (route === 'HUB' && !hubIdPattern.test(order?.hubOrderId))) codes.push('ORDER_ID');
+  if (route === 'HUB' && order?.shippingHistoryStatus !== 'READY') codes.push('HISTORY_UNAVAILABLE');
   if (order?.shippingEligible !== true || order?.selectionEligible !== true) codes.push('SERVER_CHECK');
   const receiver = order?.receiver;
   const contact = typeof receiver?.contact === 'string' ? receiver.contact.replace(/[\s-]/g, '') : '';

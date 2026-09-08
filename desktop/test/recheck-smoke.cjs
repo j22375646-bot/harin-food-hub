@@ -16,6 +16,7 @@ async function main(){
   await page.locator('[data-action="hub-refresh"]:visible').first().waitFor();
   await page.getByRole('button',{name:'주문·배송',exact:true}).click();
   await page.locator('.order-row').first().click();
+  assert.ok((await page.locator('#order-detail').innerText()).includes('송장 이력 조회 상태 확인 필요'));
   assert.equal(await page.getByRole('button',{name:'저장 주문 다시 확인',exact:true}).count(),1,'selected order must expose a reread action');
   await page.getByRole('button',{name:'저장 주문 다시 확인',exact:true}).click();
   await page.getByText('다시 확인 완료 · 저장 자료 기준',{exact:true}).waitFor();
