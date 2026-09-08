@@ -305,6 +305,8 @@ function showOrderDetail(order, button, options = {}) {
       const eligible=order.preflight?.status==='REVIEW_ONLY'&&order.preflight?.route==='HUB';
       issue.disabled=!eligible;
       let busy=false;
+      const reloadIssued=makeElement('button','secondary-action','발급 결과 주문 다시 조회');reloadIssued.type='button';reloadIssued.hidden=true;
+      reloadIssued.addEventListener('click',async()=>{reloadIssued.disabled=true;await recheckSelectedOrder();});
       const messages={
         EMPTY:'이 앱에 저장된 발급 작업 없음 · 미발급 확정 아님',
         SUBMITTING:'발급 요청 전송 중…',PENDING:'접수 완료 · 작업 대기 중…',RUNNING:'우체국 송장 발급 처리 중…',
@@ -316,7 +318,7 @@ function showOrderDetail(order, button, options = {}) {
         CHECK_REQUIRED:'발급 조건 확인 필요 · 목록을 새로 확인하세요',BUSY:'다른 확인 작업이 진행 중입니다',
       };
       async function runShipment(submit){
-        if(busy)return;busy=true;issue.disabled=true;check.disabled=true;
+        if(busy)return;busy=true;issue.disabled=true;check.disabled=true;reloadIssued.hidden=true;
         const id=order.hubOrderId,generation=actionGeneration;
         const current=()=>generation===actionGeneration&&selectedOrderId===id&&actions.isConnected&&!document.hidden;
         let status='UNAVAILABLE';
@@ -325,6 +327,7 @@ function showOrderDetail(order, button, options = {}) {
           let result=await window.moaonHub[submit?'issueShipment':'checkShipment'](id);
           for(let count=0;current();count++){
             status=result.status;label.textContent=messages[status]||'확인을 완료하지 못했습니다 · 발급 상태를 다시 확인하세요';
+            reloadIssued.hidden=status!=='SUCCEEDED';
             if(!['PENDING','RUNNING','SUBMITTING'].includes(status))break;
             if(count>=15){label.textContent+=' 잠시 후 발급 상태 확인을 눌러주세요.';break;}
             await new Promise(resolve=>setTimeout(resolve,2000));
@@ -339,7 +342,7 @@ function showOrderDetail(order, button, options = {}) {
       }
       issue.addEventListener('click',()=>void runShipment(true));
       check.addEventListener('click',()=>void runShipment(false));
-      actions.append(issue,check,label);
+      actions.append(issue,check,label,reloadIssued);
       if(order.details?.invoice?.status==='REGISTERED'){
         const preview=makeElement('button','secondary-action','기존 송장 미리보기·인쇄');preview.type='button';
         preview.addEventListener('click',async()=>{

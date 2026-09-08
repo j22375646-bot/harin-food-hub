@@ -17,7 +17,8 @@ async function main(){
      globalThis.shipmentCalls.poll++;return Response.json({ok:true,request:{id,hubOrderId,status:'SUCCESS'},result:{trackingNo:'1234567890123'}});
     }
     if(options.method!=='GET')throw Error('Unexpected request');
-    return Response.json({ok:true,offset:0,total:1,nextOffset:null,snapshot:'a'.repeat(64),partial:false,orders:[{hubOrderId,externalOrderId:'TEST-1',platform:'CAFE24',fulfillment:'SELLER',stage:'PAID',productName:'시험 상품',quantity:1,amount:30000,orderedAt:null,cancelled:false,cancellationRequested:false,invoiceNumber:'',issuedInvoiceNumber:'',shippingEligible:true,selectionEligible:true,shippingHistoryStatus:'READY',receiver:{name:'TEST',address:'TEST',postCode:'12345',contact:'01012345678'}}]});
+    const issued=globalThis.shipmentCalls.poll>0;
+    return Response.json({ok:true,offset:0,total:1,nextOffset:null,snapshot:'a'.repeat(64),partial:false,orders:[{hubOrderId,externalOrderId:'TEST-1',platform:'CAFE24',fulfillment:'SELLER',stage:'PAID',productName:'시험 상품',quantity:1,amount:30000,orderedAt:null,cancelled:false,cancellationRequested:false,invoiceNumber:issued?'1234567890123':'',issuedInvoiceNumber:issued?'1234567890123':'',invoice:issued?{status:'REGISTERED',number:'1234567890123'}:undefined,shippingEligible:!issued,selectionEligible:!issued,shippingHistoryStatus:'READY',receiver:{name:'TEST',address:'TEST',postCode:'12345',contact:'01012345678'}}]});
    };
   });
   // Cancel startup authentication before using the isolated API fixture.
@@ -32,6 +33,9 @@ async function main(){
   await page.getByRole('button',{name:'발급 상태 확인',exact:true}).click();
   await page.getByText('발급 완료 · 주문 목록을 새로 확인하세요',{exact:true}).waitFor();
   assert.equal(await app.evaluate(()=>globalThis.shipmentCalls.post),1,'Rechecking a completed job must not submit another shipment');
+  await page.getByRole('button',{name:'발급 결과 주문 다시 조회',exact:true}).click({timeout:3000});
+  await page.getByRole('button',{name:'기존 송장 미리보기·인쇄',exact:true}).waitFor({timeout:5000});
+  assert.equal(await app.evaluate(()=>globalThis.shipmentCalls.post),1);
   await page.screenshot({path:path.join(__dirname,'..','dist','shipment-smoke.png'),fullPage:true});
   console.log(JSON.stringify({status:'PASS',scope:'isolated Electron UI/IPC/durable journal, simulated dialog and API only; NO LIVE SHIPMENT'}));
  }finally{await app.close();}
