@@ -1,0 +1,31 @@
+# P1-04-15 Vercel ingress to authentication admission
+
+Approved continuation of the multi-business plan and P1-04-14 next steps. Existing admission is implemented but expects trustedClientIp supplied by a caller. This task adds a narrowly scoped server boundary, not public authentication activation. Base8bb992f43bfff75b6e0a0e7b1114c3fd64bf1a90.
+
+## Global Constraints
+
+기존 공개 로그인·비밀번호·UI·업무 API·SQL·환경 설정 변경 금지. 공개 route·실계정 인증·메일·유료 자원·운영 자료 복사 없음. 새 의존성·EXE 작업 없음. 신규 인증 흐름은 운영 비활성. 자격 증명·원본 IP·사용자 정보는 응답·로그·오류에 노출하지 않는다.
+
+## Source and trust limitation
+
+Checked2026-09-08: https://vercel.com/docs/headers/request-headers describes x-vercel-forwarded-for and x-real-ip as matching x-forwarded-for, and warns about external proxies. Only direct Vercel ingress is a supported deployment contract. Header agreement is NOT cryptographic proof of hosting; production Vercel runtime plus explicit server configuration is required, and actual spoofed-header/live-ingress verification remains an activation gate. No proxy chain traversal, Enterprise trusted proxy purchase, Cloudflare fallback or local trust bypass.
+
+### Task 1: Bind native requests to the existing admission service
+
+Create lib/tenancy/vercel-auth-request-admission.js and test/tenant-vercel-auth-request-admission.test.js (optional a separate integration test file if useful). Export createVercelAuthRequestAdmission and AuthIngressError. Reuse canonicalizeTrustedClientIp, validateAuthHmacKey, validateAuthRequestInput and createAuthRequestAdmission; do not duplicate quota/HMAC logic, alter existing implementation or SQL.
+
+Factory createVercelAuthRequestAdmission({rpcClient,hmacKey,ingress,timeoutMs}) returns async admit(request,input). ingress must equal 'vercel-direct'; timeoutMs optional10000 integer1..30000. Require server-only at construction and call, process.env.VERCEL==='1' and process.env.VERCEL_ENV==='production' at both points. Runtime variables are server configuration, never request headers. No environment mutation outside tests. Construction must reject malformed/unknown/accessor configuration slots with fixed safe TypeError and zero RPC. Capture rpcClient.rpc with receiver once, hmacKey and timeout once; validate key through existing helper. Dependency's rpc may be a prototype data method; do not invoke accessor methods. All malformed configuration failures use fixed safe TypeError without original cause.
+
+Each call requires a native Request with HTTPS URL and non-aborted signal. Read x-vercel-forwarded-for and x-forwarded-for; both must exist, be single literal IPs and canonicalize to the same IP. If x-real-ip is present it must also be a single matching literal. Reject empty, lists/duplicate joined headers, ports, bracket literals, zone identifiers, hostnames and invalid values, with max64 characters per selected IP header before parsing. Native Headers may already normalize outer whitespace; do not claim recovery of original HTTP bytes. Reuse the IP canonicalizer including mapped IPv6 equivalence. Never fall back to Forwarded, CF-Connecting-IP, True-Client-IP, X-Client-IP, Host or an x-vercel-id marker; ignore them as identity evidence. Native request.method/body/source validation is a separate caller responsibility (no body read here).
+
+Validate kind/subject with the existing helper before any RPC. Copy returned validated input synchronously; configuration or original input changes cannot change in-flight values. Resolve trusted IP synchronously before asynchronous work. The returned value is the existing frozen {allowed:boolean} only, not raw IP or hashes. Use existing createAuthRequestAdmission per call and pass its trustedClientIp, key and bounded RPC dependency. The dependency wrapper checks Request abort and runtime trust before each RPC dispatch and after each result so a pending abort cannot start the subject quota after the IP quota completes. At most one IP and one subject RPC; no retry/compensation. Inherited timeout is PER RPC, not a new total deadline; do not claim remote cancellation or atomic rollback. Aborted already-dispatched RPC may finish and consume quota.
+
+Call-time malformed request/headers/input, runtime loss or abort throws a fresh AuthIngressError with name AuthIngressError, code AUTH_INGRESS_UNAVAILABLE,status503,message 'Authentication ingress is unavailable.', no cause or request details. Existing admission failures must also be sanitized (can map to AuthIngressError uniformly); literal false admission remains frozen {allowed:false}. Failures must never become allowed:true. Do not add a route or silently wire current login.
+
+TDD: first write failing behavior tests. Use native Requests, restore all environment stubs. Verify valid IPv4/IPv6/mapped-equivalent header agreement reaches actual existing admission and produces expected hashed RPC args/order, not custom fake admission; no raw IP/key/subject leaks in RPC payload/error/result. Missing/runtime spoof/unsupported ingress, all malformed headers (including real duplicate Headers.append), mismatches and invalid inputs explicitly assert zero RPC. Verify constructor dependency capture (including prototype receiver), data-only config, initial and mid-flight abort, first denial stops subject, subject denial preserves charge, malformed/throw RPC rejects, no retries. Abort interleaving must use deferred promises not short real-time guesses. Show actual login seam auth.authenticateAccount with the returned admission closure refuses invalid ingress/denial before provider/profile/session writes; use existing test setup and synthetic fixtures only, no production changes to simplify tests.
+
+Run new tests plus test/tenant-auth-request-admission.test.js test/tenant-auth-client-ip.test.js if exists, and test/tenant-session-logout-request.test.js. Syntax and git diff checks, self-review, commit only owned source/tests. Report exact RED/GREEN commands/results, source-vs-live trust limits and per-RPC timeout caveat in task-1-report.md. No subagents. Parent owns version/docs/full/build/release.
+
+## Parent gates
+
+Baseline2508. Task review/fix; whole-branch review; full suite no skipped build checks; build; main re-test; version1.58.0 Git deployment READY and public protected route regression. Actual runtime ingress/MFA/key/DB verification remains explicitly pending, no new paid resources.
