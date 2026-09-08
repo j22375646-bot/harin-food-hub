@@ -26,6 +26,7 @@ const {launchDesktop}=require('./launch.cjs');
     await page.screenshot({path:path.join(root,'dist',`app-layout-${width}-${theme}.png`),animations:'disabled'});
     assert.ok(geometry.top<320,`first product must be visible without a web-style header/filter stack: ${JSON.stringify(geometry)}`);
     assert.equal(geometry.rail,84);assert.equal(geometry.overflow,false);assert.ok(geometry.list>250);
+    console.log(JSON.stringify({width,theme,...geometry}));
     assert.ok(await page.locator('.detail-panel').evaluate(el=>el.getBoundingClientRect().width)>=280);
     await page.getByRole('button',{name:'주문 상세 닫기',exact:true}).click();
     assert.equal(await page.locator('.detail-panel').getAttribute('aria-hidden'),'true');

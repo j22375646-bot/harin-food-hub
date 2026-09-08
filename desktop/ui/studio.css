@@ -102,10 +102,10 @@ html body,html body *{scrollbar-width:none!important;scrollbar-gutter:auto!impor
 html body::-webkit-scrollbar,html body *::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
 .orders-layout{--order-scrollbar-width:0px}
 .order-result-stack{order:6;flex:0 1 auto;min-height:0;max-height:25%;overflow:auto;overscroll-behavior:contain}
-.orders-layout:has(.order-collection){overflow:clip}
-.orders-layout .orders-workspace:has(#order-collection){overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
-.orders-workspace:has(#order-collection) #order-list{min-height:150px;flex-shrink:0}
-.orders-workspace:has(#order-collection) .order-result-stack{min-height:90px;flex-shrink:0}
+.orders-layout{overflow:clip}
+.orders-layout .orders-workspace:has(#order-list){overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+.orders-layout .orders-workspace #order-list.order-list{min-height:150px;flex-shrink:0}
+.orders-workspace .order-result-stack{min-height:90px;flex-shrink:0}
 .tracking-section{display:grid;gap:8px;margin:12px 0;padding:14px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface-soft);color:var(--ink)}
 .tracking-section h3,.tracking-section p{margin:0;font-size:12px}.tracking-section p{color:var(--muted);line-height:1.6}.tracking-actions{display:flex;flex-wrap:wrap;gap:6px}
 .tracking-actions button{font:inherit;font-size:12px;min-height:34px;padding:6px 9px;border-radius:8px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);cursor:pointer}.tracking-actions button:disabled{opacity:.55;cursor:wait}
@@ -146,3 +146,24 @@ html body::-webkit-scrollbar,html body *::-webkit-scrollbar{display:none!importa
 .auto-shipping-item[data-state="REGISTERED"]>strong{background:var(--mint-soft);color:var(--mint)}
 .auto-shipping-item[data-state="PENDING"]>strong{background:var(--blue-soft);color:var(--blue)}
 .auto-result-navigation{border:1px solid var(--line);border-radius:8px;padding:7px 12px;background:var(--blue-soft);color:var(--blue);font:inherit;cursor:pointer}
+
+/* Orders are the workspace: collection belongs beside the title, not above the list. */
+.orders-page .page-heading{display:grid;grid-template-columns:minmax(200px,1fr) minmax(0,1fr);column-gap:24px;row-gap:4px;margin-bottom:8px;flex:0 0 auto}
+.orders-page .page-heading h1{grid-column:1;grid-row:1;font-size:26px}
+.orders-page #orders-description{grid-column:1;grid-row:2;margin:0;font-size:13px;line-height:1.5;color:var(--muted)}
+.orders-page #order-collection{grid-column:2;grid-row:1 / span 2;padding:0;border:0;background:transparent;align-self:center;min-width:0}
+.orders-page .collection-controls{justify-content:flex-end;gap:6px}
+.orders-page .collection-controls strong{display:none}
+.orders-page .collection-controls button{min-height:32px;padding:5px 10px;font-size:12px}
+.orders-page #collection-message{text-align:right;font-size:12px;margin:4px 0 0;line-height:1.4}
+.orders-page .collection-channels{flex-wrap:wrap;overflow:visible;gap:6px}
+.orders-page .collection-chip{flex:1 1 110px;min-width:0;overflow-wrap:anywhere}
+.orders-page .order-scope-actions{margin-bottom:6px}
+.orders-page .order-tools{margin-bottom:4px}
+.orders-page .order-table-heading{padding-block:7px}
+.orders-page .global-order-search{padding:0 0 6px;gap:8px;border:0;background:transparent;flex-shrink:0}
+.orders-page .global-order-search>button{min-height:32px;font-size:12px;font-weight:600}
+.orders-page .global-order-search>span{font-size:12px;font-weight:450;overflow-wrap:anywhere}
+.orders-page .order-freshness{min-height:24px;margin-bottom:2px;padding:0 2px;background:transparent;border-color:transparent;flex-wrap:wrap}
+.orders-page .order-freshness[data-status="CHANGED"],.orders-page .order-freshness[data-status="UNAVAILABLE"],.orders-page .order-freshness[data-status="AUTH_REQUIRED"]{padding:5px 8px;background:var(--surface-soft);border-color:var(--line-strong)}
+@media(max-width:900px){.orders-page .page-heading{grid-template-columns:1fr}.orders-page #order-collection{grid-column:1;grid-row:3}.orders-page .collection-controls{justify-content:flex-start}.orders-page #collection-message{text-align:left}}

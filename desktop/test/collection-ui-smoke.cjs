@@ -20,7 +20,7 @@ const {launchDesktop}=require('./launch.cjs');
   await page.locator('#check-order-collection').waitFor();await page.waitForFunction(()=>!document.querySelector('#check-order-collection').disabled);
   assert.equal(await page.locator('#collection-reload').isVisible(),false);assert.equal(await page.evaluate(()=>selectedOrderIds.has('HR-C24-00000001')),true);
   await page.waitForTimeout(700);
-  assert.equal(await page.locator('.collection-controls strong').evaluate(el=>el.getBoundingClientRect().x>=document.querySelector('.orders-layout').getBoundingClientRect().x),true,'clicking collection must not scroll the workspace sideways');
+  assert.equal(await page.locator('#collect-orders').evaluate(el=>el.getBoundingClientRect().x>=document.querySelector('.orders-layout').getBoundingClientRect().x),true,'clicking collection must not scroll the workspace sideways');
   await page.screenshot({path:path.join(__dirname,'../artifacts/p448-collection-light.png')});
   await page.evaluate(()=>document.documentElement.dataset.theme='dark');
   await page.screenshot({path:path.join(__dirname,'../artifacts/p448-collection-dark.png')});
@@ -35,6 +35,7 @@ const {launchDesktop}=require('./launch.cjs');
   assert.ok(await page.locator('#order-list').evaluate(el=>el.getBoundingClientRect().height)>=150,'expanded results must not collapse the minimum-window order list');
   for(const selector of ['#collect-orders','#check-order-collection','#collection-reload','#selection-clear','#server-history-load','#shipping-history-load']){
    await page.locator(selector).scrollIntoViewIfNeeded();
+   await page.screenshot({path:path.join(__dirname,'../artifacts/p454-collection-reachability.png')});
    assert.equal(await page.locator(selector).evaluate(el=>{const r=el.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return r.top>=0&&r.bottom<=innerHeight&&Boolean(hit&&(hit===el||el.contains(hit)));}),true,`${selector} remains reachable at the minimum window`);
   }
   await page.locator('#collect-orders').scrollIntoViewIfNeeded();await page.screenshot({path:path.join(__dirname,'../artifacts/p448-collection-minimum.png')});
