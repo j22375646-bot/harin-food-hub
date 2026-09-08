@@ -139,6 +139,7 @@ if (!hasSingleInstanceLock) {
       if (error.code === 'ENOENT') initialCleanupPending = false;
     }
     hubConnection = createHubConnection({
+      shipmentDirectory: path.join(app.getPath('userData'),'shipments'),
       showShipmentReview: (parent, options) => dialog.showMessageBox(parent, options),
       BrowserWindow,
       session,

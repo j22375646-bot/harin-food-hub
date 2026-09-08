@@ -16,6 +16,11 @@ const DEFAULT_TIMEOUT_MS = 15_000;
 const PAGE_SIZE = 20;
 const SNAPSHOT_PATTERN = /^[0-9a-f]{64}$/;
 const EMPTY_ORDERS = Object.freeze([]);
+const {createShipmentRegistry}=require('./shipment-registry.cjs');
+const {createShipmentTransport}=require('./shipment-transport.cjs');
+const {createHash}=require('node:crypto');
+// Private identity-bound fingerprint, never included in IPC payloads or logs.
+const shipmentFingerprints=new WeakMap();
 
 const STATUS_MESSAGES = Object.freeze({
   READY: '저장된 주문을 조회했습니다.',
@@ -132,7 +137,8 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     throw new Error('Invalid orders payload');
   }
 
-  const orders = Object.freeze(payload.orders.map((order) => Object.freeze({
+  const orders = Object.freeze(payload.orders.map((order) => {
+    const projected=Object.freeze({
     hubOrderId: safeString(order?.hubOrderId),
     platform: safeString(order?.platform),
     productName: safeString(order?.productName),
@@ -142,7 +148,12 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     orderedAt: order?.orderedAt === null ? null : safeString(order?.orderedAt),
     details: projectOrderDetails(order),
     preflight: projectPreflight(order, payload.partial),
-  })));
+    });
+    const inputs={};
+    for(const key of ['hubOrderId','platform','fulfillment','externalOrderId','shipmentId','productName','quantity','items','receiver','invoiceNumber','issuedInvoiceNumber','invoice','stage','cancelled','cancellationRequested'])inputs[key]=order?.[key]??null;
+    shipmentFingerprints.set(projected,createHash('sha256').update(JSON.stringify(inputs)).digest('hex'));
+    return projected;
+  }));
   const partial = payload.partial;
 
   return Object.freeze({
@@ -210,6 +221,7 @@ function createHubConnection({
   finishCleanup = () => {},
   initialCleanupPending = false,
   showShipmentReview = null,
+  shipmentDirectory = null,
 }) {
   if (!BrowserWindow || !session || typeof getMainWindow !== 'function') {
     throw new TypeError('Hub connection dependencies are required');
@@ -227,6 +239,36 @@ function createHubConnection({
   let pageCursor = null;
   let currentScope = 'ACTIVE';
   let reviewingShipment = false;
+  let shipmentRegistry=null;
+  let shipmentDrain=Promise.resolve();
+  const shipmentPermits=new Map();
+  const shipmentAuthReads=new Set();
+  function stopShipments() {
+    for(const controller of shipmentAuthReads)controller.abort();
+    const old=shipmentRegistry;shipmentRegistry=null;
+    shipmentPermits.clear();
+    shipmentDrain=Promise.all([shipmentDrain,old?.suspend()]).then(()=>{});
+    return shipmentDrain;
+  }
+  async function getShipmentRegistry(expectedGeneration) {
+    await shipmentDrain;
+    if(expectedGeneration!==generation||disconnecting||cleanupFailed||isLoginWindowActive()||!shipmentDirectory)throw Error('Shipment unavailable');
+    if(!shipmentRegistry)shipmentRegistry=createShipmentRegistry({directory:shipmentDirectory,businessId:'harin',
+      createTransport:hubOrderId=>createShipmentTransport({hubOrderId,fetch:async(url,options)=>{
+        if(expectedGeneration!==generation||disconnecting||cleanupFailed||isLoginWindowActive()||options.signal.aborted)throw Error('Shipment disconnected');
+        const key=`${options.method} ${url}`;
+        shipmentPermits.set(key,(shipmentPermits.get(key)||0)+1);
+        try {
+          const response=await getRemoteSession().fetch(url,options);
+          if([401,403].includes(response.status)){generation++;invalidateCursor();void stopShipments();}
+          return response;
+        } finally {
+          const remaining=(shipmentPermits.get(key)||0)-1;
+          if(remaining>0)shipmentPermits.set(key,remaining);else shipmentPermits.delete(key);
+        }
+      }})});
+    return shipmentRegistry;
+  }
 
   function isLoginWindowActive() {
     return Boolean(loginWindow && !loginWindow.isDestroyed());
@@ -244,6 +286,7 @@ function createHubConnection({
           cancel: !isAllowedRemoteRequest(details, {
             loginWindowActive: isLoginWindowActive(),
             loginWebContentsId: isLoginWindowActive() ? loginWindow.webContents.id : null,
+            shipmentRequestActive: shipmentPermits.has(`${details.method} ${details.url}`),
           }),
         });
       });
@@ -271,10 +314,12 @@ function createHubConnection({
       });
       if (readGeneration !== generation) return safeEmpty('DISCONNECTED');
       if (response.status === 401) {
+        void stopShipments();
         invalidateCursor();
         return safeEmpty('LOGIN_REQUIRED');
       }
       if (response.status === 403) {
+        void stopShipments();
         invalidateCursor();
         return safeEmpty('FORBIDDEN');
       }
@@ -390,23 +435,31 @@ function createHubConnection({
     return Object.freeze({status:'REVIEW_ONLY',order,checkedAt:result.checkedAt});
   }
 
-  async function confirmShipmentReview(hubOrderId) {
+  async function confirmShipmentReview(hubOrderId,issue=false) {
     const result=status=>Object.freeze({status});
     if(reviewingShipment)return result('BUSY');
     if(typeof showShipmentReview!=='function')return result('UNAVAILABLE');
     reviewingShipment=true;
     const reviewGeneration=generation;
     try {
+      if(issue&&!shipmentDirectory)return result('UNAVAILABLE');
       const before=await reviewShipment(hubOrderId);
       if(before.status!=='REVIEW_ONLY')return result(before.status);
+      let registry;
+      if(issue){
+        registry=await getShipmentRegistry(reviewGeneration);
+        const saved=await registry.snapshot(hubOrderId);
+        if(reviewGeneration!==generation)return result('DISCONNECTED');
+        if(saved.status!=='EMPTY')return saved;
+      }
       const parent=getMainWindow();
       if(!parent||parent.isDestroyed())return result('DISCONNECTED');
       const order=before.order;
       const answer=await showShipmentReview(parent,{
-        type:'info',title:'모아온 · 출고 내용 확인',
-        message:'내용 확인만 합니다. 송장을 발급하지 않습니다.',
+        type:issue?'warning':'info',title:issue?'모아온 · 우체국 송장 발급':'모아온 · 출고 내용 확인',
+        message:issue?'이 주문 1건의 실제 우체국 송장을 발급할까요?':'내용 확인만 합니다. 송장을 발급하지 않습니다.',
         detail:`하린식품\n주문: ${order.hubOrderId}\n상품: ${order.productName}\n수량: ${order.quantity}\n확인 후 저장 주문을 다시 조회합니다.`,
-        buttons:['취소','내용 확인'],defaultId:0,cancelId:0,noLink:true,
+        buttons:['취소',issue?'실제 송장 발급':'내용 확인'],defaultId:0,cancelId:0,noLink:true,
       });
       if(reviewGeneration!==generation)return result('DISCONNECTED');
       if(answer?.response!==1)return result('REVIEW_CANCELLED');
@@ -414,10 +467,46 @@ function createHubConnection({
       if(reviewGeneration!==generation)return result('DISCONNECTED');
       if(after.status!=='REVIEW_ONLY')return result(after.status);
       if(JSON.stringify(before.order)!==JSON.stringify(after.order))return result('ORDER_CHANGED');
+      if(!shipmentFingerprints.has(before.order)||shipmentFingerprints.get(before.order)!==shipmentFingerprints.get(after.order))return result('ORDER_CHANGED');
+      if(issue)return await registry.submit(hubOrderId,{confirm:true});
       // Informational acknowledgement only; never accepted as an execution token.
       return result('REVIEW_CONFIRMED');
     } catch {return result('UNAVAILABLE');}
     finally {reviewingShipment=false;}
+  }
+
+  const issueShipment=hubOrderId=>confirmShipmentReview(hubOrderId,true);
+  async function verifyShipmentSession() {
+    if(disconnecting||cleanupFailed||isLoginWindowActive())return 'UNAVAILABLE';
+    const controller=new AbortController();shipmentAuthReads.add(controller);
+    let timer;
+    try {
+      return await Promise.race([
+        (async()=>{
+          // A fresh auth read independent of the displayed page cursor. Issuing
+          // changes the order snapshot; polling must not depend on the old one.
+          const response=await getRemoteSession().fetch(buildOrdersScopeUrl('ACTIVE'),{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
+          if([401,403].includes(response.status)){void stopShipments();return response.status===401?'LOGIN_REQUIRED':'FORBIDDEN';}
+          if(response.status!==200)return 'UNAVAILABLE';
+          const payload=await readBoundedJson(response,controller);
+          return projectOrdersPayload(payload,now().toISOString()).status;
+        })(),
+        new Promise((_,reject)=>{controller.signal.addEventListener('abort',()=>reject(Error('Shipment auth stopped')),{once:true});timer=setTimeout(()=>controller.abort(),timeoutMs);}),
+      ]);
+    } catch {return 'UNAVAILABLE';}
+    finally {clearTimeout(timer);shipmentAuthReads.delete(controller);}
+  }
+  async function checkShipment(hubOrderId) {
+    if(typeof hubOrderId!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(hubOrderId))throw new TypeError('Invalid shipment order');
+    const expected=generation;
+    try {
+      const status=await verifyShipmentSession();
+      if(expected!==generation)return Object.freeze({status:'DISCONNECTED'});
+      if(status!=='READY')return Object.freeze({status});
+      const registry=await getShipmentRegistry(expected);
+      const value=await registry.poll(hubOrderId);
+      return expected===generation ? value : Object.freeze({status:'DISCONNECTED'});
+    } catch {return Object.freeze({status:'UNAVAILABLE'});}
   }
 
   function viewScope(scope) {
@@ -425,6 +514,7 @@ function createHubConnection({
     if (blocked) return blocked;
     if (scope === currentScope) return refresh();
     generation += 1;
+    void stopShipments();
     currentScope = scope;
     invalidateCursor();
     activeRead = null;
@@ -444,6 +534,7 @@ function createHubConnection({
         : '연결 정보를 지우는 중입니다. 잠시 후 다시 확인하세요.'));
     }
     if (isLoginWindowActive() || loginPromise) return Promise.resolve(safeEmpty('LOGIN_OPEN'));
+    void stopShipments();
 
     const parent = getMainWindow();
     if (!parent || parent.isDestroyed()) return Promise.resolve(safeEmpty('UNAVAILABLE'));
@@ -558,6 +649,7 @@ function createHubConnection({
   function disconnect() {
     if (disconnecting) return disconnecting;
     generation += 1;
+    const shipmentShutdown=stopShipments();
     currentScope = 'ACTIVE';
     invalidateCursor();
     activeRead = null;
@@ -567,6 +659,7 @@ function createHubConnection({
 
     const operation = (async () => {
       try {
+        await shipmentShutdown;
         await markCleanupPending();
         getRemoteSession();
       } catch {
@@ -599,6 +692,7 @@ function createHubConnection({
 
   function closeChildren() {
     generation += 1;
+    void stopShipments();
     currentScope = 'ACTIVE';
     invalidateCursor();
     activeRead = null;
@@ -607,10 +701,17 @@ function createHubConnection({
     loginWindow = null;
   }
 
-  return Object.freeze({ connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, nextPage, previousPage, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, checkShipment, nextPage, previousPage, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
+  for(const [channel,method] of [['moaon-hub:issue-shipment','issueShipment'],['moaon-hub:check-shipment','checkShipment']]){
+    ipcMain.handle(channel,async(event,...args)=>{
+      if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+      if(args.length!==1||typeof args[0]!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(args[0]))throw Error('Invalid shipment arguments');
+      return connection[method](args[0]);
+    });
+  }
   ipcMain.handle('moaon-hub:confirm-shipment-review',async(event,...args)=>{
     if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
     if(args.length!==1||typeof args[0]!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(args[0]))throw Error('Invalid review arguments');

@@ -148,7 +148,7 @@ function showOrderDetail(order, button, options = {}) {
   detailPanel.replaceChildren();
   const header = makeElement('header', 'detail-header');
   const heading = makeElement('div');
-  heading.append(makeElement('span', 'eyebrow', isSampleMode() ? 'SAMPLE DETAIL' : 'HARIN READ ONLY'), makeElement('h2', '', '주문 상세'));
+  heading.append(makeElement('span', 'eyebrow', isSampleMode() ? 'SAMPLE DETAIL' : 'HARIN ORDER DESK'), makeElement('h2', '', '주문 상세'));
   const closeButton = makeElement('button', '', '×');
   closeButton.type = 'button';
   closeButton.setAttribute('aria-label', '주문 상세 닫기');
@@ -160,10 +160,10 @@ function showOrderDetail(order, button, options = {}) {
     addDetailSection(body, '고객', order.customer, order.address);
     addDetailSection(body, '상품', order.product, `${order.option} · ${order.amount} (샘플)`);
     addDetailSection(body, '배송 메모', order.note, '가상 정보이며 배송에 사용되지 않습니다.');
-    body.append(makeElement('p', 'detail-notice', '이 시제품에는 송장 발급, 인쇄, 주문 상태 변경 버튼이 없습니다.'));
+    body.append(makeElement('p', 'detail-notice', '샘플 주문은 발급·인쇄·상태 변경을 실행하지 않습니다.'));
   } else {
     const preflight = order.preflight;
-    const preflightLabels = {BLOCKED:'출고 대상에서 제외',EXTERNAL:'별도 플랫폼에서 처리',CHECK_REQUIRED:'출고 전 정보 확인 필요',REVIEW_ONLY:'웹 허브 최종 확인 후보'};
+    const preflightLabels = {BLOCKED:'출고 대상에서 제외',EXTERNAL:'별도 플랫폼에서 처리',CHECK_REQUIRED:'출고 전 정보 확인 필요',REVIEW_ONLY:'발급 전 재확인 후보'};
     const reasonLabels = {CANCELLED:'취소된 주문',CANCEL_REQUEST:'취소·반품 요청 먼저 확인',SHIPPED:'배송 진행 또는 완료 상태',INVOICE_EXISTS:'기존 송장 기록 확인',NAVER_ROUTE:'네이버에서 송장 처리',ROCKET_ROUTE:'로켓그로스는 쿠팡에서 출고',ROUTE_UNKNOWN:'처리 경로 확인 필요',STAGE_UNKNOWN:'주문 단계 확인 필요',CANCEL_UNKNOWN:'취소 여부 확인 필요',INVOICE_UNKNOWN:'송장 이력 확인 필요',ORDER_ID:'주문 식별번호 확인 필요',SERVER_CHECK:'웹 허브의 출고 제한 확인 필요',DELIVERY_INFO:'배송정보 누락 또는 형식 확인 필요',QUANTITY:'상품 수량 확인 필요',PARTIAL:'일부 채널 자료 누락'};
     reasonLabels.HISTORY_UNAVAILABLE = '송장 이력 조회 상태 확인 필요';
     const checkSection = makeElement('section', 'detail-section preflight-summary');
@@ -196,20 +196,20 @@ function showOrderDetail(order, button, options = {}) {
       : details.cancelled === false && details.cancellationRequested === false ? '저장 자료에 취소 요청 없음' : '취소 여부 확인 필요';
     addDetailSection(body, '출고 전 확인', cancellation, '최신 채널 상태를 확인하세요. 이 표시는 출고 가능 승인이나 발급 실행이 아닙니다.');
     addDetailSection(body, '주문 시각', order.orderedAt ? formatTime(order.orderedAt) : '확인 필요', `목록 확인 ${formatTime(connectionResult?.checkedAt)}`);
-    body.append(makeElement('p', 'detail-notice', `${selectedScopeDetail().description} 플랫폼 동기화 성공을 의미하지 않으며 발급·변경·전송 기능은 없습니다.`));
+    body.append(makeElement('p', 'detail-notice', `${selectedScopeDetail().description} 송장 발급은 아래 확인창에서 승인한 한 주문만 처리합니다. 플랫폼 송장 등록·출력은 별도입니다.`));
   }
   detailPanel.append(header, body);
   if (!isSampleMode()) {
     const actions = makeElement('section', 'review-actions');
     actions.setAttribute('aria-label', '주문 재확인');
     actions.append(makeElement('strong', 'review-result', options.rechecked ? '다시 확인 완료 · 저장 자료 기준' : '출고 전에 한 번 더 확인하세요'));
-    actions.append(makeElement('span', 'review-time', options.rechecked ? formatTime(connectionResult?.checkedAt) : '채널 실시간 조회·송장 발급은 실행하지 않습니다.'));
-    const recheck = makeElement('button', 'primary-action', '저장 주문 다시 확인');
+    actions.append(makeElement('span', 'review-time', options.rechecked ? formatTime(connectionResult?.checkedAt) : '재확인은 조회만 · 실제 발급은 별도 확인창에서 승인합니다.'));
+    const recheck = makeElement('button', 'secondary-action', '저장 주문 다시 확인');
     recheck.type = 'button';
     recheck.addEventListener('click', () => void recheckSelectedOrder());
     actions.append(recheck);
     if(order.preflight?.status==='REVIEW_ONLY'&&order.preflight?.route==='HUB'){
-      const confirm=makeElement('button','primary-action','출고 내용 확인 (발급 안 함)');
+      const confirm=makeElement('button','secondary-action','출고 내용 확인 (발급 안 함)');
       confirm.type='button';
       confirm.addEventListener('click',async()=>{
         const generation=actionGeneration,id=selectedOrderId;
@@ -224,6 +224,50 @@ function showOrderDetail(order, button, options = {}) {
         finally{confirm.disabled=false;}
       });
       actions.append(confirm);
+    }
+    if(/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(order.hubOrderId)){
+      const issue=makeElement('button','primary-action','우체국 송장 발급');issue.type='button';
+      const check=makeElement('button','secondary-action','발급 상태 확인');check.type='button';
+      const label=makeElement('p','detail-notice','발급은 확인창 승인 후 실행됩니다. 네이버·로켓그로스는 별도 처리합니다.');
+      label.setAttribute('role','status');label.setAttribute('aria-live','polite');
+      const eligible=order.preflight?.status==='REVIEW_ONLY'&&order.preflight?.route==='HUB';
+      issue.disabled=!eligible;
+      let busy=false;
+      const messages={
+        EMPTY:'이 앱에 저장된 발급 작업 없음 · 미발급 확정 아님',
+        SUBMITTING:'발급 요청 전송 중…',PENDING:'접수 완료 · 작업 대기 중…',RUNNING:'우체국 송장 발급 처리 중…',
+        SUCCEEDED:'발급 완료 · 주문 목록을 새로 확인하세요',
+        FAILED:'발급 실패 · 웹 허브에서 원인을 확인하세요',CANCELLED:'작업 취소됨 · 자동 재발급하지 않습니다',
+        UNKNOWN:'결과 확인 필요 · 재발급하지 말고 상태를 확인하세요',STORAGE_ERROR:'작업 기록 확인 필요 · 발급을 차단했습니다',
+        DISCONNECTED:'연결이 변경되어 확인을 중단했습니다',LOGIN_REQUIRED:'로그인이 만료되었습니다 · 다시 연결하세요',
+        REVIEW_CANCELLED:'발급을 취소했습니다 · 전송하지 않았습니다',ORDER_CHANGED:'주문이 변경되었습니다 · 목록을 새로 확인하세요',
+        CHECK_REQUIRED:'발급 조건 확인 필요 · 목록을 새로 확인하세요',BUSY:'다른 확인 작업이 진행 중입니다',
+      };
+      async function runShipment(submit){
+        if(busy)return;busy=true;issue.disabled=true;check.disabled=true;
+        const id=order.hubOrderId,generation=actionGeneration;
+        const current=()=>generation===actionGeneration&&selectedOrderId===id&&actions.isConnected&&!document.hidden;
+        let status='UNAVAILABLE';
+        label.textContent=submit?'최신 주문과 발급 내용을 확인 중…':'발급 상태 확인 중…';
+        try{
+          let result=await window.moaonHub[submit?'issueShipment':'checkShipment'](id);
+          for(let count=0;current();count++){
+            status=result.status;label.textContent=messages[status]||'확인을 완료하지 못했습니다 · 발급 상태를 다시 확인하세요';
+            if(!['PENDING','RUNNING','SUBMITTING'].includes(status))break;
+            if(count>=15){label.textContent+=' 잠시 후 발급 상태 확인을 눌러주세요.';break;}
+            await new Promise(resolve=>setTimeout(resolve,2000));
+            if(!current())break;
+            result=await window.moaonHub.checkShipment(id);
+          }
+        }catch{if(current())label.textContent='결과 확인 필요 · 발급 상태 확인을 눌러주세요';}
+        finally{
+          busy=false;check.disabled=false;
+          issue.disabled=!eligible||['SUBMITTING','PENDING','RUNNING','SUCCEEDED','FAILED','CANCELLED','UNKNOWN','STORAGE_ERROR'].includes(status);
+        }
+      }
+      issue.addEventListener('click',()=>void runShipment(true));
+      check.addEventListener('click',()=>void runShipment(false));
+      actions.append(issue,check,label);
     }
     detailPanel.append(actions);
   }
@@ -367,27 +411,27 @@ function updateConnectionChrome(message) {
   const pageEnd = live ? connectionResult.offset + displayedOrders.length : 0;
   const scope = selectedScopeDetail();
   const pageRange = live ? `${pageStart.toLocaleString('ko-KR')}–${pageEnd.toLocaleString('ko-KR')} / ${scope.range} ${connectionResult.total.toLocaleString('ko-KR')}건` : '';
-  statusElements.businessStatus.textContent = sample ? '가상 사업장' : live ? '조회 전용' : '연결 확인';
+  statusElements.businessStatus.textContent = sample ? '가상 사업장' : live ? '하린식품 연결' : '연결 확인';
   statusElements.businessName.textContent = live ? '하린식품' : sample ? '모아온 데모' : '하린식품';
   statusElements.businessDetail.textContent = live ? `${scope.label} ${pageStart.toLocaleString('ko-KR')}–${pageEnd.toLocaleString('ko-KR')}` : sample ? '시험 자료만 표시 중' : '실제 주문 표시 안 함';
   statusElements.topBusinessName.textContent = live ? '하린식품' : sample ? '모아온 데모' : '하린식품';
-  statusElements.global.textContent = live ? `하린식품 · 저장 주문 조회 전용${partial ? ' · 부분 확인' : ''}` : sample ? '시험 자료 · 하린식품 연결 안 됨' : message;
+  statusElements.global.textContent = live ? `하린식품 · 주문 조회·확인 후 발급${partial ? ' · 부분 확인' : ''}` : sample ? '시험 자료 · 하린식품 연결 안 됨' : message;
   statusElements.globalBadge.textContent = live ? '조회' : sample ? '시험' : '확인';
   statusElements.nav.textContent = live ? `${scope.label} ${pageStart.toLocaleString('ko-KR')}–${pageEnd.toLocaleString('ko-KR')}` : sample ? '샘플 주문 3건' : '실제 주문 표시 안 함';
   statusElements.todayContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? 'Windows 시제품 · 샘플 모드' : '하린식품 · 연결 상태 확인 필요';
   statusElements.todayTitleMode.textContent = live ? '하린식품 주문을' : sample ? '지금 가능한 일' : '실제 주문을 비우고';
-  statusElements.todayTitleTail.textContent = live ? ' 조회 전용으로 확인합니다' : sample ? '부터 확인하세요' : ' 연결 상태를 확인합니다';
+  statusElements.todayTitleTail.textContent = live ? ' 확인하고 출고를 준비합니다' : sample ? '부터 확인하세요' : ' 연결 상태를 확인합니다';
   statusElements.todayDescription.textContent = live ? `${scope.description} 플랫폼 동기화 성공이나 전체 주문 현황을 뜻하지 않습니다.` : sample ? '실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.' : message;
   statusElements.ordersContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? '주문·배송 · 샘플 3건' : '하린식품 · 연결 상태 확인 필요';
   statusElements.ordersTitleMode.textContent = live ? scope.title : sample ? '가상 주문만' : scopeControlsAvailable ? scope.title : '비운 목록을';
-  statusElements.ordersDescription.textContent = live ? `${scope.description} 검색은 현재 페이지에만 적용되며 플랫폼 동기화·실업무 처리 화면이 아닙니다.` : sample ? '검색하거나 주문을 선택해 우측 상세를 확인할 수 있습니다. 발급과 상태 변경은 없습니다.' : message;
-  statusElements.ordersEyebrow.textContent = live ? 'HARIN STORED ORDERS · READ ONLY' : sample ? 'SAMPLE ORDERS' : 'NO LIVE DATA';
+  statusElements.ordersDescription.textContent = live ? `${scope.description} 검색은 현재 페이지에만 적용됩니다. 상세에서 주문별 우체국 발급과 상태를 확인하세요.` : sample ? '검색하거나 주문을 선택해 우측 상세를 확인할 수 있습니다. 샘플 주문은 발급하지 않습니다.' : message;
+  statusElements.ordersEyebrow.textContent = live ? 'HARIN STORED ORDERS' : sample ? 'SAMPLE ORDERS' : 'NO LIVE DATA';
   statusElements.ordersRange.textContent = live ? pageRange : sample ? '실제 발급 버튼 없음' : '실제 주문 자료 비움';
-  statusElements.settingsChip.textContent = live ? partial ? '부분 확인' : '조회 전용' : sample ? '샘플' : '확인 필요';
+  statusElements.settingsChip.textContent = live ? partial ? '부분 확인' : '연결됨' : sample ? '샘플' : '확인 필요';
   statusElements.settingsChip.className = `status-chip ${live && !partial ? 'status-ready' : sample ? 'status-sample' : 'status-blocked'}`;
   statusElements.programDataScope.textContent = live ? `하린식품 · ${scope.label} 페이지 조회` : sample ? '가상 사업장 · 샘플 주문' : '실제 주문 표시 안 함';
   statusElements.programNetwork.textContent = live ? '명시적 조회만' : sample ? '연결 안 됨' : '연결 상태 확인 필요';
-  statusElements.statusbarData.textContent = live ? `데이터: 하린식품 저장 주문 조회 전용 · ${formatTime(connectionResult.checkedAt)}` : sample ? '데이터: 시험 자료 · 네트워크 연결 없음' : '데이터: 실제 주문 자료 비움';
+  statusElements.statusbarData.textContent = live ? `데이터: 하린식품 저장 주문 · ${formatTime(connectionResult.checkedAt)}` : sample ? '데이터: 시험 자료 · 네트워크 연결 없음' : '데이터: 실제 주문 자료 비움';
   for (const section of sampleOnlySections) section.hidden = !sample;
   for (const element of connectionMessages) element.textContent = message;
   setButtons(displayMode);

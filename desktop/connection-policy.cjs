@@ -81,6 +81,12 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if (url.username || url.password) return false;
 
   const method = details.method.toUpperCase();
+  if(context.shipmentRequestActive===true && isMainProcessRequest(details.webContentsId)) {
+    const endpoint=`${HARIN_ORIGIN}/api/epost/issue`;
+    if(method==='POST'&&details.url===endpoint)return true;
+    if(method==='GET'&&details.url.startsWith(endpoint+'?requestId=')
+      && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(details.url.slice((endpoint+'?requestId=').length)))return true;
+  }
   const loginWindowRequest = context.loginWindowActive === true
     && Number.isInteger(context.loginWebContentsId)
     && details.webContentsId === context.loginWebContentsId;

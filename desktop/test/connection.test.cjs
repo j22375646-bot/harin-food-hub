@@ -8,6 +8,82 @@ const test = require('node:test');
 const TEST_SNAPSHOT = '0123456789abcdef'.repeat(4);
 
 const reviewOrder=()=>({hubOrderId:'HR-C24-1234ABCD',externalOrderId:'TEST-1',platform:'CAFE24',fulfillment:'SELLER',stage:'PAID',quantity:1,productName:'시험 상품',cancelled:false,cancellationRequested:false,invoiceNumber:'',issuedInvoiceNumber:'',shippingHistoryStatus:'READY',shippingEligible:true,selectionEligible:true,receiver:{name:'시험',address:'시험 주소',postCode:'12345',contact:'01012345678'}});
+test('native issue confirmation binds authenticated order to durable single POST and result GET',async()=>{
+  const fs=require('node:fs/promises'),os=require('node:os');
+  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-host-test-'));
+  try{
+    const order=reviewOrder(),id='a2345678-1234-4234-8234-123456789012';let posts=0,dialogs=0;
+    const remote=makeRemoteSession(async(url,options)=>{
+      if(url.includes('/api/epost/issue')){
+        let cancelled;remote.beforeRequestHandler({url,method:options.method,webContentsId:0},value=>{cancelled=value.cancel;});assert.equal(cancelled,false);
+        if(options.method==='POST'){posts++;assert.deepEqual(JSON.parse(options.body),{confirm:true,orderIds:[order.hubOrderId]});return Response.json({ok:true,results:[{ok:true,hubOrderId:order.hubOrderId,request:{id,status:'PENDING'}}]},{status:202});}
+        return Response.json({ok:true,request:{id,hubOrderId:order.hubOrderId,status:'SUCCESS'},result:{trackingNo:'1234567890123'}});
+      }
+      if(posts&&url.includes('&snapshot='))return Response.json({ok:false},{status:409});
+      return Response.json(makePagePayload({orders:[order]}));
+    });
+    const {connection}=makeConnection(remote,{shipmentDirectory:directory,showShipmentReview:async(_parent,options)=>{dialogs++;assert.equal(options.defaultId,0);assert.ok(options.message.includes('실제'));return {response:1};}});
+    await connection.refresh();
+    assert.equal((await connection.issueShipment(order.hubOrderId)).status,'PENDING');
+    assert.equal((await connection.checkShipment(order.hubOrderId)).status,'SUCCEEDED');
+    await connection.refresh();await connection.issueShipment(order.hubOrderId);assert.equal(posts,1);assert.equal(dialogs,1);
+    await connection.disconnect();
+  }finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+test('shipment IPC rejects foreign frames, unsupported orders and extra execution arguments',async()=>{
+  const handlers=new Map(),frame={url:'moaon://app/index.html'};
+  const sender={mainFrame:frame,getURL:()=>frame.url},main={isDestroyed:()=>false,webContents:sender};
+  const calls=[];
+  registerConnectionIpc({ipcMain:{handle:(key,fn)=>handlers.set(key,fn)},getMainWindow:()=>main,connection:{issueShipment:async id=>{calls.push(id);return {status:'PENDING'};},checkShipment:async()=>({status:'EMPTY'})}});
+  for(const key of ['moaon-hub:issue-shipment','moaon-hub:check-shipment']){
+    const handler=handlers.get(key);assert.equal(typeof handler,'function');
+    await assert.rejects(()=>handler({sender:{},senderFrame:frame},'HR-C24-1234ABCD'));
+    for(const args of [[],['HR-NV-1234ABCD'],['HR-C24-1234ABCD',true],[{id:'HR-C24-1234ABCD'}]])await assert.rejects(()=>handler({sender,senderFrame:frame},...args));
+    await handler({sender,senderFrame:frame},'HR-C24-1234ABCD');
+  }
+  assert.deepEqual(calls,['HR-C24-1234ABCD']);
+});
+test('cancel, changed order, expired login and disconnect refuse native issue without POST',async()=>{
+  const fs=require('node:fs/promises'),os=require('node:os');
+  for(const kind of ['cancel','change','receiver','shipment','expired','disconnect','scope']){
+    const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-host-test-'));
+    try{
+      let order=reviewOrder(),expired=false,posts=0;
+      const remote=makeRemoteSession(async(_url,options)=>{if(options.method==='POST'){posts++;throw Error('must not send');}return expired?new Response('',{status:401}):Response.json(makePagePayload({orders:[order]}));});
+      const {connection}=makeConnection(remote,{shipmentDirectory:directory,showShipmentReview:async()=>{
+        if(kind==='change')order={...order,quantity:2};
+        if(kind==='receiver')order={...order,receiver:{...order.receiver,address:'CHANGED PRIVATE ADDRESS'}};
+        if(kind==='shipment')order={...order,shipmentId:'CHANGED SHIPMENT'};
+        if(kind==='expired')expired=true;
+        if(kind==='disconnect')await connection.disconnect();
+        if(kind==='scope')await connection.viewCompleted();
+        return {response:kind==='cancel'?0:1};
+      }});
+      await connection.refresh();const result=await connection.issueShipment(order.hubOrderId);
+      assert.notEqual(result.status,'PENDING',kind);assert.equal(posts,0,kind);
+      await connection.disconnect();
+    }finally{await fs.rm(directory,{recursive:true,force:true});}
+  }
+});
+test('lost issue response remains unknown on reconnect and cannot send another POST',async()=>{
+  const fs=require('node:fs/promises'),os=require('node:os');
+  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-host-test-'));
+  try{
+    const order=reviewOrder();let posts=0;
+    const remote=makeRemoteSession(async(_url,options)=>{if(options.method==='POST'){posts++;throw Error('lost response');}return Response.json(makePagePayload({orders:[order]}));});
+    const {connection}=makeConnection(remote,{shipmentDirectory:directory,showShipmentReview:async()=>({response:1})});
+    await connection.refresh();assert.equal((await connection.issueShipment(order.hubOrderId)).status,'UNKNOWN');
+    await connection.disconnect();await connection.refresh();
+    assert.equal((await connection.issueShipment(order.hubOrderId)).status,'UNKNOWN');assert.equal(posts,1);
+    await connection.disconnect();
+  }finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+test('shipment network permit cannot authorize login renderer or arbitrary URL and verb',()=>{
+  const context={shipmentRequestActive:true,loginWindowActive:true,loginWebContentsId:41};
+  const endpoint='https://harin-cafe24-sync.vercel.app/api/epost/issue';
+  for(const request of [{url:endpoint,method:'POST',webContentsId:41},{url:endpoint,method:'DELETE',webContentsId:0},{url:endpoint+'?extra=1',method:'POST',webContentsId:0},{url:endpoint+'?requestId=bad',method:'GET',webContentsId:0},{url:'https://example.com/api/epost/issue',method:'POST',webContentsId:0}])assert.equal(isAllowedRemoteRequest(request,context),false);
+  assert.equal(isAllowedRemoteRequest({url:endpoint,method:'POST',webContentsId:0},{}),false);
+});
 test('native review confirms server-read content then rereads without issuing',async()=>{
   let calls=0,dialogs=0;const order=reviewOrder();
   const {connection}=makeConnection(makeRemoteSession(async(_url,options)=>{assert.equal(options.method,'GET');calls++;return new Response(JSON.stringify(makePagePayload({orders:[order]})),{status:200});}),{showShipmentReview:async(_parent,options)=>{dialogs++;assert.equal(options.defaultId,0);assert.equal(options.cancelId,0);assert.ok(options.detail.includes(order.hubOrderId));assert.ok(!options.detail.includes('01012345678'));return {response:1};}});
@@ -822,7 +898,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
   const trusted = { sender: webContents, senderFrame: mainFrame };
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:confirm-shipment-review','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
   const confirmHandler=handlers.get('moaon-hub:confirm-shipment-review');
   await assert.rejects(confirmHandler({sender:{},senderFrame:null},'HR-C24-1234ABCD'),/Untrusted renderer/);
   for(const args of [[],['HR-NV-1234ABCD'],[['HR-C24-1234ABCD']],['HR-C24-1234ABCD',true]])await assert.rejects(confirmHandler(trusted,...args),/Invalid review arguments/);
@@ -866,7 +942,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['issueShipment','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });
   await bridge.recheckPage({ ignored: true });
@@ -1005,6 +1081,7 @@ function makeConnection(remoteSession, overrides = {}) {
     markCleanupPending: overrides.markCleanupPending,
     finishCleanup: overrides.finishCleanup,
     showShipmentReview: overrides.showShipmentReview,
+    shipmentDirectory: overrides.shipmentDirectory,
   });
   return { connection, sessionModule, browserWindows };
 }

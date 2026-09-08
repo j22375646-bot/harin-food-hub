@@ -7,7 +7,8 @@ const MAX_BYTES=65536;
 
 // Main-only adapter. Host supplies its authenticated session.fetch binding and
 // freshly verified order, never a renderer URL/session/business choice.
-// This is NOT authorization and is not yet enabled by the app network policy.
+// This is NOT authorization; the host temporarily permits each exact request
+// only after its native confirmation/authenticated review or status check.
 function createShipmentTransport({fetch,hubOrderId}={}) {
   if(typeof fetch!=='function'||typeof hubOrderId!=='string'||!ORDER.test(hubOrderId))throw new TypeError('Invalid shipment transport');
   async function request(url,method,body,options) {
