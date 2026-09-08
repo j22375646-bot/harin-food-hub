@@ -6,6 +6,26 @@ const valid = () => ({
   MOAON_CONTROL_DB_HOST: 'db.example.com', MOAON_CONTROL_DB_PORT: '5432',
   MOAON_CONTROL_DB_NAME: 'postgres', MOAON_CONTROL_DB_PASSWORD: 'synthetic-only',
 });
+
+test('explicit CA reaches verified TLS configuration without weakening verification', async () => {
+  const ca = require('node:tls').rootCertificates[0];
+  const env = {...valid(), MOAON_CONTROL_DB_CA: ca};
+  const config = readControlDatabaseConfig(env);
+  assert.equal(config.connection.ssl.ca, ca);
+  assert.equal(config.connection.ssl.rejectUnauthorized, true);
+  const db = createConfiguredControlDatabase(env);
+  await db.close();
+});
+
+test('malformed supplied CA fails closed rather than silently using default trust', () => {
+  for (const ca of ['', 'secret-invalid-certificate', false, '-----BEGIN CERTIFICATE-----\ninvalid\n-----END CERTIFICATE-----']) {
+    assert.throws(() => readControlDatabaseConfig({...valid(), MOAON_CONTROL_DB_CA: ca}), error => {
+      assert.equal(error.code, 'CONTROL_DATABASE_CONFIGURATION_INVALID');
+      assert.doesNotMatch(error.message, /secret|CERTIFICATE/);
+      return true;
+    });
+  }
+});
 test('session pooler is explicit, project-scoped and never accepts transaction mode', async () => {
   const env = {...valid(), MOAON_CONTROL_DB_MODE:'supabase-session',
     MOAON_CONTROL_DB_PROJECT_REF:'abcdefghijklmnopqrst',

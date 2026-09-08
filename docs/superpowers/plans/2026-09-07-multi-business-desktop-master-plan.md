@@ -4,6 +4,10 @@
 
 ## 현재 어디까지 왔나요?
 
+**최신 P4-11: 제한 계정 실제 로그인·TLS 접속 검증 완료.** 전용 무작위 비밀값을 Production Sensitive로 저장하고 `moaon_control_app` LOGIN을 활성화했다. 관리자 권한은 부여하지 않았다. 공식 CA 지원을 코드에 추가하고 실제 adapter 조회·트랜잭션·롤백·세션 초기화 및 관련 83개 자동 테스트 통과. 사업장 데이터는 빈 상태, 소유자 매핑·route 주입·운영 배포·앱 선택 UI는 아직 미완료다. [P4-11 실제 연결·검증 보고서](./2026-09-08-moaon-p4-11-live-control-connection-report.md)
+
+아래 P4-10 이전의 비밀번호·LOGIN 미완료 표기는 당시 기록이다. 현재 연결 상태는 P4-11을 따른다.
+
 **최신 P4-10: 실제 접속주소 확보·Production 설정 5개 등록.** 공식 Connect 패널 직접 열기로 Host 요청 장애 해소, 개발 PC TCP 연결 성공. MODE/PROJECT_REF/HOST/PORT/NAME 운영 등록 및 목록 확인. 비밀번호·LOGIN·TLS/DB 실제 로그인·route 연결·배포는 아직 미완료다. [P4-10 실제 반영 보고서](./2026-09-08-moaon-p4-10-connection-settings-report.md)
 
 **최신 P4-09: IPv4 세션 풀러 지원 구현.** 접속용 프로젝트 접미사와 실제 DB 역할 검사를 분리하고 명시적 세션 모드/5432/프로젝트 ref 검증을 추가했다. 관련 81개 시험 통과. 실제 풀러 로그인·서버 비밀 설정·route 연결·배포는 미완료다. [P4-09 코드·검증·남은 인수](./2026-09-08-moaon-p4-09-session-pooler-report.md)
