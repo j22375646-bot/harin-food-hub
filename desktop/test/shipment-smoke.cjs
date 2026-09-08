@@ -18,6 +18,7 @@ async function main(){
     }
     if(options.method!=='GET')throw Error('Unexpected request');
     const issued=globalThis.shipmentCalls.poll>0;
+    if(issued&&globalThis.orderMoved&&new URL(url).searchParams.get('stage')!=='REGISTER')return Response.json({ok:true,offset:0,total:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false,orders:[]});
     return Response.json({ok:true,offset:0,total:1,nextOffset:null,snapshot:'a'.repeat(64),partial:false,orders:[{hubOrderId,externalOrderId:'TEST-1',platform:'CAFE24',fulfillment:'SELLER',stage:'PAID',productName:'시험 상품',quantity:1,amount:30000,orderedAt:null,cancelled:false,cancellationRequested:false,invoiceNumber:issued?'1234567890123':'',issuedInvoiceNumber:issued?'1234567890123':'',invoice:issued?{status:'REGISTERED',number:'1234567890123'}:undefined,shippingEligible:!issued,selectionEligible:!issued,shippingHistoryStatus:'READY',receiver:{name:'TEST',address:'TEST',postCode:'12345',contact:'01012345678'}}]});
    };
   });
@@ -33,7 +34,12 @@ async function main(){
   await page.getByRole('button',{name:'발급 상태 확인',exact:true}).click();
   await page.getByText('발급 완료 · 주문 목록을 새로 확인하세요',{exact:true}).waitFor();
   assert.equal(await app.evaluate(()=>globalThis.shipmentCalls.post),1,'Rechecking a completed job must not submit another shipment');
+  if(process.argv.includes('--moved'))await app.evaluate(()=>{globalThis.orderMoved=true;});
   await page.getByRole('button',{name:'발급 결과 주문 다시 조회',exact:true}).click({timeout:3000});
+  if(process.argv.includes('--moved')){
+   await page.getByRole('button',{name:'송장 등록 후 목록 열기',exact:true}).click({timeout:3000});
+   await page.locator('.order-row').first().click();
+  }
   await page.getByRole('button',{name:'기존 송장 미리보기·인쇄',exact:true}).waitFor({timeout:5000});
   assert.equal(await app.evaluate(()=>globalThis.shipmentCalls.post),1);
   await page.screenshot({path:path.join(__dirname,'..','dist','shipment-smoke.png'),fullPage:true});

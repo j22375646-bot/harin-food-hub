@@ -306,7 +306,7 @@ function showOrderDetail(order, button, options = {}) {
       issue.disabled=!eligible;
       let busy=false;
       const reloadIssued=makeElement('button','secondary-action','발급 결과 주문 다시 조회');reloadIssued.type='button';reloadIssued.hidden=true;
-      reloadIssued.addEventListener('click',async()=>{reloadIssued.disabled=true;await recheckSelectedOrder();});
+      reloadIssued.addEventListener('click',async()=>{reloadIssued.disabled=true;await recheckSelectedOrder({afterIssue:true});});
       const messages={
         EMPTY:'이 앱에 저장된 발급 작업 없음 · 미발급 확정 아님',
         SUBMITTING:'발급 요청 전송 중…',PENDING:'접수 완료 · 작업 대기 중…',RUNNING:'우체국 송장 발급 처리 중…',
@@ -363,7 +363,8 @@ function showOrderDetail(order, button, options = {}) {
   closeButton.focus();
 }
 
-async function recheckSelectedOrder() {
+document.querySelector('#issued-order-list').addEventListener('click',()=>void runHubAction('viewRegistered'));
+async function recheckSelectedOrder({afterIssue=false}={}) {
   if (displayMode !== 'live' || !selectedOrderId) return;
   const id = selectedOrderId;
   const generation = ++actionGeneration;
@@ -378,7 +379,10 @@ async function recheckSelectedOrder() {
     if (order && button) {
       showOrderDetail(order, button, {rechecked:true});
       detailPanel.querySelector('.review-actions button')?.focus();
-    } else updateConnectionChrome('선택한 주문을 다시 찾지 못했습니다. 새 목록에서 주문을 선택하세요.');
+    } else {
+      updateConnectionChrome(afterIssue?'현재 목록에 주문이 없습니다. 송장 등록 후 목록에서도 확인하세요.':'선택한 주문을 다시 찾지 못했습니다. 새 목록에서 주문을 선택하세요.');
+      document.querySelector('#issued-order-list').hidden=!afterIssue;
+    }
   } catch {
     if (generation === actionGeneration) clearDisplayedOrders('error', '주문 재확인에 실패했습니다. 목록을 다시 조회하세요.');
   }
@@ -545,6 +549,7 @@ function updateConnectionChrome(message) {
 }
 
 function clearDisplayedOrders(mode, message) {
+  document.querySelector('#issued-order-list').hidden=true;
   displayMode = mode;
   displayedOrders = Object.freeze([]);
   connectionResult = null;
