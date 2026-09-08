@@ -1239,15 +1239,16 @@ function createHubConnection({
     const expected=generation,controller=new AbortController();let timer;businessReads.add(controller);
     exportWork=(async()=>{try{
       const auth=await recheckPage();if(expected!==generation||!['READY'].includes(auth.status))return {status:auth.status==='PARTIAL'?'PARTIAL_EXPORT_BLOCKED':'DOCUMENT_CHANGED'};
+      const exportSnapshot=pageCursor?.snapshot;if(!exportSnapshot)return {status:'DOCUMENT_CHANGED'};
       const url=buildOrdersExportUrl(currentScope,currentChannel,currentFilters);exportPermit=url;
       const stopped=new Promise((_,reject)=>controller.signal.addEventListener('abort',()=>reject(Error('Stopped')),{once:true}));timer=setTimeout(()=>controller.abort(),timeoutMs);
       const response=await Promise.race([getRemoteSession().fetch(url,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal}),stopped]);exportPermit=null;
       if(expected!==generation||[401,403].includes(response.status))return {status:response.status===401?'LOGIN_REQUIRED':response.status===403?'FORBIDDEN':'DOCUMENT_CHANGED'};
       if(response.status===404)return {status:'NO_ORDERS'};if(response.status!==200)return {status:'EXPORT_UNAVAILABLE'};
       const mime=String(response.headers.get('content-type')||'').split(';')[0].toLowerCase();if(mime!=='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')return {status:'EXPORT_UNAVAILABLE'};
-      const count=Number(response.headers.get('x-moaon-export-count')),downloadSnapshot=response.headers.get('x-moaon-export-snapshot');if(response.headers.get('x-moaon-search-contract')!=='1'||!Number.isSafeInteger(count)||count<1||count>5000||downloadSnapshot!==pageCursor?.snapshot)return {status:'EXPORT_UNAVAILABLE'};
+      const count=Number(response.headers.get('x-moaon-export-count')),downloadSnapshot=response.headers.get('x-moaon-export-snapshot');if(response.headers.get('x-moaon-search-contract')!=='1'||!Number.isSafeInteger(count)||count<1||count>5000||downloadSnapshot!==exportSnapshot)return {status:'EXPORT_UNAVAILABLE'};
       const bytes=await readBoundedBytes(response,controller,10*1024*1024);if(!validXlsxPackage(bytes))return {status:'EXPORT_UNAVAILABLE'};
-      const exportSnapshot=pageCursor?.snapshot;if(expected!==generation||!exportSnapshot)return {status:'DOCUMENT_CHANGED'};return {status:await saveOrderExport(bytes,async()=>{if(expected!==generation||disconnecting||cleanupFailed)return false;const proof=await recheckPage();return expected===generation&&proof.status==='READY'&&pageCursor?.snapshot===exportSnapshot;})};
+      if(expected!==generation||pageCursor?.snapshot!==exportSnapshot)return {status:'DOCUMENT_CHANGED'};return {status:await saveOrderExport(bytes,async()=>{if(expected!==generation||disconnecting||cleanupFailed)return false;const proof=await recheckPage();return expected===generation&&proof.status==='READY'&&pageCursor?.snapshot===exportSnapshot;})};
     }catch{return {status:'EXPORT_UNAVAILABLE'};}finally{clearTimeout(timer);exportPermit=null;businessReads.delete(controller);controller.abort();exportWork=null;}})();return exportWork;
   }
   function resetOrderFilters(){

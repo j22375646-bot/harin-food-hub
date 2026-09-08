@@ -50,3 +50,18 @@
 - `node desktop/test/order-global-search-smoke.cjs --isolated`: PASS (한 번 제출, scope 보존, collapsed inert, 1040x720 overflow, reduced motion).
 - `pnpm build`: PASS, Next.js 16.3.0 production build.
 - 실제 운영 XLSX 저장은 실행하지 않았고 native 저장 취소 acceptance/배포/설치본 검증은 컨트롤러 범위다.
+
+## Review round 2
+
+- export가 요청 전에 잡은 immutable snapshot 하나만 header, streaming 완료, 저장 대화상자 후 인증 재조회에 사용하도록 고정했다. 다운로드 중 refresh로 cursor가 교체되면 저장 호출 전 `DOCUMENT_CHANGED`가 된다.
+- 네이티브 XLSX 저장을 공용 helper로 분리해 취소, 대화상자 중 인증/문서 변경, `wx` 성공, `EEXIST` 경로 비공개 처리를 직접 검증했다.
+- 중복 export는 단일 작업을 공유하고, `Content-Length` 없는 스트림도 누적 10MB를 넘으면 저장하지 않는다. 서버의 0건/5,001건/partial 거부와 실제 workbook 구조를 함께 검증했다.
+- 검색 query/start/end는 scope, page, recheck, 자동 freshness, 배송 review 재조회에 유지된다. UI는 열릴 때 검색 입력으로 focus가 이동하고 닫힌 panel은 focus에서 제외되며 입력/버튼 정렬과 32px 이상 버튼 높이를 확인했다.
+- 새 버튼에 Pretendard 상속, surface/line/blue 토큰, 9px radius, 36px 최소 높이, hover/focus/disabled 상태를 명시했다. ExcelJS는 XLSX 요청에서만 동적 import한다.
+- GREEN: `cd desktop; node --test test/connection.test.cjs test/selected-documents.test.cjs` — 88/88 PASS.
+- GREEN: `npm test --prefix desktop` — 227/227 PASS.
+- GREEN: `node --test test/order-search-export.test.js test/workspace-orders-request.test.js test/phase28-orders-cs-adapters.test.js` — 19/19 PASS.
+- GREEN: `node desktop/test/order-global-search-smoke.cjs --isolated` — PASS (focus/inert, input/button alignment, 1040x720, light/dark fixture screenshots 포함).
+- GREEN: `pnpm build` — Next.js 16.3.0 production build PASS.
+- `git diff --check` — whitespace 오류 없음(CRLF 변환 경고만 존재).
+- 우려: 실제 운영 데이터 저장은 실행하지 않았다. 설치본 save dialog 취소, 배포, 패키징 검증은 컨트롤러가 수행한다. 보고서에는 고객 내용, 경로, 인증 정보를 기록하지 않았다.

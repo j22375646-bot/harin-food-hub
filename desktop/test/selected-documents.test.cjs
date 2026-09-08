@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {createSelectedDocuments}=require('../selected-documents.cjs');
+const {createSelectedDocuments,createOrderExportSaver}=require('../selected-documents.cjs');
 const orders=[{hubOrderId:'HR-NV-1234ABCD',platform:'NAVER',productName:' \t=SUM(1,2)',stage:'PAID',quantity:2,amount:null,details:{externalOrderId:'order"1'}}];
 test('selected CSV uses native path, BOM, explicit unknown amount and neutralized quoted cells',async()=>{
  const writes=[];
@@ -21,3 +21,4 @@ test('empty duplicate and malformed IDs never show save dialog; control formula 
  for(const rows of [[],[orders[0],orders[0]],[{hubOrderId:'../all'}]])assert.throws(()=>renderSelectedCsv(rows));
  for(const prefix of ['=',' +','\u0000@','\t\r-','\u00a0='])assert.ok(renderSelectedCsv([{...orders[0],productName:prefix+'1'}]).includes('"\''+prefix+'1"'));
 });
+test('native XLSX saver cancels, revalidates and preserves existing files without exposing paths',async()=>{for(const mode of ['cancel','changed','exists','ok']){let writes=0;const save=createOrderExportSaver({dialog:{showSaveDialog:async()=>({canceled:mode==='cancel',filePath:'private/report.xlsx'})},getParent:()=>({}),writeFile:async(_path,_bytes,options)=>{writes++;assert.equal(options.flag,'wx');if(mode==='exists')throw Object.assign(Error('private'),{code:'EEXIST'});}});const result=await save(Buffer.from('fixture'),async()=>mode!=='changed');assert.equal(result,{cancel:'SAVE_CANCELLED',changed:'DOCUMENT_CHANGED',exists:'FILE_EXISTS',ok:'XLSX_SAVED'}[mode]);assert.equal(writes,['exists','ok'].includes(mode)?1:0);assert.equal(result.includes('private'),false);}});

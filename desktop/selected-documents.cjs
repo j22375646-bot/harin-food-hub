@@ -33,4 +33,5 @@ function createSelectedDocuments({dialog,getParent,writeFile}){
  }
  return Object.freeze({save});
 }
-module.exports={createSelectedDocuments,renderSelectedCsv,validDocumentIds};
+function createOrderExportSaver({dialog,getParent,writeFile}){return async function save(bytes,validate){const result=await dialog.showSaveDialog(getParent(),{title:'주문 엑셀 저장',defaultPath:'모아온_주문.xlsx',filters:[{name:'Excel 통합 문서',extensions:['xlsx']}],properties:['showOverwriteConfirmation']});if(result?.canceled||!result?.filePath)return 'SAVE_CANCELLED';if(typeof validate!=='function'||!await validate())return 'DOCUMENT_CHANGED';try{await writeFile(result.filePath,bytes,{flag:'wx',mode:0o600});return 'XLSX_SAVED';}catch(error){return error?.code==='EEXIST'?'FILE_EXISTS':'SAVE_CHECK_REQUIRED';}};}
+module.exports={createSelectedDocuments,createOrderExportSaver,renderSelectedCsv,validDocumentIds};

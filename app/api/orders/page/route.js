@@ -5,7 +5,6 @@ import unified from '../../../../lib/orders/unified-orders.js';
 import adapter from '../../../../lib/ui/phase28-adapters/orders.js';
 import calendar from '../../../../lib/calendar/calendar-center.js';
 import orderEvents from '../../../../lib/calendar/order-events.js';
-import ExcelJS from 'exceljs';
 
 const ALLOWED=new Set(['stage','platform','offset','snapshot','delayOnly','giftOnly','query','start','end','format']);
 const XLSX_MIME='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -20,7 +19,7 @@ const safeCell=value=>typeof value==='string'&&/^[\s\u0000-\u001f\u007f-\u009f]*
 async function xlsxResponse(candidates,events,snapshot){
   if(candidates.length===0)return apiSafety.json({ok:false,code:'NO_ORDERS',error:'조건에 맞는 주문이 없어 엑셀 파일을 만들지 않았습니다.'},{status:404,headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
   if(candidates.length>5000)return apiSafety.json({ok:false,code:'EXPORT_LIMIT_EXCEEDED',error:'엑셀 저장은 최대 5,000건까지 가능합니다. 기간을 줄여주세요.'},{status:413,headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
-  const workbook=new ExcelJS.Workbook(),sheet=workbook.addWorksheet('주문');
+  const ExcelJS=(await import('exceljs')).default;const workbook=new ExcelJS.Workbook(),sheet=workbook.addWorksheet('주문');
   sheet.columns=[['주문번호','externalOrderId'],['상품','productName'],['채널','channelLabel'],['상태','stageLabel'],['수량','quantity'],['금액','amount'],['주문일','orderedAt'],['송장번호','invoiceNumber']].map(([header,key])=>({header,key,width:key==='productName'?36:18}));
   for(const row of adapter.compactOrders(candidates,events))sheet.addRow({externalOrderId:safeCell(row.externalOrderId||row.hubOrderId),productName:safeCell(row.productName),channelLabel:safeCell(row.channelLabel),stageLabel:safeCell(row.stageLabel),quantity:row.quantity,amount:row.amount==null?null:row.amount,orderedAt:safeCell(row.orderedAt||''),invoiceNumber:safeCell(row.invoiceNumber||row.issuedInvoiceNumber||'')});
   const output=await workbook.xlsx.writeBuffer();
