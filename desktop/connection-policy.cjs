@@ -81,6 +81,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if (url.username || url.password) return false;
 
   const method = details.method.toUpperCase();
+  if(method==='GET'&&details.url===`${HARIN_ORIGIN}/api/moaon/businesses`)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&Number.isInteger(context.labelWebContentsId)&&context.labelWebContentsId>0&&details.webContentsId===context.labelWebContentsId&&details.url===context.labelUrl
     && /^https:\/\/harin-cafe24-sync\.vercel\.app\/api\/shipping\/print\?type=label&ids=HR-(?:C24|CP)-[A-F0-9]{8}$/.test(details.url))return true;
   if(context.shipmentRequestActive===true && isMainProcessRequest(details.webContentsId)) {

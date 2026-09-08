@@ -18,6 +18,7 @@ const SNAPSHOT_PATTERN = /^[0-9a-f]{64}$/;
 const EMPTY_ORDERS = Object.freeze([]);
 const {createShipmentRegistry}=require('./shipment-registry.cjs');
 const {createShipmentTransport}=require('./shipment-transport.cjs');
+const {createBusinessTransport}=require('./business-transport.cjs');
 const {createHash}=require('node:crypto');
 // Private identity-bound fingerprint, never included in IPC payloads or logs.
 const shipmentFingerprints=new WeakMap();
@@ -246,7 +247,20 @@ function createHubConnection({
   let shipmentDrain=Promise.resolve();
   const shipmentPermits=new Map();
   const shipmentAuthReads=new Set();
+  const businessReads=new Set();
+  async function listBusinesses(){
+    const empty=status=>Object.freeze({status,businesses:Object.freeze([])});
+    if(disconnecting||cleanupFailed)return empty('DISCONNECTED');
+    if(isLoginWindowActive())return empty('LOGIN_REQUIRED');
+    const expected=generation,controller=new AbortController();businessReads.add(controller);
+    try{
+      const read=createBusinessTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options)});
+      const result=await read({signal:controller.signal});
+      return expected===generation?result:empty('DISCONNECTED');
+    }finally{businessReads.delete(controller);}
+  }
   function stopShipments() {
+    for(const controller of businessReads)controller.abort();
     labelPreview?.close();
     for(const controller of shipmentAuthReads)controller.abort();
     const old=shipmentRegistry;shipmentRegistry=null;
@@ -731,7 +745,7 @@ function createHubConnection({
     loginWindow = null;
   }
 
-  return Object.freeze({ connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, checkShipment, previewLabel, nextPage, previousPage, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, checkShipment, previewLabel, nextPage, previousPage, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -748,6 +762,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     return connection.confirmShipmentReview(args[0]);
   });
   const methods = [
+    ['moaon-hub:list-businesses', 'listBusinesses'],
     ['moaon-hub:connect', 'connect'],
     ['moaon-hub:refresh', 'refresh'],
     ['moaon-hub:recheck-page', 'recheckPage'],

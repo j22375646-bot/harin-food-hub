@@ -7,6 +7,17 @@ const path = require('node:path');
 const test = require('node:test');
 const TEST_SNAPSHOT = '0123456789abcdef'.repeat(4);
 
+test('business list uses the private session and disconnect discards an in-flight response',async()=>{
+ let release;
+ const remote=makeRemoteSession(()=>new Promise(resolve=>{release=resolve;}));
+ const {connection}=makeConnection(remote);
+ assert.equal(typeof connection.listBusinesses,'function');
+ const pending=connection.listBusinesses();
+ await connection.disconnect();
+ release(Response.json({ok:true,businesses:[]}));
+ assert.equal((await pending).status,'DISCONNECTED');
+});
+
 const reviewOrder=()=>({hubOrderId:'HR-C24-1234ABCD',externalOrderId:'TEST-1',platform:'CAFE24',fulfillment:'SELLER',stage:'PAID',quantity:1,productName:'시험 상품',cancelled:false,cancellationRequested:false,invoiceNumber:'',issuedInvoiceNumber:'',shippingHistoryStatus:'READY',shippingEligible:true,selectionEligible:true,receiver:{name:'시험',address:'시험 주소',postCode:'12345',contact:'01012345678'}});
 test('label preview requires registered invoice and revalidates private shipping inputs before print',async()=>{
   let order={...reviewOrder(),invoice:{status:'REGISTERED',number:'1234567890123'}},opened;
@@ -895,6 +906,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   const mainWindow = { isDestroyed: () => false, webContents };
   const calls = [];
   const connection = {
+    listBusinesses: async()=>({status:'READY',businesses:[]}),
     connect: async () => calls.push('connect') && { status: 'LOGIN_OPEN' },
     refresh: async () => calls.push('refresh') && { status: 'READY' },
     recheckPage: async () => calls.push('recheckPage') && { status: 'READY' },
@@ -909,7 +921,11 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
   const trusted = { sender: webContents, senderFrame: mainFrame };
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  const businessHandler=handlers.get('moaon-hub:list-businesses');
+  assert.deepEqual(await businessHandler(trusted),{status:'READY',businesses:[]});
+  await assert.rejects(businessHandler(trusted,'tenant-id'),/Arguments are not allowed/);
+  await assert.rejects(businessHandler({sender:{},senderFrame:null}),/Untrusted renderer/);
   const confirmHandler=handlers.get('moaon-hub:confirm-shipment-review');
   await assert.rejects(confirmHandler({sender:{},senderFrame:null},'HR-C24-1234ABCD'),/Untrusted renderer/);
   for(const args of [[],['HR-NV-1234ABCD'],[['HR-C24-1234ABCD']],['HR-C24-1234ABCD',true]])await assert.rejects(confirmHandler(trusted,...args),/Invalid review arguments/);
@@ -953,7 +969,8 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['appInfo','inspectPrinters','previewLabel','issueShipment','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['listBusinesses','appInfo','inspectPrinters','previewLabel','issueShipment','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  await bridge.listBusinesses('ignored');
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });
   await bridge.recheckPage({ ignored: true });
@@ -965,6 +982,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   await bridge.viewCompleted('ignored');
   await bridge.disconnect('ignored');
   assert.deepEqual(invocations, [
+    ['moaon-hub:list-businesses'],
     ['moaon-hub:connect'],
     ['moaon-hub:refresh'],
     ['moaon-hub:recheck-page'],
