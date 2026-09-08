@@ -6,6 +6,31 @@ const Module = require('node:module');
 const path = require('node:path');
 const test = require('node:test');
 const TEST_SNAPSHOT = '0123456789abcdef'.repeat(4);
+test('order lookup limits reads and does not confuse a limit with missing order',async()=>{
+ let calls=0;
+ const {connection}=makeConnection(makeRemoteSession(async url=>{
+  calls++;const offset=Number(new URL(url).searchParams.get('offset')||0);
+  return Response.json({ok:true,orders:Array.from({length:20},(_,i)=>({...reviewOrder(),hubOrderId:'HR-C24-'+(offset+i).toString(16).padStart(8,'0').toUpperCase()})),offset,total:500,nextOffset:offset+20,snapshot:TEST_SNAPSHOT,partial:false});
+ }));
+ assert.equal((await connection.findOrder('HR-C24-FFFFFFFF')).status,'SEARCH_LIMIT');assert.equal(calls,8);
+});
+test('order lookup discards a response after logout and rejects malformed targets',async()=>{
+ let release,calls=0;
+ const {connection}=makeConnection(makeRemoteSession(()=>{calls++;return new Promise(resolve=>release=resolve);}));
+ assert.equal((await connection.findOrder('../other')).status,'CHECK_REQUIRED');assert.equal(calls,0);
+ const pending=connection.findOrder('HR-C24-1234ABCD');await connection.disconnect();
+ release(Response.json(makePagePayload()));assert.deepEqual(await pending,{status:'DISCONNECTED'});
+});
+test('order lookup finds the next page in its own channel using reads only',async()=>{
+ const target='HR-CP-1234ABCD';let calls=0;
+ const {connection}=makeConnection(makeRemoteSession(async(url,options)=>{
+  calls++;assert.equal(options.method,'GET');const params=new URL(url).searchParams;assert.equal(params.get('platform'),'COUPANG');
+  const offset=Number(params.get('offset')||0),orders=offset?[{...reviewOrder(),hubOrderId:target,platform:'COUPANG'}]:Array.from({length:20},(_,i)=>({...reviewOrder(),hubOrderId:'HR-CP-'+i.toString(16).padStart(8,'0').toUpperCase()}));
+  return Response.json({ok:true,orders,total:21,offset,nextOffset:offset?null:20,snapshot:TEST_SNAPSHOT,partial:false});
+ }));
+ const result=await connection.findOrder(target);
+ assert.equal(result.status,'FOUND');assert.equal(result.page.offset,20);assert.equal(result.page.channel,'COUPANG');assert.equal(calls,2);
+});
 test('history restoration requires fresh authenticated read and never writes shipping requests',async()=>{
  const fs=require('node:fs/promises'),os=require('node:os');const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-restore-'));
  try{
@@ -1048,7 +1073,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
   const trusted = { sender: webContents, senderFrame: mainFrame };
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-delivery','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:register-invoices','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-delivery','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
   await assert.rejects(handlers.get('moaon-hub:restore-shipping-history')({sender:{},senderFrame:null}),/Untrusted renderer/);
   await assert.rejects(handlers.get('moaon-hub:restore-shipping-history')(trusted,'other-business'),/Arguments are not allowed/);
   const deliveryHandler=handlers.get('moaon-hub:read-delivery');
@@ -1102,7 +1127,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['restoreShippingHistory','readDelivery','readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['findOrder','restoreShippingHistory','readDelivery','readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   await bridge.listBusinesses('ignored');
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });

@@ -1174,6 +1174,31 @@ function createHubConnection({
     loginWindow = null;
   }
 
+  let findingOrder=false;
+  async function findOrder(id){
+    if(typeof id!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id))return {status:'CHECK_REQUIRED'};
+    if(findingOrder||activeRead||registrationController||automaticController||disconnecting||cleanupFailed||isLoginWindowActive())return {status:'BUSY'};
+    findingOrder=true;let count=0,last,partial=false;
+    try{
+      currentScope='ACTIVE';
+      let pending=viewChannel(id.startsWith('HR-CP-')?'COUPANG':'CAFE24'),expected=generation;
+      for(const scope of ORDER_SCOPES){
+        if(scope!=='ACTIVE'){pending=viewScope(scope);expected=generation;}
+        while(true){
+          last=await pending;
+          if(expected!==generation)return {status:'DISCONNECTED'};
+          if(!['READY','PARTIAL'].includes(last?.status))return {status:'CHECK_REQUIRED',page:last};
+          count++;
+          partial=partial||last.partial;
+          if(last.orders.some(order=>order.hubOrderId===id))return {status:'FOUND',page:last};
+          if(count>=8)return {status:'SEARCH_LIMIT',page:last};
+          if(!last.hasMore)break;
+          pending=nextPage();
+        }
+      }
+      return {status:partial?'CHECK_REQUIRED':'NOT_FOUND',page:last};
+    }finally{findingOrder=false;}
+  }
   async function restoreShippingHistory(){
     const expected=generation;
     if(!shipmentDirectory||disconnecting||cleanupFailed||registrationController||automaticController)return {status:'CHECK_REQUIRED',orders:[]};
@@ -1182,7 +1207,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-  return Object.freeze({ restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1206,7 +1231,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     if(args.length!==1||!validRegistrationIds(args[0]))throw Error('Invalid registration arguments');
     return connection.registerInvoices(args[0]);
   });
-  for(const [channel,method] of [['moaon-hub:preview-label','previewLabel'],['moaon-hub:issue-shipment','issueShipment'],['moaon-hub:check-shipment','checkShipment']]){
+  for(const [channel,method] of [['moaon-hub:find-order','findOrder'],['moaon-hub:preview-label','previewLabel'],['moaon-hub:issue-shipment','issueShipment'],['moaon-hub:check-shipment','checkShipment']]){
     ipcMain.handle(channel,async(event,...args)=>{
       if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
       if(args.length!==1||typeof args[0]!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(args[0]))throw Error('Invalid shipment arguments');

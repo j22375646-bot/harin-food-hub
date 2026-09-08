@@ -819,6 +819,23 @@ document.querySelector('#shipping-history-load').addEventListener('click',async(
   }catch{if(expected===actionGeneration)status.textContent='기록 확인 필요 · 잠시 뒤 다시 확인하세요.';}
   finally{button.disabled=false;}
 });
+async function findFollowupOrder(id){
+  if(displayMode!=='live'||registrationBusy)return;
+  const expected=++actionGeneration;
+  clearDisplayedOrders('connecting','출고 주문을 찾는 중입니다. 해당 채널에서 최대 8페이지를 조회합니다.');
+  try{
+    const result=await window.moaonHub.findOrder(id);
+    if(expected!==actionGeneration)return;
+    applyHubResult(result.page||{status:'UNAVAILABLE',message:'주문 찾기를 완료하지 못했습니다. 목록을 다시 조회하세요.'});
+    if(displayMode!=='live')return;
+    const status=document.querySelector('#shipping-history-status');
+    if(result.status==='FOUND'){
+      const order=displayedOrders.find(order=>orderId(order)===id),button=[...orderList.querySelectorAll('.order-row')].find(button=>button.dataset.orderId===id);
+      if(order&&button)showOrderDetail(order,button);
+      status.textContent='주문을 찾았습니다. 현재 주문 상태를 확인하세요.';
+    }else status.textContent=result.status==='SEARCH_LIMIT'?'검색 범위 초과 · 현재 페이지에서 다음 페이지를 확인하세요.':result.status==='NOT_FOUND'?'조회한 주문 구간에 해당 주문이 없습니다. 이전 기록은 유지합니다.':'주문 조회 확인 필요 · 목록을 다시 조회하세요.';
+  }catch{if(expected===actionGeneration)clearDisplayedOrders('error','주문 찾기에 실패했습니다. 다시 조회하세요.');}
+}
 function renderShippingFollowup(){
   document.querySelector('.shipping-history-tools').hidden=displayMode!=='live';
   if(displayMode!=='live')document.querySelector('#shipping-history-status').textContent='';
@@ -832,15 +849,17 @@ function renderShippingFollowup(){
     const state={PENDING:'처리 대기',FAILED:'실패',CHECK_REQUIRED:'결과 확인 필요'}[result.status]||'결과 확인 필요';
     row.append(makeElement('span','',id),makeElement('strong','',`${state} · 이전 결과`));
     const open=makeElement('button','secondary-action','주문 확인');open.type='button';
-    const order=displayedOrders.find(order=>orderId(order)===id);open.disabled=!order||registrationBusy;
+    const order=displayedOrders.find(order=>orderId(order)===id);open.disabled=registrationBusy;
+    if(!order)open.textContent='주문 찾기';
     open.addEventListener('click',()=>{
       if(displayMode!=='live'||registrationBusy)return;
       const current=displayedOrders.find(order=>orderId(order)===id);
+      if(!current){void findFollowupOrder(id);return;}
       if(current){orderSearch.value='';reviewFilter='ALL';renderOrders();}
       const button=[...orderList.querySelectorAll('.order-row')].find(button=>button.dataset.orderId===id);
       if(current&&button)showOrderDetail(current,button);
     });row.append(open);
-    if(!order)row.append(makeElement('span','','현재 페이지에 없음 · 채널·주문 구간·페이지를 확인하세요.'));
+    if(!order)row.append(makeElement('span','','현재 페이지에 없음 · 찾기를 누르면 해당 채널에서 최대 8페이지 조회'));
     panel.append(row);
   }
 }
