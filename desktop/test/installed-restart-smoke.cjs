@@ -11,6 +11,7 @@ async function main(){
  const profile=path.join(process.env.APPDATA,'Moaon Preview','preview-user-data');
  if(fs.existsSync(path.join(profile,'session-cleanup-pending')))throw Error('Pending session cleanup; do not start acceptance');
  const results=[];
+ const orderReads=[];
  for(let run=0;run<2;run++){
   const started=Date.now();const app=await _electron.launch({executablePath,args:[],timeout:30000});
   try{
@@ -25,6 +26,7 @@ async function main(){
    const localUiReadyMs=Date.now()-started;
    await page.waitForFunction(()=>document.querySelector('#entry-screen').hidden||document.querySelector('#entry-status').textContent!=='저장된 로그인 상태를 확인하고 있습니다.',{},{timeout:30000});
    const entryVisible=await page.locator('#entry-screen').isVisible();
+   if(process.argv.includes('--authenticated'))assert.equal(entryVisible,false,'Saved login must reach workspace');
    if(entryVisible){
     assert.equal(await page.locator('.preview-shell').isVisible(),false);
     assert.equal(await page.locator('.preview-shell').evaluate(el=>el.inert),true);
@@ -34,6 +36,24 @@ async function main(){
     await page.waitForFunction(()=>!document.querySelector('#business-list-refresh').disabled,{},{timeout:20000});
     assert.equal(await page.locator('#business-list-title').innerText(),'내 사업장');
     assert.equal(await page.locator('#business-list button').count(),0);
+    if(process.argv.includes('--authenticated')&&run===0){
+     for(const [action,scope] of [['viewActive','ACTIVE'],['viewRegistered','REGISTER'],['viewInTransit','IN_TRANSIT'],['viewCompleted','COMPLETED']]){
+      const startedRead=Date.now();
+      const read=await page.evaluate(async action=>{
+       await runHubAction(action);
+       return {status:connectionResult?.status,scope:connectionResult?.scope,total:connectionResult?.total,offset:connectionResult?.offset,rows:document.querySelectorAll('#order-list .order-row').length};
+      },action);
+      assert.ok(['READY','PARTIAL'].includes(read.status),`Scope ${scope} must load`);assert.equal(read.scope,scope);assert.ok(read.rows<=20);assert.ok(read.total>=read.rows);
+      orderReads.push({...read,durationMs:Date.now()-startedRead});
+     }
+     if(orderReads.at(-1).total>20){
+      for(const [action,offset] of [['nextPage',20],['previousPage',0]]){
+       const read=await page.evaluate(async action=>{await runHubAction(action);return {status:connectionResult?.status,scope:connectionResult?.scope,total:connectionResult?.total,offset:connectionResult?.offset,rows:document.querySelectorAll('#order-list .order-row').length};},action);
+       assert.ok(['READY','PARTIAL'].includes(read.status));assert.equal(read.offset,offset);assert.equal(read.scope,'COMPLETED');assert.ok(read.rows>0&&read.rows<=20);orderReads.push({...read,action});
+      }
+     }
+     await page.evaluate(()=>runHubAction('viewActive'));
+    }
     await page.getByRole('button',{name:'오늘',exact:true}).click();
    }
    assert.deepEqual(errors,[]);
@@ -43,6 +63,6 @@ async function main(){
   }finally{await app.close();}
  }
  assert.equal(results[0].theme,results[1].theme);
- console.log(JSON.stringify({status:'PASS',runs:results,scope:'installed EXE, existing profile, local UI/version/theme and restart; startup read may run, no password entry or print; not authentication acceptance'}));
+ console.log(JSON.stringify({status:'PASS',runs:results,orderReads,scope:process.argv.includes('--authenticated')?'installed EXE, saved authenticated session on two launches, four order scopes; no issue or print':'installed EXE, existing profile, local UI/version/theme and restart; not authentication acceptance'}));
 }
 main().catch(error=>{console.error(error.message);process.exitCode=1;});
