@@ -12,6 +12,7 @@ const {
   startTlsGateway,
   tamperJwtSignature,
   totpCode,
+  validateLogoutRefreshRevocation,
 }=require('./auth-lab-utils.cjs');
 
 const LAB_PUBLIC_KEY='moaon-auth-lab-local-publishable-key';
@@ -121,10 +122,10 @@ async function run(){
 
     const setVerified=await client.auth.setSession({access_token:verified.session.accessToken,refresh_token:verified.session.refreshToken});
     required(!setVerified.error);
+    const revocationStart=requests.length;
     const logout=await client.auth.signOut({scope:'global'});
-    required(!logout.error);
     const refresh=await client.auth.refreshSession({refresh_token:verified.session.refreshToken});
-    required(refresh.error&&!refresh.data?.session);
+    validateLogoutRefreshRevocation({requests:requests.slice(revocationStart),logout,refresh});
     check('logout-refresh-rejected');
 
     for(const event of requests)process.stdout.write(`REQUEST ${event.method} ${event.path} ${event.status}\n`);

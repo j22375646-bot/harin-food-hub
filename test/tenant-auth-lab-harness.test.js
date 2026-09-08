@@ -371,6 +371,52 @@ test('TLS gateway cancels both sides when the upstream response is aborted',()=>
 
 test('TLS gateway cancels both sides when the upstream response emits an error',()=>assertGatewayResponseCancellation('error'));
 
+test('logout refresh evidence accepts an observed 204 then refresh_token_not_found 400',()=>{
+  const {validateLogoutRefreshRevocation}=require(UTILS);
+  const result=validateLogoutRefreshRevocation({
+    requests:[
+      {method:'POST',path:'/auth/v1/logout?scope=global',status:204},
+      {method:'POST',path:'/auth/v1/token?grant_type=refresh_token',status:400},
+    ],
+    logout:{data:null,error:null},
+    refresh:{data:{session:null,user:null},error:{status:400,code:'refresh_token_not_found'}},
+  });
+  assert.deepEqual(result,{logoutStatus:204,refreshStatus:400});
+});
+
+test('logout refresh evidence rejects transport, 5xx, missing HTTP proof, or a non-auth error',()=>{
+  const {validateLogoutRefreshRevocation}=require(UTILS);
+  const valid=()=>({
+    requests:[
+      {method:'POST',path:'/auth/v1/logout?scope=global',status:204},
+      {method:'POST',path:'/auth/v1/token?grant_type=refresh_token',status:400},
+    ],
+    logout:{data:null,error:null},
+    refresh:{data:{session:null,user:null},error:{status:400,code:'refresh_token_not_found'}},
+  });
+  const cases=[];
+  const transport=valid();
+  transport.requests.pop();
+  transport.refresh.error={status:0,code:undefined};
+  cases.push(transport);
+  const unavailable=valid();
+  unavailable.requests[1].status=503;
+  unavailable.refresh.error={status:503,code:'unexpected_failure'};
+  cases.push(unavailable);
+  const missingLogout=valid();
+  missingLogout.requests.shift();
+  cases.push(missingLogout);
+  const missingError=valid();
+  missingError.refresh={data:{session:null,user:null},error:null};
+  cases.push(missingError);
+  const wrongCode=valid();
+  wrongCode.refresh.error.code='unexpected_failure';
+  cases.push(wrongCode);
+  for(const candidate of cases){
+    assert.throws(()=>validateLogoutRefreshRevocation(candidate),error=>error?.code==='AUTH_LAB_REVOCATION_REJECTED');
+  }
+});
+
 test('runner without explicit opt-in exits before any network work and prints no secret values',()=>{
   const env={...process.env};
   delete env.MOAON_AUTH_LAB_RUN;

@@ -83,6 +83,17 @@ function tamperJwtSignature(token){
   return `${parts[0]}.${parts[1]}.${replacement}${parts[2].slice(1)}`;
 }
 
+function validateLogoutRefreshRevocation({requests,logout,refresh}={}){
+  const logoutRequest=requests?.[0];
+  const refreshRequest=requests?.[1];
+  const valid=Array.isArray(requests)&&requests.length===2&&
+    logoutRequest?.method==='POST'&&logoutRequest.path==='/auth/v1/logout?scope=global'&&logoutRequest.status===204&&
+    refreshRequest?.method==='POST'&&refreshRequest.path==='/auth/v1/token?grant_type=refresh_token'&&refreshRequest.status===400&&
+    !logout?.error&&refresh?.error?.status===400&&refresh.error.code==='refresh_token_not_found'&&!refresh?.data?.session;
+  if(!valid)throw labError('AUTH_LAB_REVOCATION_REJECTED');
+  return Object.freeze({logoutStatus:204,refreshStatus:400});
+}
+
 function requestBody(body){
   if(body===undefined||body===null)return null;
   if(typeof body==='string'||Buffer.isBuffer(body))return body;
@@ -225,4 +236,4 @@ async function startTlsGateway({cert,key,timeoutMs=10_000}){
   }});
 }
 
-module.exports={LAB_ORIGIN,LAB_AUTH_PREFIX,authorizeClientUrl,createPinnedFetch,mapGatewayPath,nextTotpWaitMs,readLabConfiguration,startTlsGateway,tamperJwtSignature,totpCode};
+module.exports={LAB_ORIGIN,LAB_AUTH_PREFIX,authorizeClientUrl,createPinnedFetch,mapGatewayPath,nextTotpWaitMs,readLabConfiguration,startTlsGateway,tamperJwtSignature,totpCode,validateLogoutRefreshRevocation};
