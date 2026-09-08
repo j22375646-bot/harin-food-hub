@@ -60,6 +60,35 @@ let actionGeneration = 0;
 let selectedScope = 'ACTIVE';
 let scopeControlsAvailable = false;
 let businessGeneration=0,businessLoaded=false,businessBusy=false;
+let overviewValues={},overviewGeneration=0,overviewBusy=false;
+function clearOverview(){overviewGeneration++;overviewValues={};overviewBusy=false;renderOverview();}
+function renderOverview(){
+ const section=document.querySelector('#today-overview');section.hidden=displayMode!=='live';
+ document.querySelector('#overview-refresh').disabled=overviewBusy||displayMode!=='live';
+ document.querySelector('#overview-cards').replaceChildren(...Object.entries(scopeDetails).map(([scope,detail])=>{
+  const value=overviewValues[scope],button=makeElement('button');button.type='button';button.dataset.scope=scope;
+  button.dataset.state=value?.status||'UNKNOWN';button.disabled=displayMode!=='live';
+  const known=['READY','PARTIAL'].includes(value?.status)&&Number.isSafeInteger(value?.total)&&value.total>=0;
+  button.append(makeElement('span','',detail.label),makeElement('strong','',known?`${value.total.toLocaleString('ko-KR')}건`:'확인 필요'),
+   makeElement('small','',known?`${value.status==='PARTIAL'?'부분 확인 · ':''}${formatTime(value.checkedAt)} 조회`:'아직 조회하지 않았거나 조회 실패'),makeElement('small','','주문 목록 열기 →'));
+  button.addEventListener('click',async()=>{button.disabled=true;await runHubAction(detail.action);if(displayMode==='live')showRoute('orders');});
+  return button;
+ }));
+}
+async function refreshOverview(){
+ if(overviewBusy||displayMode!=='live')return;
+ const expected=++overviewGeneration;overviewBusy=true;overviewValues={};renderOverview();
+ const status=document.querySelector('#overview-status');status.textContent='저장 주문의 네 가지 상태를 확인하고 있습니다…';
+ try{
+  const result=await window.moaonHub.readOverview();
+  if(expected!==overviewGeneration)return;
+  if(['LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status)){applyHubResult(result);return;}
+  overviewValues=result?.scopes||{};
+  status.textContent=result?.status==='READY'?'상태별 조회 시각을 확인하세요. 부분 확인·실패는 전체 건수로 판단하지 마세요.':'요약을 완료하지 못했습니다. 전체 상태 조회로 다시 확인하세요.';
+ }catch{if(expected===overviewGeneration)status.textContent='요약 조회 실패 · 다시 확인하세요.';}
+ finally{if(expected===overviewGeneration){overviewBusy=false;renderOverview();}}
+}
+document.querySelector('#overview-refresh').addEventListener('click',refreshOverview);
 function clearBusinesses(){
  businessGeneration++;businessLoaded=false;businessBusy=false;
  document.querySelector('#business-list').replaceChildren();
@@ -495,7 +524,7 @@ function updateConnectionChrome(message) {
   statusElements.todayContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? 'Windows 시제품 · 샘플 모드' : '하린식품 · 연결 상태 확인 필요';
   statusElements.todayTitleMode.textContent = live ? '하린식품 주문을' : sample ? '지금 가능한 일' : '실제 주문을 비우고';
   statusElements.todayTitleTail.textContent = live ? ' 확인하고 출고를 준비합니다' : sample ? '부터 확인하세요' : ' 연결 상태를 확인합니다';
-  statusElements.todayDescription.textContent = live ? `${scope.description} 플랫폼 동기화 성공이나 전체 주문 현황을 뜻하지 않습니다.` : sample ? '실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.' : message;
+  statusElements.todayDescription.textContent = live ? '저장된 주문 상태를 확인하고 필요한 업무로 이동하세요. 플랫폼 자동 수집 성공이나 오늘의 매출을 뜻하지 않습니다.' : sample ? '실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.' : message;
   statusElements.ordersContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? '주문·배송 · 샘플 3건' : '하린식품 · 연결 상태 확인 필요';
   statusElements.ordersTitleMode.textContent = live ? scope.title : sample ? '가상 주문만' : scopeControlsAvailable ? scope.title : '비운 목록을';
   statusElements.ordersDescription.textContent = live ? `${scope.description} 검색은 현재 페이지에만 적용됩니다. 상세에서 주문별 우체국 발급과 상태를 확인하세요.` : sample ? '검색하거나 주문을 선택해 우측 상세를 확인할 수 있습니다. 샘플 주문은 발급하지 않습니다.' : message;
@@ -509,6 +538,7 @@ function updateConnectionChrome(message) {
   for (const section of sampleOnlySections) section.hidden = !sample;
   for (const element of connectionMessages) element.textContent = message;
   setButtons(displayMode);
+  renderOverview();
 }
 
 function clearDisplayedOrders(mode, message) {
@@ -523,7 +553,7 @@ function clearDisplayedOrders(mode, message) {
 }
 
 function applyHubResult(result) {
-  if(!['READY','PARTIAL'].includes(result?.status))clearBusinesses();
+  if(!['READY','PARTIAL'].includes(result?.status)){clearBusinesses();clearOverview();}
   const gate=document.querySelector('#entry-screen'),shell=document.querySelector('.preview-shell');
   if(result?.status==='READY'||result?.status==='PARTIAL'){
     gate.hidden=true;shell.hidden=false;shell.inert=false;
@@ -537,6 +567,7 @@ function applyHubResult(result) {
     displayMode = 'live';
     if(!businessLoaded){businessLoaded=true;void refreshBusinesses();}
     connectionResult = result;
+    overviewValues[result.scope]={status:result.status,total:result.total,checkedAt:result.checkedAt};
     displayedOrders = Object.freeze(result.orders.map((order) => Object.freeze({
       hubOrderId: typeof order.hubOrderId === 'string' ? order.hubOrderId : '', platform: typeof order.platform === 'string' ? order.platform : '',
       productName: typeof order.productName === 'string' ? order.productName : '', stage: typeof order.stage === 'string' ? order.stage : '',
@@ -576,6 +607,7 @@ async function runHubAction(action) {
   }
   if (action === 'nextPage' || action === 'previousPage') clearDisplayedOrders('connecting', action === 'nextPage' ? '다음 주문 페이지를 조회하고 있습니다.' : '이전 주문 페이지를 조회하고 있습니다.');
   if (action === 'disconnect') {
+    clearOverview();
     clearBusinesses();
     selectedScope = 'ACTIVE';
     scopeControlsAvailable = false;

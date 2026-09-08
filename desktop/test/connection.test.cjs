@@ -7,6 +7,35 @@ const path = require('node:path');
 const test = require('node:test');
 const TEST_SNAPSHOT = '0123456789abcdef'.repeat(4);
 
+test('overview returns only counts and preserves selected order scope',async()=>{
+ const remote=makeRemoteSession(async url=>{
+  const scope=new URL(url).searchParams.get('stage');
+  if(scope==='IN_TRANSIT')return new Response('',{status:503});
+  const total=scope==='REGISTER'?0:1;
+  return Response.json({ok:true,orders:total?[{hubOrderId:'secret-order'}]:[],total,offset:0,nextOffset:null,snapshot:TEST_SNAPSHOT,partial:scope==='COMPLETED'});
+ });
+ const {connection}=makeConnection(remote);
+ await connection.viewRegistered();
+ assert.equal(typeof connection.readOverview,'function');
+ const result=await connection.readOverview();
+ assert.equal(result.scopes.ACTIVE.total,1);assert.equal(result.scopes.REGISTER.total,0);
+ assert.equal(result.scopes.IN_TRANSIT.total,null);assert.equal(result.scopes.COMPLETED.status,'PARTIAL');
+ assert.equal(JSON.stringify(result).includes('secret-order'),false);
+ assert.equal((await connection.refresh()).scope,'REGISTER');
+});
+test('overview deadline and logout settle even when fetch ignores abort',async()=>{
+ const {connection}=makeConnection(makeRemoteSession(()=>new Promise(()=>{})),{timeoutMs:10});
+ assert.deepEqual(await connection.readOverview(),{status:'TIMEOUT',scopes:{}});
+ const pending=connection.readOverview();await connection.disconnect();
+ assert.deepEqual(await pending,{status:'DISCONNECTED',scopes:{}});
+});
+test('overview authentication failure discards all counts and duplicate requests share a read',async()=>{
+ let calls=0;
+ const {connection}=makeConnection(makeRemoteSession(async()=>{calls++;return new Response('',{status:403});}));
+ const [a,b]=await Promise.all([connection.readOverview(),connection.readOverview()]);
+ assert.deepEqual(a,{status:'FORBIDDEN',scopes:{}});assert.deepEqual(b,a);assert.equal(calls,4);
+});
+
 test('business list uses the private session and disconnect discards an in-flight response',async()=>{
  let release;
  const remote=makeRemoteSession(()=>new Promise(resolve=>{release=resolve;}));
@@ -921,8 +950,9 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
   const trusted = { sender: webContents, senderFrame: mainFrame };
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
   const businessHandler=handlers.get('moaon-hub:list-businesses');
+  await assert.rejects(handlers.get('moaon-hub:read-overview')({sender:{},senderFrame:null}),/Untrusted renderer/);
   assert.deepEqual(await businessHandler(trusted),{status:'READY',businesses:[]});
   await assert.rejects(businessHandler(trusted,'tenant-id'),/Arguments are not allowed/);
   await assert.rejects(businessHandler({sender:{},senderFrame:null}),/Untrusted renderer/);
@@ -969,7 +999,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['listBusinesses','appInfo','inspectPrinters','previewLabel','issueShipment','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','issueShipment','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   await bridge.listBusinesses('ignored');
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });

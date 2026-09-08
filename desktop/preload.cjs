@@ -3,6 +3,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
+  readOverview: () => ipcRenderer.invoke('moaon-hub:read-overview'),
   listBusinesses: () => ipcRenderer.invoke('moaon-hub:list-businesses'),
   appInfo: () => ipcRenderer.invoke('moaon-hub:app-info'),
   inspectPrinters: () => ipcRenderer.invoke('moaon-hub:inspect-printers'),

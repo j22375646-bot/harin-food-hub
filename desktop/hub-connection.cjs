@@ -248,6 +248,38 @@ function createHubConnection({
   const shipmentPermits=new Map();
   const shipmentAuthReads=new Set();
   const businessReads=new Set();
+  let activeOverview=null;
+  function readOverview(){
+    if(disconnecting||cleanupFailed||isLoginWindowActive())return Promise.resolve({status:'DISCONNECTED',scopes:{}});
+    if(activeOverview)return activeOverview;
+    const expected=generation,controller=new AbortController();businessReads.add(controller);
+    let timer,authStatus=null;
+    const empty=status=>({status,scopes:{}});
+    const readScope=async scope=>{
+      try{
+        const response=await getRemoteSession().fetch(buildOrdersScopeUrl(scope),{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
+        if(controller.signal.aborted||expected!==generation)return [scope,{status:'UNAVAILABLE',total:null}];
+        if([401,403].includes(response.status)){authStatus=response.status===401?'LOGIN_REQUIRED':'FORBIDDEN';controller.abort();return [scope,{status:authStatus,total:null}];}
+        if(response.status!==200)throw Error('Unavailable');
+        const payload=await readBoundedJson(response,controller);
+        if(controller.signal.aborted||expected!==generation)throw Error('Cancelled');
+        const result=projectOrdersPayload(payload,now().toISOString(),{scope});
+        return [scope,{status:result.status,total:result.total,checkedAt:result.checkedAt}];
+      }catch{return [scope,{status:'UNAVAILABLE',total:null}];}
+    };
+    const operation=(async()=>{
+      const result=await Promise.race([
+        Promise.all(ORDER_SCOPES.map(readScope)).then(rows=>({status:'READY',scopes:Object.fromEntries(rows)})),
+        new Promise(resolve=>{timer=setTimeout(()=>{resolve(empty('TIMEOUT'));controller.abort();},timeoutMs);}),
+        new Promise(resolve=>controller.signal.addEventListener('abort',()=>resolve(empty('CANCELLED')),{once:true})),
+      ]);
+      if(expected!==generation)return empty('DISCONNECTED');
+      if(authStatus){generation++;invalidateCursor();activeAbortController?.abort();void stopShipments();return empty(authStatus);}
+      return result;
+    })();
+    let tracked;tracked=operation.finally(()=>{clearTimeout(timer);businessReads.delete(controller);if(activeOverview===tracked)activeOverview=null;});
+    activeOverview=tracked;return tracked;
+  }
   async function listBusinesses(){
     const empty=status=>Object.freeze({status,businesses:Object.freeze([])});
     if(disconnecting||cleanupFailed)return empty('DISCONNECTED');
@@ -745,7 +777,7 @@ function createHubConnection({
     loginWindow = null;
   }
 
-  return Object.freeze({ listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, checkShipment, previewLabel, nextPage, previousPage, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, checkShipment, previewLabel, nextPage, previousPage, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -762,6 +794,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     return connection.confirmShipmentReview(args[0]);
   });
   const methods = [
+    ['moaon-hub:read-overview', 'readOverview'],
     ['moaon-hub:list-businesses', 'listBusinesses'],
     ['moaon-hub:connect', 'connect'],
     ['moaon-hub:refresh', 'refresh'],
