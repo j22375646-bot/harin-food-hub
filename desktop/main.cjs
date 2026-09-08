@@ -176,7 +176,7 @@ if (!hasSingleInstanceLock) {
       saveOrderExport: async (bytes,isCurrent) => {
         const selected=await dialog.showSaveDialog(mainWindow,{title:'주문 엑셀 저장',defaultPath:'모아온_주문.xlsx',filters:[{name:'Excel 통합 문서',extensions:['xlsx']}],properties:['showOverwriteConfirmation']});
         if(selected.canceled||!selected.filePath)return 'SAVE_CANCELLED';
-        if(typeof isCurrent!=='function'||!isCurrent())return 'DOCUMENT_CHANGED';
+        if(typeof isCurrent!=='function'||!await isCurrent())return 'DOCUMENT_CHANGED';
         try{await fs.writeFile(selected.filePath,bytes,{flag:'wx',mode:0o600});return 'XLSX_SAVED';}catch(error){return error.code==='EEXIST'?'FILE_EXISTS':'SAVE_CHECK_REQUIRED';}
       },
     });

@@ -38,3 +38,15 @@
 - 실제 외부 쓰기/송장/인쇄는 실행하지 않았다. XLSX 저장은 fixture/unit 경계와 build까지만 검증했다.
 - 기존 `desktop/test/connection.test.cjs`의 공개 method exact-list 및 예전 URL 문자열 기대는 새 bridge/검색 query를 모르는 테스트라 전체 실행 시 갱신이 필요하다. 기능 회귀 테스트인 freshness는 모두 통과했다.
 - 실제 운영 데이터 내용은 보고서에 기록하지 않았다. 설치본 읽기 전용 UI/XLSX 취소 acceptance와 운영 배포는 컨트롤러 범위다.
+
+## Review round 1
+
+- 검색 응답의 `appliedSearch`는 정확히 세 필드만 허용하고 요청 query/start/end와 값까지 일치해야 수락한다. renderer에는 새 객체로 투영한다.
+- export는 전체 요청 deadline, fetch-ignore-abort race, streaming 10MB 상한, context shutdown abort를 적용했다. 중앙 디렉터리를 파싱하여 실제 OOXML의 `[Content_Types].xml`과 `xl/workbook.xml` 엔트리를 확인한다.
+- 서버가 export snapshot header를 제공하고 Main은 직전 인증 페이지 snapshot과 비교한다. 저장 대화상자 승인 후 같은 snapshot의 인증 GET을 다시 통과해야 `wx` 쓰기를 시작한다.
+- disconnect/close/findOrder/reset 결과는 query/start/end가 빈 full filter contract를 반환한다. 기간이 있으면 주문일 미확인 행은 기간 결과에서 제외한다.
+- `npm test --prefix desktop`: 222/222 PASS.
+- `node --test test/order-search-export.test.js`: 5/5 PASS (실제 ExcelJS workbook 재개방, 열 whitelist, null 금액, 날짜 거부 포함).
+- `node desktop/test/order-global-search-smoke.cjs --isolated`: PASS (한 번 제출, scope 보존, collapsed inert, 1040x720 overflow, reduced motion).
+- `pnpm build`: PASS, Next.js 16.3.0 production build.
+- 실제 운영 XLSX 저장은 실행하지 않았고 native 저장 취소 acceptance/배포/설치본 검증은 컨트롤러 범위다.

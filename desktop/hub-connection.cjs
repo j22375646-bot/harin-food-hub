@@ -157,7 +157,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     || typeof payload.partial !== 'boolean'
     || typeof checkedAt !== 'string'
     || !ORDER_SCOPES.includes(scope)
-    || (options.requireSearchContract&&(payload.searchContractVersion !== 1||!validSearch(payload.appliedSearch)))
+    || (options.requireSearchContract&&(payload.searchContractVersion !== 1||!validSearch(payload.appliedSearch)||['query','start','end'].some(key=>payload.appliedSearch[key]!==options.expectedSearch?.[key])))
   ) {
     throw new Error('Invalid orders payload');
   }
@@ -200,7 +200,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     partial,
     message: STATUS_MESSAGES[partial ? 'PARTIAL' : 'READY'],
     scope,
-    ...(validSearch(payload.appliedSearch)?{search:payload.appliedSearch}:{}),
+    ...(validSearch(payload.appliedSearch)?{search:Object.freeze({query:payload.appliedSearch.query,start:payload.appliedSearch.start,end:payload.appliedSearch.end})}:{}),
   });
 }
 
@@ -243,6 +243,20 @@ async function readBoundedJson(response, abortController) {
     offset += chunk.byteLength;
   }
   return JSON.parse(new TextDecoder().decode(body));
+}
+async function readBoundedBytes(response,abortController,limit){
+  const declared=Number(response.headers?.get?.('content-length'));if(Number.isFinite(declared)&&declared>limit){abortController.abort();throw Error('Response exceeds limit');}
+  const reader=response.body?.getReader?.();if(!reader)throw Error('Body');const chunks=[];let size=0;
+  const stopped=new Promise((_,reject)=>abortController.signal.addEventListener('abort',()=>{void reader.cancel().catch(()=>{});reject(Error('Stopped'));},{once:true}));
+  try{while(true){const {done,value}=await Promise.race([reader.read(),stopped]);if(done)break;size+=value.byteLength;if(size>limit){abortController.abort();await reader.cancel().catch(()=>{});throw Error('Response exceeds limit');}chunks.push(value);}}finally{reader.releaseLock?.();}
+  const bytes=Buffer.alloc(size);let offset=0;for(const chunk of chunks){Buffer.from(chunk).copy(bytes,offset);offset+=chunk.byteLength;}return bytes;
+}
+function validXlsxPackage(bytes){
+  if(!Buffer.isBuffer(bytes)||bytes.length<22||bytes.readUInt32LE(0)!==0x04034b50)return false;
+  let eocd=-1;for(let i=bytes.length-22;i>=Math.max(0,bytes.length-65557);i--)if(bytes.readUInt32LE(i)===0x06054b50){eocd=i;break;}if(eocd<0)return false;
+  const count=bytes.readUInt16LE(eocd+10),offset=bytes.readUInt32LE(eocd+16),names=new Set();let cursor=offset;
+  for(let i=0;i<count;i++){if(cursor+46>bytes.length||bytes.readUInt32LE(cursor)!==0x02014b50)return false;const nameLength=bytes.readUInt16LE(cursor+28),extraLength=bytes.readUInt16LE(cursor+30),commentLength=bytes.readUInt16LE(cursor+32);if(cursor+46+nameLength>bytes.length)return false;names.add(bytes.subarray(cursor+46,cursor+46+nameLength).toString('utf8'));cursor+=46+nameLength+extraLength+commentLength;}
+  return names.has('[Content_Types].xml')&&names.has('xl/workbook.xml');
 }
 
 function createHubConnection({
@@ -643,7 +657,8 @@ function createHubConnection({
       const payload = await bounded(readBoundedJson(response, controller));
       if(controller.signal.aborted)throw Error('Order read stopped');
       if (readGeneration !== generation) return safeEmpty('DISCONNECTED');
-      const result = projectOrdersPayload(payload, now().toISOString(), { requestedOffset, expectedSnapshot, scope,requireSearchContract:/[?&](?:query=[^&]+|start=\d|end=\d)/.test(url) });
+      const expectedSearch={query:currentFilters.query,start:currentFilters.start,end:currentFilters.end};
+      const result = projectOrdersPayload(payload, now().toISOString(), { requestedOffset, expectedSnapshot, scope,requireSearchContract:/[?&](?:query=[^&]+|start=\d|end=\d)/.test(url),expectedSearch });
       pageCursor = Object.freeze({
         offset: payload.offset,
         nextOffset: payload.nextOffset,
@@ -654,8 +669,7 @@ function createHubConnection({
       loadedOrders=result.orders;
       freshnessLastIdentity=null;
       freshnessLastResult=null;
-      const publicFilters=currentFilters.query||currentFilters.start||currentFilters.end?currentFilters:{delayOnly:currentFilters.delayOnly,giftOnly:currentFilters.giftOnly};
-      return Object.freeze({...result,channel:currentChannel,filters:Object.freeze(publicFilters)});
+      return Object.freeze({...result,channel:currentChannel,filters:Object.freeze({...currentFilters})});
     } catch {
       if (readGeneration === generation) invalidateCursor();
       return readGeneration === generation
@@ -1210,7 +1224,7 @@ function createHubConnection({
 
   function setOrderFilters(filters){
     if(filters&&Object.keys(filters).length===2)filters={...currentFilters,...filters};
-    if(!filters||typeof filters!=='object'||Array.isArray(filters)||Object.keys(filters).length!==5||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean'||!validSearch(filters))return Promise.resolve(safeEmpty('UNAVAILABLE','올바른 주문 필터를 선택하세요.'));
+    if(!filters||typeof filters!=='object'||Array.isArray(filters)||Object.keys(filters).length!==5||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean'||!validSearch({query:filters.query,start:filters.start,end:filters.end}))return Promise.resolve(safeEmpty('UNAVAILABLE','올바른 주문 필터를 선택하세요.'));
     if(registrationController||automaticController||reviewingShipment||collectionWorkActive||trackingController||findingOrder)return Promise.resolve(safeEmpty('UNAVAILABLE','다른 작업이 진행 중입니다. 완료 후 필터를 변경하세요.'));
     generation++;void stopShipments();currentFilters=Object.freeze({...filters});invalidateCursor();activeRead=null;activeAbortController?.abort();
     return startRead({url:ordersScopeUrl(),requestedOffset:0,expectedSnapshot:null,scope:currentScope});
@@ -1222,18 +1236,19 @@ function createHubConnection({
   function exportOrdersXlsx(){
     if(exportWork)return exportWork;
     if(typeof saveOrderExport!=='function'||!pageCursor||activeRead||registrationController||automaticController||reviewingShipment||collectionWorkActive||trackingController||findingOrder)return Promise.resolve({status:'BUSY'});
-    const expected=generation,controller=new AbortController();
+    const expected=generation,controller=new AbortController();let timer;businessReads.add(controller);
     exportWork=(async()=>{try{
       const auth=await recheckPage();if(expected!==generation||!['READY'].includes(auth.status))return {status:auth.status==='PARTIAL'?'PARTIAL_EXPORT_BLOCKED':'DOCUMENT_CHANGED'};
       const url=buildOrdersExportUrl(currentScope,currentChannel,currentFilters);exportPermit=url;
-      const response=await getRemoteSession().fetch(url,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});exportPermit=null;
+      const stopped=new Promise((_,reject)=>controller.signal.addEventListener('abort',()=>reject(Error('Stopped')),{once:true}));timer=setTimeout(()=>controller.abort(),timeoutMs);
+      const response=await Promise.race([getRemoteSession().fetch(url,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal}),stopped]);exportPermit=null;
       if(expected!==generation||[401,403].includes(response.status))return {status:response.status===401?'LOGIN_REQUIRED':response.status===403?'FORBIDDEN':'DOCUMENT_CHANGED'};
       if(response.status===404)return {status:'NO_ORDERS'};if(response.status!==200)return {status:'EXPORT_UNAVAILABLE'};
       const mime=String(response.headers.get('content-type')||'').split(';')[0].toLowerCase();if(mime!=='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')return {status:'EXPORT_UNAVAILABLE'};
-      const count=Number(response.headers.get('x-moaon-export-count'));if(response.headers.get('x-moaon-search-contract')!=='1'||!Number.isSafeInteger(count)||count<1||count>5000)return {status:'EXPORT_UNAVAILABLE'};
-      const bytes=Buffer.from(await response.arrayBuffer());if(bytes.length<4||bytes.length>10*1024*1024||bytes[0]!==0x50||bytes[1]!==0x4b||bytes[2]!==0x03||bytes[3]!==0x04)return {status:'EXPORT_UNAVAILABLE'};
-      if(expected!==generation)return {status:'DOCUMENT_CHANGED'};return {status:await saveOrderExport(bytes,()=>expected===generation&&!disconnecting&&!cleanupFailed)};
-    }catch{return {status:'EXPORT_UNAVAILABLE'};}finally{exportPermit=null;controller.abort();exportWork=null;}})();return exportWork;
+      const count=Number(response.headers.get('x-moaon-export-count')),downloadSnapshot=response.headers.get('x-moaon-export-snapshot');if(response.headers.get('x-moaon-search-contract')!=='1'||!Number.isSafeInteger(count)||count<1||count>5000||downloadSnapshot!==pageCursor?.snapshot)return {status:'EXPORT_UNAVAILABLE'};
+      const bytes=await readBoundedBytes(response,controller,10*1024*1024);if(!validXlsxPackage(bytes))return {status:'EXPORT_UNAVAILABLE'};
+      const exportSnapshot=pageCursor?.snapshot;if(expected!==generation||!exportSnapshot)return {status:'DOCUMENT_CHANGED'};return {status:await saveOrderExport(bytes,async()=>{if(expected!==generation||disconnecting||cleanupFailed)return false;const proof=await recheckPage();return expected===generation&&proof.status==='READY'&&pageCursor?.snapshot===exportSnapshot;})};
+    }catch{return {status:'EXPORT_UNAVAILABLE'};}finally{clearTimeout(timer);exportPermit=null;businessReads.delete(controller);controller.abort();exportWork=null;}})();return exportWork;
   }
   function resetOrderFilters(){
     if(registrationController||automaticController||reviewingShipment||collectionWorkActive||trackingController||findingOrder)return Promise.resolve(safeEmpty('UNAVAILABLE','다른 작업이 진행 중입니다. 완료 후 필터를 초기화하세요.'));
@@ -1379,7 +1394,7 @@ function createHubConnection({
     const shipmentShutdown=stopShipments();
     currentScope = 'ACTIVE';
     currentChannel = 'ALL';
-    currentFilters=Object.freeze({delayOnly:false,giftOnly:false});
+    currentFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});
     invalidateCursor();
     activeRead = null;
     activeAbortController?.abort();
@@ -1425,7 +1440,7 @@ function createHubConnection({
     void stopShipments();
     currentScope = 'ACTIVE';
     currentChannel = 'ALL';
-    currentFilters=Object.freeze({delayOnly:false,giftOnly:false});
+    currentFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});
     invalidateCursor();
     activeRead = null;
     activeAbortController?.abort();
@@ -1439,7 +1454,7 @@ function createHubConnection({
     if(findingOrder||activeRead||registrationController||automaticController||disconnecting||cleanupFailed||isLoginWindowActive())return {status:'BUSY'};
     findingOrder=true;let count=0,last,partial=false;
     try{
-      currentScope='ACTIVE';currentFilters=Object.freeze({delayOnly:false,giftOnly:false});
+      currentScope='ACTIVE';currentFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});
       let pending=viewChannel(id.startsWith('HR-CP-')?'COUPANG':'CAFE24'),expected=generation;
       for(const scope of ORDER_SCOPES){
         if(scope!=='ACTIVE'){pending=viewScope(scope);expected=generation;}
@@ -1533,7 +1548,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
   ipcMain.handle('moaon-hub:set-order-filters',async(event,...args)=>{
     if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
     const filters=args[0];
-    if(args.length!==1||!filters||typeof filters!=='object'||Array.isArray(filters)||![2,5].includes(Object.keys(filters).length)||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean'||(Object.keys(filters).length===5&&!validSearch(filters)))throw Error('Invalid filter arguments');
+    if(args.length!==1||!filters||typeof filters!=='object'||Array.isArray(filters)||![2,5].includes(Object.keys(filters).length)||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean'||(Object.keys(filters).length===5&&!validSearch({query:filters.query,start:filters.start,end:filters.end})))throw Error('Invalid filter arguments');
     return connection.setOrderFilters(filters);
   });
   ipcMain.handle('moaon-hub:apply-order-search',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');if(args.length!==1||!validSearch(args[0]))throw Error('Invalid search arguments');return connection.applyOrderSearch(args[0]);});

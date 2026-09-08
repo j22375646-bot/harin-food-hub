@@ -5,6 +5,7 @@ const { EventEmitter } = require('node:events');
 const Module = require('node:module');
 const path = require('node:path');
 const test = require('node:test');
+const ExcelJS=require('exceljs');
 const TEST_SNAPSHOT = '0123456789abcdef'.repeat(4);
 test('collection retains Cafe24 partial result across a successful worker GET',async()=>{
  const id='12345678-1234-4123-8123-123456789abc';let poll=false;
@@ -1224,6 +1225,9 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   };
   registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
   const trusted = { sender: webContents, senderFrame: mainFrame };
+  await assert.rejects(handlers.get('moaon-hub:apply-order-search')({sender:{},senderFrame:null},{query:'a',start:'',end:''}),/Untrusted renderer/);
+  for(const value of [{query:'a'.repeat(101),start:'',end:''},{query:'',start:'2026-02-30',end:''},{query:'',start:'2026-09-10',end:'2026-09-09'}])await assert.rejects(handlers.get('moaon-hub:apply-order-search')(trusted,value),/Invalid search arguments/);
+  await assert.rejects(handlers.get('moaon-hub:export-orders-xlsx')(trusted,'path.xlsx'),/Arguments are not allowed/);
   for(const channel of ['moaon-hub:collect-orders','moaon-hub:check-order-collection','moaon-hub:check-order-freshness']){
     await assert.rejects(handlers.get(channel)({sender:{},senderFrame:null}),/Untrusted renderer/);
     for(const argument of ['https://evil.invalid','12345678-1234-4123-8123-123456789abc',{},null])await assert.rejects(handlers.get(channel)(trusted,argument),/Arguments are not allowed/);
@@ -1235,7 +1239,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
     for(const args of [[],[''],[[]],['HR-C24-1234ABCD',{invoice:'1234567890123'}]])await assert.rejects(handlers.get(channel)(trusted,...args),/Invalid tracking/);
   }
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-tracking','moaon-hub:refresh-tracking','moaon-hub:read-delivery','moaon-hub:preview-worklist','moaon-hub:preview-labels','moaon-hub:export-selected-csv','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:set-order-filters','moaon-hub:reset-order-filters','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:collect-orders','moaon-hub:check-order-collection','moaon-hub:check-order-freshness','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-tracking','moaon-hub:refresh-tracking','moaon-hub:read-delivery','moaon-hub:preview-worklist','moaon-hub:preview-labels','moaon-hub:export-selected-csv','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:set-order-filters','moaon-hub:apply-order-search','moaon-hub:reset-order-filters','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:collect-orders','moaon-hub:check-order-collection','moaon-hub:check-order-freshness','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect','moaon-hub:export-orders-xlsx']);
   for(const channel of ['moaon-hub:preview-labels','moaon-hub:export-selected-csv']){
     await assert.rejects(handlers.get(channel)({sender:{},senderFrame:null},['HR-C24-1234ABCD']),/Untrusted renderer/);
     for(const args of [[],[[]],[['bad']],[['HR-C24-1234ABCD','HR-C24-1234ABCD']],[['HR-C24-1234ABCD'],'evil.csv']])await assert.rejects(handlers.get(channel)(trusted,...args),/Invalid document/);
@@ -1294,7 +1298,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['collectOrders','checkOrderCollection','checkOrderFreshness','onWindowRestored','readTracking','refreshTracking','readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','previewLabels','previewWorklist','exportSelectedCsv','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'setOrderFilters', 'resetOrderFilters', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['collectOrders','checkOrderCollection','checkOrderFreshness','onWindowRestored','readTracking','refreshTracking','readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','listBusinesses','appInfo','inspectPrinters','previewLabel','previewLabels','previewWorklist','exportSelectedCsv','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'setOrderFilters', 'resetOrderFilters','applyOrderSearch','exportOrdersXlsx', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   let restored=0;assert.throws(()=>bridge.onWindowRestored('bad'),/Invalid restore listener/);const unsubscribe=bridge.onWindowRestored(()=>restored++);listeners.get('moaon-hub:window-restored')({private:'event'},'ignored');assert.equal(restored,1);unsubscribe();assert.equal(listeners.has('moaon-hub:window-restored'),false);
   await bridge.listBusinesses('ignored');
   await bridge.connect('ignored');
@@ -1424,8 +1428,38 @@ test('filter reset clears channel and both server conditions with one new read',
  const {connection}=makeConnection(remote);await connection.viewChannel('COUPANG');await connection.setOrderFilters({delayOnly:false,giftOnly:true});
  const before=calls.length,result=await connection.resetOrderFilters();
  assert.equal(calls.length,before+1);assert.equal(calls.at(-1),'https://harin-cafe24-sync.vercel.app/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=ACTIVE&platform=ALL');
- assert.deepEqual(result.filters,{delayOnly:false,giftOnly:false});assert.equal(result.channel,'ALL');
+ assert.deepEqual(result.filters,{delayOnly:false,giftOnly:false,query:'',start:'',end:''});assert.equal(result.channel,'ALL');
 });
+
+test('order export validates auth, MIME, count, size and partial pages before native save',async()=>{
+ const book=new ExcelJS.Workbook();book.addWorksheet('주문').addRow(['ok']);const zip=Buffer.from(await book.xlsx.writeBuffer()),page=()=>Response.json(makePagePayload());let mode='ok',saves=0;
+ const remote=makeRemoteSession(async url=>{
+  if(!url.endsWith('&format=xlsx'))return mode==='partial'?Response.json(makePagePayload({partial:true})):page();
+  if(mode==='mime')return new Response(zip,{headers:{'content-type':'application/json','x-moaon-search-contract':'1','x-moaon-export-count':'1','x-moaon-export-snapshot':TEST_SNAPSHOT}});
+  if(mode==='count')return new Response(zip,{headers:{'content-type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','x-moaon-search-contract':'1','x-moaon-export-count':'5001'}});
+  if(mode==='large')return new Response(zip,{headers:{'content-type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','content-length':String(10*1024*1024+1),'x-moaon-search-contract':'1','x-moaon-export-count':'1','x-moaon-export-snapshot':TEST_SNAPSHOT}});if(mode==='malformed')return new Response(Buffer.from([0x50,0x4b,0x03,0x04,1]),{headers:{'content-type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','x-moaon-search-contract':'1','x-moaon-export-count':'1','x-moaon-export-snapshot':TEST_SNAPSHOT}});
+  return new Response(zip,{headers:{'content-type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','x-moaon-search-contract':'1','x-moaon-export-count':'1','x-moaon-export-snapshot':TEST_SNAPSHOT}});
+ });
+ const {connection}=makeConnection(remote,{saveOrderExport:async()=>{saves++;return 'SAVE_CANCELLED';}});await connection.refresh();
+ assert.equal((await connection.exportOrdersXlsx()).status,'SAVE_CANCELLED');assert.equal(saves,1);
+ for(const next of ['mime','count','large','malformed']){mode=next;assert.equal((await connection.exportOrdersXlsx()).status,'EXPORT_UNAVAILABLE');}assert.equal(saves,1);
+ mode='partial';assert.equal((await connection.exportOrdersXlsx()).status,'PARTIAL_EXPORT_BLOCKED');assert.equal(saves,1);
+});
+
+test('delayed native save rechecks connection after dialog and does not write after disconnect',async()=>{
+ const book=new ExcelJS.Workbook();book.addWorksheet('주문').addRow(['ok']);const zip=Buffer.from(await book.xlsx.writeBuffer());let release,writes=0;
+ const remote=makeRemoteSession(async url=>url.endsWith('&format=xlsx')?new Response(zip,{headers:{'content-type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','x-moaon-search-contract':'1','x-moaon-export-count':'1','x-moaon-export-snapshot':TEST_SNAPSHOT}}):Response.json(makePagePayload()));
+ const {connection}=makeConnection(remote,{saveOrderExport:async(_bytes,current)=>{await new Promise(resolve=>release=resolve);if(!await current())return 'DOCUMENT_CHANGED';writes++;return 'XLSX_SAVED';}});
+ await connection.refresh();const pending=connection.exportOrdersXlsx();while(!release)await new Promise(resolve=>setImmediate(resolve));await connection.disconnect();release();assert.equal((await pending).status,'DOCUMENT_CHANGED');assert.equal(writes,0);
+});
+
+test('search conditions survive scope, paging and recheck and reject mismatched server proof',async()=>{
+ const urls=[];let mismatch=false;
+ const remote=makeRemoteSession(async url=>{urls.push(url);const q=new URL(url).searchParams,offset=Number(q.get('offset')||0);return Response.json({...makePagePayload({orders:Array.from({length:20},(_,i)=>({hubOrderId:`SEARCH-${offset+i}`})),total:40,offset,nextOffset:offset?null:20}),searchContractVersion:1,appliedSearch:{query:mismatch?'wrong':'김',start:'2026-09-01',end:'2026-09-09'}});});
+ const {connection}=makeConnection(remote);assert.equal((await connection.applyOrderSearch({query:'김',start:'2026-09-01',end:'2026-09-09'})).status,'READY');await connection.nextPage();await connection.previousPage();await connection.recheckPage();await connection.viewRegistered();
+ for(const url of urls)assert.match(url,/query=%EA%B9%80&start=2026-09-01&end=2026-09-09/);mismatch=true;assert.equal((await connection.recheckPage()).status,'UNAVAILABLE');
+});
+test('logout aborts a stalled export body and a later connection can retry',async()=>{let stalled=true;const book=new ExcelJS.Workbook();book.addWorksheet('주문').addRow(['ok']);const zip=Buffer.from(await book.xlsx.writeBuffer()),headers={'content-type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','x-moaon-search-contract':'1','x-moaon-export-count':'1','x-moaon-export-snapshot':TEST_SNAPSHOT};const remote=makeRemoteSession(async url=>url.endsWith('&format=xlsx')?(stalled?new Response(new ReadableStream({start(){}}),{headers}):new Response(zip,{headers})):Response.json(makePagePayload()));const {connection}=makeConnection(remote,{saveOrderExport:async()=> 'SAVE_CANCELLED',timeoutMs:20});await connection.refresh();const pending=connection.exportOrdersXlsx();await new Promise(resolve=>setImmediate(resolve));await connection.disconnect();assert.equal((await pending).status,'EXPORT_UNAVAILABLE');stalled=false;await connection.refresh();assert.equal((await connection.exportOrdersXlsx()).status,'SAVE_CANCELLED');});
 
 function makeConnection(remoteSession, overrides = {}) {
   const browserWindows = [];
@@ -1478,6 +1512,7 @@ function makeConnection(remoteSession, overrides = {}) {
     showShipmentReview: overrides.showShipmentReview,
     shipmentDirectory: overrides.shipmentDirectory,
     labelPreview: overrides.labelPreview,
+    saveOrderExport: overrides.saveOrderExport,
   });
   return { connection, sessionModule, browserWindows };
 }

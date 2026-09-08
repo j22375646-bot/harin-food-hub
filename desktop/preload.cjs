@@ -43,7 +43,7 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   viewActive: () => ipcRenderer.invoke('moaon-hub:view-active'),
   viewChannel: (channel) => ipcRenderer.invoke('moaon-hub:view-channel',channel),
   setOrderFilters: (filters) => {
-    if(!filters||typeof filters!=='object'||Array.isArray(filters)||![2,5].includes(Object.keys(filters).length)||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean'||(Object.keys(filters).length===5&&!validOrderSearch(filters)))throw Error('Invalid filter arguments');
+    if(!filters||typeof filters!=='object'||Array.isArray(filters)||![2,5].includes(Object.keys(filters).length)||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean'||(Object.keys(filters).length===5&&!validOrderSearch({query:filters.query,start:filters.start,end:filters.end})))throw Error('Invalid filter arguments');
     return ipcRenderer.invoke('moaon-hub:set-order-filters',filters);
   },
   resetOrderFilters: () => ipcRenderer.invoke('moaon-hub:reset-order-filters'),

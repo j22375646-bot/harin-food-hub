@@ -16,8 +16,8 @@ const ORDERS_PAGE_SIZE = 20;
 const SNAPSHOT_PATTERN = /^[0-9a-f]{64}$/;
 
 function realDate(value){if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const [y,m,d]=value.split('-').map(Number),date=new Date(Date.UTC(y,m-1,d));return date.getUTCFullYear()===y&&date.getUTCMonth()===m-1&&date.getUTCDate()===d;}
-function validSearch(search){return search&&typeof search==='object'&&!Array.isArray(search)&&typeof search.query==='string'&&search.query.length<=100&&typeof search.start==='string'&&typeof search.end==='string'&&(!search.start||realDate(search.start))&&(!search.end||realDate(search.end))&&(!search.start||!search.end||search.start<=search.end);}
-function validFilters(filters){return filters&&typeof filters==='object'&&!Array.isArray(filters)&&typeof filters.delayOnly==='boolean'&&typeof filters.giftOnly==='boolean'&&(Object.keys(filters).length===2||Object.keys(filters).length===5&&validSearch(filters));}
+function validSearch(search){return search&&typeof search==='object'&&!Array.isArray(search)&&Object.keys(search).length===3&&typeof search.query==='string'&&search.query.length<=100&&typeof search.start==='string'&&typeof search.end==='string'&&(!search.start||realDate(search.start))&&(!search.end||realDate(search.end))&&(!search.start||!search.end||search.start<=search.end);}
+function validFilters(filters){return filters&&typeof filters==='object'&&!Array.isArray(filters)&&typeof filters.delayOnly==='boolean'&&typeof filters.giftOnly==='boolean'&&(Object.keys(filters).length===2||Object.keys(filters).length===5&&validSearch({query:filters.query,start:filters.start,end:filters.end}));}
 const EMPTY_FILTERS=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});
 function searchSuffix(filters){const legacy=`&delayOnly=${filters.delayOnly}&giftOnly=${filters.giftOnly}`;return Object.keys(filters).length===2||!filters.query&&!filters.start&&!filters.end?legacy:`${legacy}&query=${encodeURIComponent(filters.query)}&start=${filters.start}&end=${filters.end}`;}
 function buildOrdersScopeUrl(scope = 'ACTIVE', channel = 'ALL', filters = EMPTY_FILTERS) {
