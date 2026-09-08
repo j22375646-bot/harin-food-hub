@@ -3,9 +3,10 @@
 const {
   HARIN_ORIGIN,
   LOGIN_URL,
-  ORDERS_URL,
+  ORDER_SCOPES,
   READONLY_PARTITION,
   buildOrdersPageUrl,
+  buildOrdersScopeUrl,
   isAllowedRemoteRequest,
   isTrustedRenderer,
 } = require('./connection-policy.cjs');
@@ -17,7 +18,7 @@ const SNAPSHOT_PATTERN = /^[0-9a-f]{64}$/;
 const EMPTY_ORDERS = Object.freeze([]);
 
 const STATUS_MESSAGES = Object.freeze({
-  READY: '저장된 활성 주문을 조회했습니다.',
+  READY: '저장된 주문을 조회했습니다.',
   PARTIAL: '일부 채널 자료를 확인하지 못했습니다. 표시된 저장 주문만 확인하세요.',
   LOGIN_REQUIRED: '하린식품 로그인이 필요합니다.',
   FORBIDDEN: '이 계정으로 주문을 조회할 권한이 없습니다.',
@@ -53,6 +54,7 @@ function safeFiniteNumber(value) {
 function projectOrdersPayload(payload, checkedAt, options = {}) {
   const requestedOffset = options.requestedOffset ?? 0;
   const expectedSnapshot = options.expectedSnapshot ?? null;
+  const scope = options.scope ?? 'ACTIVE';
   if (
     !payload
     || payload.ok !== true
@@ -75,6 +77,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     || payload.nextOffset !== (payload.offset + PAGE_SIZE < payload.total ? payload.offset + PAGE_SIZE : null)
     || typeof payload.partial !== 'boolean'
     || typeof checkedAt !== 'string'
+    || !ORDER_SCOPES.includes(scope)
   ) {
     throw new Error('Invalid orders payload');
   }
@@ -100,6 +103,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     checkedAt,
     partial,
     message: STATUS_MESSAGES[partial ? 'PARTIAL' : 'READY'],
+    scope,
   });
 }
 
@@ -165,6 +169,7 @@ function createHubConnection({
   let cleanupFailed = false;
   let generation = 0;
   let pageCursor = null;
+  let currentScope = 'ACTIVE';
 
   function isLoginWindowActive() {
     return Boolean(loginWindow && !loginWindow.isDestroyed());
@@ -195,7 +200,7 @@ function createHubConnection({
     pageCursor = null;
   }
 
-  async function performRead(readGeneration, { url, requestedOffset, expectedSnapshot }) {
+  async function performRead(readGeneration, { url, requestedOffset, expectedSnapshot, scope }) {
     const controller = new AbortController();
     activeAbortController = controller;
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -227,11 +232,12 @@ function createHubConnection({
 
       const payload = await readBoundedJson(response, controller);
       if (readGeneration !== generation) return safeEmpty('DISCONNECTED');
-      const result = projectOrdersPayload(payload, now().toISOString(), { requestedOffset, expectedSnapshot });
+      const result = projectOrdersPayload(payload, now().toISOString(), { requestedOffset, expectedSnapshot, scope });
       pageCursor = Object.freeze({
         offset: payload.offset,
         nextOffset: payload.nextOffset,
         snapshot: payload.snapshot,
+        scope,
       });
       return result;
     } catch {
@@ -270,7 +276,7 @@ function createHubConnection({
   function refresh() {
     if (activeRead) return activeRead;
     invalidateCursor();
-    return startRead({ url: ORDERS_URL, requestedOffset: 0, expectedSnapshot: null });
+    return startRead({ url: buildOrdersScopeUrl(currentScope), requestedOffset: 0, expectedSnapshot: null, scope: currentScope });
   }
 
   function nextPage() {
@@ -280,9 +286,10 @@ function createHubConnection({
       return Promise.resolve(safeEmpty('UNAVAILABLE', '이동할 다음 주문 페이지가 없습니다. 첫 페이지를 다시 조회하세요.'));
     }
     return startRead({
-      url: buildOrdersPageUrl(cursor.nextOffset, cursor.snapshot),
+      url: buildOrdersPageUrl(cursor.nextOffset, cursor.snapshot, currentScope),
       requestedOffset: cursor.nextOffset,
       expectedSnapshot: cursor.snapshot,
+      scope: currentScope,
     });
   }
 
@@ -294,11 +301,29 @@ function createHubConnection({
     }
     const previousOffset = cursor.offset - PAGE_SIZE;
     return startRead({
-      url: buildOrdersPageUrl(previousOffset, cursor.snapshot),
+      url: buildOrdersPageUrl(previousOffset, cursor.snapshot, currentScope),
       requestedOffset: previousOffset,
       expectedSnapshot: cursor.snapshot,
+      scope: currentScope,
     });
   }
+
+  function viewScope(scope) {
+    const blocked = blockedReadResult();
+    if (blocked) return blocked;
+    if (scope === currentScope) return refresh();
+    generation += 1;
+    currentScope = scope;
+    invalidateCursor();
+    activeRead = null;
+    activeAbortController?.abort();
+    return startRead({ url: buildOrdersScopeUrl(scope), requestedOffset: 0, expectedSnapshot: null, scope });
+  }
+
+  const viewActive = () => viewScope('ACTIVE');
+  const viewRegistered = () => viewScope('REGISTER');
+  const viewInTransit = () => viewScope('IN_TRANSIT');
+  const viewCompleted = () => viewScope('COMPLETED');
 
   function connect() {
     if (disconnecting || cleanupFailed) {
@@ -398,6 +423,7 @@ function createHubConnection({
   function disconnect() {
     if (disconnecting) return disconnecting;
     generation += 1;
+    currentScope = 'ACTIVE';
     invalidateCursor();
     activeRead = null;
     activeAbortController?.abort();
@@ -427,6 +453,7 @@ function createHubConnection({
 
   function closeChildren() {
     generation += 1;
+    currentScope = 'ACTIVE';
     invalidateCursor();
     activeRead = null;
     activeAbortController?.abort();
@@ -434,7 +461,7 @@ function createHubConnection({
     loginWindow = null;
   }
 
-  return Object.freeze({ connect, refresh, nextPage, previousPage, disconnect, closeChildren });
+  return Object.freeze({ connect, refresh, nextPage, previousPage, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -443,6 +470,10 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     ['moaon-hub:refresh', 'refresh'],
     ['moaon-hub:next-page', 'nextPage'],
     ['moaon-hub:previous-page', 'previousPage'],
+    ['moaon-hub:view-active', 'viewActive'],
+    ['moaon-hub:view-registered', 'viewRegistered'],
+    ['moaon-hub:view-in-transit', 'viewInTransit'],
+    ['moaon-hub:view-completed', 'viewCompleted'],
     ['moaon-hub:disconnect', 'disconnect'],
   ];
 

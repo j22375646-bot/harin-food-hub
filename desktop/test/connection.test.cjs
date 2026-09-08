@@ -11,6 +11,7 @@ const {
   HARIN_ORIGIN,
   LOGIN_URL,
   ORDERS_URL,
+  ORDER_SCOPES,
   READONLY_PARTITION,
   buildOrdersPageUrl,
   isAllowedRemoteRequest,
@@ -32,6 +33,16 @@ test('remote request policy allows only the fixed login, assets, login POST and 
     { method: 'GET', url: `${HARIN_ORIGIN}/favicon.ico`, webContentsId: 41 },
     { method: 'POST', url: `${HARIN_ORIGIN}/api/dashboard/login`, webContentsId: 41 },
     { method: 'GET', url: ORDERS_URL, webContentsId: 0 },
+    ...['REGISTER', 'IN_TRANSIT', 'COMPLETED'].map((scope) => ({
+      method: 'GET',
+      url: `${HARIN_ORIGIN}/api/orders/page?stage=${scope}&platform=ALL`,
+      webContentsId: 0,
+    })),
+    ...['REGISTER', 'IN_TRANSIT', 'COMPLETED'].map((scope) => ({
+      method: 'GET',
+      url: buildOrdersPageUrl(20, snapshot, scope),
+      webContentsId: 0,
+    })),
     { method: 'GET', url: `${ORDERS_URL}&offset=0&snapshot=${snapshot}`, webContentsId: 0 },
     { method: 'GET', url: `${ORDERS_URL}&offset=20&snapshot=${snapshot}`, webContentsId: undefined },
   ];
@@ -43,6 +54,7 @@ test('remote request policy allows only the fixed login, assets, login POST and 
   const denied = [
     { method: 'GET', url: `${HARIN_ORIGIN}/`, webContentsId: 41 },
     { method: 'GET', url: `${HARIN_ORIGIN}/api/orders/page?platform=ALL&stage=ACTIVE`, webContentsId: 0 },
+    { method: 'GET', url: `${HARIN_ORIGIN}/api/orders/page?stage=UNKNOWN&platform=ALL`, webContentsId: 0 },
     { method: 'GET', url: `${HARIN_ORIGIN}/api/orders/page?stage=ACTIVE&platform=ALL&offset=20`, webContentsId: 0 },
     { method: 'GET', url: `${ORDERS_URL}&snapshot=${snapshot}&offset=20`, webContentsId: 0 },
     { method: 'GET', url: `${ORDERS_URL}&offset=020&snapshot=${snapshot}`, webContentsId: 0 },
@@ -79,10 +91,20 @@ test('orders page URL builder emits only canonical bounded cursor URLs', () => {
 
   assert.equal(buildOrdersPageUrl(0, snapshot), `${ORDERS_URL}&offset=0&snapshot=${snapshot}`);
   assert.equal(buildOrdersPageUrl(40, snapshot), `${ORDERS_URL}&offset=40&snapshot=${snapshot}`);
+  assert.deepEqual(ORDER_SCOPES, ['ACTIVE', 'REGISTER', 'IN_TRANSIT', 'COMPLETED']);
+  for (const scope of ORDER_SCOPES) {
+    assert.equal(
+      buildOrdersPageUrl(20, snapshot, scope),
+      `${HARIN_ORIGIN}/api/orders/page?stage=${scope}&platform=ALL&offset=20&snapshot=${snapshot}`,
+    );
+  }
   for (const [offset, cursor] of [
     [-20, snapshot], [1, snapshot], [Number.MAX_SAFE_INTEGER, snapshot], [20, 'A'.repeat(64)], [20, ''],
   ]) {
     assert.throws(() => buildOrdersPageUrl(offset, cursor), /Invalid orders page cursor/);
+  }
+  for (const scope of ['', 'UNKNOWN', 'active', null, 1]) {
+    assert.throws(() => buildOrdersPageUrl(20, snapshot, scope), /Invalid orders scope/);
   }
 });
 
@@ -121,9 +143,11 @@ test('orders payload is deeply frozen, limited to 20, and projected without PII 
     snapshot: TEST_SNAPSHOT,
     partial: true,
     warning: 'raw provider warning',
+    scope: 'UNTRUSTED_SERVER_SCOPE',
   }, '2026-09-08T12:00:00.000Z');
 
-  assert.deepEqual(Object.keys(result), ['status', 'orders', 'total', 'offset', 'hasPrevious', 'hasMore', 'checkedAt', 'partial', 'message']);
+  assert.deepEqual(Object.keys(result), ['status', 'orders', 'total', 'offset', 'hasPrevious', 'hasMore', 'checkedAt', 'partial', 'message', 'scope']);
+  assert.equal(result.scope, 'ACTIVE');
   assert.equal(result.status, 'PARTIAL');
   assert.equal(result.orders.length, 20);
   assert.equal(result.total, 21);
@@ -283,6 +307,106 @@ test('page actions fetch exactly 20 plus 20 plus 5 rows, move backward, stop at 
     buildOrdersPageUrl(20, TEST_SNAPSHOT),
     ORDERS_URL,
   ]);
+});
+
+test('scope actions reset paging and refresh, next, and previous stay on the selected trusted scope', async () => {
+  const fetchUrls = [];
+  const remoteSession = makeRemoteSession(async (url) => {
+    fetchUrls.push(url);
+    const parsed = new URL(url);
+    const offset = Number(parsed.searchParams.get('offset') || 0);
+    return new Response(JSON.stringify(makePagePayload({
+      orders: Array.from({ length: 20 }, (_, index) => ({ hubOrderId: `R-${offset + index + 1}` })),
+      total: 45,
+      offset,
+      nextOffset: offset < 40 ? offset + 20 : null,
+    })), { status: 200 });
+  });
+  const { connection } = makeConnection(remoteSession);
+
+  const registered = await connection.viewRegistered();
+  const next = await connection.nextPage();
+  const previous = await connection.previousPage();
+  const refreshed = await connection.refresh();
+
+  assert.deepEqual([registered.scope, next.scope, previous.scope, refreshed.scope], ['REGISTER', 'REGISTER', 'REGISTER', 'REGISTER']);
+  assert.deepEqual(fetchUrls, [
+    `${HARIN_ORIGIN}/api/orders/page?stage=REGISTER&platform=ALL`,
+    buildOrdersPageUrl(20, TEST_SNAPSHOT, 'REGISTER'),
+    buildOrdersPageUrl(0, TEST_SNAPSHOT, 'REGISTER'),
+    `${HARIN_ORIGIN}/api/orders/page?stage=REGISTER&platform=ALL`,
+  ]);
+});
+
+test('scope switch detaches an abort-ignoring old read and a delayed old response cannot replace the new cursor', async () => {
+  const registeredSnapshot = 'b'.repeat(64);
+  let releaseActive;
+  const urls = [];
+  const remoteSession = makeRemoteSession(async (url) => {
+    urls.push(url);
+    if (urls.length === 1) return new Promise((resolve) => { releaseActive = resolve; });
+    const offset = Number(new URL(url).searchParams.get('offset') || 0);
+    return new Response(JSON.stringify(makePagePayload({
+      orders: Array.from({ length: offset ? 1 : 20 }, () => ({ hubOrderId: offset ? 'REGISTER-21' : 'REGISTER' })),
+      total: 21,
+      offset,
+      snapshot: registeredSnapshot,
+    })), { status: 200 });
+  });
+  const { connection } = makeConnection(remoteSession);
+
+  const oldRead = connection.refresh();
+  await Promise.resolve();
+  const registered = await connection.viewRegistered();
+  releaseActive(new Response(JSON.stringify(makePagePayload({ orders: [{ hubOrderId: 'STALE' }] })), { status: 200 }));
+  const stale = await oldRead;
+  const next = await connection.nextPage();
+
+  assert.equal(registered.scope, 'REGISTER');
+  assert.equal(stale.status, 'DISCONNECTED');
+  assert.equal(next.orders[0].hubOrderId, 'REGISTER-21');
+  assert.equal(urls[2], buildOrdersPageUrl(20, registeredSnapshot, 'REGISTER'));
+});
+
+test('failed selected-scope read retries that scope from page one and disconnect resets selection to ACTIVE', async () => {
+  const urls = [];
+  let status = 500;
+  const remoteSession = makeRemoteSession(async (url) => {
+    urls.push(url);
+    if (status !== 200) return new Response('', { status });
+    return new Response(JSON.stringify(makePagePayload({ orders: [{ hubOrderId: 'OK' }] })), { status: 200 });
+  });
+  const { connection } = makeConnection(remoteSession);
+
+  assert.equal((await connection.viewCompleted()).status, 'UNAVAILABLE');
+  status = 200;
+  assert.equal((await connection.refresh()).scope, 'COMPLETED');
+  await connection.disconnect();
+  assert.equal((await connection.refresh()).scope, 'ACTIVE');
+  assert.deepEqual(urls, [
+    `${HARIN_ORIGIN}/api/orders/page?stage=COMPLETED&platform=ALL`,
+    `${HARIN_ORIGIN}/api/orders/page?stage=COMPLETED&platform=ALL`,
+    ORDERS_URL,
+  ]);
+});
+
+test('a scope action blocked during disconnect cannot replace the ACTIVE reset', async () => {
+  const urls = [];
+  let releaseClear;
+  const remoteSession = makeRemoteSession(async (url) => {
+    urls.push(url);
+    return new Response(JSON.stringify(makePagePayload({ orders: [{ hubOrderId: 'OK' }] })), { status: 200 });
+  });
+  const { connection } = makeConnection(remoteSession);
+  await connection.viewRegistered();
+  remoteSession.clearStorageData = () => new Promise((resolve) => { releaseClear = resolve; });
+
+  const disconnecting = connection.disconnect();
+  assert.equal((await connection.viewCompleted()).status, 'UNAVAILABLE');
+  releaseClear();
+  await disconnecting;
+  assert.equal((await connection.refresh()).scope, 'ACTIVE');
+  assert.equal(urls.at(-1), ORDERS_URL);
 });
 
 test('snapshot change and authorization failures invalidate page navigation until a fresh first-page read', async () => {
@@ -590,7 +714,7 @@ test('an intercepted root redirect closes login and verifies authorization with 
   assert.equal(result.orders[0].productName, '검증용 상품');
 });
 
-test('IPC registration rejects arguments and untrusted senders before dispatching five fixed methods', async () => {
+test('IPC registration rejects arguments and untrusted senders before dispatching nine fixed methods', async () => {
   const handlers = new Map();
   const ipcMain = { handle: (channel, handler) => handlers.set(channel, handler) };
   const mainFrame = { url: 'moaon://app/index.html' };
@@ -602,21 +726,29 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
     refresh: async () => calls.push('refresh') && { status: 'READY' },
     nextPage: async () => calls.push('nextPage') && { status: 'READY' },
     previousPage: async () => calls.push('previousPage') && { status: 'READY' },
+    viewActive: async () => calls.push('viewActive') && { status: 'READY' },
+    viewRegistered: async () => calls.push('viewRegistered') && { status: 'READY' },
+    viewInTransit: async () => calls.push('viewInTransit') && { status: 'READY' },
+    viewCompleted: async () => calls.push('viewCompleted') && { status: 'READY' },
     disconnect: async () => calls.push('disconnect') && { status: 'DISCONNECTED' },
   };
   registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
   const trusted = { sender: webContents, senderFrame: mainFrame };
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:disconnect']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
   assert.equal((await handlers.get('moaon-hub:refresh')(trusted)).status, 'READY');
   assert.equal((await handlers.get('moaon-hub:next-page')(trusted)).status, 'READY');
   assert.equal((await handlers.get('moaon-hub:previous-page')(trusted)).status, 'READY');
+  assert.equal((await handlers.get('moaon-hub:view-active')(trusted)).status, 'READY');
+  assert.equal((await handlers.get('moaon-hub:view-registered')(trusted)).status, 'READY');
+  assert.equal((await handlers.get('moaon-hub:view-in-transit')(trusted)).status, 'READY');
+  assert.equal((await handlers.get('moaon-hub:view-completed')(trusted)).status, 'READY');
   await assert.rejects(handlers.get('moaon-hub:connect')(trusted, 'https://evil.invalid'), /Arguments are not allowed/);
   await assert.rejects(handlers.get('moaon-hub:disconnect')({ sender: {}, senderFrame: null }), /Untrusted renderer/);
-  assert.deepEqual(calls, ['refresh', 'nextPage', 'previousPage']);
+  assert.deepEqual(calls, ['refresh', 'nextPage', 'previousPage', 'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted']);
 });
 
-test('preload exposes only a frozen five-method moaonHub bridge with fixed no-argument channels', async () => {
+test('preload exposes only a frozen nine-method moaonHub bridge with fixed no-argument channels', async () => {
   const exposed = new Map();
   const invocations = [];
   const originalLoad = Module._load;
@@ -642,17 +774,25 @@ test('preload exposes only a frozen five-method moaonHub bridge with fixed no-ar
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['connect', 'refresh', 'nextPage', 'previousPage', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['connect', 'refresh', 'nextPage', 'previousPage', 'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });
   await bridge.nextPage({ ignored: true });
   await bridge.previousPage({ ignored: true });
+  await bridge.viewActive('ignored');
+  await bridge.viewRegistered('ignored');
+  await bridge.viewInTransit('ignored');
+  await bridge.viewCompleted('ignored');
   await bridge.disconnect('ignored');
   assert.deepEqual(invocations, [
     ['moaon-hub:connect'],
     ['moaon-hub:refresh'],
     ['moaon-hub:next-page'],
     ['moaon-hub:previous-page'],
+    ['moaon-hub:view-active'],
+    ['moaon-hub:view-registered'],
+    ['moaon-hub:view-in-transit'],
+    ['moaon-hub:view-completed'],
     ['moaon-hub:disconnect'],
   ]);
 });

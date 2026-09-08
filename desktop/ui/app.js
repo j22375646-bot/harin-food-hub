@@ -6,6 +6,23 @@ const sampleOrders = Object.freeze([
   Object.freeze({ id: 'MOAON-S003', customer: '박하루', product: '구운 다시마칩 묶음', option: '4봉 · 샘플', amount: '25,600원', channel: '데모 스토어', status: '발송 대기 예시', address: '부산시 해운대구 예시로 7 · 가상 주소', note: '요청 사항 없음' }),
 ]);
 
+const scopeDetails = Object.freeze({
+  ACTIVE: Object.freeze({ action: 'viewActive', label: '송장 발급 전', range: '저장된 송장 발급 전 주문', title: '송장 발급 전 주문을', description: '저장된 송장 발급 전 주문을 20건씩 조회합니다.' }),
+  REGISTER: Object.freeze({ action: 'viewRegistered', label: '송장 등록 후', range: '저장된 송장 등록 후 주문', title: '송장 등록 후 주문을', description: '저장된 송장 등록 후 주문을 20건씩 조회합니다.' }),
+  IN_TRANSIT: Object.freeze({ action: 'viewInTransit', label: '배송중', range: '저장된 배송중 주문', title: '배송중 주문을', description: '저장된 배송중 주문을 20건씩 조회합니다.' }),
+  COMPLETED: Object.freeze({ action: 'viewCompleted', label: '완료·취소', range: '수집된 완료·취소 주문', title: '완료·취소 주문을', description: '수집된 완료·취소 주문만 20건씩 조회합니다. 전체 이력이나 특정 기간 전체를 뜻하지 않습니다.' }),
+});
+const scopeByAction = Object.freeze(Object.fromEntries(Object.entries(scopeDetails).map(([scope, detail]) => [detail.action, scope])));
+const stageLabels = Object.freeze({
+  PAID: '결제완료',
+  PREPARING: '준비중',
+  READY_TO_SHIP: '출고대기',
+  WAITING_FOR_CARRIER: '배송대기중',
+  SHIPPING: '배송중',
+  DELIVERED: '배송완료',
+  CANCELLED: '취소',
+});
+
 const navButtons = [...document.querySelectorAll('[data-route]')];
 const pages = [...document.querySelectorAll('[data-page]')];
 const orderList = document.querySelector('#order-list');
@@ -38,6 +55,8 @@ let displayMode = 'sample';
 let displayedOrders = sampleOrders;
 let connectionResult = null;
 let actionGeneration = 0;
+let selectedScope = 'ACTIVE';
+let scopeControlsAvailable = false;
 
 function makeElement(tagName, className, text) {
   const element = document.createElement(tagName);
@@ -67,6 +86,8 @@ const isSampleMode = () => displayMode === 'sample';
 const orderId = (order) => isSampleMode() ? order.id : order.hubOrderId;
 const formatNumber = (value, suffix = '') => typeof value === 'number' && Number.isFinite(value)
   ? `${value.toLocaleString('ko-KR')}${suffix}` : '확인 필요';
+const stageLabel = (stage) => stageLabels[stage] || '상태 확인 필요';
+const selectedScopeDetail = () => scopeDetails[selectedScope];
 
 function formatTime(value) {
   if (!value) return '확인 시각 없음';
@@ -83,7 +104,7 @@ function closeOrderDetail(options = {}) {
   icon.setAttribute('aria-hidden', 'true');
   const description = isSampleMode()
     ? '선택한 샘플 주문의 고객, 상품, 배송 정보를 여기에 표시합니다.'
-    : displayMode === 'live' ? '선택한 조회 전용 주문의 허용된 정보만 표시합니다.' : '연결 상태를 확인한 뒤 주문을 조회하세요.';
+    : displayMode === 'live' ? `선택한 ${selectedScopeDetail().range}의 허용된 정보만 표시합니다.` : '연결 상태를 확인한 뒤 주문을 조회하세요.';
   empty.append(icon, makeElement('strong', '', '주문을 선택하세요'), makeElement('p', '', description));
   detailPanel.append(empty);
   if (options.restoreFocus && selectedOrderButton?.isConnected) selectedOrderButton.focus();
@@ -119,10 +140,10 @@ function showOrderDetail(order, button) {
     addDetailSection(body, '배송 메모', order.note, '가상 정보이며 배송에 사용되지 않습니다.');
     body.append(makeElement('p', 'detail-notice', '이 시제품에는 송장 발급, 인쇄, 주문 상태 변경 버튼이 없습니다.'));
   } else {
-    addDetailSection(body, '주문', order.hubOrderId || '주문번호 확인 필요', `${order.platform || '채널 확인 필요'} · ${order.stage || '상태 확인 필요'}`);
+    addDetailSection(body, '주문', order.hubOrderId || '주문번호 확인 필요', `${order.platform || '채널 확인 필요'} · ${stageLabel(order.stage)}`);
     addDetailSection(body, '상품', order.productName || '상품 정보 확인 필요', `${formatNumber(order.quantity, '개')} · ${formatNumber(order.amount, '원')}`);
     addDetailSection(body, '주문 시각', order.orderedAt ? formatTime(order.orderedAt) : '확인 필요', `목록 확인 ${formatTime(connectionResult?.checkedAt)}`);
-    body.append(makeElement('p', 'detail-notice', '저장된 활성 주문 조회 전용입니다. 플랫폼 동기화 성공을 의미하지 않으며 발급·변경·전송 기능은 없습니다.'));
+    body.append(makeElement('p', 'detail-notice', `${selectedScopeDetail().description} 플랫폼 동기화 성공을 의미하지 않으며 발급·변경·전송 기능은 없습니다.`));
   }
   detailPanel.append(header, body);
   closeButton.focus();
@@ -145,7 +166,7 @@ function createOrderRow(order) {
   } else {
     const product = order.productName || '상품 정보 확인 필요';
     const channel = order.platform || '채널 확인 필요';
-    const stage = order.stage || '상태 확인 필요';
+    const stage = stageLabel(order.stage);
     button.setAttribute('aria-label', `${id || '주문번호 확인 필요'}, ${product}, ${channel}, ${stage}, 조회 전용 주문 상세 열기`);
     primary.append(makeElement('strong', '', product), makeElement('span', '', id || '주문번호 확인 필요'));
     secondary.append(makeElement('strong', '', channel), makeElement('span', '', stage));
@@ -161,7 +182,7 @@ function renderOrders() {
   const visibleOrders = displayedOrders.filter((order) => {
     const fields = isSampleMode()
       ? [order.id, order.customer, order.product, order.channel]
-      : [order.hubOrderId, order.productName, order.platform, order.stage];
+      : [order.hubOrderId, order.productName, order.platform, order.stage, stageLabel(order.stage)];
     return fields.join(' ').toLocaleLowerCase('ko-KR').includes(query);
   });
   orderList.replaceChildren(...visibleOrders.map(createOrderRow));
@@ -196,6 +217,11 @@ function setButtons(mode) {
       button.hidden = mode !== 'live';
       button.disabled = busy || connectionResult?.hasMore !== true;
     }
+    if (action.startsWith('hub-view')) {
+      button.hidden = !scopeControlsAvailable;
+      button.disabled = busy;
+      button.setAttribute('aria-pressed', String(scopeByAction[action.replace('hub-', '')] === selectedScope));
+    }
     if (action === 'hub-disconnect') button.hidden = !['connecting', 'live', 'error'].includes(mode);
     if (action === 'sample-mode') button.hidden = mode === 'sample';
   }
@@ -207,26 +233,27 @@ function updateConnectionChrome(message) {
   const partial = connectionResult?.status === 'PARTIAL';
   const pageStart = live && displayedOrders.length ? connectionResult.offset + 1 : 0;
   const pageEnd = live ? connectionResult.offset + displayedOrders.length : 0;
-  const pageRange = live ? `${pageStart.toLocaleString('ko-KR')}–${pageEnd.toLocaleString('ko-KR')} / 저장된 활성 주문 ${connectionResult.total.toLocaleString('ko-KR')}건` : '';
+  const scope = selectedScopeDetail();
+  const pageRange = live ? `${pageStart.toLocaleString('ko-KR')}–${pageEnd.toLocaleString('ko-KR')} / ${scope.range} ${connectionResult.total.toLocaleString('ko-KR')}건` : '';
   statusElements.businessStatus.textContent = sample ? '가상 사업장' : live ? '조회 전용' : '연결 확인';
   statusElements.businessName.textContent = live ? '하린식품' : sample ? '모아온 데모' : '하린식품';
-  statusElements.businessDetail.textContent = live ? `활성 주문 ${pageStart.toLocaleString('ko-KR')}–${pageEnd.toLocaleString('ko-KR')}` : sample ? '시험 자료만 표시 중' : '실제 주문 표시 안 함';
+  statusElements.businessDetail.textContent = live ? `${scope.label} ${pageStart.toLocaleString('ko-KR')}–${pageEnd.toLocaleString('ko-KR')}` : sample ? '시험 자료만 표시 중' : '실제 주문 표시 안 함';
   statusElements.topBusinessName.textContent = live ? '하린식품' : sample ? '모아온 데모' : '하린식품';
   statusElements.global.textContent = live ? `하린식품 · 저장 주문 조회 전용${partial ? ' · 부분 확인' : ''}` : sample ? '시험 자료 · 하린식품 연결 안 됨' : message;
   statusElements.globalBadge.textContent = live ? '조회' : sample ? '시험' : '확인';
-  statusElements.nav.textContent = live ? `활성 주문 ${pageStart.toLocaleString('ko-KR')}–${pageEnd.toLocaleString('ko-KR')}` : sample ? '샘플 주문 3건' : '실제 주문 표시 안 함';
-  statusElements.todayContext.textContent = live ? `하린식품 · 저장된 활성 주문 · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? 'Windows 시제품 · 샘플 모드' : '하린식품 · 연결 상태 확인 필요';
+  statusElements.nav.textContent = live ? `${scope.label} ${pageStart.toLocaleString('ko-KR')}–${pageEnd.toLocaleString('ko-KR')}` : sample ? '샘플 주문 3건' : '실제 주문 표시 안 함';
+  statusElements.todayContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? 'Windows 시제품 · 샘플 모드' : '하린식품 · 연결 상태 확인 필요';
   statusElements.todayTitleMode.textContent = live ? '하린식품 주문을' : sample ? '지금 가능한 일' : '실제 주문을 비우고';
   statusElements.todayTitleTail.textContent = live ? ' 조회 전용으로 확인합니다' : sample ? '부터 확인하세요' : ' 연결 상태를 확인합니다';
-  statusElements.todayDescription.textContent = live ? '저장된 활성 주문을 페이지 단위로 표시합니다. 플랫폼 동기화 성공이나 전체 주문 현황을 뜻하지 않습니다.' : sample ? '실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.' : message;
-  statusElements.ordersContext.textContent = live ? `하린식품 · 저장된 활성 주문 · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? '주문·배송 · 샘플 3건' : '하린식품 · 연결 상태 확인 필요';
-  statusElements.ordersTitleMode.textContent = live ? '활성 주문을' : sample ? '가상 주문만' : '비운 목록을';
-  statusElements.ordersDescription.textContent = live ? '저장된 활성 주문을 20건씩 조회하며 검색은 현재 페이지에만 적용됩니다. 플랫폼 동기화·실업무 처리 화면이 아닙니다.' : sample ? '검색하거나 주문을 선택해 우측 상세를 확인할 수 있습니다. 발급과 상태 변경은 없습니다.' : message;
+  statusElements.todayDescription.textContent = live ? `${scope.description} 플랫폼 동기화 성공이나 전체 주문 현황을 뜻하지 않습니다.` : sample ? '실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.' : message;
+  statusElements.ordersContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? '주문·배송 · 샘플 3건' : '하린식품 · 연결 상태 확인 필요';
+  statusElements.ordersTitleMode.textContent = live ? scope.title : sample ? '가상 주문만' : scopeControlsAvailable ? scope.title : '비운 목록을';
+  statusElements.ordersDescription.textContent = live ? `${scope.description} 검색은 현재 페이지에만 적용되며 플랫폼 동기화·실업무 처리 화면이 아닙니다.` : sample ? '검색하거나 주문을 선택해 우측 상세를 확인할 수 있습니다. 발급과 상태 변경은 없습니다.' : message;
   statusElements.ordersEyebrow.textContent = live ? 'HARIN STORED ORDERS · READ ONLY' : sample ? 'SAMPLE ORDERS' : 'NO LIVE DATA';
   statusElements.ordersRange.textContent = live ? pageRange : sample ? '실제 발급 버튼 없음' : '실제 주문 자료 비움';
   statusElements.settingsChip.textContent = live ? partial ? '부분 확인' : '조회 전용' : sample ? '샘플' : '확인 필요';
   statusElements.settingsChip.className = `status-chip ${live && !partial ? 'status-ready' : sample ? 'status-sample' : 'status-blocked'}`;
-  statusElements.programDataScope.textContent = live ? '하린식품 · 활성 주문 페이지 조회' : sample ? '가상 사업장 · 샘플 주문' : '실제 주문 표시 안 함';
+  statusElements.programDataScope.textContent = live ? `하린식품 · ${scope.label} 페이지 조회` : sample ? '가상 사업장 · 샘플 주문' : '실제 주문 표시 안 함';
   statusElements.programNetwork.textContent = live ? '명시적 조회만' : sample ? '연결 안 됨' : '연결 상태 확인 필요';
   statusElements.statusbarData.textContent = live ? `데이터: 하린식품 저장 주문 조회 전용 · ${formatTime(connectionResult.checkedAt)}` : sample ? '데이터: 시험 자료 · 네트워크 연결 없음' : '데이터: 실제 주문 자료 비움';
   for (const section of sampleOnlySections) section.hidden = !sample;
@@ -246,6 +273,8 @@ function clearDisplayedOrders(mode, message) {
 
 function applyHubResult(result) {
   if (result?.status === 'READY' || result?.status === 'PARTIAL') {
+    if (scopeDetails[result.scope]) selectedScope = result.scope;
+    scopeControlsAvailable = true;
     displayMode = 'live';
     connectionResult = result;
     displayedOrders = Object.freeze(result.orders.map((order) => Object.freeze({
@@ -262,17 +291,32 @@ function applyHubResult(result) {
     return;
   }
   if (result?.status === 'LOGIN_OPEN') {
+    scopeControlsAvailable = false;
     clearDisplayedOrders('connecting', result.message || '하린식품 로그인 창에서 로그인을 완료하세요.');
     return;
   }
+  if (['LOGIN_REQUIRED', 'FORBIDDEN', 'DISCONNECTED'].includes(result?.status)) scopeControlsAvailable = false;
   clearDisplayedOrders(result?.status === 'DISCONNECTED' ? 'disconnected' : 'error', result?.message || '주문 조회를 완료하지 못했습니다. 잠시 후 다시 확인하세요.');
 }
 
 async function runHubAction(action) {
   const generation = ++actionGeneration;
-  if (action === 'connect' || action === 'refresh') clearDisplayedOrders('connecting', action === 'connect' ? '별도 하린식품 로그인 창을 확인하세요. 로그인 완료 후 저장 주문을 조회합니다.' : '저장된 활성 주문을 다시 조회하고 있습니다.');
+  const requestedScope = scopeByAction[action];
+  if (requestedScope) {
+    selectedScope = requestedScope;
+    scopeControlsAvailable = true;
+    clearDisplayedOrders('connecting', `${selectedScopeDetail().range} 첫 페이지를 조회하고 있습니다.`);
+  }
+  if (action === 'connect' || action === 'refresh') {
+    if (action === 'connect') scopeControlsAvailable = false;
+    clearDisplayedOrders('connecting', action === 'connect' ? '별도 하린식품 로그인 창을 확인하세요. 로그인 완료 후 저장 주문을 조회합니다.' : `${selectedScopeDetail().range}을 다시 조회하고 있습니다.`);
+  }
   if (action === 'nextPage' || action === 'previousPage') clearDisplayedOrders('connecting', action === 'nextPage' ? '다음 주문 페이지를 조회하고 있습니다.' : '이전 주문 페이지를 조회하고 있습니다.');
-  if (action === 'disconnect') clearDisplayedOrders('connecting', '실제 주문을 비우고 연결 정보를 지우고 있습니다.');
+  if (action === 'disconnect') {
+    selectedScope = 'ACTIVE';
+    scopeControlsAvailable = false;
+    clearDisplayedOrders('connecting', '실제 주문을 비우고 연결 정보를 지우고 있습니다.');
+  }
   try {
     const bridge = window.moaonHub;
     if (!bridge || typeof bridge[action] !== 'function') throw new Error('Bridge unavailable');
@@ -289,6 +333,8 @@ async function returnToSample() {
   try { await window.moaonHub?.disconnect?.(); } catch { /* Local sample reset remains available. */ }
   if (generation !== actionGeneration) return;
   displayMode = 'sample';
+  selectedScope = 'ACTIVE';
+  scopeControlsAvailable = false;
   displayedOrders = sampleOrders;
   connectionResult = null;
   orderSearch.value = '';

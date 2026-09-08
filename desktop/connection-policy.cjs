@@ -3,14 +3,23 @@
 const APP_ENTRY_URL = 'moaon://app/index.html';
 const HARIN_ORIGIN = 'https://harin-cafe24-sync.vercel.app';
 const LOGIN_URL = `${HARIN_ORIGIN}/login`;
-const ORDERS_URL = `${HARIN_ORIGIN}/api/orders/page?stage=ACTIVE&platform=ALL`;
+const ORDER_SCOPES = Object.freeze(['ACTIVE', 'REGISTER', 'IN_TRANSIT', 'COMPLETED']);
+const ORDER_SCOPE_SET = new Set(ORDER_SCOPES);
+const ORDERS_PATH = `${HARIN_ORIGIN}/api/orders/page?stage=`;
+const ORDERS_URL = `${ORDERS_PATH}ACTIVE&platform=ALL`;
 const READONLY_PARTITION = 'moaon-harin-readonly';
 const MAX_LOGIN_QUERY_LENGTH = 512;
 const LOGIN_QUERY_KEYS = new Set(['error', 'next']);
 const ORDERS_PAGE_SIZE = 20;
 const SNAPSHOT_PATTERN = /^[0-9a-f]{64}$/;
 
-function buildOrdersPageUrl(offset, snapshot) {
+function buildOrdersScopeUrl(scope = 'ACTIVE') {
+  if (!ORDER_SCOPE_SET.has(scope)) throw new TypeError('Invalid orders scope');
+  return `${ORDERS_PATH}${scope}&platform=ALL`;
+}
+
+function buildOrdersPageUrl(offset, snapshot, scope = 'ACTIVE') {
+  const ordersUrl = buildOrdersScopeUrl(scope);
   if (
     !Number.isSafeInteger(offset)
     || offset < 0
@@ -20,17 +29,18 @@ function buildOrdersPageUrl(offset, snapshot) {
   ) {
     throw new TypeError('Invalid orders page cursor');
   }
-  return `${ORDERS_URL}&offset=${offset}&snapshot=${snapshot}`;
+  return `${ordersUrl}&offset=${offset}&snapshot=${snapshot}`;
 }
 
 function parseOrdersPageUrl(value) {
-  if (value === ORDERS_URL) return Object.freeze({ offset: 0, snapshot: null });
   if (typeof value !== 'string') return null;
-  const match = value.match(new RegExp(`^${ORDERS_URL.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}&offset=([0-9]+)&snapshot=([0-9a-f]{64})$`));
+  const escapedPath = ORDERS_PATH.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = value.match(new RegExp(`^${escapedPath}(ACTIVE|REGISTER|IN_TRANSIT|COMPLETED)&platform=ALL(?:&offset=([0-9]+)&snapshot=([0-9a-f]{64}))?$`));
   if (!match) return null;
-  const offset = Number(match[1]);
-  if (!Number.isSafeInteger(offset) || offset < 0 || offset % ORDERS_PAGE_SIZE !== 0 || String(offset) !== match[1]) return null;
-  return Object.freeze({ offset, snapshot: match[2] });
+  if (match[2] === undefined) return Object.freeze({ scope: match[1], offset: 0, snapshot: null });
+  const offset = Number(match[2]);
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset % ORDERS_PAGE_SIZE !== 0 || String(offset) !== match[2]) return null;
+  return Object.freeze({ scope: match[1], offset, snapshot: match[3] });
 }
 
 function isSafeLoginUrl(url) {
@@ -108,9 +118,11 @@ module.exports = Object.freeze({
   APP_ENTRY_URL,
   HARIN_ORIGIN,
   LOGIN_URL,
+  ORDER_SCOPES,
   ORDERS_URL,
   READONLY_PARTITION,
   buildOrdersPageUrl,
+  buildOrdersScopeUrl,
   isAllowedRemoteRequest,
   isTrustedRenderer,
 });

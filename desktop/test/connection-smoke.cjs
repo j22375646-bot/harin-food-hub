@@ -13,7 +13,7 @@ async function main(){
   try{
     const page=await app.firstWindow();
     await page.waitForLoadState('domcontentloaded');
-    assert.deepEqual(await page.evaluate(()=>Object.keys(window.moaonHub||{}).sort()),['connect','disconnect','nextPage','previousPage','refresh']);
+    assert.deepEqual(await page.evaluate(()=>Object.keys(window.moaonHub||{}).sort()),['connect','disconnect','nextPage','previousPage','refresh','viewActive','viewCompleted','viewInTransit','viewRegistered']);
     assert.equal(await page.evaluate(()=>typeof require),'undefined');
     const testPreload=packaged?path.join(root,'dist/win-unpacked/resources/app.asar/preload.cjs'):override>=0?path.join(path.dirname(executablePath),'resources/app.asar/preload.cjs'):path.join(root,'preload.cjs');
     const foreignSenderRejected=await app.evaluate(async({BrowserWindow},preload)=>{

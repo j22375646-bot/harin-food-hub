@@ -152,6 +152,12 @@
                     <kbd>Ctrl K</kbd>
                   </label>
                 </div>
+                <div class="connection-actions order-scope-actions" role="group" aria-label="주문 상태 범위">
+                  <button class="secondary-action" type="button" data-action="hub-viewActive" aria-pressed="true" hidden>송장 발급 전</button>
+                  <button class="secondary-action" type="button" data-action="hub-viewRegistered" aria-pressed="false" hidden>송장 등록 후</button>
+                  <button class="secondary-action" type="button" data-action="hub-viewInTransit" aria-pressed="false" hidden>배송중</button>
+                  <button class="secondary-action" type="button" data-action="hub-viewCompleted" aria-pressed="false" hidden>완료·취소</button>
+                </div>
                 <div class="list-state">
                   <span id="order-result-count" aria-live="polite">샘플 3건 표시</span>
                   <span id="orders-range-label">실제 발급 버튼 없음</span>
@@ -202,7 +208,7 @@
                 <header><div><span class="eyebrow">PROGRAM</span><h2 id="version-title">프로그램 정보</h2></div><span class="status-chip status-sample">Preview</span></header>
                 <dl class="program-list">
                   <div><dt>이름</dt><dd>모아온 Preview</dd></div>
-                  <div><dt>버전</dt><dd>0.3.1</dd></div>
+                  <div><dt>버전</dt><dd>0.4.0</dd></div>
                   <div><dt>자료 범위</dt><dd id="program-data-scope">가상 사업장 · 샘플 주문</dd></div>
                   <div><dt>네트워크</dt><dd id="program-network-state">연결 안 됨</dd></div>
                 </dl>

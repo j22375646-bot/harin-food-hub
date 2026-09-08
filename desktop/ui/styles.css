@@ -771,6 +771,20 @@ button {
   border-bottom: 1px solid var(--line);
 }
 
+.order-scope-actions {
+  min-height: 62px;
+  justify-content: flex-start;
+  padding: 10px 19px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.order-scope-actions button[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--blue) 42%, var(--line));
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
 .search-field {
   width: min(360px, 52%);
   min-height: 46px;
