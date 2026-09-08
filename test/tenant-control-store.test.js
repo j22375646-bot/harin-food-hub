@@ -8,6 +8,23 @@ const { PGlite } = require('@electric-sql/pglite');
 const { createTenantControlStore } = require('../lib/tenancy/control-store.js');
 const { resolveTenantContext } = require('../lib/tenancy/context.js');
 const { authorizeAction } = require('../lib/tenancy/permissions.js');
+const {createWorkspaceOrdersRequest}=require('../lib/tenancy/workspace-orders-request.js');
+
+test('사업장 주문 HTTP 경로는 실제 제어 저장소와 연결되고 조회 중 소속 변경을 차단한다', async () => {
+  const harin='a3452bca-e259-40ed-a93d-b8bcc5c1b9e0';
+  await database.query("insert into moaon_control.tenants(id,display_name,status) values($1,'가명 하린 바인딩','ACTIVE')",[harin]);
+  await database.query("insert into moaon_control.memberships(tenant_id,user_id,role,status,version) values($1,$2,'OWNER','ACTIVE',1)",[harin,IDS.owner]);
+  const makeRequest=()=>new Request(`https://hub.example/api/moaon/businesses/${harin}/orders`,{headers:{cookie:'harin_dashboard_session=abc.def'}});
+  const control=createTenantControlStore({database,verifySession:credential=>credential==='abc.def'?verifySession(SESSIONS.owner):null});
+  const handle=createWorkspaceOrdersRequest({resolveContext:input=>control.resolveContext(input),readOrders:async()=>Response.json({ok:true,orders:[{id:'fixture-only'}]})});
+  assert.equal((await handle(makeRequest())).status,200);
+  const revokeDuringRead=createWorkspaceOrdersRequest({resolveContext:input=>control.resolveContext(input),readOrders:async()=>{
+    await database.query("update moaon_control.memberships set status='REMOVED',version=2 where tenant_id=$1 and user_id=$2",[harin,IDS.owner]);
+    return Response.json({secret:'discard-this-order'});
+  }});
+  const denied=await revokeDuringRead(makeRequest());
+  assert.equal(denied.status,403);assert.doesNotMatch(await denied.text(),/discard-this-order/);
+});
 
 test('실제 소속과 인증으로 발급한 context는 사업장별 역할을 분리한다', async () => {
   assert.equal(typeof store.resolveContext, 'function');

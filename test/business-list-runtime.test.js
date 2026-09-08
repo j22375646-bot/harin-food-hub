@@ -11,6 +11,12 @@ function harness(overrides={}){
  const runtime=createBusinessListRuntime({env:{MOAON_CONTROL_DB_HOST:'configured'},createControlDatabase(){state.databaseCalls++;return database;},createIdentityClient(){state.identityCalls++;return {from:identityDb.from,auth:{admin:authAdmin}};},createService(input){state.serviceCalls++;state.inputs.push(input);return async()=>new Response(JSON.stringify({ok:true,businesses:[business]}),{status:200,headers:{'cache-control':'no-store','content-type':'application/json'}});},...overrides});
  return {runtime,state,database,identityDb,authAdmin};
 }
+test('server supplied request guard supports a scoped read before initializing',async()=>{
+ let calls=0;
+ const {runtime,state}=harness({guardRequest:()=>{calls++;return {sessionCredential:'abc.def'};}});
+ assert.equal((await runtime.handle(validRequest({},'?stage=before-issue'))).status,200);
+ assert.equal(calls,1);assert.equal(state.databaseCalls,1);await runtime.close();
+});
 test('request guards reject before runtime initialization',async()=>{
  const {runtime,state}=harness();
  for(const request of [new Request('https://hub.example/api/moaon/businesses'),validRequest({origin:'https://evil.example'}),validRequest({},'?userId=someone')])assert.notEqual((await runtime.handle(request)).status,200);

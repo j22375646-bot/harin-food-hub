@@ -1,5 +1,8 @@
 {
   "functions": {
+    "app/api/moaon/businesses/*/orders/route.js": {
+      "regions": ["sin1"]
+    },
     "app/api/moaon/businesses/route.js": {
       "regions": ["sin1"]
     }
