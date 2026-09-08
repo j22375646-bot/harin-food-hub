@@ -402,7 +402,7 @@ async function dispatchOperation(
       };
     }
     if (request.target_type === 'HUB_ORDER') {
-      const current = await unifiedShippingOrders.loadUnifiedOrders({db});
+      const current = await unifiedShippingOrders.loadUnifiedOrders({db,shippingSafetyPlatform:order.platform});
       assertCurrentShippingOrder(current, order, request.target_id);
     }
     return { epostLive: await epostClient.issueShipment(order) };

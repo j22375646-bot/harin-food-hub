@@ -35,3 +35,16 @@ test('real worker checks current order before calling the carrier',async()=>{
   assert.equal(calls,1);
  } finally {global.fetch=saved.fetch;config.readiness=saved.readiness;client.issueShipment=saved.issue;unified.loadUnifiedOrders=saved.load;}
 });
+test('strict dispatch loading rejects missing cancellation evidence instead of treating it as empty',async()=>{
+ const unified=require('../lib/orders/unified-orders.js');
+ for(const [platform,failedTable,operation] of [['CAFE24','cafe24_order_items',''],['COUPANG','coupang_returns',''],['COUPANG','coupang_operation_requests','ORDER_DETAIL']]) {
+  const db={from(table){
+   const filters={};
+   const q={then(resolve){return Promise.resolve({data:[],error:table===failedTable&&(!operation||filters.operation_type===operation)?{code:'TIMEOUT'}:null}).then(resolve);}};
+   for(const method of ['select','order','range','in','limit','neq','gte','lt'])q[method]=()=>q;
+   q.eq=(key,value)=>{filters[key]=value;return q;};
+   return q;
+  }};
+  await assert.rejects(unified.loadUnifiedOrders({db,shippingSafetyPlatform:platform}),{code:'EPOST_ORDER_RECHECK_REQUIRED'});
+ }
+});
