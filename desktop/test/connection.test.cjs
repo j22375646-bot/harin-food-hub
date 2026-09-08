@@ -8,6 +8,17 @@ const test = require('node:test');
 const TEST_SNAPSHOT = '0123456789abcdef'.repeat(4);
 
 const reviewOrder=()=>({hubOrderId:'HR-C24-1234ABCD',externalOrderId:'TEST-1',platform:'CAFE24',fulfillment:'SELLER',stage:'PAID',quantity:1,productName:'시험 상품',cancelled:false,cancellationRequested:false,invoiceNumber:'',issuedInvoiceNumber:'',shippingHistoryStatus:'READY',shippingEligible:true,selectionEligible:true,receiver:{name:'시험',address:'시험 주소',postCode:'12345',contact:'01012345678'}});
+test('label preview requires registered invoice and revalidates private shipping inputs before print',async()=>{
+  let order={...reviewOrder(),invoice:{status:'REGISTERED',number:'1234567890123'}},opened;
+  const preview={context:()=>({}),close(){},open:async target=>{opened=target;return {status:'PREVIEW_OPEN'};}};
+  const {connection}=makeConnection(makeRemoteSession(async(_url,options)=>{assert.equal(options.method,'GET');return Response.json(makePagePayload({orders:[order]}));}),{labelPreview:preview});
+  await connection.refresh();assert.equal((await connection.previewLabel(order.hubOrderId)).status,'PREVIEW_OPEN');
+  assert.equal(await opened.validate(),true);
+  order={...order,receiver:{...order.receiver,address:'changed'}};
+  assert.equal(await opened.validate(),false);
+  order={...order,invoice:{status:'ISSUED',number:'1234567890123'}};
+  assert.equal((await connection.previewLabel(order.hubOrderId)).status,'PRINT_CHECK_REQUIRED');
+});
 test('native issue confirmation binds authenticated order to durable single POST and result GET',async()=>{
   const fs=require('node:fs/promises'),os=require('node:os');
   const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-host-test-'));
@@ -898,7 +909,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
   const trusted = { sender: webContents, senderFrame: mainFrame };
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
   const confirmHandler=handlers.get('moaon-hub:confirm-shipment-review');
   await assert.rejects(confirmHandler({sender:{},senderFrame:null},'HR-C24-1234ABCD'),/Untrusted renderer/);
   for(const args of [[],['HR-NV-1234ABCD'],[['HR-C24-1234ABCD']],['HR-C24-1234ABCD',true]])await assert.rejects(confirmHandler(trusted,...args),/Invalid review arguments/);
@@ -942,7 +953,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['issueShipment','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['previewLabel','issueShipment','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });
   await bridge.recheckPage({ ignored: true });
@@ -1082,6 +1093,7 @@ function makeConnection(remoteSession, overrides = {}) {
     finishCleanup: overrides.finishCleanup,
     showShipmentReview: overrides.showShipmentReview,
     shipmentDirectory: overrides.shipmentDirectory,
+    labelPreview: overrides.labelPreview,
   });
   return { connection, sessionModule, browserWindows };
 }

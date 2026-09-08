@@ -1,0 +1,46 @@
+'use strict';
+const assert=require('node:assert/strict');
+const path=require('node:path');
+const {launchDesktop}=require('./launch.cjs');
+async function main(){
+ if(!process.argv.includes('--isolated'))throw Error('Isolated profile required');
+ const app=await launchDesktop({root:path.resolve(__dirname,'..'),executablePath:require('electron'),packaged:process.argv.includes('--packaged'),override:-1});
+ try{
+  const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');
+  await app.evaluate(({session,app})=>{
+   globalThis.labelEvents=[];
+   app.on('browser-window-created',(_event,win)=>{
+    win.webContents.on('did-navigate',(_e,url,code)=>globalThis.labelEvents.push({event:'navigate',url,code}));
+    win.webContents.on('did-fail-load',(_e,code,description)=>globalThis.labelEvents.push({event:'failed',code,description}));
+   });
+   const remote=session.fromPartition('persist:moaon-harin-readonly',{cache:false});
+   const before=remote.webRequest.onBeforeRequest.bind(remote.webRequest);
+   remote.webRequest.onBeforeRequest=(filter,handler)=>before(filter,(details,callback)=>handler(details,result=>{globalThis.labelEvents.push({event:'policy',url:details.url,id:details.webContentsId,...result});callback(result);}));
+   const orders=()=>{
+    return Response.json({ok:true,offset:0,total:1,nextOffset:null,snapshot:'a'.repeat(64),partial:false,orders:[{hubOrderId:'HR-C24-1234ABCD',externalOrderId:'TEST-1',platform:'CAFE24',fulfillment:'SELLER',stage:'SHIPPING',productName:'인쇄 시험 상품',quantity:1,amount:30000,orderedAt:null,cancelled:false,cancellationRequested:false,invoiceNumber:'1234567890123',issuedInvoiceNumber:'1234567890123',invoice:{status:'REGISTERED',number:'1234567890123'},shippingEligible:false,selectionEligible:false,shippingHistoryStatus:'READY',receiver:{name:'TEST',address:'TEST',postCode:'12345',contact:'01012345678'}}]});
+   };
+   remote.protocol.handle('https',request=>{
+    globalThis.labelEvents.push({event:'protocol',url:request.url});
+    if(request.method!=='GET')return new Response('',{status:403});
+    if(request.url.startsWith('https://harin-cafe24-sync.vercel.app/api/orders/page?'))return orders();
+    if(request.url!=='https://harin-cafe24-sync.vercel.app/api/shipping/print?type=label&ids=HR-C24-1234ABCD')return new Response('',{status:403});
+    return new Response('<!doctype html><html><head><meta charset="utf-8"></head><body><script>globalThis.untrustedRan=true</script><div class="actions">hidden actions</div><article class="label"><section class="receiver"><h1>시험 수취인</h1><strong>01012345678</strong><p>(12345) 시험 주소</p></section><section class="barcode"><b>1234567890123</b></section><footer><span>HR-C24-1234ABCD</span></footer></article></body></html>',{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
+   });
+  });
+  await page.locator('[data-action="hub-connect"]:visible').first().click();
+  await page.locator('[data-action="hub-refresh"]:visible').first().waitFor();
+  await page.getByRole('button',{name:'주문·배송',exact:true}).click();await page.locator('.order-row').first().click();
+  await page.getByRole('button',{name:'기존 송장 미리보기·인쇄',exact:true}).click({timeout:3000});
+  await page.getByText('미리보기 창을 열었습니다 · 인쇄는 창의 메뉴에서 선택하세요',{exact:true}).waitFor({timeout:18000}).catch(async error=>{console.log(JSON.stringify(await app.evaluate(()=>globalThis.labelEvents)));console.log(await page.locator('.review-actions').innerText());throw error;});
+  const result=await app.evaluate(async({BrowserWindow})=>{
+   const win=BrowserWindow.getAllWindows().find(item=>item.webContents.getURL().includes('/api/shipping/print'));
+   return {script:await win.webContents.executeJavaScript('globalThis.untrustedRan===true'),sandbox:win.webContents.getLastWebPreferences().sandbox};
+  });
+  assert.deepEqual(result,{script:false,sandbox:true});
+  await page.locator('[data-action="hub-disconnect"]:visible').first().click();
+  await page.getByText('하린식품 연결을 해제했습니다.',{exact:false}).first().waitFor();
+  assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().filter(win=>win.webContents.getURL().includes('/api/shipping/print')).length),0);
+  console.log(JSON.stringify({status:'PASS',scope:'isolated Electron label preview, synthetic HTML; scripts blocked, logout closes preview; NO PRINT JOB'}));
+ }finally{await app.close();}
+}
+main().catch(error=>{console.error(error.stack);process.exitCode=1;});

@@ -268,6 +268,19 @@ function showOrderDetail(order, button, options = {}) {
       issue.addEventListener('click',()=>void runShipment(true));
       check.addEventListener('click',()=>void runShipment(false));
       actions.append(issue,check,label);
+      if(order.details?.invoice?.status==='REGISTERED'){
+        const preview=makeElement('button','secondary-action','기존 송장 미리보기·인쇄');preview.type='button';
+        preview.addEventListener('click',async()=>{
+          preview.disabled=true;const generation=actionGeneration,id=order.hubOrderId;
+          try{
+            const result=await window.moaonHub.previewLabel(id);
+            if(generation!==actionGeneration||selectedOrderId!==id||!actions.isConnected)return;
+            label.textContent=result.status==='PREVIEW_OPEN'?'미리보기 창을 열었습니다 · 인쇄는 창의 메뉴에서 선택하세요':'송장·배송정보 확인 필요 · 목록을 다시 조회하세요';
+          }catch{if(actions.isConnected)label.textContent='미리보기를 열지 못했습니다 · 다시 확인하세요';}
+          finally{preview.disabled=false;}
+        });
+        actions.append(preview);
+      }
     }
     detailPanel.append(actions);
   }

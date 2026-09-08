@@ -21,6 +21,7 @@ const {createShipmentTransport}=require('./shipment-transport.cjs');
 const {createHash}=require('node:crypto');
 // Private identity-bound fingerprint, never included in IPC payloads or logs.
 const shipmentFingerprints=new WeakMap();
+const labelReceivers=new WeakMap();
 
 const STATUS_MESSAGES = Object.freeze({
   READY: '저장된 주문을 조회했습니다.',
@@ -152,6 +153,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     const inputs={};
     for(const key of ['hubOrderId','platform','fulfillment','externalOrderId','shipmentId','productName','quantity','items','receiver','invoiceNumber','issuedInvoiceNumber','invoice','stage','cancelled','cancellationRequested'])inputs[key]=order?.[key]??null;
     shipmentFingerprints.set(projected,createHash('sha256').update(JSON.stringify(inputs)).digest('hex'));
+    labelReceivers.set(projected,Object.freeze({...order?.receiver}));
     return projected;
   }));
   const partial = payload.partial;
@@ -222,6 +224,7 @@ function createHubConnection({
   initialCleanupPending = false,
   showShipmentReview = null,
   shipmentDirectory = null,
+  labelPreview = null,
 }) {
   if (!BrowserWindow || !session || typeof getMainWindow !== 'function') {
     throw new TypeError('Hub connection dependencies are required');
@@ -244,6 +247,7 @@ function createHubConnection({
   const shipmentPermits=new Map();
   const shipmentAuthReads=new Set();
   function stopShipments() {
+    labelPreview?.close();
     for(const controller of shipmentAuthReads)controller.abort();
     const old=shipmentRegistry;shipmentRegistry=null;
     shipmentPermits.clear();
@@ -287,6 +291,7 @@ function createHubConnection({
             loginWindowActive: isLoginWindowActive(),
             loginWebContentsId: isLoginWindowActive() ? loginWindow.webContents.id : null,
             shipmentRequestActive: shipmentPermits.has(`${details.method} ${details.url}`),
+            ...labelPreview?.context(),
           }),
         });
       });
@@ -476,6 +481,26 @@ function createHubConnection({
   }
 
   const issueShipment=hubOrderId=>confirmShipmentReview(hubOrderId,true);
+  async function previewLabel(hubOrderId){
+    if(typeof hubOrderId!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(hubOrderId))throw Error('Invalid label order');
+    const expected=generation;
+    const readTarget=async()=>{
+      const page=await recheckPage();
+      if(expected!==generation||page.status!=='READY')return null;
+      const rows=page.orders.filter(order=>order.hubOrderId===hubOrderId);
+      const order=rows[0];
+      if(rows.length!==1||order.preflight.route!=='HUB'||order.stage==='CANCELLED'||order.details.cancelled!==false||order.details.cancellationRequested!==false||order.details.invoice?.status!=='REGISTERED')return null;
+      return order;
+    };
+    try{
+      if(!labelPreview)return {status:'PRINT_UNAVAILABLE'};
+      const order=await readTarget();if(!order)return {status:'PRINT_CHECK_REQUIRED'};
+      const result=await labelPreview.open({hubOrderId,trackingNo:order.details.invoice.number,expectedReceiver:labelReceivers.get(order),validate:async()=>{
+        const latest=await readTarget();return !!latest&&shipmentFingerprints.get(latest)===shipmentFingerprints.get(order);
+      }});
+      return expected===generation?result:{status:'DISCONNECTED'};
+    }catch{return {status:'PRINT_UNAVAILABLE'};}
+  }
   async function verifyShipmentSession() {
     if(disconnecting||cleanupFailed||isLoginWindowActive())return 'UNAVAILABLE';
     const controller=new AbortController();shipmentAuthReads.add(controller);
@@ -701,11 +726,11 @@ function createHubConnection({
     loginWindow = null;
   }
 
-  return Object.freeze({ connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, checkShipment, nextPage, previousPage, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, checkShipment, previewLabel, nextPage, previousPage, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
-  for(const [channel,method] of [['moaon-hub:issue-shipment','issueShipment'],['moaon-hub:check-shipment','checkShipment']]){
+  for(const [channel,method] of [['moaon-hub:preview-label','previewLabel'],['moaon-hub:issue-shipment','issueShipment'],['moaon-hub:check-shipment','checkShipment']]){
     ipcMain.handle(channel,async(event,...args)=>{
       if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
       if(args.length!==1||typeof args[0]!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(args[0]))throw Error('Invalid shipment arguments');

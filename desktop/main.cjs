@@ -14,6 +14,7 @@ const {
 } = require('./hub-connection.cjs');
 
 const APP_NAME = '모아온 Preview';
+const {createLabelPreview}=require('./label-preview.cjs');
 const UI_ROOT = path.join(__dirname, 'ui');
 const CONTENT_TYPES = new Map([
   ['.html', 'text/html; charset=utf-8'],
@@ -139,6 +140,7 @@ if (!hasSingleInstanceLock) {
       if (error.code === 'ENOENT') initialCleanupPending = false;
     }
     hubConnection = createHubConnection({
+      labelPreview: createLabelPreview({BrowserWindow,Menu,dialog,getParent:()=>mainWindow}),
       shipmentDirectory: path.join(app.getPath('userData'),'shipments'),
       showShipmentReview: (parent, options) => dialog.showMessageBox(parent, options),
       BrowserWindow,
