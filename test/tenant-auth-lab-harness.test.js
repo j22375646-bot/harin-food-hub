@@ -1,7 +1,10 @@
 'use strict';
 
 const assert=require('node:assert/strict');
+const {EventEmitter}=require('node:events');
+const https=require('node:https');
 const path=require('node:path');
+const {PassThrough}=require('node:stream');
 const {spawnSync}=require('node:child_process');
 const test=require('node:test');
 
@@ -65,6 +68,127 @@ test('JWT tampering preserves public claims while changing the decoded signature
   assert.equal(after[0],before[0]);
   assert.equal(after[1],before[1]);
   assert.notDeepEqual(Buffer.from(after[2],'base64url'),Buffer.from(before[2],'base64url'));
+});
+
+test('pinned fetch times out and destroys a request that never receives a response',async()=>{
+  const {createPinnedFetch}=require(UTILS);
+  const originalRequest=https.request;
+  const request=new EventEmitter();
+  let lateError;
+  request.destroyed=false;
+  request.write=()=>{};
+  request.end=()=>{lateError=setTimeout(()=>request.emit('error',Object.assign(new Error('late'),{code:'UPSTREAM_LATE'})),80);};
+  request.destroy=error=>{
+    if(request.destroyed)return;
+    request.destroyed=true;
+    if(error)queueMicrotask(()=>request.emit('error',error));
+  };
+  https.request=()=>request;
+  try{
+    const pinnedFetch=createPinnedFetch({ca:'test-ca',timeoutMs:20});
+    await assert.rejects(()=>pinnedFetch('https://127.0.0.1:54443/auth/v1/health'),error=>error?.code==='AUTH_LAB_TIMEOUT');
+    assert.equal(request.destroyed,true);
+  }finally{
+    clearTimeout(lateError);
+    https.request=originalRequest;
+  }
+});
+
+test('pinned fetch timeout remains active while a response body is incomplete',async()=>{
+  const {createPinnedFetch}=require(UTILS);
+  const originalRequest=https.request;
+  const request=new EventEmitter();
+  const response=new PassThrough();
+  request.destroyed=false;
+  request.write=()=>{};
+  request.end=()=>{};
+  request.destroy=()=>{request.destroyed=true;};
+  response.statusCode=200;
+  response.headers={'content-type':'application/json'};
+  response.complete=false;
+  https.request=(_target,_options,onResponse)=>{
+    queueMicrotask(()=>{onResponse(response);response.write('{"partial":');});
+    return request;
+  };
+  try{
+    const pinnedFetch=createPinnedFetch({ca:'test-ca',timeoutMs:20});
+    await assert.rejects(()=>pinnedFetch('https://127.0.0.1:54443/auth/v1/user'),error=>error?.code==='AUTH_LAB_TIMEOUT');
+    assert.equal(request.destroyed,true);
+    assert.equal(response.destroyed,true);
+  }finally{
+    response.destroy();
+    https.request=originalRequest;
+  }
+});
+
+test('pinned fetch rejects an aborted partial response once and removes its abort listener',async()=>{
+  const {createPinnedFetch}=require(UTILS);
+  const originalRequest=https.request;
+  const request=new EventEmitter();
+  const response=new PassThrough();
+  const abortListeners=new Set();
+  const signal={
+    aborted:false,
+    addEventListener(_name,listener){abortListeners.add(listener);},
+    removeEventListener(_name,listener){abortListeners.delete(listener);},
+  };
+  request.destroyed=false;
+  request.write=()=>{};
+  request.end=()=>{};
+  request.destroy=()=>{request.destroyed=true;};
+  response.statusCode=200;
+  response.headers={'content-type':'application/json'};
+  response.complete=false;
+  https.request=(_target,_options,onResponse)=>{
+    queueMicrotask(()=>{
+      onResponse(response);
+      response.write('{"partial":');
+      response.emit('aborted');
+    });
+    return request;
+  };
+  try{
+    const pinnedFetch=createPinnedFetch({ca:'test-ca',timeoutMs:100});
+    await assert.rejects(()=>pinnedFetch('https://127.0.0.1:54443/auth/v1/user',{signal}),error=>error?.code==='AUTH_LAB_RESPONSE_ABORTED');
+    assert.equal(request.destroyed,true);
+    assert.equal(response.destroyed,true);
+    assert.equal(abortListeners.size,0);
+  }finally{
+    response.destroy();
+    https.request=originalRequest;
+  }
+});
+
+test('pinned fetch rejects a response stream error instead of waiting for its timeout',async()=>{
+  const {createPinnedFetch}=require(UTILS);
+  const originalRequest=https.request;
+  const request=new EventEmitter();
+  const response=new PassThrough();
+  request.destroyed=false;
+  request.write=()=>{};
+  request.end=()=>{};
+  request.destroy=()=>{request.destroyed=true;};
+  response.statusCode=200;
+  response.headers={'content-type':'application/json'};
+  response.complete=false;
+  response.on('error',()=>{});
+  https.request=(_target,_options,onResponse)=>{
+    queueMicrotask(()=>{
+      onResponse(response);
+      response.write('{"partial":');
+      response.emit('error',Object.assign(new Error('truncated'),{code:'ECONNRESET'}));
+    });
+    return request;
+  };
+  try{
+    const pinnedFetch=createPinnedFetch({ca:'test-ca',timeoutMs:100});
+    await assert.rejects(()=>pinnedFetch('https://127.0.0.1:54443/auth/v1/user'),error=>error?.code==='AUTH_LAB_RESPONSE_ERROR');
+    assert.equal(request.destroyed,true);
+    assert.equal(response.destroyed,true);
+  }finally{
+    response.destroy();
+    https.request=originalRequest;
+  }
 });
 
 test('runner without explicit opt-in exits before any network work and prints no secret values',()=>{

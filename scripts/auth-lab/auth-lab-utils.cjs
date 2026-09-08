@@ -92,32 +92,67 @@ function requestBody(body){
   throw labError('AUTH_LAB_REQUEST_REJECTED');
 }
 
-function createPinnedFetch({ca,onRequest=()=>{}}){
-  if(!(typeof ca==='string'||Buffer.isBuffer(ca))||typeof onRequest!=='function')throw new TypeError('Pinned TLS configuration is required.');
+function createPinnedFetch({ca,onRequest=()=>{},timeoutMs=10_000}){
+  if(!(typeof ca==='string'||Buffer.isBuffer(ca))||typeof onRequest!=='function'||!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>30_000)throw new TypeError('Pinned TLS configuration is required.');
   return async function pinnedFetch(rawUrl,init={}){
     const target=authorizeClientUrl(rawUrl);
     const method=String(init.method||'GET').toUpperCase();
     const headers=Object.fromEntries(new Headers(init.headers).entries());
     const body=requestBody(init.body);
     return await new Promise((resolve,reject)=>{
-      const request=https.request(target,{method,headers,ca,rejectUnauthorized:true},response=>{
-        const chunks=[];
-        response.on('data',chunk=>chunks.push(chunk));
-        response.on('end',()=>{
-          const status=response.statusCode||0;
-          onRequest(Object.freeze({method,path:`${target.pathname}${target.search}`,status}));
-          if(status>=300&&status<400){reject(labError('AUTH_LAB_REDIRECT_REJECTED'));return;}
-          const payload=Buffer.concat(chunks);
-          resolve(new Response(payload.length===0?null:payload,{status,headers:response.headers}));
+      let request;
+      let response;
+      let settled=false;
+      let abortListener;
+      const cleanup=()=>{
+        clearTimeout(timer);
+        if(abortListener&&typeof init.signal?.removeEventListener==='function')init.signal.removeEventListener('abort',abortListener);
+      };
+      const rejectOnce=error=>{
+        if(settled)return;
+        settled=true;
+        cleanup();
+        if(response&&!response.destroyed)response.destroy();
+        if(request&&!request.destroyed)request.destroy();
+        reject(error);
+      };
+      const resolveOnce=value=>{
+        if(settled)return;
+        settled=true;
+        cleanup();
+        resolve(value);
+      };
+      const timer=setTimeout(()=>rejectOnce(labError('AUTH_LAB_TIMEOUT')),timeoutMs);
+      try{
+        request=https.request(target,{method,headers,ca,rejectUnauthorized:true},incoming=>{
+          if(settled){incoming.destroy();return;}
+          response=incoming;
+          const chunks=[];
+          const status=incoming.statusCode||0;
+          try{onRequest(Object.freeze({method,path:`${target.pathname}${target.search}`,status}));}
+          catch{rejectOnce(labError('AUTH_LAB_REQUEST_REJECTED'));return;}
+          incoming.on('data',chunk=>chunks.push(chunk));
+          incoming.once('aborted',()=>rejectOnce(labError('AUTH_LAB_RESPONSE_ABORTED')));
+          incoming.once('error',()=>rejectOnce(labError('AUTH_LAB_RESPONSE_ERROR')));
+          incoming.once('end',()=>{
+            if(incoming.complete===false){rejectOnce(labError('AUTH_LAB_RESPONSE_ABORTED'));return;}
+            if(status>=300&&status<400){rejectOnce(labError('AUTH_LAB_REDIRECT_REJECTED'));return;}
+            const payload=Buffer.concat(chunks);
+            try{resolveOnce(new Response(payload.length===0?null:payload,{status,headers:incoming.headers}));}
+            catch{rejectOnce(labError('AUTH_LAB_RESPONSE_ERROR'));}
+          });
         });
-      });
-      request.on('error',reject);
-      if(init.signal){
-        if(init.signal.aborted){request.destroy(labError('AUTH_LAB_ABORTED'));return;}
-        init.signal.addEventListener('abort',()=>request.destroy(labError('AUTH_LAB_ABORTED')),{once:true});
+        request.on('error',rejectOnce);
+        if(init.signal){
+          abortListener=()=>rejectOnce(labError('AUTH_LAB_ABORTED'));
+          if(init.signal.aborted){abortListener();return;}
+          init.signal.addEventListener('abort',abortListener,{once:true});
+        }
+        if(body!==null)request.write(body);
+        request.end();
+      }catch{
+        rejectOnce(labError('AUTH_LAB_REQUEST_REJECTED'));
       }
-      if(body!==null)request.write(body);
-      request.end();
     });
   };
 }
