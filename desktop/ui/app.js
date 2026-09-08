@@ -117,7 +117,7 @@ function addDetailSection(parent, title, primary, secondary) {
   parent.append(section);
 }
 
-function showOrderDetail(order, button) {
+function showOrderDetail(order, button, options = {}) {
   selectedOrderId = orderId(order);
   selectedOrderButton = button;
   for (const orderButton of orderList.querySelectorAll('.order-row')) {
@@ -144,6 +144,7 @@ function showOrderDetail(order, button) {
     const preflightLabels = {BLOCKED:'출고 대상에서 제외',EXTERNAL:'별도 플랫폼에서 처리',CHECK_REQUIRED:'출고 전 정보 확인 필요',REVIEW_ONLY:'웹 허브 최종 확인 후보'};
     const reasonLabels = {CANCELLED:'취소된 주문',CANCEL_REQUEST:'취소·반품 요청 먼저 확인',SHIPPED:'배송 진행 또는 완료 상태',INVOICE_EXISTS:'기존 송장 기록 확인',NAVER_ROUTE:'네이버에서 송장 처리',ROCKET_ROUTE:'로켓그로스는 쿠팡에서 출고',ROUTE_UNKNOWN:'처리 경로 확인 필요',STAGE_UNKNOWN:'주문 단계 확인 필요',CANCEL_UNKNOWN:'취소 여부 확인 필요',INVOICE_UNKNOWN:'송장 이력 확인 필요',ORDER_ID:'주문 식별번호 확인 필요',SERVER_CHECK:'웹 허브의 출고 제한 확인 필요',DELIVERY_INFO:'배송정보 누락 또는 형식 확인 필요',QUANTITY:'상품 수량 확인 필요',PARTIAL:'일부 채널 자료 누락'};
     const checkSection = makeElement('section', 'detail-section preflight-summary');
+    checkSection.dataset.state = preflight?.status || 'CHECK_REQUIRED';
     checkSection.setAttribute('aria-label', '출고 사전 확인');
     checkSection.append(makeElement('h3', '', '출고 사전 확인 · 저장 자료 기준'), makeElement('strong', '', preflightLabels[preflight?.status] || '출고 전 정보 확인 필요'));
     const reasons = makeElement('ul');
@@ -175,8 +176,40 @@ function showOrderDetail(order, button) {
     body.append(makeElement('p', 'detail-notice', `${selectedScopeDetail().description} 플랫폼 동기화 성공을 의미하지 않으며 발급·변경·전송 기능은 없습니다.`));
   }
   detailPanel.append(header, body);
+  if (!isSampleMode()) {
+    const actions = makeElement('section', 'review-actions');
+    actions.setAttribute('aria-label', '주문 재확인');
+    actions.append(makeElement('strong', 'review-result', options.rechecked ? '다시 확인 완료 · 저장 자료 기준' : '출고 전에 한 번 더 확인하세요'));
+    actions.append(makeElement('span', 'review-time', options.rechecked ? formatTime(connectionResult?.checkedAt) : '채널 실시간 조회·송장 발급은 실행하지 않습니다.'));
+    const recheck = makeElement('button', 'primary-action', '저장 주문 다시 확인');
+    recheck.type = 'button';
+    recheck.addEventListener('click', () => void recheckSelectedOrder());
+    actions.append(recheck);
+    detailPanel.append(actions);
+  }
   renderDetailNavigation();
   closeButton.focus();
+}
+
+async function recheckSelectedOrder() {
+  if (displayMode !== 'live' || !selectedOrderId) return;
+  const id = selectedOrderId;
+  const generation = ++actionGeneration;
+  clearDisplayedOrders('connecting', '선택한 주문이 있는 페이지를 다시 확인하고 있습니다.');
+  try {
+    const result = await window.moaonHub.recheckPage();
+    if (generation !== actionGeneration) return;
+    applyHubResult(result);
+    if (displayMode !== 'live') return;
+    const order = displayedOrders.find(item => item.hubOrderId === id);
+    const button = [...orderList.querySelectorAll('.order-row')].find(item => item.dataset.orderId === id);
+    if (order && button) {
+      showOrderDetail(order, button, {rechecked:true});
+      detailPanel.querySelector('.review-actions button')?.focus();
+    } else updateConnectionChrome('선택한 주문을 다시 찾지 못했습니다. 새 목록에서 주문을 선택하세요.');
+  } catch {
+    if (generation === actionGeneration) clearDisplayedOrders('error', '주문 재확인에 실패했습니다. 목록을 다시 조회하세요.');
+  }
 }
 
 function renderDetailNavigation() {

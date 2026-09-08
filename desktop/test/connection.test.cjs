@@ -758,6 +758,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   const connection = {
     connect: async () => calls.push('connect') && { status: 'LOGIN_OPEN' },
     refresh: async () => calls.push('refresh') && { status: 'READY' },
+    recheckPage: async () => calls.push('recheckPage') && { status: 'READY' },
     nextPage: async () => calls.push('nextPage') && { status: 'READY' },
     previousPage: async () => calls.push('previousPage') && { status: 'READY' },
     viewActive: async () => calls.push('viewActive') && { status: 'READY' },
@@ -769,7 +770,9 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
   const trusted = { sender: webContents, senderFrame: mainFrame };
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect']);
+  await assert.rejects(handlers.get('moaon-hub:recheck-page')(trusted, 'order-id'), /Arguments are not allowed/);
+  await assert.rejects(handlers.get('moaon-hub:recheck-page')({sender:{},senderFrame:null}), /Untrusted renderer/);
   assert.equal((await handlers.get('moaon-hub:refresh')(trusted)).status, 'READY');
   assert.equal((await handlers.get('moaon-hub:next-page')(trusted)).status, 'READY');
   assert.equal((await handlers.get('moaon-hub:previous-page')(trusted)).status, 'READY');
@@ -808,9 +811,10 @@ test('preload exposes only a frozen nine-method moaonHub bridge with fixed no-ar
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['connect', 'refresh', 'nextPage', 'previousPage', 'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });
+  await bridge.recheckPage({ ignored: true });
   await bridge.nextPage({ ignored: true });
   await bridge.previousPage({ ignored: true });
   await bridge.viewActive('ignored');
@@ -821,6 +825,7 @@ test('preload exposes only a frozen nine-method moaonHub bridge with fixed no-ar
   assert.deepEqual(invocations, [
     ['moaon-hub:connect'],
     ['moaon-hub:refresh'],
+    ['moaon-hub:recheck-page'],
     ['moaon-hub:next-page'],
     ['moaon-hub:previous-page'],
     ['moaon-hub:view-active'],
@@ -870,6 +875,30 @@ test('pending cleanup blocks restart reads until successful cleanup even without
   assert.equal(marked,1);
   assert.equal(finished,1);
   assert.equal((await connection.refresh()).status,'LOGIN_REQUIRED');
+});
+
+test('recheck rereads the current page and rejects a changed snapshot', async () => {
+  let changed = false;
+  const urls = [];
+  const remote = makeRemoteSession(async url => {
+    urls.push(url);
+    if (changed) return new Response('',{status:409});
+    const offset = Number(new URL(url).searchParams.get('offset') || 0);
+    return new Response(JSON.stringify(makePagePayload({orders:Array.from({length:20},(_,i)=>({hubOrderId:`H-${offset+i}`})),total:40,offset,nextOffset:offset===0?20:null})),{status:200});
+  });
+  const {connection} = makeConnection(remote);
+  assert.equal(typeof connection.recheckPage,'function');
+  assert.equal((await connection.recheckPage()).status,'UNAVAILABLE');
+  assert.equal(urls.length,0);
+  await connection.refresh();
+  await connection.nextPage();
+  assert.equal((await connection.recheckPage()).offset,20);
+  assert.ok(urls.at(-1).includes('offset=20&snapshot='));
+  changed=true;
+  assert.equal((await connection.recheckPage()).status,'SNAPSHOT_CHANGED');
+  const count=urls.length;
+  assert.equal((await connection.recheckPage()).status,'UNAVAILABLE');
+  assert.equal(urls.length,count);
 });
 
 function makeConnection(remoteSession, overrides = {}) {

@@ -360,6 +360,15 @@ function createHubConnection({
     });
   }
 
+  function recheckPage() {
+    const blocked = blockedReadResult();
+    if (blocked) return blocked;
+    if (activeRead) return Promise.resolve(safeEmpty('UNAVAILABLE', '조회가 진행 중입니다. 완료 후 다시 확인하세요.'));
+    const cursor = pageCursor;
+    if (!cursor) return Promise.resolve(safeEmpty('UNAVAILABLE', '목록을 먼저 조회하세요.'));
+    return startRead({url:buildOrdersPageUrl(cursor.offset,cursor.snapshot,currentScope),requestedOffset:cursor.offset,expectedSnapshot:cursor.snapshot,scope:currentScope});
+  }
+
   function viewScope(scope) {
     const blocked = blockedReadResult();
     if (blocked) return blocked;
@@ -547,13 +556,14 @@ function createHubConnection({
     loginWindow = null;
   }
 
-  return Object.freeze({ connect, refresh, nextPage, previousPage, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ connect, refresh, recheckPage, nextPage, previousPage, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
   const methods = [
     ['moaon-hub:connect', 'connect'],
     ['moaon-hub:refresh', 'refresh'],
+    ['moaon-hub:recheck-page', 'recheckPage'],
     ['moaon-hub:next-page', 'nextPage'],
     ['moaon-hub:previous-page', 'previousPage'],
     ['moaon-hub:view-active', 'viewActive'],

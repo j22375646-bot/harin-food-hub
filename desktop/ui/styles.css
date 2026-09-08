@@ -1421,6 +1421,29 @@ button {
 .preflight-summary ul:empty { display: none; }
 .statusbar { font-size: 12px; padding-inline: 16px; }
 .primary-action { background: #4663bd; color: #fff; }
+/* P5-09: compact desktop inspector with a fixed review action shelf. */
+.orders-page .page-heading { padding: 0 2px; }
+.orders-page .page-heading h1 { font-size: 25px; }
+.orders-page .context-line { margin-bottom: 6px; font-size: 12px; }
+.orders-layout { grid-template-columns: minmax(0, 1fr) minmax(316px, 34%); }
+.orders-workspace, .detail-panel { box-shadow: none; }
+.order-row[aria-pressed="true"] { background: var(--blue-soft); border: 1px solid var(--blue); }
+.detail-header { background: var(--surface); border-bottom: 1px solid var(--line); }
+.detail-header .eyebrow { color: var(--blue); letter-spacing: .08em; }
+.detail-section { padding-block: 14px; }
+.preflight-summary { margin-top: 16px; padding: 14px; }
+.preflight-summary[data-state="BLOCKED"] { background: var(--rose-soft); border-color: var(--rose); }
+.preflight-summary[data-state="EXTERNAL"] { background: var(--blue-soft); border-color: var(--blue); }
+.preflight-summary[data-state="CHECK_REQUIRED"] { background: var(--amber-soft); border-color: var(--amber); }
+.preflight-summary[data-state="REVIEW_ONLY"] { background: var(--surface-soft); }
+.preflight-summary > strong { font-size: 18px; letter-spacing: -.035em; }
+.preflight-summary ul { display: grid; gap: 6px; }
+.review-actions { flex: 0 0 auto; display: grid; gap: 7px; padding: 14px 16px; border-top: 1px solid var(--line); background: var(--surface); }
+.review-result { font-size: 14px; color: var(--ink); }
+.review-time { font-size: 12px; color: var(--muted); }
+.review-actions button { min-height: 44px; width: 100%; border: 1px solid transparent; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; }
+.review-actions button:hover { filter: brightness(1.1); }
+.review-actions button:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
 @media (max-width: 1160px) {
   .preview-shell { grid-template-columns: 188px minmax(0, 1fr); }
   #main-content { padding: 14px; }
