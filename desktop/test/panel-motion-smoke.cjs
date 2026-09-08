@@ -23,7 +23,7 @@ async function main() {
     await page.getByRole('button',{name:'주문·배송',exact:true}).click();
     await page.locator('.order-row').first().click();
     await page.waitForFunction(() => !document.querySelector('.orders-layout').classList.contains('is-detail-closed'));
-    await page.waitForTimeout(350);
+    await page.waitForTimeout(550);
 
     const scrollbars = await page.evaluate(() => {
       const detail = document.querySelector('#order-detail');
@@ -63,9 +63,9 @@ async function main() {
         deltas: [
           Math.abs((headerSelect.x + headerSelect.width / 2) - (rowSelect.x + rowSelect.width / 2)),
           Math.abs(header[0].x - row[0].x),
-          Math.abs(header[1].x - row[2].x),
+          Math.abs(header[1].x + header[1].width/2 - (box(document.querySelector('.channel-badge')).x + box(document.querySelector('.channel-badge')).width/2)),
           Math.abs(header[2].right - row[3].right),
-          Math.abs(header[3].x - row[4].x),
+          Math.abs(header[3].x + header[3].width/2 - (row[4].x + row[4].width/2)),
         ],
       };
     });
@@ -77,8 +77,23 @@ async function main() {
     assert.match(open.detailTransitions, /opacity/);
     assert.equal(open.overflow, false);
     assert.ok(open.deltas.every(delta => delta <= 1), `header and row columns must align: ${JSON.stringify(open.deltas)}`);
+    await page.screenshot({path:path.join(root,'artifacts','p434-order-alignment.png')});
 
-    await page.getByRole('button',{name:'주문 상세 닫기',exact:true}).click();
+    const motion = await page.evaluate(async () => {
+      const panel=document.querySelector('#order-detail');
+      const title=panel.querySelector('.detail-product h2').textContent;
+      document.querySelector('[aria-label="주문 상세 닫기"]').click();
+      const frames=[];
+      const start=performance.now();
+      while(performance.now()-start<500){
+        await new Promise(requestAnimationFrame);
+        frames.push({width:document.querySelector('.orders-workspace').getBoundingClientRect().width,panelWidth:panel.getBoundingClientRect().width,title:panel.querySelector('.detail-product h2')?.textContent});
+      }
+      return {frames,title};
+    });
+    assert.ok(motion.frames.every(frame=>frame.title===motion.title),'Keep content during slide-out');
+    assert.ok(motion.frames.every(frame=>Math.abs(frame.panelWidth-open.detailWidth)<1),'Panel contents must not squash during collapse');
+    assert.ok(new Set(motion.frames.map(frame=>Math.round(frame.width))).size>4,'Workspace must expand through intermediate frames');
     assert.equal(await page.locator('#order-detail').getAttribute('aria-hidden'),'true');
     assert.equal(await page.locator('#order-detail').evaluate(element => element.inert),true);
     await page.waitForTimeout(450);
@@ -89,6 +104,7 @@ async function main() {
         layoutWidth: box('.orders-layout').width,
         workspaceWidth: box('.orders-workspace').width,
         detailWidth: box('#order-detail').width,
+        offscreen: box('#order-detail').left >= box('.orders-layout').right-1,
         gap: parseFloat(getComputedStyle(document.querySelector('.orders-layout')).columnGap),
         opacity: parseFloat(getComputedStyle(detail).opacity),
         transform: getComputedStyle(detail).transform,
@@ -96,7 +112,7 @@ async function main() {
       };
     });
     assert.equal(closed.gap, 0);
-    assert.ok(closed.detailWidth <= 1, JSON.stringify(closed));
+    assert.equal(closed.offscreen,true, JSON.stringify(closed));
     assert.ok(closed.workspaceWidth >= open.workspaceWidth + open.detailWidth + open.gap - 2, JSON.stringify({open,closed}));
     assert.equal(closed.opacity, 0);
     assert.notEqual(closed.transform, 'none');
@@ -104,7 +120,7 @@ async function main() {
 
     await app.evaluate(({BrowserWindow}) => BrowserWindow.getAllWindows()[0].setSize(1040, 720));
     await page.locator('.order-row').first().click();
-    await page.waitForTimeout(350);
+    await page.waitForTimeout(550);
     const compactOpen = await page.evaluate(() => ({
       detailWidth: document.querySelector('#order-detail').getBoundingClientRect().width,
       gap: parseFloat(getComputedStyle(document.querySelector('.orders-layout')).columnGap),
@@ -114,8 +130,8 @@ async function main() {
     assert.equal(compactOpen.gap, 16);
     assert.equal(compactOpen.overflow, false);
     await page.getByRole('button',{name:'주문 상세 닫기',exact:true}).click();
-    await page.waitForTimeout(350);
-    assert.ok(await page.locator('#order-detail').evaluate(element => element.getBoundingClientRect().width <= 1));
+    await page.waitForTimeout(550);
+    assert.ok(await page.locator('#order-detail').evaluate(element => element.getBoundingClientRect().left >= document.querySelector('.orders-layout').getBoundingClientRect().right-1));
 
     await page.emulateMedia({reducedMotion:'reduce'});
     const reduced = await page.evaluate(() => ({

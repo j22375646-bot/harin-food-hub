@@ -199,6 +199,9 @@ function closeOrderDetail(options = {}) {
   detailPanel.setAttribute('aria-hidden','true');
   renderSelection();
   for (const button of orderList.querySelectorAll('.order-row')) button.setAttribute('aria-pressed', 'false');
+  // A user close keeps the painted content for the exit motion. Data/scope
+  // changes still clear synchronously so hidden customer data cannot linger.
+  if (!options.animate) {
   detailPanel.replaceChildren();
   const empty = makeElement('div', 'detail-empty');
   const icon = makeElement('span', '', '▤');
@@ -208,6 +211,7 @@ function closeOrderDetail(options = {}) {
     : displayMode === 'live' ? `선택한 ${selectedScopeDetail().range}의 허용된 정보만 표시합니다.` : '연결 상태를 확인한 뒤 주문을 조회하세요.';
   empty.append(icon, makeElement('strong', '', '주문을 선택하세요'), makeElement('p', '', description));
   detailPanel.append(empty);
+  }
   if (options.restoreFocus && selectedOrderButton?.isConnected) selectedOrderButton.focus();
   selectedOrderButton = null;
 }
@@ -237,7 +241,7 @@ function showOrderDetail(order, button, options = {}) {
   const closeButton = makeElement('button', '', '×');
   closeButton.type = 'button';
   closeButton.setAttribute('aria-label', '주문 상세 닫기');
-  closeButton.addEventListener('click', () => closeOrderDetail({ restoreFocus: true }));
+  closeButton.addEventListener('click', () => closeOrderDetail({ restoreFocus: true, animate: true }));
   header.append(heading, closeButton);
   const body = makeElement('div', 'detail-body');
   const productHero=makeElement('section','detail-product');
@@ -883,7 +887,7 @@ document.addEventListener('keydown', (event) => {
     showRoute({ '1': 'today', '2': 'orders', '3': 'settings' }[event.key], { focusHeading: true });
     return;
   }
-  if (event.key === 'Escape' && selectedOrderId) { event.preventDefault(); closeOrderDetail({ restoreFocus: true }); return; }
+  if (event.key === 'Escape' && selectedOrderId) { event.preventDefault(); closeOrderDetail({ restoreFocus: true, animate: true }); return; }
   if (event.ctrlKey && event.key.toLocaleLowerCase('en-US') === 'k') { event.preventDefault(); showRoute('orders'); orderSearch.focus(); orderSearch.select(); return; }
   if (event.ctrlKey && event.key.toLocaleLowerCase('en-US') === 'p') { event.preventDefault(); statusbar.lastElementChild.textContent = '출력: 이 버전에서 비활성'; }
 });

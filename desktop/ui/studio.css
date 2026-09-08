@@ -99,3 +99,14 @@ html body::-webkit-scrollbar,html body *::-webkit-scrollbar{display:none!importa
 .registration-results{flex:0 0 auto;max-height:160px;overflow:auto;padding:12px 16px;border:1px solid var(--line);border-radius:10px;background:var(--surface-soft);font-size:12px;line-height:1.6}
 .registration-results ul{margin:6px 0;padding-left:18px}.registration-results p{margin:4px 0;color:var(--muted)}
 .selection-toolbar{flex-wrap:wrap;max-width:100%}
+
+/* One alignment contract for headings and badges; the amount remains right aligned. */
+.order-table-heading{border:1px solid transparent;border-bottom-color:var(--line)}
+.order-table-heading>span:nth-child(2),.order-table-heading>span:nth-child(4){text-align:center}
+.order-secondary{align-items:center}.order-row>.order-state{justify-self:center}
+/* Keep inspector content at its readable width while its grid track closes. */
+.orders-layout{--inspector-width:330px;transition-duration:.44s}
+.detail-panel{width:var(--inspector-width);justify-self:start;transition:transform .44s cubic-bezier(.22,1,.36,1),opacity .3s ease}
+.orders-layout.is-detail-closed .detail-panel{border-width:1px}
+@media(max-width:1160px){.orders-layout{--inspector-width:290px}.order-table-heading{padding-inline:8px}}
+@media(prefers-reduced-motion:reduce){.orders-layout,.detail-panel{transition:none!important}}
