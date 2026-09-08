@@ -1,7 +1,8 @@
 'use strict';
 
 const assert=require('node:assert/strict');
-const {EventEmitter}=require('node:events');
+const {EventEmitter,once}=require('node:events');
+const http=require('node:http');
 const https=require('node:https');
 const path=require('node:path');
 const {PassThrough}=require('node:stream');
@@ -190,6 +191,185 @@ test('pinned fetch rejects a response stream error instead of waiting for its ti
     https.request=originalRequest;
   }
 });
+
+test('TLS gateway times out a stalled upstream and closes every transport handle',async()=>{
+  const {startTlsGateway}=require(UTILS);
+  const originalCreateServer=https.createServer;
+  const originalRequest=http.request;
+  const server=new EventEmitter();
+  const upstream=new PassThrough();
+  let requestHandler;
+  let lateError;
+  let closeAllCalls=0;
+  server.listen=(_port,_host,callback)=>queueMicrotask(callback);
+  server.close=callback=>queueMicrotask(()=>callback());
+  server.closeAllConnections=()=>{closeAllCalls+=1;};
+  https.createServer=(_options,handler)=>{requestHandler=handler;return server;};
+  http.request=()=>{
+    lateError=setTimeout(()=>upstream.emit('error',new Error('late upstream error')),80);
+    return upstream;
+  };
+  const incoming=new PassThrough();
+  const outgoing=new PassThrough();
+  incoming.url='/auth/v1/user';
+  incoming.method='GET';
+  incoming.headers={};
+  outgoing.headersSent=false;
+  outgoing.writeHead=status=>{outgoing.statusCode=status;outgoing.headersSent=true;};
+  let gateway;
+  try{
+    gateway=await startTlsGateway({cert:'test-cert',key:'test-key',timeoutMs:20});
+    const finished=once(outgoing,'finish');
+    requestHandler(incoming,outgoing);
+    incoming.end();
+    await finished;
+    assert.equal(outgoing.statusCode,504);
+    assert.equal(upstream.destroyed,true);
+    await gateway.close();
+    gateway=null;
+    assert.equal(closeAllCalls,1);
+  }finally{
+    clearTimeout(lateError);
+    if(gateway)await gateway.close();
+    upstream.destroy();
+    outgoing.destroy();
+    incoming.destroy();
+    http.request=originalRequest;
+    https.createServer=originalCreateServer;
+  }
+});
+
+test('TLS gateway close destroys an outstanding upstream before its deadline',async()=>{
+  const {startTlsGateway}=require(UTILS);
+  const originalCreateServer=https.createServer;
+  const originalRequest=http.request;
+  const server=new EventEmitter();
+  const upstream=new PassThrough();
+  let requestHandler;
+  let closeAllCalls=0;
+  server.listen=(_port,_host,callback)=>queueMicrotask(callback);
+  server.close=callback=>queueMicrotask(()=>callback());
+  server.closeAllConnections=()=>{closeAllCalls+=1;};
+  https.createServer=(_options,handler)=>{requestHandler=handler;return server;};
+  http.request=()=>upstream;
+  const incoming=new PassThrough();
+  const outgoing=new PassThrough();
+  incoming.url='/auth/v1/user';
+  incoming.method='GET';
+  incoming.headers={};
+  outgoing.headersSent=false;
+  outgoing.writeHead=status=>{outgoing.statusCode=status;outgoing.headersSent=true;};
+  let gateway;
+  try{
+    gateway=await startTlsGateway({cert:'test-cert',key:'test-key',timeoutMs:1_000});
+    requestHandler(incoming,outgoing);
+    incoming.end();
+    await gateway.close();
+    gateway=null;
+    assert.equal(upstream.destroyed,true);
+    assert.equal(outgoing.destroyed,true);
+    assert.equal(closeAllCalls,1);
+  }finally{
+    if(gateway)await gateway.close();
+    upstream.destroy();
+    outgoing.destroy();
+    incoming.destroy();
+    http.request=originalRequest;
+    https.createServer=originalCreateServer;
+  }
+});
+
+test('TLS gateway cancels upstream immediately when the downstream closes',async()=>{
+  const {startTlsGateway}=require(UTILS);
+  const originalCreateServer=https.createServer;
+  const originalRequest=http.request;
+  const server=new EventEmitter();
+  const upstream=new PassThrough();
+  let requestHandler;
+  server.listen=(_port,_host,callback)=>queueMicrotask(callback);
+  server.close=callback=>queueMicrotask(()=>callback());
+  server.closeAllConnections=()=>{};
+  https.createServer=(_options,handler)=>{requestHandler=handler;return server;};
+  http.request=()=>upstream;
+  const incoming=new PassThrough();
+  const outgoing=new PassThrough();
+  incoming.url='/auth/v1/user';
+  incoming.method='GET';
+  incoming.headers={};
+  outgoing.headersSent=false;
+  outgoing.writeHead=status=>{outgoing.statusCode=status;outgoing.headersSent=true;};
+  let gateway;
+  try{
+    gateway=await startTlsGateway({cert:'test-cert',key:'test-key',timeoutMs:1_000});
+    requestHandler(incoming,outgoing);
+    incoming.end();
+    outgoing.destroy();
+    await new Promise(resolve=>setTimeout(resolve,20));
+    assert.equal(upstream.destroyed,true);
+  }finally{
+    if(gateway)await gateway.close();
+    upstream.destroy();
+    outgoing.destroy();
+    incoming.destroy();
+    http.request=originalRequest;
+    https.createServer=originalCreateServer;
+  }
+});
+
+async function assertGatewayResponseCancellation(eventName){
+  const {startTlsGateway}=require(UTILS);
+  const originalCreateServer=https.createServer;
+  const originalRequest=http.request;
+  const server=new EventEmitter();
+  const upstream=new PassThrough();
+  const response=new PassThrough();
+  let requestHandler;
+  server.listen=(_port,_host,callback)=>queueMicrotask(callback);
+  server.close=callback=>queueMicrotask(()=>callback());
+  server.closeAllConnections=()=>{};
+  https.createServer=(_options,handler)=>{requestHandler=handler;return server;};
+  http.request=(_options,onResponse)=>{
+    queueMicrotask(()=>{
+      onResponse(response);
+      response.write('{"partial":');
+      response.emit(eventName,eventName==='error'?new Error('truncated'):undefined);
+    });
+    return upstream;
+  };
+  response.statusCode=200;
+  response.headers={'content-type':'application/json'};
+  response.complete=false;
+  response.on('error',()=>{});
+  const incoming=new PassThrough();
+  const outgoing=new PassThrough();
+  incoming.url='/auth/v1/user';
+  incoming.method='GET';
+  incoming.headers={};
+  outgoing.headersSent=false;
+  outgoing.writeHead=status=>{outgoing.statusCode=status;outgoing.headersSent=true;};
+  let gateway;
+  try{
+    gateway=await startTlsGateway({cert:'test-cert',key:'test-key',timeoutMs:1_000});
+    requestHandler(incoming,outgoing);
+    incoming.end();
+    await new Promise(resolve=>setTimeout(resolve,20));
+    assert.equal(upstream.destroyed,true);
+    assert.equal(response.destroyed,true);
+    assert.equal(outgoing.destroyed,true);
+  }finally{
+    if(gateway)await gateway.close();
+    response.destroy();
+    upstream.destroy();
+    outgoing.destroy();
+    incoming.destroy();
+    http.request=originalRequest;
+    https.createServer=originalCreateServer;
+  }
+}
+
+test('TLS gateway cancels both sides when the upstream response is aborted',()=>assertGatewayResponseCancellation('aborted'));
+
+test('TLS gateway cancels both sides when the upstream response emits an error',()=>assertGatewayResponseCancellation('error'));
 
 test('runner without explicit opt-in exits before any network work and prints no secret values',()=>{
   const env={...process.env};

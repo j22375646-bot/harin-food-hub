@@ -157,26 +157,72 @@ function createPinnedFetch({ca,onRequest=()=>{},timeoutMs=10_000}){
   };
 }
 
-async function startTlsGateway({cert,key}){
-  if(!(typeof cert==='string'||Buffer.isBuffer(cert))||!(typeof key==='string'||Buffer.isBuffer(key)))throw new TypeError('Gateway TLS configuration is required.');
+async function startTlsGateway({cert,key,timeoutMs=10_000}){
+  if(!(typeof cert==='string'||Buffer.isBuffer(cert))||!(typeof key==='string'||Buffer.isBuffer(key))||
+      !Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>30_000)throw new TypeError('Gateway TLS configuration is required.');
+  const active=new Set();
+  let closing=false;
   const server=https.createServer({cert,key},(incoming,outgoing)=>{
+    if(closing){outgoing.writeHead(503);outgoing.end();return;}
     let upstreamPath;
     try{upstreamPath=mapGatewayPath(incoming.url||'');}
     catch{outgoing.writeHead(404);outgoing.end();return;}
-    const upstream=http.request({host:UPSTREAM_HOST,port:UPSTREAM_PORT,path:upstreamPath,method:incoming.method,headers:incoming.headers},response=>{
-      outgoing.writeHead(response.statusCode||502,response.headers);
-      response.pipe(outgoing);
-    });
-    upstream.on('error',()=>{if(!outgoing.headersSent)outgoing.writeHead(502);outgoing.end();});
-    incoming.pipe(upstream);
+    const state={settled:false,timer:null,upstream:null,response:null,terminate:null};
+    const settle=()=>{
+      if(state.settled)return false;
+      state.settled=true;
+      clearTimeout(state.timer);
+      active.delete(state);
+      return true;
+    };
+    const terminate=(status,destroyDownstream=true)=>{
+      if(!settle())return;
+      if(state.response&&!state.response.destroyed)state.response.destroy();
+      if(state.upstream&&!state.upstream.destroyed)state.upstream.destroy();
+      if(!destroyDownstream||outgoing.destroyed)return;
+      if(status&&!outgoing.headersSent){outgoing.writeHead(status);outgoing.end();}
+      else outgoing.destroy();
+    };
+    state.terminate=terminate;
+    state.timer=setTimeout(()=>terminate(504),timeoutMs);
+    active.add(state);
+    incoming.once('aborted',()=>terminate(undefined));
+    incoming.once('error',()=>terminate(undefined));
+    outgoing.once('close',()=>terminate(undefined,false));
+    outgoing.once('error',()=>terminate(undefined,false));
+    try{
+      state.upstream=http.request({host:UPSTREAM_HOST,port:UPSTREAM_PORT,path:upstreamPath,method:incoming.method,headers:incoming.headers},response=>{
+        if(state.settled){response.destroy();return;}
+        state.response=response;
+        response.once('aborted',()=>terminate(undefined));
+        response.once('error',()=>terminate(undefined));
+        response.once('end',settle);
+        try{
+          outgoing.writeHead(response.statusCode||502,response.headers);
+          response.pipe(outgoing);
+        }catch{terminate(undefined);}
+      });
+      state.upstream.once('error',()=>terminate(502));
+      incoming.pipe(state.upstream);
+    }catch{terminate(502);}
   });
   await new Promise((resolve,reject)=>{
     server.once('error',reject);
     server.listen(54443,UPSTREAM_HOST,()=>{server.off('error',reject);resolve();});
   });
-  return Object.freeze({
-    close:()=>new Promise((resolve,reject)=>server.close(error=>error?reject(error):resolve())),
-  });
+  let closePromise;
+  return Object.freeze({close:()=>{
+    if(closePromise)return closePromise;
+    closing=true;
+    for(const state of [...active])state.terminate(undefined);
+    closePromise=new Promise((resolve,reject)=>{
+      try{
+        server.close(error=>error?reject(error):resolve());
+        server.closeAllConnections?.();
+      }catch(error){reject(error);}
+    });
+    return closePromise;
+  }});
 }
 
 module.exports={LAB_ORIGIN,LAB_AUTH_PREFIX,authorizeClientUrl,createPinnedFetch,mapGatewayPath,nextTotpWaitMs,readLabConfiguration,startTlsGateway,tamperJwtSignature,totpCode};
