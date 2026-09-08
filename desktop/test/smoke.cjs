@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict');
 const path=require('node:path');
 const fs=require('node:fs');
-const {_electron}=require('playwright');
+const {launchDesktop}=require('./launch.cjs');
 const root=path.resolve(__dirname,'..');
 const packaged=process.argv.includes('--packaged');
 const override=process.argv.indexOf('--executable');
@@ -10,7 +10,7 @@ const executablePath=override>=0?process.argv[override+1]:packaged?path.join(roo
 const started=Date.now();
 async function main(){
   assert.ok(fs.existsSync(path.join(root,'main.cjs')),'Desktop entry must exist');
-  const app=await _electron.launch({executablePath,args:packaged||override>=0?[]:[root],timeout:30000});
+  const app=await launchDesktop({root,executablePath,packaged,override});
   try{
     const page=await app.firstWindow();
     await page.waitForLoadState('domcontentloaded');
