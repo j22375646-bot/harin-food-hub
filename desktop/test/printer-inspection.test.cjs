@@ -29,3 +29,32 @@ test('stalled driver returns safely after deadline',async t=>{
  t.mock.timers.enable({apis:['setTimeout']});const f=fixture(()=>new Promise(()=>{}));
  const pending=f.inspect();t.mock.timers.tick(5000);assert.deepEqual(await pending,{status:'UNAVAILABLE'});assert.equal(f.dialogs.length,0);
 });
+
+test('known virtual destinations are separated from devices needing physical confirmation',async()=>{
+ const f=fixture(async()=>[
+  {name:'Microsoft Print to PDF',isDefault:true,status:0},
+  {name:'Hancom PDF',status:0},{name:'Fax',status:0},
+  {name:'Microsoft XPS Document Writer',status:0},{name:'OneNote (Desktop)',status:0},
+ ]);
+ await f.inspect();
+ assert.match(f.dialogs[0].message,/실제 송장 프린터를 확인하세요/);
+ assert.match(f.dialogs[0].detail,/가상 출력으로 추정: 5개/);
+ assert.match(f.dialogs[0].detail,/장비 확인 대상: 0개/);
+ assert.match(f.dialogs[0].detail,/출고용 컴퓨터/);
+});
+
+test('unknown names and zero driver status never imply a working physical printer',async()=>{
+ const f=fixture(async()=>[{name:'Zebra ZD421',status:0},{name:'Office PDF label',status:0}]);
+ await f.inspect();
+ assert.match(f.dialogs[0].detail,/장비 확인 대상: 2개/);
+ assert.match(f.dialogs[0].detail,/코드 0.*실물 확인 필요/);
+ assert.doesNotMatch(f.dialogs[0].message,/준비 완료|출력 가능/);
+});
+
+test('bad driver entries do not discard the remaining printer list',async()=>{
+ const f=fixture(async()=>[null,{},'bad',{name:'LABEL\nINJECT\u202e',status:0}]);
+ assert.deepEqual(await f.inspect(),{status:'SHOWN'});
+ assert.match(f.dialogs[0].detail,/LABEL INJECT/);
+ assert.doesNotMatch(f.dialogs[0].detail,/\u202e/);
+ assert.match(f.dialogs[0].detail,/이름 확인 필요/);
+});
