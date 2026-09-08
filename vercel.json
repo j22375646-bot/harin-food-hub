@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "app/api/moaon/businesses/route.js": {
+      "regions": ["sin1"]
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/daily-sync",
