@@ -263,15 +263,24 @@ function showOrderDetail(order, button, options = {}) {
     const fields=makeElement('dl','detail-facts');
     for(const [label,value] of [['받는 분',receiver.name],['연락처',receiver.contact],['우편번호',receiver.postCode],['주소',[receiver.address,receiver.addressDetail].filter(Boolean).join(' ')],['배송 메모',receiver.message||'배송 메모 없음']])fields.append(makeElement('dt','',label),makeElement('dd','',value||'확인 필요'));
     delivery.append(fields);body.append(delivery);
-    if((!receiver.name||!receiver.address)&&order.platform==='CAFE24'&&window.moaonHub?.readDelivery){
+    if((!receiver.name||!receiver.address)&&['CAFE24','COUPANG'].includes(order.platform)&&window.moaonHub?.readDelivery){
       const state=makeElement('p','detail-notice','배송정보 불러오는 중…');delivery.append(state);
+      state.setAttribute('role','status');
+      const retry=makeElement('button','secondary-action','배송정보 다시 확인');retry.type='button';retry.hidden=true;delivery.append(retry);
       const expected=actionGeneration;
-      window.moaonHub.readDelivery(orderId(order)).then(result=>{
-        if(expected!==actionGeneration||!delivery.isConnected||selectedOrderId!==orderId(order))return;
-        if(result.status!=='READY'){state.textContent='배송정보 조회 확인 필요 · 주문을 다시 선택해 재조회하세요.';return;}
-        const fresh=result.receiver||{},values=[fresh.name,fresh.contact,fresh.postCode,[fresh.address,fresh.addressDetail].filter(Boolean).join(' '),fresh.message||'배송 메모 없음'];
-        fields.querySelectorAll('dd').forEach((node,index)=>node.textContent=values[index]||'확인 필요');state.textContent='배송정보 조회 완료';
-      }).catch(()=>{if(delivery.isConnected)state.textContent='배송정보 조회 확인 필요';});
+      const current=()=>expected===actionGeneration&&delivery.isConnected&&selectedOrderId===orderId(order);
+      let busy=false;
+      const load=async()=>{
+        if(busy||!current())return;busy=true;retry.hidden=true;delivery.setAttribute('aria-busy','true');state.textContent='배송정보 불러오는 중…';
+        try{
+          const result=await window.moaonHub.readDelivery(orderId(order));if(!current())return;
+          if(result?.status!=='READY'){state.textContent=result?.status==='PENDING'?'쿠팡 조회 처리 대기 중 · 잠시 뒤 다시 확인하세요.':'배송정보 조회 확인 필요 · 다시 확인해주세요.';retry.hidden=false;return;}
+          const fresh=result.receiver||{},values=[fresh.name,fresh.contact,fresh.postCode,[fresh.address,fresh.addressDetail].filter(Boolean).join(' '),fresh.message||'배송 메모 없음'];
+          fields.querySelectorAll('dd').forEach((node,index)=>node.textContent=values[index]||'확인 필요');state.textContent='배송정보 조회 완료';
+        }catch{if(current()){state.textContent='배송정보 조회 확인 필요';retry.hidden=false;}}
+        finally{busy=false;delivery.removeAttribute('aria-busy');}
+      };
+      retry.addEventListener('click',()=>void load());queueMicrotask(()=>void load());
     }
   }
   const more=makeElement('details','detail-more');

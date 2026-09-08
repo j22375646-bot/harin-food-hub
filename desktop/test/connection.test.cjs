@@ -48,6 +48,48 @@ test('business list uses the private session and disconnect discards an in-fligh
 });
 
 const reviewOrder=()=>({hubOrderId:'HR-C24-1234ABCD',externalOrderId:'TEST-1',platform:'CAFE24',fulfillment:'SELLER',stage:'PAID',quantity:1,productName:'시험 상품',cancelled:false,cancellationRequested:false,invoiceNumber:'',issuedInvoiceNumber:'',shippingHistoryStatus:'READY',shippingEligible:true,selectionEligible:true,receiver:{name:'시험',address:'시험 주소',postCode:'12345',contact:'01012345678'}});
+test('Coupang delivery uses bound seller shipment and maps safeNumber without exposing raw detail',async()=>{
+ const order={...reviewOrder(),hubOrderId:'HR-CP-1234ABCD',platform:'COUPANG',shipmentId:'123456789',receiver:null};
+ const requestId='12345678-1234-4123-8123-123456789abc';let detailCalls=0,remote;
+ remote=makeRemoteSession(async(url,options)=>{
+  if(url.includes('/api/orders')||url.includes('/api/moaon/orders'))return Response.json(makePagePayload({orders:[order]}));
+  if(url.includes('/coupang/')){
+   let cancel;remote.beforeRequestHandler({url,method:'GET',webContentsId:0},r=>cancel=r.cancel);assert.equal(cancel,false);
+   remote.beforeRequestHandler({url,method:'GET',webContentsId:8},r=>cancel=r.cancel);assert.equal(cancel,true);
+   assert.equal(options.method,'GET');
+   if(url.includes('/orders/detail?')){detailCalls++;assert.ok(url.endsWith('shipmentBoxId=123456789'));return Response.json({ok:true,request:{id:requestId}},{status:202});}
+   assert.ok(url.endsWith('/operations/'+requestId));return Response.json({ok:true,order:{shipmentBoxId:'123456789',receiver:{name:'시험',address:'가상 주소',safeNumber:'05012345678',secret:'NO'}}});
+  }
+  return Response.json(makePagePayload({orders:[order]}));
+ });
+ const {connection}=makeConnection(remote);await connection.refresh();
+ const [a,b]=await Promise.all([connection.readDelivery(order.hubOrderId),connection.readDelivery(order.hubOrderId)]);
+ assert.equal(a.status,'READY');assert.deepEqual(b,a);assert.equal(a.receiver.contact,'05012345678');assert.equal('secret' in a.receiver,false);assert.equal(detailCalls,1);
+});
+test('Coupang delivery rejects mismatched shipment, malformed job and non-seller lookup',async()=>{
+ for(const mode of ['mismatch','bad-id','rocket']){
+  const order={...reviewOrder(),hubOrderId:'HR-CP-1234ABCD',platform:'COUPANG',shipmentId:'123',receiver:null,fulfillment:mode==='rocket'?'ROCKET_GROWTH':'SELLER'};let calls=0;
+  const {connection}=makeConnection(makeRemoteSession(async url=>{
+   if(url.includes('/orders/detail?')){calls++;return Response.json({ok:true,request:{id:mode==='bad-id'?'../../other':'12345678-1234-4123-8123-123456789abc'}},{status:202});}
+   if(url.includes('/operations/'))return Response.json({ok:true,order:{shipmentBoxId:'999',receiver:{name:'WRONG',address:'WRONG'}}});
+   return Response.json(makePagePayload({orders:[order]}));
+  }));
+  await connection.refresh();assert.deepEqual(await connection.readDelivery(order.hubOrderId),{status:'CHECK_REQUIRED'});if(mode==='rocket')assert.equal(calls,0);
+ }
+});
+test('Coupang delivery timeout resumes the same job and logout discards late receiver',async()=>{
+ const order={...reviewOrder(),hubOrderId:'HR-CP-1234ABCD',platform:'COUPANG',shipmentId:'123',receiver:null};let queue=0,ready=false,release;
+ const {connection}=makeConnection(makeRemoteSession(async url=>{
+  if(url.includes('/orders/detail?')){queue++;return Response.json({ok:true,request:{id:'12345678-1234-4123-8123-123456789abc'}},{status:202});}
+  if(url.includes('/operations/'))return ready?Response.json({ok:true,order:{shipmentBoxId:'123',receiver:{name:'시험',address:'가상 주소'}}}):new Promise(resolve=>{release=resolve;});
+  return Response.json(makePagePayload({orders:[order]}));
+ }),{timeoutMs:20});
+ await connection.refresh();assert.equal((await connection.readDelivery(order.hubOrderId)).status,'CHECK_REQUIRED');
+ ready=true;assert.equal((await connection.readDelivery(order.hubOrderId)).status,'READY');assert.equal(queue,1);
+ ready=false;const pending=connection.readDelivery(order.hubOrderId);await connection.disconnect();
+ release(Response.json({ok:true,order:{shipmentBoxId:'123',receiver:{name:'DO NOT DISPLAY',address:'OLD'}}}));
+ assert.equal((await pending).status,'DISCONNECTED');
+});
 test('authenticated order read exposes only explicit delivery fields and logout removes them',async()=>{
  const order=reviewOrder();order.receiver={...order.receiver,addressDetail:'가상 101호',message:'문 앞',token:'NEVER_EXPOSE'};
  const {connection}=makeConnection(makeRemoteSession(async()=>Response.json(makePagePayload({orders:[order]}))));
