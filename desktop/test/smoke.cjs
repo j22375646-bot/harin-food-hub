@@ -5,11 +5,12 @@ const fs=require('node:fs');
 const {_electron}=require('playwright');
 const root=path.resolve(__dirname,'..');
 const packaged=process.argv.includes('--packaged');
-const executablePath=packaged?path.join(root,'dist/win-unpacked/MoaonPreview.exe'):require('electron');
+const override=process.argv.indexOf('--executable');
+const executablePath=override>=0?process.argv[override+1]:packaged?path.join(root,'dist/win-unpacked/MoaonPreview.exe'):require('electron');
 const started=Date.now();
 async function main(){
   assert.ok(fs.existsSync(path.join(root,'main.cjs')),'Desktop entry must exist');
-  const app=await _electron.launch({executablePath,args:packaged?[]:[root],timeout:30000});
+  const app=await _electron.launch({executablePath,args:packaged||override>=0?[]:[root],timeout:30000});
   try{
     const page=await app.firstWindow();
     await page.waitForLoadState('domcontentloaded');
