@@ -13,7 +13,7 @@ async function main() {
     const page = await app.firstWindow();
     await page.waitForLoadState('domcontentloaded');
     await app.evaluate(({ session, BrowserWindow }) => {
-      const ses = session.fromPartition('moaon-harin-readonly', { cache: false });
+      const ses = session.fromPartition('persist:moaon-harin-readonly', { cache: false });
       globalThis.testLoginPosts = 0;
       globalThis.testPostDecisions = [];
       globalThis.testLoadFailures = [];
@@ -39,6 +39,13 @@ async function main() {
     await page.evaluate(() => { globalThis.loginResult = window.moaonHub.connect(); });
     const login = await opened;
     await login.getByLabel('사장님 비밀번호', { exact: true }).waitFor();
+    await login.waitForFunction(() => {
+      const hero = document.querySelector('[class*="loginHero"]');
+      return hero && getComputedStyle(hero).display === 'none';
+    });
+    const layout = await login.evaluate(() => ({height:innerHeight,scroll:document.documentElement.scrollHeight}));
+    assert.ok(layout.scroll <= layout.height + 1, 'compact login must not need vertical scrolling');
+    await login.screenshot({path:require('node:path').join(require('node:os').tmpdir(),'moaon-compact-login.png')});
     const submitted = await login.evaluate(() => {
       const form = document.createElement('form');
       form.method = 'POST';

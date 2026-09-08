@@ -387,14 +387,15 @@ function createHubConnection({
     getRemoteSession();
     const loginGeneration = generation;
     let loginOutcome = 'cancelled';
+    let loginSubmissionStarted = false;
 
     loginWindow = new BrowserWindow({
       parent,
       modal: true,
       width: 520,
-      height: 720,
+      height: 600,
       minWidth: 440,
-      minHeight: 620,
+      minHeight: 560,
       show: false,
       autoHideMenuBar: true,
       backgroundColor: '#f3f6fa',
@@ -414,6 +415,24 @@ function createHubConnection({
     const contents = windowAtOpen.webContents;
     contents.setWindowOpenHandler(() => ({ action: 'deny' }));
     contents.on('will-attach-webview', (event) => event.preventDefault());
+    contents.on('dom-ready', () => {
+      let url;
+      try { url = new URL(contents.getURL()); } catch { return; }
+      if (url.origin !== HARIN_ORIGIN || url.pathname !== '/login') return;
+      // Presentation only: retain the server form, validation and authentication.
+      void contents.insertCSS(`
+        [class*="loginPage"] { padding: 16px !important; min-height: 100vh !important; }
+        [class*="loginFrame"] { display: flex !important; flex-direction: column !important; min-height: 0 !important; width: 100% !important; animation: none !important; }
+        [class*="loginHero"], [class*="frameFooter"], [class*="ownerAccess"] { display: none !important; }
+        [class*="loginTopbar"] { min-height: 72px !important; padding: 14px 22px !important; }
+        [class*="loginAccess"] { padding: 24px !important; }
+        [class*="accessHeader"] > span { display: none !important; }
+        [class*="accessHeader"] h2 { margin: 0 !important; font-size: 25px !important; }
+        [class*="accessHeader"] p { margin-top: 8px !important; }
+        [class*="loginForm"] { margin-top: 22px !important; }
+        [class*="sessionNote"] { margin-top: 18px !important; padding-top: 16px !important; }
+      `).catch(() => { /* A navigation may replace the styled document. */ });
+    });
     const guardNavigation = (event, targetUrl) => {
       if (targetUrl === `${HARIN_ORIGIN}/` || targetUrl === HARIN_ORIGIN) {
         event.preventDefault();
@@ -432,6 +451,7 @@ function createHubConnection({
         allowed = false;
       }
       if (!allowed) event.preventDefault();
+      if (allowed && targetUrl === `${HARIN_ORIGIN}/api/dashboard/login`) loginSubmissionStarted = true;
     };
     contents.on('will-navigate', guardNavigation);
     contents.on('will-redirect', guardNavigation);
@@ -460,7 +480,10 @@ function createHubConnection({
       });
     });
 
-    windowAtOpen.loadURL(LOGIN_URL).catch(() => {
+    windowAtOpen.loadURL(LOGIN_URL).catch((error) => {
+      // A native form submission supersedes the initial document load.
+      // Only that known navigation may cancel the old load without closing login.
+      if (loginSubmissionStarted && (error?.code === 'ERR_ABORTED' || error?.errno === -3)) return;
       if (!windowAtOpen.isDestroyed()) {
         loginOutcome = 'load-failed';
         windowAtOpen.destroy();

@@ -39,7 +39,7 @@ async function main(){
       return;
     }
     await app.evaluate(({session})=>{
-      const ses=session.fromPartition('moaon-harin-readonly',{cache:false});
+      const ses=session.fromPartition('persist:moaon-harin-readonly',{cache:false});
       globalThis.__moaonTestStatus=200;
       globalThis.__moaonTestRequests=[];
       ses.fetch=async(url,options)=>{

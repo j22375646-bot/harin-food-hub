@@ -379,7 +379,12 @@ async function runHubAction(action) {
   try {
     const bridge = window.moaonHub;
     if (!bridge || typeof bridge[action] !== 'function') throw new Error('Bridge unavailable');
-    const result = await bridge[action]();
+    let result;
+    if (action === 'connect') {
+      result = await bridge.viewActive();
+      if (generation !== actionGeneration) return;
+      if (result.status === 'LOGIN_REQUIRED') result = await bridge.connect();
+    } else result = await bridge[action]();
     if (generation === actionGeneration) applyHubResult(result);
   } catch {
     if (generation === actionGeneration) clearDisplayedOrders('error', '하린식품 연결 요청을 완료하지 못했습니다.');

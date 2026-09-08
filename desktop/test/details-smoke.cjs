@@ -13,7 +13,7 @@ async function main() {
     await page.waitForLoadState('domcontentloaded');
     await app.evaluate(({session}) => {
       globalThis.detailFixtureMissing = false;
-      const ses = session.fromPartition('moaon-harin-readonly', {cache:false});
+      const ses = session.fromPartition('persist:moaon-harin-readonly', {cache:false});
       ses.fetch = async () => new Response(JSON.stringify({ok:true,offset:0,total:1,nextOffset:null,snapshot:'a'.repeat(64),partial:false,orders:[{
         hubOrderId:'TEST-HUB',productName:'시험 상품',platform:'CAFE24',stage:'PAID',amount:null,quantity:2,orderedAt:null,
         ...(globalThis.detailFixtureMissing ? {} : {externalOrderId:'TEST-CHANNEL',items:[{name:'<b>티백</b>',option:'30개입',quantity:2,imageUrl:'PRIVATE'}],invoice:{status:'ISSUED',number:'1234567890123'},listDeliveryBadge:{status:'IN_TRANSIT',source:'CHANNEL'},cancellationRequested:true,cancelled:false}),
@@ -21,6 +21,11 @@ async function main() {
       }]}),{status:200,headers:{'Content-Type':'application/json'}});
     });
     const opened = app.waitForEvent('window');
+    await app.evaluate(({session}) => {
+      const ses=session.fromPartition('persist:moaon-harin-readonly',{cache:false});
+      const fetch=ses.fetch;
+      ses.fetch=async (...args) => { ses.fetch=fetch; return new Response('',{status:401}); };
+    });
     await page.locator('[data-action="hub-connect"]:visible').first().click();
     await opened;
     await app.evaluate(({BrowserWindow}) => BrowserWindow.getAllWindows().find(w=>w.getParentWindow()).webContents.emit('will-redirect',{preventDefault(){}},'https://harin-cafe24-sync.vercel.app/'));

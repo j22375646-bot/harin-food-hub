@@ -263,6 +263,7 @@ test('refresh uses fixed fetch options and maps partial data while retaining no 
   const result = await connection.refresh();
 
   assert.equal(sessionModule.calls[0].partition, READONLY_PARTITION);
+  assert.equal(READONLY_PARTITION, 'persist:moaon-harin-readonly');
   assert.deepEqual(sessionModule.calls[0].options, { cache: false });
   assert.equal(fetchCalls.length, 1);
   assert.equal(fetchCalls[0].url, ORDERS_URL);
@@ -683,6 +684,34 @@ test('native login form navigation allows only the exact submission endpoint', a
   } finally {
     window.close();
     await pending;
+  }
+});
+
+test('superseded initial login load does not close an allowed form navigation', async () => {
+  let rejectLoad;
+  const fixture = makeConnection(makeRemoteSession(async () => new Response('', {status:401})), {
+    loadURL: () => new Promise((_, reject) => { rejectLoad = reject; }),
+  });
+  const pending = fixture.connection.connect();
+  const child = fixture.browserWindows[0];
+  child.webContents.emit('will-navigate', {preventDefault(){throw new Error('form blocked');}}, `${HARIN_ORIGIN}/api/dashboard/login`);
+  rejectLoad(Object.assign(new Error('aborted initial navigation'), {code:'ERR_ABORTED',errno:-3}));
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(child.isDestroyed(),false,'initial load cancellation must not destroy submitted login');
+  child.close();
+  assert.equal((await pending).status,'LOGIN_REQUIRED');
+});
+
+test('initial abort without form navigation and real load errors still fail closed', async () => {
+  for(const [submit,code,errno] of [[false,'ERR_ABORTED',-3],[true,'ERR_NAME_NOT_RESOLVED',-105]]) {
+    let rejectLoad;
+    const fixture = makeConnection(makeRemoteSession(async()=>new Response('',{status:401})), {loadURL:()=>new Promise((_,reject)=>{rejectLoad=reject;})});
+    const pending = fixture.connection.connect();
+    const child=fixture.browserWindows[0];
+    if(submit) child.webContents.emit('will-navigate',{preventDefault(){}},`${HARIN_ORIGIN}/api/dashboard/login`);
+    rejectLoad(Object.assign(new Error('private error'),{code,errno}));
+    assert.equal((await pending).status,'UNAVAILABLE');
+    assert.equal(child.isDestroyed(),true);
   }
 });
 

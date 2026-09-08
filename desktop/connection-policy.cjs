@@ -7,7 +7,7 @@ const ORDER_SCOPES = Object.freeze(['ACTIVE', 'REGISTER', 'IN_TRANSIT', 'COMPLET
 const ORDER_SCOPE_SET = new Set(ORDER_SCOPES);
 const ORDERS_PATH = `${HARIN_ORIGIN}/api/orders/page?stage=`;
 const ORDERS_URL = `${ORDERS_PATH}ACTIVE&platform=ALL`;
-const READONLY_PARTITION = 'moaon-harin-readonly';
+const READONLY_PARTITION = 'persist:moaon-harin-readonly';
 const MAX_LOGIN_QUERY_LENGTH = 512;
 const LOGIN_QUERY_KEYS = new Set(['error', 'next']);
 const ORDERS_PAGE_SIZE = 20;

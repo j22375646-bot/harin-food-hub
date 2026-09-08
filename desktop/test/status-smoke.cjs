@@ -24,7 +24,7 @@ async function main() {
     ]);
 
     await app.evaluate(({ session }) => {
-      const ses = session.fromPartition('moaon-harin-readonly', { cache: false });
+      const ses = session.fromPartition('persist:moaon-harin-readonly', { cache: false });
       globalThis.__moaonStatusRequests = [];
       globalThis.__moaonReleaseRegistered = null;
       globalThis.__moaonHoldRegistered = true;
@@ -74,6 +74,11 @@ async function main() {
     });
 
     const loginOpened = app.waitForEvent('window');
+    await app.evaluate(({session}) => {
+      const ses=session.fromPartition('persist:moaon-harin-readonly',{cache:false});
+      const fetch=ses.fetch;
+      ses.fetch=async (...args) => { ses.fetch=fetch; return new Response('',{status:401}); };
+    });
     await page.locator('[data-action="hub-connect"]:visible').first().click();
     await loginOpened;
     await app.evaluate(({ BrowserWindow }) => {
