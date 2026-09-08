@@ -74,9 +74,25 @@ async function refreshBusinesses(){
   if(expected!==businessGeneration)return;
   const messages={LOGIN_REQUIRED:'로그인이 만료되었습니다. 다시 로그인해주세요.',FORBIDDEN:'사업장 목록을 볼 권한이 없습니다.',TIMEOUT:'조회 시간이 초과됐습니다. 다시 확인해주세요.',UNAVAILABLE:'목록을 불러오지 못했습니다. 잠시 후 다시 확인해주세요.',DISCONNECTED:'연결이 해제됐습니다.',CANCELLED:'조회가 취소됐습니다.'};
   if(result.status!=='READY'){status.textContent=messages[result.status]||messages.UNAVAILABLE;return;}
-  status.textContent=result.businesses.length?`소속 사업장 ${result.businesses.length}개 · 업무 전환 기능은 준비 중입니다.`:'등록된 소속 사업장이 없습니다. 기존 하린식품 업무 연결과는 별도입니다.';
+  status.textContent=result.businesses.length?`소속 사업장 ${result.businesses.length}개 · 연결과 권한이 준비된 사업장만 열 수 있습니다.`:'등록된 소속 사업장이 없습니다. 기존 하린식품 업무 연결과는 별도입니다.';
   list.replaceChildren(...result.businesses.map(business=>{
-   const item=makeElement('li');item.append(makeElement('strong','',business.displayName),makeElement('span','',({OWNER:'소유자',OPERATOR:'운영자',VIEWER:'조회 담당자'})[business.role]));return item;
+   const supported=business.tenantId==='a3452bca-e259-40ed-a93d-b8bcc5c1b9e0';
+   const canOpen=supported&&business.role==='OWNER';
+   const item=makeElement('li'),info=makeElement('div','business-info');
+   info.append(makeElement('strong','',business.displayName),makeElement('span','business-role',({OWNER:'소유자',OPERATOR:'운영자',VIEWER:'조회 담당자'})[business.role]));
+   const detail=makeElement('p','business-reason',canOpen?'주문을 다시 확인한 뒤 업무 화면을 엽니다.':supported?'현재 이 앱은 소유자 권한이 필요합니다.':'이 사업장의 독립된 주문·플랫폼 연결은 준비 중입니다.');
+   const actions=makeElement('div','business-actions');
+   const badge=makeElement('span',`business-readiness${canOpen?' is-ready':''}`,canOpen?'현재 연결':supported?'권한 확인 필요':'연결 준비 중');
+   const open=makeElement('button','secondary-action',canOpen?'주문 업무 열기':'아직 열 수 없음');open.type='button';open.disabled=!canOpen;
+   open.addEventListener('click',async()=>{
+    if(open.disabled||expected!==businessGeneration||displayMode!=='live')return;
+    open.disabled=true;open.textContent='권한 확인 중…';
+    await runHubAction('viewActive');
+    if(expected!==businessGeneration)return;
+    if(displayMode==='live')showRoute('orders');
+    open.disabled=false;open.textContent='주문 업무 열기';
+   });
+   info.append(detail);actions.append(badge,open);item.append(info,actions);return item;
   }));
  }catch{if(expected===businessGeneration)status.textContent='목록을 불러오지 못했습니다. 다시 확인해주세요.';}
  finally{if(expected===businessGeneration){businessBusy=false;button.disabled=false;}}

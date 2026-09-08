@@ -16,10 +16,10 @@ async function main(){
   const started=Date.now();const app=await _electron.launch({executablePath,args:[],timeout:30000});
   try{
    const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');
-   await page.locator('[data-app-version]').first().filter({hasText:'v0.15.3'}).waitFor();
+   await page.locator('[data-app-version]').first().filter({hasText:'v0.15.4'}).waitFor();
    const errors=[];page.on('pageerror',error=>errors.push(error.name));
    const state=await app.evaluate(({app})=>({version:app.getVersion(),profile:app.getPath('userData')}));
-   assert.equal(state.version,'0.15.3');assert.equal(path.resolve(state.profile),path.resolve(profile));
+   assert.equal(state.version,'0.15.4');assert.equal(path.resolve(state.profile),path.resolve(profile));
    const theme=await page.evaluate(()=>({visible:document.documentElement.dataset.theme,saved:localStorage.getItem('moaon-preview-theme')}));
    assert.equal(theme.visible,theme.saved);assert.ok(['light','dark'].includes(theme.visible));
    assert.equal(page.url(),'moaon://app/index.html');
@@ -35,7 +35,7 @@ async function main(){
     await page.locator('[data-page="settings"]:visible').waitFor();
     await page.waitForFunction(()=>!document.querySelector('#business-list-refresh').disabled,{},{timeout:20000});
     assert.equal(await page.locator('#business-list-title').innerText(),'내 사업장');
-    assert.equal(await page.locator('#business-list button').count(),0);
+    assert.ok(await page.locator('#business-list button:enabled').count()<=1);
     if(process.argv.includes('--authenticated')&&run===0){
      for(const [action,scope] of [['viewActive','ACTIVE'],['viewRegistered','REGISTER'],['viewInTransit','IN_TRANSIT'],['viewCompleted','COMPLETED']]){
       const startedRead=Date.now();
