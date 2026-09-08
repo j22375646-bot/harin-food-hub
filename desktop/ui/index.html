@@ -180,6 +180,7 @@
                   <button class="secondary-action" type="button" data-action="hub-viewInTransit" aria-pressed="false" hidden>배송중</button>
                   <button class="secondary-action" type="button" data-action="hub-viewCompleted" aria-pressed="false" hidden>완료·취소</button>
                 </div>
+                <section class="global-order-search"><button id="order-global-search-toggle" type="button" aria-expanded="false" aria-controls="order-global-search-panel">전체 검색·기간</button><span id="order-global-applied">전체 저장 주문 · 조건 없음</span><form id="order-global-search-panel" hidden inert aria-label="전체 주문 검색과 기간"><label>검색어<input id="order-global-query" type="search" maxlength="100" autocomplete="off" placeholder="주문번호·상품·채널"></label><label>시작일<input id="order-global-start" type="date"></label><label>종료일<input id="order-global-end" type="date"></label><div><button id="order-global-apply" type="submit">검색 적용</button><button id="order-global-reset" type="button">조건 초기화</button><button id="order-global-export" type="button">엑셀 저장</button></div><p id="order-global-status" role="status"></p></form></section>
                 <div class="order-tools" aria-label="현재 페이지 작업 도구">
                   <label class="search-field"><span aria-hidden="true">⌕</span><input id="order-search" type="search" aria-label="현재 페이지 검색" placeholder="현재 페이지 주문 검색" autocomplete="off"><kbd>Ctrl K</kbd></label>
                   <label>채널<select id="order-channel" aria-label="전체 조회 판매 채널"><option value="ALL">모든 채널</option></select></label>

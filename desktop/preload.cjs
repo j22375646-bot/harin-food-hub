@@ -9,6 +9,8 @@ const onWindowRestored=listener=>{
   ipcRenderer.on('moaon-hub:window-restored',handler);
   return ()=>ipcRenderer.removeListener('moaon-hub:window-restored',handler);
 };
+const realDate=value=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const [y,m,d]=value.split('-').map(Number),date=new Date(Date.UTC(y,m-1,d));return date.getUTCFullYear()===y&&date.getUTCMonth()===m-1&&date.getUTCDate()===d;};
+const validOrderSearch=value=>value&&typeof value==='object'&&!Array.isArray(value)&&['query','start','end'].every(key=>Object.hasOwn(value,key))&&typeof value.query==='string'&&value.query.length<=100&&typeof value.start==='string'&&typeof value.end==='string'&&(!value.start||realDate(value.start))&&(!value.end||realDate(value.end))&&(!value.start||!value.end||value.start<=value.end);
 
 contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   collectOrders: () => ipcRenderer.invoke('moaon-hub:collect-orders'),
@@ -41,10 +43,12 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   viewActive: () => ipcRenderer.invoke('moaon-hub:view-active'),
   viewChannel: (channel) => ipcRenderer.invoke('moaon-hub:view-channel',channel),
   setOrderFilters: (filters) => {
-    if(!filters||typeof filters!=='object'||Array.isArray(filters)||Object.keys(filters).length!==2||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean')throw Error('Invalid filter arguments');
+    if(!filters||typeof filters!=='object'||Array.isArray(filters)||![2,5].includes(Object.keys(filters).length)||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean'||(Object.keys(filters).length===5&&!validOrderSearch(filters)))throw Error('Invalid filter arguments');
     return ipcRenderer.invoke('moaon-hub:set-order-filters',filters);
   },
   resetOrderFilters: () => ipcRenderer.invoke('moaon-hub:reset-order-filters'),
+  applyOrderSearch: search => {if(!validOrderSearch(search))throw Error('Invalid search arguments');return ipcRenderer.invoke('moaon-hub:apply-order-search',search);},
+  exportOrdersXlsx: () => ipcRenderer.invoke('moaon-hub:export-orders-xlsx'),
   registerInvoices: (ids) => ipcRenderer.invoke('moaon-hub:register-invoices',ids),
   viewRegistered: () => ipcRenderer.invoke('moaon-hub:view-registered'),
   viewInTransit: () => ipcRenderer.invoke('moaon-hub:view-in-transit'),

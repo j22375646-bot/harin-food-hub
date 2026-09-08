@@ -1,0 +1,8 @@
+'use strict';
+const test=require('node:test');const assert=require('node:assert/strict');
+const orders=require('../lib/ui/phase28-adapters/orders.js');
+const {guardWorkspaceOrdersRequest}=require('../lib/tenancy/workspace-orders-request.js');
+const base={fulfillment:'SELLER',stage:'PAID',platform:'CAFE24',hubOrderId:'HR-C24-00000001',externalOrderId:'ORDER-1',productName:'김 스낵',orderedAt:'2026-09-08T15:30:00.000Z'};
+test('candidate search covers non-private order fields and Seoul dates',()=>{const rows=[base,{...base,hubOrderId:'HR-C24-00000002',externalOrderId:'ORDER-2',productName:'다시마',orderedAt:'2026-09-08T14:30:00.000Z'}];assert.deepEqual(orders.orderCandidates(rows,[],{stage:'ACTIVE',query:'김',start:'2026-09-09',end:'2026-09-09'}).map(x=>x.hubOrderId),['HR-C24-00000001']);assert.equal(orders.orderCandidates(rows,[],{stage:'ACTIVE',query:'개인정보'}).length,0);});
+test('search and dates participate in the cursor snapshot',()=>{const a=orders.buildOrderPage([base],[],{stage:'ACTIVE'}),b=orders.buildOrderPage([base],[],{stage:'ACTIVE',query:'김'});assert.notEqual(a.snapshot,b.snapshot);});
+test('tenant guard accepts canonical search/export and rejects duplicate or unknown input',()=>{const root='https://x.test/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders';const headers={cookie:'harin_dashboard_session=x.y',origin:'https://x.test'};assert.equal(guardWorkspaceOrdersRequest(new Request(`${root}?stage=ACTIVE&query=%EA%B9%80&start=2026-09-01&end=2026-09-09&format=xlsx`,{headers})).response,undefined);assert.equal(guardWorkspaceOrdersRequest(new Request(`${root}?query=a&query=b`,{headers})).response.status,400);assert.equal(guardWorkspaceOrdersRequest(new Request(`${root}?customer=name`,{headers})).response.status,400);});

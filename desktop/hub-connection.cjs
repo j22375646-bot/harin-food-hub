@@ -8,6 +8,8 @@ const {
   READONLY_PARTITION,
   buildOrdersPageUrl,
   buildOrdersScopeUrl,
+  buildOrdersExportUrl,
+  validSearch,
   isAllowedRemoteRequest,
   isTrustedRenderer,
 } = require('./connection-policy.cjs');
@@ -155,6 +157,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     || typeof payload.partial !== 'boolean'
     || typeof checkedAt !== 'string'
     || !ORDER_SCOPES.includes(scope)
+    || (options.requireSearchContract&&(payload.searchContractVersion !== 1||!validSearch(payload.appliedSearch)))
   ) {
     throw new Error('Invalid orders payload');
   }
@@ -197,6 +200,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     partial,
     message: STATUS_MESSAGES[partial ? 'PARTIAL' : 'READY'],
     scope,
+    ...(validSearch(payload.appliedSearch)?{search:payload.appliedSearch}:{}),
   });
 }
 
@@ -255,6 +259,7 @@ function createHubConnection({
   labelPreview = null,
   selectedDocuments = null,
   worklistPreview = null,
+  saveOrderExport = null,
   automaticPollDelayMs = 1000,
   automaticTimeoutMs = 60000,
 }) {
@@ -275,7 +280,8 @@ function createHubConnection({
   let pageCursor = null;
   let currentScope = 'ACTIVE';
   let currentChannel = 'ALL';
-  let currentFilters=Object.freeze({delayOnly:false,giftOnly:false});
+  let currentFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});
+  let exportPermit=null,exportWork=null;
   let loadedOrders=EMPTY_ORDERS;
   let freshnessRead=null;
   let freshnessLastAt=-Infinity;
@@ -530,6 +536,7 @@ function createHubConnection({
             trackingRequestMethod,
             automaticTrackingRequestActive,
             collectionPermit,
+            exportPermit,
             automaticRequestActive:automaticPermits.has(details.url),
             deliveryRequestActive:deliveryPermits.has(details.url),
             ...labelPreview?.context(),
@@ -548,12 +555,13 @@ function createHubConnection({
     freshnessLastIdentity=null;
     freshnessLastResult=null;
   }
-  const ordersScopeUrl=(scope=currentScope,channel=currentChannel)=>currentFilters.delayOnly||currentFilters.giftOnly?buildOrdersScopeUrl(scope,channel,currentFilters):buildOrdersScopeUrl(scope,channel);
-  const ordersPageUrl=(offset,snapshot,scope=currentScope,channel=currentChannel)=>currentFilters.delayOnly||currentFilters.giftOnly?buildOrdersPageUrl(offset,snapshot,scope,channel,currentFilters):buildOrdersPageUrl(offset,snapshot,scope,channel);
+  const hasExtendedFilters=()=>currentFilters.delayOnly||currentFilters.giftOnly||currentFilters.query||currentFilters.start||currentFilters.end;
+  const ordersScopeUrl=(scope=currentScope,channel=currentChannel)=>hasExtendedFilters()?buildOrdersScopeUrl(scope,channel,currentFilters):buildOrdersScopeUrl(scope,channel);
+  const ordersPageUrl=(offset,snapshot,scope=currentScope,channel=currentChannel)=>hasExtendedFilters()?buildOrdersPageUrl(offset,snapshot,scope,channel,currentFilters):buildOrdersPageUrl(offset,snapshot,scope,channel);
 
   function freshnessIdentity(){
     if(!pageCursor||loadedOrders===EMPTY_ORDERS)return null;
-    return JSON.stringify([generation,currentScope,currentChannel,currentFilters.delayOnly,currentFilters.giftOnly,pageCursor.offset,pageCursor.snapshot]);
+    return JSON.stringify([generation,currentScope,currentChannel,currentFilters,pageCursor.offset,pageCursor.snapshot]);
   }
   function freshnessResult(status){return Object.freeze({status,checkedAt:now().toISOString()});}
   function sameFreshnessPage(candidate){
@@ -635,7 +643,7 @@ function createHubConnection({
       const payload = await bounded(readBoundedJson(response, controller));
       if(controller.signal.aborted)throw Error('Order read stopped');
       if (readGeneration !== generation) return safeEmpty('DISCONNECTED');
-      const result = projectOrdersPayload(payload, now().toISOString(), { requestedOffset, expectedSnapshot, scope });
+      const result = projectOrdersPayload(payload, now().toISOString(), { requestedOffset, expectedSnapshot, scope,requireSearchContract:/[?&](?:query=[^&]+|start=\d|end=\d)/.test(url) });
       pageCursor = Object.freeze({
         offset: payload.offset,
         nextOffset: payload.nextOffset,
@@ -646,7 +654,8 @@ function createHubConnection({
       loadedOrders=result.orders;
       freshnessLastIdentity=null;
       freshnessLastResult=null;
-      return Object.freeze({...result,channel:currentChannel,filters:currentFilters});
+      const publicFilters=currentFilters.query||currentFilters.start||currentFilters.end?currentFilters:{delayOnly:currentFilters.delayOnly,giftOnly:currentFilters.giftOnly};
+      return Object.freeze({...result,channel:currentChannel,filters:Object.freeze(publicFilters)});
     } catch {
       if (readGeneration === generation) invalidateCursor();
       return readGeneration === generation
@@ -1200,14 +1209,35 @@ function createHubConnection({
   }
 
   function setOrderFilters(filters){
-    if(!filters||typeof filters!=='object'||Array.isArray(filters)||Object.keys(filters).length!==2||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean')return Promise.resolve(safeEmpty('UNAVAILABLE','올바른 주문 필터를 선택하세요.'));
+    if(filters&&Object.keys(filters).length===2)filters={...currentFilters,...filters};
+    if(!filters||typeof filters!=='object'||Array.isArray(filters)||Object.keys(filters).length!==5||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean'||!validSearch(filters))return Promise.resolve(safeEmpty('UNAVAILABLE','올바른 주문 필터를 선택하세요.'));
     if(registrationController||automaticController||reviewingShipment||collectionWorkActive||trackingController||findingOrder)return Promise.resolve(safeEmpty('UNAVAILABLE','다른 작업이 진행 중입니다. 완료 후 필터를 변경하세요.'));
     generation++;void stopShipments();currentFilters=Object.freeze({...filters});invalidateCursor();activeRead=null;activeAbortController?.abort();
     return startRead({url:ordersScopeUrl(),requestedOffset:0,expectedSnapshot:null,scope:currentScope});
   }
+  function applyOrderSearch(search){
+    if(!validSearch(search))return Promise.resolve(safeEmpty('UNAVAILABLE','올바른 검색어와 기간을 입력하세요.'));
+    return setOrderFilters(Object.freeze({...currentFilters,...search}));
+  }
+  function exportOrdersXlsx(){
+    if(exportWork)return exportWork;
+    if(typeof saveOrderExport!=='function'||!pageCursor||activeRead||registrationController||automaticController||reviewingShipment||collectionWorkActive||trackingController||findingOrder)return Promise.resolve({status:'BUSY'});
+    const expected=generation,controller=new AbortController();
+    exportWork=(async()=>{try{
+      const auth=await recheckPage();if(expected!==generation||!['READY'].includes(auth.status))return {status:auth.status==='PARTIAL'?'PARTIAL_EXPORT_BLOCKED':'DOCUMENT_CHANGED'};
+      const url=buildOrdersExportUrl(currentScope,currentChannel,currentFilters);exportPermit=url;
+      const response=await getRemoteSession().fetch(url,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});exportPermit=null;
+      if(expected!==generation||[401,403].includes(response.status))return {status:response.status===401?'LOGIN_REQUIRED':response.status===403?'FORBIDDEN':'DOCUMENT_CHANGED'};
+      if(response.status===404)return {status:'NO_ORDERS'};if(response.status!==200)return {status:'EXPORT_UNAVAILABLE'};
+      const mime=String(response.headers.get('content-type')||'').split(';')[0].toLowerCase();if(mime!=='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')return {status:'EXPORT_UNAVAILABLE'};
+      const count=Number(response.headers.get('x-moaon-export-count'));if(response.headers.get('x-moaon-search-contract')!=='1'||!Number.isSafeInteger(count)||count<1||count>5000)return {status:'EXPORT_UNAVAILABLE'};
+      const bytes=Buffer.from(await response.arrayBuffer());if(bytes.length<4||bytes.length>10*1024*1024||bytes[0]!==0x50||bytes[1]!==0x4b||bytes[2]!==0x03||bytes[3]!==0x04)return {status:'EXPORT_UNAVAILABLE'};
+      if(expected!==generation)return {status:'DOCUMENT_CHANGED'};return {status:await saveOrderExport(bytes,()=>expected===generation&&!disconnecting&&!cleanupFailed)};
+    }catch{return {status:'EXPORT_UNAVAILABLE'};}finally{exportPermit=null;controller.abort();exportWork=null;}})();return exportWork;
+  }
   function resetOrderFilters(){
     if(registrationController||automaticController||reviewingShipment||collectionWorkActive||trackingController||findingOrder)return Promise.resolve(safeEmpty('UNAVAILABLE','다른 작업이 진행 중입니다. 완료 후 필터를 초기화하세요.'));
-    generation++;void stopShipments();currentChannel='ALL';currentFilters=Object.freeze({delayOnly:false,giftOnly:false});invalidateCursor();activeRead=null;activeAbortController?.abort();
+    generation++;void stopShipments();currentChannel='ALL';currentFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});invalidateCursor();activeRead=null;activeAbortController?.abort();
     return startRead({url:ordersScopeUrl(),requestedOffset:0,expectedSnapshot:null,scope:currentScope});
   }
 
@@ -1462,7 +1492,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-  return Object.freeze({ exportSelectedCsv, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1503,9 +1533,10 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
   ipcMain.handle('moaon-hub:set-order-filters',async(event,...args)=>{
     if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
     const filters=args[0];
-    if(args.length!==1||!filters||typeof filters!=='object'||Array.isArray(filters)||Object.keys(filters).length!==2||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean')throw Error('Invalid filter arguments');
+    if(args.length!==1||!filters||typeof filters!=='object'||Array.isArray(filters)||![2,5].includes(Object.keys(filters).length)||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean'||(Object.keys(filters).length===5&&!validSearch(filters)))throw Error('Invalid filter arguments');
     return connection.setOrderFilters(filters);
   });
+  ipcMain.handle('moaon-hub:apply-order-search',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');if(args.length!==1||!validSearch(args[0]))throw Error('Invalid search arguments');return connection.applyOrderSearch(args[0]);});
   ipcMain.handle('moaon-hub:reset-order-filters',async(event,...args)=>{
     if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
     if(args.length)throw Error('Arguments are not allowed');
@@ -1546,6 +1577,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     ['moaon-hub:view-in-transit', 'viewInTransit'],
     ['moaon-hub:view-completed', 'viewCompleted'],
     ['moaon-hub:disconnect', 'disconnect'],
+    ['moaon-hub:export-orders-xlsx', 'exportOrdersXlsx'],
   ];
 
   for (const [channel, method] of methods) {

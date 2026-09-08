@@ -15,18 +15,22 @@ const LOGIN_QUERY_KEYS = new Set(['error', 'next']);
 const ORDERS_PAGE_SIZE = 20;
 const SNAPSHOT_PATTERN = /^[0-9a-f]{64}$/;
 
-function validFilters(filters){return filters&&typeof filters==='object'&&!Array.isArray(filters)&&Object.keys(filters).length===2&&typeof filters.delayOnly==='boolean'&&typeof filters.giftOnly==='boolean';}
-function buildOrdersScopeUrl(scope = 'ACTIVE', channel = 'ALL', filters = {delayOnly:false,giftOnly:false}) {
+function realDate(value){if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const [y,m,d]=value.split('-').map(Number),date=new Date(Date.UTC(y,m-1,d));return date.getUTCFullYear()===y&&date.getUTCMonth()===m-1&&date.getUTCDate()===d;}
+function validSearch(search){return search&&typeof search==='object'&&!Array.isArray(search)&&typeof search.query==='string'&&search.query.length<=100&&typeof search.start==='string'&&typeof search.end==='string'&&(!search.start||realDate(search.start))&&(!search.end||realDate(search.end))&&(!search.start||!search.end||search.start<=search.end);}
+function validFilters(filters){return filters&&typeof filters==='object'&&!Array.isArray(filters)&&typeof filters.delayOnly==='boolean'&&typeof filters.giftOnly==='boolean'&&(Object.keys(filters).length===2||Object.keys(filters).length===5&&validSearch(filters));}
+const EMPTY_FILTERS=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});
+function searchSuffix(filters){const legacy=`&delayOnly=${filters.delayOnly}&giftOnly=${filters.giftOnly}`;return Object.keys(filters).length===2||!filters.query&&!filters.start&&!filters.end?legacy:`${legacy}&query=${encodeURIComponent(filters.query)}&start=${filters.start}&end=${filters.end}`;}
+function buildOrdersScopeUrl(scope = 'ACTIVE', channel = 'ALL', filters = EMPTY_FILTERS) {
   if (!ORDER_SCOPE_SET.has(scope)) throw new TypeError('Invalid orders scope');
   if (!ORDER_CHANNELS.includes(channel)) throw new TypeError('Invalid orders channel');
   if(!validFilters(filters))throw new TypeError('Invalid orders filters');
-  return `${ORDERS_PATH}${scope}&platform=${channel}${filters.delayOnly||filters.giftOnly?`&delayOnly=${filters.delayOnly}&giftOnly=${filters.giftOnly}`:''}`;
+  return `${ORDERS_PATH}${scope}&platform=${channel}${filters===EMPTY_FILTERS?'':searchSuffix(filters)}`;
 }
 
-function buildOrdersPageUrl(offset, snapshot, scope = 'ACTIVE', channel = 'ALL', filters = {delayOnly:false,giftOnly:false}) {
+function buildOrdersPageUrl(offset, snapshot, scope = 'ACTIVE', channel = 'ALL', filters = EMPTY_FILTERS) {
   buildOrdersScopeUrl(scope,channel,filters);
   const includeFilters=arguments.length>=5;
-  const ordersUrl = `${ORDERS_PATH}${scope}&platform=${channel}${includeFilters?`&delayOnly=${filters.delayOnly}&giftOnly=${filters.giftOnly}`:''}`;
+  const ordersUrl = `${ORDERS_PATH}${scope}&platform=${channel}${includeFilters?searchSuffix(filters):''}`;
   if (
     !Number.isSafeInteger(offset)
     || offset < 0
@@ -38,17 +42,20 @@ function buildOrdersPageUrl(offset, snapshot, scope = 'ACTIVE', channel = 'ALL',
   }
   return `${ordersUrl}&offset=${offset}&snapshot=${snapshot}`;
 }
+function buildOrdersExportUrl(scope='ACTIVE',channel='ALL',filters=EMPTY_FILTERS){return `${buildOrdersScopeUrl(scope,channel,filters)}&format=xlsx`;}
 
 function parseOrdersPageUrl(value) {
   if (typeof value !== 'string') return null;
   const escapedPath = ORDERS_PATH.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = value.match(new RegExp(`^${escapedPath}(ACTIVE|REGISTER|IN_TRANSIT|COMPLETED)&platform=(?:ALL|CAFE24|NAVER|COUPANG)(?:&delayOnly=(true|false)&giftOnly=(true|false))?(?:&offset=([0-9]+)&snapshot=([0-9a-f]{64}))?$`));
+  const match = value.match(new RegExp(`^${escapedPath}(ACTIVE|REGISTER|IN_TRANSIT|COMPLETED)&platform=(?:ALL|CAFE24|NAVER|COUPANG)(?:&delayOnly=(true|false)&giftOnly=(true|false)(?:&query=([^&]*)&start=(\\d{4}-\\d{2}-\\d{2}|)&end=(\\d{4}-\\d{2}-\\d{2}|))?)?(?:&offset=([0-9]+)&snapshot=([0-9a-f]{64}))?$`));
   if (!match) return null;
-  const filters=Object.freeze({delayOnly:match[2]==='true',giftOnly:match[3]==='true'});
-  if (match[4] === undefined) return Object.freeze({ scope: match[1], offset: 0, snapshot: null, filters });
-  const offset = Number(match[4]);
-  if (!Number.isSafeInteger(offset) || offset < 0 || offset % ORDERS_PAGE_SIZE !== 0 || String(offset) !== match[4]) return null;
-  return Object.freeze({ scope: match[1], offset, snapshot: match[5], filters });
+  let query='';try{query=decodeURIComponent(match[4]||'');}catch{return null;}
+  const filters=Object.freeze({delayOnly:match[2]==='true',giftOnly:match[3]==='true',query,start:match[5]||'',end:match[6]||''});
+  if(!validFilters(filters))return null;
+  if (match[7] === undefined) return Object.freeze({ scope: match[1], offset: 0, snapshot: null, filters });
+  const offset = Number(match[7]);
+  if (!Number.isSafeInteger(offset) || offset < 0 || offset % ORDERS_PAGE_SIZE !== 0 || String(offset) !== match[7]) return null;
+  return Object.freeze({ scope: match[1], offset, snapshot: match[8], filters });
 }
 
 function isSafeLoginUrl(url) {
@@ -102,6 +109,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if(method==='POST'&&details.url===`${HARIN_ORIGIN}/api/shipping/actions`&&context.registrationRequestActive===true)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.automaticRequestActive===true&&new RegExp(`^${HARIN_ORIGIN.replaceAll('.','\\.')}\/api\/coupang\/operations\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`,'i').test(details.url))return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&details.url===`${HARIN_ORIGIN}/api/moaon/businesses`)return isMainProcessRequest(details.webContentsId);
+  if(method==='GET'&&context.exportPermit===details.url&&details.url.endsWith('&format=xlsx'))return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&Number.isInteger(context.labelWebContentsId)&&context.labelWebContentsId>0&&details.webContentsId===context.labelWebContentsId&&details.url===context.labelUrl
     && /^https:\/\/harin-cafe24-sync\.vercel\.app\/api\/shipping\/print\?type=label&ids=HR-(?:C24|CP)-[A-F0-9]{8}$/.test(details.url))return true;
   if(context.shipmentRequestActive===true && isMainProcessRequest(details.webContentsId)) {
@@ -153,6 +161,8 @@ module.exports = Object.freeze({
   READONLY_PARTITION,
   buildOrdersPageUrl,
   buildOrdersScopeUrl,
+  buildOrdersExportUrl,
+  validSearch,
   isAllowedRemoteRequest,
   isTrustedRenderer,
 });

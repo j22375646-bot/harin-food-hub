@@ -55,7 +55,7 @@ let selectedOrderId = null;
 const selectedOrderIds = new Set();
 let registrationBusy = false;
 let selectedChannel = 'ALL';
-let serverFilters=Object.freeze({delayOnly:false,giftOnly:false});
+let serverFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});
 let selectedOrderButton = null;
 let displayMode = 'sample';
 let collectionState=null,collectionBusy=false,collectionGeneration=0;
@@ -692,6 +692,7 @@ function renderSelection(){
 }
 
 const orderToolsBusy=()=>registrationBusy||collectionBusy||collectionShipmentLocks.size>0||freshnessReloadBusy;
+function renderGlobalSearch(){const locked=orderToolsBusy()||displayMode!=='live';for(const id of ['order-global-query','order-global-start','order-global-end','order-global-apply','order-global-reset','order-global-export'])document.querySelector(`#${id}`).disabled=locked;const labels=[serverFilters.query?`“${serverFilters.query}”`:'',serverFilters.start?`${serverFilters.start}부터`:'',serverFilters.end?`${serverFilters.end}까지`:''].filter(Boolean);document.querySelector('#order-global-applied').textContent=labels.length?`전체 저장 주문 · ${labels.join(' · ')}`:'전체 저장 주문 · 조건 없음';}
 function renderServerFilterControls(){
   const live=displayMode==='live',busy=orderToolsBusy();
   const delay=document.querySelector('#order-delay-only'),gift=document.querySelector('#order-gift-only');
@@ -701,6 +702,7 @@ function renderServerFilterControls(){
 }
 
 function renderOrders() {
+  renderGlobalSearch();
   const query = orderSearch.value.trim().toLocaleLowerCase('ko-KR');
   const channelOf = order => isSampleMode() ? order.channel : order.platform;
   const channel = selectedChannel;
@@ -873,7 +875,7 @@ function applyHubResult(result) {
   if (result?.status === 'READY' || result?.status === 'PARTIAL') {
     if (scopeDetails[result.scope]) selectedScope = result.scope;
     if(['ALL','CAFE24','NAVER','COUPANG'].includes(result.channel))selectedChannel=result.channel;
-    if(result.filters&&typeof result.filters.delayOnly==='boolean'&&typeof result.filters.giftOnly==='boolean')serverFilters=Object.freeze({...result.filters});
+    if(result.filters&&typeof result.filters.delayOnly==='boolean'&&typeof result.filters.giftOnly==='boolean')serverFilters=Object.freeze({...serverFilters,...result.filters});
     scopeControlsAvailable = true;
     displayMode = 'live';
     if(!businessLoaded){businessLoaded=true;void refreshBusinesses();}
@@ -1229,7 +1231,7 @@ async function returnToSample() {
   if (generation !== actionGeneration) return;
   displayMode = 'sample';
   selectedChannel='ALL';
-  serverFilters=Object.freeze({delayOnly:false,giftOnly:false});
+  serverFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});
   selectedScope = 'ACTIVE';
   scopeControlsAvailable = false;
   displayedOrders = sampleOrders;
@@ -1255,6 +1257,11 @@ orderSearch.addEventListener('input', renderOrders);
 orderChannel.addEventListener('change',()=>void changeOrderChannel(orderChannel.value));
 document.querySelector('#order-delay-only').addEventListener('change',event=>void changeServerFilters({...serverFilters,delayOnly:event.target.checked}));
 document.querySelector('#order-gift-only').addEventListener('change',event=>void changeServerFilters({...serverFilters,giftOnly:event.target.checked}));
+const globalToggle=document.querySelector('#order-global-search-toggle'),globalPanel=document.querySelector('#order-global-search-panel');
+globalToggle.addEventListener('click',()=>{const open=globalToggle.getAttribute('aria-expanded')!=='true';globalToggle.setAttribute('aria-expanded',String(open));globalPanel.hidden=!open;globalPanel.inert=!open;if(open)document.querySelector('#order-global-query').focus();});
+globalPanel.addEventListener('submit',async event=>{event.preventDefault();if(orderToolsBusy()||displayMode!=='live')return;const search={query:document.querySelector('#order-global-query').value.trim(),start:document.querySelector('#order-global-start').value,end:document.querySelector('#order-global-end').value};const status=document.querySelector('#order-global-status');if(search.start&&search.end&&search.start>search.end){status.textContent='시작일은 종료일보다 늦을 수 없습니다.';return;}const generation=++actionGeneration;selectedOrderIds.clear();clearDisplayedOrders('connecting','전체 검색 조건을 적용하고 있습니다.');try{const result=await window.moaonHub.applyOrderSearch(search);if(generation===actionGeneration){serverFilters=Object.freeze({...serverFilters,...search});applyHubResult(result);status.textContent=['READY','PARTIAL'].includes(result.status)?'검색 조건을 적용했습니다.':'검색 조건을 적용하지 못했습니다.';}}catch{if(generation===actionGeneration)clearDisplayedOrders('error','전체 검색을 완료하지 못했습니다.');}});
+document.querySelector('#order-global-reset').addEventListener('click',()=>{for(const id of ['order-global-query','order-global-start','order-global-end'])document.querySelector(`#${id}`).value='';globalPanel.requestSubmit();});
+document.querySelector('#order-global-export').addEventListener('click',async()=>{if(orderToolsBusy()||displayMode!=='live')return;const status=document.querySelector('#order-global-status');const generation=actionGeneration;registrationBusy=true;renderSelection();renderGlobalSearch();status.textContent='현재 조건의 주문을 안전하게 준비하고 있습니다.';try{const result=await window.moaonHub.exportOrdersXlsx();if(generation!==actionGeneration)return;status.textContent=({XLSX_SAVED:'엑셀 파일을 저장했습니다.',SAVE_CANCELLED:'엑셀 저장을 취소했습니다.',FILE_EXISTS:'같은 이름의 파일이 있습니다. 다른 이름으로 저장하세요.',NO_ORDERS:'조건에 맞는 주문이 없어 파일을 만들지 않았습니다.',PARTIAL_EXPORT_BLOCKED:'일부 채널을 확인하지 못해 저장하지 않았습니다.',DOCUMENT_CHANGED:'주문이나 검색 조건이 변경되어 저장하지 않았습니다.'})[result?.status]||'엑셀 파일을 저장하지 못했습니다. 다시 확인하세요.';}catch{if(generation===actionGeneration)status.textContent='엑셀 파일을 저장하지 못했습니다. 다시 확인하세요.';}finally{registrationBusy=false;renderSelection();renderGlobalSearch();}});
 orderSort.addEventListener('change',renderOrders);
 document.querySelector('#selection-clear').addEventListener('click',()=>{selectedOrderIds.clear();closeOrderDetail({restoreFocus:true});renderSelection();});
 document.querySelector('#order-select-all').addEventListener('change',event=>{
@@ -1283,7 +1290,7 @@ document.querySelector('#order-tools-reset').addEventListener('click',()=>{
   if(orderToolsBusy())return;
   orderSearch.value='';orderSort.value='DEFAULT';reviewFilter='ALL';
   if(selectedChannel!=='ALL'||serverFilters.delayOnly||serverFilters.giftOnly){
-    selectedChannel='ALL';serverFilters=Object.freeze({delayOnly:false,giftOnly:false});selectedOrderIds.clear();
+    selectedChannel='ALL';serverFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});selectedOrderIds.clear();
     const generation=++actionGeneration;clearDisplayedOrders('connecting','검색과 전체 조회 조건을 초기화해 첫 페이지를 조회하고 있습니다.');
     void window.moaonHub.resetOrderFilters().then(result=>{if(generation===actionGeneration)applyHubResult(result);}).catch(()=>{if(generation===actionGeneration)clearDisplayedOrders('error','필터 초기화를 완료하지 못했습니다.');});
   }
