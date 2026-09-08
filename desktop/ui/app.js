@@ -394,7 +394,16 @@ async function runHubAction(action) {
 async function returnToSample() {
   const generation = ++actionGeneration;
   clearDisplayedOrders('connecting', '실제 주문을 비우고 샘플 화면으로 돌아가고 있습니다.');
-  try { await window.moaonHub?.disconnect?.(); } catch { /* Local sample reset remains available. */ }
+  try {
+    const result = await window.moaonHub?.disconnect?.();
+    if (result?.status !== 'DISCONNECTED') {
+      if (generation === actionGeneration) applyHubResult(result);
+      return;
+    }
+  } catch {
+    if (generation === actionGeneration) clearDisplayedOrders('error', '연결 정보 삭제를 완료하지 못했습니다. 연결 해제를 다시 시도하세요.');
+    return;
+  }
   if (generation !== actionGeneration) return;
   displayMode = 'sample';
   selectedScope = 'ACTIVE';

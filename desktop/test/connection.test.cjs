@@ -382,6 +382,7 @@ test('failed selected-scope read retries that scope from page one and disconnect
   const { connection } = makeConnection(remoteSession);
 
   assert.equal((await connection.viewCompleted()).status, 'UNAVAILABLE');
+  await new Promise(resolve => setImmediate(resolve));
   status = 200;
   assert.equal((await connection.refresh()).scope, 'COMPLETED');
   await connection.disconnect();
@@ -406,6 +407,7 @@ test('a scope action blocked during disconnect cannot replace the ACTIVE reset',
 
   const disconnecting = connection.disconnect();
   assert.equal((await connection.viewCompleted()).status, 'UNAVAILABLE');
+  await new Promise(resolve => setImmediate(resolve));
   releaseClear();
   await disconnecting;
   assert.equal((await connection.refresh()).scope, 'ACTIVE');
@@ -586,11 +588,12 @@ test('disconnect gates new reads until session clearing finishes', async () => {
   const blockedRead = await connection.refresh();
   assert.equal(blockedRead.status, 'UNAVAILABLE');
   assert.equal(fetchCount, 0);
+  await new Promise(resolve => setImmediate(resolve));
   releaseClear();
   assert.equal((await disconnecting).status, 'DISCONNECTED');
 });
 
-test('failed session clearing blocks cookie reuse until app restart', async () => {
+test('failed session clearing blocks cookie reuse', async () => {
   let fetchCount = 0;
   const remoteSession = makeRemoteSession(async () => {
     fetchCount += 1;
@@ -856,6 +859,19 @@ function makePagePayload({
   return { ok: true, orders, total, offset, nextOffset, snapshot, partial };
 }
 
+test('pending cleanup blocks restart reads until successful cleanup even without an initialized session', async () => {
+  let marked = 0;
+  let finished = 0;
+  const remote = makeRemoteSession(async () => new Response('',{status:401}));
+  const {connection} = makeConnection(remote, {initialCleanupPending:true, markCleanupPending:()=>{marked++;},finishCleanup:()=>{finished++;}});
+  assert.equal((await connection.refresh()).status,'UNAVAILABLE');
+  assert.equal((await connection.disconnect()).status,'DISCONNECTED');
+  assert.equal(remote.clearStorageDataCalls,1);
+  assert.equal(marked,1);
+  assert.equal(finished,1);
+  assert.equal((await connection.refresh()).status,'LOGIN_REQUIRED');
+});
+
 function makeConnection(remoteSession, overrides = {}) {
   const browserWindows = [];
   class FakeBrowserWindow extends EventEmitter {
@@ -901,6 +917,9 @@ function makeConnection(remoteSession, overrides = {}) {
     getMainWindow: () => mainWindow,
     now: () => new Date('2026-09-08T12:00:00.000Z'),
     timeoutMs: overrides.timeoutMs,
+    initialCleanupPending: overrides.initialCleanupPending,
+    markCleanupPending: overrides.markCleanupPending,
+    finishCleanup: overrides.finishCleanup,
   });
   return { connection, sessionModule, browserWindows };
 }

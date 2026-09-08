@@ -133,11 +133,20 @@ if (!hasSingleInstanceLock) {
     mainWindow.webContents.on('will-redirect', (event, targetUrl) => {
       if (targetUrl !== APP_ENTRY_URL) event.preventDefault();
     });
+    const cleanupMarker = path.join(app.getPath('userData'), 'session-cleanup-pending');
+    let initialCleanupPending = true;
+    try { await fs.access(cleanupMarker); } catch (error) {
+      if (error.code === 'ENOENT') initialCleanupPending = false;
+    }
     hubConnection = createHubConnection({
       BrowserWindow,
       session,
       getMainWindow: () => mainWindow,
+      initialCleanupPending,
+      markCleanupPending: () => fs.writeFile(cleanupMarker, 'pending', {mode:0o600}),
+      finishCleanup: () => fs.rm(cleanupMarker, {force:true}),
     });
+    if (initialCleanupPending) await hubConnection.disconnect();
     registerConnectionIpc({
       ipcMain,
       getMainWindow: () => mainWindow,

@@ -203,6 +203,9 @@ function createHubConnection({
   getMainWindow,
   now = () => new Date(),
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  markCleanupPending = () => {},
+  finishCleanup = () => {},
+  initialCleanupPending = false,
 }) {
   if (!BrowserWindow || !session || typeof getMainWindow !== 'function') {
     throw new TypeError('Hub connection dependencies are required');
@@ -215,7 +218,7 @@ function createHubConnection({
   let activeRead = null;
   let activeAbortController = null;
   let disconnecting = null;
-  let cleanupFailed = false;
+  let cleanupFailed = initialCleanupPending;
   let generation = 0;
   let pageCursor = null;
   let currentScope = 'ACTIVE';
@@ -503,7 +506,13 @@ function createHubConnection({
     loginWindow = null;
 
     const operation = (async () => {
-      if (!remoteSession) return safeEmpty('DISCONNECTED');
+      try {
+        await markCleanupPending();
+        getRemoteSession();
+      } catch {
+        cleanupFailed = true;
+        return safeEmpty('UNAVAILABLE', STATUS_MESSAGES.SESSION_CLEAR_FAILED);
+      }
       const results = await Promise.allSettled([
         () => remoteSession.clearStorageData(),
         () => remoteSession.clearCache(),
@@ -513,6 +522,11 @@ function createHubConnection({
         cleanupFailed = true;
         return safeEmpty('UNAVAILABLE', STATUS_MESSAGES.SESSION_CLEAR_FAILED);
       }
+      try { await finishCleanup(); } catch {
+        cleanupFailed = true;
+        return safeEmpty('UNAVAILABLE', STATUS_MESSAGES.SESSION_CLEAR_FAILED);
+      }
+      cleanupFailed = false;
       return safeEmpty('DISCONNECTED');
     })();
     let wrappedOperation;
