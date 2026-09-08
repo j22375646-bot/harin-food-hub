@@ -153,6 +153,7 @@ test('method and invalid native request failures are fixed and perform no I/O', 
 test('strict source validation ignores spoofed proxy, referer, host and IP evidence', async t => {
   const cases = [
     ['missing origin', {origin: undefined}],
+    ['empty origin', {origin: ''}],
     ['null origin', {origin: 'null'}],
     ['foreign origin', {origin: 'https://attacker.example'}],
     ['cross site', {'sec-fetch-site': 'cross-site'}],
@@ -166,10 +167,7 @@ test('strict source validation ignores spoofed proxy, referer, host and IP evide
       'x-forwarded-host': 'hub.example.test', 'x-forwarded-proto': 'https',
       'x-forwarded-for': '127.0.0.1', 'cf-connecting-ip': '127.0.0.1',
     };
-    for (const [key, value] of Object.entries(changed)) {
-      if (value === undefined) headers[key] = '';
-      else headers[key] = value;
-    }
+    for (const [key, value] of Object.entries(changed)) headers[key] = value;
     const {handler, calls} = setup();
     const response = await handler(request({headers}));
     assert.equal(response.status, 403);
@@ -243,12 +241,26 @@ test('authorization, malformed cookies and bad target credentials reject before 
   });
 });
 
-test('total header size is bounded before logout I/O', async () => {
-  const {handler, calls} = setup();
-  const response = await handler(request({headers: {'x-padding': 'x'.repeat(16_384)}}));
-  assert.equal(response.status, 400);
-  assert.deepEqual(await body(response), {ok: false, code: 'INVALID_REQUEST'});
-  assert.equal(calls.length, 0);
+test('only the Cookie header has a 16384-byte authentication cap', async () => {
+  const prefix = 'harin_dashboard_session=';
+  const exactToken = `${'a'.repeat(16_384 - Buffer.byteLength(prefix, 'utf8') - 2)}.b`;
+
+  const exact = setup();
+  const accepted = await exact.handler(request({headers: {cookie: `${prefix}${exactToken}`}}));
+  assert.equal(accepted.status, 200);
+  assert.deepEqual(exact.calls, [exactToken]);
+
+  const oversized = setup();
+  const rejected = await oversized.handler(request({headers: {cookie: `${prefix}a${exactToken}`}}));
+  assert.equal(rejected.status, 401);
+  assert.deepEqual(await body(rejected), {ok: false, code: 'AUTH_REQUIRED'});
+  assert.equal(rejected.headers.has('set-cookie'), false);
+  assert.equal(oversized.calls.length, 0);
+
+  const unrelated = setup();
+  const unrelatedResponse = await unrelated.handler(request({headers: {'x-padding': 'x'.repeat(20_000)}}));
+  assert.equal(unrelatedResponse.status, 200);
+  assert.deepEqual(unrelated.calls, [TOKEN]);
 });
 
 test('only literal true is success; false is auth failure and every other outcome is unavailable', async t => {
