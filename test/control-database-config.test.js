@@ -6,6 +6,23 @@ const valid = () => ({
   MOAON_CONTROL_DB_HOST: 'db.example.com', MOAON_CONTROL_DB_PORT: '5432',
   MOAON_CONTROL_DB_NAME: 'postgres', MOAON_CONTROL_DB_PASSWORD: 'synthetic-only',
 });
+test('session pooler is explicit, project-scoped and never accepts transaction mode', async () => {
+  const env = {...valid(), MOAON_CONTROL_DB_MODE:'supabase-session',
+    MOAON_CONTROL_DB_PROJECT_REF:'abcdefghijklmnopqrst',
+    MOAON_CONTROL_DB_HOST:'aws-0-ap-southeast-1.pooler.supabase.com'};
+  const config = readControlDatabaseConfig(env);
+  assert.equal(config.connection.user,'moaon_control_app.abcdefghijklmnopqrst');
+  assert.equal(config.connection.sessionPoolerProjectRef,'abcdefghijklmnopqrst');
+  const db = createConfiguredControlDatabase(env);
+  await db.close();
+  for (const change of [{MOAON_CONTROL_DB_PORT:'6543'},
+    {MOAON_CONTROL_DB_PROJECT_REF:''}, {MOAON_CONTROL_DB_PROJECT_REF:'bad.ref'},
+    {MOAON_CONTROL_DB_HOST:'evil.pooler.supabase.com.attacker.test'},
+    {MOAON_CONTROL_DB_MODE:'transaction'}, {MOAON_CONTROL_DB_MODE:'direct'}]) {
+    assert.throws(()=>readControlDatabaseConfig({...env,...change}),
+      {code:'CONTROL_DATABASE_CONFIGURATION_INVALID'});
+  }
+});
 test('missing dedicated settings never fall back to global database credentials', () => {
   assert.equal(readControlDatabaseConfig({DATABASE_URL:'secret',PGPASSWORD:'secret'}), null);
   assert.equal(createConfiguredControlDatabase({}), null);

@@ -114,6 +114,34 @@ function createDatabase(pool, overrides = {}) {
   });
 }
 
+test('session pooler routing username never replaces the actual role safety check', async () => {
+  const connection = {...localConnection(),host:'aws-0-ap-southeast-1.pooler.supabase.com',
+    user:'moaon_control_app.abcdefghijklmnopqrst',
+    sessionPoolerProjectRef:'abcdefghijklmnopqrst',ssl:{rejectUnauthorized:true}};
+  const client = createFakeClient();
+  let sent;
+  const db = createPostgresControlDatabase({connection,poolFactory: config => {
+    sent = config; return createFakePool(client);
+  }});
+  await db.query('select 1');
+  assert.equal(sent.user,'moaon_control_app.abcdefghijklmnopqrst');
+  assert.equal(sent.sessionPoolerProjectRef,undefined);
+  await db.close();
+  for (const change of [{port:6543},{sessionPoolerProjectRef:'bad'},
+    {user:'postgres.abcdefghijklmnopqrst'},{host:'localhost'},
+    {host:'aws-0-ap-southeast-1.pooler.supabase.com.attacker.test'}]) {
+    assert.throws(()=>createPostgresControlDatabase({connection:{...connection,...change},testPool:createFakePool(client)}));
+  }
+  const wrong = createFakeClient();
+  const original = wrong.query.bind(wrong);
+  wrong.query = async (sql,values) => /from pg_roles/i.test(sql)
+    ? {rows:[{...SAFE_ROLE,session_user:connection.user}]} : original(sql,values);
+  const rejected = createPostgresControlDatabase({connection,testPool:createFakePool(wrong)});
+  await expectSafeDatabaseError(()=>rejected.query('select 1'),'CONTROL_DATABASE_ROLE_REJECTED');
+  assert.deepEqual(wrong.releases,[true]);
+  await rejected.close();
+});
+
 async function expectSafeDatabaseError(run, code = 'CONTROL_DATABASE_UNAVAILABLE') {
   await assert.rejects(run, error => {
     assert.equal(error instanceof PostgresControlDatabaseError, true);
