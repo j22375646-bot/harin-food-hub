@@ -7,6 +7,41 @@ const path = require('node:path');
 const test = require('node:test');
 const TEST_SNAPSHOT = '0123456789abcdef'.repeat(4);
 
+const reviewOrder=()=>({hubOrderId:'HR-C24-1234ABCD',externalOrderId:'TEST-1',platform:'CAFE24',fulfillment:'SELLER',stage:'PAID',quantity:1,productName:'시험 상품',cancelled:false,cancellationRequested:false,invoiceNumber:'',issuedInvoiceNumber:'',shippingHistoryStatus:'READY',shippingEligible:true,selectionEligible:true,receiver:{name:'시험',address:'시험 주소',postCode:'12345',contact:'01012345678'}});
+test('shipment review rereads authenticated page and returns only matching safe order',async()=>{
+  const calls=[];let order=reviewOrder();
+  const {connection}=makeConnection(makeRemoteSession(async(url,options)=>{calls.push({url,options});return new Response(JSON.stringify(makePagePayload({orders:[order]})),{status:200});}));
+  await connection.refresh();order={...order,productName:'변경된 상품'};
+  const result=await connection.reviewShipment(order.hubOrderId);
+  assert.equal(result.status,'REVIEW_ONLY');assert.equal(result.order.productName,'변경된 상품');
+  assert.equal(calls[1].url,buildOrdersPageUrl(0,TEST_SNAPSHOT));assert.equal(calls[1].options.credentials,'include');
+  assert.equal(JSON.stringify(result).includes('01012345678'),false);
+});
+test('shipment review rejects bad identifiers and missing cursor without network calls',async()=>{
+  let calls=0;const {connection}=makeConnection(makeRemoteSession(async()=>{calls++;throw Error();}));
+  for(const id of ['HR-NV-1234ABCD',['HR-C24-1234ABCD'],null])await assert.rejects(()=>connection.reviewShipment(id));
+  assert.equal((await connection.reviewShipment('HR-C24-1234ABCD')).status,'UNAVAILABLE');assert.equal(calls,0);
+});
+test('shipment review cannot approve cancelled, missing, duplicate or unauthenticated orders',async()=>{
+  for(const kind of ['cancelled','missing','duplicate','unauthenticated']){
+    let count=0;const order=reviewOrder();
+    const {connection}=makeConnection(makeRemoteSession(async()=>{
+      count++;if(count>1&&kind==='unauthenticated')return new Response('',{status:401});
+      const orders=count===1?[order]:kind==='missing'?[]:kind==='duplicate'?[order,order]:[{...order,cancelled:true}];
+      return new Response(JSON.stringify(makePagePayload({orders})),{status:200});
+    }));
+    await connection.refresh();const result=await connection.reviewShipment(order.hubOrderId);
+    assert.notEqual(result.status,'REVIEW_ONLY');assert.equal(result.order,null);
+  }
+});
+test('disconnect while shipment review is reading discards the late order',async()=>{
+  let release,count=0;const order=reviewOrder();
+  const {connection}=makeConnection(makeRemoteSession(async()=>{if(++count===2)return new Promise(resolve=>{release=resolve;});return new Response(JSON.stringify(makePagePayload({orders:[order]})),{status:200});}));
+  await connection.refresh();const pending=connection.reviewShipment(order.hubOrderId);await Promise.resolve();await connection.disconnect();
+  release(new Response(JSON.stringify(makePagePayload({orders:[order]})),{status:200}));
+  const result=await pending;assert.equal(result.status,'DISCONNECTED');assert.equal(result.order,null);
+});
+
 const {
   HARIN_ORIGIN,
   LOGIN_URL,

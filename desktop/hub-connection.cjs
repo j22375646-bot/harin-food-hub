@@ -372,6 +372,22 @@ function createHubConnection({
     return startRead({url:buildOrdersPageUrl(cursor.offset,cursor.snapshot,currentScope),requestedOffset:cursor.offset,expectedSnapshot:cursor.snapshot,scope:currentScope});
   }
 
+  // Main-process preparation only, not an IPC method or a shipment permit.
+  // Uses the existing authenticated read path; raw receiver fields never leave it.
+  async function reviewShipment(hubOrderId) {
+    if(typeof hubOrderId!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(hubOrderId))throw new TypeError('Invalid shipment review order');
+    const reviewGeneration=generation;
+    const result=await recheckPage();
+    const refused=status=>Object.freeze({status,order:null,checkedAt:null});
+    if(reviewGeneration!==generation)return refused('DISCONNECTED');
+    if(result.status!=='READY')return refused(result.status);
+    const matches=result.orders.filter(order=>order.hubOrderId===hubOrderId);
+    if(matches.length!==1)return refused('ORDER_CHANGED');
+    const order=matches[0];
+    if(order.preflight.status!=='REVIEW_ONLY'||order.preflight.route!=='HUB')return refused('CHECK_REQUIRED');
+    return Object.freeze({status:'REVIEW_ONLY',order,checkedAt:result.checkedAt});
+  }
+
   function viewScope(scope) {
     const blocked = blockedReadResult();
     if (blocked) return blocked;
@@ -559,7 +575,7 @@ function createHubConnection({
     loginWindow = null;
   }
 
-  return Object.freeze({ connect, refresh, recheckPage, nextPage, previousPage, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ connect, refresh, recheckPage, reviewShipment, nextPage, previousPage, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
