@@ -185,7 +185,7 @@ test('remote request policy allows only the fixed login, assets, login POST and 
     { method: 'GET', url: ORDERS_URL, webContentsId: 0 },
     ...['REGISTER', 'IN_TRANSIT', 'COMPLETED'].map((scope) => ({
       method: 'GET',
-      url: `${HARIN_ORIGIN}/api/orders/page?stage=${scope}&platform=ALL`,
+      url: `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=${scope}&platform=ALL`,
       webContentsId: 0,
     })),
     ...['REGISTER', 'IN_TRANSIT', 'COMPLETED'].map((scope) => ({
@@ -203,9 +203,9 @@ test('remote request policy allows only the fixed login, assets, login POST and 
 
   const denied = [
     { method: 'GET', url: `${HARIN_ORIGIN}/`, webContentsId: 41 },
-    { method: 'GET', url: `${HARIN_ORIGIN}/api/orders/page?platform=ALL&stage=ACTIVE`, webContentsId: 0 },
-    { method: 'GET', url: `${HARIN_ORIGIN}/api/orders/page?stage=UNKNOWN&platform=ALL`, webContentsId: 0 },
-    { method: 'GET', url: `${HARIN_ORIGIN}/api/orders/page?stage=ACTIVE&platform=ALL&offset=20`, webContentsId: 0 },
+    { method: 'GET', url: `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?platform=ALL&stage=ACTIVE`, webContentsId: 0 },
+    { method: 'GET', url: `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=UNKNOWN&platform=ALL`, webContentsId: 0 },
+    { method: 'GET', url: `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=ACTIVE&platform=ALL&offset=20`, webContentsId: 0 },
     { method: 'GET', url: `${ORDERS_URL}&snapshot=${snapshot}&offset=20`, webContentsId: 0 },
     { method: 'GET', url: `${ORDERS_URL}&offset=020&snapshot=${snapshot}`, webContentsId: 0 },
     { method: 'GET', url: `${ORDERS_URL}&offset=21&snapshot=${snapshot}`, webContentsId: 0 },
@@ -214,7 +214,7 @@ test('remote request policy allows only the fixed login, assets, login POST and 
     { method: 'GET', url: `${ORDERS_URL}&offset=20&snapshot=${snapshot}&extra=1`, webContentsId: 0 },
     { method: 'GET', url: `${ORDERS_URL}&offset=20&snapshot=${'A'.repeat(64)}`, webContentsId: 0 },
     { method: 'GET', url: `${ORDERS_URL}&offset=20&snapshot=${snapshot}#orders`, webContentsId: 0 },
-    { method: 'GET', url: `${HARIN_ORIGIN}/api/orders/page?stage=ACTIVE&platform=ALL`, webContentsId: 41 },
+    { method: 'GET', url: `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=ACTIVE&platform=ALL`, webContentsId: 41 },
     { method: 'GET', url: ORDERS_URL, webContentsId: '0' },
     { method: 'POST', url: `${HARIN_ORIGIN}/api/dashboard/login`, webContentsId: 99 },
     { method: 'POST', url: `${HARIN_ORIGIN}/api/dashboard/login`, webContentsId: 41, loginWindowActive: false },
@@ -245,7 +245,7 @@ test('orders page URL builder emits only canonical bounded cursor URLs', () => {
   for (const scope of ORDER_SCOPES) {
     assert.equal(
       buildOrdersPageUrl(20, snapshot, scope),
-      `${HARIN_ORIGIN}/api/orders/page?stage=${scope}&platform=ALL&offset=20&snapshot=${snapshot}`,
+      `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=${scope}&platform=ALL&offset=20&snapshot=${snapshot}`,
     );
   }
   for (const [offset, cursor] of [
@@ -484,10 +484,10 @@ test('scope actions reset paging and refresh, next, and previous stay on the sel
 
   assert.deepEqual([registered.scope, next.scope, previous.scope, refreshed.scope], ['REGISTER', 'REGISTER', 'REGISTER', 'REGISTER']);
   assert.deepEqual(fetchUrls, [
-    `${HARIN_ORIGIN}/api/orders/page?stage=REGISTER&platform=ALL`,
+    `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=REGISTER&platform=ALL`,
     buildOrdersPageUrl(20, TEST_SNAPSHOT, 'REGISTER'),
     buildOrdersPageUrl(0, TEST_SNAPSHOT, 'REGISTER'),
-    `${HARIN_ORIGIN}/api/orders/page?stage=REGISTER&platform=ALL`,
+    `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=REGISTER&platform=ALL`,
   ]);
 });
 
@@ -538,8 +538,8 @@ test('failed selected-scope read retries that scope from page one and disconnect
   await connection.disconnect();
   assert.equal((await connection.refresh()).scope, 'ACTIVE');
   assert.deepEqual(urls, [
-    `${HARIN_ORIGIN}/api/orders/page?stage=COMPLETED&platform=ALL`,
-    `${HARIN_ORIGIN}/api/orders/page?stage=COMPLETED&platform=ALL`,
+    `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=COMPLETED&platform=ALL`,
+    `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=COMPLETED&platform=ALL`,
     ORDERS_URL,
   ]);
 });

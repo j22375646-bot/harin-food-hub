@@ -5,7 +5,8 @@ const HARIN_ORIGIN = 'https://harin-cafe24-sync.vercel.app';
 const LOGIN_URL = `${HARIN_ORIGIN}/login`;
 const ORDER_SCOPES = Object.freeze(['ACTIVE', 'REGISTER', 'IN_TRANSIT', 'COMPLETED']);
 const ORDER_SCOPE_SET = new Set(ORDER_SCOPES);
-const ORDERS_PATH = `${HARIN_ORIGIN}/api/orders/page?stage=`;
+// Keep legacy storage bound to Harin until independent business storage exists.
+const ORDERS_PATH = `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=`;
 const ORDERS_URL = `${ORDERS_PATH}ACTIVE&platform=ALL`;
 const READONLY_PARTITION = 'persist:moaon-harin-readonly';
 const MAX_LOGIN_QUERY_LENGTH = 512;

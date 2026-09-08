@@ -10,15 +10,19 @@ async function main(){
   assert.equal(await page.locator('#business-list-refresh').count(),1,'business panel is present');
   await app.evaluate(({session})=>{
    globalThis.businessStatus=200;
+   globalThis.orderUrls=[];
    const ses=session.fromPartition('persist:moaon-harin-readonly',{cache:false});
-   ses.fetch=async(url)=>url.endsWith('/api/moaon/businesses')
+   ses.fetch=async(url)=>{if(!url.endsWith('/api/moaon/businesses'))globalThis.orderUrls.push(url);return url.endsWith('/api/moaon/businesses')
     ?Response.json(globalThis.businessStatus===200?{ok:true,businesses:[{tenantId:'10000000-0000-4000-8000-000000000001',displayName:'<img src=x> 시험 사업장',role:'OWNER',membershipVersion:1}]}:{ok:false},{status:globalThis.businessStatus})
-    :Response.json({ok:true,orders:[],total:0,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});
+    :Response.json({ok:true,orders:[],total:0,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});};
   });
   await page.evaluate(()=>runHubAction('disconnect'));
   await page.evaluate(()=>runHubAction('refresh'));
   await page.keyboard.press('Alt+3');
   await page.waitForFunction(()=>document.querySelector('#business-list-status').textContent.includes('1개'));
+  const requested=await app.evaluate(()=>globalThis.orderUrls);
+  assert.ok(requested.length>0);
+  assert.ok(requested.every(url=>url==='https://harin-cafe24-sync.vercel.app/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=ACTIVE&platform=ALL'));
   assert.equal(await page.locator('#business-list img').count(),0,'names rendered as text');
   assert.ok((await page.locator('#business-list').innerText()).includes('<img src=x> 시험 사업장'));
   assert.equal(await page.locator('#business-list button').count(),0,'listing grants no workspace switch');

@@ -43,7 +43,7 @@ async function main(){
       globalThis.__moaonTestStatus=200;
       globalThis.__moaonTestRequests=[];
       ses.fetch=async(url,options)=>{
-        const base='https://harin-cafe24-sync.vercel.app/api/orders/page?stage=ACTIVE&platform=ALL';
+        const base='https://harin-cafe24-sync.vercel.app/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=ACTIVE&platform=ALL';
         const permitted=[base,...[0,20,40].map(n=>`${base}&offset=${n}&snapshot=${'a'.repeat(64)}`)];
         if(!permitted.includes(url)||options.method!=='GET')throw Error('Unexpected request');
         globalThis.__moaonTestRequests.push(url);

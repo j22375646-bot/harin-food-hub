@@ -23,7 +23,7 @@ async function main(){
    remote.protocol.handle('https',request=>{
     globalThis.labelEvents.push({event:'protocol',url:request.url});
     if(request.method!=='GET')return new Response('',{status:403});
-    if(request.url.startsWith('https://harin-cafe24-sync.vercel.app/api/orders/page?'))return orders();
+    if(request.url.startsWith('https://harin-cafe24-sync.vercel.app/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?'))return orders();
     if(request.url!=='https://harin-cafe24-sync.vercel.app/api/shipping/print?type=label&ids=HR-C24-1234ABCD')return new Response('',{status:403});
     return new Response('<!doctype html><html><head><meta charset="utf-8"></head><body><script>document.body.dataset.unsafe="ran"</script><div class="actions">hidden actions</div><article class="label"><section class="receiver"><h1>TEST</h1><strong>01012345678</strong><p>(12345) TEST</p></section><section class="barcode"><b>1234567890123</b></section><footer><span>HR-C24-1234ABCD</span></footer></article></body></html>',{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'}});
    });
