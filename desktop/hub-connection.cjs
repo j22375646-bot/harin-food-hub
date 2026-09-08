@@ -891,7 +891,7 @@ function createHubConnection({
     try{
       if(!labelPreview)return {status:'PRINT_UNAVAILABLE'};
       const order=await readTarget();if(!order)return {status:'PRINT_CHECK_REQUIRED'};
-      const result=await labelPreview.open({hubOrderId,trackingNo:order.details.invoice.number,expectedReceiver:labelReceivers.get(order),validate:async()=>{
+      const result=await labelPreview.open({hubOrderId,trackingNo:order.details.invoice.number,expectedReceiver:labelReceivers.get(order),goodsName:order.productName,quantity:order.quantity,businessName:'하린식품',channelLabel:order.platform,validate:async()=>{
         const latest=await readTarget();return !!latest&&shipmentFingerprints.get(latest)===shipmentFingerprints.get(order);
       }});
       return expected===generation?result:{status:'DISCONNECTED'};

@@ -35,15 +35,17 @@ async function main(){
   await page.getByRole('button',{name:'기존 송장 미리보기·인쇄',exact:true}).click({timeout:3000});
   await page.getByText('미리보기 창을 열었습니다 · 인쇄는 창의 메뉴에서 선택하세요',{exact:true}).waitFor({timeout:18000}).catch(async error=>{console.log(JSON.stringify(await app.evaluate(()=>globalThis.labelEvents)));console.log(await page.locator('.review-actions').innerText());throw error;});
   const result=await app.evaluate(async({BrowserWindow})=>{
-   const win=BrowserWindow.getAllWindows().find(item=>item.webContents.getURL().includes('/api/shipping/print'));
-   return {script:await win.webContents.executeJavaScriptInIsolatedWorld(999,[{code:'document.body.dataset.unsafe==="ran"'}]),sandbox:win.webContents.getLastWebPreferences().sandbox};
+   const win=BrowserWindow.getAllWindows().find(item=>item.webContents.getURL()==='about:blank');
+   return {script:await win.webContents.executeJavaScriptInIsolatedWorld(999,[{code:'document.body.dataset.unsafe==="ran"'}]),sandbox:win.webContents.getLastWebPreferences().sandbox,barcode:await win.webContents.executeJavaScriptInIsolatedWorld(999,[{code:'document.querySelectorAll("svg.trackingBarcode rect").length>0'}]),remoteLabelRequests:globalThis.labelEvents.filter(e=>e.url?.includes('/api/shipping/print')).length};
   });
-  assert.deepEqual(result,{script:false,sandbox:true});
+  assert.deepEqual(result,{script:false,sandbox:true,barcode:true,remoteLabelRequests:0});
+  const labelPage=app.windows().find(win=>win.url()==='about:blank');
+  await labelPage.screenshot({path:path.join(__dirname,'../artifacts/p437-local-label.png')});
   await page.getByRole('button',{name:'오늘',exact:true}).click();
   await page.locator('[data-action="hub-disconnect"]:visible').first().click();
   await page.getByText('로그아웃했습니다. 다시 로그인할 수 있습니다.',{exact:true}).waitFor();
-  assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().filter(win=>win.webContents.getURL().includes('/api/shipping/print')).length),0);
-  console.log(JSON.stringify({status:'PASS',scope:'isolated Electron label preview, synthetic HTML; scripts blocked, logout closes preview; NO PRINT JOB'}));
+  assert.equal(await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().filter(win=>win.webContents.getURL()==='about:blank').length),0);
+  console.log(JSON.stringify({status:'PASS',scope:'local generated label, zero remote label requests, barcode, logout closes preview; NO PRINT JOB'}));
  }finally{await app.close();}
 }
 main().catch(error=>{console.error(error.stack);process.exitCode=1;});

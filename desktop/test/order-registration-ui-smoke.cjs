@@ -46,9 +46,10 @@ async function main(){
   assert.equal(await page.locator('#selection-register').isDisabled(),true,'mixed eligibility does not enable registration');
   await page.locator('.order-select').nth(4).uncheck();
   assert.equal(await page.locator('.order-select:checked').count(),4);
+  await page.getByText('추가 작업',{exact:true}).click();
   await page.getByRole('button',{name:'발급된 송장 등록',exact:true}).click();
   await page.waitForFunction(()=>registrationBusy);
-  assert.equal(await page.getByRole('button',{name:'발급된 송장 등록',exact:true}).isDisabled(),true);
+  assert.equal(await page.locator('#selection-register').isDisabled(),true);
   await page.evaluate(()=>void registerSelectedInvoices());
   await app.evaluate(async()=>{for(let i=0;i<100&&!globalThis.finishRegistration;i++)await new Promise(resolve=>setTimeout(resolve,10));globalThis.finishRegistration();});
   await page.waitForFunction(()=>!registrationBusy);

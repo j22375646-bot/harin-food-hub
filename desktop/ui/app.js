@@ -937,6 +937,12 @@ document.querySelector('#order-select-all').addEventListener('change',event=>{
   renderSelection();
 });
 document.querySelector('#selection-register').addEventListener('click',()=>void registerSelectedInvoices());
+const selectionMenu=document.querySelector('.selection-more');
+selectionMenu.addEventListener('click',event=>{if(event.target.closest('button:not(:disabled)'))selectionMenu.open=false;});
+document.addEventListener('pointerdown',event=>{if(selectionMenu.open&&!selectionMenu.contains(event.target))selectionMenu.open=false;});
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&selectionMenu.open){event.preventDefault();event.stopImmediatePropagation();selectionMenu.open=false;selectionMenu.querySelector('summary').focus();}
+},true);
 document.querySelector('#selection-auto-ship').addEventListener('click',()=>void runAutomaticShipping());
 document.querySelector('#selection-review').addEventListener('click',()=>{
   const id=[...selectedOrderIds][0]||selectedOrderId,order=displayedOrders.find(item=>orderId(item)===id);

@@ -3,11 +3,11 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const {EventEmitter}=require('node:events');
 const {createLabelPreview}=require('../label-preview.cjs');
-const target={hubOrderId:'HR-C24-1234ABCD',trackingNo:'1234567890123',validate:async()=>true,expectedReceiver:{name:'TEST',contact:'01012345678',postCode:'12345',address:'TEST ADDRESS'}};
+const target={hubOrderId:'HR-C24-1234ABCD',trackingNo:'1234567890123',goodsName:'시험 상품',quantity:1,validate:async()=>true,expectedReceiver:{name:'TEST',contact:'01012345678',postCode:'12345',address:'TEST ADDRESS'}};
 function fixture({valid=true,answer=1,printer=null}={}){
   const windows=[],dialogs=[];let prints=0,menu;
   class Window extends EventEmitter{
-    constructor(options){super();this.options=options;this.dead=false;windows.push(this);this.webContents=Object.assign(new EventEmitter(),{id:55,getURL:()=>this.url,setWindowOpenHandler(){},insertCSS:async()=>{},executeJavaScriptInIsolatedWorld:async()=>valid?{count:1,id:target.hubOrderId,invoice:target.trackingNo,receiverValid:true,name:'TEST',contact:'01012345678',address:'(12345) TEST ADDRESS'}:{count:0},print:(options,callback)=>{assert.equal(options.silent,false);prints++;if(printer)printer(callback);else callback(true,'');}});}
+    constructor(options){super();this.options=options;this.dead=false;windows.push(this);this.webContents=Object.assign(new EventEmitter(),{id:55,getURL:()=>this.url,setWindowOpenHandler(){},insertCSS:async()=>{},executeJavaScriptInIsolatedWorld:async()=>valid?{ok:true,count:1,id:target.hubOrderId,invoice:target.trackingNo,receiverValid:true,name:'TEST',contact:'01012345678',address:'(12345) TEST ADDRESS'}:{count:0},print:(options,callback)=>{assert.equal(options.silent,false);prints++;if(printer)printer(callback);else callback(true,'');}});}
     isDestroyed(){return this.dead;}destroy(){this.dead=true;this.emit('closed');}show(){}setTitle(value){this.title=value;}setMenu(value){menu=value;}
     async loadURL(url){this.url=url;}
   }
@@ -17,6 +17,8 @@ function fixture({valid=true,answer=1,printer=null}={}){
 test('verified label opens without printing; explicit menu confirmation uses non-silent print',async()=>{
   const f=fixture();assert.equal((await f.preview.open(target)).status,'PREVIEW_OPEN');assert.equal(f.prints(),0);
   assert.equal(f.windows[0].options.webPreferences.javascript,false);
+  assert.equal(f.windows[0].url,'about:blank');
+  assert.equal(f.windows[0].options.webPreferences.partition.startsWith('persist:'),false);
   await f.print();assert.equal(f.prints(),1);
   f.preview.close();assert.equal(f.windows[0].isDestroyed(),true);assert.equal(f.preview.context().labelWebContentsId,null);
 });

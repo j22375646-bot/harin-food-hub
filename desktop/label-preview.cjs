@@ -1,14 +1,14 @@
 'use strict';
-const {HARIN_ORIGIN,READONLY_PARTITION}=require('./connection-policy.cjs');
+const {renderLabel}=require('./local-label.cjs');
+const {randomUUID}=require('node:crypto');
 const INSPECT=`(()=>{const labels=document.querySelectorAll('article.label');const label=labels[0];const receiver=label?.querySelector('.receiver');return {count:labels.length,id:label?.querySelector('footer span')?.textContent.trim(),invoice:label?.querySelector('.barcode>b')?.textContent.trim(),receiverValid:!!receiver && !!receiver.querySelector('h1')?.textContent.trim() && /^[0-9 -]{9,20}$/.test(receiver.querySelector('strong')?.textContent||'') && /\\([0-9]{5}\\)/.test(receiver.querySelector('p')?.textContent||'') && !receiver.textContent.includes('확인 필요')};})()`;
 
-// Remote label scripts stay disabled. Main inspects only fixed DOM fields;
-// receiver content is never returned to the app renderer or written to disk.
+// Local memory-only document; no web label URL, cookies, assets or disk copy.
 function createLabelPreview({BrowserWindow,Menu,dialog,getParent}){
   let current=null;
   function close(){const old=current;current=null;if(old&&!old.isDestroyed())old.destroy();}
   function context(){return {labelWebContentsId:current&&!current.isDestroyed()?current.webContents.id:null,labelUrl:current?.labelUrl||null};}
-  async function open({hubOrderId,trackingNo,validate,expectedReceiver}={}){
+  async function open({hubOrderId,trackingNo,validate,expectedReceiver,goodsName,quantity,businessName='',channelLabel=''}={}){
     if(typeof validate!=='function')throw Error('Print validation required');
     if(typeof hubOrderId!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(hubOrderId)||typeof trackingNo!=='string'||!/^\d{13}$/.test(trackingNo))throw Error('Invalid label target');
     close();const parent=getParent();if(!parent||parent.isDestroyed())return {status:'PRINT_UNAVAILABLE'};
@@ -16,9 +16,12 @@ function createLabelPreview({BrowserWindow,Menu,dialog,getParent}){
     const receiver=expectedReceiver;
     if(!clean(receiver?.name)||!clean(receiver?.address)||!/^\d{5}$/.test(receiver?.postCode||'')||!/^\d{9,12}$/.test((receiver?.contact||'').replace(/[\s-]/g,'')))return {status:'PRINT_UNAVAILABLE'};
     const expected={name:clean(receiver.name),contact:receiver.contact.replace(/[\s-]/g,''),address:clean(`(${receiver.postCode}) ${receiver.address} ${receiver.addressDetail||''}`)};
-    const url=`${HARIN_ORIGIN}/api/shipping/print?type=label&ids=${hubOrderId}`;
+    let html;try{html=renderLabel({hubOrderId,trackingNo,receiver,goodsName,quantity,businessName,channelLabel});}catch{return {status:'PRINT_UNAVAILABLE'};}
+    const url='about:blank';
     const win=new BrowserWindow({parent,width:620,height:820,show:false,title:'모아온 · 송장 미리보기',autoHideMenuBar:false,
-      webPreferences:{partition:READONLY_PARTITION,nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,javascript:false,webviewTag:false,devTools:false,spellcheck:false}});
+      webPreferences:{partition:'moaon-print-'+randomUUID(),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,javascript:false,webviewTag:false,devTools:false,spellcheck:false}});
+    win.webContents.session?.webRequest.onBeforeRequest({urls:['<all_urls>']},(_request,done)=>done({cancel:true}));
+    win.webContents.session?.setPermissionRequestHandler((_contents,_permission,done)=>done(false));
     current=win;win.labelUrl=url;
     const alive=()=>current===win&&!win.isDestroyed();
     let printing=false,attempted=false,timer;
@@ -27,6 +30,8 @@ function createLabelPreview({BrowserWindow,Menu,dialog,getParent}){
       // World 0 follows javascript:false; only this fixed host-owned isolated code runs.
       const inspect=code=>win.webContents.executeJavaScriptInIsolatedWorld(999,[{code}]);
       const data=await inspect(INSPECT);
+      const fit=await inspect(`(()=>{const label=document.querySelector('article.label'),r=label?.getBoundingClientRect();return {ok:!!r&&r.width<=100*96/25.4+1&&r.height<=150*96/25.4+1&&label.scrollWidth<=label.clientWidth+1};})()`);
+      if(fit?.ok!==true)return false;
       const actual=await inspect(`(()=>{const r=document.querySelector('article.label .receiver');return {name:r?.querySelector('h1')?.textContent,contact:r?.querySelector('strong')?.textContent,address:r?.querySelector('p')?.textContent};})()`);
       return alive()&&data?.count===1&&data.id===hubOrderId&&data.invoice===trackingNo&&data.receiverValid===true&&clean(actual?.name)===expected.name&&clean(actual?.contact).replace(/[\s-]/g,'')===expected.contact&&clean(actual?.address)===expected.address;
     }
@@ -52,10 +57,10 @@ function createLabelPreview({BrowserWindow,Menu,dialog,getParent}){
     win.setMenu(menu);
     win.webContents.setWindowOpenHandler(()=>({action:'deny'}));
     for(const eventName of ['will-navigate','will-redirect','will-attach-webview'])win.webContents.on(eventName,event=>{event.preventDefault();if(alive())close();});
-    win.webContents.on('did-navigate',(_event,target,code)=>{if(target!==url||code!==200){if(alive())close();}});
+    win.webContents.on('did-navigate',(_event,target)=>{if(target!==url){if(alive())close();}});
     win.on('closed',()=>{if(current===win)current=null;});
     try{
-      await Promise.race([(async()=>{await win.loadURL(url);if(!await verify())throw Error();await win.webContents.insertCSS('.actions{display:none!important}');})(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Label timeout')),15000);})]);
+      await Promise.race([(async()=>{await win.loadURL(url);await win.webContents.executeJavaScriptInIsolatedWorld(999,[{code:`document.open();document.write(${JSON.stringify(html)});document.close();`}]);html=null;if(!await validate()||!await verify())throw Error();})(),new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('Label timeout')),15000);})]);
       if(!alive())return {status:'PRINT_UNAVAILABLE'};
       menu.getMenuItemById('print').enabled=true;win.show();return {status:'PREVIEW_OPEN'};
     }catch{if(alive())close();return {status:'PRINT_UNAVAILABLE'};}
