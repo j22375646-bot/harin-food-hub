@@ -65,3 +65,17 @@
 - GREEN: `pnpm build` — Next.js 16.3.0 production build PASS.
 - `git diff --check` — whitespace 오류 없음(CRLF 변환 경고만 존재).
 - 우려: 실제 운영 데이터 저장은 실행하지 않았다. 설치본 save dialog 취소, 배포, 패키징 검증은 컨트롤러가 수행한다. 보고서에는 고객 내용, 경로, 인증 정보를 기록하지 않았다.
+
+## Final review fix
+
+- 페이지와 XLSX가 공통의 좁은 `exportOrderRows` 투영을 사용한다. 기존 필터/event/운영 안전 구성요소를 유지하면서 실제 저장 셀 8개와 fallback 값까지 snapshot에 포함하며, 일반 페이지 snapshot에서 gift/receiver/shipping UI 전체를 계산하지 않는다.
+- 상품명, 수량, 주문일, 외부 주문번호, 채널 표시명 변경은 후보 membership이 같아도 snapshot을 바꾼다. 저장 대화상자 중 exported-cell snapshot 교체는 재조회에서 `DOCUMENT_CHANGED`가 되어 쓰기 0건이다.
+- HTTP 413은 `EXPORT_LIMIT_EXCEEDED`로 투영하고 UI에 기간 축소 안내를 표시한다. 현재 페이지 도구 초기화도 global query/start/end를 포함해 한 번의 reset GET과 입력값 동기화를 수행한다.
+- RED/GREEN: `node --test test/order-search-export.test.js` — fallback 표시명 기대값 교정 전 6/7, 교정 후 7/7 PASS. 기능 구현 자체의 exported-cell snapshot assertions는 교정 전에도 통과했다.
+- GREEN: `cd desktop; node --test test/connection.test.cjs` — 84/84 PASS.
+- GREEN: `npm test --prefix desktop` — 227/227 PASS.
+- GREEN: `node --test test/order-search-export.test.js test/workspace-orders-request.test.js test/phase28-orders-cs-adapters.test.js` — 20/20 PASS.
+- GREEN: `node desktop/test/order-global-search-smoke.cjs --isolated` — PASS (통합 reset 한 번 조회와 global input 동기화 포함).
+- GREEN: `pnpm build` — Next.js 16.3.0 production build PASS.
+- 성능 보완 재검증: `node --test test/order-search-export.test.js test/phase28-orders-cs-adapters.test.js` — 15/15 PASS; `pnpm build` — PASS.
+- 우려: 실제 운영 주문이나 파일 쓰기는 실행하지 않았다. 설치본/배포 검증은 컨트롤러 범위다.

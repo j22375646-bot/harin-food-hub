@@ -1244,7 +1244,7 @@ function createHubConnection({
       const stopped=new Promise((_,reject)=>controller.signal.addEventListener('abort',()=>reject(Error('Stopped')),{once:true}));timer=setTimeout(()=>controller.abort(),timeoutMs);
       const response=await Promise.race([getRemoteSession().fetch(url,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal}),stopped]);exportPermit=null;
       if(expected!==generation||[401,403].includes(response.status))return {status:response.status===401?'LOGIN_REQUIRED':response.status===403?'FORBIDDEN':'DOCUMENT_CHANGED'};
-      if(response.status===404)return {status:'NO_ORDERS'};if(response.status!==200)return {status:'EXPORT_UNAVAILABLE'};
+      if(response.status===404)return {status:'NO_ORDERS'};if(response.status===413)return {status:'EXPORT_LIMIT_EXCEEDED'};if(response.status!==200)return {status:'EXPORT_UNAVAILABLE'};
       const mime=String(response.headers.get('content-type')||'').split(';')[0].toLowerCase();if(mime!=='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')return {status:'EXPORT_UNAVAILABLE'};
       const count=Number(response.headers.get('x-moaon-export-count')),downloadSnapshot=response.headers.get('x-moaon-export-snapshot');if(response.headers.get('x-moaon-search-contract')!=='1'||!Number.isSafeInteger(count)||count<1||count>5000||downloadSnapshot!==exportSnapshot)return {status:'EXPORT_UNAVAILABLE'};
       const bytes=await readBoundedBytes(response,controller,10*1024*1024);if(!validXlsxPackage(bytes))return {status:'EXPORT_UNAVAILABLE'};
