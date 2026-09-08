@@ -286,6 +286,46 @@ test('one total deadline stops a late database completion from dispatching clean
   assert.equal(events.includes('storage:revoke'), false);
 }));
 
+test('a backward wall-clock jump during database revoke cannot extend the cleanup deadline', () => withSecret(async () => {
+  const originalNow = Date.now;
+  const token = sessionToken();
+  const events = [];
+  let wallClock = originalNow();
+  let resolveDatabase;
+  let resolveCleanup;
+  const databasePending = new Promise(resolve => { resolveDatabase = resolve; });
+  const cleanupPending = new Promise(resolve => { resolveCleanup = resolve; });
+  const service = createSessionLogout({
+    db: database({events, pending: databasePending}),
+    stepUpStorage: storage({events, pending: cleanupPending}),
+    timeoutMs: 30,
+  });
+  let operation;
+  try {
+    Date.now = () => wallClock;
+    operation = service.logout(token);
+    setTimeout(() => {
+      wallClock -= 60_000;
+      resolveDatabase({error: null});
+    }, 5);
+    const outcome = await Promise.race([
+      operation.then(value => ({type: 'resolved', value}), error => ({type: 'rejected', error})),
+      new Promise(resolve => setTimeout(() => resolve({type: 'guard'}), 100)),
+    ]);
+    resolveCleanup(true);
+    await operation.catch(() => {});
+
+    assert.equal(outcome.type, 'rejected');
+    assertUnavailable(outcome.error);
+    assert.equal(events.filter(event => event === 'storage:revoke').length, 1);
+  } finally {
+    Date.now = originalNow;
+    resolveDatabase?.({error: null});
+    resolveCleanup?.(true);
+    await operation?.catch(() => {});
+  }
+}));
+
 test('one total deadline bounds hanging cleanup and never retries it', () => withSecret(async () => {
   const events = [];
   const pending = new Promise(() => {});
