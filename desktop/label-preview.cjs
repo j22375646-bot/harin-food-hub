@@ -21,7 +21,7 @@ function createLabelPreview({BrowserWindow,Menu,dialog,getParent}){
       webPreferences:{partition:READONLY_PARTITION,nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,javascript:false,webviewTag:false,devTools:false,spellcheck:false}});
     current=win;win.labelUrl=url;
     const alive=()=>current===win&&!win.isDestroyed();
-    let printing=false,timer;
+    let printing=false,attempted=false,timer;
     async function verify(){
       if(!alive()||win.webContents.getURL()!==url)return false;
       // World 0 follows javascript:false; only this fixed host-owned isolated code runs.
@@ -33,16 +33,19 @@ function createLabelPreview({BrowserWindow,Menu,dialog,getParent}){
     const menu=Menu.buildFromTemplate([
       {id:'print',label:'인쇄 설정 열기',enabled:false,click:async()=>{
         if(printing||!alive())return;printing=true;
+        menu.getMenuItemById('print').enabled=false;
+        win.setTitle('인쇄 준비 · 주문과 송장을 확인 중');
         try{
           if(!await validate()||!await verify())throw Error();
-          const answer=await dialog.showMessageBox(win,{type:'question',title:'기존 송장 인쇄',message:'받는 분과 송장번호를 확인했나요?',detail:'이미 발급된 송장만 인쇄합니다. 실제 용지에 맞춰 프린터 설정을 확인하세요. 기본 문서 크기는 100 × 150mm입니다.',buttons:['취소','인쇄 설정 열기'],defaultId:0,cancelId:0,noLink:true});
-          if(answer?.response!==1)return;
+          const answer=await dialog.showMessageBox(win,{type:'question',title:'기존 송장 인쇄',message:'받는 분과 송장번호를 확인했나요?',detail:(attempted?'이 창에서 이미 인쇄를 요청했습니다. 중복 출력되지 않도록 프린터 대기열과 실제 출력물을 먼저 확인하세요.\n\n':'')+'이미 발급된 송장만 인쇄합니다. 실제 용지에 맞춰 프린터 설정을 확인하세요. 기본 문서 크기는 100 × 150mm입니다.',buttons:['취소','인쇄 설정 열기'],defaultId:0,cancelId:0,noLink:true});
+          if(answer?.response!==1){if(alive())win.setTitle('인쇄 취소 · 새 인쇄 요청 없음');return;}
           if(!await validate()||!await verify())throw Error();
-          await new Promise(resolve=>win.webContents.print({silent:false,printBackground:true,pageSize:{width:100000,height:150000},margins:{marginType:'none'}},success=>{
-            if(alive())win.setTitle(success?'인쇄 요청 전달됨 · 실제 출력 확인 필요':'인쇄 취소 또는 실패 · 출력 상태 확인');resolve();
+          attempted=true;win.setTitle('인쇄 설정·처리 중 · 중복 요청 차단');
+          await new Promise(resolve=>win.webContents.print({silent:false,printBackground:true,pageSize:{width:100000,height:150000},margins:{marginType:'none'}},(success,reason)=>{
+            if(alive())win.setTitle(success?'인쇄 요청 전달됨 · 실제 출력 확인 필요':reason==='Print job canceled'?'인쇄 취소 · 출력 상태 확인':'인쇄 실패 · 프린터와 대기열 확인');resolve();
           }));
         }catch{if(alive())win.setTitle('문서 확인 실패 · 창을 닫고 다시 확인하세요');}
-        finally{printing=false;}
+        finally{printing=false;if(alive())menu.getMenuItemById('print').enabled=true;}
       }},
       {label:'닫기',click:()=>{if(alive())close();}},
     ]);
