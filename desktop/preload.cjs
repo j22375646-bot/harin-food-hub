@@ -1,6 +1,8 @@
 'use strict';
 
 const { contextBridge, ipcRenderer } = require('electron');
+const validWorklistIds=ids=>Array.isArray(ids)&&ids.length>0&&ids.length<=20&&ids.every(id=>typeof id==='string'&&/^HR-(?:C24|CP|NV)-[A-F0-9]{8}$/.test(id))&&new Set(ids).size===ids.length;
+const previewWorklist=(ids,type)=>{if(!validWorklistIds(ids)||!['packing','dispatch'].includes(type))throw Error('Invalid worklist arguments');return ipcRenderer.invoke('moaon-hub:preview-worklist',ids,type);};
 
 contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   collectOrders: () => ipcRenderer.invoke('moaon-hub:collect-orders'),
@@ -17,6 +19,7 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   inspectPrinters: () => ipcRenderer.invoke('moaon-hub:inspect-printers'),
   previewLabel: (id) => ipcRenderer.invoke('moaon-hub:preview-label',id),
   previewLabels: (ids) => ipcRenderer.invoke('moaon-hub:preview-labels',ids),
+  previewWorklist,
   exportSelectedCsv: (ids) => ipcRenderer.invoke('moaon-hub:export-selected-csv',ids),
   issueShipment: (id) => ipcRenderer.invoke('moaon-hub:issue-shipment',id),
   issueAndRegister: (ids) => ipcRenderer.invoke('moaon-hub:issue-and-register',ids),

@@ -30,6 +30,7 @@ const shipmentFingerprints=new WeakMap();
 const labelReceivers=new WeakMap();
 const deliveryTargets=new WeakMap();
 const workflowFingerprints=new WeakMap();
+const worklistOrders=new WeakMap();
 const REGISTRATION_URL=`${HARIN_ORIGIN}/api/shipping/actions`;
 function validRegistrationIds(ids){return Array.isArray(ids)&&ids.length>0&&ids.length<=20&&ids.every(id=>typeof id==='string'&&/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id))&&new Set(ids).size===ids.length;}
 function canRegister(order,partial){
@@ -173,8 +174,9 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     ...(projectVisual(order)?{visual:projectVisual(order)}:{}),
     });
     const inputs={};
-    for(const key of ['hubOrderId','platform','fulfillment','externalOrderId','shipmentId','productName','quantity','items','receiver','invoiceNumber','issuedInvoiceNumber','invoice','stage','cancelled','cancellationRequested'])inputs[key]=order?.[key]??null;
+    for(const key of ['hubOrderId','platform','fulfillment','externalOrderId','shipmentId','productName','quantity','amount','items','packagingInstructions','gifts','receiver','invoiceNumber','issuedInvoiceNumber','invoice','stage','cancelled','cancellationRequested'])inputs[key]=order?.[key]??null;
     shipmentFingerprints.set(projected,createHash('sha256').update(JSON.stringify(inputs)).digest('hex'));
+    worklistOrders.set(projected,{hubOrderId:projected.hubOrderId,platform:projected.platform,externalOrderId:safeString(order?.externalOrderId),productName:projected.productName,stage:projected.stage,amount:projected.amount,items:order?.items,packagingInstructions:order?.packagingInstructions,gifts:order?.gifts,invoice:projected.details.invoice});
     const stable={};for(const key of ['hubOrderId','platform','fulfillment','externalOrderId','shipmentId','productName','quantity','items','receiver'])stable[key]=order?.[key]??null;
     workflowFingerprints.set(projected,createHash('sha256').update(JSON.stringify(stable)).digest('hex'));
     labelReceivers.set(projected,Object.freeze({...order?.receiver}));
@@ -251,6 +253,7 @@ function createHubConnection({
   shipmentDirectory = null,
   labelPreview = null,
   selectedDocuments = null,
+  worklistPreview = null,
   automaticPollDelayMs = 1000,
   automaticTimeoutMs = 60000,
 }) {
@@ -472,6 +475,7 @@ function createHubConnection({
     registrationController?.abort();
     for(const controller of businessReads)controller.abort();
     labelPreview?.close();
+    worklistPreview?.close();
     for(const controller of shipmentAuthReads)controller.abort();
     const old=shipmentRegistry;shipmentRegistry=null;
     shipmentPermits.clear();
@@ -1075,6 +1079,16 @@ function createHubConnection({
   }
   const previewLabels=ids=>selectedDocument(ids,'label');
   const exportSelectedCsv=ids=>selectedDocument(ids,'csv');
+  async function previewWorklist(ids,type){
+    if(!validDocumentIds(ids)||!['packing','dispatch'].includes(type))throw Error('Invalid worklist selection');
+    if(reviewingShipment||registrationController||automaticController||trackingController||collectionWorkActive)return {status:'BUSY'};
+    const expected=generation,scope=currentScope,channel=currentChannel,offset=pageCursor?.offset;
+    const initial=ids.map(id=>loadedOrders.filter(row=>row.hubOrderId===id));if(offset==null||initial.some(rows=>rows.length!==1))return {status:'DOCUMENT_CHANGED'};
+    const baseline=initial.map(rows=>rows[0]),alive=()=>generation===expected&&currentScope===scope&&currentChannel===channel&&pageCursor?.offset===offset&&!disconnecting&&!cleanupFailed&&!isLoginWindowActive();
+    let opening=true;const read=async()=>{if(!alive()||collectionWorkActive||trackingController||registrationController||automaticController||(!opening&&reviewingShipment))return null;const page=await recheckPage();if(!alive()||page.status!=='READY'||page.offset!==offset)return null;const rows=ids.map(id=>page.orders.filter(row=>row.hubOrderId===id));if(rows.some((found,index)=>found.length!==1||shipmentFingerprints.get(found[0])!==shipmentFingerprints.get(baseline[index])))return null;return rows.map(found=>found[0]);};
+    reviewingShipment=true;
+    try{const rows=await read();if(!rows)return {status:'DOCUMENT_CHANGED'};const documents=rows.map(row=>worklistOrders.get(row));if(documents.some(row=>Array.isArray(row?.items)&&row.items.length===8))return {status:'DOCUMENT_ITEM_LIMIT'};const result=await worklistPreview?.open({type,orders:documents,validate:async()=>!!await read()});return generation===expected?(result||{status:'DOCUMENT_UNAVAILABLE'}):{status:'DISCONNECTED'};}catch{return {status:'DOCUMENT_UNAVAILABLE'};}finally{opening=false;reviewingShipment=false;}
+  }
   async function verifyShipmentSession() {
     if(disconnecting||cleanupFailed||isLoginWindowActive())return 'UNAVAILABLE';
     const controller=new AbortController();shipmentAuthReads.add(controller);
@@ -1377,7 +1391,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-  return Object.freeze({ exportSelectedCsv, previewLabels, collectOrders, checkOrderCollection, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ exportSelectedCsv, previewLabels, previewWorklist, collectOrders, checkOrderCollection, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1392,6 +1406,11 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
     if(args.length!==1||typeof args[0]!=='string'||!/^HR-(?:C24|CP|NV)-[A-F0-9]{8}$/.test(args[0]))throw Error('Invalid delivery arguments');
     return connection.readDelivery(args[0]);
+  });
+  ipcMain.handle('moaon-hub:preview-worklist',async(event,...args)=>{
+    if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+    if(args.length!==2||!validDocumentIds(args[0])||!['packing','dispatch'].includes(args[1]))throw Error('Invalid worklist arguments');
+    return connection.previewWorklist(args[0],args[1]);
   });
   for(const [channel,method,valid] of [['moaon-hub:preview-labels','previewLabels',validRegistrationIds],['moaon-hub:export-selected-csv','exportSelectedCsv',validDocumentIds]]){
     ipcMain.handle(channel,async(event,...args)=>{
