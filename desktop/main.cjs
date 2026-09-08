@@ -15,6 +15,8 @@ const {
 
 const APP_NAME = '모아온 Preview';
 const {createLabelPreview}=require('./label-preview.cjs');
+const {createPrinterInspection,registerPrinterInspection}=require('./printer-inspection.cjs');
+const {isTrustedRenderer}=require('./connection-policy.cjs');
 const UI_ROOT = path.join(__dirname, 'ui');
 const CONTENT_TYPES = new Map([
   ['.html', 'text/html; charset=utf-8'],
@@ -129,6 +131,8 @@ if (!hasSingleInstanceLock) {
     });
 
     mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    registerPrinterInspection({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer,
+      inspect:createPrinterInspection({getMainWindow:()=>mainWindow,dialog})});
     mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault());
     mainWindow.webContents.on('will-navigate', (event, targetUrl) => {
       if (targetUrl !== APP_ENTRY_URL) event.preventDefault();
