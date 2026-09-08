@@ -15,7 +15,7 @@ const UI_ROOT = path.resolve('C:\\preview-fixture\\ui');
 test('registered moaon app resources are allowed', () => {
   assert.equal(APP_ENTRY_URL, 'moaon://app/index.html');
 
-  for (const resource of ['index.html', 'styles.css', 'app.js']) {
+  for (const resource of ['index.html', 'styles.css', 'app.js','studio.css','fonts/PretendardVariable.ttf']) {
     assert.equal(isAllowedAppUrl(`moaon://app/${resource}`), true);
     assert.equal(
       resolveAppResource(`moaon://app/${resource}`, UI_ROOT),

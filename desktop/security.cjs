@@ -7,6 +7,8 @@ const ALLOWED_APP_RESOURCES = new Map([
   [APP_ENTRY_URL, 'index.html'],
   ['moaon://app/styles.css', 'styles.css'],
   ['moaon://app/app.js', 'app.js'],
+  ['moaon://app/studio.css', 'studio.css'],
+  ['moaon://app/fonts/PretendardVariable.ttf', 'fonts/PretendardVariable.ttf'],
 ]);
 
 function isAllowedAppUrl(candidate) {

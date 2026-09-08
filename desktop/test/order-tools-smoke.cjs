@@ -7,6 +7,8 @@ async function main(){
  const app=await launchDesktop({root,executablePath:require('electron'),packaged,override:-1});
  try{
   const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');
+  await page.evaluate(()=>document.fonts.load('400 15px "Moaon Pretendard"','모아온'));
+  assert.equal(await page.evaluate(()=>[...document.fonts].some(f=>f.family==='Moaon Pretendard'&&f.status==='loaded')),true,'bundled font must load without relying on an installed font');
   assert.equal(await page.getByLabel('현재 페이지 채널').count(),1,'channel tools must exist');
   await app.evaluate(({session})=>{
    globalThis.toolReads=0;

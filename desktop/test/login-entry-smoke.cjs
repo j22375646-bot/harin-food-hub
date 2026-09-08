@@ -17,12 +17,14 @@ async function main(){
   await page.locator('#entry-screen [data-app-version]').filter({hasText:`v${hostVersion}`}).waitFor();
   assert.deepEqual(await page.locator('[data-app-version]').allTextContents(),[`v${hostVersion}`,`v${hostVersion}`]);
   assert.equal(await page.locator('.preview-shell').isVisible(),false);
-  await page.screenshot({path:path.resolve(__dirname,'../dist/login-entry-light.png')});
+  await page.screenshot({path:path.resolve(__dirname,'../dist/login-entry-light.png'),animations:'disabled'});
   await page.evaluate(()=>document.documentElement.dataset.theme='dark');
-  await page.screenshot({path:path.resolve(__dirname,'../dist/login-entry-dark.png')});
+  await page.screenshot({path:path.resolve(__dirname,'../dist/login-entry-dark.png'),animations:'disabled'});
   const nextWindow=app.waitForEvent('window');await page.locator('#entry-login').click();
   const login=await nextWindow;await login.waitForLoadState('domcontentloaded');
   assert.equal(await login.locator('input[type=password]').count(),1);
+  await login.waitForFunction(()=>getComputedStyle(document.querySelector('.loginPage')).fontFamily.includes('Pretendard'));
+  assert.equal(await login.locator('form input[type=password]').count(),1,'presentation keeps original password field');
   await login.close();await page.locator('#entry-login:not([disabled])').waitFor();
   assert.equal(await page.locator('.preview-shell').isVisible(),false);
   await app.evaluate(()=>globalThis.entryAuthorized=true);await page.locator('#entry-login').click();

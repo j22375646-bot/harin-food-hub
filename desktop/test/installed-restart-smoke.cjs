@@ -16,10 +16,10 @@ async function main(){
   const started=Date.now();const app=await _electron.launch({executablePath,args:[],timeout:30000});
   try{
    const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');
-   await page.locator('[data-app-version]').first().filter({hasText:'v0.17.2'}).waitFor();
+   await page.locator('[data-app-version]').first().filter({hasText:'v0.18.0'}).waitFor();
    const errors=[];page.on('pageerror',error=>errors.push(error.name));
    const state=await app.evaluate(({app})=>({version:app.getVersion(),profile:app.getPath('userData')}));
-   assert.equal(state.version,'0.17.2');assert.equal(path.resolve(state.profile),path.resolve(profile));
+   assert.equal(state.version,'0.18.0');assert.equal(path.resolve(state.profile),path.resolve(profile));
    const theme=await page.evaluate(()=>({visible:document.documentElement.dataset.theme,saved:localStorage.getItem('moaon-preview-theme')}));
    assert.equal(theme.visible,theme.saved);assert.ok(['light','dark'].includes(theme.visible));
    assert.equal(page.url(),'moaon://app/index.html');

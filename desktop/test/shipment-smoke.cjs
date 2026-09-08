@@ -42,7 +42,7 @@ async function main(){
   }
   await page.getByRole('button',{name:'기존 송장 미리보기·인쇄',exact:true}).waitFor({timeout:5000});
   assert.equal(await app.evaluate(()=>globalThis.shipmentCalls.post),1);
-  await page.screenshot({path:path.join(__dirname,'..','dist','shipment-smoke.png'),fullPage:true});
+  await page.screenshot({path:path.join(__dirname,'..','dist','shipment-smoke.png'),fullPage:true,animations:'disabled'});
   console.log(JSON.stringify({status:'PASS',scope:'isolated Electron UI/IPC/durable journal, simulated dialog and API only; NO LIVE SHIPMENT'}));
  }finally{await app.close();}
 }

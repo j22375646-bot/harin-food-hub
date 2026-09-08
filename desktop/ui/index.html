@@ -9,6 +9,7 @@
     >
     <title>모아온 Preview</title>
     <link rel="stylesheet" href="moaon://app/styles.css">
+    <link rel="stylesheet" href="moaon://app/studio.css">
     <script src="moaon://app/app.js" defer></script>
   </head>
   <body>
@@ -37,11 +38,11 @@
           </div>
         </div>
 
-        <section class="business-card" aria-label="현재 사업장">
+        <details class="studio-business"><summary>연결 상태</summary><section class="business-card" aria-label="현재 사업장">
           <span><i aria-hidden="true"></i> <b id="business-status">가상 사업장</b></span>
           <strong id="business-name">모아온 데모</strong>
           <small id="business-detail">시험 자료만 표시 중</small>
-        </section>
+        </section></details>
 
         <nav class="primary-nav" aria-label="모아온 Preview 메뉴">
           <button class="nav-button is-active" type="button" data-route="today" aria-label="오늘" aria-current="page">

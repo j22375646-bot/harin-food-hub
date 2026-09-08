@@ -646,6 +646,8 @@ function createHubConnection({
       if (url.origin !== HARIN_ORIGIN || url.pathname !== '/login') return;
       // Presentation only: retain the server form, validation and authentication.
       void contents.insertCSS(`
+        [class*="loginPage"] { --login-canvas:#f3f3f8 !important; --login-surface:#fff !important; --login-soft:#f8f7fc !important; --login-ink:#282836 !important; --login-muted:#6f6d80 !important; --login-line:#e4e2ed !important; --login-blue:#7565b4 !important; --login-blue-soft:#ede9fa !important; --login-mint:#247867 !important; --login-navy:#282836 !important; --login-rose:#b64f5e !important; color:#282836 !important; font-family:'Pretendard Variable',Pretendard,'Malgun Gothic',sans-serif !important; }
+        [class*="loginPage"] input,[class*="loginPage"] button { font-family:inherit !important; }
         [class*="loginPage"] { padding: 22px !important; min-height: 100vh !important; background:var(--login-canvas,#f3f6fa) !important; }
         [class*="loginFrame"] { display: flex !important; flex-direction: column !important; min-height: 0 !important; width: 100% !important; background:var(--login-surface,#fff) !important; border:1px solid var(--login-line,#dfe5ee) !important; border-radius:24px !important; box-shadow:0 18px 60px #1720360d !important; animation:moaonLoginArrive .35s ease-out both !important; }
         [class*="loginHero"], [class*="frameFooter"], [class*="ownerAccess"] { display: none !important; }
@@ -657,8 +659,8 @@ function createHubConnection({
         [class*="loginForm"] { margin-top: 22px !important; }
         [class*="sessionNote"] { margin-top: 18px !important; padding-top: 16px !important; }
         [class*="loginPasswordField"] { border-radius:12px !important; box-shadow:none !important; }
-        [class*="submitButton"] { border-radius:12px !important; min-height:50px !important; background:#4f6fcf !important; color:#fff !important; transition:background .18s ease,transform .18s ease !important; }
-        [class*="submitButton"]:not(:disabled):hover { background:#3f5cb2 !important; transform:translateY(-1px); }
+        [class*="submitButton"] { border-radius:12px !important; min-height:50px !important; background:#7565b4 !important; color:#fff !important; font-weight:600 !important; transition:background .18s ease,transform .18s ease !important; }
+        [class*="submitButton"]:not(:disabled):hover { background:#64549d !important; transform:translateY(-1px); }
         @keyframes moaonLoginArrive { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
         @media(prefers-reduced-motion:reduce) { [class*="loginFrame"] { animation:none !important; } [class*="submitButton"] { transition:none !important; transform:none !important; } }
       `).catch(() => { /* A navigation may replace the styled document. */ });
