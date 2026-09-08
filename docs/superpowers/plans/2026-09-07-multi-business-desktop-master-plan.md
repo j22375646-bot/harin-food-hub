@@ -4,6 +4,8 @@
 
 ## 현재 어디까지 왔나요?
 
+**최신 코드 작업: P4-04 인증·회원 저장소·HTTP 목록 연결.** 서버 composition 함수 추가와 서명 쿠키를 사용한 두 사용자 로컬 통합 검증. 관련 88개 시험 통과. 실제 운영 adapter 주입·제한 DB 역할 인수·선택 UI는 미완료이며 운영 route는 SETUP_REQUIRED 유지. [P4-04 보고서](./2026-09-08-moaon-p4-04-business-service-report.md)
+
 **최신 코드 작업: P4-03 사업장 목록 HTTP 요청 경로.** 쿠키 입력·no-store·안전한 오류 응답의 GET 경로 추가, 관련 86개 시험 및 Next 빌드 확인. route는 저장소 미연결 상태로 SETUP_REQUIRED를 반환한다. 운영 인증 composition·선택 화면은 미완료, 앱 0.15.1 유지. [P4-03 보고서](./2026-09-08-moaon-p4-03-business-request-report.md)
 
 **최신 코드 작업: P4-02 사업장 선택용 목록 조회.** 기존 제어 저장소에 인증된 본인의 활성 사업장 목록 조회 추가. 관련 80개 시험 통과. 서버 운영 인증 composition·목록 API·선택 화면 연결은 아직 미완료이며 앱 0.15.1 유지. 화면 연결에 필요한 목록 기능이 없던 선행 누락을 보완했다. [P4-02 보고서·다음 순서](./2026-09-08-moaon-p4-02-business-list-report.md)
