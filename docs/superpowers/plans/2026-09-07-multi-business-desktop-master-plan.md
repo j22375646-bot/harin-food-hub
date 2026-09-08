@@ -4,6 +4,8 @@
 
 ## 현재 어디까지 왔나요?
 
+**P4-08 후속 운영 연결 점검:** Vercel production 전용 DB 설정 없음 확인. 개발 PC의 IPv6 직접 DB 접속은 ENETUNREACH로 실패한다. 서버 자체의 접속 실패로 확대 해석하지 않는다. 유료 IPv4 추가 없이 shared session pooler 호환성 검증이 필요하다. 새 기능 완료/배포 아님. [실측·다음 경로](./2026-09-08-moaon-connection-network-check.md)
+
 **최신 P4-08: 서버 전용 DB 설정 경로 구현.** 전용 환경 설정 검증과 제한 adapter 생성 추가. 미설정/오류 구분, 관리자 설정 대체 금지, 고정 역할·TLS 검증, 관련 79개 시험 통과. 실제 비밀 설정 등록/LOGIN/운영 연결/route 활성화는 미실시다. [P4-08 상세](./2026-09-08-moaon-p4-08-server-config-report.md)
 
 **최신 P4-07: 역할 방향 검증·이전 판단 정정.** 운영 조회와 실제 SQL 로컬 시험으로 관리자 관계는 runtime adapter 차단 사유가 아님을 확인했다. P4-06의 충돌 판단을 정정한다. 관련 75개 시험 통과, 보안 검사 변경 없음. 실제 남은 조건은 전용 접속 자격 증명·서버 설정과 직접 연결 인수다. [P4-07 상세](./2026-09-08-moaon-p4-07-role-direction-report.md)
