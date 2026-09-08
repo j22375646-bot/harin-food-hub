@@ -4,6 +4,8 @@
 
 ## 현재 어디까지 왔나요?
 
+**최신 P4-10: 실제 접속주소 확보·Production 설정 5개 등록.** 공식 Connect 패널 직접 열기로 Host 요청 장애 해소, 개발 PC TCP 연결 성공. MODE/PROJECT_REF/HOST/PORT/NAME 운영 등록 및 목록 확인. 비밀번호·LOGIN·TLS/DB 실제 로그인·route 연결·배포는 아직 미완료다. [P4-10 실제 반영 보고서](./2026-09-08-moaon-p4-10-connection-settings-report.md)
+
 **최신 P4-09: IPv4 세션 풀러 지원 구현.** 접속용 프로젝트 접미사와 실제 DB 역할 검사를 분리하고 명시적 세션 모드/5432/프로젝트 ref 검증을 추가했다. 관련 81개 시험 통과. 실제 풀러 로그인·서버 비밀 설정·route 연결·배포는 미완료다. [P4-09 코드·검증·남은 인수](./2026-09-08-moaon-p4-09-session-pooler-report.md)
 
 **P4-08 후속 운영 연결 점검:** Vercel production 전용 DB 설정 없음 확인. 개발 PC의 IPv6 직접 DB 접속은 ENETUNREACH로 실패한다. 서버 자체의 접속 실패로 확대 해석하지 않는다. 유료 IPv4 추가 없이 shared session pooler 호환성 검증이 필요하다. 새 기능 완료/배포 아님. [실측·다음 경로](./2026-09-08-moaon-connection-network-check.md)
