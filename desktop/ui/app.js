@@ -1072,6 +1072,16 @@ function appendTrackingOutcome(parent,id,status,generation){
   note.append(open);parent.append(note);
 }
 
+function appendShipmentRecovery(parent,id,generation){
+  const button=makeElement('button','secondary-action','주문·발급 상태 확인');button.type='button';
+  button.title='현재 주문을 조회합니다. 송장 발급·등록을 다시 전송하지 않습니다.';
+  button.addEventListener('click',()=>{
+    if(generation!==actionGeneration||displayMode!=='live'||orderToolsBusy())return;
+    void findFollowupOrder(id);
+  });
+  parent.append(button);
+}
+
 async function runAutomaticShipping(explicitIds){
   if(orderToolsBusy()||displayMode!=='live')return;
   const ids=explicitIds||[...selectedOrderIds];
@@ -1102,6 +1112,7 @@ async function runAutomaticShipping(explicitIds){
         else shippingFollowup.set(id,{status:labels[row.status]?row.status:'CHECK_REQUIRED'});
         line.append(makeElement('span','',`${id} · ${phases[row.phase]||'출고 처리'}`),makeElement('strong','',labels[row.status]||labels.CHECK_REQUIRED));
         if(row.status==='REGISTERED'){complete.add(id);appendTrackingOutcome(line,id,row.trackingStatus,generation);}
+        if(!['REGISTERED','PENDING'].includes(row.status))appendShipmentRecovery(line,id,generation);
         if(row.status==='PENDING'){
           const resume=makeElement('button','secondary-action','진행 다시 확인');resume.type='button';
           resume.addEventListener('click',()=>void runAutomaticShipping([id]));line.append(resume);
@@ -1181,7 +1192,7 @@ async function registerSelectedInvoices(){
   try{
     const result=await window.moaonHub.registerInvoices(ids);
     if(!current())return;
-    const messages={REGISTERED:'쇼핑몰 등록 완료',PENDING:'처리 대기 · 등록 완료 아님',FAILED:'등록 실패 · 웹 허브에서 확인',CHECK_REQUIRED:'등록 여부 확인 필요 · 재전송하지 마세요'};
+    const messages={REGISTERED:'쇼핑몰 등록 완료',PENDING:'처리 대기 · 등록 완료 아님',FAILED:'등록 실패 · 주문·발급 상태를 확인하세요',CHECK_REQUIRED:'등록 여부 확인 필요 · 재전송하지 마세요'};
     if(['COMPLETED','PARTIAL'].includes(result?.status)){
       const rows=ids.map(id=>{
         const matches=Array.isArray(result.results)?result.results.filter(row=>row?.hubOrderId===id):[];
@@ -1197,6 +1208,7 @@ async function registerSelectedInvoices(){
         item.dataset.state=row.state;
         item.append(makeElement('span','',row.id),makeElement('strong','',messages[row.state]));
         if(row.state==='REGISTERED')appendTrackingOutcome(item,row.id,row.trackingStatus,generation);
+        else appendShipmentRecovery(item,row.id,generation);
         return item;
       }));
       if(rows.some(row=>row.state!=='REGISTERED'))appendManualHistoryRefresh(panel,generation);
