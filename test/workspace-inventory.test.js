@@ -8,10 +8,10 @@ test('inventory preserves separate providers, unknown options and oldest timesta
  assert.doesNotMatch(JSON.stringify(result),/PRIVATE|raw_data/);assert.equal(result.items[1].channels[1].quantity,0);assert.equal(result.items[1].channels[1].state,'OUT_OF_STOCK');
  assert.ok(db.operations.filter(r=>r[1]==='select').every(r=>!r[2].includes('*')));
 });
-test('incomplete sets, DB errors and ambiguous mapping cannot yield stock success',async()=>{
+test('incomplete reads fail while ambiguous mapping is isolated',async()=>{
  await assert.rejects(loadWorkspaceInventory({db:database({},'master_products')}));
  await assert.rejects(loadWorkspaceInventory({db:database({master_products:Array(201).fill({id:'x',name:'x'})})}));
- const data=sources();data.channel_products.push({...data.channel_products[0],id:'duplicate'});await assert.rejects(loadWorkspaceInventory({db:database(data)}),/Ambiguous/);
+ const data=sources();data.channel_products.push({...data.channel_products[0],id:'duplicate'});const result=await loadWorkspaceInventory({db:database(data)});assert.equal(result.items.length,2);assert.equal(result.items[0].channels[0].mapping.count,2);assert.equal(result.items[0].channels[0].quantity,null);assert.equal(result.items[0].channels[0].product,null);assert.equal(result.items[0].channels[2].quantity,5);
 });
 const {resolveTenantContext}=require('../lib/tenancy/context.js');
 const A='a3452bca-e259-40ed-a93d-b8bcc5c1b9e0',B='10000000-0000-4000-8000-000000000002';

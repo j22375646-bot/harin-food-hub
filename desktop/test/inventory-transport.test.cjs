@@ -35,3 +35,10 @@ test('product metadata is projected while old responses remain readable',async()
 test('invalid, partial, reversed and crossed provider prices are rejected',async()=>{
  for(const override of [{min:0},{max:null},{max:9000},{basis:'COUPANG_OPTIONS'},{min:NaN},{name:'a'.repeat(201)}]){const p=payload();p.items[0].channels[0].product={name:'상품',basis:'CAFE24_CATALOG',min:10000,max:12000,updatedAt:null,stale:true,...override};assert.equal((await createInventoryTransport({fetch:async()=>Response.json(p)})()).status,'UNAVAILABLE');}
 });
+
+test('multiple connection data is projected and contradictory known values are rejected',async()=>{
+ const p=payload(),c=p.items[0].channels[0];c.mapping={count:2,entries:[{id:'a',externalId:'x',name:'상품 A',active:true,reference:false,private:'PRIVATE'},{id:'b',externalId:'y',name:'상품 B',active:null,reference:false}]};
+ const run=p=>createInventoryTransport({fetch:async()=>Response.json(p)})();
+ const result=await run(p);assert.equal(result.status,'READY');assert.equal(result.items[0].channels[0].mapping.count,2);assert.doesNotMatch(JSON.stringify(result),/PRIVATE/);
+ for(const change of [r=>r.quantity=5,r=>r.externalId='x',r=>r.mapping.entries[1].id='a',r=>r.mapping.count=3,r=>r.mapping.entries[0].active='yes']){const next=structuredClone(p);change(next.items[0].channels[0]);assert.equal((await run(next)).status,'UNAVAILABLE');}
+});

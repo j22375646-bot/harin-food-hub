@@ -9,6 +9,14 @@ function productDetail(p){
  if(!empty&&!known||['UNKNOWN','REFERENCE'].includes(p.basis)&&!empty)throw Error('Invalid price range');
  return {name:p.name,basis:p.basis,min:p.min,max:p.max,updatedAt:p.updatedAt,stale:p.stale};
 }
+function mappingDetail(m){
+ if(m===undefined||m===null)return null;
+ if(!Number.isInteger(m.count)||m.count<2||m.count>5000||!Array.isArray(m.entries)||m.entries.length!==Math.min(20,m.count))throw Error('Invalid mapping');
+ const seen=new Set();return {count:m.count,entries:m.entries.map(r=>{
+  if(typeof r?.id!=='string'||!r.id||r.id.length>80||seen.has(r.id)||!(r.externalId===null||typeof r.externalId==='string'&&r.externalId.length<=160)||!(r.name===null||typeof r.name==='string'&&r.name.length<=200)||!(r.active===null||typeof r.active==='boolean')||typeof r.reference!=='boolean')throw Error('Invalid connection entry');seen.add(r.id);
+  return {id:r.id,externalId:r.externalId,name:r.name,active:r.active,reference:r.reference};
+ })};
+}
 function project(p){
  const date=v=>v===null||typeof v==='string'&&Number.isFinite(Date.parse(v));
  if(p?.ok!==true||p.status!=='READY'||p.writePolicy!=='READ_ONLY'||typeof p.generatedAt!=='string'||!date(p.generatedAt)||p.truncated!==false||!Array.isArray(p.items)||p.items.length>1000)throw Error('Invalid inventory');
@@ -18,9 +26,10 @@ function project(p){
    const key=c.platform+':'+c.family;
    if(!['CAFE24:STORE','NAVER:STORE','COUPANG:MARKETPLACE','COUPANG:ROCKET_GROWTH'].includes(key)||keys.has(key)||!['HEALTHY','LOW','OUT_OF_STOCK','STALE','UNKNOWN','MISSING','REFERENCE'].includes(c.state)||!(c.quantity===null||typeof c.quantity==='number'&&Number.isFinite(c.quantity)&&c.quantity>=0)||!date(c.updatedAt)||typeof c.stale!=='boolean'||typeof c.stopped!=='boolean'||typeof c.unmanaged!=='boolean'||typeof c.detail!=='string'||c.detail.length>200)throw Error('Invalid stock');if(!(c.externalId===undefined||c.externalId===null||typeof c.externalId==='string'&&c.externalId.length<=160))throw Error('Invalid connection');keys.add(key);
    if(['UNKNOWN','MISSING','REFERENCE'].includes(c.state)&&c.quantity!==null||['HEALTHY','LOW','OUT_OF_STOCK','STALE'].includes(c.state)&&c.quantity===null)throw Error('Invalid stock state');
-   const product=productDetail(c.product);
+   const product=productDetail(c.product),mapping=mappingDetail(c.mapping);
+   if(mapping&&(c.state!=='UNKNOWN'||c.quantity!==null||c.externalId!=null||product!==null))throw Error('Ambiguous mapping has claimed values');
    if(product&&!['UNKNOWN',...(c.platform==='CAFE24'?['CAFE24_CATALOG']:c.platform==='NAVER'?['NAVER_COMMERCE','REFERENCE']:['COUPANG_OPTIONS'])].includes(product.basis))throw Error('Crossed product source');
-   return {product,externalId:c.externalId??null,platform:c.platform,family:c.family,state:c.state,quantity:c.quantity,updatedAt:c.updatedAt,stale:c.stale,stopped:c.stopped,unmanaged:c.unmanaged,detail:c.detail};
+   return {mapping,product,externalId:c.externalId??null,platform:c.platform,family:c.family,state:c.state,quantity:c.quantity,updatedAt:c.updatedAt,stale:c.stale,stopped:c.stopped,unmanaged:c.unmanaged,detail:c.detail};
   });return {id:r.id,name:r.name,channels};
  })};
 }
