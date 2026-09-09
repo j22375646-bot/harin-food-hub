@@ -3,7 +3,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { app, BrowserWindow, Menu, ipcMain, protocol, session, dialog, safeStorage, screen } = require('electron');
-const {rightDisplayBounds}=require('./window-placement.cjs');
+const {rightDisplayBounds,readRightDisplayPreference,saveRightDisplayPreference,showRightWindow}=require('./window-placement.cjs');
 const {createUpdateGate,guardWorkIpc}=require('./update-gate.cjs');
 const {createConfiguredUpdater,createAppUpdates,registerAppUpdates}=require('./app-updates.cjs');
 const updateGate=createUpdateGate();
@@ -76,9 +76,17 @@ if (!hasSingleInstanceLock) {
 } else {
   let mainWindow = null;
   let hubConnection = null;
+  let rightDisplayRequested=false;
+  const displayPreferenceFile=path.join(app.getPath('userData'),'display-preference.json');
 
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event,argv=[]) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
+    if(rightDisplayRequested||argv.includes('--display-right')){
+      rightDisplayRequested=true;
+      try{saveRightDisplayPreference(displayPreferenceFile);}catch{console.error('DISPLAY_PREFERENCE_UNAVAILABLE');return;}
+      if(!showRightWindow(mainWindow,screen.getAllDisplays(),screen.getPrimaryDisplay()))console.error('RIGHT_DISPLAY_UNAVAILABLE');
+      return;
+    }
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show();
     mainWindow.focus();
@@ -124,7 +132,10 @@ if (!hasSingleInstanceLock) {
     });
     appSession.on('will-download', (event) => event.preventDefault());
 
-    const rightDisplayRequested=process.argv.includes('--display-right');
+    try{
+      rightDisplayRequested=process.argv.includes('--display-right')||readRightDisplayPreference(displayPreferenceFile);
+      if(rightDisplayRequested)saveRightDisplayPreference(displayPreferenceFile);
+    }catch{console.error('DISPLAY_PREFERENCE_UNAVAILABLE');app.quit();return;}
     const rightBounds=rightDisplayRequested?rightDisplayBounds(screen.getAllDisplays(),screen.getPrimaryDisplay()):null;
     if(rightDisplayRequested&&!rightBounds){console.error('RIGHT_DISPLAY_UNAVAILABLE');app.quit();return;}
     mainWindow = new BrowserWindow({
