@@ -34,7 +34,23 @@ test('saved reports expose native bounded detail rebuilt from current NAVER owne
  const section=title=>detail.sections.find(item=>item.title===title);
  assert.match(JSON.stringify(section('위험')),/전환 위험|구매 표본/);
  assert.deepEqual(section('캠페인').items,[{title:'Brand',body:'BRAND · 유지·확대 검토 · 광고비 10 · ROAS 800%'}]);
- assert.deepEqual(section('키워드').items,[{title:'비효율어',body:'낭비 후보 · 광고비 9 · 구매 0 · ROAS 0%'},{title:'성장어',body:'성장 후보 · 광고비 2 · 구매 1 · ROAS 1500%'}]);
+ assert.deepEqual(section('키워드').items,[{title:'낭비 후보 · 비효율어',body:'광고비 9 · 구매 0 · ROAS 0%'},{title:'성장 후보 · 성장어',body:'광고비 2 · 구매 1 · ROAS 1500%'}]);
+});
+test('keyword detail reserves space for growth even when waste candidate text is very long',()=>{
+ const current=row('groups','2026-08-17',0);
+ current.summary_json.keywords={waste:Array.from({length:8},()=>({keyword:'낭비'.repeat(500),cost:0,conversions:0,roas:0})),growth:[{keyword:'성장표본',cost:0,conversions:1,roas:100}]};
+ const detail=summary({reports:[current]}).reports[0].detail;
+ const items=detail.sections.find(section=>section.title==='키워드').items;
+ assert.ok(items.some(item=>item.title.includes('낭비 후보')));
+ assert.ok(items.some(item=>item.title.includes('성장 후보')&&item.title.includes('성장표본')));
+ assert.match(items.find(item=>item.title.includes('성장표본')).body,/광고비 0/);
+ assert.equal(detail.truncated,true);
+});
+test('action detail carries report review window and success metric without scheduling a write',()=>{
+ const current=row('review','2026-08-17',100);
+ current.summary_json.recommendations=[{title:'검색어 검토',reason:'표본 확인',reviewWindow:'7일 뒤 표본 확인',successMetric:'구매 수 유지',ownerQuestion:'상품 의도와 맞나요?',risk:'표본 부족'}];
+ const action=summary({reports:[current]}).reports[0].detail.sections.find(section=>section.title==='행동').items[0];
+ assert.match(action.body,/7일 뒤 표본 확인/);assert.match(action.body,/구매 수 유지/);assert.match(action.body,/상품 의도와 맞나요/);
 });
 test('a single overlong detail string discloses character truncation without exhausting the byte budget',()=>{
  const current=row('long-one','2026-08-17',120);current.summary_json.insights=[{level:'warning',title:'x'.repeat(501),body:'short'}];
