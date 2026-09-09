@@ -12,6 +12,8 @@
     <link rel="stylesheet" href="moaon://app/studio.css">
     <script src="moaon://app/app.js" defer></script>
     <script src="moaon://app/settlement.js" defer></script>
+    <script src="moaon://app/insights.js" defer></script>
+    <link rel="stylesheet" href="moaon://app/insights.css">
     <link rel="stylesheet" href="moaon://app/settlement.css">
   </head>
   <body>
@@ -55,7 +57,8 @@
             <span class="nav-icon" aria-hidden="true">▤</span>
             <span><strong>주문·배송</strong><small id="orders-nav-detail">샘플 주문 3건</small></span>
           </button>
-          <button class="nav-button" type="button" data-route="settlement" aria-label="운영·정산"><span class="nav-icon" aria-hidden="true">₩</span><span><strong>운영·정산</strong></span></button>
+<button class="nav-button" type="button" data-route="settlement" aria-label="운영·정산"><span class="nav-icon" aria-hidden="true">₩</span><span><strong>운영·정산</strong></span></button>
+<button class="nav-button" type="button" data-route="insights" aria-label="분석·인사이트"><span class="nav-icon" aria-hidden="true">◈</span><span><strong>분석</strong></span></button>
           <button class="nav-button" type="button" data-route="settings" aria-label="앱 설정">
             <span class="nav-icon" aria-hidden="true">⚙</span>
             <span><strong>앱 설정</strong><small>화면과 버전</small></span>
@@ -261,6 +264,12 @@
             <aside id="settlement-detail" class="settlement-detail" aria-labelledby="settlement-detail-title" aria-hidden="true" inert>
               <div class="settlement-detail-inner"><header><h2 id="settlement-detail-title">정산 상세</h2><button id="settlement-detail-close" type="button" aria-label="정산 상세 닫기">×</button></header><div id="settlement-detail-body"></div></div>
             </aside></div>
+          </section>
+          <section id="insights-page" class="page insights-page" data-page="insights" aria-labelledby="insights-title" hidden>
+            <header class="insights-heading"><div><span class="eyebrow">NAVER / WEEKLY INSIGHTS</span><h1 id="insights-title" tabindex="-1">분석·인사이트</h1><p>네이버 광고의 변화와 판단 근거를 살펴보세요.</p></div><button id="insights-refresh" type="button">새로 조회</button></header>
+            <p id="insights-status" role="status"></p><p id="insights-period"></p>
+            <div id="insights-metrics" class="insights-metrics"></div><div id="insights-flow" class="insights-flow"></div>
+            <ul id="insights-caveats" class="insights-caveats"></ul><h2 class="insights-reports-title">최근 보고서 목록 · 최대 20개</h2><div id="insights-reports"></div>
           </section>
           <section class="page settings-page" data-page="settings" aria-labelledby="settings-title" hidden>
             <header class="page-heading compact-heading">

@@ -11,6 +11,7 @@ const ORDERS_PATH = `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93
 const ORDERS_URL = `${ORDERS_PATH}ACTIVE&platform=ALL`;
 const FINANCE_URL = `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/finance`;
 const SETTLEMENT_URL = `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/settlement`;
+const INSIGHTS_URL = `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/insights`;
 const READONLY_PARTITION = 'persist:moaon-harin-readonly';
 const MAX_LOGIN_QUERY_LENGTH = 512;
 const LOGIN_QUERY_KEYS = new Set(['error', 'next']);
@@ -114,6 +115,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if(method==='GET'&&details.url===`${HARIN_ORIGIN}/api/moaon/businesses`)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.financePermit===FINANCE_URL&&details.url===FINANCE_URL)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&[SETTLEMENT_URL,SETTLEMENT_URL+'?days=7',SETTLEMENT_URL+'?days=90'].includes(context.settlementPermit)&&details.url===context.settlementPermit)return isMainProcessRequest(details.webContentsId);
+  if(method==='GET'&&context.insightsPermit===INSIGHTS_URL&&details.url===INSIGHTS_URL)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.exportPermit===details.url&&details.url.endsWith('&format=xlsx'))return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&Number.isInteger(context.labelWebContentsId)&&context.labelWebContentsId>0&&details.webContentsId===context.labelWebContentsId&&details.url===context.labelUrl
     && /^https:\/\/harin-cafe24-sync\.vercel\.app\/api\/shipping\/print\?type=label&ids=HR-(?:C24|CP)-[A-F0-9]{8}$/.test(details.url))return true;

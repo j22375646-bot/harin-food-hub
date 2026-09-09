@@ -1,6 +1,6 @@
 {
   "name": "moaon-desktop-preview",
-  "version": "0.44.1",
+  "version": "0.45.0",
   "private": true,
   "description": "Moaon Windows preview - private Harin orders and confirmed shipment",
   "author": "Moaon",
@@ -20,7 +20,7 @@
     "productName": "Moaon Preview",
     "asar": true,
     "directories": {"output": "dist"},
-    "files": ["settlement-transport.cjs", "finance-transport.cjs", "today-calendar.cjs", "main.cjs", "app-info.cjs", "printer-inspection.cjs", "label-preview.cjs", "local-label.cjs", "selected-documents.cjs", "local-worklist.cjs", "worklist-preview.cjs", "security.cjs", "order-visual.cjs", "connection-policy.cjs", "hub-connection.cjs", "order-collection.cjs", "business-transport.cjs", "shipment-job.cjs", "shipment-journal.cjs", "shipment-registry.cjs", "shipment-transport.cjs", "shipping-action-journal.cjs", "preload.cjs", "ui/**/*"],
+"files": ["insights-transport.cjs", "settlement-transport.cjs", "finance-transport.cjs", "today-calendar.cjs", "main.cjs", "app-info.cjs", "printer-inspection.cjs", "label-preview.cjs", "local-label.cjs", "selected-documents.cjs", "local-worklist.cjs", "worklist-preview.cjs", "security.cjs", "order-visual.cjs", "connection-policy.cjs", "hub-connection.cjs", "order-collection.cjs", "business-transport.cjs", "shipment-job.cjs", "shipment-journal.cjs", "shipment-registry.cjs", "shipment-transport.cjs", "shipping-action-journal.cjs", "preload.cjs", "ui/**/*"],
     "win": {"target": "nsis", "executableName": "MoaonPreview", "signAndEditExecutable": false},
     "nsis": {"oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "runAfterFinish": false, "createDesktopShortcut": true},
     "artifactName": "Moaon-Preview-${version}-Setup.${ext}",
