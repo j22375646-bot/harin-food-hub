@@ -16,6 +16,48 @@ test('dates normalize to ISO and displayed narratives remain within transport bo
  assert.equal(output.generatedAt,'2026-09-09T00:00:00.000Z');assert.equal(output.channel.currentPeriod.end,'2026-08-17T00:00:00.000Z');assert.equal(output.reports[0].periodStart,'2026-08-01T00:00:00.000Z');
  for(const field of ['cause','causeNote','action','actionNote'])assert.equal(output.channel[field].length,500);
 });
+test('saved reports expose native bounded detail rebuilt from current NAVER owner insight fields',()=>{
+ const current=row('new','2026-08-17',120);
+ current.summary_json={
+  ...current.summary_json,
+  naver:{...current.summary_json.naver,connected:true,ad_spend:10,roas:800,confidence:{level:'HIGH'},top_campaigns:[{name:'Brand',category:'BRAND',cost:10,revenue:80,conversions:2,roas:800}]},
+  operating_rule:{thresholds:{target_roas_percent:700}},data_coverage:{naver_ads:{status:'READY'}},comparison_guard:{safe:true},
+  insights:[{level:'warning',title:'전환 위험',body:'구매 표본을 확인하세요.'}],
+  keywords:{waste:[{keyword:'비효율어',cost:9,conversion_revenue:0,conversions:0,roas:0}],growth:[{keyword:'성장어',cost:2,conversion_revenue:30,conversions:1,roas:1500}]},
+  recommendations:[{title:'검색어 점검',reason:'낭비 검색어를 확인합니다.',expected:'무전환 비용 감소'}],
+  owner_brief:{snapshotVersion:'NAVER_WEEKLY_OWNER_V2',evidence:{formulaVersion:'NAVER-OWNER-DECISION-V3'},headline:'STORED_SECRET',private:'RAW_SECRET'}
+ };
+ const detail=summary({reports:[current]}).reports[0].detail;
+ assert.equal(typeof detail.truncated,'boolean');assert.deepEqual(detail.sections.map(section=>section.title),['결정','위험','캠페인','키워드','행동','근거']);
+ for(const section of detail.sections){assert.ok(section.items.length<=8);for(const item of section.items){assert.equal(typeof item.title,'string');assert.equal(typeof item.body,'string');assert.ok(item.title.length<=500);assert.ok(item.body.length<=500);}}
+ assert.doesNotMatch(JSON.stringify(detail),/STORED_SECRET|RAW_SECRET|owner_brief|summary_json/);
+ const section=title=>detail.sections.find(item=>item.title===title);
+ assert.match(JSON.stringify(section('위험')),/전환 위험|구매 표본/);
+ assert.deepEqual(section('캠페인').items,[{title:'Brand',body:'BRAND · 유지·확대 검토 · 광고비 10 · ROAS 800%'}]);
+ assert.deepEqual(section('키워드').items,[{title:'비효율어',body:'낭비 후보 · 광고비 9 · 구매 0 · ROAS 0%'},{title:'성장어',body:'성장 후보 · 광고비 2 · 구매 1 · ROAS 1500%'}]);
+});
+test('a single overlong detail string discloses character truncation without exhausting the byte budget',()=>{
+ const current=row('long-one','2026-08-17',120);current.summary_json.insights=[{level:'warning',title:'x'.repeat(501),body:'short'}];
+ const detail=summary({reports:[current]}).reports[0].detail;
+ assert.equal(detail.sections.find(section=>section.title==='위험').items[0].title.length,500);assert.equal(detail.truncated,true);
+});
+test('report detail discloses truncation and stays within its aggregate UTF-8 text budget',()=>{
+ const current=row('large','2026-08-17',120),large='한'.repeat(900);
+ current.summary_json={...current.summary_json,naver:{...current.summary_json.naver,connected:true,top_campaigns:Array.from({length:20},(_,index)=>({name:`${index}-${large}`,category:large}))},insights:Array.from({length:20},()=>({level:'warning',title:large,body:large})),recommendations:Array.from({length:20},()=>({title:large,reason:large})),keywords:{waste:Array.from({length:20},()=>({keyword:large})),growth:[]}};
+ const detail=summary({reports:[current]}).reports[0].detail;
+ const bytes=detail.sections.reduce((total,section)=>total+Buffer.byteLength(section.title)+section.items.reduce((sum,item)=>sum+Buffer.byteLength(item.title)+Buffer.byteLength(item.body),0),0);
+ assert.equal(detail.truncated,true);assert.ok(bytes<=6000,`detail text used ${bytes} bytes`);assert.equal(detail.sections.length,6);
+ assert.ok(detail.sections.find(section=>section.title==='행동').items.length>0);assert.ok(detail.sections.find(section=>section.title==='근거').items.length>0);
+});
+test('twenty maximally detailed reports remain below the endpoint response ceiling',()=>{
+ const large='한'.repeat(900),reports=Array.from({length:20},(_,index)=>{const current=row(String(index),`2026-08-${String(20-index).padStart(2,'0')}`,120);current.summary_json={...current.summary_json,naver:{...current.summary_json.naver,connected:true,top_campaigns:Array.from({length:20},()=>({name:large,category:large}))},insights:Array.from({length:20},()=>({level:'warning',title:large,body:large})),recommendations:Array.from({length:20},()=>({title:large,reason:large})),keywords:{waste:Array.from({length:20},()=>({keyword:large}))}};return current;});
+ const output=summary({reports});assert.equal(output.reports.length,20);assert.ok(Buffer.byteLength(JSON.stringify(output))<=262144);
+});
+test('mixed emoji detail strings satisfy the desktop UTF16 limit without splitting characters',()=>{
+ const current=row('emoji','2026-08-17',120);current.summary_json.insights=[{level:'warning',title:'x'.repeat(400)+'😀'.repeat(100),body:'근거'}];
+ const detail=summary({reports:[current]}).reports[0].detail,heading=detail.sections.find(section=>section.title==='위험').items[0].title;
+ assert.equal(heading.length,500);assert.equal(heading.endsWith('😀'),true);assert.equal(detail.truncated,true);
+});
 test('same and overlapping report periods never produce a comparison rate',()=>{
  for(const start of ['2026-08-01','2026-08-10']){
   const current={...row('new','2026-08-17',120),period_start:start};
