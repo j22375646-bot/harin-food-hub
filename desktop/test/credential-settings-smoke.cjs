@@ -7,9 +7,11 @@ const {_electron} = require('playwright');
 const tenant = '11111111-1111-4111-8111-111111111111';
 async function main() {
  const installed=process.argv.includes('--installed-package');
+ const visibleDemo=process.argv.includes('--visible-demo');
+ const pause=()=>visibleDemo?new Promise(resolve=>setTimeout(resolve,650)):Promise.resolve();
  const runtimeRoot=installed?path.join(process.env.LOCALAPPDATA,'Programs','Moaon Preview','resources','app.asar'):path.resolve(__dirname,'..');
  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'moaon-credential-ui-'));
- const app=await _electron.launch({executablePath:require('electron'),args:[path.join(__dirname,'isolated-bootstrap.cjs')],env:{...process.env,MOAON_TEST_RUNTIME_ROOT:runtimeRoot,MOAON_TEST_PROFILE:profile,MOAON_TEST_HIDDEN:'1'},timeout:30000});
+ const app=await _electron.launch({executablePath:require('electron'),args:[path.join(__dirname,'isolated-bootstrap.cjs')],env:{...process.env,MOAON_TEST_RUNTIME_ROOT:runtimeRoot,MOAON_TEST_PROFILE:profile,MOAON_TEST_HIDDEN:visibleDemo?'0':'1',MOAON_TEST_DISPLAY:visibleDemo?'right':''},timeout:30000});
  try {
   const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');
   await page.waitForFunction(()=>document.querySelector('#entry-status')?.textContent&&!document.querySelector('#entry-status').textContent.includes('확인하고 있습니다'));
@@ -30,8 +32,17 @@ async function main() {
   },tenant);
   // Show only the settings DOM for this synthetic UI test; no authenticated claim.
   await page.evaluate(()=>{document.querySelector('#entry-screen').hidden=true;const shell=document.querySelector('.preview-shell');shell.hidden=false;shell.inert=false;document.querySelector('[data-page="settings"]').hidden=false;});
-  const change=async(id,value)=>page.evaluate(({id,value})=>{const el=document.getElementById(id);el.value=value;el.dispatchEvent(new Event('change',{bubbles:true}));},{id,value});
-  const click=async id=>page.evaluate(id=>document.getElementById(id).click(),id);
+  if(visibleDemo){
+   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setTitle('모아온 · 자동 검증 · 시험 자료'));
+   await page.evaluate(()=>{
+    document.querySelectorAll('main [data-page]').forEach(el=>el.hidden=el.dataset.page!=='settings');
+    const banner=document.createElement('div');banner.id='automatic-verification-banner';banner.textContent='자동 검증 중 · 시험 자료 / 가상 서버 응답 · 실제 API 키 저장 아님';
+    Object.assign(banner.style,{position:'fixed',top:'0',left:'0',right:'0',zIndex:'99999',padding:'12px',background:'#172554',color:'#fff',font:'bold 15px sans-serif',textAlign:'center'});document.body.append(banner);
+    document.getElementById('api-settings').scrollIntoView({block:'center'});
+   });
+  }
+  const change=async(id,value)=>{await pause();return page.evaluate(({id,value})=>{const el=document.getElementById(id);el.value=value;el.dispatchEvent(new Event('change',{bubbles:true}));},{id,value});};
+  const click=async id=>{await pause();if(visibleDemo)await page.evaluate(id=>document.getElementById(id).scrollIntoView({block:'center'}),id);return page.evaluate(id=>document.getElementById(id).click(),id);};
   const fill=async()=>page.evaluate(()=>document.querySelectorAll('#api-fields input').forEach(el=>{el.value='SYNTHETIC_NOT_A_KEY';el.dispatchEvent(new Event('input',{bubbles:true}));}));
   const status=async text=>page.waitForFunction(text=>document.getElementById('api-server-status').textContent.includes(text),text);
   await change('api-source','owned');await page.waitForFunction(()=>!document.getElementById('api-tenant').disabled);await change('api-tenant',tenant);
@@ -87,12 +98,17 @@ async function main() {
   assert.equal(drafts.length,1);assert.doesNotMatch(JSON.stringify(drafts),/SYNTHETIC_NOT_A_KEY/);
   await page.evaluate(()=>window.moaonHub.removeApiDraft({business:'격리 시험 사업장',provider:'COUPANG'}));
   assert.deepEqual(await page.evaluate(()=>window.moaonHub.listApiDrafts()),[]);
-  for(const width of [1040,1440]){await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setSize(width,900),width);assert.equal(await page.locator('#api-settings').evaluate(el=>el.scrollWidth<=el.clientWidth),true);}
+  for(const width of [1040,1440]){await app.evaluate(({BrowserWindow,screen},{width,visibleDemo})=>{const win=BrowserWindow.getAllWindows()[0];const area=screen.getDisplayMatching(win.getBounds()).workArea;win.setSize(visibleDemo?Math.min(width,area.width-20):width,visibleDemo?Math.min(900,area.height-60):900);},{width,visibleDemo});assert.equal(await page.locator('#api-settings').evaluate(el=>el.scrollWidth<=el.clientWidth),true);}
   const version=JSON.parse(installed?require('@electron/asar').extractFile(runtimeRoot,'package.json').toString('utf8'):fs.readFileSync(path.join(runtimeRoot,'package.json'),'utf8')).version;
   assert.equal(version,'0.52.0');
-  const windows=await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().map(w=>({visible:w.isVisible(),focused:w.isFocused()})));
-  assert.ok(windows.length);assert.ok(windows.every(w=>!w.visible&&!w.focused));assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({status:'PASS',runtime:installed?'installed app.asar':'source',version,scope:'synthetic IPC UI; no real credentials or authenticated server save',cases:['lookup required','cancel','selection invalidation','late metadata','duplicate lock','saved unverified','unknown','conflict','setup','denied','rate limit','page cleanup','late save','local encrypted draft regression'],windows}));
+  const windows=await app.evaluate(({BrowserWindow,screen})=>BrowserWindow.getAllWindows().map(w=>{const bounds=w.getBounds(),primary=screen.getPrimaryDisplay(),display=screen.getDisplayMatching(bounds);return {visible:w.isVisible(),focused:w.isFocused(),rightSecondary:display.id!==primary.id&&display.workArea.x>=primary.workArea.x+primary.workArea.width,contained:bounds.x>=display.workArea.x&&bounds.x+bounds.width<=display.workArea.x+display.workArea.width&&bounds.y>=display.workArea.y&&bounds.y+bounds.height<=display.workArea.y+display.workArea.height};}));
+  assert.ok(windows.length);assert.ok(visibleDemo?windows.every(w=>w.visible&&!w.focused&&w.rightSecondary&&w.contained):windows.every(w=>!w.visible&&!w.focused));assert.deepEqual(errors,[]);
+  if(visibleDemo){
+   await page.evaluate(()=>{document.getElementById('automatic-verification-banner').textContent='자동 검증 통과 · 서버 설정 화면 14개 시나리오 · 실제 서버 인증은 별도';document.getElementById('api-settings').scrollIntoView({block:'center'});});
+   await page.screenshot({path:path.join(os.tmpdir(),'moaon-visible-verification.png')});
+   await new Promise(resolve=>setTimeout(resolve,8000));
+  }
+  console.log(JSON.stringify({status:'PASS',runtime:installed?'installed app.asar':'source',version,mode:visibleDemo?'visible automatic demo':'hidden',scope:'synthetic IPC UI; no real credentials or authenticated server save',cases:['lookup required','cancel','selection invalidation','late metadata','duplicate lock','saved unverified','unknown','conflict','setup','denied','rate limit','page cleanup','late save','local encrypted draft regression'],windows}));
  }finally{await app.close();}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

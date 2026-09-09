@@ -10,7 +10,7 @@ process.on('unhandledRejection', () => {
   process.exit(1);
 });
 const path = require('node:path');
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, screen } = require('electron');
 const runtimeRoot = process.env.MOAON_TEST_RUNTIME_ROOT;
 const profile = process.env.MOAON_TEST_PROFILE;
 if (!runtimeRoot || !profile || !path.isAbsolute(runtimeRoot) || !path.isAbsolute(profile)) {
@@ -24,5 +24,21 @@ if (process.env.MOAON_TEST_HIDDEN === '1') {
   BrowserWindow.prototype.show = function () {};
   BrowserWindow.prototype.showInactive = function () {};
   BrowserWindow.prototype.focus = function () {};
+}
+if (process.env.MOAON_TEST_HIDDEN !== '1' && process.env.MOAON_TEST_DISPLAY === 'right') {
+  // User-requested visible verification must stay off the primary workspace.
+  // showInactive reveals this test window without activating it; no input APIs.
+  const showInactive = BrowserWindow.prototype.showInactive;
+  BrowserWindow.prototype.show = function () { showInactive.call(this); };
+  BrowserWindow.prototype.focus = function () {};
+  app.on('browser-window-created', (_event, win) => {
+    const primary = screen.getPrimaryDisplay();
+    const display = screen.getAllDisplays().filter(d => d.id !== primary.id && d.workArea.x >= primary.workArea.x + primary.workArea.width).sort((a,b) => a.workArea.x-b.workArea.x)[0];
+    if (!display) throw new Error('Requested secondary display unavailable');
+    const area = display.workArea;
+    const width = Math.min(1060, area.width-20), height = Math.min(1100, area.height-60);
+    win.setMinimumSize(Math.min(1040,width), Math.min(720,height));
+    win.setBounds({x:area.x+10,y:area.y+30,width,height});
+  });
 }
 require(path.join(runtimeRoot, 'main.cjs'));

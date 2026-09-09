@@ -33,6 +33,19 @@ node scripts/check-moaon-credential-readiness.js
 
 실제 연결 역할의 소유권/상속/DDL/BYPASSRLS 부재, 필요한 열 권한·정책, 세션 폐기와 저장의 동일 잠금 순서, 계정 비활성화 차단을 검증한다. quota는300초 GLOBAL120/IP30/USER10이며 GET과POST가 각각1회를 사용한다. 한도 행 보존/정리와 HMAC 교체 시 한도 초기화 영향을 함께 정한다. 오프라인 도구는 이 상태를 검사하지 않는다.
 
+### 읽기 전용 구조 점검 명령
+
+위 대상의 별도 최소권한 연결 설정을 가진 운영 환경에서 다음을 실행한다. 기본은 opt-in 꺼짐이며 DB 연결조차 만들지 않는다. CLI는 env 파일이나 인수를 자동으로 받아 대상으로 삼지 않는다.
+
+```powershell
+$env:MOAON_CONTROL_DB_DIAGNOSTIC='1'
+node scripts/check-moaon-credential-schema.js
+```
+
+도구의 진단 SQL은 고정 catalog SELECT이며 테이블9개의 존재/RLS, quota 함수2개의 인수/반환형/일반 함수/security invoker 형태만 확인한다. 기존 adapter의 세션 초기화·timeout 설정·제한 역할 검사가 함께 실행된다. 사용자/사업장/키/quota 행 조회, quota 함수 실행, DDL과 데이터 변경은 하지 않는다. 함수 본문과 열 구조·ACL·정책·실제 fence/한도 동작은 별도 점검이다.
+
+exit0/SCHEMA_PRESENT_REQUIRES_OPERATIONS도 운영 준비 완료가 아니다. 누락·RLS 없음·함수 형태 불일치·쿼리/정리 실패는 BLOCKED/exit1이다. 반환은 고정 code/status뿐이며 실제 주소·연결값·예외 원문은 출력하지 않는다. 점검 종료 시 DB pool을 정리한다.
+
 ## 4. 키·진입 경로·배포
 
 암호화 키 저장 위치와 접근자, active key ID 교체 및 이전 키 복호화 유지, HMAC 분리와 복구 절차를 마련한다. 키 원문을 문서·대화·시험 로그에 복사하지 않는다. VERCEL 환경 변수 값만으로 실제 운영 진입 경로를 증명할 수 없다. 실제 production 배포와 직접 ingress, 단일 IP 헤더 일치 정책을 확인한다.
