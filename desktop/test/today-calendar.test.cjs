@@ -1,5 +1,13 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
+test('month range covers leap year and rejects arbitrary ranges',()=>{
+ const {monthRange,projectMonth}=require('../today-calendar.cjs');
+ assert.deepEqual(monthRange('2024-02'),{from:'2024-02-01',to:'2024-02-29'});
+ for(const value of ['2024-13','2024-2','2024-02&x=1',null])assert.equal(monthRange(value),null);
+ const range=monthRange('2026-09'),row={id:'a',title:'월말 일정',type:'EVENT',status:'OPEN',time:'',date:'2026-09-29',endDate:'2026-10-02'};
+ const result=projectMonth({ok:true,range,entries:[row]},'2026-09');assert.equal(result.status,'READY');assert.equal(result.entries.length,1);
+ assert.equal(projectMonth({ok:true,range,entries:Array(500).fill(row)},'2026-09').status,'UNAVAILABLE');
+});
 test('today calendar uses Korean day and projects bounded display fields only',()=>{
  const {calendarDay,projectCalendar}=require('../today-calendar.cjs');
  assert.equal(calendarDay(new Date('2026-09-09T16:00:00Z')),'2026-09-10');
@@ -20,4 +28,11 @@ test('calendar network access requires exact active main-process permit',()=>{
  assert.equal(isAllowedRemoteRequest({url,method:'GET',webContentsId:0},{calendarPermit:url}),true);
  for(const details of [{url,method:'POST',webContentsId:0},{url,method:'GET',webContentsId:12},{url:url+'&x=1',method:'GET',webContentsId:0}])assert.equal(isAllowedRemoteRequest(details,{calendarPermit:url}),false);
  assert.equal(isAllowedRemoteRequest({url,method:'GET',webContentsId:0}),false);
+});
+test('monthly network permit rejects arbitrary day ranges and renderer requests',()=>{
+ const {isAllowedRemoteRequest}=require('../connection-policy.cjs');
+ const url='https://harin-cafe24-sync.vercel.app/api/calendar/entries?from=2024-02-01&to=2024-02-29';
+ assert.equal(isAllowedRemoteRequest({url,method:'GET',webContentsId:0},{monthPermit:url}),true);
+ for(const other of [url+'&x=1',url.replace('02-29','02-28')])assert.equal(isAllowedRemoteRequest({url:other,method:'GET',webContentsId:0},{monthPermit:other}),false);
+ assert.equal(isAllowedRemoteRequest({url,method:'GET',webContentsId:2},{monthPermit:url}),false);
 });

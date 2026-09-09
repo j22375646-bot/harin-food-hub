@@ -485,6 +485,34 @@ function createHubConnection({
     })();
     activeCalendar=operation.finally(()=>{activeCalendar=null;});return activeCalendar;
   }
+  let activeMonth=null,monthPermit=null,activeMonthKey=null;
+  function readCalendarMonth(month){
+    const {monthRange,projectMonth}=require('./today-calendar.cjs'),range=monthRange(month);
+    if(!range)return Promise.resolve({status:'UNAVAILABLE',month,entries:[]});
+    if(disconnecting||cleanupFailed||isLoginWindowActive())return Promise.resolve({status:'UNAVAILABLE',month,entries:[]});
+    if(activeMonth)return month===activeMonthKey?activeMonth:Promise.resolve({status:'UNAVAILABLE',month,entries:[]});
+    activeMonthKey=month;
+    const expected=generation,controller=new AbortController();businessReads.add(controller);
+    const {from,to}=range;
+    const empty=status=>({status,month,entries:[]});let timer;
+    const operation=(async()=>{
+      try{return await Promise.race([(async()=>{
+        const authResponse=await getRemoteSession().fetch(buildOrdersScopeUrl('ACTIVE'),{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
+        const auth=[401,403].includes(authResponse.status)?(authResponse.status===401?'LOGIN_REQUIRED':'FORBIDDEN'):authResponse.status===200?projectOrdersPayload(await readBoundedJson(authResponse,controller),now().toISOString()).status:'UNAVAILABLE';
+        if(expected!==generation||controller.signal.aborted)return empty('DISCONNECTED');
+        if(!['READY','PARTIAL'].includes(auth))return empty(auth);
+        const url=`${HARIN_ORIGIN}/api/calendar/entries?from=${from}&to=${to}`;monthPermit=url;
+        const response=await getRemoteSession().fetch(url,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
+        if(expected!==generation||controller.signal.aborted)return empty('DISCONNECTED');
+        if(response.status!==200)return empty(response.status===401?'LOGIN_REQUIRED':response.status===403?'FORBIDDEN':'UNAVAILABLE');
+        const payload=await readBoundedJson(response,controller);
+        return expected===generation&&!controller.signal.aborted?projectMonth(payload,month):empty('DISCONNECTED');
+      })(),new Promise(resolve=>{controller.signal.addEventListener('abort',()=>resolve(empty('UNAVAILABLE')),{once:true});timer=setTimeout(()=>controller.abort(),timeoutMs);})]);}
+      catch{return empty('UNAVAILABLE');}
+      finally{clearTimeout(timer);monthPermit=null;businessReads.delete(controller);}
+    })();
+    activeMonth=operation.finally(()=>{activeMonth=null;});return activeMonth;
+  }
   function readOverview(){
     if(disconnecting||cleanupFailed||isLoginWindowActive())return Promise.resolve({status:'DISCONNECTED',scopes:{}});
     if(activeOverview)return activeOverview;
@@ -611,6 +639,7 @@ function createHubConnection({
             registrationRequestActive,
             serverHistoryRequestActive,
             calendarPermit,
+            monthPermit,
             financePermit,
             settlementPermit,
             insightsPermit,
@@ -1582,7 +1611,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-return Object.freeze({ readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+return Object.freeze({ readCalendarMonth, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1650,6 +1679,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     return connection.confirmShipmentReview(args[0]);
   });
   const methods = [
+    ['moaon-hub:read-calendar-month', 'readCalendarMonth'],
     ['moaon-hub:collect-orders', 'collectOrders'],
     ['moaon-hub:check-order-collection', 'checkOrderCollection'],
     ['moaon-hub:check-order-freshness', 'checkOrderFreshness'],
@@ -1677,6 +1707,10 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
   for (const [channel, method] of methods) {
     ipcMain.handle(channel, async (event, ...args) => {
       if (!isTrustedRenderer(event, getMainWindow())) throw new Error('Untrusted renderer');
+      if(method==='readCalendarMonth'){
+        if(args.length!==1||!require('./today-calendar.cjs').monthRange(args[0]))throw Error('Arguments are not allowed');
+        return connection.readCalendarMonth(args[0]);
+      }
       if(method==='readSettlement'){
         if(args.length>1||args.length===1&&![7,30,90].includes(args[0]))throw Error('Arguments are not allowed');
         return connection.readSettlement(args.length?args[0]:30);

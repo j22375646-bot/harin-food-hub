@@ -13,6 +13,8 @@
     <script src="moaon://app/app.js" defer></script>
     <script src="moaon://app/settlement.js" defer></script>
     <script src="moaon://app/insights.js" defer></script>
+    <script src="moaon://app/month-calendar.js" defer></script>
+    <link rel="stylesheet" href="moaon://app/month-calendar.css">
     <link rel="stylesheet" href="moaon://app/insights.css">
     <link rel="stylesheet" href="moaon://app/settlement.css">
   </head>
@@ -59,6 +61,7 @@
           </button>
 <button class="nav-button" type="button" data-route="settlement" aria-label="운영·정산"><span class="nav-icon" aria-hidden="true">₩</span><span><strong>운영·정산</strong></span></button>
 <button class="nav-button" type="button" data-route="insights" aria-label="분석·인사이트"><span class="nav-icon" aria-hidden="true">◈</span><span><strong>분석</strong></span></button>
+<button class="nav-button" type="button" data-route="calendar" aria-label="캘린더"><span class="nav-icon" aria-hidden="true">▦</span><span><strong>캘린더</strong></span></button>
           <button class="nav-button" type="button" data-route="settings" aria-label="앱 설정">
             <span class="nav-icon" aria-hidden="true">⚙</span>
             <span><strong>앱 설정</strong><small>화면과 버전</small></span>
@@ -275,6 +278,11 @@
                 <header><h2 id="insights-detail-title">보고서 상세</h2><button id="insights-detail-close" type="button" aria-label="보고서 상세 닫기">×</button></header><div id="insights-detail-body"></div>
               </div></aside>
             </div>
+          </section>
+          <section id="month-page" class="page month-page" data-page="calendar" aria-labelledby="month-title" hidden>
+            <header class="month-heading"><div><span class="eyebrow">WORK CALENDAR</span><h1 id="month-title" tabindex="-1">업무 캘린더</h1><p>한 달의 일정과 오늘 할 일을 살펴보세요.</p></div></header>
+            <div class="month-toolbar"><button id="month-prev" aria-label="이전 달">←</button><h2 id="month-label"></h2><button id="month-next" aria-label="다음 달">→</button><button id="month-today">이번 달</button><button id="month-refresh">새로 조회</button></div>
+            <p id="month-status" role="status"></p><div class="month-workspace"><div><div class="month-weekdays"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div id="month-grid"></div></div><aside class="month-agenda"><h2 id="month-selected"></h2><div id="month-entries"></div><div id="month-detail"></div></aside></div>
           </section>
           <section class="page settings-page" data-page="settings" aria-labelledby="settings-title" hidden>
             <header class="page-heading compact-heading">
