@@ -69,3 +69,12 @@ Observed: 241 passed, 0 failed.
 - No live credential, production endpoint, packaged artifact, installer, build, deploy, or push was exercised in this task, as requested.
 - The balance card is intentionally labelled as an estimate and explicitly says actual settlement/deposit is not proven.
 - `desktop/test/installed-finance-smoke.cjs` belongs to parent release verification and was intentionally not staged.
+
+## Final review fix wave
+
+- Finance reads now own a separate abort controller. Order scope, channel, and filter generation changes discard only the stale finance result as `CANCELLED`; they do not turn the ancillary read into a global disconnect or clear live orders.
+- The renderer promotes only genuine finance `LOGIN_REQUIRED` and `FORBIDDEN` results into global authentication state. Ancillary cancellation/unavailability remains local to the finance panel; explicit logout still clears and hides the panel.
+- The exact finance URL is permitted only while `readFinance` owns the active request. The permit is absent before the request and cleared after success, failure, timeout, or abort.
+- `generatedAt` now requires an ISO-8601 date-time with seconds and an explicit `Z` or numeric offset; permissive date-only parsing is rejected.
+- RED evidence: the focused suite failed on navigation returning `DISCONNECTED`, an always-open finance allowlist, and acceptance of `2026-09-09` as a timestamp.
+- GREEN evidence: focused finance tests passed 8/8; the Electron UI smoke passed with pending-finance navigation preserving live orders; the final desktop suite passed 244/244.

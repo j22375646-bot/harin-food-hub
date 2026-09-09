@@ -5,7 +5,7 @@ const blockedMetrics=()=>Object.freeze(Object.fromEntries(METRICS.map(key=>[key,
 const empty=status=>Object.freeze({status,month:null,generatedAt:null,metrics:blockedMetrics()});
 function validMonth(value){if(!/^\d{4}-\d{2}$/.test(value))return false;const month=Number(value.slice(5));return month>=1&&month<=12;}
 function project(payload){
- if(payload?.ok!==true||!validMonth(payload.month)||typeof payload.generatedAt!=='string'||!Number.isFinite(Date.parse(payload.generatedAt))||!payload.metrics||typeof payload.metrics!=='object'||Array.isArray(payload.metrics))throw Error('Payload');
+ if(payload?.ok!==true||!validMonth(payload.month)||typeof payload.generatedAt!=='string'||!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(payload.generatedAt)||!Number.isFinite(Date.parse(payload.generatedAt))||!payload.metrics||typeof payload.metrics!=='object'||Array.isArray(payload.metrics))throw Error('Payload');
  const metrics={};for(const key of METRICS){const metric=payload.metrics[key];if(!metric||typeof metric!=='object'||Array.isArray(metric)||!STATUSES.has(metric.status)||!(metric.value===null||typeof metric.value==='number'&&Number.isFinite(metric.value))||metric.status==='BLOCKED'&&metric.value!==null)throw Error('Metric');metrics[key]=Object.freeze({value:metric.value,status:metric.status});}
  return Object.freeze({status:'READY',month:payload.month,generatedAt:new Date(payload.generatedAt).toISOString(),metrics:Object.freeze(metrics)});
 }

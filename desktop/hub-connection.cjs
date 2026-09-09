@@ -455,7 +455,7 @@ function createHubConnection({
   const shipmentAuthReads=new Set();
   const businessReads=new Set();
   let activeOverview=null;
-  let activeFinance=null;
+  let activeFinance=null,activeFinanceController=null,financePermit=null;
   let activeCalendar=null,calendarPermit=null;
   function readTodayCalendar(){
     if(disconnecting||cleanupFailed||isLoginWindowActive())return Promise.resolve({status:'UNAVAILABLE',date:require('./today-calendar.cjs').calendarDay(now()),entries:[]});
@@ -517,9 +517,9 @@ function createHubConnection({
     if(disconnecting||cleanupFailed)return Promise.resolve(empty('DISCONNECTED'));
     if(isLoginWindowActive())return Promise.resolve(empty('LOGIN_REQUIRED'));
     if(activeFinance)return activeFinance;
-    const expected=generation,controller=new AbortController();businessReads.add(controller);
+    const expected=generation,controller=new AbortController();activeFinanceController=controller;financePermit=require('./connection-policy.cjs').FINANCE_URL;
     const read=createFinanceTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options),timeoutMs});
-    let tracked;tracked=read({signal:controller.signal}).then(result=>expected===generation?result:empty('DISCONNECTED')).finally(()=>{businessReads.delete(controller);if(activeFinance===tracked)activeFinance=null;});
+    let tracked;tracked=read({signal:controller.signal}).then(result=>expected===generation?result:empty('CANCELLED')).finally(()=>{financePermit=null;if(activeFinanceController===controller)activeFinanceController=null;if(activeFinance===tracked)activeFinance=null;});
     activeFinance=tracked;return tracked;
   }
   async function listBusinesses(){
@@ -585,6 +585,7 @@ function createHubConnection({
             registrationRequestActive,
             serverHistoryRequestActive,
             calendarPermit,
+            financePermit,
             trackingRequestMethod,
             automaticTrackingRequestActive,
             collectionPermit,
@@ -1433,6 +1434,7 @@ function createHubConnection({
     if (disconnecting) return disconnecting;
     collection.reset();
     generation += 1;
+    activeFinanceController?.abort();financePermit=null;
     const shipmentShutdown=stopShipments();
     currentScope = 'ACTIVE';
     currentChannel = 'ALL';
@@ -1479,6 +1481,7 @@ function createHubConnection({
   function closeChildren() {
     collection.reset();
     generation += 1;
+    activeFinanceController?.abort();financePermit=null;
     void stopShipments();
     currentScope = 'ACTIVE';
     currentChannel = 'ALL';

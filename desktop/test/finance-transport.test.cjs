@@ -5,8 +5,9 @@ const URL='https://harin-cafe24-sync.vercel.app/api/moaon/businesses/a3452bca-e2
 const payload={ok:true,month:'2026-09',generatedAt:'2026-09-09T01:02:03.000Z',metrics:{sales:{value:0,status:'READY'},profit:{value:-1200,status:'READY'},balance:{value:null,status:'BLOCKED'}}};
 
 test('finance allowlist permits only the exact main-process GET',()=>{
- assert.equal(isAllowedRemoteRequest({url:URL,method:'GET',webContentsId:0}),true);
- for(const request of [{url:URL,method:'POST',webContentsId:0},{url:URL+'?tenant=x',method:'GET',webContentsId:0},{url:URL.replace('a3452bca-e259-40ed-a93d-b8bcc5c1b9e0','10000000-0000-4000-8000-000000000002'),method:'GET',webContentsId:0},{url:URL,method:'GET',webContentsId:7}])assert.equal(isAllowedRemoteRequest(request),false);
+ assert.equal(isAllowedRemoteRequest({url:URL,method:'GET',webContentsId:0},{financePermit:URL}),true);
+ for(const request of [{url:URL,method:'POST',webContentsId:0},{url:URL+'?tenant=x',method:'GET',webContentsId:0},{url:URL.replace('a3452bca-e259-40ed-a93d-b8bcc5c1b9e0','10000000-0000-4000-8000-000000000002'),method:'GET',webContentsId:0},{url:URL,method:'GET',webContentsId:7}])assert.equal(isAllowedRemoteRequest(request,{financePermit:URL}),false);
+ assert.equal(isAllowedRemoteRequest({url:URL,method:'GET',webContentsId:0}),false);
 });
 
 test('finance transport preserves true zero and negative values and strips unknown fields',async()=>{
@@ -20,6 +21,7 @@ test('finance transport rejects coercion, malformed dates, unknown statuses and 
  for(const bad of [
   {...payload,month:'2026-9'},
   {...payload,generatedAt:'today'},
+  {...payload,generatedAt:'2026-09-09'},
   {...payload,metrics:{...payload.metrics,sales:{value:'0',status:'READY'}}},
   {...payload,metrics:{...payload.metrics,profit:{value:1,status:'UNKNOWN'}}},
   {...payload,metrics:{sales:payload.metrics.sales,profit:payload.metrics.profit}},

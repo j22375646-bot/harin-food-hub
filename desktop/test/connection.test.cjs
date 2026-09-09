@@ -1543,14 +1543,27 @@ test('today calendar verifies tenant before GET and never exposes private body',
   assert.equal((await denied.readTodayCalendar()).status,status===401?'LOGIN_REQUIRED':'FORBIDDEN');assert.equal(calls,1);
  }
 });
-test('finance read deduplicates in flight and logout discards a late result',async()=>{
+test('finance read deduplicates in flight and order navigation cancels only the finance result',async()=>{
  let release,reads=0;const {connection}=makeConnection(makeRemoteSession(async url=>{
   if(url.endsWith('/finance')){reads++;return new Promise(resolve=>release=resolve);}
   return Response.json(makePagePayload());
  }));
  const first=connection.readFinance(),second=connection.readFinance();assert.equal(first,second);assert.equal(reads,1);
- await connection.disconnect();release(Response.json({ok:true,month:'2026-09',generatedAt:'2026-09-09T01:02:03Z',metrics:{sales:{value:1,status:'READY'},profit:{value:2,status:'READY'},balance:{value:3,status:'PARTIAL'}}}));
- assert.equal((await first).status,'DISCONNECTED');
+ assert.equal((await connection.viewChannel('COUPANG')).status,'READY');release(Response.json({ok:true,month:'2026-09',generatedAt:'2026-09-09T01:02:03Z',metrics:{sales:{value:1,status:'READY'},profit:{value:2,status:'READY'},balance:{value:3,status:'PARTIAL'}}}));
+ assert.equal((await first).status,'CANCELLED');
+});
+test('pending finance cannot cancel a server filter transition or clear its order result',async()=>{
+ let release;const {connection}=makeConnection(makeRemoteSession(async url=>url.endsWith('/finance')?new Promise(resolve=>release=resolve):Response.json(makePagePayload())));
+ const finance=connection.readFinance();assert.equal((await connection.setOrderFilters({delayOnly:true,giftOnly:false})).status,'READY');release(Response.json({ok:true,month:'2026-09',generatedAt:'2026-09-09T01:02:03Z',metrics:{sales:{value:1,status:'READY'},profit:{value:2,status:'READY'},balance:{value:3,status:'PARTIAL'}}}));assert.equal((await finance).status,'CANCELLED');
+});
+test('explicit logout aborts a pending finance read and exposes no late metrics',async()=>{
+ const {connection}=makeConnection(makeRemoteSession(async url=>url.endsWith('/finance')?new Promise(()=>{}):Response.json(makePagePayload())),{timeoutMs:100});const pending=connection.readFinance();await connection.disconnect();const result=await pending;assert.equal(result.status,'CANCELLED');assert.equal(result.metrics.sales.value,null);
+});
+test('finance network permit exists only while the exact request is active',async()=>{
+ const URL='https://harin-cafe24-sync.vercel.app/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/finance';let release;
+ const remote=makeRemoteSession(async url=>url===URL?new Promise(resolve=>release=resolve):Response.json(makePagePayload()));const {connection}=makeConnection(remote);
+ await connection.refresh();const allowed=()=>new Promise(resolve=>remote.beforeRequestHandler({url:URL,method:'GET',webContentsId:0},value=>resolve(!value.cancel)));
+ assert.equal(await allowed(),false);const pending=connection.readFinance();assert.equal(await allowed(),true);release(Response.json({ok:true,month:'2026-09',generatedAt:'2026-09-09T01:02:03Z',metrics:{sales:{value:1,status:'READY'},profit:{value:2,status:'READY'},balance:{value:3,status:'PARTIAL'}}}));await pending;assert.equal(await allowed(),false);
 });
 test('calendar deadline and logout discard late private schedule results',async()=>{
  for(const logout of [false,true]){
