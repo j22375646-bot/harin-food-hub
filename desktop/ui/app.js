@@ -74,7 +74,7 @@ let calendarGeneration=0,calendarBusy=false,calendarLastAttempt=0;
 let financeValue=null,financeGeneration=0,financeBusy=false,financeLastAttempt=0;
 const financeDetails=Object.freeze({sales:{label:'이번 달 결제 매출',note:'결제 기준'},profit:{label:'이번 달 계산 이익',note:'계산 기준'},balance:{label:'향후 30일 예상 잔액',note:'추정치 · 실제 정산 아님'}});
 function renderFinance(){
- const section=document.querySelector('#finance-panel'),cards=document.querySelector('#finance-cards');section.hidden=displayMode!=='live';document.querySelector('#finance-refresh').disabled=financeBusy||displayMode!=='live';
+ const section=document.querySelector('#finance-panel'),cards=document.querySelector('#finance-cards');section.hidden=displayMode!=='live';section.setAttribute('aria-busy',String(financeBusy));document.querySelector('#finance-refresh').disabled=financeBusy||displayMode!=='live';
  cards.replaceChildren(...Object.entries(financeDetails).map(([key,detail])=>{const metric=financeValue?.metrics?.[key],known=['READY','PARTIAL'].includes(metric?.status)&&typeof metric.value==='number'&&Number.isFinite(metric.value),card=makeElement('article','finance-card');card.dataset.finance=key;card.dataset.state=known?metric.status:'BLOCKED';if(key==='profit'&&known&&metric.value<0)card.dataset.negative='true';card.append(makeElement('span','',detail.label),makeElement('strong','',known?`${metric.value.toLocaleString('ko-KR')}원`:'확인 필요'),makeElement('small','',known?`${metric.status==='PARTIAL'?'부분 확인 · ':''}${detail.note}`:'누락된 금액을 숫자로 판단하지 마세요.'));return card;}));
  const month=financeValue?.month?.match(/^(\d{4})-(\d{2})$/),checked=financeValue?.generatedAt;document.querySelector('#finance-meta').textContent=month&&checked?`${month[1]}년 ${Number(month[2])}월 · ${formatTime(checked)} 확인`:'기준 월과 조회 시각을 확인할 수 없습니다.';
 }
@@ -110,17 +110,20 @@ function ensureTodayOverview(){
  void refreshOverview();
 }
 function renderOverview(){
- const section=document.querySelector('#today-overview');section.hidden=displayMode!=='live';
+ const section=document.querySelector('#today-overview');section.hidden=displayMode!=='live';section.setAttribute('aria-busy',String(overviewBusy));section.closest('[data-page]').dataset.live=String(displayMode==='live');
  document.querySelector('#overview-refresh').disabled=overviewBusy||displayMode!=='live';
  const values=Object.values(overviewValues),active=overviewValues.ACTIVE;
+ const chartMax=Math.max(1,...values.filter(v=>['READY','PARTIAL'].includes(v?.status)&&Number.isSafeInteger(v.total)&&v.total>=0).map(v=>v.total));
  const complete=values.length===4&&values.every(value=>value?.status==='READY'&&Number.isSafeInteger(value.total)&&value.total>=0);
  document.querySelector('#overview-priority').textContent=overviewBusy?'업무 현황을 불러오는 중입니다.':!complete?'일부 상태는 확인이 필요합니다. 누락된 수치는 0건으로 계산하지 않습니다.':active.total>0?`송장 발급 전 ${active.total.toLocaleString('ko-KR')}건을 먼저 살펴보세요. 자동 발급 가능 여부는 주문별로 확인합니다.`:'현재 수집된 송장 발급 전 주문은 없습니다. 배송중·완료 현황을 확인하세요.';
  document.querySelector('#overview-cards').replaceChildren(...Object.entries(scopeDetails).map(([scope,detail])=>{
   const value=overviewValues[scope],button=makeElement('button');button.type='button';button.dataset.scope=scope;
   button.dataset.state=value?.status||'UNKNOWN';button.disabled=displayMode!=='live';
   const known=['READY','PARTIAL'].includes(value?.status)&&Number.isSafeInteger(value?.total)&&value.total>=0;
-  button.append(makeElement('span','',detail.label),makeElement('strong','',known?`${value.total.toLocaleString('ko-KR')}건`:'확인 필요'),
+  button.append(makeElement('span','',detail.label),makeElement('strong','',known?`${value.total.toLocaleString('ko-KR')}건`:overviewBusy?'조회 중':'확인 필요'),
    makeElement('small','',known?`${value.status==='PARTIAL'?'부분 확인 · ':''}${formatTime(value.checkedAt)} 조회`:'아직 조회하지 않았거나 조회 실패'),makeElement('small','','주문 목록 열기 →'));
+  const graph=document.createElementNS('http://www.w3.org/2000/svg','svg');graph.setAttribute('viewBox','0 0 100 8');graph.setAttribute('preserveAspectRatio','none');graph.setAttribute('aria-hidden','true');graph.classList.add('overview-bar');
+  for(const [css,width] of [['overview-track',100],['overview-fill',known?100*value.total/chartMax:0]]){const rect=document.createElementNS(graph.namespaceURI,'rect');rect.setAttribute('x','0');rect.setAttribute('y','0');rect.setAttribute('width',String(width));rect.setAttribute('height','8');rect.setAttribute('rx','4');rect.setAttribute('class',css);graph.append(rect);}button.append(graph);
   button.addEventListener('click',async()=>{button.disabled=true;await runHubAction(detail.action);if(displayMode==='live')showRoute('orders');});
   return button;
  }));
@@ -209,9 +212,12 @@ function makeElement(tagName, className, text) {
   return element;
 }
 
+const routeScroll=new Map();
 function showRoute(route, options = {}) {
   const selectedPage = pages.find((page) => page.dataset.page === route);
   if (!selectedPage) return;
+  const scroller=document.getElementById('main-content'),previous=pages.find(p=>!p.hidden)?.dataset.page;
+  if(previous&&previous!==route)routeScroll.set(previous,scroller.scrollTop);
   for (const button of navButtons) {
     const active = button.dataset.route === route;
     button.classList.toggle('is-active', active);
@@ -223,6 +229,7 @@ function showRoute(route, options = {}) {
     page.hidden = !active;
     page.classList.toggle('is-visible', active);
   }
+  if(previous!==route)scroller.scrollTop=routeScroll.get(route)||0;
   if (options.focusHeading) selectedPage.querySelector('h1')?.focus();
   if(route==='orders')void checkVisibleOrderFreshness();
   if(route==='today')ensureTodayOverview();

@@ -15,6 +15,7 @@ const ALLOWED_APP_RESOURCES = new Map([
   ['moaon://app/insights.css', 'insights.css'],
   ['moaon://app/settlement.css', 'settlement.css'],
   ['moaon://app/app-common.css', 'app-common.css'],
+  ['moaon://app/experience.css', 'experience.css'],
   ['moaon://app/api-settings.js', 'api-settings.js'],
   ['moaon://app/app-updates.js', 'app-updates.js'],
   ['moaon://app/inventory.js', 'inventory.js'],
