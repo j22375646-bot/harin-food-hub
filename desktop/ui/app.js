@@ -863,11 +863,11 @@ function updateConnectionChrome(message) {
   const pageRange = live ? `${pageStart.toLocaleString('ko-KR')}–${pageEnd.toLocaleString('ko-KR')} / ${scope.range} ${connectionResult.total.toLocaleString('ko-KR')}건` : '';
   statusElements.businessStatus.textContent = sample ? '가상 사업장' : live ? '하린식품 연결' : '연결 확인';
   statusElements.businessName.textContent = live ? '하린식품' : sample ? '모아온 데모' : '하린식품';
-  statusElements.businessDetail.textContent = live ? `${scope.label} ${pageStart.toLocaleString('ko-KR')}–${pageEnd.toLocaleString('ko-KR')}` : sample ? '시험 자료만 표시 중' : '실제 주문 표시 안 함';
+  statusElements.businessDetail.textContent = live ? partial ? '일부 자료 확인 필요' : '연결됨' : sample ? '시험 자료만 표시 중' : '연결 확인 필요';
   statusElements.topBusinessName.textContent = live ? '하린식품' : sample ? '모아온 데모' : '하린식품';
   statusElements.global.textContent = live ? `하린식품 · 주문 조회·확인 후 발급${partial ? ' · 부분 확인' : ''}` : sample ? '시험 자료 · 하린식품 연결 안 됨' : message;
   statusElements.globalBadge.textContent = live ? '조회' : sample ? '시험' : '확인';
-  statusElements.nav.textContent = live ? `${scope.label} ${pageStart.toLocaleString('ko-KR')}–${pageEnd.toLocaleString('ko-KR')}` : sample ? '샘플 주문 3건' : '실제 주문 표시 안 함';
+  statusElements.nav.textContent = live ? '주문·배송' : sample ? '샘플 주문' : '연결 확인 필요';
   statusElements.todayContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? 'Windows 시제품 · 샘플 모드' : '하린식품 · 연결 상태 확인 필요';
   statusElements.todayTitleMode.textContent = live ? '오늘의 운영 현황' : sample ? '지금 가능한 일' : '실제 주문을 비우고';
   statusElements.todayTitleTail.textContent = live ? '' : sample ? '부터 확인하세요' : ' 연결 상태를 확인합니다';
@@ -876,7 +876,7 @@ function updateConnectionChrome(message) {
   statusElements.ordersTitleMode.textContent = '주문 작업실';
   statusElements.ordersDescription.textContent = live ? '주문을 선택하고, 확인부터 출고까지.' : sample ? '샘플 주문으로 화면을 살펴보세요.' : message;
   statusElements.ordersEyebrow.textContent = live ? 'HARIN STORED ORDERS' : sample ? 'SAMPLE ORDERS' : 'NO LIVE DATA';
-  statusElements.ordersRange.textContent = live ? pageRange : sample ? '실제 발급 버튼 없음' : '실제 주문 자료 비움';
+  statusElements.ordersRange.textContent = live ? displayedOrders.length ? pageRange : '조회된 주문 없음' : sample ? '실제 발급 버튼 없음' : '실제 주문 자료 비움';
   statusElements.settingsChip.textContent = live ? partial ? '부분 확인' : '연결됨' : sample ? '샘플' : '확인 필요';
   statusElements.settingsChip.className = `status-chip ${live && !partial ? 'status-ready' : sample ? 'status-sample' : 'status-blocked'}`;
   statusElements.programDataScope.textContent = live ? `하린식품 · ${scope.label} 페이지 조회` : sample ? '가상 사업장 · 샘플 주문' : '실제 주문 표시 안 함';
