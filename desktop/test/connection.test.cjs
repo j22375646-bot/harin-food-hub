@@ -1214,6 +1214,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
     readFinance: async()=>({status:'READY'}),
     readSettlement: async()=>({status:'READY'}),
     readInsights: async()=>({status:'READY'}),
+    readCs: async()=>({status:'READY',items:[]}),
     listBusinesses: async()=>({status:'READY',businesses:[]}),
     checkOrderFreshness: async()=>({status:'CURRENT',checkedAt:'2026-09-09T00:00:00Z'}),
     connect: async () => calls.push('connect') && { status: 'LOGIN_OPEN' },
@@ -1229,6 +1230,9 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   };
   registerConnectionIpc({ ipcMain, getMainWindow: () => mainWindow, connection });
   const trusted = { sender: webContents, senderFrame: mainFrame };
+  await assert.rejects(handlers.get('moaon-hub:read-cs')(trusted,'other-business'),/Arguments are not allowed/);
+  await assert.rejects(handlers.get('moaon-hub:read-cs')({sender:{},senderFrame:null}),/Untrusted renderer/);
+  assert.equal((await handlers.get('moaon-hub:read-cs')(trusted)).status,'READY');
   for(const args of [[],['2026-13'],['2026-09','extra']])await assert.rejects(handlers.get('moaon-hub:read-calendar-month')(trusted,...args),/Arguments are not allowed/);
   await assert.rejects(handlers.get('moaon-hub:read-calendar-month')({sender:{},senderFrame:null},'2026-09'),/Untrusted renderer/);
   await assert.rejects(handlers.get('moaon-hub:apply-order-search')({sender:{},senderFrame:null},{query:'a',start:'',end:''}),/Untrusted renderer/);
@@ -1245,7 +1249,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
     for(const args of [[],[''],[[]],['HR-C24-1234ABCD',{invoice:'1234567890123'}]])await assert.rejects(handlers.get(channel)(trusted,...args),/Invalid tracking/);
   }
 
-assert.deepEqual([...handlers.keys()], ['moaon-hub:read-credential-metadata','moaon-hub:save-server-credential','moaon-hub:read-tracking','moaon-hub:refresh-tracking','moaon-hub:read-delivery','moaon-hub:preview-worklist','moaon-hub:preview-labels','moaon-hub:export-selected-csv','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:set-order-filters','moaon-hub:apply-order-search','moaon-hub:reset-order-filters','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:read-calendar-month','moaon-hub:collect-orders','moaon-hub:check-order-collection','moaon-hub:check-order-freshness','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:read-finance','moaon-hub:read-settlement','moaon-hub:read-insights','moaon-hub:read-today-calendar','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect','moaon-hub:export-orders-xlsx']);
+assert.deepEqual([...handlers.keys()], ['moaon-hub:read-credential-metadata','moaon-hub:save-server-credential','moaon-hub:read-tracking','moaon-hub:refresh-tracking','moaon-hub:read-delivery','moaon-hub:preview-worklist','moaon-hub:preview-labels','moaon-hub:export-selected-csv','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:set-order-filters','moaon-hub:apply-order-search','moaon-hub:reset-order-filters','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:read-calendar-month','moaon-hub:collect-orders','moaon-hub:check-order-collection','moaon-hub:check-order-freshness','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:read-finance','moaon-hub:read-settlement','moaon-hub:read-insights','moaon-hub:read-cs','moaon-hub:read-today-calendar','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect','moaon-hub:export-orders-xlsx']);
   for(const channel of ['moaon-hub:preview-labels','moaon-hub:export-selected-csv']){
     await assert.rejects(handlers.get(channel)({sender:{},senderFrame:null},['HR-C24-1234ABCD']),/Untrusted renderer/);
     for(const args of [[],[[]],[['bad']],[['HR-C24-1234ABCD','HR-C24-1234ABCD']],[['HR-C24-1234ABCD'],'evil.csv']])await assert.rejects(handlers.get(channel)(trusted,...args),/Invalid document/);
@@ -1317,10 +1321,15 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-assert.deepEqual(Object.keys(bridge), ['readCredentialMetadata','saveServerCredential','saveApiDraft','saveOwnedApiDraft','listApiDrafts','removeApiDraft','collectOrders','checkOrderCollection','checkOrderFreshness','onWindowRestored','readTracking','refreshTracking','readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','readFinance','readInsights','readSettlement','readTodayCalendar','readCalendarMonth','listBusinesses','appInfo','inspectPrinters','previewLabel','previewLabels','previewWorklist','exportSelectedCsv','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'setOrderFilters', 'resetOrderFilters','applyOrderSearch','exportOrdersXlsx', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+assert.deepEqual(Object.keys(bridge), ['readCredentialMetadata','saveServerCredential','saveApiDraft','saveOwnedApiDraft','listApiDrafts','removeApiDraft','collectOrders','checkOrderCollection','checkOrderFreshness','onWindowRestored','readTracking','refreshTracking','readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','readFinance','readCs','readInsights','readSettlement','readTodayCalendar','readCalendarMonth','listBusinesses','appInfo','updateState','checkUpdate','downloadUpdate','restartForUpdate','inspectPrinters','previewLabel','previewLabels','previewWorklist','exportSelectedCsv','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'setOrderFilters', 'resetOrderFilters','applyOrderSearch','exportOrdersXlsx', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   let restored=0;assert.throws(()=>bridge.onWindowRestored('bad'),/Invalid restore listener/);const unsubscribe=bridge.onWindowRestored(()=>restored++);listeners.get('moaon-hub:window-restored')({private:'event'},'ignored');assert.equal(restored,1);unsubscribe();assert.equal(listeners.has('moaon-hub:window-restored'),false);
   await bridge.listBusinesses('ignored');
   await bridge.readFinance('ignored');
+  await bridge.readCs('ignored');
+  await bridge.updateState('ignored');
+  await bridge.checkUpdate('ignored');
+  await bridge.downloadUpdate('ignored');
+  await bridge.restartForUpdate('ignored');
   await bridge.connect('ignored');
   await bridge.refresh({ ignored: true });
   await bridge.recheckPage({ ignored: true });
@@ -1334,6 +1343,11 @@ assert.deepEqual(Object.keys(bridge), ['readCredentialMetadata','saveServerCrede
   assert.deepEqual(invocations, [
     ['moaon-hub:list-businesses'],
     ['moaon-hub:read-finance'],
+    ['moaon-hub:read-cs'],
+    ['moaon-hub:update-state'],
+    ['moaon-hub:update-check'],
+    ['moaon-hub:update-download'],
+    ['moaon-hub:update-restart'],
     ['moaon-hub:connect'],
     ['moaon-hub:refresh'],
     ['moaon-hub:recheck-page'],

@@ -17,6 +17,8 @@ const ALLOWED_APP_RESOURCES = new Map([
   ['moaon://app/app-common.css', 'app-common.css'],
   ['moaon://app/api-settings.js', 'api-settings.js'],
   ['moaon://app/app-updates.js', 'app-updates.js'],
+  ['moaon://app/cs.js', 'cs.js'],
+  ['moaon://app/cs.css', 'cs.css'],
   ['moaon://app/fonts/PretendardVariable.ttf', 'fonts/PretendardVariable.ttf'],
 ]);
 

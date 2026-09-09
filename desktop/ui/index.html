@@ -16,6 +16,8 @@
     <script src="moaon://app/month-calendar.js" defer></script>
     <script src="moaon://app/api-settings.js" defer></script>
     <script src="moaon://app/app-updates.js" defer></script>
+    <script src="moaon://app/cs.js" defer></script>
+    <link rel="stylesheet" href="moaon://app/cs.css">
     <link rel="stylesheet" href="moaon://app/month-calendar.css">
     <link rel="stylesheet" href="moaon://app/insights.css">
     <link rel="stylesheet" href="moaon://app/settlement.css">
@@ -65,6 +67,7 @@
 <button class="nav-button" type="button" data-route="settlement" aria-label="운영·정산"><span class="nav-icon" aria-hidden="true">₩</span><span><strong>운영·정산</strong></span></button>
 <button class="nav-button" type="button" data-route="insights" aria-label="분석·인사이트"><span class="nav-icon" aria-hidden="true">◈</span><span><strong>분석</strong></span></button>
 <button class="nav-button" type="button" data-route="calendar" aria-label="캘린더"><span class="nav-icon" aria-hidden="true">▦</span><span><strong>캘린더</strong></span></button>
+          <button class="nav-button" type="button" data-route="cs" aria-label="고객·CS"><span class="nav-icon" aria-hidden="true">◎</span><span><strong>고객·CS</strong></span></button>
           <button class="nav-button" type="button" data-route="settings" aria-label="앱 설정">
             <span class="nav-icon" aria-hidden="true">⚙</span>
             <span><strong>앱 설정</strong><small>화면과 버전</small></span>
@@ -270,6 +273,13 @@
             <header class="month-heading"><div><span class="eyebrow">WORK CALENDAR</span><h1 id="month-title" tabindex="-1">업무 캘린더</h1><p>한 달의 일정과 오늘 할 일을 살펴보세요.</p></div><button id="month-refresh" type="button">새로 조회</button></header>
             <div class="month-toolbar"><button id="month-prev" aria-label="이전 달">←</button><h2 id="month-label"></h2><button id="month-next" aria-label="다음 달">→</button><button id="month-today" type="button">이번 달</button></div>
             <p id="month-status" role="status"></p><div class="month-workspace"><div><div class="month-weekdays"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div id="month-grid"></div></div><aside class="month-agenda"><h2 id="month-selected"></h2><div id="month-entries"></div><div id="month-detail"></div></aside></div>
+          </section>
+          <section class="page cs-page" data-page="cs" hidden>
+            <header class="cs-heading"><div><h1 tabindex="-1">고객·CS</h1><p>저장된 미처리 문의와 취소·반품·교환을 확인하세요.</p></div><button id="cs-refresh" type="button">새로 조회</button></header>
+            <p id="cs-status" role="status" aria-live="polite"></p>
+            <div class="cs-filters"><label>채널<select id="cs-platform"><option value="ALL">전체 채널</option><option value="NAVER">네이버</option><option value="COUPANG">쿠팡</option><option value="CAFE24">Cafe24</option></select></label><label>유형<select id="cs-kind"><option value="ALL">전체 유형</option><option value="INQUIRY">문의</option><option value="CANCEL">취소</option><option value="RETURN">반품</option><option value="EXCHANGE">교환</option></select></label><label class="cs-search">접수 번호 검색<input id="cs-search" type="search" maxlength="240" placeholder="접수 번호 일부 입력"></label></div>
+            <p id="cs-count"></p><div class="cs-workspace"><div id="cs-list"></div><aside id="cs-detail" hidden aria-label="접수 상세"></aside></div>
+            <p class="cs-note">저장 자료 기준입니다. 고객 문의 본문·답변 전송·처리 승인은 아직 연결하지 않았습니다. 채널별 원본은 구분해 표시합니다.</p>
           </section>
           <section class="page settings-page" data-page="settings" aria-labelledby="settings-title" hidden>
             <header class="page-heading compact-heading">
