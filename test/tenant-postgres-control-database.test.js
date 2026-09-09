@@ -25,6 +25,9 @@ const SAFE_ROLE = Object.freeze({
   rolbypassrls: false,
   owns_control_schema: false,
   owns_control_tables: false,
+  owns_auth_schema: false,
+  owns_auth_tables: false,
+  owns_protected_public_tables: false,
   has_role_membership: false,
 });
 
@@ -309,6 +312,12 @@ test('잘못되거나 특권이 있는 역할, ownership, membership은 작업 �
     ['rolbypassrls', true],
     ['owns_control_schema', true],
     ['owns_control_tables', true],
+    ['owns_auth_schema', true],
+    ['owns_auth_tables', true],
+    ['owns_protected_public_tables', true],
+    ['owns_auth_schema', undefined],
+    ['owns_auth_tables', undefined],
+    ['owns_protected_public_tables', undefined],
     ['has_role_membership', true],
   ]) {
     await t.test(field, async () => {
@@ -679,4 +688,21 @@ test('native setup resource는 invitation 준비가 실패해도 항상 닫힌�
     /synthetic invitation preparation failure/
   );
   assert.equal(resource.closes, 1);
+});
+
+
+test('real role validation detects auth and protected public ownership',async t=>{
+ const {PGlite}=require('@electric-sql/pglite');const pg=new PGlite();t.after(()=>pg.close());
+ const client=createFakeClient(),database=createDatabase(createFakePool(client));t.after(()=>database.close());
+ await database.query('select 1');const sql=client.calls.find(call=>/from pg_roles/i.test(call.text)).text;
+ await pg.exec('create role moaon_control_app nologin noinherit;create schema moaon_auth;create table moaon_auth.state(id int);create table public.dashboard_users(id int);create table public.dashboard_sessions(id int)');
+ for(const [change,field,undo] of [
+  ['alter schema moaon_auth owner to moaon_control_app','owns_auth_schema','alter schema moaon_auth owner to postgres'],
+  ['alter table moaon_auth.state owner to moaon_control_app','owns_auth_tables','alter table moaon_auth.state owner to postgres'],
+  ['alter table public.dashboard_users owner to moaon_control_app','owns_protected_public_tables','alter table public.dashboard_users owner to postgres'],
+  ['alter table public.dashboard_sessions owner to moaon_control_app','owns_protected_public_tables','alter table public.dashboard_sessions owner to postgres'],
+ ]){
+  await pg.exec(change+';set session authorization moaon_control_app');assert.equal((await pg.query(sql)).rows[0][field],true);
+  await pg.exec('set session authorization postgres;'+undo);
+ }
 });
