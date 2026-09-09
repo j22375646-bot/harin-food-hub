@@ -33,6 +33,21 @@ const {launchDesktop}=require('./launch.cjs');
   await app.evaluate(()=>{globalThis.failHistory=false;});
   await page.locator('#server-history-load').click();await page.waitForTimeout(100);
   assert.equal(await page.locator('#server-history-load').isVisible(),false,'successful retry clears recovery control');
-  console.log('PASS: automatic history reads once, quiet success, horizontal badge and untruncated status');
+  await app.evaluate(({ipcMain})=>{
+   ipcMain.removeHandler('moaon-hub:server-shipping-history');
+   ipcMain.handle('moaon-hub:server-shipping-history',()=>new Promise(resolve=>{globalThis.finishHistory=()=>resolve({status:'READY',orders:[{hubOrderId:'HR-C24-12345678',status:'REGISTERED'}]});}));
+  });
+  await page.evaluate(()=>applyHubResult({status:'LOGIN_REQUIRED'}));await seed();
+  await page.waitForTimeout(100);
+  await page.evaluate(()=>{actionGeneration++;});
+  await app.evaluate(()=>globalThis.finishHistory());
+  await page.waitForTimeout(100);
+  assert.equal(await page.locator('#server-shipping-history').isVisible(),true,'order navigation must not discard session history');
+  assert.match(await page.locator('#server-shipping-history').textContent(),/12345678/);
+  await page.evaluate(()=>applyHubResult({status:'LOGIN_REQUIRED'}));await seed();await page.waitForTimeout(100);
+  await page.evaluate(()=>applyHubResult({status:'LOGIN_REQUIRED'}));
+  await app.evaluate(()=>globalThis.finishHistory());await page.waitForTimeout(100);
+  assert.equal(await page.locator('#server-shipping-history').isVisible(),false,'logout discards late history');
+  console.log('PASS: automatic history reads, navigation retention, retry and banner layout');
  }finally{await app.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

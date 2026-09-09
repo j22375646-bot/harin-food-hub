@@ -860,7 +860,7 @@ function clearDisplayedOrders(mode, message) {
 }
 
 function applyHubResult(result) {
-  if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status))historyAutoLoaded=false;
+  if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){historyAutoLoaded=false;historyGeneration++;}
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status))shippingFollowup.clear();
   if(!['READY','PARTIAL'].includes(result?.status)){clearBusinesses();clearOverview();}
   const gate=document.querySelector('#entry-screen'),shell=document.querySelector('.preview-shell');
@@ -921,12 +921,13 @@ async function runHubAction(action) {
     clearDisplayedOrders('connecting', `${selectedScopeDetail().range} 첫 페이지를 조회하고 있습니다.`);
   }
   if (action === 'connect' || action === 'refresh') {
-    if(action==='connect')shippingFollowup.clear();
+    if(action==='connect'){shippingFollowup.clear();historyGeneration++;historyAutoLoaded=false;}
     if (action === 'connect') scopeControlsAvailable = false;
     clearDisplayedOrders('connecting', action === 'connect' ? '별도 하린식품 로그인 창을 확인하세요. 로그인 완료 후 저장 주문을 조회합니다.' : `${selectedScopeDetail().range}을 다시 조회하고 있습니다.`);
   }
   if (action === 'nextPage' || action === 'previousPage') clearDisplayedOrders('connecting', action === 'nextPage' ? '다음 주문 페이지를 조회하고 있습니다.' : '이전 주문 페이지를 조회하고 있습니다.');
   if (action === 'disconnect') {
+    historyGeneration++;historyAutoLoaded=false;
     clearCollection();
     shippingFollowup.clear();
     selectedChannel='ALL';
@@ -957,14 +958,15 @@ async function runHubAction(action) {
 const shippingFollowup=new Map();
 let historyAutoLoaded=false;
 let historyAutoStarting=false;
+let historyGeneration=0;
 document.querySelector('#server-history-load').addEventListener('click',async()=>{
   const automatic=historyAutoStarting;
   const button=document.querySelector('#server-history-load'),status=document.querySelector('#server-history-status'),panel=document.querySelector('#server-shipping-history');
   if(button.disabled||displayMode!=='live'||registrationBusy)return;
-  const expected=actionGeneration;button.disabled=true;button.hidden=true;button.parentElement.hidden=false;panel.hidden=true;panel.replaceChildren();status.textContent='등록 이력 자동 확인 중…';
+  const expected=historyGeneration;button.disabled=true;button.hidden=true;button.parentElement.hidden=false;panel.hidden=true;panel.replaceChildren();status.textContent='등록 이력 자동 확인 중…';
   try{
     const result=await window.moaonHub.readServerShippingHistory();
-    if(expected!==actionGeneration||displayMode!=='live')return;
+    if(expected!==historyGeneration||displayMode!=='live')return;
     if(result?.status!=='READY'){status.textContent='서버 이력 확인 필요 · 잠시 뒤 다시 조회하세요.';return;}
     button.parentElement.hidden=true;
     status.textContent=result.orders.length?`${result.orders.length}건 · 서버 저장 기록 기준`:'조회 범위에 서버 송장 등록 기록이 없습니다.';
@@ -973,24 +975,24 @@ document.querySelector('#server-history-load').addEventListener('click',async()=
     const labels={REGISTERED:'등록 성공 기록',PENDING:'처리 대기 기록',FAILED:'실패 기록',CHECK_REQUIRED:'결과 확인 필요'};
     for(const row of result.orders){
       const item=makeElement('div','auto-shipping-item');item.append(makeElement('span','',row.hubOrderId),makeElement('strong','',labels[row.status]||labels.CHECK_REQUIRED));
-      const find=makeElement('button','secondary-action','주문 찾기');find.type='button';find.addEventListener('click',()=>{if(expected===actionGeneration)void findFollowupOrder(row.hubOrderId);});item.append(find);panel.append(item);
+      const find=makeElement('button','secondary-action','주문 찾기');find.type='button';find.addEventListener('click',()=>{if(expected===historyGeneration)void findFollowupOrder(row.hubOrderId);});item.append(find);panel.append(item);
     }
-  }catch{if(expected===actionGeneration)status.textContent='서버 이력 확인 필요 · 다시 조회하세요.';}
+  }catch{if(expected===historyGeneration)status.textContent='서버 이력 확인 필요 · 다시 조회하세요.';}
   finally{button.disabled=false;button.hidden=false;button.textContent='등록 이력 다시 확인';}
 });
 document.querySelector('#shipping-history-load').addEventListener('click',async()=>{
   const button=document.querySelector('#shipping-history-load'),status=document.querySelector('#shipping-history-status');
   if(button.disabled||displayMode!=='live'||registrationBusy)return;
-  const expected=actionGeneration;button.disabled=true;button.hidden=true;button.parentElement.hidden=false;status.textContent='미완료 출고 자동 확인 중…';
+  const expected=historyGeneration;button.disabled=true;button.hidden=true;button.parentElement.hidden=false;status.textContent='미완료 출고 자동 확인 중…';
   try{
     const result=await window.moaonHub.restoreShippingHistory();
-    if(expected!==actionGeneration||displayMode!=='live')return;
+    if(expected!==historyGeneration||displayMode!=='live')return;
     if(result?.status!=='READY'){status.textContent='기록 확인 필요 · 목록을 새로 조회한 뒤 다시 확인하세요.';return;}
     button.parentElement.hidden=true;
     for(const row of result.orders||[])if(/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(row.hubOrderId))shippingFollowup.set(row.hubOrderId,{status:'CHECK_REQUIRED'});
     status.textContent=result.orders?.length?`${result.orders.length}건 복원 · 과거 기록이며 현재 상태 확인이 필요합니다.`:'복원할 미확정 기록이 없습니다.';
     renderShippingFollowup();
-  }catch{if(expected===actionGeneration)status.textContent='기록 확인 필요 · 잠시 뒤 다시 확인하세요.';}
+  }catch{if(expected===historyGeneration)status.textContent='기록 확인 필요 · 잠시 뒤 다시 확인하세요.';}
   finally{button.disabled=false;button.hidden=false;button.textContent='출고 기록 다시 확인';}
 });
 async function findFollowupOrder(id){
@@ -1218,6 +1220,7 @@ async function registerSelectedInvoices(){
 }
 
 async function returnToSample() {
+  historyGeneration++;historyAutoLoaded=false;
   clearCollection();
   clearBusinesses();
   const generation = ++actionGeneration;
