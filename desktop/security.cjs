@@ -14,6 +14,7 @@ const ALLOWED_APP_RESOURCES = new Map([
   ['moaon://app/month-calendar.css', 'month-calendar.css'],
   ['moaon://app/insights.css', 'insights.css'],
   ['moaon://app/settlement.css', 'settlement.css'],
+  ['moaon://app/app-common.css', 'app-common.css'],
   ['moaon://app/fonts/PretendardVariable.ttf', 'fonts/PretendardVariable.ttf'],
 ]);
 

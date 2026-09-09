@@ -32,7 +32,7 @@ button.addEventListener('click',()=>{el('month-detail').replaceChildren(node('h3
   try{const result=await window.moaonHub.readCalendarMonth(requested);if(token!==generation)return;
    if(['LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status)){applyHubResult(result);return;}
    if(result?.status!=='READY'||result.month!==requested){el('month-status').textContent='일정 조회 실패 · 새로 조회해 주세요. 조회 한도에 도달한 경우도 표시하지 않습니다.';return;}
-   value=result;el('month-status').textContent=`${result.entries.length}개 일정 · 읽기 전용 · ${result.holidayReady?'공휴일 자료 확인':'공휴일 자료 확인 필요'} · 일정 전량 조회 여부 확인 필요`;
+   value=result;el('month-status').textContent=`${result.entries.length}개 일정 · 읽기 전용 · ${result.holidayReady?'공휴일 자료 확인':'공휴일 자료 확인 필요'} · ${result.complete===true?'조회 범위 확인':result.complete===false?'일부 일정만 조회됨 · 조회 한도 확인 필요':'일정 전량 조회 여부 확인 필요'}`;
   }catch{if(token===generation)el('month-status').textContent='일정 조회 실패 · 새로 조회해 주세요.';}
   finally{if(token===generation){busy=false;render();}}
  }
