@@ -10,7 +10,7 @@
  function render(){
   $('inventory-refresh').disabled=busy||displayMode!=='live';
   const query=$('inventory-search').value.trim().toLowerCase();
-  const rows=(value?.items||[]).filter(r=>(r.name+' '+r.id+' '+r.channels.map(c=>c.externalId||'').join(' ')).toLowerCase().includes(query)&&r.channels.some(match));
+  const rows=(value?.items||[]).filter(r=>(r.name+' '+r.id+' '+r.channels.map(c=>(c.externalId||'')+' '+(c.product?.name||'')).join(' ')).toLowerCase().includes(query)&&r.channels.some(match));
   const pageCount=Math.ceil(rows.length/50);pageIndex=Math.min(pageIndex,Math.max(0,pageCount-1));
   const visible=rows.slice(pageIndex*50,pageIndex*50+50);
   if(!visible.some(r=>r.id===selected))selected=null;
@@ -24,7 +24,9 @@
   }):[node('p',value?'조건에 맞는 상품이 없습니다.':'실제 사업장 연결 후 새로 조회해 주세요.')]));
   const panel=$('inventory-detail'),row=rows.find(r=>r.id===selected);panel.hidden=!row;panel.replaceChildren();if(!row)return;
   const button=node('button','닫기');button.type='button';button.onclick=close;panel.append(button,node('h2',row.name),node('p','상품 번호 '+row.id));
-  for(const c of row.channels){const section=node('section','');section.className='inventory-detail-stock';section.append(node('h3',channelName(c)),node('p',description(c)),node('p',c.externalId?'연결 번호 '+c.externalId:'연결 번호 확인 필요'),node('p',c.updatedAt?'자료 시각 '+formatTime(c.updatedAt):'자료 시각 확인 필요'),node('p',c.detail));panel.append(section);}
+  for(const c of row.channels){const section=node('section','');section.className='inventory-detail-stock';section.append(node('h3',channelName(c)),node('p',description(c)),node('p',c.externalId?'연결 번호 '+c.externalId:'연결 번호 확인 필요'),node('p',c.updatedAt?'자료 시각 '+formatTime(c.updatedAt):'자료 시각 확인 필요'),node('p',c.detail));const product=c.product;section.append(node('h3','연결 상품 정보'),node('p',product?.name||'연결 상품명 확인 필요'));
+   const price=product?.min==null?'가격 확인 필요':product.min===product.max?product.min.toLocaleString('ko-KR')+'원':product.min.toLocaleString('ko-KR')+' ~ '+product.max.toLocaleString('ko-KR')+'원';
+   section.append(node('p',price),node('p',({CAFE24_CATALOG:'Cafe24 상품 저장 가격',NAVER_COMMERCE:'스마트스토어 연결 자료 가격',COUPANG_OPTIONS:'연결 옵션 전체의 저장 가격 범위 · 배송 유형별 가격 아님',REFERENCE:'광고 연결은 상품 가격 자료가 아닙니다.'})[product?.basis]||'가격 자료 확인 필요'),node('p',product?.updatedAt?'가격 자료 시각 '+formatTime(product.updatedAt)+(product.stale?' · 갱신 필요':''):'가격 자료 시각 확인 필요'));panel.append(section);}
  }
  function clear(){pageIndex=0;generation++;value=null;busy=false;selected=null;$('inventory-platform').value='ALL';$('inventory-state').value='ALL';$('inventory-search').value='';$('inventory-status').textContent='실제 사업장 연결 후 조회합니다.';render();}
  async function refresh(){

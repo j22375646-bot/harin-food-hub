@@ -27,3 +27,11 @@ test('1000 products and connection identifiers survive the app projection',async
 test('invalid connection identifiers are rejected',async()=>{
  for(const value of [123,'a'.repeat(161)]){const p=payload();p.items[0].channels[0].externalId=value;assert.equal((await createInventoryTransport({fetch:async()=>Response.json(p)})()).status,'UNAVAILABLE');}
 });
+
+test('product metadata is projected while old responses remain readable',async()=>{
+ const p=payload();p.items[0].channels[0].product={name:'원본 상품',basis:'CAFE24_CATALOG',min:10000,max:12000,updatedAt:null,stale:true,secret:'PRIVATE'};
+ const result=await createInventoryTransport({fetch:async()=>Response.json(p)})();assert.equal(result.status,'READY');assert.equal(result.items[0].channels[0].product.max,12000);assert.equal(result.items[0].channels[1].product,null);assert.doesNotMatch(JSON.stringify(result),/PRIVATE/);
+});
+test('invalid, partial, reversed and crossed provider prices are rejected',async()=>{
+ for(const override of [{min:0},{max:null},{max:9000},{basis:'COUPANG_OPTIONS'},{min:NaN},{name:'a'.repeat(201)}]){const p=payload();p.items[0].channels[0].product={name:'상품',basis:'CAFE24_CATALOG',min:10000,max:12000,updatedAt:null,stale:true,...override};assert.equal((await createInventoryTransport({fetch:async()=>Response.json(p)})()).status,'UNAVAILABLE');}
+});

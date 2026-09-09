@@ -1,6 +1,14 @@
 'use strict';
 const INVENTORY_URL='https://harin-cafe24-sync.vercel.app/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/inventory';
 const empty=status=>({status,items:[],generatedAt:null,truncated:false});
+function productDetail(p){
+ if(p===undefined||p===null)return null;
+ const date=v=>v===null||typeof v==='string'&&Number.isFinite(Date.parse(v));
+ if(!(p.name===null||typeof p.name==='string'&&p.name.length<=200)||!['UNKNOWN','REFERENCE','CAFE24_CATALOG','NAVER_COMMERCE','COUPANG_OPTIONS'].includes(p.basis)||!date(p.updatedAt)||typeof p.stale!=='boolean')throw Error('Invalid product detail');
+ const empty=p.min===null&&p.max===null,known=typeof p.min==='number'&&typeof p.max==='number'&&Number.isFinite(p.min)&&Number.isFinite(p.max)&&p.min>0&&p.max>=p.min&&p.max<=1e12;
+ if(!empty&&!known||['UNKNOWN','REFERENCE'].includes(p.basis)&&!empty)throw Error('Invalid price range');
+ return {name:p.name,basis:p.basis,min:p.min,max:p.max,updatedAt:p.updatedAt,stale:p.stale};
+}
 function project(p){
  const date=v=>v===null||typeof v==='string'&&Number.isFinite(Date.parse(v));
  if(p?.ok!==true||p.status!=='READY'||p.writePolicy!=='READ_ONLY'||typeof p.generatedAt!=='string'||!date(p.generatedAt)||p.truncated!==false||!Array.isArray(p.items)||p.items.length>1000)throw Error('Invalid inventory');
@@ -10,7 +18,9 @@ function project(p){
    const key=c.platform+':'+c.family;
    if(!['CAFE24:STORE','NAVER:STORE','COUPANG:MARKETPLACE','COUPANG:ROCKET_GROWTH'].includes(key)||keys.has(key)||!['HEALTHY','LOW','OUT_OF_STOCK','STALE','UNKNOWN','MISSING','REFERENCE'].includes(c.state)||!(c.quantity===null||typeof c.quantity==='number'&&Number.isFinite(c.quantity)&&c.quantity>=0)||!date(c.updatedAt)||typeof c.stale!=='boolean'||typeof c.stopped!=='boolean'||typeof c.unmanaged!=='boolean'||typeof c.detail!=='string'||c.detail.length>200)throw Error('Invalid stock');if(!(c.externalId===undefined||c.externalId===null||typeof c.externalId==='string'&&c.externalId.length<=160))throw Error('Invalid connection');keys.add(key);
    if(['UNKNOWN','MISSING','REFERENCE'].includes(c.state)&&c.quantity!==null||['HEALTHY','LOW','OUT_OF_STOCK','STALE'].includes(c.state)&&c.quantity===null)throw Error('Invalid stock state');
-   return {externalId:c.externalId??null,platform:c.platform,family:c.family,state:c.state,quantity:c.quantity,updatedAt:c.updatedAt,stale:c.stale,stopped:c.stopped,unmanaged:c.unmanaged,detail:c.detail};
+   const product=productDetail(c.product);
+   if(product&&!['UNKNOWN',...(c.platform==='CAFE24'?['CAFE24_CATALOG']:c.platform==='NAVER'?['NAVER_COMMERCE','REFERENCE']:['COUPANG_OPTIONS'])].includes(product.basis))throw Error('Crossed product source');
+   return {product,externalId:c.externalId??null,platform:c.platform,family:c.family,state:c.state,quantity:c.quantity,updatedAt:c.updatedAt,stale:c.stale,stopped:c.stopped,unmanaged:c.unmanaged,detail:c.detail};
   });return {id:r.id,name:r.name,channels};
  })};
 }
@@ -22,9 +32,9 @@ function createInventoryTransport({fetch,timeoutMs=30000}={}){
   const run=async()=>{try{
    const res=await fetch(INVENTORY_URL,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
    if(res.status!==200)return empty(({401:'LOGIN_REQUIRED',403:'FORBIDDEN',504:'TIMEOUT'})[res.status]||'UNAVAILABLE');
-   if(res.redirected||res.url&&res.url!==INVENTORY_URL||Number(res.headers.get('content-length'))>4194304)throw Error('Response');
+   if(res.redirected||res.url&&res.url!==INVENTORY_URL||Number(res.headers.get('content-length'))>8388608)throw Error('Response');
    reader=res.body?.getReader();if(!reader)throw Error('Body');let size=0;const chunks=[];
-   while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>4194304)throw Error('Size');chunks.push(value);}
+   while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>8388608)throw Error('Size');chunks.push(value);}
    const bytes=new Uint8Array(size);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength;}
    return project(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)));
   }catch{return empty('UNAVAILABLE');}};

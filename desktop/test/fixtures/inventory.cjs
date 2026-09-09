@@ -1,9 +1,9 @@
 'use strict';
 function sources(){return {
  master_products:[{id:'product-1',name:'하린 김치 1kg',is_active:true},{id:'product-2',name:'하린 깍두기 2kg',is_active:true}],
- channel_products:[{id:'c1',master_product_id:'product-1',platform:'CAFE24',external_product_id:'11'},{id:'n1',master_product_id:'product-1',platform:'NAVER',external_product_id:'ad1',raw_data:{source_type:'AD_GROUP',secret:'PRIVATE'}},{id:'cp1',master_product_id:'product-1',platform:'COUPANG',external_product_id:'22'},{id:'n2',master_product_id:'product-2',platform:'NAVER',external_product_id:'n2',updated_at:new Date().toISOString(),raw_data:{source_type:'NAVER_COMMERCE_PRODUCT',stockQuantity:0}}],
- cafe24_products:[{external_product_no:'11',product_name:'하린 김치',display:true,selling:true,updated_at:new Date().toISOString(),raw_data:{use_inventory:false,quantity:0}}],
- coupang_product_items:[{seller_product_id:'22',vendor_item_id:'a'},{seller_product_id:'22',vendor_item_id:'b'}],
+ channel_products:[{id:'c1',master_product_id:'product-1',platform:'CAFE24',external_product_id:'11',external_product_name:'카페24 연결 상품'},{id:'n1',master_product_id:'product-1',platform:'NAVER',external_product_id:'ad1',external_product_name:'네이버 광고 묶음',selling_price:99000,raw_data:{source_type:'AD_GROUP',secret:'PRIVATE'}},{id:'cp1',master_product_id:'product-1',platform:'COUPANG',external_product_id:'22',external_product_name:'쿠팡 포기김치 옵션'},{id:'n2',master_product_id:'product-2',platform:'NAVER',external_product_id:'n2',updated_at:new Date().toISOString(),raw_data:{source_type:'NAVER_COMMERCE_PRODUCT',stockQuantity:0}}],
+ cafe24_products:[{external_product_no:'11',product_name:'하린 김치 원본상품',price:21000,display:true,selling:true,updated_at:new Date().toISOString(),raw_data:{use_inventory:false,quantity:0}}],
+ coupang_product_items:[{seller_product_id:'22',vendor_item_id:'a',sale_price:20000,updated_at:new Date().toISOString()},{seller_product_id:'22',vendor_item_id:'b',sale_price:25000,updated_at:'2020-01-01T00:00:00Z'}],
  coupang_item_inventory:[{vendor_item_id:'a',quantity:3,checked_at:new Date().toISOString()},{vendor_item_id:'b',quantity:2,checked_at:'2020-01-01T00:00:00Z'}],
  coupang_rg_inventory:[{vendor_item_id:'a',total_orderable_quantity:12,snapshot_at:new Date().toISOString()}]
 };}
