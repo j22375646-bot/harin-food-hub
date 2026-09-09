@@ -27,7 +27,7 @@ test('real SQL owner save encrypts, rejects stale revisions and rolls back revok
  await db.exec("update moaon_control.memberships set role='OWNER'");denySecond=true;await assert.rejects(store.save('test.signature',{...input,expectedRevision:1}));assert.equal((await db.query('select revision from moaon_control.provider_credentials')).rows[0].revision,1);
  denySecond=false;const results=await Promise.allSettled([store.save('test.signature',{...input,expectedRevision:1}),store.save('test.signature',{...input,expectedRevision:1})]);assert.equal(results.filter(r=>r.status==='fulfilled').length,1);
  const {createCredentialSaveRequest}=require('../lib/tenancy/credential-request.js');
- const handle=createCredentialSaveRequest({origin:'https://hub.example',save:store.save});
+ const handle=createCredentialSaveRequest({admit:async()=>({allowed:true}),origin:'https://hub.example',save:store.save});
  const response=await handle(new Request('https://hub.example/api/moaon/credentials',{method:'POST',headers:{origin:'https://hub.example','content-type':'application/json',cookie:'harin_dashboard_session=test.signature'},body:JSON.stringify({...input,expectedRevision:2})}));
  assert.equal(response.status,200);assert.equal((await response.json()).revision,3);assert.equal((await db.query('select revision from moaon_control.provider_credentials')).rows[0].revision,3);
  await db.exec(`create function expire_credential_session() returns trigger language plpgsql as $$begin
