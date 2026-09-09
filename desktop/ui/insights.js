@@ -15,7 +15,8 @@
   if(!report.detail)content.push(node('p','','이 보고서의 상세 근거를 불러오지 못했습니다. 새로 조회해 주세요.'));
   else{
    if(report.detail.truncated)content.push(node('p','insights-detail-notice','긴 보고서의 일부 근거를 요약해 표시합니다. 전체 항목이 아닙니다.'));
-   for(const section of report.detail.sections){const group=node('section','insights-detail-section');group.append(node('h3','',section.title));
+   const navigation=node('nav','insights-section-nav');navigation.setAttribute('aria-label','보고서 근거 목차');content.push(navigation);
+   for(const section of report.detail.sections){const group=node('section','insights-detail-section');group.tabIndex=-1;group.append(node('h3','',section.title));const jump=node('button','',section.title);jump.type='button';jump.onclick=()=>{group.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});group.focus({preventScroll:true});};navigation.append(jump);
     for(const item of section.items){const row=node('article','');row.append(node('h4','',item.title),node('p','',item.body));group.append(row);}
     content.push(group);
    }
@@ -32,10 +33,13 @@
   select('insights-metrics').replaceChildren(...[['광고 전환매출',money(c?.revenue),'주문 전체 매출과 다릅니다'],['이전 보고서 대비',typeof c?.changeRate==='number'?c.changeRate.toLocaleString('ko-KR')+'%':'판단 보류','같은 채널 · 비교 가능한 기간만'],['공헌이익',money(c?.profit),'원가·비용 근거가 확인된 경우만']].map(([label,amount,note])=>{const el=node('article','insights-metric');el.append(node('span','',label),node('strong','',amount),node('small','',note));return el;}));
   select('insights-flow').replaceChildren(...[['원인 검토',c?.cause,c?.causeNote],['검토할 행동',c?.action,c?.actionNote]].map(([label,title,note])=>{const el=node('article','insights-card');el.append(node('h2','',label),node('h3','',title||'보고서 근거 확인 필요'),node('p','',note||'자료를 조회한 뒤 확인할 수 있습니다.'));return el;}));
   select('insights-caveats').replaceChildren(...(value?.caveats||['조회 전입니다. 미확인 자료는 0으로 처리하지 않습니다.']).map(text=>node('li','',text)));
-  select('insights-reports').replaceChildren(...(value?.reports.length?value.reports.map(report=>{const row=node('button','insights-report');row.type='button';row.dataset.insightsReport=report.id;row.setAttribute('aria-controls','insights-detail');row.append(node('strong','',report.title),node('span','',`${period(report.periodStart)} — ${period(report.periodEnd)}`),node('small','','근거 보기 →'));row.addEventListener('click',()=>{selected=report.id;detail(true);});return row;}):[node('p','',value?'저장된 네이버 주간 보고서가 없습니다.':'연결 후 저장 보고서를 조회합니다.')]));
+  const term=select('insights-search').value.trim().toLocaleLowerCase('ko-KR'),reports=(value?.reports||[]).filter(r=>[r.title,r.periodStart,r.periodEnd,...(r.detail?.sections||[]).flatMap(s=>[s.title,...s.items.flatMap(i=>[i.title,i.body])])].some(t=>typeof t==='string'&&t.toLocaleLowerCase('ko-KR').includes(term)));
+  select('insights-search-count').textContent=busy?'보고서 조회 중':value?reports.length+' / '+value.reports.length+'개':'조회 전';select('insights-search-reset').disabled=!select('insights-search').value;
+  if(selected&&!reports.some(r=>r.id===selected)){selected=null;select('insights-detail-body').replaceChildren();}
+  select('insights-reports').replaceChildren(...(reports.length?reports.map(report=>{const row=node('button','insights-report');row.type='button';row.dataset.insightsReport=report.id;row.setAttribute('aria-controls','insights-detail');row.append(node('strong','',report.title),node('span','',`${period(report.periodStart)} — ${period(report.periodEnd)}`),node('small','','근거 보기 →'));row.addEventListener('click',()=>{selected=report.id;detail(true);});return row;}):[node('p','',value?(value.reports.length?'검색 조건에 맞는 보고서가 없습니다.':'저장된 네이버 주간 보고서가 없습니다.'):'연결 후 저장 보고서를 조회합니다.')]));
   if(!value)selected=null;detail();
  }
- function clear(){generation++;value=null;busy=false;lastAttempt=0;select('insights-status').textContent='실제 사업장 연결 후 조회합니다.';render();}
+ function clear(){select('insights-search').value='';generation++;value=null;busy=false;lastAttempt=0;select('insights-status').textContent='실제 사업장 연결 후 조회합니다.';render();}
  async function refresh(){
   if(busy||displayMode!=='live')return;const expected=++generation;busy=true;value=null;lastAttempt=Date.now();render();select('insights-status').textContent='분석 보고서를 조회하고 있습니다…';
   try{const result=await window.moaonHub.readInsights();if(expected!==generation)return;if(['LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status)){applyHubResult(result);return;}
@@ -45,6 +49,7 @@
   finally{if(expected===generation){busy=false;render();}}
  }
  window.moaonInsights=Object.freeze({clear,ensure:()=>{render();if(displayMode==='live'&&(!lastAttempt||Date.now()-lastAttempt>=300000))void refresh();}});
+ select('insights-search').addEventListener('input',render);select('insights-search-reset').onclick=()=>{select('insights-search').value='';render();select('insights-search').focus();};
  select('insights-refresh').addEventListener('click',refresh);clear();
  select('insights-detail-close').addEventListener('click',closeDetail);
  select('insights-page').addEventListener('keydown',event=>{if(event.key==='Escape'&&selected){event.preventDefault();event.stopPropagation();closeDetail();}});
