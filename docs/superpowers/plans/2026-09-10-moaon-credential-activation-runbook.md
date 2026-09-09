@@ -90,6 +90,17 @@ node scripts/check-moaon-credential-invariants.js
 
 성공 CREDENTIAL_INVARIANTS_MATCH_REQUIRES_OPERATIONS는 이 저장 테이블의 검사 대상과 일치한다는 뜻이다. 다른 테이블의 제약, RLS정책, 업무 함수 본문, 실제 세션 폐기 경합과 플랫폼 인증은 별도다. 데이터의 무결성을 직접 스캔하거나 운영 쓰기 시험을 실행한 결과도 아니다. 구조를 자동으로 수정하거나 삭제하지 않는다.
 
+### 인증 잠금과 저장 RLS 정책 대조
+
+```powershell
+$env:MOAON_CONTROL_DB_DIAGNOSTIC='1'
+node scripts/check-moaon-credential-policies.js
+```
+
+보호 테이블4개에서 런타임에 적용되는 정책과 예약 정책 이름을 후보 SQL과 대조한다. SELECT는 USING(true), 인증 테이블3개의 UPDATE 잠금은 USING(true)/WITH CHECK(false), provider_credentials의 INSERT/UPDATE는 후보의 true 조건이어야 한다. 정확한 명령·permissive·단일 역할·정책 집합, RLS 활성·비소유자·역할 멤버십 부재·row_security=on을 함께 검사한다. 추가 PUBLIC/런타임 정책과 예약 이름을 차지한 다른 역할 정책도 차이로 처리한다.
+
+정책 표현과 의존성을 카탈로그에서 읽지만 실행하지 않는다. 사용자 함수가 들어 있거나 동등해 보이는 다른 표현도 자동으로 허용하지 않는다. 성공 CREDENTIAL_POLICIES_MATCH_REQUIRES_OPERATIONS는 이4개 테이블의 제한된 정책 대조만 의미한다. 다른 역할 전용 정책, 다른 테이블 정책, 열 권한, 함수/트리거/룰, OWNER·세션·quota 실제 동작은 별도다. 자동 CREATE/ALTER POLICY를 실행하지 않는다.
+
 ## 4. 키·진입 경로·배포
 
 암호화 키 저장 위치와 접근자, active key ID 교체 및 이전 키 복호화 유지, HMAC 분리와 복구 절차를 마련한다. 키 원문을 문서·대화·시험 로그에 복사하지 않는다. VERCEL 환경 변수 값만으로 실제 운영 진입 경로를 증명할 수 없다. 실제 production 배포와 직접 ingress, 단일 IP 헤더 일치 정책을 확인한다.
