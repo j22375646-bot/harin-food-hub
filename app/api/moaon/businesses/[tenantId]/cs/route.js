@@ -5,6 +5,6 @@ import csLoader from '../../../../../../lib/dashboard/workspace-cs-loader.js';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const composition=workspace.createWorkspaceCsRuntime({
- readCs:()=>csLoader.loadWorkspaceCs({db:supabaseModule.getSupabase()})
+ readCs:({includeDetails})=>csLoader.loadWorkspaceCs({db:supabaseModule.getSupabase(),includeDetails})
 });
 export async function GET(request){return composition.handle(request);}

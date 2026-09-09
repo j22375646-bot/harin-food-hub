@@ -32,6 +32,9 @@ if (process.env.MOAON_TEST_HIDDEN !== '1' && process.env.MOAON_TEST_DISPLAY === 
   BrowserWindow.prototype.show = function () { showInactive.call(this); };
   BrowserWindow.prototype.focus = function () {};
   app.on('browser-window-created', (_event, win) => {
+    // Visible automation does not accept native input or activation. DOM focus
+    // remains testable, while OS activation cannot interrupt the user's work.
+    win.setFocusable(false);
     const primary = screen.getPrimaryDisplay();
     const display = screen.getAllDisplays().filter(d => d.id !== primary.id && d.workArea.x >= primary.workArea.x + primary.workArea.width).sort((a,b) => a.workArea.x-b.workArea.x)[0];
     if (!display) throw new Error('Requested secondary display unavailable');

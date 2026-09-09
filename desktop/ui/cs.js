@@ -20,6 +20,17 @@
   const heading=node('header','');heading.className='cs-detail-heading';const title=node('div','');title.append(node('h2',labels[row.platform]+' · '+labels[row.kind]),node('p','접수 번호 '+reference(row)));heading.append(title,button);
   const facts=node('dl','');facts.className='cs-facts';facts.append(node('dt','원본 처리 상태'),node('dd',row.status),node('dt','접수 시각'),node('dd',row.occurredAt?formatTime(row.occurredAt):'확인 필요'));
   panel.append(heading,facts,node('p','미처리 판정은 웹허브의 채널별 규칙을 사용합니다. 조회만으로 처리가 완료되지 않습니다.'));
+  const d=row.details,content=node('section','');content.className='cs-content';content.append(node('h3','접수 내용'));
+  if(!d)content.append(node('p','본문 조회 기능의 서버 반영이 필요합니다.'));
+  else if(d.status!=='AVAILABLE')content.append(node('p',d.status==='UNAVAILABLE'?'내용 복원 실패 · 원문 확인 필요':'저장된 본문 확인 필요'));
+  else{
+   if(d.title)content.append(node('h4',d.title));content.append(node('p',d.body||'문의 본문 확인 필요'),node('h3','저장된 상담·답변 이력'));
+   if(!d.history.length)content.append(node('p','조회 가능한 이력이 없습니다. 답변 여부는 원본 처리 상태를 확인해 주세요.'));
+   for(const entry of d.history){const article=node('article','');article.append(node('small',entry.occurredAt?formatTime(entry.occurredAt):'기록 시각 확인 필요'),node('p',entry.content||'기록 내용 확인 필요'));content.append(article);}
+   if(d.truncated)content.append(node('p','긴 내용 또는 이력이 일부만 표시됩니다. 원본 채널에서 전체 내용을 확인해 주세요.'));
+  }
+  if(d)content.append(node('small',d.updatedAt?'원본 갱신 '+formatTime(d.updatedAt):'원본 갱신 시각 확인 필요'));
+  panel.append(content);
 
  }
  function clear(){pageIndex=0;$('cs-sort').value='NEWEST';generation++;value=null;busy=false;selected=null;$('cs-platform').value='ALL';$('cs-kind').value='ALL';$('cs-search').value='';$('cs-status').textContent='실제 사업장 연결 후 조회합니다.';render();}

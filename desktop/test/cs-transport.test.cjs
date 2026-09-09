@@ -19,3 +19,10 @@ test('CS network permit is exact, temporary, GET only, and Main process only',()
  for(const changed of [{url:CS_URL+'?all=true'},{method:'POST'},{webContentsId:45}])assert.equal(isAllowedRemoteRequest({...details,...changed},{csPermit:CS_URL}),false);
  assert.equal(isAllowedRemoteRequest(details,{}),false);
 });
+test('CS details validate size and state, project only text, and support older servers',async()=>{
+ const p=payload();p.items[0].details={status:'AVAILABLE',title:'제목',body:'본문',history:[{content:'답변',occurredAt:null,private:'SECRET'}],updatedAt:null,truncated:false,secret:'SECRET'};
+ const read=()=>createCsTransport({fetch:async()=>Response.json(p)})();
+ assert.doesNotMatch(JSON.stringify(await read()),/SECRET/);
+ for(const change of [d=>d.body='x'.repeat(2001),d=>d.history=Array(6).fill({content:'x',occurredAt:null}),d=>d.status='MISSING',d=>d.updatedAt='bad']){const saved=structuredClone(p.items[0].details);change(p.items[0].details);assert.equal((await read()).status,'UNAVAILABLE');p.items[0].details=saved;}
+ delete p.items[0].details;assert.equal((await read()).items[0].details,null);
+});
