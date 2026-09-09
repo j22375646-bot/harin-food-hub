@@ -1,0 +1,21 @@
+const assert=require('node:assert/strict'),path=require('node:path'),{launchDesktop}=require('./launch.cjs');
+(async()=>{const app=await launchDesktop({root:path.resolve(__dirname,'..'),executablePath:require('electron'),packaged:process.argv.includes('--packaged'),override:-1});try{
+ const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');
+ assert.equal(await page.locator('#api-settings').count(),1);
+ await app.evaluate(({session})=>{session.fromPartition('persist:moaon-harin-readonly').fetch=async url=>Response.json(url.endsWith('/api/moaon/businesses')?{ok:true,businesses:[]}:{ok:true,orders:[],total:0,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});});
+ await page.evaluate(()=>runHubAction('disconnect'));await page.evaluate(()=>runHubAction('viewActive'));await page.keyboard.press('Alt+3');
+ await page.locator('#api-source').selectOption('new');await page.locator('#api-business').fill('시험 사업장');await page.locator('#api-provider').selectOption('COUPANG');
+ for(const field of ['vendorId','accessKey','secretKey'])await page.locator(`[name="${field}"]`).fill('TEST_SECRET_NOT_REAL');
+ await page.locator('#api-draft-save').click();await page.waitForFunction(()=>document.querySelector('#api-draft-status').textContent.includes('저장됨'));
+ assert.equal(await page.locator('[name="secretKey"]').inputValue(),'');
+ const list=await page.evaluate(()=>window.moaonHub.listApiDrafts());assert.doesNotMatch(JSON.stringify(list),/TEST_SECRET/);
+ assert.match(JSON.stringify(list),/SAVED_UNVERIFIED/);
+ await page.locator('#api-draft-load').click();await page.waitForFunction(()=>document.querySelector('#api-draft-list').textContent.includes('시험 사업장'));
+ page.once('dialog',dialog=>dialog.accept());await page.locator('#api-draft-list button').click();await page.waitForFunction(()=>document.querySelector('#api-draft-list').textContent.includes('없습니다'));
+ assert.deepEqual(await page.evaluate(()=>window.moaonHub.listApiDrafts()),[]);
+ await page.locator('[name="secretKey"]').fill('CLEAR_ME');await page.keyboard.press('Alt+2');assert.equal(await page.locator('[name="secretKey"]').inputValue(),'');
+ await page.keyboard.press('Alt+3');await page.locator('#api-source').selectOption('existing');assert.equal(await page.locator('#api-draft-form').isVisible(),false);
+ await page.locator('#api-source').selectOption('new');await page.locator('#api-settings').scrollIntoViewIfNeeded();await page.waitForTimeout(400);await page.screenshot({path:path.resolve(__dirname,'../dist/p461-settings.png')});
+ for(const width of [1040,1440]){await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setSize(width,900),width);assert.equal(await page.locator('#api-settings').evaluate(el=>el.scrollWidth<=el.clientWidth),true);}
+ console.log('PASS actual Windows encrypted draft save, metadata only, inputs cleared and Harin existing source');
+ }finally{await app.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

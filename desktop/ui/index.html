@@ -14,6 +14,7 @@
     <script src="moaon://app/settlement.js" defer></script>
     <script src="moaon://app/insights.js" defer></script>
     <script src="moaon://app/month-calendar.js" defer></script>
+    <script src="moaon://app/api-settings.js" defer></script>
     <link rel="stylesheet" href="moaon://app/month-calendar.css">
     <link rel="stylesheet" href="moaon://app/insights.css">
     <link rel="stylesheet" href="moaon://app/settlement.css">
@@ -272,7 +273,7 @@
             <header class="page-heading compact-heading">
               <p class="context-line"><i aria-hidden="true"></i> 이 PC · 화면 설정</p>
               <h1 id="settings-title" aria-label="앱 설정" tabindex="-1"><em class="page-title-accent">편안한 화면</em>을 선택하세요</h1>
-              <p>테마와 로그인 세션을 이 PC에서 관리합니다. 다른 사업장·플랫폼 연결 설정은 아직 제공하지 않습니다.</p>
+              <p>화면·로그인과 플랫폼 API 설정을 관리합니다. 새 사업장 키는 이 PC에 암호화 저장하며, 실제 연결은 검증 전입니다.</p>
             </header>
 
             <div class="settings-grid">
@@ -303,6 +304,19 @@
                 </dl>
               </section>
 
+              <section id="api-settings" class="panel setting-card api-settings" aria-labelledby="api-title">
+                <header><h2 id="api-title">플랫폼 API 연결</h2><span class="status-chip">사업장별 설정</span></header>
+                <label>연결 방식<select id="api-source"><option value="existing">하린식품 · 기존 서버 연결 사용</option><option value="new">다른 사업장 · API 직접 입력</option></select></label>
+                <div id="api-existing"><p>하린식품은 현재 서버의 인증정보를 계속 사용합니다. 키 원문을 앱으로 복사하거나 다시 입력할 필요가 없습니다.</p><p class="api-note">Cafe24·네이버·쿠팡·우체국의 개별 키 등록 상태와 유효성 검사는 아직 이 화면에 연결되지 않았습니다.</p></div>
+                <form id="api-draft-form" hidden autocomplete="off">
+                  <p class="api-note">현재는 이 PC에 암호화 저장만 가능합니다. 사업장 가입·플랫폼 검증·실제 연결 전환은 아직 지원하지 않습니다.</p>
+                  <div class="api-fields"><label>사업장 이름<input id="api-business" maxlength="80" required autocomplete="off" placeholder="예: 듀모르"></label><label>플랫폼<select id="api-provider"><option value="CAFE24">Cafe24</option><option value="NAVER">네이버 커머스</option><option value="COUPANG">쿠팡</option><option value="EPOST">우체국</option></select></label></div>
+                  <div id="api-fields" class="api-fields"></div>
+                  <p class="api-note">Cafe24는 키 입력 외에 OAuth 승인이 필요합니다. 키는 저장 후 다시 표시하지 않으며, 다른 PC로 자동 이전되지 않습니다.</p>
+                  <button id="api-draft-save" class="primary-action" type="submit">이 PC에 암호화 저장</button>
+                </form>
+                <p id="api-draft-status" role="status"></p><button id="api-draft-load" class="secondary-action" type="button">저장한 설정 확인</button><ul id="api-draft-list"></ul>
+              </section>
               <details class="panel setting-card history-settings">
                 <summary>출고 기록</summary>
                 <p>이전 송장 등록과 출고 기록이 필요할 때 확인하세요.</p>

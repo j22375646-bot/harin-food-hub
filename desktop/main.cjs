@@ -2,7 +2,8 @@
 
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { app, BrowserWindow, Menu, ipcMain, protocol, session, dialog } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, protocol, session, dialog, safeStorage } = require('electron');
+const {createDraftStore,registerApiDrafts}=require('./api-drafts.cjs');
 const {
   APP_ENTRY_URL,
   isAllowedAppUrl,
@@ -146,6 +147,7 @@ if (!hasSingleInstanceLock) {
     registerPrinterInspection({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer,
       inspect:createPrinterInspection({getMainWindow:()=>mainWindow,dialog})});
     registerAppInfo({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer,getVersion:()=>app.getVersion()});
+    registerApiDrafts({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer,store:createDraftStore({directory:path.join(app.getPath('userData'),'api-drafts'),safeStorage,platform:process.platform})});
     mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault());
     mainWindow.webContents.on('will-navigate', (event, targetUrl) => {
       if (targetUrl !== APP_ENTRY_URL) event.preventDefault();
