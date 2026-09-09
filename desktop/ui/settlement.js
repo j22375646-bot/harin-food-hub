@@ -54,9 +54,15 @@
   ].map(([label,amount,note])=>{const card=node('article','settlement-total');card.append(node('span','',label),node('strong','',money(amount)),node('small','',note));return card;}));
   select('settlement-channels').replaceChildren(...(value?.channels||[]).map(channel=>{
    const card=node('article','settlement-channel'),header=node('header',''),body=node('dl','settlement-values');header.append(node('h3','',channel.label),node('span','settlement-state',channel.stateLabel));
+   const comparison=node('div','settlement-comparison');comparison.setAttribute('aria-label',channel.label+' 예상 지급과 확인된 지급');
+   const maximum=Math.max(1,...[channel.expected,channel.actual].filter(v=>Number.isFinite(v)&&v>=0));
+   for(const [label,key] of [['예상 지급','expected'],['확인된 지급','actual']]){const row=node('div','settlement-compare-row');row.dataset.metric=key;row.append(node('span','',label),node('strong','',money(channel[key])));const known=Number.isFinite(channel[key])&&channel[key]>=0;
+    if(known){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 100 6');svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('aria-hidden','true');for(const [css,width] of [['settlement-compare-track',100],['settlement-compare-fill',100*channel[key]/maximum]]){const rect=document.createElementNS(svg.namespaceURI,'rect');for(const [k,v] of Object.entries({width,height:6,rx:2,class:css}))rect.setAttribute(k,String(v));svg.append(rect);}row.append(svg);}else row.append(node('small','settlement-compare-unknown',channel[key]<0?'음수 금액 · 원장 확인 필요':'금액 근거 확인 필요'));comparison.append(row);
+   }
    for(const [label,key] of [['매출','gross'],['예상 지급','expected'],['확인된 지급','actual'],['지급 대기','pending'],['수수료','fees'],['물류비','logistics'],['광고비','advertising']]){const row=node('div','');row.append(node('dt','',label),node('dd','',money(channel[key])));body.append(row);}
    const button=node('button','settlement-detail-trigger','근거·상세 보기');button.type='button';button.dataset.settlementChannel=channel.platform;button.setAttribute('aria-controls','settlement-detail');button.setAttribute('aria-expanded','false');button.setAttribute('aria-label',channel.label+' 정산 근거·상세 보기');button.addEventListener('click',()=>{selectedChannel=channel.platform;selectedSchedule=null;detailOrigin=button;detail(true);});
-   card.append(header,body,node('p','settlement-basis',channel.basis||'근거 자료 확인 필요'),node('p','settlement-basis settlement-asof',channel.asOf?`자료 시각 ${formatTime(channel.asOf)}`:'자료 시각 확인 필요'),button);return card;
+   const breakdown=node('details','settlement-breakdown');breakdown.append(node('summary','','금액·비용 내역 펼치기'),body);
+   card.append(header,comparison,node('p','settlement-chart-caption','두 막대는 이 채널의 금액 비교입니다. 입금 완료율이 아닙니다.'),breakdown,node('p','settlement-basis',channel.basis||'근거 자료 확인 필요'),node('p','settlement-basis settlement-asof',channel.asOf?`자료 시각 ${formatTime(channel.asOf)}`:'자료 시각 확인 필요'),button);return card;
   }));
   const schedules=value?.schedules||[];select('settlement-schedules').replaceChildren(...(schedules.length?schedules.map((item,index)=>{
    const row=node('button','settlement-schedule'),label=value.channels.find(c=>c.platform===item.platform)?.label||item.platform;
