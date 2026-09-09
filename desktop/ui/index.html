@@ -15,6 +15,7 @@
     <script src="moaon://app/insights.js" defer></script>
     <script src="moaon://app/month-calendar.js" defer></script>
     <script src="moaon://app/api-settings.js" defer></script>
+    <script src="moaon://app/app-updates.js" defer></script>
     <link rel="stylesheet" href="moaon://app/month-calendar.css">
     <link rel="stylesheet" href="moaon://app/insights.css">
     <link rel="stylesheet" href="moaon://app/settlement.css">
@@ -89,6 +90,7 @@
           </div>
           <div class="chrome-actions">
             <button id="quick-search" class="chrome-button" type="button" aria-label="주문 검색" title="주문 검색 · Ctrl+K">검색 <kbd>Ctrl K</kbd></button>
+            <button id="update-ready-open" class="chrome-button" type="button" hidden>업데이트 준비됨</button>
             <button id="theme-toggle" class="chrome-button" type="button" aria-label="화면 테마 전환" aria-pressed="false" title="라이트·다크 전환">◐</button>
           </div>
         </header>
@@ -302,6 +304,12 @@
                   <div><dt>자료 범위</dt><dd id="program-data-scope">가상 사업장 · 샘플 주문</dd></div>
                   <div><dt>네트워크</dt><dd id="program-network-state">연결 안 됨</dd></div>
                 </dl>
+                <section class="app-update-panel" aria-labelledby="app-update-title">
+                  <h3 id="app-update-title">앱 업데이트</h3>
+                  <p id="app-update-status" role="status" aria-live="polite">업데이트 상태 확인 중</p>
+                  <progress id="app-update-progress" max="100" value="0" aria-label="업데이트 다운로드" hidden></progress>
+                  <div class="app-update-actions"><button id="app-update-check" type="button" disabled>업데이트 확인</button><button id="app-update-download" type="button" hidden>다운로드</button><button id="app-update-restart" type="button" hidden>재시작하여 적용</button></div>
+                </section>
               </section>
               </div>
               <div class="settings-pair">

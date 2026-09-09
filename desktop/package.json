@@ -15,12 +15,16 @@
     "electron-builder": "26.15.3",
     "playwright": "1.63.0"
   },
+  "dependencies": {
+    "electron-updater": "6.8.9",
+    "js-yaml": "4.3.2"
+  },
   "build": {
     "appId": "com.moaon.preview",
     "productName": "Moaon Preview",
     "asar": true,
     "directories": {"output": "dist"},
-"files": ["window-placement.cjs", "credential-transport.cjs", "api-drafts.cjs", "insights-transport.cjs", "settlement-transport.cjs", "finance-transport.cjs", "today-calendar.cjs", "main.cjs", "app-info.cjs", "printer-inspection.cjs", "label-preview.cjs", "local-label.cjs", "selected-documents.cjs", "local-worklist.cjs", "worklist-preview.cjs", "security.cjs", "order-visual.cjs", "connection-policy.cjs", "hub-connection.cjs", "order-collection.cjs", "business-transport.cjs", "shipment-job.cjs", "shipment-journal.cjs", "shipment-registry.cjs", "shipment-transport.cjs", "shipping-action-journal.cjs", "preload.cjs", "ui/**/*"],
+"files": ["app-updates.cjs", "update-gate.cjs", "update-channel.json", "window-placement.cjs", "credential-transport.cjs", "api-drafts.cjs", "insights-transport.cjs", "settlement-transport.cjs", "finance-transport.cjs", "today-calendar.cjs", "main.cjs", "app-info.cjs", "printer-inspection.cjs", "label-preview.cjs", "local-label.cjs", "selected-documents.cjs", "local-worklist.cjs", "worklist-preview.cjs", "security.cjs", "order-visual.cjs", "connection-policy.cjs", "hub-connection.cjs", "order-collection.cjs", "business-transport.cjs", "shipment-job.cjs", "shipment-journal.cjs", "shipment-registry.cjs", "shipment-transport.cjs", "shipping-action-journal.cjs", "preload.cjs", "ui/**/*"],
     "win": {"target": "nsis", "executableName": "MoaonPreview", "signAndEditExecutable": false},
     "nsis": {"oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "runAfterFinish": false, "createDesktopShortcut": true},
     "artifactName": "Moaon-Preview-${version}-Setup.${ext}",
