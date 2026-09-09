@@ -303,6 +303,8 @@ function trackingSection(order){
   };
   read.addEventListener('click',()=>void run(false));refresh.addEventListener('click',()=>void run(true));
   reload.addEventListener('click',()=>{if(current()&&!busy&&!registrationBusy)void runHubAction('refresh');});
+  // Wait until the detail section is attached; read once, never enqueue on open.
+  queueMicrotask(()=>void run(false));
   return panel;
 }
 

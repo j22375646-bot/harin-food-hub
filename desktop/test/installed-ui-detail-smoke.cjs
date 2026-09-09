@@ -14,6 +14,8 @@ const {_electron}=require('playwright');
     }
     assert.equal(await app.evaluate(({app})=>app.getVersion()),require('../package.json').version);
     await page.getByRole('button',{name:'주문·배송',exact:true}).click();
+    // Empty active orders are a valid operational state, not a layout failure.
+    if(await page.locator('.order-row').count()===0)await page.evaluate(()=>runHubAction('viewCompleted'));
     assert.deepEqual(await page.locator('#order-channel option').evaluateAll(items=>items.map(item=>item.value)),['ALL','CAFE24','NAVER','COUPANG']);
     await page.locator('.order-row').first().click();
     const delivery=page.getByRole('region',{name:'배송정보',exact:true});
