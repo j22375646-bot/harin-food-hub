@@ -71,6 +71,16 @@ let scopeControlsAvailable = false;
 let businessGeneration=0,businessLoaded=false,businessBusy=false;
 let overviewValues={},overviewGeneration=0,overviewBusy=false,overviewLastAttempt=0;
 let calendarGeneration=0,calendarBusy=false,calendarLastAttempt=0;
+let financeValue=null,financeGeneration=0,financeBusy=false,financeLastAttempt=0;
+const financeDetails=Object.freeze({sales:{label:'이번 달 결제 매출',note:'결제 기준'},profit:{label:'이번 달 계산 이익',note:'계산 기준'},balance:{label:'향후 30일 예상 잔액',note:'추정치 · 실제 정산 아님'}});
+function renderFinance(){
+ const section=document.querySelector('#finance-panel'),cards=document.querySelector('#finance-cards');section.hidden=displayMode!=='live';document.querySelector('#finance-refresh').disabled=financeBusy||displayMode!=='live';
+ cards.replaceChildren(...Object.entries(financeDetails).map(([key,detail])=>{const metric=financeValue?.metrics?.[key],known=['READY','PARTIAL'].includes(metric?.status)&&typeof metric.value==='number'&&Number.isFinite(metric.value),card=makeElement('article','finance-card');card.dataset.finance=key;card.dataset.state=known?metric.status:'BLOCKED';if(key==='profit'&&known&&metric.value<0)card.dataset.negative='true';card.append(makeElement('span','',detail.label),makeElement('strong','',known?`${metric.value.toLocaleString('ko-KR')}원`:'확인 필요'),makeElement('small','',known?`${metric.status==='PARTIAL'?'부분 확인 · ':''}${detail.note}`:'누락된 금액을 숫자로 판단하지 마세요.'));return card;}));
+ const month=financeValue?.month?.match(/^(\d{4})-(\d{2})$/),checked=financeValue?.generatedAt;document.querySelector('#finance-meta').textContent=month&&checked?`${month[1]}년 ${Number(month[2])}월 · ${formatTime(checked)} 확인`:'기준 월과 조회 시각을 확인할 수 없습니다.';
+}
+function clearFinance(){financeGeneration++;financeValue=null;financeBusy=false;financeLastAttempt=0;document.querySelector('#finance-status').textContent='조회하지 않은 금액은 확인 필요로 표시합니다.';renderFinance();}
+async function refreshFinance(){if(financeBusy||displayMode!=='live')return;const expected=++financeGeneration;financeBusy=true;financeLastAttempt=Date.now();financeValue=null;renderFinance();const status=document.querySelector('#finance-status');status.textContent='이번 달 자금 판단을 확인하고 있습니다…';try{const result=await window.moaonHub.readFinance();if(expected!==financeGeneration)return;if(['LOGIN_REQUIRED','FORBIDDEN','DISCONNECTED'].includes(result?.status)){applyHubResult(result);return;}if(result?.status!=='READY'){status.textContent='금액을 확인하지 못했습니다. 다시 확인해 주세요.';return;}financeValue=result;status.textContent=Object.values(result.metrics).some(metric=>metric.status!=='READY')?'부분 확인 또는 확인 필요 항목은 금액을 확정해 판단하지 마세요.':'서버 계산 기준의 조회 결과입니다.';}catch{if(expected===financeGeneration)status.textContent='금액을 확인하지 못했습니다. 다시 확인해 주세요.';}finally{if(expected===financeGeneration){financeBusy=false;renderFinance();}}}
+document.querySelector('#finance-refresh').addEventListener('click',refreshFinance);
 function clearTodayCalendar(){calendarGeneration++;calendarBusy=false;calendarLastAttempt=0;document.querySelector('#calendar-list').replaceChildren();document.querySelector('#calendar-status').textContent='연결 후 오늘 일정을 확인합니다.';document.querySelector('#today-calendar').hidden=true;}
 async function refreshTodayCalendar(){
  if(calendarBusy||displayMode!=='live')return;
@@ -91,8 +101,9 @@ async function refreshTodayCalendar(){
  finally{if(expected===calendarGeneration){calendarBusy=false;button.disabled=false;}}
 }
 document.querySelector('#calendar-refresh').addEventListener('click',refreshTodayCalendar);
-function clearOverview(){clearTodayCalendar();overviewGeneration++;overviewValues={};overviewBusy=false;overviewLastAttempt=0;renderOverview();}
+function clearOverview(){clearFinance();clearTodayCalendar();overviewGeneration++;overviewValues={};overviewBusy=false;overviewLastAttempt=0;renderOverview();}
 function ensureTodayOverview(){
+ if(displayMode==='live'&&document.querySelector('[data-page="today"]').classList.contains('is-visible')&&(!financeLastAttempt||Date.now()-financeLastAttempt>=300000))void refreshFinance();
  if(displayMode==='live'&&document.querySelector('[data-page="today"]').classList.contains('is-visible')&&(!calendarLastAttempt||Date.now()-calendarLastAttempt>=60000))void refreshTodayCalendar();
  if(displayMode!=='live'||overviewBusy||!document.querySelector('[data-page="today"]').classList.contains('is-visible'))return;
  if(overviewLastAttempt&&Date.now()-overviewLastAttempt<60000)return;

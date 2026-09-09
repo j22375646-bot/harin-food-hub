@@ -23,6 +23,7 @@ const EMPTY_ORDERS = Object.freeze([]);
 const {createShipmentRegistry}=require('./shipment-registry.cjs');
 const {createShipmentTransport}=require('./shipment-transport.cjs');
 const {createBusinessTransport}=require('./business-transport.cjs');
+const {createFinanceTransport}=require('./finance-transport.cjs');
 const {createOrderCollection}=require('./order-collection.cjs');
 const {createShippingActionJournal,readShippingHistory}=require('./shipping-action-journal.cjs');
 const {projectVisual}=require('./order-visual.cjs');
@@ -454,6 +455,7 @@ function createHubConnection({
   const shipmentAuthReads=new Set();
   const businessReads=new Set();
   let activeOverview=null;
+  let activeFinance=null;
   let activeCalendar=null,calendarPermit=null;
   function readTodayCalendar(){
     if(disconnecting||cleanupFailed||isLoginWindowActive())return Promise.resolve({status:'UNAVAILABLE',date:require('./today-calendar.cjs').calendarDay(now()),entries:[]});
@@ -509,6 +511,16 @@ function createHubConnection({
     })();
     let tracked;tracked=operation.finally(()=>{clearTimeout(timer);businessReads.delete(controller);if(activeOverview===tracked)activeOverview=null;});
     activeOverview=tracked;return tracked;
+  }
+  function readFinance(){
+    const empty=status=>Object.freeze({status,month:null,generatedAt:null,metrics:Object.freeze({sales:Object.freeze({value:null,status:'BLOCKED'}),profit:Object.freeze({value:null,status:'BLOCKED'}),balance:Object.freeze({value:null,status:'BLOCKED'})})});
+    if(disconnecting||cleanupFailed)return Promise.resolve(empty('DISCONNECTED'));
+    if(isLoginWindowActive())return Promise.resolve(empty('LOGIN_REQUIRED'));
+    if(activeFinance)return activeFinance;
+    const expected=generation,controller=new AbortController();businessReads.add(controller);
+    const read=createFinanceTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options),timeoutMs});
+    let tracked;tracked=read({signal:controller.signal}).then(result=>expected===generation?result:empty('DISCONNECTED')).finally(()=>{businessReads.delete(controller);if(activeFinance===tracked)activeFinance=null;});
+    activeFinance=tracked;return tracked;
   }
   async function listBusinesses(){
     const empty=status=>Object.freeze({status,businesses:Object.freeze([])});
@@ -1537,7 +1549,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-  return Object.freeze({ exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1611,6 +1623,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     ['moaon-hub:server-shipping-history', 'readServerShippingHistory'],
     ['moaon-hub:restore-shipping-history', 'restoreShippingHistory'],
     ['moaon-hub:read-overview', 'readOverview'],
+    ['moaon-hub:read-finance', 'readFinance'],
     ['moaon-hub:read-today-calendar', 'readTodayCalendar'],
     ['moaon-hub:list-businesses', 'listBusinesses'],
     ['moaon-hub:connect', 'connect'],
