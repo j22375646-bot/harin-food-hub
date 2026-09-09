@@ -1548,6 +1548,13 @@ test('today calendar verifies tenant before GET and never exposes private body',
   assert.equal((await denied.readTodayCalendar()).status,status===401?'LOGIN_REQUIRED':'FORBIDDEN');assert.equal(calls,1);
  }
 });
+test('finance connection keeps its dedicated deadline beyond the generic 15 seconds',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']});
+ const {connection}=makeConnection(makeRemoteSession(async()=>new Promise(()=>{})));
+ let done=false;const pending=connection.readFinance().then(result=>{done=true;return result;});
+ t.mock.timers.tick(25000);await new Promise(setImmediate);assert.equal(done,false);
+ t.mock.timers.tick(5000);assert.equal((await pending).status,'TIMEOUT');
+});
 test('finance read deduplicates in flight and order navigation cancels only the finance result',async()=>{
  let release,reads=0;const {connection}=makeConnection(makeRemoteSession(async url=>{
   if(url.endsWith('/finance')){reads++;return new Promise(resolve=>release=resolve);}

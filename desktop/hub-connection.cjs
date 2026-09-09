@@ -520,7 +520,7 @@ function createHubConnection({
     if(isLoginWindowActive())return Promise.resolve(empty('LOGIN_REQUIRED'));
     if(activeFinance)return activeFinance;
     const expected=generation,controller=new AbortController();activeFinanceController=controller;financePermit=require('./connection-policy.cjs').FINANCE_URL;
-    const read=createFinanceTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options),timeoutMs});
+    const read=createFinanceTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options)});
     let tracked;tracked=read({signal:controller.signal}).then(result=>expected===generation?result:empty('CANCELLED')).finally(()=>{financePermit=null;if(activeFinanceController===controller)activeFinanceController=null;if(activeFinance===tracked)activeFinance=null;});
     activeFinance=tracked;return tracked;
   }
