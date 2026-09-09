@@ -22,7 +22,15 @@
   $('inventory-refresh').disabled=busy||displayMode!=='live';
   $('inventory-reset').disabled=busy||($('inventory-platform').value==='ALL'&&$('inventory-state').value==='ALL'&&$('inventory-sort').value==='SOURCE'&&!$('inventory-search').value);
   const query=$('inventory-search').value.trim().toLowerCase();
-  const rows=(value?.items||[]).filter(r=>(r.name+' '+r.id+' '+r.channels.map(c=>(c.externalId||'')+' '+(c.product?.name||'')+' '+(c.mapping?.entries||[]).map(m=>(m.name||'')+' '+(m.externalId||'')).join(' ')).join(' ')).toLowerCase().includes(query)&&r.channels.some(match));
+  const searched=(value?.items||[]).filter(r=>(r.name+' '+r.id+' '+r.channels.map(c=>(c.externalId||'')+' '+(c.product?.name||'')+' '+(c.mapping?.entries||[]).map(m=>(m.name||'')+' '+(m.externalId||'')).join(' ')).join(' ')).toLowerCase().includes(query));
+  const rows=searched.filter(r=>r.channels.some(match));
+  const summary=$('inventory-summary');summary.replaceChildren();
+  for(const [state,label] of [['ALL','전체 상품'],['CHECK','확인 필요'],['OUT_OF_STOCK','품절'],['STALE','갱신 필요']]){
+   const count=searched.filter(r=>r.channels.some(c=>platformMatch(c)&&(state==='ALL'||(state==='CHECK'?needsCheck(c):state==='STALE'?c.stale:c.state===state)))).length;
+   const b=node('button','');b.type='button';b.dataset.state=state;b.setAttribute('aria-pressed',String($('inventory-state').value===state));b.disabled=busy||!value;
+   b.append(node('span',label),node('strong',busy?'조회 중':value?count+'개':'확인 필요'));
+   b.onclick=()=>{$('inventory-state').value=state;pageIndex=0;selected=null;render();$('inventory-summary').querySelector('[data-state='+state+']').focus({preventScroll:true});};summary.append(b);
+  }
   if($('inventory-sort').value!=='SOURCE')rows.sort((a,b)=>($('inventory-sort').value==='CHECK'?Number(b.channels.some(c=>platformMatch(c)&&needsCheck(c)))-Number(a.channels.some(c=>platformMatch(c)&&needsCheck(c))):0)||a.name.localeCompare(b.name,'ko',{numeric:true})||a.id.localeCompare(b.id));
   const pageCount=Math.ceil(rows.length/50);pageIndex=Math.min(pageIndex,Math.max(0,pageCount-1));
   const visible=rows.slice(pageIndex*50,pageIndex*50+50);

@@ -29,3 +29,5 @@
 #inventory-detail .inventory-detail-nav{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:12px;margin-top:20px}#inventory-detail .inventory-detail-nav button{float:none}.inventory-detail-nav span{font-size:14px;font-variant-numeric:tabular-nums}
 
 .inventory-empty{border:1px solid var(--line);border-radius:16px;padding:28px;background:var(--surface);text-align:left}.inventory-empty h2{font-size:18px;margin:0 0 10px}.inventory-empty p{font-size:14px;line-height:1.7;color:var(--muted);margin:0;max-width:640px}.inventory-empty button{margin-top:18px}
+
+.inventory-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:20px 0 8px}.inventory-summary button{display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:left;padding:16px}.inventory-summary span{font-size:14px}.inventory-summary strong{font-size:18px;font-variant-numeric:tabular-nums}.inventory-summary button[aria-pressed="true"]{background:var(--blue-soft);border-color:var(--blue)}@media(max-width:700px){.inventory-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
