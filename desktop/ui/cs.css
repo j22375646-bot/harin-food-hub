@@ -7,3 +7,5 @@
 @media(max-width:700px){.cs-facts{grid-template-columns:1fr;gap:4px}.cs-facts dd{margin-bottom:12px}.cs-detail-heading{flex-wrap:wrap}}
 
 .cs-content{margin-top:24px;border-top:1px solid var(--line,#dbe2ea);padding-top:20px}.cs-content p{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65;font-size:15px}.cs-content article{padding:16px;margin:12px 0;border:1px solid var(--line,#dbe2ea);border-radius:12px}.cs-content h3{margin:18px 0 12px}.cs-content small{font-size:14px}
+
+#cs-detail .cs-detail-nav{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;margin-top:20px}#cs-detail .cs-detail-nav button{float:none}#cs-detail .cs-detail-nav span{font-size:14px;font-variant-numeric:tabular-nums}.cs-page button:disabled{opacity:.5;cursor:default}

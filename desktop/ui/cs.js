@@ -7,7 +7,9 @@
  function close(){const previous=selected;selected=null;render();Array.from($('cs-list').querySelectorAll('button')).find(b=>b.dataset.id===previous)?.focus();}
  function render(){
   $('cs-refresh').disabled=busy||displayMode!=='live';
-  const rows=(value?.items||[]).filter(r=>($('cs-platform').value==='ALL'||r.platform===$('cs-platform').value)&&($('cs-kind').value==='ALL'||r.kind===$('cs-kind').value)&&r.id.toLowerCase().includes($('cs-search').value.trim().toLowerCase()));
+  const term=$('cs-search').value.trim().toLocaleLowerCase('ko-KR');
+  const rows=(value?.items||[]).filter(r=>($('cs-platform').value==='ALL'||r.platform===$('cs-platform').value)&&($('cs-kind').value==='ALL'||r.kind===$('cs-kind').value)&&[r.id,r.details?.title,r.details?.body,...(r.details?.history||[]).map(e=>e.content)].some(s=>typeof s==='string'&&s.toLocaleLowerCase('ko-KR').includes(term)));
+  $('cs-search-scope').textContent=value?.items.some(r=>r.details)?'검색 범위: 조회된 접수 번호·제목·본문·이력. 잘린 내용은 검색되지 않습니다.':'검색 범위: 접수 번호. 본문·이력 검색은 서버 반영 후 사용할 수 있습니다.';
   rows.sort((a,b)=>{if(!a.occurredAt||!b.occurredAt)return Number(!a.occurredAt)-Number(!b.occurredAt)||a.id.localeCompare(b.id);return ($('cs-sort').value==='OLDEST'?1:-1)*(Date.parse(a.occurredAt)-Date.parse(b.occurredAt))||a.id.localeCompare(b.id);});
   const pages=Math.ceil(rows.length/25);pageIndex=Math.min(pageIndex,Math.max(0,pages-1));const visible=rows.slice(pageIndex*25,pageIndex*25+25);
   if(!visible.some(r=>r.id===selected))selected=null;
@@ -18,8 +20,12 @@
 
   const button=node('button','목록으로');button.type='button';button.onclick=close;
   const heading=node('header','');heading.className='cs-detail-heading';const title=node('div','');title.append(node('h2',labels[row.platform]+' · '+labels[row.kind]),node('p','접수 번호 '+reference(row)));heading.append(title,button);
+  const index=rows.findIndex(r=>r.id===selected),nav=node('nav','');nav.className='cs-detail-nav';nav.setAttribute('aria-label','검색 결과 접수 이동');
+  const previous=node('button','이전 접수'),next=node('button','다음 접수'),position=node('span',`${index+1} / ${rows.length}건`);position.setAttribute('aria-live','polite');previous.type=next.type='button';previous.id='cs-detail-prev';next.id='cs-detail-next';previous.disabled=index===0;next.disabled=index===rows.length-1;
+  const move=offset=>{const target=index+offset;if(target<0||target>=rows.length)return;selected=rows[target].id;pageIndex=Math.floor(target/25);render();const control=$(offset>0?'cs-detail-next':'cs-detail-prev');(control.disabled?$('cs-detail').querySelector('button'):control).focus({preventScroll:true});$('cs-detail').scrollIntoView({block:'start'});};
+  previous.onclick=()=>move(-1);next.onclick=()=>move(1);nav.append(previous,position,next);
   const facts=node('dl','');facts.className='cs-facts';facts.append(node('dt','원본 처리 상태'),node('dd',row.status),node('dt','접수 시각'),node('dd',row.occurredAt?formatTime(row.occurredAt):'확인 필요'));
-  panel.append(heading,facts,node('p','미처리 판정은 웹허브의 채널별 규칙을 사용합니다. 조회만으로 처리가 완료되지 않습니다.'));
+  panel.append(heading,nav,facts,node('p','미처리 판정은 웹허브의 채널별 규칙을 사용합니다. 조회만으로 처리가 완료되지 않습니다.'));
   const d=row.details,content=node('section','');content.className='cs-content';content.append(node('h3','접수 내용'));
   if(!d)content.append(node('p','본문 조회 기능의 서버 반영이 필요합니다.'));
   else if(d.status!=='AVAILABLE')content.append(node('p',d.status==='UNAVAILABLE'?'내용 복원 실패 · 원문 확인 필요':'저장된 본문 확인 필요'));
