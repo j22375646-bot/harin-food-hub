@@ -1,9 +1,31 @@
 'use strict';
 (()=>{
- let value=null,busy=false,generation=0,lastAttempt=0,days=30;
+ let value=null,busy=false,generation=0,lastAttempt=0,days=30,selectedChannel=null;
  const select=id=>document.getElementById(id),money=v=>typeof v==='number'&&Number.isFinite(v)?`${v.toLocaleString('ko-KR')}원`:'확인 필요';
  const node=(tag,css,text)=>makeElement(tag,css,text);
+ function detail(openFocus=false){
+  const channel=value?.channels.find(row=>row.platform===selectedChannel),panel=select('settlement-detail'),open=Boolean(channel);
+  select('settlement-workspace').classList.toggle('has-detail',open);panel.inert=!open;panel.setAttribute('aria-hidden',String(!open));
+  document.querySelectorAll('[data-settlement-channel]').forEach(button=>{const active=open&&button.dataset.settlementChannel===selectedChannel;button.setAttribute('aria-expanded',String(active));button.closest('article').classList.toggle('is-selected',active);});
+  if(!value){select('settlement-detail-body').replaceChildren();select('settlement-detail-title').textContent='정산 상세';}
+  if(!channel)return;
+  select('settlement-detail-title').textContent=channel.label+' 정산';
+  const body=node('dl','settlement-values');
+  for(const [label,key] of [['매출','gross'],['환불','refunds'],['수수료','fees'],['물류비','logistics'],['광고비','advertising'],['예상 지급','expected'],['확인된 지급','actual'],['지급 대기','pending'],['지급 차이','variance']]){
+   const row=node('div','');row.append(node('dt','',label),node('dd','',money(channel[key])));body.append(row);
+  }
+  select('settlement-detail-body').replaceChildren(node('p','settlement-state',channel.stateLabel),node('p','settlement-basis',`최근 ${days}일 · ${channel.asOf?formatTime(channel.asOf):'자료 시각 확인 필요'}`),body,
+   node('h3','','계산 근거'),node('p','settlement-detail-note',channel.basis||'계산 근거 확인 필요'),
+   node('h3','','지급 확인 기준'),node('p','settlement-detail-note',channel.payoutBasis||'지급 확인 기준 확인 필요'),
+   node('p','settlement-detail-note','미확인 금액은 0원이 아닙니다. 지급 차이는 서버에서 대조한 값이며, 표시된 항목을 단순 합산한 금액과 다를 수 있습니다.'));
+  if(openFocus)select('settlement-detail-close').focus({preventScroll:true});
+ }
+ function closeDetail(){
+  const previous=selectedChannel;selectedChannel=null;detail();
+  if(previous)document.querySelector(`[data-settlement-channel="${previous}"]`)?.focus({preventScroll:true});
+ }
  function render(){
+  if(!value)selectedChannel=null;
   select('settlement-refresh').disabled=busy||displayMode!=='live';
   document.querySelectorAll('[data-settlement-days]').forEach(button=>{button.disabled=displayMode!=='live';button.setAttribute('aria-pressed',String(Number(button.dataset.settlementDays)===days));});
   select('settlement-page').setAttribute('aria-busy',String(busy));
@@ -18,9 +40,11 @@
   select('settlement-channels').replaceChildren(...(value?.channels||[]).map(channel=>{
    const card=node('article','settlement-channel'),header=node('header',''),body=node('dl','settlement-values');header.append(node('h3','',channel.label),node('span','settlement-state',channel.stateLabel));
    for(const [label,key] of [['매출','gross'],['예상 지급','expected'],['확인된 지급','actual'],['지급 대기','pending'],['수수료','fees'],['물류비','logistics'],['광고비','advertising']]){const row=node('div','');row.append(node('dt','',label),node('dd','',money(channel[key])));body.append(row);}
-   card.append(header,body,node('p','settlement-basis',channel.basis||'근거 자료 확인 필요'),node('p','settlement-basis settlement-asof',channel.asOf?`자료 시각 ${formatTime(channel.asOf)}`:'자료 시각 확인 필요'));return card;
+   const button=node('button','settlement-detail-trigger','근거·상세 보기');button.type='button';button.dataset.settlementChannel=channel.platform;button.setAttribute('aria-controls','settlement-detail');button.setAttribute('aria-expanded','false');button.setAttribute('aria-label',channel.label+' 정산 근거·상세 보기');button.addEventListener('click',()=>{selectedChannel=channel.platform;detail(true);});
+   card.append(header,body,node('p','settlement-basis',channel.basis||'근거 자료 확인 필요'),node('p','settlement-basis settlement-asof',channel.asOf?`자료 시각 ${formatTime(channel.asOf)}`:'자료 시각 확인 필요'),button);return card;
   }));
   const schedules=value?.schedules||[];select('settlement-schedules').replaceChildren(...(schedules.length?schedules.map(item=>{const row=node('div','settlement-schedule');row.append(node('span','',item.date||'날짜 확인 필요'),node('span','',value.channels.find(c=>c.platform===item.platform)?.label||item.platform),node('span','',item.status),node('strong','',money(item.amount)));return row;}):[node('p','',value?'조회된 지급 일정이 없습니다.':'연결 후 지급 일정을 확인합니다.')]));
+  detail();
  }
  function clear(){generation++;busy=false;lastAttempt=0;value=null;days=30;select('settlement-status').textContent='연결 후 정산 자료를 조회합니다.';render();}
  async function refresh(){
@@ -35,4 +59,6 @@
  window.moaonSettlement=Object.freeze({clear,ensure:()=>{render();if(displayMode!=='live'){select('settlement-status').textContent='실제 사업장 연결 후 조회할 수 있습니다.';return;}if(!lastAttempt||Date.now()-lastAttempt>=300000)void refresh();}});
  document.querySelectorAll('[data-settlement-days]').forEach(button=>button.addEventListener('click',()=>{const next=Number(button.dataset.settlementDays);if(displayMode!=='live'||next===days||![7,30,90].includes(next))return;days=next;busy=false;void refresh();}));
  select('settlement-refresh').addEventListener('click',refresh);clear();
+ select('settlement-detail-close').addEventListener('click',closeDetail);
+ select('settlement-page').addEventListener('keydown',event=>{if(event.key==='Escape'&&selectedChannel){event.preventDefault();event.stopPropagation();closeDetail();}});
 })();
