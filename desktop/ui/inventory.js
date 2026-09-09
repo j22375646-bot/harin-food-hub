@@ -19,6 +19,7 @@
  }
  function close(){const id=selected;selected=null;render();Array.from($('inventory-list').querySelectorAll('button')).find(b=>b.dataset.id===id)?.focus();}
  function render(){
+  document.querySelector('.inventory-page').setAttribute('aria-busy',String(busy));
   $('inventory-refresh').disabled=busy||displayMode!=='live';
   $('inventory-reset').disabled=busy||($('inventory-platform').value==='ALL'&&$('inventory-state').value==='ALL'&&$('inventory-sort').value==='SOURCE'&&!$('inventory-search').value);
   const query=$('inventory-search').value.trim().toLowerCase();
@@ -40,7 +41,7 @@
   $('inventory-count').textContent=busy?'상품 수량 조회 중':value?`조회 상품 ${value.items.length}개 · 현재 조건 ${rows.length}개`:'상품 수량 확인 필요';
   $('inventory-list').replaceChildren(...(visible.length?visible.map(r=>{
    const b=node('button','');b.type='button';b.className='inventory-row';b.dataset.id=r.id;b.setAttribute('aria-expanded',String(selected===r.id));b.setAttribute('aria-controls','inventory-detail');
-   const stocks=node('div','');stocks.className='inventory-stock';for(const c of r.channels.filter(match)){const cell=node('span','');cell.append(node('strong',channelName(c)),node('small',description(c)));stocks.append(cell);}
+   const stocks=node('div','');stocks.className='inventory-stock';for(const c of r.channels.filter(match)){const cell=node('span','');cell.dataset.attention=String(needsCheck(c));cell.dataset.quantityKnown=String(!c.mapping&&c.quantity!==null);const amount=node('b',c.mapping?'연결 '+c.mapping.count+'건':c.quantity!==null?c.quantity.toLocaleString('ko-KR')+'개':c.unmanaged?'제한 없음':'확인 필요');amount.className='inventory-quantity';const context=c.mapping?'검토 필요':c.quantity!==null?description(c).replace(c.quantity.toLocaleString('ko-KR')+'개 · ',''):description(c);cell.append(node('strong',channelName(c)),amount,node('small',context));stocks.append(cell);}
    b.append(node('strong',r.name),stocks);b.onclick=()=>{selected=r.id;render();$('inventory-detail').querySelector('button').focus({preventScroll:true});$('inventory-detail').scrollIntoView({block:'start'});};return b;
   }):[emptyState()]));
 
