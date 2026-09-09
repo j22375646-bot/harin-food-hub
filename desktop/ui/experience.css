@@ -23,3 +23,32 @@
 @media(max-width:1000px){[data-page="today"][data-live="true"].is-visible{grid-template-columns:1fr}[data-page="today"] .today-overview{grid-column:1}}
 @media(max-width:700px){#overview-cards button{grid-template-columns:1fr auto;gap:8px 12px;padding:14px}#overview-cards button>strong{grid-column:2}#overview-cards button>small:nth-of-type(1){grid-column:1;grid-row:3}#overview-cards button>small:nth-of-type(2){grid-column:2;grid-row:3}.overview-bar{grid-column:1/-1;grid-row:2;height:10px}}
 @media(prefers-reduced-motion:reduce){.page.is-visible{animation:none}#today-overview[aria-busy="true"] .overview-track,#finance-panel[aria-busy="true"] .finance-card{animation:none}.primary-nav .nav-button,#overview-cards button{transition:none}}
+
+/* Orders: readable controls and a clear separation of query scopes. */
+.orders-page .order-scope-actions{padding:5px;gap:4px;min-height:52px;border-radius:12px;overflow-x:auto}
+.orders-page .order-scope-actions button{min-height:42px;height:auto;padding:9px 14px;font-size:14px;border-radius:8px;flex:1}
+.orders-page .global-order-search{padding:12px 14px;margin-bottom:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.orders-page .global-order-search>button{min-height:42px;font-size:14px}
+.orders-page #order-global-applied{font-size:14px;line-height:1.6}
+.orders-page .order-tools{padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);gap:10px;flex-wrap:wrap;align-items:center}
+.orders-page .order-tools label,.orders-page .order-tools input,.orders-page .order-tools select,.orders-page .order-tools button,.orders-page .order-more-filters>summary{font-size:14px}
+.orders-page .order-tools .search-field{min-height:44px;height:44px;flex:1 1 220px;background:var(--surface-soft);border-radius:10px}
+.orders-page .order-tools select,.orders-page .order-tools button{height:44px;min-height:44px;padding:8px 12px;border-radius:10px}
+.orders-page .order-more-filters>summary{min-height:44px;display:flex;align-items:center;padding:8px 12px;box-sizing:border-box;border-radius:10px}
+.orders-page .order-more-filters[open]{width:350px;padding:16px;box-shadow:var(--shadow)}
+.orders-page .order-more-filters[data-applied="true"]>summary{background:var(--blue-soft);border-color:var(--blue);color:var(--ink)}
+.orders-page .order-more-content{gap:14px}.orders-page .order-server-filters legend,.orders-page .current-page-filter-label,.orders-page .review-overview p{font-size:14px}
+.orders-page .order-server-filters small{display:block;font-size:14px;line-height:1.6}
+.orders-page .order-freshness,.orders-page .list-state{font-size:14px;line-height:1.5}
+.orders-page .order-freshness{padding:8px 12px;flex-wrap:wrap}
+.orders-page .order-table-heading{font-size:14px;padding-block:12px}
+.orders-page .order-primary strong{font-size:15px;line-height:1.45}.orders-page .order-primary>span:not(.gift-badge),.orders-page .product-option{font-size:14px;line-height:1.5}
+.orders-page .order-amount,.orders-page .order-amount strong,.orders-page .channel-badge,.orders-page .order-state{font-size:14px}
+.orders-page .orders-layout{--order-grid-columns:44px minmax(0,1fr) 76px 96px 90px}
+.orders-page .detail-header{position:sticky;top:0;z-index:2;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--line)}
+.orders-page .detail-header h2{font-size:16px;font-weight:600;color:var(--ink)}.orders-page .detail-header button{width:42px;height:42px;min-height:42px;border:1px solid var(--line);border-radius:10px}
+.orders-page .detail-panel .detail-facts,.orders-page .detail-panel .detail-notice,.orders-page .detail-panel .preflight-summary,.orders-page .detail-panel .delivery-information h3{font-size:14px;line-height:1.65}
+.orders-page .detail-panel .review-actions button{min-height:44px;font-size:14px}
+.orders-page .orders-pagination button{min-height:42px;font-size:14px}
+@media(max-width:900px){.orders-page .order-tools .search-field{flex-basis:100%}.orders-page .order-tools>label:not(.search-field){flex:1}.orders-page .order-scope-actions button{flex:0 0 auto}}
+.orders-page .order-tools .search-field input{font-size:14px}

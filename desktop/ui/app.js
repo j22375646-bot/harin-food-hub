@@ -774,6 +774,7 @@ function renderOrders() {
   });
   renderReviewFilters(searchedOrders);
   const serverFilterLabels=[serverFilters.delayOnly?'배송 지연만':'',serverFilters.giftOnly?'사은품 동봉만':''].filter(Boolean);
+  document.querySelector('.order-more-filters').dataset.applied=String(Boolean(serverFilterLabels.length||reviewFilter !== 'ALL'||orderSort.value !== 'DEFAULT'));
   document.querySelector('.order-more-filters summary').textContent = serverFilterLabels.length||reviewFilter !== 'ALL'||orderSort.value !== 'DEFAULT' ? '추가 필터 · 적용 중' : '추가 필터';
   const visibleOrders = displayMode === 'live' && reviewFilter !== 'ALL'
     ? searchedOrders.filter(order => reviewStatus(order) === reviewFilter) : searchedOrders;
