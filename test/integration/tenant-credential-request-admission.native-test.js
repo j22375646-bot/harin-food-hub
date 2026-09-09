@@ -147,3 +147,19 @@ test('USER admission uses wall clock after waiting for the locked quota row',asy
   assert.equal(observed,true);await new Promise(r=>setTimeout(r,1100));await blocker.query('commit');assert.equal(await pending,true);
  }finally{await blocker.query('rollback');blocker.release();if(pending)await pending;}
 });
+
+test('server runtime Request composes restricted DB quotas, read-only identity and encrypted fenced store',async()=>{
+ const {createCredentialSaveRuntime}=require('../../lib/tenancy/credential-save-runtime.js');
+ const old=[process.env.VERCEL,process.env.VERCEL_ENV];process.env.VERCEL='1';process.env.VERCEL_ENV='production';
+ const origin='https://hub.example';let validations=0;
+ const identityClient={from(){return {select(){return this;},eq(){return this;},async maybeSingle(){return {data:{user_id:userId,email:'synthetic@example.test',active:true},error:null};}};},auth:{admin:{async getUserById(){return {data:{user:{id:userId,email:'synthetic@example.test',is_anonymous:false}},error:null};}}}};
+ const runtime=createCredentialSaveRuntime({env:{MOAON_CREDENTIAL_SAVE_ENABLED:'1',MOAON_CREDENTIAL_SAVE_ORIGIN:origin,MOAON_CREDENTIAL_SAVE_INGRESS:'vercel-direct',MOAON_CREDENTIAL_KEYRING:JSON.stringify({test:Buffer.alloc(32,7).toString('base64')}),MOAON_CREDENTIAL_ACTIVE_KEY_ID:'test',MOAON_CREDENTIAL_ADMISSION_HMAC_KEY:'synthetic'.repeat(8)},createControlDatabase:()=>({transaction:database.transaction,close:async()=>{}}),createIdentityClient:()=>identityClient,validateSession:async(value,options)=>{assert.equal(value,credential);assert.equal(options.touch,false);assert.ok(options.signal);assert.ok(Number.isFinite(options.deadline));validations++;return {id:sessionId,userId,expiresAt:'2099-01-01T00:00:00Z'};}});
+ try{
+  await reset();const before=(await admin.query('select revision from moaon_control.provider_credentials where tenant_id=$1 and provider=$2',[tenantId,'NAVER'])).rows[0]?.revision||0;
+  const req=revision=>new Request(origin+'/api/moaon/credentials',{method:'POST',headers:{origin,'content-type':'application/json',cookie:'harin_dashboard_session='+credential,'x-vercel-forwarded-for':'127.0.0.1','x-forwarded-for':'127.0.0.1'},body:JSON.stringify({...input,expectedRevision:revision})});
+  const response=await runtime.handle(req(before));assert.equal(response.status,200);assert.deepEqual(await response.json(),{ok:true,tenantId,provider:'NAVER',revision:before+1,status:'SAVED_UNVERIFIED'});assert.equal(validations,6);
+  assert.equal((await runtime.handle(req(before))).status,409);
+  const row=(await admin.query('select envelope from moaon_control.provider_credentials where tenant_id=$1 and provider=$2',[tenantId,'NAVER'])).rows[0];assert.doesNotMatch(JSON.stringify(row),/synthetic-secret-only/);assert.deepEqual(cipher.open({tenantId,provider:'NAVER',revision:before+1},row.envelope),input.fields);
+  assert.deepEqual((await admin.query('select scope,used from moaon_control.credential_request_limits order by scope')).rows,[{scope:'GLOBAL',used:2},{scope:'IP',used:2},{scope:'USER',used:2}]);
+ }finally{await runtime.close();for(const [i,key] of ['VERCEL','VERCEL_ENV'].entries())if(old[i]===undefined)delete process.env[key];else process.env[key]=old[i];}
+});

@@ -3,6 +3,12 @@ let createCredentialSaveRequest;try{({createCredentialSaveRequest}=require('../l
 const origin='https://hub.example',tenantId='11111111-1111-4111-8111-111111111111';
 const input={tenantId,provider:'NAVER',expectedRevision:0,fields:{clientId:'test',clientSecret:'secret-test'}};
 const request=(body=input,headers={})=>new Request(origin+'/api/moaon/credentials',{method:'POST',headers:{origin,'content-type':'application/json',cookie:'harin_dashboard_session=test.signature',...headers},body:typeof body==='string'?body:JSON.stringify(body)});
+test('parent expired deadline prevents admission and parent options reach save',async()=>{
+ let admitted=0,saved=0;const {performance}=require('node:perf_hooks');const controller=new AbortController();
+ const handle=createCredentialSaveRequest({origin,admit:async()=>{admitted++;return {allowed:true};},save:async(cookie,value,options)=>{saved++;assert.equal(options.signal,controller.signal);assert.ok(options.deadline<=limit);return {tenantId,provider:'NAVER',revision:1,status:'SAVED_UNVERIFIED'};}});
+ assert.equal((await handle(request(),{deadline:performance.now()-1})).status,503);assert.equal(admitted,0);
+ const limit=performance.now()+2000;assert.equal((await handle(request(),{signal:controller.signal,deadline:limit})).status,200);assert.equal(saved,1);
+});
 test('simultaneous requests are bounded and the slot is released after completion',async()=>{
  let release,entered;const started=new Promise(r=>entered=r);
  const handle=createCredentialSaveRequest({admit:async()=>({allowed:true}),origin,maxConcurrent:1,save:async()=>{entered();await new Promise(r=>release=r);return {tenantId,provider:'NAVER',revision:1,status:'SAVED_UNVERIFIED'};}});

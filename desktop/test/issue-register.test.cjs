@@ -41,20 +41,29 @@ test('one native approval prepares, journals issue, rereads invoice and register
   await env.connection.disconnect();
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });
-test('tracking enqueue is exact, bounded and cannot erase verified registration',async()=>{
+// Advance only the workflow deadline once the mocked remote stage is reached.
+// Real durable journal I/O remains real; disk speed cannot select the wrong stage.
+function workflowDeadline(t, milliseconds) {
+ const original=globalThis.setTimeout;let expire;
+ t.mock.method(globalThis,'setTimeout',(callback,delay,...args)=>{
+  if(delay!==milliseconds)return original(callback,delay,...args);
+  expire=()=>callback(...args);return {unref(){return this;}};
+ });
+ return ()=>{assert.equal(typeof expire,'function');expire();};
+}
+test('tracking enqueue is exact, bounded and cannot erase verified registration',async(t)=>{
+ const expire=workflowDeadline(t,1001);
  for(const mode of ['success','failure','timeout','logout']){
   const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-auto-test-'));
   try{
-   // This deadline covers prepare, durable journal I/O, registration and the
-   // final tracking enqueue. Keep the timeout case bounded without making a
-   // successful full workflow depend on sub-150 ms host scheduling.
-   const env=host(directory,{automaticTimeoutMs:1000}),original=env.remote.fetch;let trackingCalls=0;
+   // Trigger expiry at tracking, after real journal writes and registration.
+   const env=host(directory,{automaticTimeoutMs:1001}),original=env.remote.fetch;let trackingCalls=0;
    env.remote.fetch=async(url,options)=>{
     if(!url.endsWith('/api/shipping/tracking'))return original(url,options);
     trackingCalls++;assert.equal(options.method,'POST');assert.deepEqual(JSON.parse(options.body),{orderIds:[id],mode:'automatic'});
     let decision;env.remote.guard({url,method:'POST',webContentsId:0},value=>{decision=value;});assert.equal(decision.cancel,false);
     if(mode==='failure')throw Error('Tracking failed');
-    if(mode==='timeout')return new Promise(()=>{});
+    if(mode==='timeout'){queueMicrotask(expire);return new Promise(()=>{});}
     if(mode==='logout'){await env.connection.disconnect();return new Promise(()=>{});}
     return Response.json({ok:true,queued:[{trackingNo:'1234567890123',hubOrderIds:[id],status:'PENDING'}]},{status:202});
    };
@@ -168,11 +177,12 @@ test('missing prepare row never counts as success or proceeds to issue',async()=
   await env.connection.refresh();assert.deepEqual((await env.connection.issueAndRegister([id])).results,[{hubOrderId:id,phase:'PREPARE',status:'CHECK_REQUIRED'}]);assert.equal(posts,1);await env.connection.disconnect();
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });
-test('automatic deadline settles an abort-ignoring POST without retry',async()=>{
+test('automatic deadline settles an abort-ignoring POST without retry',async(t)=>{
+ const expire=workflowDeadline(t,61);
  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-auto-test-'));
  try{
-  const env=host(directory,{automaticTimeoutMs:60}),original=env.remote.fetch;let posts=0;
-  env.remote.fetch=async(url,options)=>{if(options.method==='POST'){posts++;return new Promise(()=>{});}return original(url,options);};
+  const env=host(directory,{automaticTimeoutMs:61}),original=env.remote.fetch;let posts=0;
+  env.remote.fetch=async(url,options)=>{if(options.method==='POST'){posts++;queueMicrotask(expire);return new Promise(()=>{});}return original(url,options);};
   await env.connection.refresh();const result=await env.connection.issueAndRegister([id]);
   assert.equal(result.status,'PARTIAL');assert.equal(result.results[0].status,'CHECK_REQUIRED');assert.equal(posts,1);await env.connection.disconnect();
  }finally{await fs.rm(directory,{recursive:true,force:true});}

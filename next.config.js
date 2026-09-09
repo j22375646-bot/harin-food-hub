@@ -31,6 +31,15 @@ const securityHeaders = [
 ];
 
 module.exports = {
+  webpack(config) {
+    if (process.platform !== 'win32') return config;
+    const {normalizeWindowsWebpackEntries}=require('./lib/build/windows-webpack-entries.js');
+    const original=config.entry;
+    config.entry=typeof original==='function'
+      ? async function(...args){return normalizeWindowsWebpackEntries(await original.apply(this,args));}
+      : normalizeWindowsWebpackEntries(original);
+    return config;
+  },
   poweredByHeader:false,
   allowedDevOrigins:['127.0.0.1'],
   distDir:process.env.NEXT_DIST_DIR || '.next',
