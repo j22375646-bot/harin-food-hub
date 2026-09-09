@@ -10,6 +10,12 @@ async function context(tenantId=A,role='OWNER',identity={}){
  return resolveTenantContext({session:{id:identity.sessionId||'session',userId,expiresAt:'2099-01-01'},requestedTenantId:tenantId},{now:()=>new Date(),findMembership:async()=>({userId,tenantId,role,status:'ACTIVE',version:identity.membershipVersion||1})});
 }
 const create=()=>require('../lib/tenancy/workspace-finance-request.js').createWorkspaceFinanceRequest;
+test('finance default server budget leaves time for both authorization passes',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']});let done=false;
+ const pending=create()({resolveContext:()=>new Promise(()=>{}),readFinance:async()=>({})})(request()).then(response=>{done=true;return response;});
+ t.mock.timers.tick(15000);await new Promise(setImmediate);assert.equal(done,false);
+ t.mock.timers.tick(10000);assert.equal((await pending).status,504);
+});
 
 test('authorization blocks every finance loader read for another tenant or role',async()=>{
  let loads=0;

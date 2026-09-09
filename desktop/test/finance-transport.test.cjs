@@ -39,3 +39,9 @@ test('finance timeout, cancellation and oversized responses expose no values',as
  assert.deepEqual(await createFinanceTransport({fetch:async()=>Response.json(payload)})({signal:controller.signal}),{status:'CANCELLED',...empty});
  assert.deepEqual(await createFinanceTransport({fetch:async()=>new Response('x'.repeat(262145))})(),{status:'UNAVAILABLE',...empty});
 });
+test('finance default client budget is 30 seconds, beyond server authorization and read budget',async t=>{
+ t.mock.timers.enable({apis:['setTimeout']});let done=false;
+ const pending=require('../finance-transport.cjs').createFinanceTransport({fetch:()=>new Promise(()=>{})})().then(result=>{done=true;return result;});
+ t.mock.timers.tick(25000);await new Promise(setImmediate);assert.equal(done,false);
+ t.mock.timers.tick(5000);assert.equal((await pending).status,'TIMEOUT');
+});
