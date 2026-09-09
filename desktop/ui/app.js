@@ -69,11 +69,19 @@ let freshnessReloadBusy = false;
 let selectedScope = 'ACTIVE';
 let scopeControlsAvailable = false;
 let businessGeneration=0,businessLoaded=false,businessBusy=false;
-let overviewValues={},overviewGeneration=0,overviewBusy=false;
-function clearOverview(){overviewGeneration++;overviewValues={};overviewBusy=false;renderOverview();}
+let overviewValues={},overviewGeneration=0,overviewBusy=false,overviewLastAttempt=0;
+function clearOverview(){overviewGeneration++;overviewValues={};overviewBusy=false;overviewLastAttempt=0;renderOverview();}
+function ensureTodayOverview(){
+ if(displayMode!=='live'||overviewBusy||!document.querySelector('[data-page="today"]').classList.contains('is-visible'))return;
+ if(overviewLastAttempt&&Date.now()-overviewLastAttempt<60000)return;
+ void refreshOverview();
+}
 function renderOverview(){
  const section=document.querySelector('#today-overview');section.hidden=displayMode!=='live';
  document.querySelector('#overview-refresh').disabled=overviewBusy||displayMode!=='live';
+ const values=Object.values(overviewValues),active=overviewValues.ACTIVE;
+ const complete=values.length===4&&values.every(value=>value?.status==='READY'&&Number.isSafeInteger(value.total)&&value.total>=0);
+ document.querySelector('#overview-priority').textContent=overviewBusy?'업무 현황을 불러오는 중입니다.':!complete?'일부 상태는 확인이 필요합니다. 누락된 수치는 0건으로 계산하지 않습니다.':active.total>0?`송장 발급 전 ${active.total.toLocaleString('ko-KR')}건을 먼저 살펴보세요. 자동 발급 가능 여부는 주문별로 확인합니다.`:'현재 수집된 송장 발급 전 주문은 없습니다. 배송중·완료 현황을 확인하세요.';
  document.querySelector('#overview-cards').replaceChildren(...Object.entries(scopeDetails).map(([scope,detail])=>{
   const value=overviewValues[scope],button=makeElement('button');button.type='button';button.dataset.scope=scope;
   button.dataset.state=value?.status||'UNKNOWN';button.disabled=displayMode!=='live';
@@ -86,7 +94,7 @@ function renderOverview(){
 }
 async function refreshOverview(){
  if(overviewBusy||displayMode!=='live')return;
- const expected=++overviewGeneration;overviewBusy=true;overviewValues={};renderOverview();
+ const expected=++overviewGeneration;overviewBusy=true;overviewLastAttempt=Date.now();overviewValues={};renderOverview();
  const status=document.querySelector('#overview-status');status.textContent='저장 주문의 네 가지 상태를 확인하고 있습니다…';
  try{
   const result=await window.moaonHub.readOverview();
@@ -184,6 +192,7 @@ function showRoute(route, options = {}) {
   }
   if (options.focusHeading) selectedPage.querySelector('h1')?.focus();
   if(route==='orders')void checkVisibleOrderFreshness();
+  if(route==='today')ensureTodayOverview();
 }
 
 const freshnessRow=document.querySelector('#order-freshness');
@@ -824,8 +833,8 @@ function updateConnectionChrome(message) {
   statusElements.globalBadge.textContent = live ? '조회' : sample ? '시험' : '확인';
   statusElements.nav.textContent = live ? `${scope.label} ${pageStart.toLocaleString('ko-KR')}–${pageEnd.toLocaleString('ko-KR')}` : sample ? '샘플 주문 3건' : '실제 주문 표시 안 함';
   statusElements.todayContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? 'Windows 시제품 · 샘플 모드' : '하린식품 · 연결 상태 확인 필요';
-  statusElements.todayTitleMode.textContent = live ? '하린식품 주문을' : sample ? '지금 가능한 일' : '실제 주문을 비우고';
-  statusElements.todayTitleTail.textContent = live ? ' 확인하고 출고를 준비합니다' : sample ? '부터 확인하세요' : ' 연결 상태를 확인합니다';
+  statusElements.todayTitleMode.textContent = live ? '오늘의 운영 현황' : sample ? '지금 가능한 일' : '실제 주문을 비우고';
+  statusElements.todayTitleTail.textContent = live ? '' : sample ? '부터 확인하세요' : ' 연결 상태를 확인합니다';
   statusElements.todayDescription.textContent = live ? '저장된 주문 상태를 확인하고 필요한 업무로 이동하세요. 플랫폼 자동 수집 성공이나 오늘의 매출을 뜻하지 않습니다.' : sample ? '실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.' : message;
   statusElements.ordersContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? '주문·배송 · 샘플 3건' : '하린식품 · 연결 상태 확인 필요';
   statusElements.ordersTitleMode.textContent = '주문 작업실';
@@ -948,7 +957,7 @@ async function runHubAction(action) {
       if (generation !== actionGeneration) return;
       if (result.status === 'LOGIN_REQUIRED') result = await bridge.connect();
     } else result = await bridge[action]();
-    if (generation === actionGeneration) applyHubResult(result);
+    if (generation === actionGeneration) {applyHubResult(result);ensureTodayOverview();}
   } catch {
     if (generation === actionGeneration) {
       clearDisplayedOrders('error', '하린식품 연결 요청을 완료하지 못했습니다.');
