@@ -13,6 +13,8 @@
    const date=month+'-'+String(d).padStart(2,'0'),button=node('button','month-day'),rows=(value?.entries||[]).filter(row=>row.date<=date&&row.endDate>=date);
    button.type='button';button.dataset.calendarDay=date;button.setAttribute('aria-pressed',String(date===selected));button.setAttribute('aria-label',date+(value?` 일정 ${rows.length}개`:' 조회 전'));
    button.append(node('strong','',String(d)),node('small','',value?(rows.length?`${rows.length}개 일정`:''):'—'));
+   const holidays=(value?.holidays||[]).filter(row=>row.date===date);
+   if(holidays.length)button.append(node('small','month-holiday',holidays.map(row=>row.name).join(' · ')));
    if(date===today())button.classList.add('is-today');
    button.addEventListener('click',()=>{selected=date;el('month-detail').replaceChildren();render();Array.from(document.querySelectorAll('[data-calendar-day]')).find(b=>b.dataset.calendarDay===date)?.focus();});
    cells.push(button);
@@ -21,7 +23,7 @@
   const rows=(value?.entries||[]).filter(row=>row.date<=selected&&row.endDate>=selected).sort((a,b)=>a.time.localeCompare(b.time));
   el('month-entries').replaceChildren(...(rows.length?rows.map(row=>{
    const button=node('button','month-entry');button.type='button';button.append(node('span','',row.time||'종일'),node('strong','',row.title),node('small','',row.status==='DONE'?'완료':'진행 중'));
-   button.addEventListener('click',()=>{el('month-detail').replaceChildren(node('h3','',row.title),node('p','',row.date+' — '+row.endDate),node('p','',(row.time||'종일')+' · '+({SCHEDULE:'일정',MEMO:'메모',EVENT:'행사'})[row.type]),node('p','',row.status==='DONE'?'완료된 일정':'진행 중인 일정'),node('p','','일정 본문·편집과 공휴일 표시는 다음 단계에서 연결합니다.'));});return button;
+button.addEventListener('click',()=>{el('month-detail').replaceChildren(node('h3','',row.title),node('p','',row.date+' — '+row.endDate),node('p','',(row.time||'종일')+' · '+({SCHEDULE:'일정',MEMO:'메모',EVENT:'행사'})[row.type]),node('p','',row.status==='DONE'?'완료된 일정':'진행 중인 일정'),node('p','month-body',row.body||'등록된 본문이 없습니다.'),node('p','','조회 전용 · 일정 편집은 아직 지원하지 않습니다.'));});return button;
   }):[node('p','',value?'선택한 날짜에 조회된 일정이 없습니다.':'일정을 조회한 뒤 확인할 수 있습니다.')]));
  }
  function clear(){generation++;value=null;busy=false;lastAttempt=0;month=today().slice(0,7);selected=today();el('month-detail').replaceChildren();el('month-status').textContent='실제 사업장 연결 후 조회합니다.';render();}
@@ -30,7 +32,7 @@
   try{const result=await window.moaonHub.readCalendarMonth(requested);if(token!==generation)return;
    if(['LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status)){applyHubResult(result);return;}
    if(result?.status!=='READY'||result.month!==requested){el('month-status').textContent='일정 조회 실패 · 새로 조회해 주세요. 조회 한도에 도달한 경우도 표시하지 않습니다.';return;}
-   value=result;el('month-status').textContent=`${result.entries.length}개 일정 · 읽기 전용 · 공휴일 미포함`;
+   value=result;el('month-status').textContent=`${result.entries.length}개 일정 · 읽기 전용 · ${result.holidayReady?'공휴일 자료 확인':'공휴일 자료 확인 필요'} · 일정 전량 조회 여부 확인 필요`;
   }catch{if(token===generation)el('month-status').textContent='일정 조회 실패 · 새로 조회해 주세요.';}
   finally{if(token===generation){busy=false;render();}}
  }

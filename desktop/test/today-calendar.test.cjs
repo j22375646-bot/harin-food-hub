@@ -1,5 +1,15 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
+test('monthly projection exposes bounded body and distinguishes missing holiday data',()=>{
+ const {projectMonth}=require('../today-calendar.cjs');
+ const p={ok:true,range:{from:'2026-09-01',to:'2026-09-30'},entries:[{id:'a',title:'일정',type:'MEMO',status:'OPEN',date:'2026-09-02',time:'',body:'첫 줄\n<img src=x>'}],holidays:[{date:'2026-09-03',name:'시험 휴일',private:'SECRET'}],holidayReady:true};
+ const result=projectMonth(p,'2026-09');
+ assert.equal(result.entries[0].body,'첫 줄\n<img src=x>');assert.equal(result.holidayReady,true);
+ assert.deepEqual(result.holidays,[{date:'2026-09-03',name:'시험 휴일'}]);
+ assert.equal(projectMonth({...p,holidayReady:false},'2026-09').holidayReady,false);
+ assert.equal(projectMonth({...p,holidays:[{date:'bad',name:'시험'}]},'2026-09').holidayReady,false);
+ assert.equal(projectMonth({...p,entries:[{...p.entries[0],body:{private:true}}]},'2026-09').status,'UNAVAILABLE');
+});
 test('month range covers leap year and rejects arbitrary ranges',()=>{
  const {monthRange,projectMonth}=require('../today-calendar.cjs');
  assert.deepEqual(monthRange('2024-02'),{from:'2024-02-01',to:'2024-02-29'});

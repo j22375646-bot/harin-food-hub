@@ -10,7 +10,16 @@ function monthRange(month){
 }
 function projectMonth(payload,month){
  const range=monthRange(month);if(!range)return {status:'UNAVAILABLE',month,entries:[]};
- const result=projectCalendar(payload,range.from,range.to);return {status:result.status,month,...range,entries:result.entries};
+ const result=projectCalendar(payload,range.from,range.to),empty={status:'UNAVAILABLE',month,...range,entries:[],holidays:[],holidayReady:false};
+ if(result.status!=='READY')return empty;
+ const bodies=new Map();
+ for(const row of payload.entries){
+  if(row.body!=null&&(typeof row.body!=='string'||row.body.length>4000))return empty;
+  bodies.set(row.id,row.body??'');
+ }
+ const validHolidays=Array.isArray(payload.holidays)&&payload.holidays.length<=100&&payload.holidays.every(row=>row&&validDate(row.date)&&typeof row.name==='string'&&row.name.trim()&&row.name.length<=80);
+ const holidays=validHolidays?payload.holidays.filter(row=>row.date>=range.from&&row.date<=range.to).map(row=>({date:row.date,name:row.name})):[];
+ return {status:'READY',month,...range,entries:result.entries.map(row=>({...row,body:bodies.get(row.id)})),holidays,holidayReady:validHolidays&&payload.holidayReady===true};
 }
 function projectCalendar(payload,date,to=date){
  const empty={status:'UNAVAILABLE',date,entries:[]};

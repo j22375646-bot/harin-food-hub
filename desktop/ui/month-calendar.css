@@ -11,3 +11,5 @@
 .month-page .month-entry{width:100%;display:grid;grid-template-columns:50px minmax(0,1fr);text-align:left;gap:7px;margin:8px 0;background:var(--surface-soft)}
 .month-entry strong,#month-detail h3{overflow-wrap:anywhere}.month-entry small{grid-column:2;color:var(--muted)}#month-detail{margin-top:20px}#month-detail p{overflow-wrap:anywhere}
 @media(prefers-reduced-motion:reduce){.month-page *{transition:none!important}}
+.month-page .month-holiday{color:var(--ink);font-weight:600;overflow-wrap:anywhere;white-space:normal}
+.month-body{white-space:pre-wrap}
