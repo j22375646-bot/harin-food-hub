@@ -3,7 +3,7 @@
   CAFE24:[['mallId','쇼핑몰 ID'],['clientId','Client ID'],['clientSecret','Client Secret']],
   NAVER:[['clientId','커머스 API Client ID'],['clientSecret','Client Secret']],
   COUPANG:[['vendorId','판매자 ID'],['accessKey','Access Key'],['secretKey','Secret Key']],
-  EPOST:[['customerId','계약 고객번호'],['apiKey','API 인증키']]
+  EPOST:[['customerId','계약 고객번호'],['approvalNo','계약 승인번호'],['officeSerial','접수국 일련번호'],['apiKey','API 인증키'],['securityKey','SEED 보안키 · UTF-8 16바이트'],['trackingApiKey','배송추적 인증키 · 선택']]
  };
  let busy=false,generation=0;
  const clear=()=>{$('api-fields').querySelectorAll('input').forEach(input=>input.value='');};
@@ -20,12 +20,15 @@
  }
  function renderFields(){
   clear();$('api-fields').replaceChildren(...fields[$('api-provider').value].map(([name,label])=>{
-   const wrapper=text('label',label),input=document.createElement('input');input.name=name;input.type=/secret|key/i.test(name)?'password':'text';input.required=true;input.maxLength=2048;input.autocomplete='off';input.spellcheck=false;wrapper.append(input);return wrapper;
+   const wrapper=text('label',label),input=document.createElement('input');input.name=name;input.type=/secret|key/i.test(name)?'password':'text';input.required=name!=='trackingApiKey';input.maxLength=2048;input.autocomplete='off';input.spellcheck=false;
+   if(name==='securityKey')input.addEventListener('input',()=>input.setCustomValidity(input.value&&new TextEncoder().encode(input.value).length!==16?'SEED 보안키는 UTF-8 기준 정확히 16바이트여야 합니다.':''));
+   wrapper.append(input);return wrapper;
   }));
+  $('api-provider-note').textContent=$('api-provider').value==='EPOST'?'계약소포 발급에는 계약 정보와 SEED 보안키가 필요합니다. 배송추적 키는 별도이며, 비우면 추적 설정은 미완료입니다. 실제 인증은 허용된 고정 IP 서버에서 확인해야 합니다.':$('api-provider').value==='CAFE24'?'Cafe24는 키 입력 외에 OAuth 승인이 필요합니다.':'키 저장 후 플랫폼 인증과 사업장 연결 검증이 필요합니다.';
  }
  function renderList(rows){
   $('api-draft-list').replaceChildren(...(rows.length?rows.map(row=>{
-   const item=document.createElement('li');item.append(text('strong',row.business+' · '+row.provider),text('small',(row.tenantId?'사업장 지정':'임시 설정')+' · 이 PC에 저장됨 · 연결 검증 전'));
+   const item=document.createElement('li');item.append(text('strong',row.business+' · '+row.provider),text('small',(row.tenantId?'사업장 지정':'임시 설정')+(row.status==='CONFIGURATION_REQUIRED'?' · 계약 정보 보완 필요 · 같은 사업장으로 다시 입력하세요':' · 이 PC에 저장됨 · 연결 검증 전')));
    const remove=text('button','저장한 키 삭제');remove.type='button';remove.addEventListener('click',async()=>{
     if(busy||!window.confirm(`${row.business}의 ${row.provider} 저장 키를 이 PC에서 삭제할까요? 실제 서버 연결은 변경되지 않습니다.`))return;
     busy=true;remove.disabled=true;const token=generation;try{const rows=await window.moaonHub.removeApiDraft({business:row.business,provider:row.provider,...(row.tenantId?{tenantId:row.tenantId}:{})});if(token===generation)renderList(rows);}catch{if(token===generation)$('api-draft-status').textContent='삭제하지 못했습니다. 다시 시도하세요.';}finally{busy=false;remove.disabled=false;}

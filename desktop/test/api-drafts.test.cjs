@@ -9,6 +9,29 @@ const key=crypto.randomBytes(32);
 const safeStorage={isEncryptionAvailable:()=>true,encryptString(text){const iv=crypto.randomBytes(12),cipher=crypto.createCipheriv('aes-256-gcm',key,iv);return Buffer.concat([iv,cipher.update(text,'utf8'),cipher.final(),cipher.getAuthTag()]);},decryptString(data){const decipher=crypto.createDecipheriv('aes-256-gcm',key,data.subarray(0,12));decipher.setAuthTag(data.subarray(-16));return Buffer.concat([decipher.update(data.subarray(12,-16)),decipher.final()]).toString('utf8');}};
 const draft=(business='시험 사업장')=>({business,provider:'NAVER',fields:{clientId:'test-id',clientSecret:'unique-secret-value'}});
 const tenantId='11111111-1111-4111-8111-111111111111';
+const epost=()=>({business:'우체국 시험',provider:'EPOST',fields:{customerId:'customer',apiKey:'test-api',securityKey:'1234567890abcdef',approvalNo:'approval',officeSerial:'office',trackingApiKey:''}});
+test('ePost saves complete contract data without exposing secrets and allows tracking to remain unset',async t=>{
+ const {store,directory}=await fixture(t);const result=await store.save(epost());assert.equal(result.status,'SAVED_UNVERIFIED');
+ assert.doesNotMatch(JSON.stringify(await store.list()),/1234567890abcdef|test-api/);
+ const [file]=await fs.readdir(directory);assert.equal((await fs.readFile(path.join(directory,file))).includes(Buffer.from('1234567890abcdef')),false);
+ await store.save({...epost(),fields:{...epost().fields,trackingApiKey:'tracking-test'}});
+ assert.equal((await store.list()).length,1);
+});
+test('ePost rejects missing contract fields and validates SEED by UTF-8 bytes',async t=>{
+ const {store}=await fixture(t);
+ for(const name of ['securityKey','approvalNo','officeSerial']){const value=epost();delete value.fields[name];await assert.rejects(store.save(value));}
+ for(const securityKey of ['short','가'.repeat(16),'1234567890abcdefg'])await assert.rejects(store.save({...epost(),fields:{...epost().fields,securityKey}}));
+ await store.save({...epost(),fields:{...epost().fields,securityKey:'가나다라1234'}});
+ assert.equal((await store.list()).length,1);
+});
+test('legacy ePost drafts stay readable and removable but need configuration before replacement',async t=>{
+ const {store,directory}=await fixture(t),legacy={business:'old',provider:'EPOST',fields:{customerId:'customer',apiKey:'old-key'}};
+ await fs.writeFile(path.join(directory,'api-drafts.encrypted'),safeStorage.encryptString(JSON.stringify({version:1,records:[legacy]})));
+ assert.equal((await store.list())[0].status,'CONFIGURATION_REQUIRED');
+ await assert.rejects(store.save(legacy));await store.save(draft());assert.equal((await store.list()).length,2);
+ await store.save({...epost(),business:'old'});assert.equal((await store.list())[0].status,'SAVED_UNVERIFIED');
+ await store.remove({business:'old',provider:'EPOST'});assert.equal((await store.list()).length,1);
+});
 test('tenant identity keeps identical names separate and survives rename and restart',async t=>{
  const {store,directory}=await fixture(t);await store.save(draft());await store.save({...draft(),tenantId});
  await store.save({...draft('renamed'),tenantId});assert.equal((await store.list()).length,2);
