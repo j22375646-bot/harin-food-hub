@@ -6,6 +6,17 @@ const assert=require('node:assert/strict'),path=require('node:path'),{launchDesk
  assert.equal(await page.locator('[data-page="settings"] #server-shipping-history').count(),1);
  await app.evaluate(({session})=>{session.fromPartition('persist:moaon-harin-readonly').fetch=async url=>Response.json(url.endsWith('/api/moaon/businesses')?{ok:true,businesses:[]}:{ok:true,orders:[],total:0,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});});
  await page.evaluate(()=>runHubAction('disconnect'));await page.evaluate(()=>runHubAction('viewActive'));
+ assert.equal(await page.locator('.preview-warning').isVisible(),false,'Healthy connection should not show a permanent warning');
+ await page.evaluate(()=>{connectionResult={...connectionResult,status:'PARTIAL'};updateConnectionChrome('일부 누락');});
+ assert.equal(await page.locator('.preview-warning').isVisible(),true);
+ assert.match(await page.locator('#global-connection-status').innerText(),/일부 자료 확인 필요/);
+ await page.evaluate(()=>{connectionResult={...connectionResult,status:'READY'};updateConnectionChrome('정상');});
+ assert.equal(await page.locator('.preview-warning').isVisible(),false);
+ await page.evaluate(()=>{displayMode='connecting';updateConnectionChrome('긴 조회 안내');});
+ assert.equal(await page.locator('#global-connection-status').innerText(),'처리 중…');
+ await page.evaluate(()=>{displayMode='sample';updateConnectionChrome('');});
+ assert.match(await page.locator('#global-connection-status').innerText(),/샘플 모드/);
+ await page.evaluate(()=>{displayMode='live';updateConnectionChrome('');});
  assert.doesNotMatch(await page.locator('#business-detail').innerText(),/0.?0|송장/);
  assert.equal(await page.locator('[data-page="settings"] [data-action="hub-disconnect"]').count(),1);
  await page.keyboard.press('Alt+2');

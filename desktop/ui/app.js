@@ -865,8 +865,11 @@ function updateConnectionChrome(message) {
   statusElements.businessName.textContent = live ? '하린식품' : sample ? '모아온 데모' : '하린식품';
   statusElements.businessDetail.textContent = live ? partial ? '일부 자료 확인 필요' : '연결됨' : sample ? '시험 자료만 표시 중' : '연결 확인 필요';
   statusElements.topBusinessName.textContent = live ? '하린식품' : sample ? '모아온 데모' : '하린식품';
-  statusElements.global.textContent = live ? `하린식품 · 주문 조회·확인 후 발급${partial ? ' · 부분 확인' : ''}` : sample ? '시험 자료 · 하린식품 연결 안 됨' : message;
-  statusElements.globalBadge.textContent = live ? '조회' : sample ? '시험' : '확인';
+  const notice=statusElements.global.parentElement;
+  notice.classList.toggle('is-quiet',live&&!partial);
+  notice.setAttribute('aria-hidden',String(live&&!partial));
+  statusElements.global.textContent = live ? partial ? '일부 자료 확인 필요' : '' : sample ? '샘플 모드 · 실제 자료 아님' : displayMode==='connecting' ? '처리 중…' : '연결 확인 필요 · 설정에서 확인하세요';
+  statusElements.globalBadge.textContent = '';
   statusElements.nav.textContent = live ? '주문·배송' : sample ? '샘플 주문' : '연결 확인 필요';
   statusElements.todayContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? 'Windows 시제품 · 샘플 모드' : '하린식품 · 연결 상태 확인 필요';
   statusElements.todayTitleMode.textContent = live ? '오늘의 운영 현황' : sample ? '지금 가능한 일' : '실제 주문을 비우고';
