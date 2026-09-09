@@ -101,6 +101,17 @@ node scripts/check-moaon-credential-policies.js
 
 정책 표현과 의존성을 카탈로그에서 읽지만 실행하지 않는다. 사용자 함수가 들어 있거나 동등해 보이는 다른 표현도 자동으로 허용하지 않는다. 성공 CREDENTIAL_POLICIES_MATCH_REQUIRES_OPERATIONS는 이4개 테이블의 제한된 정책 대조만 의미한다. 다른 역할 전용 정책, 다른 테이블 정책, 열 권한, 함수/트리거/룰, OWNER·세션·quota 실제 동작은 별도다. 자동 CREATE/ALTER POLICY를 실행하지 않는다.
 
+### 저장 테이블의 트리거·룰·상속 점검
+
+```powershell
+$env:MOAON_CONTROL_DB_DIAGNOSTIC='1'
+node scripts/check-moaon-credential-write-hooks.js
+```
+
+보호 테이블4개에서 후보에 없는 사용자 트리거(비활성 포함), rewrite rule, 상속·파티션 구조를 감지한다. PostgreSQL 내부 트리거는 해당 외래키 제약 및 내장 RI_FKey 함수에 연결되고 enabled=O인 경우만 허용한다. session_replication_role은 origin이어야 한다. 사용자 함수나 저장된 룰을 실행하지 않고 카탈로그만 읽는다.
+
+성공 CREDENTIAL_WRITE_HOOKS_MATCH_REQUIRES_OPERATIONS도 다른 테이블·외래키 정의/완전성·함수·기본값·실제 저장 결과까지 보증하지 않는다. 차이가 발견되면 자동 삭제/비활성화하지 말고 기존 업무 의도와 후보 SQL을 대조한다.
+
 ## 4. 키·진입 경로·배포
 
 암호화 키 저장 위치와 접근자, active key ID 교체 및 이전 키 복호화 유지, HMAC 분리와 복구 절차를 마련한다. 키 원문을 문서·대화·시험 로그에 복사하지 않는다. VERCEL 환경 변수 값만으로 실제 운영 진입 경로를 증명할 수 없다. 실제 production 배포와 직접 ingress, 단일 IP 헤더 일치 정책을 확인한다.
