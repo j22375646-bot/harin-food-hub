@@ -265,8 +265,8 @@
             </div>
           </section>
           <section id="month-page" class="page month-page" data-page="calendar" aria-labelledby="month-title" hidden>
-            <header class="month-heading"><div><span class="eyebrow">WORK CALENDAR</span><h1 id="month-title" tabindex="-1">업무 캘린더</h1><p>한 달의 일정과 오늘 할 일을 살펴보세요.</p></div></header>
-            <div class="month-toolbar"><button id="month-prev" aria-label="이전 달">←</button><h2 id="month-label"></h2><button id="month-next" aria-label="다음 달">→</button><button id="month-today">이번 달</button><button id="month-refresh">새로 조회</button></div>
+            <header class="month-heading"><div><span class="eyebrow">WORK CALENDAR</span><h1 id="month-title" tabindex="-1">업무 캘린더</h1><p>한 달의 일정과 오늘 할 일을 살펴보세요.</p></div><button id="month-refresh" type="button">새로 조회</button></header>
+            <div class="month-toolbar"><button id="month-prev" aria-label="이전 달">←</button><h2 id="month-label"></h2><button id="month-next" aria-label="다음 달">→</button><button id="month-today" type="button">이번 달</button></div>
             <p id="month-status" role="status"></p><div class="month-workspace"><div><div class="month-weekdays"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div id="month-grid"></div></div><aside class="month-agenda"><h2 id="month-selected"></h2><div id="month-entries"></div><div id="month-detail"></div></aside></div>
           </section>
           <section class="page settings-page" data-page="settings" aria-labelledby="settings-title" hidden>
@@ -335,7 +335,7 @@
                   <div id="api-fields" class="api-fields"></div>
                   <p id="api-provider-note" class="api-note"></p>
                   <p class="api-note">키 원문은 저장 후 다시 표시하지 않습니다. PC 암호화 저장은 이 PC에만 보관됩니다.</p>
-                  <button id="api-draft-save" class="primary-action" type="submit">이 PC에 암호화 저장</button>
+                  <div class="api-form-actions"><button id="api-draft-save" class="primary-action" type="submit">이 PC에 암호화 저장</button></div>
                 </form>
                 <div id="api-server-controls" hidden>
                   <h3>서버 API 설정</h3>
@@ -346,7 +346,7 @@
                     <h3 id="api-server-confirm-title">서버에 이 설정을 저장할까요?</h3>
                     <p id="api-server-confirm-summary"></p>
                     <p>기존 서버 설정이 있으면 입력한 값으로 교체합니다. 저장 후에도 플랫폼 인증과 실제 연결 검증이 필요합니다.</p>
-                    <button id="api-server-confirm-save" class="primary-action" type="button">확인 · 서버에 저장</button><button id="api-server-cancel" class="secondary-action" type="button">취소</button>
+                    <div class="api-confirm-actions"><button id="api-server-cancel" class="secondary-action" type="button">취소</button><button id="api-server-confirm-save" class="primary-action" type="button">확인 · 서버에 저장</button></div>
                   </div>
                 </div>
                 <p id="api-draft-status" role="status"></p><button id="api-draft-load" class="secondary-action" type="button">저장한 설정 확인</button><ul id="api-draft-list"></ul>

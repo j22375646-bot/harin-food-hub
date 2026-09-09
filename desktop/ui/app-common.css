@@ -40,4 +40,37 @@
 #month-status,#settlement-status,#insights-status{font-size:13px;line-height:1.6;overflow-wrap:anywhere}
 @media(prefers-reduced-motion:reduce){#month-page *,#settlement-page *,#insights-page *{transition:none!important;animation:none!important}}
 
-#api-server-controls{margin-top:24px;padding-top:20px;border-top:1px solid var(--line)}#api-server-confirm{margin-top:16px;padding:16px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface-soft)}#api-server-confirm button+button{margin-left:8px}#api-settings #api-server-save,#api-settings #api-server-confirm-save{background:var(--blue);color:var(--surface)}
+#api-server-controls{margin-top:24px;padding-top:20px;border-top:1px solid var(--line)}#api-server-confirm{margin-top:16px;padding:16px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface-soft)}#api-settings #api-server-save,#api-settings #api-server-confirm-save{background:var(--blue);color:var(--surface)}
+
+/* Keep related controls on one baseline and primary actions at the trailing edge. */
+#api-settings button,.settings-grid .history-settings button{box-sizing:border-box;min-height:40px;line-height:20px;font-size:14px;white-space:normal}
+#api-owned-business:not([hidden]){display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:10px 12px}
+#api-owned-business>label{min-width:0}
+#api-owned-business #api-business-refresh{margin:0;white-space:nowrap}
+#api-owned-business #api-business-status{grid-column:1/-1;margin:0}
+#api-business-status:empty,#api-server-status:empty{display:none}
+.api-form-actions,.api-confirm-actions{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:8px;margin-top:16px}
+#api-server-controls>.setting-actions{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+#api-server-confirm h3,#api-server-controls>h3{margin:0;font-size:16px;line-height:1.5}
+#api-settings #api-draft-load{margin-top:16px}
+#api-draft-list li{padding:12px 0;border-top:1px solid var(--line)}
+#api-draft-list li button{margin-inline-start:auto}
+.month-heading>div,.insights-heading>div,.settlement-heading>div{min-width:0}
+.month-heading>button,.insights-heading>button,.settlement-heading>button{flex-shrink:0;align-self:flex-start}
+.month-toolbar #month-prev,.month-toolbar #month-next{width:40px;height:40px;padding:0;display:grid;place-items:center}
+.month-toolbar h2{min-width:132px;text-align:center;font-variant-numeric:tabular-nums}
+.month-toolbar #month-today{margin-inline-start:auto}
+.orders-page .order-tools{gap:8px;align-items:center}
+.orders-page .order-tools .search-field{height:40px;min-height:40px;box-sizing:border-box}
+.orders-page .order-tools select,.orders-page .order-tools>button,.orders-page .order-more-filters>summary{height:40px;min-height:40px;box-sizing:border-box;font-size:13px;line-height:20px}
+.orders-page .order-more-filters>summary{display:flex;align-items:center;justify-content:center;padding:9px 12px}
+.orders-page .order-tools .search-field input{font-size:13px}
+.order-scope-actions:not(:has(button:not([hidden]))){display:none}
+#api-settings button:focus-visible,.order-tools button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+@media(max-width:700px){
+ #api-owned-business:not([hidden]){grid-template-columns:1fr}
+ #api-owned-business #api-business-refresh{justify-self:end}
+ .month-heading,.insights-heading,.settlement-heading{flex-wrap:wrap}
+ .orders-page .order-tools{flex-wrap:wrap}
+ .orders-page .order-tools .search-field{flex-basis:100%}
+}

@@ -6,7 +6,9 @@ const {createHubConnection}=require('../hub-connection.cjs');
 const SNAP='0123456789abcdef'.repeat(4);
 const order=(changes={})=>({hubOrderId:'HR-C24-1234ABCD',platform:'CAFE24',fulfillment:'SELLER',externalOrderId:'C1',productName:'작두콩차',quantity:1,amount:12000,orderedAt:'2026-09-09T00:00:00Z',items:[{name:'차',option:'1상자',quantity:1}],gifts:['스푼'],receiver:{name:'홍길동',contact:'01012345678',postCode:'12345',address:'서울',addressDetail:'1층'},invoiceNumber:'',issuedInvoiceNumber:'',invoice:null,stage:'PAID',cancelled:false,cancellationRequested:false,shippingHistoryStatus:'READY',shippingEligible:true,selectionEligible:true,...changes});
 const payload=(rows=[order()],changes={})=>({ok:true,orders:rows,total:rows.length,offset:0,nextOffset:null,snapshot:SNAP,partial:false,...changes});
-function fixture(fetchImpl,{clock={value:0},timeoutMs=30,minimized={value:false}}={}){
+// Ordinary state tests must not race a 30ms deadline under concurrent CI/build I/O.
+// The explicit timeout test below still supplies its own 5ms deadline.
+function fixture(fetchImpl,{clock={value:0},timeoutMs=1000,minimized={value:false}}={}){
  const remote={fetch:fetchImpl,webRequest:{onBeforeRequest(){}},on(){},setPermissionCheckHandler(){},setPermissionRequestHandler(){},async clearStorageData(){},async clearCache(){},async clearAuthCache(){}};
  class Window extends EventEmitter{constructor(){super();this.webContents=Object.assign(new EventEmitter(),{id:2,getURL:()=>'',setWindowOpenHandler(){}});}isDestroyed(){return false;}destroy(){}close(){}show(){}loadURL(){}}
  const connection=createHubConnection({BrowserWindow:Window,session:{fromPartition:()=>remote},getMainWindow:()=>({isDestroyed:()=>false,isMinimized:()=>minimized.value,webContents:{id:1}}),now:()=>new Date(clock.value),timeoutMs});

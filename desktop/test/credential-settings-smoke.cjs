@@ -100,7 +100,7 @@ async function main() {
   assert.deepEqual(await page.evaluate(()=>window.moaonHub.listApiDrafts()),[]);
   for(const width of [1040,1440]){await app.evaluate(({BrowserWindow,screen},{width,visibleDemo})=>{const win=BrowserWindow.getAllWindows()[0];const area=screen.getDisplayMatching(win.getBounds()).workArea;win.setSize(visibleDemo?Math.min(width,area.width-20):width,visibleDemo?Math.min(900,area.height-60):900);},{width,visibleDemo});assert.equal(await page.locator('#api-settings').evaluate(el=>el.scrollWidth<=el.clientWidth),true);}
   const version=JSON.parse(installed?require('@electron/asar').extractFile(runtimeRoot,'package.json').toString('utf8'):fs.readFileSync(path.join(runtimeRoot,'package.json'),'utf8')).version;
-  assert.equal(version,'0.52.0');
+  assert.equal(version,require('../package.json').version);
   const windows=await app.evaluate(({BrowserWindow,screen})=>BrowserWindow.getAllWindows().map(w=>{const bounds=w.getBounds(),primary=screen.getPrimaryDisplay(),display=screen.getDisplayMatching(bounds);return {visible:w.isVisible(),focused:w.isFocused(),rightSecondary:display.id!==primary.id&&display.workArea.x>=primary.workArea.x+primary.workArea.width,contained:bounds.x>=display.workArea.x&&bounds.x+bounds.width<=display.workArea.x+display.workArea.width&&bounds.y>=display.workArea.y&&bounds.y+bounds.height<=display.workArea.y+display.workArea.height};}));
   assert.ok(windows.length);assert.ok(visibleDemo?windows.every(w=>w.visible&&!w.focused&&w.rightSecondary&&w.contained):windows.every(w=>!w.visible&&!w.focused));assert.deepEqual(errors,[]);
   if(visibleDemo){

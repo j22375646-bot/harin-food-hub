@@ -2,7 +2,8 @@
 
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { app, BrowserWindow, Menu, ipcMain, protocol, session, dialog, safeStorage } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, protocol, session, dialog, safeStorage, screen } = require('electron');
+const {rightDisplayBounds}=require('./window-placement.cjs');
 const {createDraftStore,registerApiDrafts}=require('./api-drafts.cjs');
 const {
   APP_ENTRY_URL,
@@ -119,12 +120,16 @@ if (!hasSingleInstanceLock) {
     });
     appSession.on('will-download', (event) => event.preventDefault());
 
+    const rightDisplayRequested=process.argv.includes('--display-right');
+    const rightBounds=rightDisplayRequested?rightDisplayBounds(screen.getAllDisplays(),screen.getPrimaryDisplay()):null;
+    if(rightDisplayRequested&&!rightBounds){console.error('RIGHT_DISPLAY_UNAVAILABLE');app.quit();return;}
     mainWindow = new BrowserWindow({
       title: APP_NAME,
       width: 1440,
       height: 960,
-      minWidth: 1040,
-      minHeight: 720,
+      minWidth: rightBounds?Math.min(1040,rightBounds.width):1040,
+      minHeight: rightBounds?Math.min(720,rightBounds.height):720,
+      ...(rightBounds||{}),
       show: false,
       frame: true,
       titleBarStyle: 'hidden',
@@ -183,7 +188,7 @@ if (!hasSingleInstanceLock) {
       getMainWindow: () => mainWindow,
       connection: hubConnection,
     });
-    mainWindow.once('ready-to-show', () => mainWindow.show());
+    mainWindow.once('ready-to-show', () => rightDisplayRequested?mainWindow.showInactive():mainWindow.show());
     mainWindow.on('closed', () => {
       hubConnection?.closeChildren();
       hubConnection = null;
