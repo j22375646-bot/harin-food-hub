@@ -295,11 +295,11 @@
           <section class="page settings-page" data-page="settings" aria-labelledby="settings-title" hidden>
             <header class="page-heading compact-heading">
               <p class="context-line"><i aria-hidden="true"></i> 이 PC · 화면 설정</p>
-              <h1 id="settings-title" aria-label="앱 설정" tabindex="-1"><em class="page-title-accent">편안한 화면</em>을 선택하세요</h1>
-              <p>화면·로그인과 플랫폼 API 설정을 관리합니다. 소유자 사업장의 서버 저장과 이 PC의 암호화 저장을 관리하며, 실제 연결은 별도 검증이 필요합니다.</p>
+              <h1 id="settings-title" aria-label="앱 설정" tabindex="-1"><em class="page-title-accent">앱 설정</em></h1>
+              <p>화면, 앱 업데이트와 사업장 연결을 관리하세요. API 저장 상태와 실제 연결 상태는 별도로 확인합니다.</p>
             </header>
 
-            <div class="settings-grid">
+            <nav class="settings-jump" aria-label="설정 항목 바로 이동"><button type="button" data-settings-target="theme-title">화면</button><button type="button" data-settings-target="app-update-title">업데이트</button><button type="button" data-settings-target="settings-connection-title">조회 연결</button><button type="button" data-settings-target="business-list-title">사업장</button><button type="button" data-settings-target="api-title">플랫폼 API</button><button type="button" data-settings-target="settings-history-title">출고 기록</button></nav><div class="settings-grid">
               <div class="settings-pair">
               <section class="panel setting-card" aria-labelledby="theme-title">
                 <header><div><span class="eyebrow">APPEARANCE</span><h2 id="theme-title">화면 테마</h2></div><span class="status-chip status-ready">이 PC</span></header>
@@ -381,7 +381,7 @@
                 <p id="api-draft-status" role="status"></p><button id="api-draft-load" class="secondary-action" type="button">저장한 설정 확인</button><ul id="api-draft-list"></ul>
               </section>
               <details class="panel setting-card history-settings">
-                <summary>출고 기록</summary>
+                <summary id="settings-history-title">출고 기록</summary>
                 <p>이전 송장 등록과 출고 기록이 필요할 때 확인하세요.</p>
                 <details id="server-shipping-history" class="auto-shipping-results" hidden></details>
                 <div class="server-history-tools"><button id="server-history-load" class="secondary-action" type="button">등록 이력 조회</button><span id="server-history-status" role="status"></span></div>

@@ -1446,3 +1446,10 @@ renderOrders();
 updateConnectionChrome('현재는 샘플 화면입니다. 사용자가 연결을 누르기 전에는 운영 서버를 조회하지 않습니다.');
 // Check only existing authorization. Password collection stays on the trusted remote form.
 void runHubAction('viewActive');
+
+// Settings shortcuts navigate locally without invoking connection or credential actions.
+document.querySelectorAll('[data-settings-target]').forEach(button=>button.addEventListener('click',()=>{
+ const target=document.getElementById(button.dataset.settingsTarget);if(!target)return;
+ if(target.tagName==='SUMMARY')target.parentElement.open=true;
+ target.tabIndex=-1;target.focus({preventScroll:true});target.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+}));
