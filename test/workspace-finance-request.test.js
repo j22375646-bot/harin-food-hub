@@ -58,3 +58,28 @@ test('owner identity drift after read returns 409 without exposing finance',asyn
   assert.deepEqual(await response.json(),{ok:false,code:'WORKSPACE_CHANGED'});
  }
 });
+
+test('pre-authorization timeout identifies auth-before and never starts finance read',async()=>{
+ let reads=0,release;
+ const handle=create()({timeoutMs:5,resolveContext:()=>new Promise(resolve=>{release=resolve;}),readFinance:async()=>{reads++;return {};}});
+ const response=await handle(request());
+ assert.equal(response.status,504);
+ assert.match(response.headers.get('server-timing')||'',/(?:^|, )auth-before;dur=\d+(?:\.\d+)?/);
+ assert.doesNotMatch(response.headers.get('server-timing')||'',/finance-read|auth-after/);
+ release(await context());await new Promise(resolve=>setTimeout(resolve,10));
+ assert.equal(reads,0);
+});
+
+test('slow finance timeout identifies finance-read without bypassing pre-authorization',async()=>{
+ let checks=0,release;
+ const handle=create()({timeoutMs:5,resolveContext:async()=>{checks++;return context();},readFinance:()=>new Promise(resolve=>{release=resolve;})});
+ const response=await handle(request());
+ assert.equal(response.status,504);
+ const timing=response.headers.get('server-timing')||'';
+ assert.match(timing,/(?:^|, )auth-before;dur=\d+(?:\.\d+)?/);
+ assert.match(timing,/(?:^|, )finance-read;dur=\d+(?:\.\d+)?/);
+ assert.match(timing,/(?:^|, )total;dur=\d+(?:\.\d+)?/);
+ assert.doesNotMatch(timing,/auth-after|tenant|session|user|777/i);
+ assert.equal(checks,1);
+ release({});
+});
