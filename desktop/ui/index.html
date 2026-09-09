@@ -249,12 +249,13 @@
           </section>
 
           <section id="settlement-page" class="page settlement-page" data-page="settlement" aria-labelledby="settlement-title" hidden>
-            <header class="settlement-heading"><div><span class="eyebrow">SETTLEMENT / 30 DAYS</span><h1 id="settlement-title" tabindex="-1">운영·정산</h1><p>예상 지급과 확인된 지급을 채널별로 살펴보세요.</p></div><button id="settlement-refresh" type="button">새로 조회</button></header>
+            <header class="settlement-heading"><div><span class="eyebrow">SETTLEMENT</span><h1 id="settlement-title" tabindex="-1">운영·정산</h1><p>예상 지급과 확인된 지급을 채널별로 살펴보세요.</p></div><button id="settlement-refresh" type="button">새로 조회</button></header>
+            <div class="settlement-periods" role="group" aria-label="정산 조회 기간"><button type="button" data-settlement-days="7" aria-pressed="false">7일</button><button type="button" data-settlement-days="30" aria-pressed="true">30일</button><button type="button" data-settlement-days="90" aria-pressed="false">90일</button></div>
             <p id="settlement-period"></p><p id="settlement-status" role="status"></p>
             <div id="settlement-summary" class="settlement-summary"></div>
             <h2 class="settlement-section-title">채널별 정산</h2><div id="settlement-channels" class="settlement-channels"></div>
             <section class="panel settlement-schedule-panel"><h2>지급 일정</h2><div id="settlement-schedules"></div></section>
-            <p class="settlement-disclaimer">은행 잔고가 아닌 플랫폼 정산 자료입니다. 미확인 금액은 0원으로 계산하지 않습니다. 현재 최근 30일 조회를 지원합니다.</p>
+            <p class="settlement-disclaimer">은행 잔고가 아닌 플랫폼 정산 자료입니다. 미확인 금액은 0원으로 계산하지 않습니다.</p>
           </section>
           <section class="page settings-page" data-page="settings" aria-labelledby="settings-title" hidden>
             <header class="page-heading compact-heading">

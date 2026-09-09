@@ -113,7 +113,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if(method==='GET'&&context.automaticRequestActive===true&&new RegExp(`^${HARIN_ORIGIN.replaceAll('.','\\.')}\/api\/coupang\/operations\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`,'i').test(details.url))return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&details.url===`${HARIN_ORIGIN}/api/moaon/businesses`)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.financePermit===FINANCE_URL&&details.url===FINANCE_URL)return isMainProcessRequest(details.webContentsId);
-  if(method==='GET'&&context.settlementPermit===SETTLEMENT_URL&&details.url===SETTLEMENT_URL)return isMainProcessRequest(details.webContentsId);
+  if(method==='GET'&&[SETTLEMENT_URL,SETTLEMENT_URL+'?days=7',SETTLEMENT_URL+'?days=90'].includes(context.settlementPermit)&&details.url===context.settlementPermit)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.exportPermit===details.url&&details.url.endsWith('&format=xlsx'))return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&Number.isInteger(context.labelWebContentsId)&&context.labelWebContentsId>0&&details.webContentsId===context.labelWebContentsId&&details.url===context.labelUrl
     && /^https:\/\/harin-cafe24-sync\.vercel\.app\/api\/shipping\/print\?type=label&ids=HR-(?:C24|CP)-[A-F0-9]{8}$/.test(details.url))return true;

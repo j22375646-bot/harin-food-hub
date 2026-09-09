@@ -3,6 +3,15 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const URL='https://harin-cafe24-sync.vercel.app/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/settlement';
 function payload(){return {ok:true,writePolicy:'READ_ONLY',generatedAt:'2026-09-09T01:02:03.000Z',period:{days:30,start:'2026-08-10T01:02:03.000Z',end:'2026-09-09T01:02:03.000Z'},summary:{actual:{value:0,status:'PARTIAL'},expected:{value:-100,status:'ESTIMATED'},variance:null,comparableChannels:0},channels:['CAFE24','NAVER','COUPANG','COUPANG_RG'].map(platform=>({platform,label:platform,stateCode:'NO_DATA',stateLabel:'확인 필요',gross:0,refunds:null,fees:null,logistics:null,advertising:null,expected:null,actual:null,pending:null,variance:null,basis:null,payoutBasis:null,asOf:null})),schedules:[{platform:'NAVER',date:'2026-09-10',amount:0,status:'정산예정',type:'일별 정산'}]};}
 const create=options=>require('../settlement-transport.cjs').createSettlementTransport(options);
+test('settlement binds each allowed period to its fixed URL and rejects mismatched periods',async()=>{
+ for(const days of [7,30,90]){
+  const p=payload();p.period.days=days;
+  const read=create({fetch:async url=>{assert.equal(url,URL+(days===30?'':'?days='+days));return Response.json(p);}});
+  assert.equal((await read({days})).period.days,days);
+  assert.equal((await create({fetch:async()=>Response.json(payload())})({days:7})).status,'UNAVAILABLE');
+ }
+ for(const days of [0,1,31,'7',null,{}])assert.equal((await create({fetch:()=>{throw Error('no fetch');}})({days})).status,'UNAVAILABLE');
+});
 test('settlement reads only fixed authenticated GET and preserves partial zero, negative estimate and null',async()=>{
  const source=payload();source.secret='private';source.channels[0].raw_data='private';
  const read=create({fetch:async(url,options)=>{assert.equal(url,URL);assert.deepEqual({method:options.method,credentials:options.credentials,cache:options.cache,redirect:options.redirect},{method:'GET',credentials:'include',cache:'no-store',redirect:'error'});return Response.json(source);}});

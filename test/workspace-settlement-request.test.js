@@ -30,8 +30,19 @@ test('revocation and membership version drift discard settlement data',async()=>
 });
 test('unsupported period, extra query, missing cookie and non-GET fail before dependencies',async()=>{
  let calls=0;const handle=create({resolveContext:async()=>{calls++;return context();},readSettlement:async()=>{calls++;return data();}});
- for(const req of [request(A,'?days=7'),request(A,'?tenantId='+B),new Request(request().url),new Request(request(),{method:'POST'})])assert.notEqual((await handle(req)).status,200);
+ for(const req of [request(A,'?days=8'),request(A,'?days=7&days=7'),request(A,'?days=7&extra=1'),request(A,'?days=07'),request(A,'?days='),request(A,'?tenantId='+B),new Request(request().url),new Request(request(),{method:'POST'})])assert.notEqual((await handle(req)).status,200);
  assert.equal(calls,0);
+});
+
+test('selected supported period reaches the loader and projection without fallback',async()=>{
+ for(const days of [7,30,90]){
+  const response=await create({resolveContext:()=>context(),readSettlement:async input=>{
+   assert.equal(input.days,days);
+   return {...data(),settlementPeriods:{[days]:{...data().unifiedSettlement,waterfall:{actual_payout:days,actual_payout_complete:false}}}};
+  }})(request(A,`?days=${days}`));
+  assert.equal(response.status,200);const body=await response.json();
+  assert.equal(body.period.days,days);assert.equal(body.summary.actual.value,days);
+ }
 });
 test('timeout never starts a late read and sanitizes internal failures',async()=>{
  let release,loads=0;

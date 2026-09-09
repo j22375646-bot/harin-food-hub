@@ -1,13 +1,14 @@
 'use strict';
 (()=>{
- let value=null,busy=false,generation=0,lastAttempt=0;
+ let value=null,busy=false,generation=0,lastAttempt=0,days=30;
  const select=id=>document.getElementById(id),money=v=>typeof v==='number'&&Number.isFinite(v)?`${v.toLocaleString('ko-KR')}원`:'확인 필요';
  const node=(tag,css,text)=>makeElement(tag,css,text);
  function render(){
   select('settlement-refresh').disabled=busy||displayMode!=='live';
+  document.querySelectorAll('[data-settlement-days]').forEach(button=>{button.disabled=displayMode!=='live';button.setAttribute('aria-pressed',String(Number(button.dataset.settlementDays)===days));});
   select('settlement-page').setAttribute('aria-busy',String(busy));
   const period=value?.period,periodNode=select('settlement-period');
-  periodNode.replaceChildren(node('span','',period?.start&&period?.end?`${formatTime(period.start)} — ${formatTime(period.end)} · 최근 30일`:'최근 30일 · 조회 전'));
+  periodNode.replaceChildren(node('span','',period?.start&&period?.end?`${formatTime(period.start)} — ${formatTime(period.end)} · 최근 ${days}일`:`최근 ${days}일 · 조회 전`));
   if(value)periodNode.append(node('span','settlement-query-time',value.generatedAt?`조회 시각 ${formatTime(value.generatedAt)}`:'조회 시각 확인 필요'));
   select('settlement-summary').replaceChildren(...[
    ['예상 지급',value?.summary?.expected?.value,'예상액 · 실제 지급과 다릅니다'],
@@ -21,16 +22,17 @@
   }));
   const schedules=value?.schedules||[];select('settlement-schedules').replaceChildren(...(schedules.length?schedules.map(item=>{const row=node('div','settlement-schedule');row.append(node('span','',item.date||'날짜 확인 필요'),node('span','',value.channels.find(c=>c.platform===item.platform)?.label||item.platform),node('span','',item.status),node('strong','',money(item.amount)));return row;}):[node('p','',value?'조회된 지급 일정이 없습니다.':'연결 후 지급 일정을 확인합니다.')]));
  }
- function clear(){generation++;busy=false;lastAttempt=0;value=null;select('settlement-status').textContent='연결 후 정산 자료를 조회합니다.';render();}
+ function clear(){generation++;busy=false;lastAttempt=0;value=null;days=30;select('settlement-status').textContent='연결 후 정산 자료를 조회합니다.';render();}
  async function refresh(){
   if(busy||displayMode!=='live')return;const expected=++generation;busy=true;lastAttempt=Date.now();value=null;render();select('settlement-status').textContent='정산 자료를 조회하고 있습니다…';
-  try{const result=await window.moaonHub.readSettlement();if(expected!==generation)return;
+  try{const result=await window.moaonHub.readSettlement(days);if(expected!==generation)return;
    if(['LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status)){applyHubResult(result);return;}
-   if(result?.status!=='READY'){select('settlement-status').textContent='정산 조회 실패 · 새로 조회해 주세요.';return;}
+   if(result?.status!=='READY'||result.period?.days!==days){select('settlement-status').textContent='정산 조회 실패 · 새로 조회해 주세요.';return;}
    value=result;select('settlement-status').textContent=result.summary.actual.status==='READY'?'플랫폼 정산 기준의 조회 결과입니다.':'부분 확인·미확인 금액은 전체 지급액으로 판단하지 마세요.';
   }catch{if(expected===generation)select('settlement-status').textContent='정산 조회 실패 · 새로 조회해 주세요.';}
   finally{if(expected===generation){busy=false;render();}}
  }
  window.moaonSettlement=Object.freeze({clear,ensure:()=>{render();if(displayMode!=='live'){select('settlement-status').textContent='실제 사업장 연결 후 조회할 수 있습니다.';return;}if(!lastAttempt||Date.now()-lastAttempt>=300000)void refresh();}});
+ document.querySelectorAll('[data-settlement-days]').forEach(button=>button.addEventListener('click',()=>{const next=Number(button.dataset.settlementDays);if(displayMode!=='live'||next===days||![7,30,90].includes(next))return;days=next;busy=false;void refresh();}));
  select('settlement-refresh').addEventListener('click',refresh);clear();
 })();

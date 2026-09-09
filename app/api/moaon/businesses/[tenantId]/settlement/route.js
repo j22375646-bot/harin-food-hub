@@ -1,10 +1,10 @@
 import workspace from '../../../../../../lib/tenancy/workspace-settlement-runtime.js';
 import supabaseModule from '../../../../../../lib/cafe24/supabase.js';
-import mainLoader from '../../../../../../lib/dashboard/phase28-main-loader.js';
+import settlementLoader from '../../../../../../lib/dashboard/workspace-settlement-loader.js';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const composition=workspace.createWorkspaceSettlementRuntime({
- readSettlement:()=>mainLoader.loadPhase28MainDashboard({db:supabaseModule.getSupabase()})
+ readSettlement:({days})=>settlementLoader.loadWorkspaceSettlement({db:supabaseModule.getSupabase(),days})
 });
 export async function GET(request){return composition.handle(request);}

@@ -24,7 +24,7 @@ const {createShipmentRegistry}=require('./shipment-registry.cjs');
 const {createShipmentTransport}=require('./shipment-transport.cjs');
 const {createBusinessTransport}=require('./business-transport.cjs');
 const {createFinanceTransport}=require('./finance-transport.cjs');
-const {createSettlementTransport}=require('./settlement-transport.cjs');
+const {createSettlementTransport,settlementUrl}=require('./settlement-transport.cjs');
 const {createOrderCollection}=require('./order-collection.cjs');
 const {createShippingActionJournal,readShippingHistory}=require('./shipping-action-journal.cjs');
 const {projectVisual}=require('./order-visual.cjs');
@@ -457,7 +457,7 @@ function createHubConnection({
   const businessReads=new Set();
   let activeOverview=null;
   let activeFinance=null,activeFinanceController=null,financePermit=null;
-  let activeSettlement=null,settlementController=null,settlementPermit=null;
+  let activeSettlement=null,settlementController=null,settlementPermit=null,settlementDays=30;
   let activeCalendar=null,calendarPermit=null;
   function readTodayCalendar(){
     if(disconnecting||cleanupFailed||isLoginWindowActive())return Promise.resolve({status:'UNAVAILABLE',date:require('./today-calendar.cjs').calendarDay(now()),entries:[]});
@@ -524,14 +524,16 @@ function createHubConnection({
     let tracked;tracked=read({signal:controller.signal}).then(result=>expected===generation?result:empty('CANCELLED')).finally(()=>{financePermit=null;if(activeFinanceController===controller)activeFinanceController=null;if(activeFinance===tracked)activeFinance=null;});
     activeFinance=tracked;return tracked;
   }
-  function readSettlement(){
+  function readSettlement(days=30){
     const empty=status=>({status,summary:null,channels:[],schedules:[],period:null,generatedAt:null});
+    if(![7,30,90].includes(days))return Promise.resolve(empty('UNAVAILABLE'));
     if(disconnecting||cleanupFailed)return Promise.resolve(empty('DISCONNECTED'));
     if(isLoginWindowActive())return Promise.resolve(empty('LOGIN_REQUIRED'));
-    if(activeSettlement)return activeSettlement;
-    const expected=generation,controller=new AbortController();settlementController=controller;settlementPermit=require('./connection-policy.cjs').SETTLEMENT_URL;
+    if(activeSettlement&&settlementDays===days)return activeSettlement;
+    settlementController?.abort();settlementDays=days;
+    const expected=generation,controller=new AbortController();settlementController=controller;settlementPermit=settlementUrl(days);
     const read=createSettlementTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options)});
-    let tracked;tracked=read({signal:controller.signal}).then(result=>expected===generation?result:empty('CANCELLED')).finally(()=>{if(settlementController===controller){settlementController=null;settlementPermit=null;}if(activeSettlement===tracked)activeSettlement=null;});
+    let tracked;tracked=read({signal:controller.signal,days}).then(result=>expected===generation&&!controller.signal.aborted?result:empty('CANCELLED')).finally(()=>{if(settlementController===controller){settlementController=null;settlementPermit=null;}if(activeSettlement===tracked)activeSettlement=null;});
     activeSettlement=tracked;return tracked;
   }
   async function listBusinesses(){
@@ -1661,6 +1663,10 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
   for (const [channel, method] of methods) {
     ipcMain.handle(channel, async (event, ...args) => {
       if (!isTrustedRenderer(event, getMainWindow())) throw new Error('Untrusted renderer');
+      if(method==='readSettlement'){
+        if(args.length>1||args.length===1&&![7,30,90].includes(args[0]))throw Error('Arguments are not allowed');
+        return connection.readSettlement(args.length?args[0]:30);
+      }
       if (args.length !== 0) throw new Error('Arguments are not allowed');
       return connection[method]();
     });

@@ -1259,6 +1259,8 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   await assert.rejects(financeHandler({sender:{},senderFrame:null}),/Untrusted renderer/);
   const settlementHandler=handlers.get('moaon-hub:read-settlement');
   assert.equal((await settlementHandler(trusted)).status,'READY');
+  assert.equal((await settlementHandler(trusted,7)).status,'READY');
+  await assert.rejects(settlementHandler(trusted,7,90),/Arguments are not allowed/);
   await assert.rejects(settlementHandler(trusted,'other-tenant'),/Arguments are not allowed/);
   await assert.rejects(settlementHandler({sender:{},senderFrame:null}),/Untrusted renderer/);
   assert.deepEqual(await businessHandler(trusted),{status:'READY',businesses:[]});
@@ -1582,6 +1584,19 @@ function settlementPagePayload(){
  const {buildUnifiedSettlementCenter}=require('../../lib/settlement/unified-center.js');
  return {ok:true,...buildWorkspaceSettlementSummary({generatedAt:'2026-09-09T01:02:03Z',unifiedSettlement:buildUnifiedSettlementCenter({now:new Date('2026-09-09T01:02:03Z'),periodDays:30})})};
 }
+test('switching settlement period aborts old read and preserves only the current exact permit',async()=>{
+ const base='https://harin-cafe24-sync.vercel.app/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/settlement';
+ let remote,signal,release;
+ remote=makeRemoteSession(async(url,options)=>{
+  if(url===base+'?days=7'){signal=options.signal;return new Promise(resolve=>release=resolve);}
+  let allowed;remote.beforeRequestHandler({url,method:'GET',webContentsId:0},r=>allowed=!r.cancel);assert.equal(allowed,true);
+  let denied;remote.beforeRequestHandler({url:base+'?days=7',method:'GET',webContentsId:0},r=>denied=r.cancel);assert.equal(denied,true);
+  const p=settlementPagePayload();p.period.days=90;return Response.json(p);
+ });
+ const {connection}=makeConnection(remote);const old=connection.readSettlement(7),next=connection.readSettlement(90);
+ assert.equal(signal.aborted,true);assert.equal((await next).period.days,90);assert.equal((await old).status,'CANCELLED');
+ release(Response.json(settlementPagePayload()));
+});
 test('settlement deduplicates reads and order navigation discards only the stale settlement response',async()=>{
  let release,reads=0;const {connection}=makeConnection(makeRemoteSession(async url=>{
   if(url.endsWith('/settlement')){reads++;return new Promise(resolve=>release=resolve);}
