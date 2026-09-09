@@ -8,6 +8,8 @@ const ALLOWED_APP_RESOURCES = new Map([
   ['moaon://app/styles.css', 'styles.css'],
   ['moaon://app/app.js', 'app.js'],
   ['moaon://app/studio.css', 'studio.css'],
+  ['moaon://app/settlement.js', 'settlement.js'],
+  ['moaon://app/settlement.css', 'settlement.css'],
   ['moaon://app/fonts/PretendardVariable.ttf', 'fonts/PretendardVariable.ttf'],
 ]);
 

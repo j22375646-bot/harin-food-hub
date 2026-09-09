@@ -101,7 +101,7 @@ async function refreshTodayCalendar(){
  finally{if(expected===calendarGeneration){calendarBusy=false;button.disabled=false;}}
 }
 document.querySelector('#calendar-refresh').addEventListener('click',refreshTodayCalendar);
-function clearOverview(){clearFinance();clearTodayCalendar();overviewGeneration++;overviewValues={};overviewBusy=false;overviewLastAttempt=0;renderOverview();}
+function clearOverview(){window.moaonSettlement?.clear();clearFinance();clearTodayCalendar();overviewGeneration++;overviewValues={};overviewBusy=false;overviewLastAttempt=0;renderOverview();}
 function ensureTodayOverview(){
  if(displayMode==='live'&&document.querySelector('[data-page="today"]').classList.contains('is-visible')&&(!financeLastAttempt||Date.now()-financeLastAttempt>=300000))void refreshFinance();
  if(displayMode==='live'&&document.querySelector('[data-page="today"]').classList.contains('is-visible')&&(!calendarLastAttempt||Date.now()-calendarLastAttempt>=60000))void refreshTodayCalendar();
@@ -226,6 +226,7 @@ function showRoute(route, options = {}) {
   if (options.focusHeading) selectedPage.querySelector('h1')?.focus();
   if(route==='orders')void checkVisibleOrderFreshness();
   if(route==='today')ensureTodayOverview();
+  if(route==='settlement')window.moaonSettlement?.ensure();
 }
 
 const freshnessRow=document.querySelector('#order-freshness');

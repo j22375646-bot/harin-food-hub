@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="moaon://app/styles.css">
     <link rel="stylesheet" href="moaon://app/studio.css">
     <script src="moaon://app/app.js" defer></script>
+    <script src="moaon://app/settlement.js" defer></script>
+    <link rel="stylesheet" href="moaon://app/settlement.css">
   </head>
   <body>
     <section id="entry-screen" class="entry-screen" aria-labelledby="entry-title">
@@ -53,6 +55,7 @@
             <span class="nav-icon" aria-hidden="true">▤</span>
             <span><strong>주문·배송</strong><small id="orders-nav-detail">샘플 주문 3건</small></span>
           </button>
+          <button class="nav-button" type="button" data-route="settlement" aria-label="운영·정산"><span class="nav-icon" aria-hidden="true">₩</span><span><strong>운영·정산</strong></span></button>
           <button class="nav-button" type="button" data-route="settings" aria-label="앱 설정">
             <span class="nav-icon" aria-hidden="true">⚙</span>
             <span><strong>앱 설정</strong><small>화면과 버전</small></span>
@@ -245,6 +248,14 @@
             </div>
           </section>
 
+          <section id="settlement-page" class="page settlement-page" data-page="settlement" aria-labelledby="settlement-title" hidden>
+            <header class="settlement-heading"><div><span class="eyebrow">SETTLEMENT / 30 DAYS</span><h1 id="settlement-title" tabindex="-1">운영·정산</h1><p>예상 지급과 확인된 지급을 채널별로 살펴보세요.</p></div><button id="settlement-refresh" type="button">새로 조회</button></header>
+            <p id="settlement-period"></p><p id="settlement-status" role="status"></p>
+            <div id="settlement-summary" class="settlement-summary"></div>
+            <h2 class="settlement-section-title">채널별 정산</h2><div id="settlement-channels" class="settlement-channels"></div>
+            <section class="panel settlement-schedule-panel"><h2>지급 일정</h2><div id="settlement-schedules"></div></section>
+            <p class="settlement-disclaimer">은행 잔고가 아닌 플랫폼 정산 자료입니다. 미확인 금액은 0원으로 계산하지 않습니다. 현재 최근 30일 조회를 지원합니다.</p>
+          </section>
           <section class="page settings-page" data-page="settings" aria-labelledby="settings-title" hidden>
             <header class="page-heading compact-heading">
               <p class="context-line"><i aria-hidden="true"></i> 이 PC · 화면 설정</p>

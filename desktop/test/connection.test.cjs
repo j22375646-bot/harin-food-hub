@@ -1211,6 +1211,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   const calls = [];
   const connection = {
     readFinance: async()=>({status:'READY'}),
+    readSettlement: async()=>({status:'READY'}),
     listBusinesses: async()=>({status:'READY',businesses:[]}),
     checkOrderFreshness: async()=>({status:'CURRENT',checkedAt:'2026-09-09T00:00:00Z'}),
     connect: async () => calls.push('connect') && { status: 'LOGIN_OPEN' },
@@ -1240,7 +1241,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
     for(const args of [[],[''],[[]],['HR-C24-1234ABCD',{invoice:'1234567890123'}]])await assert.rejects(handlers.get(channel)(trusted,...args),/Invalid tracking/);
   }
 
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-tracking','moaon-hub:refresh-tracking','moaon-hub:read-delivery','moaon-hub:preview-worklist','moaon-hub:preview-labels','moaon-hub:export-selected-csv','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:set-order-filters','moaon-hub:apply-order-search','moaon-hub:reset-order-filters','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:collect-orders','moaon-hub:check-order-collection','moaon-hub:check-order-freshness','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:read-finance','moaon-hub:read-today-calendar','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect','moaon-hub:export-orders-xlsx']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-tracking','moaon-hub:refresh-tracking','moaon-hub:read-delivery','moaon-hub:preview-worklist','moaon-hub:preview-labels','moaon-hub:export-selected-csv','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:set-order-filters','moaon-hub:apply-order-search','moaon-hub:reset-order-filters','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:collect-orders','moaon-hub:check-order-collection','moaon-hub:check-order-freshness','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:read-finance','moaon-hub:read-settlement','moaon-hub:read-today-calendar','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect','moaon-hub:export-orders-xlsx']);
   for(const channel of ['moaon-hub:preview-labels','moaon-hub:export-selected-csv']){
     await assert.rejects(handlers.get(channel)({sender:{},senderFrame:null},['HR-C24-1234ABCD']),/Untrusted renderer/);
     for(const args of [[],[[]],[['bad']],[['HR-C24-1234ABCD','HR-C24-1234ABCD']],[['HR-C24-1234ABCD'],'evil.csv']])await assert.rejects(handlers.get(channel)(trusted,...args),/Invalid document/);
@@ -1256,6 +1257,10 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
   assert.equal((await financeHandler(trusted)).status,'READY');
   await assert.rejects(financeHandler(trusted,'other-tenant'),/Arguments are not allowed/);
   await assert.rejects(financeHandler({sender:{},senderFrame:null}),/Untrusted renderer/);
+  const settlementHandler=handlers.get('moaon-hub:read-settlement');
+  assert.equal((await settlementHandler(trusted)).status,'READY');
+  await assert.rejects(settlementHandler(trusted,'other-tenant'),/Arguments are not allowed/);
+  await assert.rejects(settlementHandler({sender:{},senderFrame:null}),/Untrusted renderer/);
   assert.deepEqual(await businessHandler(trusted),{status:'READY',businesses:[]});
   await assert.rejects(businessHandler(trusted,'tenant-id'),/Arguments are not allowed/);
   await assert.rejects(businessHandler({sender:{},senderFrame:null}),/Untrusted renderer/);
@@ -1303,7 +1308,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-  assert.deepEqual(Object.keys(bridge), ['collectOrders','checkOrderCollection','checkOrderFreshness','onWindowRestored','readTracking','refreshTracking','readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','readFinance','readTodayCalendar','listBusinesses','appInfo','inspectPrinters','previewLabel','previewLabels','previewWorklist','exportSelectedCsv','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'setOrderFilters', 'resetOrderFilters','applyOrderSearch','exportOrdersXlsx', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+  assert.deepEqual(Object.keys(bridge), ['collectOrders','checkOrderCollection','checkOrderFreshness','onWindowRestored','readTracking','refreshTracking','readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','readFinance','readSettlement','readTodayCalendar','listBusinesses','appInfo','inspectPrinters','previewLabel','previewLabels','previewWorklist','exportSelectedCsv','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'setOrderFilters', 'resetOrderFilters','applyOrderSearch','exportOrdersXlsx', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   let restored=0;assert.throws(()=>bridge.onWindowRestored('bad'),/Invalid restore listener/);const unsubscribe=bridge.onWindowRestored(()=>restored++);listeners.get('moaon-hub:window-restored')({private:'event'},'ignored');assert.equal(restored,1);unsubscribe();assert.equal(listeners.has('moaon-hub:window-restored'),false);
   await bridge.listBusinesses('ignored');
   await bridge.readFinance('ignored');
@@ -1565,6 +1570,38 @@ test('finance network permit exists only while the exact request is active',asyn
  await connection.refresh();const allowed=()=>new Promise(resolve=>remote.beforeRequestHandler({url:URL,method:'GET',webContentsId:0},value=>resolve(!value.cancel)));
  assert.equal(await allowed(),false);const pending=connection.readFinance();assert.equal(await allowed(),true);release(Response.json({ok:true,month:'2026-09',generatedAt:'2026-09-09T01:02:03Z',metrics:{sales:{value:1,status:'READY'},profit:{value:2,status:'READY'},balance:{value:3,status:'PARTIAL'}}}));await pending;assert.equal(await allowed(),false);
 });
+function settlementPagePayload(){
+ const {buildWorkspaceSettlementSummary}=require('../../lib/tenancy/workspace-settlement-summary.js');
+ const {buildUnifiedSettlementCenter}=require('../../lib/settlement/unified-center.js');
+ return {ok:true,...buildWorkspaceSettlementSummary({generatedAt:'2026-09-09T01:02:03Z',unifiedSettlement:buildUnifiedSettlementCenter({now:new Date('2026-09-09T01:02:03Z'),periodDays:30})})};
+}
+test('settlement deduplicates reads and order navigation discards only the stale settlement response',async()=>{
+ let release,reads=0;const {connection}=makeConnection(makeRemoteSession(async url=>{
+  if(url.endsWith('/settlement')){reads++;return new Promise(resolve=>release=resolve);}
+  return Response.json(makePagePayload());
+ }));
+ const first=connection.readSettlement(),second=connection.readSettlement();assert.equal(first,second);assert.equal(reads,1);
+ assert.equal((await connection.viewChannel('COUPANG')).status,'READY');release(Response.json(settlementPagePayload()));
+ assert.deepEqual(await first,{status:'CANCELLED',summary:null,channels:[],schedules:[],period:null,generatedAt:null});
+});
+test('settlement logout aborts a stalled read and cannot expose late financial data',async()=>{
+ let upstream;const {connection}=makeConnection(makeRemoteSession(async(url,options)=>{
+  if(url.endsWith('/settlement')){upstream=options.signal;return new Promise(()=>{});}
+  return Response.json(makePagePayload());
+ }));
+ const pending=connection.readSettlement();await connection.disconnect();assert.equal(upstream.aborted,true);
+ assert.deepEqual(await pending,{status:'CANCELLED',summary:null,channels:[],schedules:[],period:null,generatedAt:null});
+});
+test('settlement active permit allows only the exact main-process GET and is revoked after completion',async()=>{
+ const URL='https://harin-cafe24-sync.vercel.app/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/settlement';let release;
+ const remote=makeRemoteSession(async url=>url===URL?new Promise(resolve=>release=resolve):Response.json(makePagePayload()));const {connection}=makeConnection(remote);
+ await connection.refresh();
+ const allowed=(details={})=>new Promise(resolve=>remote.beforeRequestHandler({url:URL,method:'GET',webContentsId:0,...details},value=>resolve(!value.cancel)));
+ assert.equal(await allowed(),false);const pending=connection.readSettlement();assert.equal(await allowed(),true);
+ for(const details of [{method:'POST'},{webContentsId:8},{url:URL+'?days=7'},{url:URL.replace('a3452bca-e259-40ed-a93d-b8bcc5c1b9e0','10000000-0000-4000-8000-000000000002')}])assert.equal(await allowed(details),false);
+ release(Response.json(settlementPagePayload()));assert.equal((await pending).status,'READY');assert.equal(await allowed(),false);
+});
+
 test('calendar deadline and logout discard late private schedule results',async()=>{
  for(const logout of [false,true]){
   let release;const {connection}=makeConnection(makeRemoteSession(async url=>{

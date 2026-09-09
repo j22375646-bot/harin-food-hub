@@ -10,6 +10,7 @@ const ORDER_CHANNELS = Object.freeze(['ALL','CAFE24','NAVER','COUPANG']);
 const ORDERS_PATH = `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/orders?stage=`;
 const ORDERS_URL = `${ORDERS_PATH}ACTIVE&platform=ALL`;
 const FINANCE_URL = `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/finance`;
+const SETTLEMENT_URL = `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/settlement`;
 const READONLY_PARTITION = 'persist:moaon-harin-readonly';
 const MAX_LOGIN_QUERY_LENGTH = 512;
 const LOGIN_QUERY_KEYS = new Set(['error', 'next']);
@@ -112,6 +113,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if(method==='GET'&&context.automaticRequestActive===true&&new RegExp(`^${HARIN_ORIGIN.replaceAll('.','\\.')}\/api\/coupang\/operations\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`,'i').test(details.url))return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&details.url===`${HARIN_ORIGIN}/api/moaon/businesses`)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.financePermit===FINANCE_URL&&details.url===FINANCE_URL)return isMainProcessRequest(details.webContentsId);
+  if(method==='GET'&&context.settlementPermit===SETTLEMENT_URL&&details.url===SETTLEMENT_URL)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.exportPermit===details.url&&details.url.endsWith('&format=xlsx'))return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&Number.isInteger(context.labelWebContentsId)&&context.labelWebContentsId>0&&details.webContentsId===context.labelWebContentsId&&details.url===context.labelUrl
     && /^https:\/\/harin-cafe24-sync\.vercel\.app\/api\/shipping\/print\?type=label&ids=HR-(?:C24|CP)-[A-F0-9]{8}$/.test(details.url))return true;
@@ -162,6 +164,7 @@ module.exports = Object.freeze({
   ORDER_CHANNELS,
   ORDERS_URL,
   FINANCE_URL,
+  SETTLEMENT_URL,
   READONLY_PARTITION,
   buildOrdersPageUrl,
   buildOrdersScopeUrl,
