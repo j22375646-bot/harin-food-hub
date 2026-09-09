@@ -3,19 +3,23 @@
  const $=id=>document.getElementById(id),labels={NAVER:'네이버',COUPANG:'쿠팡',CAFE24:'Cafe24',INQUIRY:'문의',CANCEL:'취소',RETURN:'반품',EXCHANGE:'교환'};
  let value=null,busy=false,generation=0,selected=null,pageIndex=0;
  const node=(tag,text)=>{const n=document.createElement(tag);n.textContent=text;return n;};
+ const contentLabel=d=>!d?'본문 조회 연결 대기':d.status==='UNAVAILABLE'?'내용 복원 실패':d.status==='MISSING'?'저장 내용 확인 필요':d.truncated?'일부 내용 조회됨':'저장 내용 조회됨';
  const reference=row=>row.id.split(':').slice(2).join(':')||row.id;
  function close(){const previous=selected;selected=null;render();Array.from($('cs-list').querySelectorAll('button')).find(b=>b.dataset.id===previous)?.focus();}
  function render(){
   $('cs-refresh').disabled=busy||displayMode!=='live';
   const term=$('cs-search').value.trim().toLocaleLowerCase('ko-KR');
   const rows=(value?.items||[]).filter(r=>($('cs-platform').value==='ALL'||r.platform===$('cs-platform').value)&&($('cs-kind').value==='ALL'||r.kind===$('cs-kind').value)&&[r.id,r.details?.title,r.details?.body,...(r.details?.history||[]).map(e=>e.content)].some(s=>typeof s==='string'&&s.toLocaleLowerCase('ko-KR').includes(term)));
-  $('cs-search-scope').textContent=value?.items.some(r=>r.details)?'검색 범위: 조회된 접수 번호·제목·본문·이력. 잘린 내용은 검색되지 않습니다.':'검색 범위: 접수 번호. 본문·이력 검색은 서버 반영 후 사용할 수 있습니다.';
+  const loaded=value?.items||[],detailed=loaded.filter(r=>r.details),available=detailed.filter(r=>r.details.status==='AVAILABLE');
+  $('cs-search-scope').textContent=busy?'자료를 조회한 뒤 검색 범위를 확인합니다.':!value?'조회 전에는 검색 가능한 자료를 확인할 수 없습니다.':!loaded.length?'조회된 미처리 접수가 없습니다.':!detailed.length?'검색 범위: 접수 번호. 본문·이력 검색은 서버 반영 후 사용할 수 있습니다.':'검색 범위: 조회된 접수 번호·제목·본문·이력. 잘린 내용은 검색되지 않습니다.';
+  $('cs-content-summary').hidden=!loaded.length;
+  $('cs-content-summary').textContent=loaded.length?'내용 조회 '+available.length+'건 · 내용 확인 필요 '+(detailed.length-available.length)+'건 · 본문 연결 대기 '+(loaded.length-detailed.length)+'건':'';
   rows.sort((a,b)=>{if(!a.occurredAt||!b.occurredAt)return Number(!a.occurredAt)-Number(!b.occurredAt)||a.id.localeCompare(b.id);return ($('cs-sort').value==='OLDEST'?1:-1)*(Date.parse(a.occurredAt)-Date.parse(b.occurredAt))||a.id.localeCompare(b.id);});
   const pages=Math.ceil(rows.length/25);pageIndex=Math.min(pageIndex,Math.max(0,pages-1));const visible=rows.slice(pageIndex*25,pageIndex*25+25);
   if(!visible.some(r=>r.id===selected))selected=null;
   $('cs-page-label').textContent=pages?`${pageIndex+1} / ${pages}쪽 · 25건씩 표시`:'표시할 접수 없음';$('cs-prev').disabled=busy||pageIndex===0;$('cs-next').disabled=busy||pageIndex>=pages-1;
   $('cs-count').textContent=value?`조회된 미처리 ${value.items.length}건 · 현재 조건 ${rows.length}건${value.truncated?' · 일부 자료만 표시':''}`:'미처리 건수 확인 필요';
-  $('cs-list').replaceChildren(...(visible.length?visible.map(r=>{const b=node('button','');b.type='button';b.dataset.id=r.id;b.className='cs-row';b.setAttribute('aria-expanded',String(r.id===selected));b.setAttribute('aria-controls','cs-detail');b.append(node('strong',`${labels[r.platform]} · ${labels[r.kind]}`),node('span','접수 번호 '+reference(r)),node('span','처리 상태 '+r.status),node('small',r.occurredAt?formatTime(r.occurredAt):'접수 시각 확인 필요'));b.onclick=()=>{selected=r.id;render();$('cs-detail').querySelector('button').focus({preventScroll:true});$('cs-detail').scrollIntoView({block:'start'});};return b;}):[node('p',value?'현재 조회 범위에서 조건에 맞는 미처리 건이 없습니다.':'연결 후 새로 조회해 주세요.')]));
+  $('cs-list').replaceChildren(...(visible.length?visible.map(r=>{const b=node('button','');b.type='button';b.dataset.id=r.id;b.className='cs-row';b.setAttribute('aria-expanded',String(r.id===selected));b.setAttribute('aria-controls','cs-detail');b.append(node('strong',`${labels[r.platform]} · ${labels[r.kind]}`),node('span','접수 번호 '+reference(r)),node('span','처리 상태 '+r.status),node('small',r.occurredAt?formatTime(r.occurredAt):'접수 시각 확인 필요'));const contentState=node('span',contentLabel(r.details));contentState.className='cs-content-state';b.append(contentState);if(r.details?.title)b.append(node('span',r.details.title));b.onclick=()=>{selected=r.id;render();$('cs-detail').querySelector('button').focus({preventScroll:true});$('cs-detail').scrollIntoView({block:'start'});};return b;}):[node('p',value?'현재 조회 범위에서 조건에 맞는 미처리 건이 없습니다.':'연결 후 새로 조회해 주세요.')]));
   const row=rows.find(r=>r.id===selected),panel=$('cs-detail');panel.hidden=!row;panel.parentElement.dataset.detailOpen=String(Boolean(row));panel.replaceChildren();if(!row)return;
 
   const button=node('button','목록으로');button.type='button';button.onclick=close;
