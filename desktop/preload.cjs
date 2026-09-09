@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   readDelivery: (id) => ipcRenderer.invoke('moaon-hub:read-delivery',id),
   readOverview: () => ipcRenderer.invoke('moaon-hub:read-overview'),
   readFinance: () => ipcRenderer.invoke('moaon-hub:read-finance'),
+  readInventory: () => ipcRenderer.invoke('moaon-hub:read-inventory'),
   readCs: () => ipcRenderer.invoke('moaon-hub:read-cs'),
   readInsights: () => ipcRenderer.invoke('moaon-hub:read-insights'),
   readSettlement: (days=30) => ipcRenderer.invoke('moaon-hub:read-settlement',days),

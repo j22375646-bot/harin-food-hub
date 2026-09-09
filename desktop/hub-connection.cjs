@@ -28,6 +28,7 @@ const {createFinanceTransport}=require('./finance-transport.cjs');
 const {createSettlementTransport,settlementUrl}=require('./settlement-transport.cjs');
 const {createInsightsTransport,INSIGHTS_URL}=require('./insights-transport.cjs');
 const {createCsTransport,CS_URL}=require('./cs-transport.cjs');
+const {createInventoryTransport,INVENTORY_URL}=require('./inventory-transport.cjs');
 const {createOrderCollection}=require('./order-collection.cjs');
 const {createShippingActionJournal,readShippingHistory}=require('./shipping-action-journal.cjs');
 const {projectVisual}=require('./order-visual.cjs');
@@ -466,6 +467,7 @@ function createHubConnection({
   let activeFinance=null,activeFinanceController=null,financePermit=null;
   let activeSettlement=null,settlementController=null,settlementPermit=null,settlementDays=30;
   let activeCs=null,csController=null,csPermit=null;
+  let activeInventory=null,inventoryController=null,inventoryPermit=null;
   let activeInsights=null,insightsController=null,insightsPermit=null;
   let activeCalendar=null,calendarPermit=null;
   function readTodayCalendar(){
@@ -571,6 +573,16 @@ function createHubConnection({
     let tracked;tracked=read({signal:controller.signal}).then(result=>expected===generation?result:empty('CANCELLED')).finally(()=>{if(csController===controller){csController=null;csPermit=null;}if(activeCs===tracked)activeCs=null;});
     activeCs=tracked;return tracked;
   }
+  function readInventory(){
+    const empty=status=>({status,items:[],generatedAt:null,truncated:false});
+    if(disconnecting||cleanupFailed)return Promise.resolve(empty('DISCONNECTED'));
+    if(isLoginWindowActive())return Promise.resolve(empty('LOGIN_REQUIRED'));
+    if(activeInventory)return activeInventory;
+    const expected=generation,controller=new AbortController();inventoryController=controller;inventoryPermit=INVENTORY_URL;
+    const read=createInventoryTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options)});
+    let tracked;tracked=read({signal:controller.signal}).then(result=>expected===generation?result:empty('CANCELLED')).finally(()=>{if(inventoryController===controller){inventoryController=null;inventoryPermit=null;}if(activeInventory===tracked)activeInventory=null;});
+    activeInventory=tracked;return tracked;
+  }
   function readInsights(){
     const empty=status=>({status,channel:null,reports:[],caveats:[],generatedAt:null});
     if(disconnecting||cleanupFailed)return Promise.resolve(empty('DISCONNECTED'));
@@ -661,7 +673,7 @@ function createHubConnection({
             financePermit,
             settlementPermit,
             insightsPermit,
-            csPermit,
+            csPermit,inventoryPermit,
             trackingRequestMethod,
             automaticTrackingRequestActive,
             collectionPermit,
@@ -1512,7 +1524,7 @@ function createHubConnection({
     collection.reset();
     invalidateGeneration();
     activeFinanceController?.abort();financePermit=null;
-    settlementController?.abort();settlementPermit=null;insightsController?.abort();insightsPermit=null;csController?.abort();csPermit=null;
+    settlementController?.abort();settlementPermit=null;insightsController?.abort();insightsPermit=null;csController?.abort();csPermit=null;inventoryController?.abort();inventoryPermit=null;
     const shipmentShutdown=stopShipments();
     currentScope = 'ACTIVE';
     currentChannel = 'ALL';
@@ -1560,7 +1572,7 @@ function createHubConnection({
     collection.reset();
     invalidateGeneration();
     activeFinanceController?.abort();financePermit=null;
-    settlementController?.abort();settlementPermit=null;insightsController?.abort();insightsPermit=null;csController?.abort();csPermit=null;
+    settlementController?.abort();settlementPermit=null;insightsController?.abort();insightsPermit=null;csController?.abort();csPermit=null;inventoryController?.abort();inventoryPermit=null;
     void stopShipments();
     currentScope = 'ACTIVE';
     currentChannel = 'ALL';
@@ -1631,7 +1643,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-return Object.freeze({ readCredentialMetadata, saveServerCredential, readCalendarMonth, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+return Object.freeze({ readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1716,6 +1728,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     ['moaon-hub:read-finance', 'readFinance'],
     ['moaon-hub:read-settlement', 'readSettlement'],
     ['moaon-hub:read-insights', 'readInsights'],
+    ['moaon-hub:read-inventory', 'readInventory'],
     ['moaon-hub:read-cs', 'readCs'],
     ['moaon-hub:read-today-calendar', 'readTodayCalendar'],
     ['moaon-hub:list-businesses', 'listBusinesses'],
