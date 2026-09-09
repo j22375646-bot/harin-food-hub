@@ -24,6 +24,7 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   restoreShippingHistory: () => ipcRenderer.invoke('moaon-hub:restore-shipping-history'),
   readDelivery: (id) => ipcRenderer.invoke('moaon-hub:read-delivery',id),
   readOverview: () => ipcRenderer.invoke('moaon-hub:read-overview'),
+  readTodayCalendar: () => ipcRenderer.invoke('moaon-hub:read-today-calendar'),
   listBusinesses: () => ipcRenderer.invoke('moaon-hub:list-businesses'),
   appInfo: () => ipcRenderer.invoke('moaon-hub:app-info'),
   inspectPrinters: () => ipcRenderer.invoke('moaon-hub:inspect-printers'),

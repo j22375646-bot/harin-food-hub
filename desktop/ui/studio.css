@@ -175,3 +175,9 @@ html body::-webkit-scrollbar,html body *::-webkit-scrollbar{display:none!importa
 .orders-page .order-freshness{min-height:24px;margin-bottom:2px;padding:0 2px;background:transparent;border-color:transparent;flex-wrap:wrap}
 .orders-page .order-freshness[data-status="CHANGED"],.orders-page .order-freshness[data-status="UNAVAILABLE"],.orders-page .order-freshness[data-status="AUTH_REQUIRED"]{padding:5px 8px;background:var(--surface-soft);border-color:var(--line-strong)}
 @media(max-width:900px){.orders-page .page-heading{grid-template-columns:1fr}.orders-page #order-collection{grid-column:1;grid-row:3}.orders-page .collection-controls{justify-content:flex-start}.orders-page #collection-message{text-align:left}}
+.today-overview #calendar-list{list-style:none;padding:0;margin:14px 0 0;display:grid;gap:8px}
+.today-overview #calendar-list li{display:grid;grid-template-columns:64px minmax(0,1fr) auto;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;background:var(--surface-soft);font-size:14px}
+.today-overview #calendar-list time{font-variant-numeric:tabular-nums;font-weight:600}
+.today-overview #calendar-list li>span:first-of-type{min-width:0;overflow-wrap:anywhere}
+.today-overview .calendar-state{white-space:nowrap;font-size:12px;padding:4px 8px;border-radius:8px;background:var(--surface)}
+.today-overview #calendar-list [data-done="true"]{opacity:.7}

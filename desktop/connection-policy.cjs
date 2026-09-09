@@ -96,6 +96,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if (url.username || url.password) return false;
 
   const method = details.method.toUpperCase();
+  if(method==='GET'&&context.calendarPermit===details.url&&url.origin===HARIN_ORIGIN&&url.pathname==='/api/calendar/entries'&&!url.hash&&/^\?from=(\d{4}-\d{2}-\d{2})&to=\1$/.test(url.search))return isMainProcessRequest(details.webContentsId);
   if(context.collectionPermit?.url===details.url&&context.collectionPermit.method===method&&['GET','POST'].includes(method)
     &&url.origin===HARIN_ORIGIN&&url.pathname==='/api/orders/live-refresh'&&!url.hash)return isMainProcessRequest(details.webContentsId);
   if(method==='POST'&&context.automaticTrackingRequestActive===true&&details.url===`${HARIN_ORIGIN}/api/shipping/tracking`)return isMainProcessRequest(details.webContentsId);

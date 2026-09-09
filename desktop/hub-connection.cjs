@@ -454,6 +454,31 @@ function createHubConnection({
   const shipmentAuthReads=new Set();
   const businessReads=new Set();
   let activeOverview=null;
+  let activeCalendar=null,calendarPermit=null;
+  function readTodayCalendar(){
+    if(disconnecting||cleanupFailed||isLoginWindowActive())return Promise.resolve({status:'UNAVAILABLE',date:require('./today-calendar.cjs').calendarDay(now()),entries:[]});
+    if(activeCalendar)return activeCalendar;
+    const expected=generation,controller=new AbortController();businessReads.add(controller);
+    const {calendarDay,projectCalendar}=require('./today-calendar.cjs'),date=calendarDay(now());
+    const empty=status=>({status,date,entries:[]});let timer;
+    const operation=(async()=>{
+      try{return await Promise.race([(async()=>{
+        const authResponse=await getRemoteSession().fetch(buildOrdersScopeUrl('ACTIVE'),{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
+        const auth=[401,403].includes(authResponse.status)?(authResponse.status===401?'LOGIN_REQUIRED':'FORBIDDEN'):authResponse.status===200?projectOrdersPayload(await readBoundedJson(authResponse,controller),now().toISOString()).status:'UNAVAILABLE';
+        if(expected!==generation||controller.signal.aborted)return empty('DISCONNECTED');
+        if(!['READY','PARTIAL'].includes(auth))return empty(auth);
+        const url=`${HARIN_ORIGIN}/api/calendar/entries?from=${date}&to=${date}`;calendarPermit=url;
+        const response=await getRemoteSession().fetch(url,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
+        if(expected!==generation||controller.signal.aborted)return empty('DISCONNECTED');
+        if(response.status!==200)return empty(response.status===401?'LOGIN_REQUIRED':response.status===403?'FORBIDDEN':'UNAVAILABLE');
+        const payload=await readBoundedJson(response,controller);
+        return expected===generation&&!controller.signal.aborted?projectCalendar(payload,date):empty('DISCONNECTED');
+      })(),new Promise(resolve=>{controller.signal.addEventListener('abort',()=>resolve(empty('UNAVAILABLE')),{once:true});timer=setTimeout(()=>controller.abort(),timeoutMs);})]);}
+      catch{return empty('UNAVAILABLE');}
+      finally{clearTimeout(timer);calendarPermit=null;businessReads.delete(controller);}
+    })();
+    activeCalendar=operation.finally(()=>{activeCalendar=null;});return activeCalendar;
+  }
   function readOverview(){
     if(disconnecting||cleanupFailed||isLoginWindowActive())return Promise.resolve({status:'DISCONNECTED',scopes:{}});
     if(activeOverview)return activeOverview;
@@ -547,6 +572,7 @@ function createHubConnection({
             shipmentRequestActive: shipmentPermits.has(`${details.method} ${details.url}`),
             registrationRequestActive,
             serverHistoryRequestActive,
+            calendarPermit,
             trackingRequestMethod,
             automaticTrackingRequestActive,
             collectionPermit,
@@ -1511,7 +1537,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-  return Object.freeze({ exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  return Object.freeze({ exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1585,6 +1611,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     ['moaon-hub:server-shipping-history', 'readServerShippingHistory'],
     ['moaon-hub:restore-shipping-history', 'restoreShippingHistory'],
     ['moaon-hub:read-overview', 'readOverview'],
+    ['moaon-hub:read-today-calendar', 'readTodayCalendar'],
     ['moaon-hub:list-businesses', 'listBusinesses'],
     ['moaon-hub:connect', 'connect'],
     ['moaon-hub:refresh', 'refresh'],

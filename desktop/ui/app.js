@@ -70,8 +70,30 @@ let selectedScope = 'ACTIVE';
 let scopeControlsAvailable = false;
 let businessGeneration=0,businessLoaded=false,businessBusy=false;
 let overviewValues={},overviewGeneration=0,overviewBusy=false,overviewLastAttempt=0;
-function clearOverview(){overviewGeneration++;overviewValues={};overviewBusy=false;overviewLastAttempt=0;renderOverview();}
+let calendarGeneration=0,calendarBusy=false,calendarLastAttempt=0;
+function clearTodayCalendar(){calendarGeneration++;calendarBusy=false;calendarLastAttempt=0;document.querySelector('#calendar-list').replaceChildren();document.querySelector('#calendar-status').textContent='연결 후 오늘 일정을 확인합니다.';document.querySelector('#today-calendar').hidden=true;}
+async function refreshTodayCalendar(){
+ if(calendarBusy||displayMode!=='live')return;
+ const expected=++calendarGeneration;calendarBusy=true;calendarLastAttempt=Date.now();
+ const section=document.querySelector('#today-calendar'),button=document.querySelector('#calendar-refresh'),status=document.querySelector('#calendar-status'),list=document.querySelector('#calendar-list');
+ section.hidden=false;button.disabled=true;list.replaceChildren();status.textContent='오늘 일정을 불러오는 중입니다…';
+ try{
+  const result=await window.moaonHub.readTodayCalendar();if(expected!==calendarGeneration)return;
+  if(['LOGIN_REQUIRED','FORBIDDEN','DISCONNECTED'].includes(result?.status)){applyHubResult(result);return;}
+  if(result?.status!=='READY'){status.textContent='일정을 확인하지 못했습니다. 다시 조회해 주세요.';return;}
+  status.textContent=result.date+' · 한국 시간 기준 · '+(result.entries.length?result.entries.length+'건':'오늘 등록된 일정이 없습니다.');
+  list.replaceChildren(...result.entries.map(entry=>{
+   const row=makeElement('li'),time=makeElement('time'),title=makeElement('span'),state=makeElement('span');
+   time.textContent=entry.time||'종일';title.textContent=entry.title;state.textContent=entry.status==='DONE'?'완료':'예정';
+   state.className='calendar-state';row.dataset.done=String(entry.status==='DONE');row.append(time,title,state);return row;
+  }));
+ }catch{if(expected===calendarGeneration)status.textContent='일정을 확인하지 못했습니다. 다시 조회해 주세요.';}
+ finally{if(expected===calendarGeneration){calendarBusy=false;button.disabled=false;}}
+}
+document.querySelector('#calendar-refresh').addEventListener('click',refreshTodayCalendar);
+function clearOverview(){clearTodayCalendar();overviewGeneration++;overviewValues={};overviewBusy=false;overviewLastAttempt=0;renderOverview();}
 function ensureTodayOverview(){
+ if(displayMode==='live'&&document.querySelector('[data-page="today"]').classList.contains('is-visible')&&(!calendarLastAttempt||Date.now()-calendarLastAttempt>=60000))void refreshTodayCalendar();
  if(displayMode!=='live'||overviewBusy||!document.querySelector('[data-page="today"]').classList.contains('is-visible'))return;
  if(overviewLastAttempt&&Date.now()-overviewLastAttempt<60000)return;
  void refreshOverview();
