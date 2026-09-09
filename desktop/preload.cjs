@@ -14,6 +14,7 @@ const validOrderSearch=value=>value&&typeof value==='object'&&!Array.isArray(val
 
 contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   saveApiDraft: value => ipcRenderer.invoke('moaon-hub:save-api-draft',value),
+  saveOwnedApiDraft: value => ipcRenderer.invoke('moaon-hub:save-owned-api-draft',value),
   listApiDrafts: () => ipcRenderer.invoke('moaon-hub:list-api-drafts'),
   removeApiDraft: value => ipcRenderer.invoke('moaon-hub:remove-api-draft',value),
   collectOrders: () => ipcRenderer.invoke('moaon-hub:collect-orders'),

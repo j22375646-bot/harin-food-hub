@@ -147,7 +147,7 @@ if (!hasSingleInstanceLock) {
     registerPrinterInspection({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer,
       inspect:createPrinterInspection({getMainWindow:()=>mainWindow,dialog})});
     registerAppInfo({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer,getVersion:()=>app.getVersion()});
-    registerApiDrafts({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer,store:createDraftStore({directory:path.join(app.getPath('userData'),'api-drafts'),safeStorage,platform:process.platform})});
+    registerApiDrafts({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer,listBusinesses:()=>hubConnection.listBusinesses(),store:createDraftStore({directory:path.join(app.getPath('userData'),'api-drafts'),safeStorage,platform:process.platform})});
     mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault());
     mainWindow.webContents.on('will-navigate', (event, targetUrl) => {
       if (targetUrl !== APP_ENTRY_URL) event.preventDefault();

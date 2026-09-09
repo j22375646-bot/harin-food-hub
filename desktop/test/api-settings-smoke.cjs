@@ -15,7 +15,16 @@ const assert=require('node:assert/strict'),path=require('node:path'),{launchDesk
  assert.deepEqual(await page.evaluate(()=>window.moaonHub.listApiDrafts()),[]);
  await page.locator('[name="secretKey"]').fill('CLEAR_ME');await page.keyboard.press('Alt+2');assert.equal(await page.locator('[name="secretKey"]').inputValue(),'');
  await page.keyboard.press('Alt+3');await page.locator('#api-source').selectOption('existing');assert.equal(await page.locator('#api-draft-form').isVisible(),false);
- await page.locator('#api-source').selectOption('new');await page.locator('#api-settings').scrollIntoViewIfNeeded();await page.waitForTimeout(400);await page.screenshot({path:path.resolve(__dirname,'../dist/p461-settings.png')});
+ await app.evaluate(({session})=>{session.fromPartition('persist:moaon-harin-readonly').fetch=async()=>Response.json({ok:true,businesses:[{tenantId:'11111111-1111-4111-8111-111111111111',displayName:'소유자 시험 사업장',role:'OWNER',membershipVersion:1},{tenantId:'22222222-2222-4222-8222-222222222222',displayName:'조회 전용 사업장',role:'VIEWER',membershipVersion:1}]});});
+ await page.locator('#api-source').selectOption('owned');await page.waitForFunction(()=>!document.querySelector('#api-tenant').disabled);
+ assert.equal(await page.locator('#api-tenant option').count(),2);
+ await page.locator('#api-tenant').selectOption('11111111-1111-4111-8111-111111111111');
+ for(const field of ['vendorId','accessKey','secretKey'])await page.locator(`[name="${field}"]`).fill('TEST_SECRET_NOT_REAL');
+ await page.locator('#api-draft-save').click();await page.waitForFunction(()=>document.querySelector('#api-draft-status').textContent.includes('저장됨'));
+ const bound=await page.evaluate(()=>window.moaonHub.listApiDrafts());assert.equal(bound[0].tenantId,'11111111-1111-4111-8111-111111111111');assert.equal(bound[0].business,'소유자 시험 사업장');
+ await page.locator('#api-draft-load').click();await page.waitForFunction(()=>document.querySelector('#api-draft-list').textContent.includes('사업장 지정'));
+ await page.locator('#api-settings').scrollIntoViewIfNeeded();await page.screenshot({path:path.resolve(__dirname,'../dist/p461b-settings.png')});
+ page.once('dialog',dialog=>dialog.accept());await page.locator('#api-draft-list button').click();await page.waitForFunction(()=>document.querySelector('#api-draft-list').textContent.includes('없습니다'));
  for(const width of [1040,1440]){await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setSize(width,900),width);assert.equal(await page.locator('#api-settings').evaluate(el=>el.scrollWidth<=el.clientWidth),true);}
  console.log('PASS actual Windows encrypted draft save, metadata only, inputs cleared and Harin existing source');
  }finally{await app.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

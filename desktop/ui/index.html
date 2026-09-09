@@ -306,11 +306,12 @@
 
               <section id="api-settings" class="panel setting-card api-settings" aria-labelledby="api-title">
                 <header><h2 id="api-title">플랫폼 API 연결</h2><span class="status-chip">사업장별 설정</span></header>
-                <label>연결 방식<select id="api-source"><option value="existing">하린식품 · 기존 서버 연결 사용</option><option value="new">다른 사업장 · API 직접 입력</option></select></label>
+                <label>설정 대상<select id="api-source"><option value="existing">하린식품 · 기존 서버 연결 사용</option><option value="owned">내 사업장 · API 직접 입력</option><option value="new">미연결 사업장 · 임시 설정</option></select></label>
                 <div id="api-existing"><p>하린식품은 현재 서버의 인증정보를 계속 사용합니다. 키 원문을 앱으로 복사하거나 다시 입력할 필요가 없습니다.</p><p class="api-note">Cafe24·네이버·쿠팡·우체국의 개별 키 등록 상태와 유효성 검사는 아직 이 화면에 연결되지 않았습니다.</p></div>
                 <form id="api-draft-form" hidden autocomplete="off">
                   <p class="api-note">현재는 이 PC에 암호화 저장만 가능합니다. 사업장 가입·플랫폼 검증·실제 연결 전환은 아직 지원하지 않습니다.</p>
-                  <div class="api-fields"><label>사업장 이름<input id="api-business" maxlength="80" required autocomplete="off" placeholder="예: 듀모르"></label><label>플랫폼<select id="api-provider"><option value="CAFE24">Cafe24</option><option value="NAVER">네이버 커머스</option><option value="COUPANG">쿠팡</option><option value="EPOST">우체국</option></select></label></div>
+                  <div id="api-owned-business" hidden><label>소유자 사업장<select id="api-tenant" disabled><option value="">사업장을 확인하세요</option></select></label><button id="api-business-refresh" type="button">사업장 다시 확인</button><p id="api-business-status" class="api-note" role="status"></p></div>
+                  <div class="api-fields"><label id="api-business-label">사업장 이름<input id="api-business" maxlength="80" required autocomplete="off" placeholder="예: 듀모르"></label><label>플랫폼<select id="api-provider"><option value="CAFE24">Cafe24</option><option value="NAVER">네이버 커머스</option><option value="COUPANG">쿠팡</option><option value="EPOST">우체국</option></select></label></div>
                   <div id="api-fields" class="api-fields"></div>
                   <p class="api-note">Cafe24는 키 입력 외에 OAuth 승인이 필요합니다. 키는 저장 후 다시 표시하지 않으며, 다른 PC로 자동 이전되지 않습니다.</p>
                   <button id="api-draft-save" class="primary-action" type="submit">이 PC에 암호화 저장</button>

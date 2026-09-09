@@ -8,6 +8,27 @@ let api={};try{api=require('../api-drafts.cjs');}catch(e){if(e.code!=='MODULE_NO
 const key=crypto.randomBytes(32);
 const safeStorage={isEncryptionAvailable:()=>true,encryptString(text){const iv=crypto.randomBytes(12),cipher=crypto.createCipheriv('aes-256-gcm',key,iv);return Buffer.concat([iv,cipher.update(text,'utf8'),cipher.final(),cipher.getAuthTag()]);},decryptString(data){const decipher=crypto.createDecipheriv('aes-256-gcm',key,data.subarray(0,12));decipher.setAuthTag(data.subarray(-16));return Buffer.concat([decipher.update(data.subarray(12,-16)),decipher.final()]).toString('utf8');}};
 const draft=(business='시험 사업장')=>({business,provider:'NAVER',fields:{clientId:'test-id',clientSecret:'unique-secret-value'}});
+const tenantId='11111111-1111-4111-8111-111111111111';
+test('tenant identity keeps identical names separate and survives rename and restart',async t=>{
+ const {store,directory}=await fixture(t);await store.save(draft());await store.save({...draft(),tenantId});
+ await store.save({...draft('renamed'),tenantId});assert.equal((await store.list()).length,2);
+ const restarted=api.createDraftStore({directory,safeStorage});assert.equal((await restarted.list())[1].tenantId,tenantId);
+ await restarted.remove({business:'renamed',provider:'NAVER',tenantId});assert.deepEqual(await restarted.list(),[{business:'시험 사업장',provider:'NAVER',status:'SAVED_UNVERIFIED'}]);
+});
+test('owned save rechecks server membership and never trusts renderer business or role',async t=>{
+ const {store}=await fixture(t),handlers=new Map();let reads=0,role='OWNER',status='READY';
+ api.registerApiDrafts({ipcMain:{handle:(k,v)=>handlers.set(k,v)},getMainWindow:()=>({}),isTrustedRenderer:e=>e.trusted,store,listBusinesses:async()=>{reads++;return {status,businesses:[{tenantId,displayName:'서버 사업장',role}]};}});
+ const save=handlers.get('moaon-hub:save-owned-api-draft'),input={tenantId,provider:'NAVER',fields:draft().fields};assert.equal(typeof save,'function');
+ await assert.rejects(()=>save({},input));assert.equal(reads,0);
+ const result=await save({trusted:true},input);assert.equal(result.business,'서버 사업장');assert.equal(result.tenantId,tenantId);assert.equal(result.status,'SAVED_UNVERIFIED');
+ for(const denied of ['VIEWER','OPERATOR']){role=denied;await assert.rejects(()=>save({trusted:true},input));}
+ role='OWNER';status='LOGIN_REQUIRED';await assert.rejects(()=>save({trusted:true},input));
+ status='READY';await assert.rejects(()=>save({trusted:true},{...input,business:'spoof',role:'OWNER'}));
+ await assert.rejects(()=>handlers.get('moaon-hub:save-api-draft')({trusted:true},{...draft(),tenantId}));
+ await assert.rejects(()=>save({trusted:true},{...input,tenantId:'22222222-2222-4222-8222-222222222222'}));
+ await assert.rejects(()=>save({trusted:true},{...input,tenantId:'not-a-tenant'}));
+ assert.equal(reads,5);assert.equal((await store.list()).length,1);
+});
 async function fixture(t,options={}){assert.equal(typeof api.createDraftStore,'function');const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-draft-test-'));t.after(()=>fs.rm(directory,{recursive:true,force:true}));return {directory,store:api.createDraftStore({directory,safeStorage,...options})};}
 test('saves encrypted records and returns only unverified metadata after restart',async t=>{const {directory,store}=await fixture(t);assert.deepEqual(await store.list(),[]);assert.deepEqual(await store.save(draft()),{business:'시험 사업장',provider:'NAVER',status:'SAVED_UNVERIFIED'});const files=await fs.readdir(directory);assert.equal(files.length,1);const data=await fs.readFile(path.join(directory,files[0]));assert.equal(data.includes(Buffer.from('unique-secret-value')),false);assert.deepEqual(await api.createDraftStore({directory,safeStorage}).list(),[{business:'시험 사업장',provider:'NAVER',status:'SAVED_UNVERIFIED'}]);});
 test('rejects unavailable OS encryption without creating a file',async t=>{for(const options of [{platform:'linux'},{safeStorage:{isEncryptionAvailable:()=>false}}]){const {directory,store}=await fixture(t,options);await assert.rejects(store.save(draft()),/API_DRAFT_UNAVAILABLE/);await assert.rejects(store.list(),/API_DRAFT_UNAVAILABLE/);assert.deepEqual(await fs.readdir(directory),[]);}});
