@@ -23,6 +23,7 @@ const EMPTY_ORDERS = Object.freeze([]);
 const {createShipmentRegistry}=require('./shipment-registry.cjs');
 const {createShipmentTransport}=require('./shipment-transport.cjs');
 const {createBusinessTransport}=require('./business-transport.cjs');
+const {createCredentialTransport,validCredentialInput}=require('./credential-transport.cjs');
 const {createFinanceTransport}=require('./finance-transport.cjs');
 const {createSettlementTransport,settlementUrl}=require('./settlement-transport.cjs');
 const {createInsightsTransport,INSIGHTS_URL}=require('./insights-transport.cjs');
@@ -294,6 +295,10 @@ function createHubConnection({
   let disconnecting = null;
   let cleanupFailed = initialCleanupPending;
   let generation = 0;
+  let credentialPermit=null;
+  function invalidateGeneration(){generation+=1;credentialTransport.cancel();credentialPermit=null;}
+  const credentialTransport=createCredentialTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options),authorize:options=>listBusinesses(options),permit:value=>{credentialPermit=value;},blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive()),timeoutMs:Math.min(timeoutMs*2,30000)});
+  const readCredentialMetadata=value=>credentialTransport.read(value),saveServerCredential=value=>credentialTransport.save(value);
   let pageCursor = null;
   let currentScope = 'ACTIVE';
   let currentChannel = 'ALL';
@@ -538,7 +543,7 @@ function createHubConnection({
         new Promise(resolve=>controller.signal.addEventListener('abort',()=>resolve(empty('CANCELLED')),{once:true})),
       ]);
       if(expected!==generation)return empty('DISCONNECTED');
-      if(authStatus){generation++;invalidateCursor();activeAbortController?.abort();void stopShipments();return empty(authStatus);}
+      if(authStatus){invalidateGeneration();invalidateCursor();activeAbortController?.abort();void stopShipments();return empty(authStatus);}
       return result;
     })();
     let tracked;tracked=operation.finally(()=>{clearTimeout(timer);businessReads.delete(controller);if(activeOverview===tracked)activeOverview=null;});
@@ -576,16 +581,17 @@ function createHubConnection({
     let tracked;tracked=read({signal:controller.signal,days}).then(result=>expected===generation&&!controller.signal.aborted?result:empty('CANCELLED')).finally(()=>{if(settlementController===controller){settlementController=null;settlementPermit=null;}if(activeSettlement===tracked)activeSettlement=null;});
     activeSettlement=tracked;return tracked;
   }
-  async function listBusinesses(){
+  async function listBusinesses({signal}={}){
     const empty=status=>Object.freeze({status,businesses:Object.freeze([])});
     if(disconnecting||cleanupFailed)return empty('DISCONNECTED');
     if(isLoginWindowActive())return empty('LOGIN_REQUIRED');
     const expected=generation,controller=new AbortController();businessReads.add(controller);
+    const stop=()=>controller.abort();signal?.addEventListener('abort',stop,{once:true});if(signal?.aborted)controller.abort();
     try{
       const read=createBusinessTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options)});
       const result=await read({signal:controller.signal});
       return expected===generation?result:empty('DISCONNECTED');
-    }finally{businessReads.delete(controller);}
+    }finally{signal?.removeEventListener('abort',stop);businessReads.delete(controller);}
   }
   function stopShipments() {
     automaticController?.abort();
@@ -609,7 +615,7 @@ function createHubConnection({
         shipmentPermits.set(key,(shipmentPermits.get(key)||0)+1);
         try {
           const response=await getRemoteSession().fetch(url,options);
-          if([401,403].includes(response.status)){generation++;invalidateCursor();void stopShipments();}
+          if([401,403].includes(response.status)){invalidateGeneration();invalidateCursor();void stopShipments();}
           return response;
         } finally {
           const remaining=(shipmentPermits.get(key)||0)-1;
@@ -646,6 +652,7 @@ function createHubConnection({
             trackingRequestMethod,
             automaticTrackingRequestActive,
             collectionPermit,
+            credentialPermit,
             exportPermit,
             automaticRequestActive:automaticPermits.has(details.url),
             deliveryRequestActive:deliveryPermits.has(details.url),
@@ -1302,7 +1309,7 @@ function createHubConnection({
     const blocked = blockedReadResult();
     if (blocked) return blocked;
     if (scope === currentScope) return refresh();
-    generation += 1;
+    invalidateGeneration();
     void stopShipments();
     currentScope = scope;
     invalidateCursor();
@@ -1314,7 +1321,7 @@ function createHubConnection({
   function viewChannel(channel){
     if(!ORDER_CHANNELS.includes(channel))throw new TypeError('Invalid orders channel');
     const blocked=blockedReadResult();if(blocked)return blocked;
-    generation++;void stopShipments();currentChannel=channel;invalidateCursor();activeRead=null;activeAbortController?.abort();
+    invalidateGeneration();void stopShipments();currentChannel=channel;invalidateCursor();activeRead=null;activeAbortController?.abort();
     return startRead({url:ordersScopeUrl(),requestedOffset:0,expectedSnapshot:null,scope:currentScope});
   }
 
@@ -1322,7 +1329,7 @@ function createHubConnection({
     if(filters&&Object.keys(filters).length===2)filters={...currentFilters,...filters};
     if(!filters||typeof filters!=='object'||Array.isArray(filters)||Object.keys(filters).length!==5||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean'||!validSearch({query:filters.query,start:filters.start,end:filters.end}))return Promise.resolve(safeEmpty('UNAVAILABLE','올바른 주문 필터를 선택하세요.'));
     if(registrationController||automaticController||reviewingShipment||collectionWorkActive||trackingController||findingOrder)return Promise.resolve(safeEmpty('UNAVAILABLE','다른 작업이 진행 중입니다. 완료 후 필터를 변경하세요.'));
-    generation++;void stopShipments();currentFilters=Object.freeze({...filters});invalidateCursor();activeRead=null;activeAbortController?.abort();
+    invalidateGeneration();void stopShipments();currentFilters=Object.freeze({...filters});invalidateCursor();activeRead=null;activeAbortController?.abort();
     return startRead({url:ordersScopeUrl(),requestedOffset:0,expectedSnapshot:null,scope:currentScope});
   }
   function applyOrderSearch(search){
@@ -1349,7 +1356,7 @@ function createHubConnection({
   }
   function resetOrderFilters(){
     if(registrationController||automaticController||reviewingShipment||collectionWorkActive||trackingController||findingOrder)return Promise.resolve(safeEmpty('UNAVAILABLE','다른 작업이 진행 중입니다. 완료 후 필터를 초기화하세요.'));
-    generation++;void stopShipments();currentChannel='ALL';currentFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});invalidateCursor();activeRead=null;activeAbortController?.abort();
+    invalidateGeneration();void stopShipments();currentChannel='ALL';currentFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});invalidateCursor();activeRead=null;activeAbortController?.abort();
     return startRead({url:ordersScopeUrl(),requestedOffset:0,expectedSnapshot:null,scope:currentScope});
   }
 
@@ -1490,7 +1497,7 @@ function createHubConnection({
   function disconnect() {
     if (disconnecting) return disconnecting;
     collection.reset();
-    generation += 1;
+    invalidateGeneration();
     activeFinanceController?.abort();financePermit=null;
     settlementController?.abort();settlementPermit=null;insightsController?.abort();insightsPermit=null;
     const shipmentShutdown=stopShipments();
@@ -1538,7 +1545,7 @@ function createHubConnection({
 
   function closeChildren() {
     collection.reset();
-    generation += 1;
+    invalidateGeneration();
     activeFinanceController?.abort();financePermit=null;
     settlementController?.abort();settlementPermit=null;insightsController?.abort();insightsPermit=null;
     void stopShipments();
@@ -1611,10 +1618,17 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-return Object.freeze({ readCalendarMonth, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+return Object.freeze({ readCredentialMetadata, saveServerCredential, readCalendarMonth, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
+  for(const [channel,method,write] of [['moaon-hub:read-credential-metadata','readCredentialMetadata',false],['moaon-hub:save-server-credential','saveServerCredential',true]]){
+    ipcMain.handle(channel,async(event,...args)=>{
+      if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+      if(args.length!==1||!validCredentialInput(args[0],write))return Object.freeze({status:'INVALID'});
+      return connection[method](args[0]);
+    });
+  }
   for(const [channel,method] of [['moaon-hub:read-tracking','readTracking'],['moaon-hub:refresh-tracking','refreshTracking']]){
     ipcMain.handle(channel,async(event,...args)=>{
       if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');

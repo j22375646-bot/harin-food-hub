@@ -39,3 +39,5 @@
 .month-day small{font-size:12px}.month-weekdays{font-size:13px}
 #month-status,#settlement-status,#insights-status{font-size:13px;line-height:1.6;overflow-wrap:anywhere}
 @media(prefers-reduced-motion:reduce){#month-page *,#settlement-page *,#insights-page *{transition:none!important;animation:none!important}}
+
+#api-server-controls{margin-top:24px;padding-top:20px;border-top:1px solid var(--line)}#api-server-confirm{margin-top:16px;padding:16px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface-soft)}#api-server-confirm button+button{margin-left:8px}#api-settings #api-server-save,#api-settings #api-server-confirm-save{background:var(--blue);color:var(--surface)}

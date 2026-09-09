@@ -99,6 +99,10 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if (url.username || url.password) return false;
 
   const method = details.method.toUpperCase();
+  if(context.credentialPermit?.url===details.url&&context.credentialPermit.method===method&&url.origin===HARIN_ORIGIN&&url.pathname==='/api/moaon/credentials'&&!url.hash){
+    const valid=method==='POST'&&!url.search||method==='GET'&&/^\?tenantId=[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}&provider=(?:CAFE24|NAVER|COUPANG|EPOST)$/.test(url.search);
+    return Boolean(valid)&&isMainProcessRequest(details.webContentsId);
+  }
   if(method==='GET'&&context.calendarPermit===details.url&&url.origin===HARIN_ORIGIN&&url.pathname==='/api/calendar/entries'&&!url.hash&&/^\?from=(\d{4}-\d{2}-\d{2})&to=\1$/.test(url.search))return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.monthPermit===details.url&&url.origin===HARIN_ORIGIN&&url.pathname==='/api/calendar/entries'&&!url.hash){
     const range=require('./today-calendar.cjs').monthRange(url.searchParams.get('from')?.slice(0,7));

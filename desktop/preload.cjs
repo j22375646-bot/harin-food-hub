@@ -13,6 +13,8 @@ const realDate=value=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const 
 const validOrderSearch=value=>value&&typeof value==='object'&&!Array.isArray(value)&&['query','start','end'].every(key=>Object.hasOwn(value,key))&&typeof value.query==='string'&&value.query.length<=100&&typeof value.start==='string'&&typeof value.end==='string'&&(!value.start||realDate(value.start))&&(!value.end||realDate(value.end))&&(!value.start||!value.end||value.start<=value.end);
 
 contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
+  readCredentialMetadata: value => ipcRenderer.invoke('moaon-hub:read-credential-metadata',value),
+  saveServerCredential: value => ipcRenderer.invoke('moaon-hub:save-server-credential',value),
   saveApiDraft: value => ipcRenderer.invoke('moaon-hub:save-api-draft',value),
   saveOwnedApiDraft: value => ipcRenderer.invoke('moaon-hub:save-owned-api-draft',value),
   listApiDrafts: () => ipcRenderer.invoke('moaon-hub:list-api-drafts'),

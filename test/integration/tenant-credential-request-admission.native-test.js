@@ -157,9 +157,12 @@ test('server runtime Request composes restricted DB quotas, read-only identity a
  try{
   await reset();const before=(await admin.query('select revision from moaon_control.provider_credentials where tenant_id=$1 and provider=$2',[tenantId,'NAVER'])).rows[0]?.revision||0;
   const req=revision=>new Request(origin+'/api/moaon/credentials',{method:'POST',headers:{origin,'content-type':'application/json',cookie:'harin_dashboard_session='+credential,'x-vercel-forwarded-for':'127.0.0.1','x-forwarded-for':'127.0.0.1'},body:JSON.stringify({...input,expectedRevision:revision})});
-  const response=await runtime.handle(req(before));assert.equal(response.status,200);assert.deepEqual(await response.json(),{ok:true,tenantId,provider:'NAVER',revision:before+1,status:'SAVED_UNVERIFIED'});assert.equal(validations,6);
+  const metadata=()=>new Request(origin+'/api/moaon/credentials?tenantId='+tenantId+'&provider=NAVER',{headers:{origin,cookie:'harin_dashboard_session='+credential,'x-vercel-forwarded-for':'127.0.0.1','x-forwarded-for':'127.0.0.1'}});
+  assert.deepEqual(await (await runtime.handle(metadata())).json(),{ok:true,tenantId,provider:'NAVER',revision:before,status:before===0?'NOT_SAVED':'SAVED_UNVERIFIED'});
+  const response=await runtime.handle(req(before));assert.equal(response.status,200);assert.deepEqual(await response.json(),{ok:true,tenantId,provider:'NAVER',revision:before+1,status:'SAVED_UNVERIFIED'});assert.equal(validations,12);
+  assert.deepEqual(await (await runtime.handle(metadata())).json(),{ok:true,tenantId,provider:'NAVER',revision:before+1,status:'SAVED_UNVERIFIED'});
   assert.equal((await runtime.handle(req(before))).status,409);
   const row=(await admin.query('select envelope from moaon_control.provider_credentials where tenant_id=$1 and provider=$2',[tenantId,'NAVER'])).rows[0];assert.doesNotMatch(JSON.stringify(row),/synthetic-secret-only/);assert.deepEqual(cipher.open({tenantId,provider:'NAVER',revision:before+1},row.envelope),input.fields);
-  assert.deepEqual((await admin.query('select scope,used from moaon_control.credential_request_limits order by scope')).rows,[{scope:'GLOBAL',used:2},{scope:'IP',used:2},{scope:'USER',used:2}]);
+  assert.deepEqual((await admin.query('select scope,used from moaon_control.credential_request_limits order by scope')).rows,[{scope:'GLOBAL',used:4},{scope:'IP',used:4},{scope:'USER',used:4}]);
  }finally{await runtime.close();for(const [i,key] of ['VERCEL','VERCEL_ENV'].entries())if(old[i]===undefined)delete process.env[key];else process.env[key]=old[i];}
 });

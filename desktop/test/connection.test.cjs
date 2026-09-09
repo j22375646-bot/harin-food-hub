@@ -19,17 +19,18 @@ test('collection reauthentication failure never replays an earlier success',asyn
  assert.equal((await connection.collectOrders()).status,'SUCCESS');auth=false;
  const checked=await connection.checkOrderCollection();assert.notEqual(checked.status,'SUCCESS');assert.equal(checked.verifiedTerminal,false);assert.equal(checked.channels.cafe24.status,'CHECK_REQUIRED');
 });
-test('collection rejects auth, invalid IDs/statuses, concurrent calls and uncertain retries; logout discards late data',async()=>{
+test('collection rejects auth, invalid IDs/statuses, concurrent calls and uncertain retries; logout discards late data',async t=>{
  const base='https://harin-cafe24-sync.vercel.app/api/orders/live-refresh',id='12345678-1234-4123-8123-123456789abc';
  for(const status of [401,403]){let posts=0;const {connection}=makeConnection(makeRemoteSession(async(_url,o)=>{if(o.method==='POST')posts++;return new Response('',{status});}));assert.equal((await connection.collectOrders()).status,'CHECK_REQUIRED');assert.equal(posts,0);}
  for(const row of [{id:'bad',status:'SUCCESS'},{id,status:'QUEUED'},{id,status:'success'}]){
   let posts=0;const {connection}=makeConnection(makeRemoteSession(async(url)=>{if(url.startsWith(base)){posts++;return Response.json({ok:true,cafe24:{status:'PARTIAL',finishedAt:'2026-09-09T00:00:00Z'},requests:{naver:row}});}return Response.json(makePagePayload());}));
   const result=await connection.collectOrders();assert.equal(result.channels.naver.status,'CHECK_REQUIRED');assert.equal(result.channels.cafe24.status,'PARTIAL');assert.equal(result.verifiedTerminal,false);await connection.collectOrders();assert.equal(posts,1);
  }
- let release,posts=0;const {connection}=makeConnection(makeRemoteSession(async(url)=>{if(url.startsWith(base)){posts++;return new Promise(resolve=>release=resolve);}return Response.json(makePagePayload());}),{timeoutMs:10});
- const pending=connection.collectOrders();assert.equal((await connection.collectOrders()).status,'BUSY');await pending;await connection.collectOrders();assert.equal(posts,1);
+ t.mock.timers.enable({apis:['setTimeout']});
+ let release,posts=0,entered;let started=new Promise(r=>entered=r);const {connection}=makeConnection(makeRemoteSession(async(url)=>{if(url.startsWith(base)){posts++;entered();return new Promise(resolve=>release=resolve);}return Response.json(makePagePayload());}),{timeoutMs:10});
+ const pending=connection.collectOrders();assert.equal((await connection.collectOrders()).status,'BUSY');await started;t.mock.timers.tick(30);await pending;await connection.collectOrders();assert.equal(posts,1);
  await connection.disconnect();release(Response.json({ok:true,cafe24:{status:'SUCCESS'},requests:{naver:{id,status:'PENDING'}}}));await new Promise(r=>setImmediate(r));assert.equal((await connection.checkOrderCollection()).canCheck,false);
- const next=connection.collectOrders();await new Promise(r=>setImmediate(r));await connection.disconnect();assert.equal((await next).status,'DISCONNECTED');
+ started=new Promise(r=>entered=r);const next=connection.collectOrders();await started;await connection.disconnect();assert.equal((await next).status,'DISCONNECTED');
 });
 test('collection keeps original requests through page changes and rejects swapped response identity',async()=>{
  const base='https://harin-cafe24-sync.vercel.app/api/orders/live-refresh',id='12345678-1234-4123-8123-123456789abc';let poll=false;
@@ -1244,7 +1245,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
     for(const args of [[],[''],[[]],['HR-C24-1234ABCD',{invoice:'1234567890123'}]])await assert.rejects(handlers.get(channel)(trusted,...args),/Invalid tracking/);
   }
 
-assert.deepEqual([...handlers.keys()], ['moaon-hub:read-tracking','moaon-hub:refresh-tracking','moaon-hub:read-delivery','moaon-hub:preview-worklist','moaon-hub:preview-labels','moaon-hub:export-selected-csv','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:set-order-filters','moaon-hub:apply-order-search','moaon-hub:reset-order-filters','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:read-calendar-month','moaon-hub:collect-orders','moaon-hub:check-order-collection','moaon-hub:check-order-freshness','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:read-finance','moaon-hub:read-settlement','moaon-hub:read-insights','moaon-hub:read-today-calendar','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect','moaon-hub:export-orders-xlsx']);
+assert.deepEqual([...handlers.keys()], ['moaon-hub:read-credential-metadata','moaon-hub:save-server-credential','moaon-hub:read-tracking','moaon-hub:refresh-tracking','moaon-hub:read-delivery','moaon-hub:preview-worklist','moaon-hub:preview-labels','moaon-hub:export-selected-csv','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:set-order-filters','moaon-hub:apply-order-search','moaon-hub:reset-order-filters','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:read-calendar-month','moaon-hub:collect-orders','moaon-hub:check-order-collection','moaon-hub:check-order-freshness','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:read-finance','moaon-hub:read-settlement','moaon-hub:read-insights','moaon-hub:read-today-calendar','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect','moaon-hub:export-orders-xlsx']);
   for(const channel of ['moaon-hub:preview-labels','moaon-hub:export-selected-csv']){
     await assert.rejects(handlers.get(channel)({sender:{},senderFrame:null},['HR-C24-1234ABCD']),/Untrusted renderer/);
     for(const args of [[],[[]],[['bad']],[['HR-C24-1234ABCD','HR-C24-1234ABCD']],[['HR-C24-1234ABCD'],'evil.csv']])await assert.rejects(handlers.get(channel)(trusted,...args),/Invalid document/);
@@ -1316,7 +1317,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-assert.deepEqual(Object.keys(bridge), ['saveApiDraft','saveOwnedApiDraft','listApiDrafts','removeApiDraft','collectOrders','checkOrderCollection','checkOrderFreshness','onWindowRestored','readTracking','refreshTracking','readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','readFinance','readInsights','readSettlement','readTodayCalendar','readCalendarMonth','listBusinesses','appInfo','inspectPrinters','previewLabel','previewLabels','previewWorklist','exportSelectedCsv','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'setOrderFilters', 'resetOrderFilters','applyOrderSearch','exportOrdersXlsx', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+assert.deepEqual(Object.keys(bridge), ['readCredentialMetadata','saveServerCredential','saveApiDraft','saveOwnedApiDraft','listApiDrafts','removeApiDraft','collectOrders','checkOrderCollection','checkOrderFreshness','onWindowRestored','readTracking','refreshTracking','readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','readFinance','readInsights','readSettlement','readTodayCalendar','readCalendarMonth','listBusinesses','appInfo','inspectPrinters','previewLabel','previewLabels','previewWorklist','exportSelectedCsv','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'setOrderFilters', 'resetOrderFilters','applyOrderSearch','exportOrdersXlsx', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   let restored=0;assert.throws(()=>bridge.onWindowRestored('bad'),/Invalid restore listener/);const unsubscribe=bridge.onWindowRestored(()=>restored++);listeners.get('moaon-hub:window-restored')({private:'event'},'ignored');assert.equal(restored,1);unsubscribe();assert.equal(listeners.has('moaon-hub:window-restored'),false);
   await bridge.listBusinesses('ignored');
   await bridge.readFinance('ignored');
@@ -1667,5 +1668,37 @@ test('calendar deadline and logout discard late private schedule results',async(
   if(logout)await connection.disconnect();
   const result=await pending;assert.notEqual(result.status,'READY');assert.deepEqual(result.entries,[]);
   release(Response.json({ok:true,entries:[{title:'PRIVATE'}]}));
+ }
+});
+
+test('credential connection binds main-only temporary permits and fresh OWNER without retaining secrets',async()=>{
+ const tenantId='10000000-0000-4000-8000-000000000001',input={tenantId,provider:'NAVER',expectedRevision:0,fields:{clientId:'synthetic',clientSecret:'secret-synthetic'}};let owner=true,calls=0,remote;
+ remote=makeRemoteSession(async(url,options)=>{
+  if(url.endsWith('/businesses'))return Response.json({ok:true,businesses:[{tenantId,role:owner?'OWNER':'VIEWER',displayName:'Test',membershipVersion:1}]});
+  calls++;let denied;remote.beforeRequestHandler({url,method:options.method,webContentsId:0},r=>denied=r.cancel);assert.equal(denied,false);remote.beforeRequestHandler({url,method:options.method,webContentsId:7},r=>denied=r.cancel);assert.equal(denied,true);
+  return Response.json({ok:true,tenantId,provider:'NAVER',revision:options.method==='POST'?1:0,status:options.method==='POST'?'SAVED_UNVERIFIED':'NOT_SAVED',secret:'private'});
+ });
+ const {connection}=makeConnection(remote);assert.equal((await connection.readCredentialMetadata({tenantId,provider:'NAVER'})).status,'NOT_SAVED');assert.equal((await connection.saveServerCredential(input)).status,'SAVED_UNVERIFIED');
+ let denied;remote.beforeRequestHandler({url:'https://harin-cafe24-sync.vercel.app/api/moaon/credentials',method:'POST',webContentsId:0},r=>denied=r.cancel);assert.equal(denied,true);owner=false;assert.deepEqual(await connection.saveServerCredential(input),{status:'ACCESS_DENIED'});assert.equal(calls,2);
+});
+test('credential disconnect aborts pending POST, drops late success, closes permit and never retries',async()=>{
+ const tenantId='10000000-0000-4000-8000-000000000001',input={tenantId,provider:'NAVER',expectedRevision:0,fields:{clientId:'synthetic',clientSecret:'secret-synthetic'}};let entered,release,posts=0;const started=new Promise(r=>entered=r);
+ const remote=makeRemoteSession(async(url)=>{if(url.endsWith('/businesses'))return Response.json({ok:true,businesses:[{tenantId,role:'OWNER',displayName:'Test',membershipVersion:1}]});posts++;entered();return new Promise(r=>release=r);});
+ const {connection}=makeConnection(remote);const pending=connection.saveServerCredential(input);await started;assert.equal((await connection.readCredentialMetadata({tenantId,provider:'NAVER'})).status,'BUSY');await connection.disconnect();assert.deepEqual(await pending,{status:'RESULT_UNKNOWN'});release(Response.json({ok:true,tenantId,provider:'NAVER',revision:1,status:'SAVED_UNVERIFIED'}));await new Promise(setImmediate);assert.equal(posts,1);let denied;remote.beforeRequestHandler({url:'https://harin-cafe24-sync.vercel.app/api/moaon/credentials',method:'POST',webContentsId:0},r=>denied=r.cancel);assert.equal(denied,true);
+});
+test('credential IPC requires exact trusted frame, arity and schema before dispatch',async()=>{
+ const handlers=new Map(),frame={url:'moaon://app/index.html'},contents={mainFrame:frame,getURL:()=>frame.url};let calls=0;
+ registerConnectionIpc({ipcMain:{handle:(name,handler)=>handlers.set(name,handler)},getMainWindow:()=>({isDestroyed:()=>false,webContents:contents}),connection:{readCredentialMetadata:async()=>{calls++;return {status:'NOT_SAVED'};},saveServerCredential:async()=>{calls++;return {status:'SAVED_UNVERIFIED'};}}});
+ const trusted={sender:contents,senderFrame:frame},identity={tenantId:'10000000-0000-4000-8000-000000000001',provider:'NAVER'};
+ for(const [name,input] of [['moaon-hub:read-credential-metadata',identity],['moaon-hub:save-server-credential',{...identity,expectedRevision:0,fields:{clientId:'synthetic',clientSecret:'synthetic'}}]]){const handler=handlers.get(name);await assert.rejects(handler({sender:contents,senderFrame:{url:frame.url}},input),/Untrusted/);for(const args of [[],[input,'extra'],[{...input,extra:true}],['https://evil.test']])assert.deepEqual(await handler(trusted,...args),{status:'INVALID'});await handler(trusted,input);}assert.equal(calls,2);
+});
+test('credential pending POST is cancelled by channel/filter generation or fresh auth failure',async()=>{
+ const tenantId='10000000-0000-4000-8000-000000000001',input={tenantId,provider:'NAVER',expectedRevision:0,fields:{clientId:'synthetic',clientSecret:'synthetic'}};
+ for(const change of ['channel','filters','reset','auth']){
+  let entered,release;const started=new Promise(r=>entered=r);
+  const remote=makeRemoteSession(async(url)=>{if(url.endsWith('/businesses'))return Response.json({ok:true,businesses:[{tenantId,role:'OWNER',displayName:'Test',membershipVersion:1}]});if(url.endsWith('/credentials')){entered();return new Promise(r=>release=r);}return change==='auth'?new Response('',{status:401}):Response.json(makePagePayload());});
+  const {connection}=makeConnection(remote);const pending=connection.saveServerCredential(input);await started;
+  if(change==='channel')await connection.viewChannel('CAFE24');else if(change==='filters')await connection.setOrderFilters({delayOnly:true,giftOnly:false});else if(change==='reset')await connection.resetOrderFilters();else await connection.readOverview();
+  assert.deepEqual(await pending,{status:'RESULT_UNKNOWN'},change);let denied;remote.beforeRequestHandler({url:'https://harin-cafe24-sync.vercel.app/api/moaon/credentials',method:'POST',webContentsId:0},r=>denied=r.cancel);assert.equal(denied,true);release(Response.json({ok:true,tenantId,provider:'NAVER',revision:1,status:'SAVED_UNVERIFIED'}));await new Promise(setImmediate);
  }
 });
