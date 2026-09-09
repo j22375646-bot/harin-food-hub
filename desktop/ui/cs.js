@@ -4,12 +4,14 @@
  let value=null,busy=false,generation=0,selected=null,pageIndex=0;
  const node=(tag,text)=>{const n=document.createElement(tag);n.textContent=text;return n;};
  const contentLabel=d=>!d?'본문 조회 연결 대기':d.status==='UNAVAILABLE'?'내용 복원 실패':d.status==='MISSING'?'저장 내용 확인 필요':d.truncated?'일부 내용 조회됨':'저장 내용 조회됨';
+ const contentState=d=>!d?'LEGACY':d.status==='UNAVAILABLE'?'ERROR':d.status==='MISSING'?'MISSING':d.truncated?'PARTIAL':'READY';
  const reference=row=>row.id.split(':').slice(2).join(':')||row.id;
  function close(){const previous=selected;selected=null;render();Array.from($('cs-list').querySelectorAll('button')).find(b=>b.dataset.id===previous)?.focus();}
  function render(){
   $('cs-refresh').disabled=busy||displayMode!=='live';
+  $('cs-reset').disabled=busy||(['cs-platform','cs-kind','cs-content-filter'].every(id=>$(id).value==='ALL')&&$('cs-sort').value==='NEWEST'&&!$('cs-search').value);
   const term=$('cs-search').value.trim().toLocaleLowerCase('ko-KR');
-  const rows=(value?.items||[]).filter(r=>($('cs-platform').value==='ALL'||r.platform===$('cs-platform').value)&&($('cs-kind').value==='ALL'||r.kind===$('cs-kind').value)&&[r.id,r.details?.title,r.details?.body,...(r.details?.history||[]).map(e=>e.content)].some(s=>typeof s==='string'&&s.toLocaleLowerCase('ko-KR').includes(term)));
+  const rows=(value?.items||[]).filter(r=>($('cs-platform').value==='ALL'||r.platform===$('cs-platform').value)&&($('cs-kind').value==='ALL'||r.kind===$('cs-kind').value)&&($('cs-content-filter').value==='ALL'||contentState(r.details)===$('cs-content-filter').value)&&[r.id,r.details?.title,r.details?.body,...(r.details?.history||[]).map(e=>e.content)].some(s=>typeof s==='string'&&s.toLocaleLowerCase('ko-KR').includes(term)));
   const loaded=value?.items||[],detailed=loaded.filter(r=>r.details),available=detailed.filter(r=>r.details.status==='AVAILABLE');
   $('cs-search-scope').textContent=busy?'자료를 조회한 뒤 검색 범위를 확인합니다.':!value?'조회 전에는 검색 가능한 자료를 확인할 수 없습니다.':!loaded.length?'조회된 미처리 접수가 없습니다.':!detailed.length?'검색 범위: 접수 번호. 본문·이력 검색은 서버 반영 후 사용할 수 있습니다.':'검색 범위: 조회된 접수 번호·제목·본문·이력. 잘린 내용은 검색되지 않습니다.';
   $('cs-content-summary').hidden=!loaded.length;
@@ -43,7 +45,7 @@
   panel.append(content);
 
  }
- function clear(){pageIndex=0;$('cs-sort').value='NEWEST';generation++;value=null;busy=false;selected=null;$('cs-platform').value='ALL';$('cs-kind').value='ALL';$('cs-search').value='';$('cs-status').textContent='실제 사업장 연결 후 조회합니다.';render();}
+ function clear(){$('cs-content-filter').value='ALL';pageIndex=0;$('cs-sort').value='NEWEST';generation++;value=null;busy=false;selected=null;$('cs-platform').value='ALL';$('cs-kind').value='ALL';$('cs-search').value='';$('cs-status').textContent='실제 사업장 연결 후 조회합니다.';render();}
  async function refresh(){
   if(busy||displayMode!=='live')return;const expected=++generation;busy=true;value=null;selected=null;pageIndex=0;render();$('cs-status').textContent='저장된 고객·CS 자료를 조회하고 있습니다…';
   try{const result=await window.moaonHub.readCs();if(expected!==generation)return;if(['LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status)){applyHubResult(result);return;}
@@ -51,9 +53,10 @@
   }catch{if(expected===generation)$('cs-status').textContent='고객·CS 조회 실패 · 다시 시도해 주세요.';}
   finally{if(expected===generation){busy=false;render();}}
  }
+ $('cs-reset').onclick=()=>{for(const id of ['cs-platform','cs-kind','cs-content-filter'])$(id).value='ALL';$('cs-sort').value='NEWEST';$('cs-search').value='';pageIndex=0;selected=null;render();$('cs-search').focus({preventScroll:true});};
  const filter=()=>{pageIndex=0;selected=null;render();};
  $('cs-prev').onclick=()=>{if(pageIndex>0){pageIndex--;selected=null;render();}};$('cs-next').onclick=()=>{pageIndex++;selected=null;render();};
- for(const id of ['cs-platform','cs-kind','cs-sort'])$(id).addEventListener('change',filter);$('cs-search').addEventListener('input',filter);$('cs-refresh').onclick=refresh;
+ for(const id of ['cs-platform','cs-kind','cs-sort','cs-content-filter'])$(id).addEventListener('change',filter);$('cs-search').addEventListener('input',filter);$('cs-refresh').onclick=refresh;
  $('cs-detail').addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();close();}});
  window.moaonCs=Object.freeze({clear,ensure:()=>{render();if(!value&&!busy)void refresh();}});clear();
 })();

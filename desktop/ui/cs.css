@@ -11,3 +11,5 @@
 #cs-detail .cs-detail-nav{display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;margin-top:20px}#cs-detail .cs-detail-nav button{float:none}#cs-detail .cs-detail-nav span{font-size:14px;font-variant-numeric:tabular-nums}.cs-page button:disabled{opacity:.5;cursor:default}
 
 .cs-search-help{font-size:14px;line-height:1.6;color:var(--muted,#77738a);margin:8px 0}.cs-content-state{font-size:14px}.cs-row .cs-content-state{justify-self:start;border:1px solid var(--line,#dfdbea);border-radius:8px;padding:4px 8px;background:var(--surface,#fff)}
+
+.cs-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));align-items:end}.cs-filters label{min-width:0}.cs-filters .cs-search{grid-column:1/4}.cs-filters select,.cs-filters input{width:100%;min-width:0}@media(max-width:700px){.cs-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.cs-filters .cs-search,#cs-reset{grid-column:1/-1}}
