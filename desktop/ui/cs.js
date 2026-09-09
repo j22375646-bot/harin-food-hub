@@ -18,10 +18,18 @@
  }
  function close(){const previous=selected;selected=null;render();Array.from($('cs-list').querySelectorAll('button')).find(b=>b.dataset.id===previous)?.focus();}
  function render(){
+  document.querySelector('.cs-page').setAttribute('aria-busy',String(busy));
   $('cs-refresh').disabled=busy||displayMode!=='live';
   $('cs-reset').disabled=busy||(['cs-platform','cs-kind','cs-content-filter'].every(id=>$(id).value==='ALL')&&$('cs-sort').value==='NEWEST'&&!$('cs-search').value);
   const term=$('cs-search').value.trim().toLocaleLowerCase('ko-KR');
-  const rows=(value?.items||[]).filter(r=>($('cs-platform').value==='ALL'||r.platform===$('cs-platform').value)&&($('cs-kind').value==='ALL'||r.kind===$('cs-kind').value)&&($('cs-content-filter').value==='ALL'||contentState(r.details)===$('cs-content-filter').value)&&[r.id,r.details?.title,r.details?.body,...(r.details?.history||[]).map(e=>e.content)].some(s=>typeof s==='string'&&s.toLocaleLowerCase('ko-KR').includes(term)));
+  const scoped=(value?.items||[]).filter(r=>($('cs-platform').value==='ALL'||r.platform===$('cs-platform').value)&&($('cs-content-filter').value==='ALL'||contentState(r.details)===$('cs-content-filter').value)&&[r.id,r.details?.title,r.details?.body,...(r.details?.history||[]).map(e=>e.content)].some(s=>typeof s==='string'&&s.toLocaleLowerCase('ko-KR').includes(term)));
+  const rows=scoped.filter(r=>$('cs-kind').value==='ALL'||r.kind===$('cs-kind').value);
+  $('cs-kind-summary').replaceChildren();
+  for(const kind of ['ALL','INQUIRY','CANCEL','RETURN','EXCHANGE']){
+   const b=node('button','');b.type='button';b.dataset.kind=kind;b.disabled=busy||!value;b.setAttribute('aria-pressed',String($('cs-kind').value===kind));
+   b.append(node('span',kind==='ALL'?'전체 유형':labels[kind]),node('strong',busy?'조회 중':!value?'확인 필요':scoped.filter(r=>kind==='ALL'||r.kind===kind).length+'건'));
+   b.onclick=()=>{$('cs-kind').value=kind;selected=null;pageIndex=0;render();$('cs-kind-summary').querySelector('[data-kind='+kind+']').focus({preventScroll:true});};$('cs-kind-summary').append(b);
+  }
   const loaded=value?.items||[],detailed=loaded.filter(r=>r.details),available=detailed.filter(r=>r.details.status==='AVAILABLE');
   $('cs-search-scope').textContent=busy?'자료를 조회한 뒤 검색 범위를 확인합니다.':failed?'조회 실패로 검색 가능한 자료를 확인할 수 없습니다.':!value?'조회 전에는 검색 가능한 자료를 확인할 수 없습니다.':!loaded.length?'조회된 미처리 접수가 없습니다.':!detailed.length?'검색 범위: 접수 번호. 본문·이력 검색은 서버 반영 후 사용할 수 있습니다.':'검색 범위: 조회된 접수 번호·제목·본문·이력. 잘린 내용은 검색되지 않습니다.';
   $('cs-content-summary').hidden=!loaded.length;
