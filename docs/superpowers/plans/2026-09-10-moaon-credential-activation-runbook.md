@@ -70,6 +70,26 @@ provider_credentials의6개 열 이름·자료형·NOT NULL·생성열 여부와
 
 exit0/CREDENTIAL_CONTRACT_MATCHES_REQUIRES_OPERATIONS는 이 열·권한 계약의 일치만 의미한다. 운영 준비 완료, 함수 본문 안전성, 실제 세션 폐기 경합, 플랫폼 인증을 의미하지 않는다. BLOCKED는 자동 GRANT나 스키마 변경으로 고치지 말고 후보 SQL과 차이를 검토한다. 도구는 실데이터/암호문 조회 및 권한 변경을 하지 않는다.
 
+### 저장 제약조건·기본값·인덱스 대조
+
+같은 진단 opt-in과 제한 역할 연결로 저장 테이블의 제약조건을 점검한다.
+
+```powershell
+$env:MOAON_CONTROL_DB_DIAGNOSTIC='1'
+node scripts/check-moaon-credential-invariants.js
+```
+
+이 점검은 provider_credentials의 아래 구조만 대조한다.
+
+- 사업장/플랫폼 복합 기본키와 유효한 고유 인덱스
+- tenants(id), memberships(tenant_id,user_id)로 향하는 검증된 외래키
+- 허용 플랫폼4개, 양수 revision, object형 암호문과32768바이트 제한 CHECK
+- updated_at의 기본 clock_timestamp 호출 정의
+
+격리 PostgreSQL17.11과 PGlite18.3에서 실제 후보를 적용해 확인한 canonical 표현과 catalog 참조 대상을 비교한다. 지원 major는17·18이며 패치별 표현 차이가 생겨도 자동 완화하지 않는다. 비슷한 문자열로 임의 정규화하거나 사용자 정의 함수·연산자를 실행하지 않는다. 지원하지 않는 PostgreSQL major는 정상으로 처리하지 않으며 표현 차이도 검토가 필요하다. 같은 이름의 다른 함수·연산자·인덱스 구성, 약해진/추가된 제약, NOT VALID, NOT ENFORCED 또는 지연 제약은 통과하지 않는다.
+
+성공 CREDENTIAL_INVARIANTS_MATCH_REQUIRES_OPERATIONS는 이 저장 테이블의 검사 대상과 일치한다는 뜻이다. 다른 테이블의 제약, RLS정책, 업무 함수 본문, 실제 세션 폐기 경합과 플랫폼 인증은 별도다. 데이터의 무결성을 직접 스캔하거나 운영 쓰기 시험을 실행한 결과도 아니다. 구조를 자동으로 수정하거나 삭제하지 않는다.
+
 ## 4. 키·진입 경로·배포
 
 암호화 키 저장 위치와 접근자, active key ID 교체 및 이전 키 복호화 유지, HMAC 분리와 복구 절차를 마련한다. 키 원문을 문서·대화·시험 로그에 복사하지 않는다. VERCEL 환경 변수 값만으로 실제 운영 진입 경로를 증명할 수 없다. 실제 production 배포와 직접 ingress, 단일 IP 헤더 일치 정책을 확인한다.
