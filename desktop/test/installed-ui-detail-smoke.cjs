@@ -7,7 +7,11 @@ const {_electron}=require('playwright');
   const app=await _electron.launch({executablePath:path.join(process.env.LOCALAPPDATA,'Programs','Moaon Preview','MoaonPreview.exe')});
   try{
     const page=await app.firstWindow();
-    await page.waitForFunction(()=>document.querySelector('#entry-screen')?.hidden,{},{timeout:30000});
+    await page.waitForFunction(()=>document.querySelector('#entry-screen')?.hidden||document.querySelector('#entry-status')?.textContent.includes('로그인이 필요합니다'),{},{timeout:30000});
+    if(!await page.locator('#entry-screen').evaluate(element=>element.hidden)){
+      console.log(JSON.stringify({status:'BLOCKED',reason:'LOGIN_REQUIRED',scope:'installed app requires authentication; not a server timeout or successful order verification'}));
+      process.exitCode=2;return;
+    }
     assert.equal(await app.evaluate(({app})=>app.getVersion()),require('../package.json').version);
     await page.getByRole('button',{name:'주문·배송',exact:true}).click();
     assert.deepEqual(await page.locator('#order-channel option').evaluateAll(items=>items.map(item=>item.value)),['ALL','CAFE24','NAVER','COUPANG']);
