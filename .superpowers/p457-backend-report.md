@@ -57,3 +57,10 @@ Result: 42 passed, 0 failed. `git diff --check` passed (Git only reported the re
 - The endpoint intentionally invokes the existing full Phase 28 main loader (remote query budget 37). This maximizes formula/evidence consistency but is heavier than a dedicated financial loader. No extra HTTP hop was added.
 - No live credentials or production server were used, so live auth/data behavior is not claimed.
 - Full repository suite and Next production build were left to parent integration as requested.
+
+## Review correction
+
+- The initial projection treated `pacing.status === READY` as sufficient readiness. Review found that this only establishes monthly query completion and can coexist with stale, failed, waiting, or absent channel collection evidence.
+- The corrected projection requires known counts for all four monthly revenue sources, no monthly query issues, and `READY` data-health state for Cafe24, Naver, and Coupang before emitting a `READY` actual.
+- Finite values backed by incomplete/stale collection evidence are retained but downgraded to `PARTIAL`; this applies to profit as well as sales. A zero produced from zero rows while collection is unhealthy becomes `null/BLOCKED` for sales, profit, and balance, preventing an uncollected empty table from masquerading as a measured zero.
+- Added explicit regressions for stale collection evidence, failed/waiting empty sources, and post-read `sessionId`, `userId`, or `membershipVersion` drift returning `409 WORKSPACE_CHANGED` without finance fields.
