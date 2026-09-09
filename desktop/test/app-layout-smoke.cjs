@@ -15,6 +15,12 @@ const {launchDesktop}=require('./launch.cjs');
    };
   });
   await page.evaluate(()=>runHubAction('disconnect'));await page.evaluate(()=>runHubAction('viewActive'));await page.keyboard.press('Alt+2');
+  if(process.argv.includes('--live-image')){
+   await page.evaluate(()=>{
+    displayedOrders=displayedOrders.map((row,i)=>i?row:{...row,visual:{imageUrl:'https://harinfood.com/web/product/small/202510/f38b162d73b7152c40af31cb585b5cb7.png'}});
+    renderOrders();
+   });
+  }
   for(const width of [1440,1040]){
    await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setSize(width,900),width);
    for(const theme of ['light','dark']){
@@ -22,6 +28,14 @@ const {launchDesktop}=require('./launch.cjs');
     await page.locator('.order-row').first().click();
     await page.waitForFunction(()=>!document.querySelector('.orders-layout').classList.contains('is-detail-closed'));
     await page.waitForTimeout(550);
+    if(process.argv.includes('--live-image'))await page.waitForFunction(()=>[document.querySelector('.order-row .product-thumbnail img'),document.querySelector('.detail-product .product-thumbnail img')].every(img=>img?.complete&&img.naturalWidth>0),{},{timeout:20000});
+    const visualGeometry=await page.evaluate(()=>{
+     const row=document.querySelector('.order-row'),heads=document.querySelectorAll('.order-table-heading>span');
+     const rect=el=>{const range=document.createRange();range.selectNodeContents(el);return range.getBoundingClientRect()},center=el=>{const r=rect(el);return r.x+r.width/2};
+     return {squares:[row.querySelector('.product-thumbnail'),document.querySelector('.detail-product .product-thumbnail')].map(el=>{const r=el.getBoundingClientRect();return Math.abs(r.width-r.height)}),amountDelta:Math.abs(center(heads[2])-center(row.querySelector('.order-amount strong')))};
+    });
+    assert.ok(visualGeometry.squares.every(delta=>delta<1),JSON.stringify(visualGeometry));
+    assert.ok(visualGeometry.amountDelta<1,JSON.stringify(visualGeometry));
     const geometry=await page.evaluate(()=>({top:document.querySelector('.order-row').getBoundingClientRect().top,rail:document.querySelector('.sidebar').getBoundingClientRect().width,overflow:document.documentElement.scrollWidth>innerWidth,list:document.querySelector('#order-list').clientHeight}));
     await page.screenshot({path:path.join(root,'dist',`app-layout-${width}-${theme}.png`),animations:'disabled'});
     assert.ok(geometry.top<320,`first product must be visible without a web-style header/filter stack: ${JSON.stringify(geometry)}`);

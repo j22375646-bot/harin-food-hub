@@ -35,7 +35,7 @@ const CONTENT_SECURITY_POLICY = [
   "font-src 'self'",
   "form-action 'none'",
   "frame-ancestors 'none'",
-  "img-src 'self' data: https://*.pstatic.net https://*.coupangcdn.com https://*.cafe24img.com https://ecimg.cafe24.com",
+  "img-src 'self' data: https://*.pstatic.net https://*.coupangcdn.com https://*.cafe24img.com https://ecimg.cafe24.com https://harinfood.com/web/product/",
   "object-src 'none'",
   "script-src 'self'",
   "style-src 'self'",

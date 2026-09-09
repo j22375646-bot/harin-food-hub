@@ -6,6 +6,7 @@ function safeImage(value){
   const url=new URL(value);
   if(url.protocol!=='https:'||url.username||url.password||url.port||url.hash)return '';
   const host=url.hostname;
+  if(host==='harinfood.com')return /^\/web\/product\/[a-zA-Z0-9_./-]+\.(?:png|jpe?g|webp|gif)$/i.test(url.pathname)?url.href:'';
   if(!['shop-phinf.pstatic.net','shopping-phinf.pstatic.net','thumbnail.coupangcdn.com','image.coupangcdn.com'].includes(host)&&
      !/^image[0-9]+\.coupangcdn\.com$/.test(host)&&host!=='ecimg.cafe24img.com'&&
      !/^[a-z0-9-]+\.cafe24img\.com$/.test(host)&&host!=='ecimg.cafe24.com')return '';
