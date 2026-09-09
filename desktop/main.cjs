@@ -5,7 +5,7 @@ const path = require('node:path');
 const { app, BrowserWindow, Menu, ipcMain, protocol, session, dialog, safeStorage, screen } = require('electron');
 const {rightDisplayBounds,readRightDisplayPreference,saveRightDisplayPreference,showRightWindow}=require('./window-placement.cjs');
 const {createUpdateGate,guardWorkIpc}=require('./update-gate.cjs');
-const {createConfiguredUpdater,createAppUpdates,registerAppUpdates}=require('./app-updates.cjs');
+const {startAutomaticUpdates,createConfiguredUpdater,createAppUpdates,registerAppUpdates}=require('./app-updates.cjs');
 const updateGate=createUpdateGate();
 const workIpc=guardWorkIpc(ipcMain,updateGate);
 const {createDraftStore,registerApiDrafts}=require('./api-drafts.cjs');
@@ -206,9 +206,8 @@ if (!hasSingleInstanceLock) {
     const updates=createAppUpdates({updater:createConfiguredUpdater({app,config:require('./update-channel.json')}),currentVersion:app.getVersion(),gate:updateGate,isBusy:()=>BrowserWindow.getAllWindows().length>1});
     registerAppUpdates({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer,updates});
     // Background preparation never installs on ordinary quit or interrupts work.
-    const updateTimer=setTimeout(()=>{updates.check().then(state=>state.status==='AVAILABLE'?updates.download():null).catch(()=>{});},10000);
-    updateTimer.unref();
-    mainWindow.once('closed',()=>{clearTimeout(updateTimer);updates.dispose();});
+    const stopAutomaticUpdates=startAutomaticUpdates({updates});
+    mainWindow.once('closed',()=>{stopAutomaticUpdates();updates.dispose();});
     mainWindow.once('ready-to-show', () => rightDisplayRequested?mainWindow.showInactive():mainWindow.show());
     mainWindow.on('closed', () => {
       hubConnection?.closeChildren();

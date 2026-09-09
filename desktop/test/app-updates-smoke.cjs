@@ -2,14 +2,14 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{_electron}=require('playwright');
 (async()=>{
  const profile=fs.mkdtempSync(path.join(os.tmpdir(),'moaon-update-ui-'));
- const app=await _electron.launch({executablePath:require('electron'),args:[path.join(__dirname,'isolated-bootstrap.cjs')],env:{...process.env,MOAON_TEST_RUNTIME_ROOT:path.resolve(__dirname,'..'),MOAON_TEST_PROFILE:profile,MOAON_TEST_HIDDEN:'0',MOAON_TEST_DISPLAY:'right'}});
+ const app=await _electron.launch({executablePath:require('electron'),args:[path.join(__dirname,'isolated-bootstrap.cjs')],env:{...process.env,MOAON_TEST_RUNTIME_ROOT:process.env.MOAON_UPDATE_TEST_RUNTIME||path.resolve(__dirname,'..'),MOAON_TEST_PROFILE:profile,MOAON_TEST_HIDDEN:'0',MOAON_TEST_DISPLAY:'right'}});
  try{
   const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');
   await page.waitForFunction(()=>document.querySelector('#entry-status')?.textContent&&!document.querySelector('#entry-status').textContent.includes('확인하고 있습니다'));
   const errors=[];page.on('pageerror',()=>errors.push('RENDERER_ERROR'));
   await page.evaluate(()=>{document.querySelector('#entry-screen').hidden=true;const shell=document.querySelector('.preview-shell');shell.hidden=false;shell.inert=false;document.querySelectorAll('main [data-page]').forEach(el=>el.hidden=el.dataset.page!=='settings');document.querySelector('.app-update-panel').scrollIntoView({block:'center'});const banner=document.createElement('p');banner.textContent='자동 업데이트 개발 검증 · 가상 배포 자료 · 실제 설치/재시작 없음';Object.assign(banner.style,{position:'fixed',bottom:'28px',left:'110px',zIndex:'99999',background:'#172554',color:'white',padding:'10px',borderRadius:'8px'});document.body.append(banner);});
   await page.waitForFunction(()=>document.getElementById('app-update-status').textContent.includes('배포 준비'));
-  assert.equal(await page.locator('#app-update-check').isDisabled(),true);
+  assert.equal(await page.locator('#app-update-check').isDisabled(),true);assert.match(await page.locator('#app-update-badge').innerText(),/배포 연결 대기/);assert.match(await page.locator('#app-update-policy').innerText(),/배포 연결 전/);assert.equal(await page.locator('.app-update-steps li').count(),3);
   await app.evaluate(({ipcMain})=>{
    globalThis.updateUiFixture={value:{status:'IDLE'},downloads:0,restarts:0};
    const bind=(key,fn)=>{ipcMain.removeHandler('moaon-hub:'+key);ipcMain.handle('moaon-hub:'+key,fn);};
@@ -25,7 +25,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('nod
   await page.waitForFunction(()=>document.getElementById('app-update-progress').value===42);
   assert.equal(await app.evaluate(()=>globalThis.updateUiFixture.downloads),1);
   await app.evaluate(()=>globalThis.updateUiFixture.finish());await page.waitForFunction(()=>!document.getElementById('app-update-restart').hidden&&!document.getElementById('app-update-restart').disabled);
-  assert.equal(await page.locator('#update-ready-open').isVisible(),true);
+  assert.equal(await page.locator('#update-ready-open').isVisible(),true);assert.match(await page.locator('#app-update-policy').innerText(),/6시간/);assert.match(await page.locator('#app-update-badge').innerText(),/적용 준비 완료/);assert.ok(await page.locator('#app-update-restart').evaluate(el=>el.getBoundingClientRect().height>=44));const viewport=await page.evaluate(()=>({width:innerWidth,height:innerHeight}));await page.setViewportSize({width:680,height:1000});assert.equal(await page.locator('.app-update-steps').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),1);assert.equal(await page.locator('.app-update-panel').evaluate(el=>el.scrollWidth<=el.clientWidth),true);await page.setViewportSize(viewport);
   await click('app-update-restart');await page.waitForFunction(()=>document.getElementById('app-update-status').textContent.includes('처리 중'));
   assert.equal(await app.evaluate(()=>globalThis.updateUiFixture.restarts),1);
   await new Promise(resolve=>setTimeout(resolve,300));

@@ -52,9 +52,14 @@ function createAppUpdates({updater=null,currentVersion,gate,isBusy=()=>false,sch
   dispose(){disposed=true;for(const [event,fn] of [['download-progress',onProgress],['update-downloaded',onDownloaded]])updater?.removeListener(event,fn);gate.resume();},
  });
 }
+function startAutomaticUpdates({updates,setTimer=setTimeout,clearTimer=clearTimeout,initialDelay=10000,interval=6*60*60*1000}){
+ let stopped=false,timer;
+ const plan=delay=>{timer=setTimer(async()=>{try{const state=await updates.check();if(!stopped&&state.status==='AVAILABLE')await updates.download();}catch{}finally{if(!stopped)plan(interval);}},delay);timer?.unref?.();};
+ plan(initialDelay);return ()=>{stopped=true;clearTimer(timer);};
+}
 function registerAppUpdates({ipcMain,getMainWindow,isTrustedRenderer,updates}){
  for(const [channel,method] of [['update-state','read'],['update-check','check'],['update-download','download'],['update-restart','restart']]){
   ipcMain.handle(`moaon-hub:${channel}`,(event,...args)=>{if(args.length||!isTrustedRenderer(event,getMainWindow()))throw Error('INVALID_UPDATE_REQUEST');return updates[method]();});
  }
 }
-module.exports={createConfiguredUpdater,createAppUpdates,registerAppUpdates,newer};
+module.exports={startAutomaticUpdates,createConfiguredUpdater,createAppUpdates,registerAppUpdates,newer};

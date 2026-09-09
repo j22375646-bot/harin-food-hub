@@ -75,3 +75,5 @@
  .orders-page .order-tools{flex-wrap:wrap}
  .orders-page .order-tools .search-field{flex-basis:100%}
 }
+
+.app-update-panel{padding:24px;border:1px solid var(--line);border-radius:16px;background:var(--surface)}.app-update-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}.app-update-panel h3{font-size:20px}.app-update-panel p{font-size:14px;line-height:1.7}.app-update-heading span{padding:8px 12px;border:1px solid var(--line);border-radius:10px;white-space:nowrap;font-size:14px}.app-update-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));list-style:none;padding:0;gap:12px;margin:20px 0}.app-update-steps li{padding:12px;background:var(--surface-soft);border:1px solid var(--line);border-radius:10px;font-size:14px}.app-update-actions{margin-top:20px;gap:12px}.app-update-actions button{min-height:44px}#app-update-status{font-weight:600;color:var(--ink)}@media(max-width:700px){.app-update-heading{flex-wrap:wrap}.app-update-steps{grid-template-columns:1fr}.app-update-actions button{flex:1}}
