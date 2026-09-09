@@ -27,7 +27,7 @@ async function main(){
   await page.evaluate(async()=>{await runHubAction('disconnect');await runHubAction('viewActive');});
   await page.locator('[data-action="hub-refresh"]:visible').first().waitFor();
   await page.getByRole('button',{name:'주문·배송',exact:true}).click();await page.locator('.order-row').first().click();
-  await page.locator('details.detail-action-more > summary').click();
+  assert.equal(await page.getByRole('button',{name:'우체국 송장 발급',exact:true}).isVisible(),true);
   await page.getByRole('button',{name:'우체국 송장 발급',exact:true}).click({timeout:3000});
   await page.getByText('발급 완료 · 주문 목록을 새로 확인하세요',{exact:true}).waitFor({timeout:10000});
   assert.deepEqual(await app.evaluate(()=>globalThis.shipmentCalls),{post:1,poll:1,dialog:1});
@@ -41,7 +41,6 @@ async function main(){
    await page.getByRole('button',{name:'송장 등록 후 목록 열기',exact:true}).click({timeout:3000});
    await page.locator('.order-row').first().click();
   }
-  await page.locator('details.detail-action-more > summary').click();
   await page.getByRole('button',{name:'기존 송장 미리보기·인쇄',exact:true}).waitFor({timeout:5000});
   assert.equal(await app.evaluate(()=>globalThis.shipmentCalls.post),1);
   await page.screenshot({path:path.join(__dirname,'..','dist','shipment-smoke.png'),fullPage:true,animations:'disabled'});

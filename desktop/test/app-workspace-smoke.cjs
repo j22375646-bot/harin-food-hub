@@ -28,12 +28,9 @@ async function main(){
   assert.match(await page.locator('.preflight-reasons').innerText(),/배송정보 누락|송장 이력|취소 여부/);
   assert.match(await page.locator('.preflight-reasons').innerText(),/최신 주문·배송정보·송장 이력을 다시 확인/);
   await page.locator('.preflight-reasons summary').click();
-  assert.equal(await page.locator('.detail-action-more').getAttribute('open'),null);
-  assert.equal(await page.getByRole('button',{name:'우체국 송장 발급',exact:true}).isVisible(),false);
-  await page.locator('.detail-action-more summary').click();
+  assert.equal(await page.locator('.detail-action-more summary').count(),0);
   assert.equal(await page.getByRole('button',{name:'우체국 송장 발급',exact:true}).isVisible(),true);
   assert.equal(await page.getByRole('button',{name:'발급 상태 확인',exact:true}).isVisible(),true);
-  await page.locator('.detail-action-more summary').click();
   await page.locator('.detail-more summary').click();
   assert.match(await page.locator('.detail-more').innerText(),/ORIGINAL-1/);
   await page.locator('#order-select-all').check();

@@ -1287,6 +1287,8 @@ function createHubConnection({
       minHeight: 560,
       show: false,
       autoHideMenuBar: true,
+      titleBarStyle: 'hidden',
+      titleBarOverlay: {color:'#f3f3f8',symbolColor:'#6f6d80',height:36},
       backgroundColor: '#f3f6fa',
       webPreferences: {
         partition: READONLY_PARTITION,
@@ -1312,7 +1314,8 @@ function createHubConnection({
       void contents.insertCSS(`
         [class*="loginPage"] { --login-canvas:#f3f3f8 !important; --login-surface:#fff !important; --login-soft:#f8f7fc !important; --login-ink:#282836 !important; --login-muted:#6f6d80 !important; --login-line:#e4e2ed !important; --login-blue:#7565b4 !important; --login-blue-soft:#ede9fa !important; --login-mint:#247867 !important; --login-navy:#282836 !important; --login-rose:#b64f5e !important; color:#282836 !important; font-family:'Pretendard Variable',Pretendard,'Malgun Gothic',sans-serif !important; }
         [class*="loginPage"] input,[class*="loginPage"] button { font-family:inherit !important; }
-        [class*="loginPage"] { padding: 22px !important; min-height: 100vh !important; background:var(--login-canvas,#f3f6fa) !important; }
+        html::before { content:''; position:fixed; top:0; left:0; right:138px; height:36px; -webkit-app-region:drag; z-index:9999; }
+        [class*="loginPage"] { padding: 44px 22px 22px !important; min-height: 100vh !important; background:var(--login-canvas,#f3f6fa) !important; }
         [class*="loginFrame"] { display: flex !important; flex-direction: column !important; min-height: 0 !important; width: 100% !important; background:var(--login-surface,#fff) !important; border:1px solid var(--login-line,#dfe5ee) !important; border-radius:24px !important; box-shadow:0 18px 60px #1720360d !important; animation:moaonLoginArrive .35s ease-out both !important; }
         [class*="loginHero"], [class*="frameFooter"], [class*="ownerAccess"] { display: none !important; }
         [class*="loginTopbar"] { min-height: 72px !important; padding: 14px 22px !important; }

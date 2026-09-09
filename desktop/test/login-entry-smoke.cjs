@@ -24,6 +24,8 @@ async function main(){
   const login=await nextWindow;await login.waitForLoadState('domcontentloaded');
   assert.equal(await login.locator('input[type=password]').count(),1);
   await login.waitForFunction(()=>getComputedStyle(document.querySelector('.loginPage')).fontFamily.includes('Pretendard'));
+  assert.equal(await login.evaluate(()=>getComputedStyle(document.documentElement,'::before').getPropertyValue('-webkit-app-region')),'drag');
+  await login.screenshot({path:path.resolve(__dirname,'../artifacts/login-titlebar-hidden.png')});
   assert.equal(await login.locator('form input[type=password]').count(),1,'presentation keeps original password field');
   await login.close();await page.locator('#entry-login:not([disabled])').waitFor();
   assert.equal(await page.locator('.preview-shell').isVisible(),false);

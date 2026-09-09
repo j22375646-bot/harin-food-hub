@@ -432,12 +432,10 @@ function showOrderDetail(order, button, options = {}) {
   if (!isSampleMode()) {
     const actions = makeElement('section', 'review-actions');
     actions.setAttribute('aria-label', '주문 재확인');
-    actions.append(makeElement('strong', 'review-result', options.rechecked ? '다시 확인 완료 · 저장 자료 기준' : '출고 전에 한 번 더 확인하세요'));
-    actions.append(makeElement('span', 'review-time', options.rechecked ? formatTime(connectionResult?.checkedAt) : '재확인은 조회만 · 실제 발급은 별도 확인창에서 승인합니다.'));
-    const recheck = makeElement('button', 'secondary-action', '저장 주문 다시 확인');
+    actions.append(makeElement('strong', 'review-result', '송장·출력'));
+    const recheck = makeElement('button', 'secondary-action order-refresh-link', '주문 정보 새로고침');
     recheck.type = 'button';
     recheck.addEventListener('click', () => void recheckSelectedOrder());
-    actions.append(recheck);
     if(order.issueAndRegisterEligible===true){
       const automatic=makeElement('button','primary-action','자동 발급·등록');automatic.type='button';automatic.dataset.autoShip=orderId(order);automatic.disabled=registrationBusy;
       automatic.addEventListener('click',()=>void runAutomaticShipping([orderId(order)]));actions.append(automatic);
@@ -531,16 +529,10 @@ function showOrderDetail(order, button, options = {}) {
           }catch{if(actions.isConnected)label.textContent='미리보기를 열지 못했습니다 · 다시 확인하세요';}
           finally{preview.disabled=false;}
         });
-        actions.append(preview);
+        preview.className='primary-action';actions.prepend(preview);
       }
     }
-    const actionMore=makeElement('details','detail-action-more');
-    actionMore.append(makeElement('summary','','발급 상태·출력 도구'));
-    for(const action of [...actions.querySelectorAll('button.secondary-action')]){
-      if(action.textContent==='발급 결과 주문 다시 조회')continue;
-      actionMore.append(action);
-    }
-    if(actionMore.childElementCount>1)actions.append(actionMore);
+    actions.append(recheck);
     detailPanel.append(actions);
   }
   renderDetailNavigation();
