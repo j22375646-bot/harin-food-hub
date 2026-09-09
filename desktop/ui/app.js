@@ -1422,7 +1422,7 @@ document.querySelector('#entry-printers').addEventListener('click',async event=>
  try{const result=await window.moaonHub.inspectPrinters();if(result.status!=='SHOWN')document.querySelector('#entry-status').textContent='프린터를 조회하지 못했습니다. 잠시 후 다시 확인하세요.';}
  catch{document.querySelector('#entry-status').textContent='프린터 조회에 실패했습니다.';}finally{button.disabled=false;}
 });
-document.querySelector('#printer-check').addEventListener('click',async event=>{
+document.querySelector('#printer-check')?.addEventListener('click',async event=>{
  const button=event.currentTarget,status=document.querySelector('#printer-check-status');
  button.disabled=true;status.textContent='Windows 프린터 목록을 확인하고 있습니다.';
  try{const result=await window.moaonHub.inspectPrinters();status.textContent=result.status==='SHOWN'?'프린터 목록 확인 완료 · 실제 출력은 별도 확인이 필요합니다.':result.status==='BUSY'?'이미 프린터를 확인하고 있습니다.':'조회하지 못했습니다. Windows 프린터 설정을 확인한 뒤 다시 시도하세요.';}
