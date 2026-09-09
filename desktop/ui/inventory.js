@@ -29,6 +29,10 @@
 
   const panel=$('inventory-detail'),row=rows.find(r=>r.id===selected);panel.hidden=!row;panel.parentElement.dataset.detailOpen=String(Boolean(row));panel.replaceChildren();if(!row)return;
   const heading=node('header','');heading.className='inventory-detail-heading';const title=node('div','');title.append(node('h2',row.name),node('p','상품 번호 '+row.id));const button=node('button','목록으로');button.type='button';button.onclick=close;heading.append(title,button);panel.append(heading);
+  const index=rows.findIndex(r=>r.id===selected),nav=node('nav','');nav.className='inventory-detail-nav';nav.setAttribute('aria-label','현재 조건의 상품 이동');
+  const previous=node('button','이전 상품'),next=node('button','다음 상품'),position=node('span',(index+1)+' / '+rows.length+'개');position.setAttribute('aria-live','polite');previous.type=next.type='button';previous.id='inventory-detail-prev';next.id='inventory-detail-next';previous.disabled=index===0;next.disabled=index===rows.length-1;
+  const move=offset=>{const target=index+offset;if(target<0||target>=rows.length)return;selected=rows[target].id;pageIndex=Math.floor(target/50);render();const control=$(offset>0?'inventory-detail-next':'inventory-detail-prev');(control.disabled?$('inventory-detail').querySelector('button'):control).focus({preventScroll:true});$('inventory-detail').scrollIntoView({block:'start'});};
+  previous.onclick=()=>move(-1);next.onclick=()=>move(1);nav.append(previous,position,next);panel.append(nav);
   const priority=c=>($('inventory-platform').value!=='ALL'&&c.platform===$('inventory-platform').value?4:0)+($('inventory-state').value!=='ALL'&&match(c)?4:0)+(c.mapping?2:0);
   const pairs=(entries)=>{const dl=node('dl','');dl.className='inventory-facts';for(const [label,value] of entries)dl.append(node('dt',label),node('dd',value));return dl;};
   for(const c of [...row.channels].sort((a,b)=>priority(b)-priority(a))){
