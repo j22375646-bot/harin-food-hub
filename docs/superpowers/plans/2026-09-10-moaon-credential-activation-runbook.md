@@ -46,6 +46,30 @@ node scripts/check-moaon-credential-schema.js
 
 exit0/SCHEMA_PRESENT_REQUIRES_OPERATIONS도 운영 준비 완료가 아니다. 누락·RLS 없음·함수 형태 불일치·쿼리/정리 실패는 BLOCKED/exit1이다. 반환은 고정 code/status뿐이며 실제 주소·연결값·예외 원문은 출력하지 않는다. 점검 종료 시 DB pool을 정리한다.
 
+### 자격증명 열 구조와 보호 테이블 권한 대조
+
+같은 제한 역할 연결 설정과 진단 opt-in으로 다음을 실행한다. 진단 opt-in은 자격증명 저장 기능의 활성화 switch와 별개다.
+
+```powershell
+$env:MOAON_CONTROL_DB_DIAGNOSTIC='1'
+node scripts/check-moaon-credential-contract.js
+```
+
+provider_credentials의6개 열 이름·자료형·NOT NULL·생성열 여부와 updated_at 기본값 존재를 대조한다. 기본값의 표현식과 제약조건/인덱스 의미까지 검증하지 않는다. 추가 열도 현재 저장 계약과 달라 INVALID로 처리한다.
+
+보호 대상4개 테이블에서 moaon_control_app에 적용되는 열 권한은 아래 계약과 정확히 같아야 한다. 전체 테이블/PUBLIC 부여로 생긴 유효 권한도 포함한다. 다른 열의 추가 권한 및 DELETE/TRUNCATE/TRIGGER/REFERENCES는 허용하지 않는다.
+
+| 테이블 | SELECT | INSERT | UPDATE |
+| --- | --- | --- | --- |
+| provider_credentials | tenant_id,provider,revision | tenant_id,provider,revision,envelope,updated_by | revision,envelope,updated_by,updated_at |
+| account_state | user_id,blocked | 없음 | user_id |
+| dashboard_users | user_id,active | 없음 | user_id |
+| dashboard_sessions | id,user_id,token_hash,revoked_at,expires_at | 없음 | id |
+
+인증 테이블의 좁은 UPDATE 권한은 세션 보호용 잠금과 함께 설계돼 있다. 이 점검은 RLS 정책 본문을 검증하지 않으므로 실제 데이터 변경 차단까지 보증하지 않는다. 나머지 테이블/역할의 ACL도 별도 대상이다.
+
+exit0/CREDENTIAL_CONTRACT_MATCHES_REQUIRES_OPERATIONS는 이 열·권한 계약의 일치만 의미한다. 운영 준비 완료, 함수 본문 안전성, 실제 세션 폐기 경합, 플랫폼 인증을 의미하지 않는다. BLOCKED는 자동 GRANT나 스키마 변경으로 고치지 말고 후보 SQL과 차이를 검토한다. 도구는 실데이터/암호문 조회 및 권한 변경을 하지 않는다.
+
 ## 4. 키·진입 경로·배포
 
 암호화 키 저장 위치와 접근자, active key ID 교체 및 이전 키 복호화 유지, HMAC 분리와 복구 절차를 마련한다. 키 원문을 문서·대화·시험 로그에 복사하지 않는다. VERCEL 환경 변수 값만으로 실제 운영 진입 경로를 증명할 수 없다. 실제 production 배포와 직접 ingress, 단일 IP 헤더 일치 정책을 확인한다.
