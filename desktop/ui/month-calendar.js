@@ -1,10 +1,14 @@
 'use strict';
 (()=>{
  const el=id=>document.getElementById(id),node=(tag,css,text)=>makeElement(tag,css,text);
- const today=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date());
+ const dayFormatter=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'});
+ const today=()=>dayFormatter.format(new Date());
+ let renderedToday='';
+ function syncToday(){const current=today();if(current===renderedToday)return;document.querySelectorAll('[data-calendar-day]').forEach(button=>button.classList.toggle('is-today',button.dataset.calendarDay===current));renderedToday=current;}
  let month=today().slice(0,7),selected=today(),value=null,busy=false,generation=0,lastAttempt=0,state='ALL';
  const matches=row=>state==='ALL'||row.status===state;
  function render(){
+  const currentDay=today();renderedToday=currentDay;
   el('month-page').setAttribute('aria-busy',String(busy));
   document.querySelectorAll('[data-month-state]').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.monthState===state));b.disabled=busy||!value;});
   el('month-filter-count').textContent=busy?'일정 조회 중':value?(value.entries.filter(matches).length+' / '+value.entries.length+'개 일정 · '+(value.complete===true?'조회 범위 확인':'전체 일정 여부 확인 필요')):'일정 확인 필요';
@@ -19,7 +23,7 @@
    button.append(node('strong','',String(d)),node('small','',value?(rows.length?`${rows.length}개 일정`:''):'—'));
    const holidays=(value?.holidays||[]).filter(row=>row.date===date);
    if(holidays.length)button.append(node('small','month-holiday',holidays.map(row=>row.name).join(' · ')));
-   if(date===today())button.classList.add('is-today');
+   if(date===currentDay)button.classList.add('is-today');
    button.addEventListener('click',()=>{selected=date;el('month-detail').replaceChildren();render();Array.from(document.querySelectorAll('[data-calendar-day]')).find(b=>b.dataset.calendarDay===date)?.focus();});
    cells.push(button);
   }
@@ -44,5 +48,5 @@ button.addEventListener('click',()=>{el('month-detail').replaceChildren(node('h3
  el('month-prev').addEventListener('click',()=>move(-1));el('month-next').addEventListener('click',()=>move(1));el('month-refresh').addEventListener('click',refresh);
  el('month-today').addEventListener('click',()=>{const target=today();selected=target;el('month-detail').replaceChildren();if(month===target.slice(0,7)&&value){render();return;}month=target.slice(0,7);void refresh();});
  document.querySelectorAll('[data-month-state]').forEach(b=>b.onclick=()=>{state=b.dataset.monthState;el('month-detail').replaceChildren();render();});
- window.moaonMonth=Object.freeze({clear,ensure:()=>{render();if(displayMode==='live'&&(!lastAttempt||Date.now()-lastAttempt>=60000))void refresh();}});clear();
+ window.moaonMonth=Object.freeze({clear,ensure:()=>{if(displayMode==='live'&&(!lastAttempt||Date.now()-lastAttempt>=60000))void refresh();else syncToday();}});clear();
 })();
