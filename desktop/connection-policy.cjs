@@ -106,6 +106,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
     return Boolean(valid)&&isMainProcessRequest(details.webContentsId);
   }
   if(method==='GET'&&context.calendarPermit===details.url&&url.origin===HARIN_ORIGIN&&url.pathname==='/api/calendar/entries'&&!url.hash&&/^\?from=(\d{4}-\d{2}-\d{2})&to=\1$/.test(url.search))return isMainProcessRequest(details.webContentsId);
+  if(method==='POST'&&context.calendarWritePermit===true&&details.url===HARIN_ORIGIN+'/api/calendar/entries')return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.monthPermit===details.url&&url.origin===HARIN_ORIGIN&&url.pathname==='/api/calendar/entries'&&!url.hash){
     const range=require('./today-calendar.cjs').monthRange(url.searchParams.get('from')?.slice(0,7));
     if(range&&url.search===`?from=${range.from}&to=${range.to}`)return isMainProcessRequest(details.webContentsId);

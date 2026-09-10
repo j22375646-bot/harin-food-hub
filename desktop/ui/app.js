@@ -116,7 +116,6 @@ function renderOverview(){
  const section=document.querySelector('#today-overview');section.hidden=displayMode!=='live';section.setAttribute('aria-busy',String(overviewBusy));section.closest('[data-page]').dataset.live=String(displayMode==='live');
  document.querySelector('#overview-refresh').disabled=overviewBusy||displayMode!=='live';
  const values=Object.values(overviewValues),active=overviewValues.ACTIVE;
- const chartMax=Math.max(1,...values.filter(v=>['READY','PARTIAL'].includes(v?.status)&&Number.isSafeInteger(v.total)&&v.total>=0).map(v=>v.total));
  const complete=values.length===4&&values.every(value=>value?.status==='READY'&&Number.isSafeInteger(value.total)&&value.total>=0);
  document.querySelector('#overview-priority').textContent=overviewBusy?'업무 현황을 불러오는 중입니다.':!complete?'일부 상태는 확인이 필요합니다. 누락된 수치는 0건으로 계산하지 않습니다.':active.total>0?`송장 발급 전 ${active.total.toLocaleString('ko-KR')}건을 먼저 살펴보세요. 자동 발급 가능 여부는 주문별로 확인합니다.`:'현재 수집된 송장 발급 전 주문은 없습니다. 배송중·완료 현황을 확인하세요.';
  document.querySelector('#overview-cards').replaceChildren(...Object.entries(scopeDetails).map(([scope,detail])=>{
@@ -125,8 +124,6 @@ function renderOverview(){
   const known=['READY','PARTIAL'].includes(value?.status)&&Number.isSafeInteger(value?.total)&&value.total>=0;
   button.append(makeElement('span','',detail.label),makeElement('strong','',known?`${value.total.toLocaleString('ko-KR')}건`:overviewBusy?'조회 중':'확인 필요'),
    makeElement('small','',known?`${value.status==='PARTIAL'?'부분 확인 · ':''}${formatTime(value.checkedAt)} 조회`:'아직 조회하지 않았거나 조회 실패'),makeElement('small','','주문 목록 열기 →'));
-  const graph=document.createElementNS('http://www.w3.org/2000/svg','svg');graph.setAttribute('viewBox','0 0 100 8');graph.setAttribute('preserveAspectRatio','none');graph.setAttribute('aria-hidden','true');graph.classList.add('overview-bar');
-  for(const [css,width] of [['overview-track',100],['overview-fill',known?100*value.total/chartMax:0]]){const rect=document.createElementNS(graph.namespaceURI,'rect');rect.setAttribute('x','0');rect.setAttribute('y','0');rect.setAttribute('width',String(width));rect.setAttribute('height','8');rect.setAttribute('rx','4');rect.setAttribute('class',css);graph.append(rect);}button.append(graph);
   button.addEventListener('click',async()=>{button.disabled=true;await runHubAction(detail.action);if(displayMode==='live')showRoute('orders');});
   return button;
  }));
@@ -454,6 +451,7 @@ function showOrderDetail(order, button, options = {}) {
     const preflight = order.preflight;
     const preflightLabels = {BLOCKED:'출고 대상에서 제외',EXTERNAL:'별도 플랫폼에서 처리',CHECK_REQUIRED:'출고 전 정보 확인 필요',REVIEW_ONLY:'발급 전 재확인 후보'};
     const reasonLabels = {CANCELLED:'취소된 주문',CANCEL_REQUEST:'취소·반품 요청 먼저 확인',SHIPPED:'배송 진행 또는 완료 상태',INVOICE_EXISTS:'기존 송장 기록 확인',NAVER_ROUTE:'네이버에서 송장 처리',ROCKET_ROUTE:'로켓그로스는 쿠팡에서 출고',ROUTE_UNKNOWN:'처리 경로 확인 필요',STAGE_UNKNOWN:'주문 단계 확인 필요',CANCEL_UNKNOWN:'취소 여부 확인 필요',INVOICE_UNKNOWN:'송장 이력 확인 필요',ORDER_ID:'주문 식별번호 확인 필요',SERVER_CHECK:'웹 허브의 출고 제한 확인 필요',DELIVERY_INFO:'배송정보 누락 또는 형식 확인 필요',QUANTITY:'상품 수량 확인 필요',PARTIAL:'일부 채널 자료 누락'};
+    reasonLabels.SHIPMENT_ID='쿠팡 배송묶음 번호 확인 필요';
     reasonLabels.HISTORY_UNAVAILABLE = '송장 이력 조회 상태 확인 필요';
     const checkSection = makeElement('section', 'detail-section preflight-summary');
     checkSection.dataset.state = preflight?.status || 'CHECK_REQUIRED';
@@ -463,7 +461,7 @@ function showOrderDetail(order, button, options = {}) {
     for (const code of preflight?.codes || []) reasons.append(makeElement('li', '', reasonLabels[code] || '추가 확인 필요'));
     const reasonDetails=makeElement('details','preflight-reasons');
     reasonDetails.append(makeElement('summary','',`확인할 항목 ${reasons.childElementCount}개`),reasons,makeElement('span','','발급 직전에 최신 주문·배송정보·송장 이력을 다시 확인합니다.'));
-    checkSection.append(reasonDetails);
+    checkSection.append(reasonDetails);if(preflight?.serverReason)checkSection.append(makeElement('p','detail-notice','서버 확인: '+preflight.serverReason));
     addDetailSection(more, '주문', order.hubOrderId || '주문번호 확인 필요', `${order.platform || '채널 확인 필요'} · ${stageLabel(order.stage)}`);
     const details = order.details || {};
     addDetailSection(more, '플랫폼 주문번호', details.externalOrderId || '확인 필요', '위 허브 주문번호와 구분되는 쇼핑몰 원본 번호입니다.');
@@ -717,6 +715,12 @@ function renderSelection(){
   document.querySelector('#selection-auto-ship').disabled=registrationBusy||!autoEligible;
   for(const button of detailPanel.querySelectorAll('[data-auto-ship]'))button.disabled=registrationBusy||!displayedOrders.some(order=>orderId(order)===button.dataset.autoShip&&order.issueAndRegisterEligible);
   const bar=document.querySelector('#order-selection');
+  let reason=document.getElementById('selection-block-reason');if(!reason){reason=makeElement('p','selection-block-reason');reason.id='selection-block-reason';reason.setAttribute('role','status');bar.append(reason);}
+  const blocked=[...selectedOrderIds].map(id=>displayedOrders.find(o=>orderId(o)===id)).filter(o=>o&&!o.issueAndRegisterEligible);
+  const names={DELIVERY_INFO:'받는 분·주소·연락처 확인',HISTORY_UNAVAILABLE:'송장 이력 조회 확인',SHIPMENT_ID:'쿠팡 배송묶음 번호 확인',SERVER_CHECK:'서버 출고 조건 확인',PARTIAL:'누락 채널 재조회',NAVER_ROUTE:'네이버 주문은 네이버에서 처리',ROCKET_ROUTE:'로켓그로스는 쿠팡에서 처리',INVOICE_EXISTS:'기존 송장 확인',CANCELLED:'취소 주문 제외',CANCEL_REQUEST:'취소 요청 확인',INVOICE_UNKNOWN:'송장 존재 여부 확인',CANCEL_UNKNOWN:'취소 여부 확인'};
+  reason.hidden=!count||autoEligible||registrationBusy;
+  reason.replaceChildren();if(!reason.hidden){reason.append(makeElement('span','',count>20?'한 번에 20건까지 선택하세요.':blocked.slice(0,1).map(o=>(o.platform==='COUPANG'?'쿠팡: ':'')+(o.preflight?.serverReason||o.preflight?.codes?.map(c=>names[c]||'출고 정보 확인').join(' · ')||'최신 발급 조건 확인 필요')).join(' / ')+(blocked.length>1?' 외 '+(blocked.length-1)+'건 · 첫 주문부터 확인하세요.':'')));const check=makeElement('button','','조건 다시 확인');check.type='button';check.onclick=()=>{const row=blocked[0];if(row){showOrderDetail(row);void recheckSelectedOrder();}};reason.append(check);}
+
   bar.hidden=count===0;
   if(!count)bar.querySelector('details')?.removeAttribute('open');
   document.querySelector('#selection-count').textContent=count?`${count}건 선택`:'상세 보기';
@@ -1456,3 +1460,6 @@ document.querySelectorAll('[data-settings-target]').forEach(button=>button.addEv
  if(target.tagName==='SUMMARY')target.parentElement.open=true;
  target.tabIndex=-1;target.focus({preventScroll:true});target.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
 }));
+
+// Independent settings columns prevent one tall card from pushing down the other column.
+{const grid=document.querySelector('.settings-grid');const cards=[...grid.querySelectorAll('.setting-card')].filter(el=>!el.parentElement.closest('.setting-card'));if(cards.length===6){const left=makeElement('div','settings-column'),right=makeElement('div','settings-column');left.append(cards[0],cards[2],cards[3]);right.append(cards[1],cards[4],cards[5]);grid.replaceChildren(left,right);}}

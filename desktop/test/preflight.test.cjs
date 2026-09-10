@@ -45,7 +45,7 @@ test('provider routing never merges Naver or Rocket Growth with hub shipping', (
   assert.equal(check({...base(),platform:'NAVER'}).status,'EXTERNAL');
   assert.equal(check({...base(),platform:'COUPANG',fulfillment:'ROCKET_GROWTH'}).route,'COUPANG_ROCKET');
   assert.equal(check({...base(),platform:'COUPANG',fulfillment:'ROCKET_GROWTH'}).status,'EXTERNAL');
-  assert.equal(check({...base(),platform:'COUPANG',hubOrderId:'HR-CP-1234ABCD'}).status,'REVIEW_ONLY');
+  assert.equal(check({...base(),platform:'COUPANG',hubOrderId:'HR-CP-1234ABCD',shipmentId:'123456'}).status,'REVIEW_ONLY');
   assert.equal(check({...base(),platform:'UNKNOWN'}).status,'CHECK_REQUIRED');
 });
 test('missing identity, readiness, delivery information and partial response fail closed', () => {
@@ -55,3 +55,7 @@ test('missing identity, readiness, delivery information and partial response fai
   assert.equal(check(base(),true).status,'CHECK_REQUIRED');
   assert.ok(check({...base(),receiver:{}}).codes.includes('DELIVERY_INFO'));
 });
+
+test('seller Coupang without a shipment group exposes the reason instead of silently disabling',()=>{assert.ok(check({...base(),platform:'COUPANG',hubOrderId:'HR-CP-1234ABCD'}).codes.includes('SHIPMENT_ID'));});
+
+test('server shipping block reason stays visible as bounded plain text',()=>{const result=check({...base(),shippingEligible:false,shippingBlockedReason:'계약 택배 설정을 확인하세요. <img src=x>'});assert.equal(result.serverReason,'계약 택배 설정을 확인하세요. <img src=x>');assert.equal(check({...base(),shippingEligible:false,shippingBlockedReason:'x'.repeat(600)}).serverReason.length,500);});

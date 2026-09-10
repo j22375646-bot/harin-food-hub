@@ -21,10 +21,13 @@ async function main(){
   assert.match(await card('REGISTER').innerText(),/0건/);assert.match(await card('IN_TRANSIT').innerText(),/확인 필요/);
   assert.match(await card('COMPLETED').innerText(),/부분 확인/);
   assert.match(await page.locator('#overview-priority').textContent(),/확인이 필요/);
-  assert.equal(await card('REGISTER').locator('.overview-fill').getAttribute('width'),'0');assert.equal(await card('IN_TRANSIT').locator('.overview-fill').getAttribute('width'),'0');assert.equal(await card('COMPLETED').locator('.overview-fill').getAttribute('width'),'100');
+  assert.equal(await page.locator('.overview-bar').count(),0);
   await app.evaluate(()=>globalThis.slowOverview=true);await page.evaluate(()=>{void refreshOverview();});assert.equal(await page.locator('#today-overview').getAttribute('aria-busy'),'true');assert.match(await card('ACTIVE').innerText(),/조회 중/);await page.waitForFunction(()=>document.getElementById('today-overview').getAttribute('aria-busy')==='false');await app.evaluate(()=>globalThis.slowOverview=false);
-  assert.equal(await page.locator('#overview-cards').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),1);assert.equal(await page.locator('.overview-bar').first().evaluate(el=>getComputedStyle(el).height),'12px');
+  assert.equal(await page.locator('#overview-cards').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),4);assert.equal(await card('REGISTER').locator('strong').evaluate(el=>getComputedStyle(el).fontSize),'34px');
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1060,720));await page.waitForFunction(()=>innerHeight===720);
+  assert.equal(await page.locator('#overview-cards').evaluate(el=>new Set([...el.querySelectorAll('button small:last-child')].map(n=>Math.round(n.getBoundingClientRect().top))).size),1);
   const savedScroll=await page.evaluate(()=>{const el=document.getElementById('main-content');el.scrollTop=120;return el.scrollTop;});assert.ok(savedScroll>0);await page.evaluate(()=>{showRoute('settings');showRoute('today');});assert.equal(await page.locator('#main-content').evaluate(el=>el.scrollTop),savedScroll);await page.evaluate(()=>document.getElementById('main-content').scrollTop=0);
+  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1060,1100));await page.waitForFunction(()=>innerHeight===1100);
   const reads=await app.evaluate(()=>globalThis.overviewRegisterReads);
   await page.evaluate(()=>{showRoute('settings');showRoute('today');showRoute('settings');showRoute('today');});
   await page.waitForTimeout(100);
@@ -32,7 +35,7 @@ async function main(){
   await page.evaluate(()=>{const p=document.createElement('p');p.textContent='오늘 화면 디자인 검증 · 가상 주문/금액 · 실제 업무 실행 없음';p.className='experience-test-banner';document.getElementById('today-overview').prepend(p);});
   await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('[data-page=today]').evaluate(el=>getComputedStyle(el).animationName),'none');await page.emulateMedia({reducedMotion:'no-preference'});
   for(const theme of ['light','dark']){
-   await page.evaluate(theme=>applyTheme(theme),theme);
+   await page.evaluate(theme=>applyTheme(theme),theme);await page.waitForTimeout(350);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
    await page.screenshot({path:path.join(os.tmpdir(),`moaon-experience-${theme}.png`)});
   }
@@ -43,7 +46,7 @@ async function main(){
   assert.equal(await page.locator('#today-overview').isVisible(),false);
   assert.equal(await page.locator('#overview-cards').innerText().then(x=>x.includes('1건')),false);
   assert.deepEqual(errors,[]);const placement=await app.evaluate(({BrowserWindow,screen})=>{const w=BrowserWindow.getAllWindows()[0],d=screen.getDisplayMatching(w.getBounds()),p=screen.getPrimaryDisplay();return {right:d.id!==p.id&&d.workArea.x>=p.workArea.x+p.workArea.width,focused:w.isFocused()};});assert.deepEqual(placement,{right:true,focused:false});
-  console.log(JSON.stringify({status:'PASS',packaged,scope:'overview chart, loading, scroll restoration, cached return, reduced motion, light/dark/narrow, order navigation, logout'}));
+  console.log(JSON.stringify({status:'PASS',packaged,scope:'overview numeric cards, loading, scroll restoration, cached return, reduced motion, light/dark/narrow, order navigation, logout'}));
  }finally{await app.close();}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

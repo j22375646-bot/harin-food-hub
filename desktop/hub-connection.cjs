@@ -132,8 +132,9 @@ function projectPreflight(order, partial) {
   if (!safeString(receiver?.name).trim() || !safeString(receiver?.address).trim()
     || !/^\d{5}$/.test(typeof receiver?.postCode === 'string' ? receiver.postCode : '') || !/^\d{9,12}$/.test(contact)) codes.push('DELIVERY_INFO');
   if (!Number.isSafeInteger(order?.quantity) || order.quantity <= 0) codes.push('QUANTITY');
+  if (order?.platform==='COUPANG'&&order?.fulfillment==='SELLER'&&!(typeof order.shipmentId==='string'&&order.shipmentId.trim())) codes.push('SHIPMENT_ID');
   if (partial) codes.push('PARTIAL');
-  return Object.freeze({ status: blocked ? 'BLOCKED' : ['NAVER','COUPANG_ROCKET'].includes(route) ? 'EXTERNAL' : codes.length ? 'CHECK_REQUIRED' : 'REVIEW_ONLY', route, codes:Object.freeze(codes) });
+  return Object.freeze({ status: blocked ? 'BLOCKED' : ['NAVER','COUPANG_ROCKET'].includes(route) ? 'EXTERNAL' : codes.length ? 'CHECK_REQUIRED' : 'REVIEW_ONLY', route, codes:Object.freeze(codes),...(codes.includes('SERVER_CHECK')&&typeof order?.shippingBlockedReason==='string'&&order.shippingBlockedReason.trim()?{serverReason:order.shippingBlockedReason.trim().slice(0,500)}:{}) });
 }
 
 function projectOrdersPayload(payload, checkedAt, options = {}) {
@@ -494,6 +495,31 @@ function createHubConnection({
     })();
     activeCalendar=operation.finally(()=>{activeCalendar=null;});return activeCalendar;
   }
+  let calendarWritePermit=false,calendarWriting=false;const uncertainCalendarWrites=new Set();
+  async function createCalendarEntry(value){
+    const {validCalendarDraft}=require('./today-calendar.cjs');
+    if(!validCalendarDraft(value))return {status:'INVALID'};
+    if(calendarWriting||disconnecting||cleanupFailed||isLoginWindowActive()||typeof showShipmentReview!=='function')return {status:'UNAVAILABLE'};
+    const input={...value,title:value.title.trim()},key=JSON.stringify(input),expected=generation;
+    if(uncertainCalendarWrites.has(key))return {status:'RESULT_UNKNOWN'};
+    calendarWriting=true;let controller,timer,dispatched=false;
+    try{
+      const proof=await readCalendarMonth(input.date.slice(0,7));if(proof.status!=='READY'||expected!==generation)return {status:'UNAVAILABLE'};
+      const answer=await showShipmentReview(getMainWindow(),{type:'question',title:'모아온 · 일정 등록',message:'하린식품 캘린더에 일정을 등록할까요?',detail:input.date+' '+(input.time||'종일')+'\n'+input.title,buttons:['취소','일정 등록'],defaultId:0,cancelId:0,noLink:true});
+      if(answer?.response!==1)return {status:'CANCELLED'};
+      if(expected!==generation||disconnecting||cleanupFailed||isLoginWindowActive())return {status:'UNAVAILABLE'};
+      controller=new AbortController();businessReads.add(controller);timer=setTimeout(()=>controller.abort(),timeoutMs);
+      const task=async()=>{calendarWritePermit=true;dispatched=true;const response=await getRemoteSession().fetch(HARIN_ORIGIN+'/api/calendar/entries',{method:'POST',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal,headers:{Origin:HARIN_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify({action:'CREATE_ENTRY',...input,endDate:input.date,priority:'NORMAL'})});
+        if(expected!==generation||controller.signal.aborted)throw Error('Stale');
+        if([400,401,403,404,405,413,415,429].includes(response.status))return {status:response.status===401?'LOGIN_REQUIRED':response.status===403?'FORBIDDEN':response.status===429?'RATE_LIMITED':'UNAVAILABLE'};
+        const payload=await readBoundedJson(response,controller);
+        if(expected!==generation||controller.signal.aborted||response.status!==200||payload?.ok!==true||typeof payload.entry?.id!=='string'||!payload.entry.id||payload.entry.id.length>128||payload.entry.title!==input.title||payload.entry.date!==input.date)throw Error('Unconfirmed');
+        return {status:'SAVED'};
+      };
+      return await Promise.race([task(),new Promise((_,reject)=>controller.signal.addEventListener('abort',()=>reject(Error('Timeout')),{once:true}))]);
+    }catch{if(dispatched)uncertainCalendarWrites.add(key);return {status:dispatched?'RESULT_UNKNOWN':'UNAVAILABLE'};}
+    finally{clearTimeout(timer);controller?.abort();if(controller)businessReads.delete(controller);calendarWritePermit=false;calendarWriting=false;}
+  }
   let activeMonth=null,monthPermit=null,activeMonthKey=null;
   function readCalendarMonth(month){
     const {monthRange,projectMonth}=require('./today-calendar.cjs'),range=monthRange(month);
@@ -669,7 +695,7 @@ function createHubConnection({
             registrationRequestActive,
             serverHistoryRequestActive,
             calendarPermit,
-            monthPermit,
+            monthPermit,calendarWritePermit,
             financePermit,
             settlementPermit,
             insightsPermit,
@@ -1643,7 +1669,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-return Object.freeze({ readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+return Object.freeze({ createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1719,6 +1745,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
   });
   const methods = [
     ['moaon-hub:read-calendar-month', 'readCalendarMonth'],
+    ['moaon-hub:create-calendar-entry','createCalendarEntry'],
     ['moaon-hub:collect-orders', 'collectOrders'],
     ['moaon-hub:check-order-collection', 'checkOrderCollection'],
     ['moaon-hub:check-order-freshness', 'checkOrderFreshness'],
@@ -1748,6 +1775,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
   for (const [channel, method] of methods) {
     ipcMain.handle(channel, async (event, ...args) => {
       if (!isTrustedRenderer(event, getMainWindow())) throw new Error('Untrusted renderer');
+      if(method==='createCalendarEntry'){if(args.length!==1||!require('./today-calendar.cjs').validCalendarDraft(args[0]))throw Error('Arguments are not allowed');return connection.createCalendarEntry(args[0]);}
       if(method==='readCalendarMonth'){
         if(args.length!==1||!require('./today-calendar.cjs').monthRange(args[0]))throw Error('Arguments are not allowed');
         return connection.readCalendarMonth(args[0]);

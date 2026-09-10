@@ -33,4 +33,5 @@ function projectCalendar(payload,date,to=date,allowPartial=false){
  }
  return {status:'READY',date,entries};
 }
-module.exports={calendarDay,projectCalendar,monthRange,projectMonth};
+function validCalendarDraft(v){return Boolean(v&&Object.getPrototypeOf(v)===Object.prototype&&Object.keys(v).length===5&&['title','body','date','time','type'].every(k=>Object.hasOwn(v,k))&&typeof v.title==='string'&&v.title.trim().length>0&&v.title.length<=160&&typeof v.body==='string'&&v.body.length<=4000&&validDate(v.date)&&/^20/.test(v.date)&&typeof v.time==='string'&&(!v.time||/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(v.time))&&['SCHEDULE','MEMO'].includes(v.type));}
+module.exports={calendarDay,projectCalendar,monthRange,projectMonth,validCalendarDraft};
