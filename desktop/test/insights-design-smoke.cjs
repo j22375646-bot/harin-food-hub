@@ -10,6 +10,7 @@ const assert=require('node:assert/strict'),path=require('node:path'),{_electron}
  };});
  await page.evaluate(()=>runHubAction('disconnect'));await page.evaluate(()=>runHubAction('viewActive'));await page.locator('[data-route="insights"]').click();
  await page.waitForFunction(()=>document.querySelector('#insights-reports').textContent.includes('테스트'));
+ const revisit=await page.evaluate(()=>{const list=document.getElementById('insights-reports'),first=list.firstChild,o=new MutationObserver(()=>{});o.observe(list,{childList:true});const samples=[];for(let i=0;i<20;i++){showRoute('settings');const start=performance.now();showRoute('insights');samples.push(performance.now()-start);}const mutations=o.takeRecords().length;o.disconnect();samples.sort((a,b)=>a-b);return {route:'insights',mutations,sameNode:first===list.firstChild,medianMs:samples[10],p95Ms:samples[18]};});console.log('REVISIT '+JSON.stringify(revisit));if(process.env.MOAON_EXPECT_REUSE==='1'){assert.equal(revisit.mutations,0);assert.equal(revisit.sameNode,true);}
  assert.match(await page.locator('#insights-metrics').innerText(),/0원/);assert.match(await page.locator('#insights-metrics').innerText(),/판단 보류/);
  assert.equal(await page.locator('#insights-page img').count(),0);
  await page.evaluate(()=>{showRoute('orders');showRoute('insights');});assert.equal(await app.evaluate(()=>globalThis.insightsReads),1);
@@ -17,7 +18,7 @@ const assert=require('node:assert/strict'),path=require('node:path'),{_electron}
  const trigger=page.locator('[data-insights-report="r1"]');
  assert.equal(await trigger.count(),1);
  await trigger.focus();await page.keyboard.press('Enter');
- await page.waitForFunction(()=>document.querySelector('#insights-detail').getAttribute('aria-hidden')==='false');
+ await page.waitForFunction(()=>document.querySelector('#insights-detail').getAttribute('aria-hidden')==='false');if(process.env.MOAON_EXPECT_REUSE==='1'){assert.equal(await page.evaluate(()=>{const h=document.querySelector('#insights-detail-body').firstChild;showRoute('settings');showRoute('insights');return h===document.querySelector('#insights-detail-body').firstChild;}),true);}
  assert.equal(await page.locator('.insights-section-nav button').count(),2);assert.ok(await page.locator('.insights-section-nav button').first().evaluate(el=>el.getBoundingClientRect().width>=64));await page.locator('.insights-section-nav button').last().click();assert.equal(await page.evaluate(()=>document.activeElement.className),'insights-detail-section');
  assert.match(await page.locator('#insights-detail').innerText(),/표본 부족/);
  assert.match(await page.locator('#insights-detail').innerText(),/일부/);
@@ -38,6 +39,7 @@ const assert=require('node:assert/strict'),path=require('node:path'),{_electron}
  for(const width of [1040,1440]){await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setSize(width,900),width);await page.waitForFunction(width=>innerWidth===width,width);for(const theme of ['light','dark']){await page.evaluate(theme=>applyTheme(theme),theme);await page.waitForTimeout(250);if(!await page.locator('#insights-page').evaluate(el=>el.scrollWidth<=el.clientWidth)){console.log(await page.locator('#insights-page').evaluate(el=>({width:el.clientWidth,scroll:el.scrollWidth,wide:[...el.querySelectorAll('*')].filter(n=>n.getBoundingClientRect().right>el.getBoundingClientRect().right).map(n=>[n.tagName,n.className,n.getBoundingClientRect().width]).slice(0,12)})));await page.screenshot({path:path.join(os.tmpdir(),'moaon-insights-overflow.png')});throw Error('overflow');}}}
  await page.locator('#insights-detail').scrollIntoViewIfNeeded();
  await page.screenshot({path:path.join(os.tmpdir(),'moaon-insights-design.png')});
+ const beforeExpiry=await app.evaluate(()=>globalThis.insightsReads);await page.evaluate(()=>{globalThis.originalRevisitNow=Date.now;const shifted=Date.now()+300001;Date.now=()=>shifted;window.moaonInsights.ensure();window.moaonInsights.ensure();});await page.waitForFunction(()=>document.getElementById('insights-page').getAttribute('aria-busy')==='false');assert.equal(await app.evaluate(()=>globalThis.insightsReads),beforeExpiry+1);await page.evaluate(()=>{Date.now=globalThis.originalRevisitNow;delete globalThis.originalRevisitNow;});
  await app.evaluate(()=>globalThis.insightsError=true);await page.locator('#insights-refresh').click();await page.waitForFunction(()=>document.querySelector('#insights-status').textContent.includes('실패'));assert.doesNotMatch(await page.locator('#insights-reports').innerText(),/테스트/);
  assert.equal(await page.locator('#insights-detail-body').innerText(),'');
  await page.evaluate(()=>runHubAction('disconnect'));assert.doesNotMatch(await page.locator('#insights-page').innerText(),/테스트/);

@@ -48,7 +48,7 @@
   }catch{if(expected===generation)select('insights-status').textContent='분석 조회 실패 · 새로 조회해 주세요.';}
   finally{if(expected===generation){busy=false;render();}}
  }
- window.moaonInsights=Object.freeze({clear,ensure:()=>{render();if(displayMode==='live'&&(!lastAttempt||Date.now()-lastAttempt>=300000))void refresh();}});
+ window.moaonInsights=Object.freeze({clear,ensure:()=>{if(displayMode==='live'&&(!lastAttempt||Date.now()-lastAttempt>=300000))void refresh();}});
  select('insights-search').addEventListener('input',render);select('insights-search-reset').onclick=()=>{select('insights-search').value='';render();select('insights-search').focus();};
  select('insights-refresh').addEventListener('click',refresh);clear();
  select('insights-detail-close').addEventListener('click',closeDetail);

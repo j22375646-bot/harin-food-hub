@@ -82,7 +82,7 @@
   }catch{if(expected===generation)select('settlement-status').textContent='정산 조회 실패 · 새로 조회해 주세요.';}
   finally{if(expected===generation){busy=false;render();}}
  }
- window.moaonSettlement=Object.freeze({clear,ensure:()=>{render();if(displayMode!=='live'){select('settlement-status').textContent='실제 사업장 연결 후 조회할 수 있습니다.';return;}if(!lastAttempt||Date.now()-lastAttempt>=300000)void refresh();}});
+ window.moaonSettlement=Object.freeze({clear,ensure:()=>{if(displayMode!=='live'){select('settlement-status').textContent='실제 사업장 연결 후 조회할 수 있습니다.';return;}if(!lastAttempt||Date.now()-lastAttempt>=300000)void refresh();}});
  document.querySelectorAll('[data-settlement-days]').forEach(button=>button.addEventListener('click',()=>{const next=Number(button.dataset.settlementDays);if(displayMode!=='live'||next===days||![7,30,90].includes(next))return;days=next;busy=false;void refresh();}));
  select('settlement-refresh').addEventListener('click',refresh);clear();
  select('settlement-detail-close').addEventListener('click',closeDetail);
