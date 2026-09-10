@@ -1,6 +1,7 @@
 'use strict';
 (()=>{
  const $=id=>document.getElementById(id),labels={NAVER:'네이버',CAFE24:'Cafe24',MARKETPLACE:'쿠팡 판매자배송',ROCKET_GROWTH:'쿠팡 로켓그로스',HEALTHY:'판매 가능 수량 있음',LOW:'저재고',OUT_OF_STOCK:'품절',STALE:'갱신 필요',UNKNOWN:'수량 확인 필요',MISSING:'미연결',REFERENCE:'광고 참고'};
+ let manualRows=[],manualReady=false;
  let value=null,busy=false,generation=0,selected=null,pageIndex=0,failed=false;
  const node=(tag,text)=>{const n=document.createElement(tag);n.textContent=text;return n;};
  const channelName=c=>labels[c.family]||labels[c.platform];
@@ -8,6 +9,22 @@
  const needsCheck=c=>Boolean(c.mapping||c.stale||c.stopped||['LOW','OUT_OF_STOCK','UNKNOWN','MISSING','STALE'].includes(c.state));
  const platformMatch=c=>$('inventory-platform').value==='ALL'||c.platform===$('inventory-platform').value;
  const match=c=>($('inventory-platform').value==='ALL'||c.platform===$('inventory-platform').value)&&($('inventory-state').value==='ALL'||($('inventory-state').value==='CHECK'?needsCheck(c):$('inventory-state').value==='STOPPED'?c.stopped:$('inventory-state').value==='MULTIPLE'?Boolean(c.mapping):$('inventory-state').value==='STALE'?c.stale:c.state===$('inventory-state').value));
+
+ function manualAmount(row){
+  if(!manualReady)return '확인 필요';const cafe=row.channels.find(c=>c.platform==='CAFE24');if(cafe?.mapping)return '연결 선택 필요';
+  const lots=manualRows.filter(l=>l.productNo&&l.productNo===cafe?.externalId);if(!lots.length)return '미등록';
+  const sums=new Map();for(const l of lots){if(!Number.isFinite(l.quantity)||l.quantity<0||!['개','KG','티백','박스'].includes(l.unit))return '확인 필요';sums.set(l.unit,(sums.get(l.unit)||0)+l.quantity);}
+  return [...sums].map(([unit,amount])=>amount.toLocaleString('ko-KR',{maximumFractionDigits:3})+' '+unit).join(' · ');
+ }
+ function choicePicker(row,channel){
+  const box=node('div','');box.className='inventory-choice';const label=node('label','사용할 연결 상품'),select=node('select','');select.setAttribute('aria-label',channelName(channel)+' 연결 상품 선택');
+  const placeholder=node('option','연결 상품을 선택하세요');placeholder.value='';select.append(placeholder);
+  for(const e of (channel.alternatives||channel.mapping).entries){const o=node('option',(e.name||e.externalId)+' · '+(e.active?'활성':'비활성')+' · '+e.externalId);o.value=e.id;o.disabled=e.reference;select.append(o);if(e.externalId===channel.externalId)select.value=e.id;}
+  const save=node('button','선택 저장'),status=node('p','');save.type='button';status.setAttribute('role','status');label.append(select);box.append(label,save,status);
+  save.onclick=async()=>{if(!select.value){status.textContent='상품을 선택해 주세요.';return;}save.disabled=true;select.disabled=true;const expected=generation;status.textContent='연결 선택을 저장하고 있습니다…';try{const result=await window.moaonHub.saveStock({action:'CHOOSE_PRODUCT',masterId:row.id,platform:channel.platform,linkId:select.value});if(expected!==generation)return;if(result.status!=='READY')throw Error(result.message);await refresh();if(value){selected=row.id;render();}}catch(e){status.textContent=e.message;}finally{save.disabled=false;select.disabled=false;}};
+  return box;
+ }
+
  function emptyState(){
   const box=node('div','');box.className='inventory-empty';
   const title=busy?'상품을 조회하고 있습니다':failed?'상품을 불러오지 못했습니다':value?(value.items.length?'조건에 맞는 상품이 없습니다':'조회된 상품이 없습니다'):'상품 조회를 준비해 주세요';
@@ -41,8 +58,10 @@
   $('inventory-count').textContent=busy?'상품 수량 조회 중':value?`조회 상품 ${value.items.length}개 · 현재 조건 ${rows.length}개`:'상품 수량 확인 필요';
   $('inventory-list').replaceChildren(...(visible.length?visible.map(r=>{
    const b=node('button','');b.type='button';b.className='inventory-row';b.dataset.id=r.id;b.setAttribute('aria-expanded',String(selected===r.id));b.setAttribute('aria-controls','inventory-detail');
-   const stocks=node('div','');stocks.className='inventory-stock';for(const c of r.channels.filter(match)){const cell=node('span','');cell.dataset.attention=String(needsCheck(c));cell.dataset.quantityKnown=String(!c.mapping&&c.quantity!==null);const amount=node('b',c.mapping?'연결 '+c.mapping.count+'건':c.quantity!==null?c.quantity.toLocaleString('ko-KR')+'개':c.unmanaged?'제한 없음':'확인 필요');amount.className='inventory-quantity';const context=c.mapping?'검토 필요':c.quantity!==null?description(c).replace(c.quantity.toLocaleString('ko-KR')+'개 · ',''):description(c);cell.append(node('strong',channelName(c)),amount,node('small',context));stocks.append(cell);}
-   b.append(node('strong',r.name),stocks);b.onclick=()=>{selected=r.id;render();$('inventory-detail').querySelector('button').focus({preventScroll:true});$('inventory-detail').scrollIntoView({block:'start'});};return b;
+   const stocks=node('div','');stocks.className='inventory-stock';
+   const manual=node('div','');manual.className='inventory-manual';manual.append(node('small','직접 관리 재고'),node('b',manualAmount(r)));stocks.append(manual);
+   const badges=node('div','');badges.className='inventory-channel-status';for(const c of r.channels.filter(c=>c.family!=='ROCKET_GROWTH'&&match(c))){const cell=node('span','');cell.dataset.attention=String(needsCheck(c));cell.append(node('strong',channelName(c)),node('span',c.mapping?'연결 선택 필요':c.stopped?'판매중단':c.state==='OUT_OF_STOCK'?'품절':c.quantity>0&&!c.stale?'판매 중':'상태 확인 필요'));if(['NAVER','CAFE24'].includes(c.platform)&&c.quantity!==null)cell.append(node('small','채널 참고 '+c.quantity.toLocaleString('ko-KR')+'개'+(c.stale?' · 갱신 필요':'')));badges.append(cell);}stocks.append(badges);
+   b.append(node('strong',r.name),stocks);b.onclick=()=>{selected=r.id;render();$('inventory-detail').querySelector('button').focus({preventScroll:true});};return b;
   }):[emptyState()]));
 
   const panel=$('inventory-detail'),row=rows.find(r=>r.id===selected);panel.hidden=!row;panel.parentElement.dataset.detailOpen=String(Boolean(row));panel.replaceChildren();if(!row)return;
@@ -53,8 +72,9 @@
   previous.onclick=()=>move(-1);next.onclick=()=>move(1);nav.append(previous,position,next);panel.append(nav);
   const priority=c=>($('inventory-platform').value!=='ALL'&&c.platform===$('inventory-platform').value?4:0)+($('inventory-state').value!=='ALL'&&match(c)?4:0)+(c.mapping?2:0);
   const pairs=(entries)=>{const dl=node('dl','');dl.className='inventory-facts';for(const [label,value] of entries)dl.append(node('dt',label),node('dd',value));return dl;};
-  for(const c of [...row.channels].sort((a,b)=>priority(b)-priority(a))){
+  for(const c of [...row.channels].filter(c=>c.family!=='ROCKET_GROWTH').sort((a,b)=>priority(b)-priority(a))){
    const section=node('section','');section.className='inventory-detail-stock';section.dataset.platform=c.platform;section.append(node('h3',channelName(c)),node('p',description(c)));
+   if(c.alternatives||c.mapping)section.append(choicePicker(row,c));
    if(c.mapping){section.append(node('p',c.detail));const list=node('ul','');list.className='inventory-connections';for(const entry of c.mapping.entries){const item=node('li','');item.append(node('strong',entry.name||'연결 상품명 확인 필요'),node('p','연결 번호 '+(entry.externalId||'확인 필요')),node('p',(entry.reference?'광고 참고 · ':'')+(entry.active===null?'활성 상태 확인 필요':entry.active?'활성 연결':'비활성 연결')));list.append(item);}section.append(list);if(c.mapping.count>c.mapping.entries.length)section.append(node('p','전체 '+c.mapping.count+'건 중 '+c.mapping.entries.length+'건 표시 · 연결 검색도 표시 자료 기준'));panel.append(section);continue;}
    const columns=node('div','');columns.className='inventory-channel-columns';const stock=node('div','');stock.append(node('h4','재고 자료'),pairs([['연결 번호',c.externalId||'확인 필요'],['자료 시각',c.updatedAt?formatTime(c.updatedAt):'확인 필요']]),node('p',c.detail));
    const product=c.product,info=node('div','');info.append(node('h4','연결 상품 정보'),node('p',product?.name||'연결 상품명 확인 필요'));
@@ -62,13 +82,13 @@
   }
 
  }
- function clear(){$('inventory-sort').value='SOURCE';pageIndex=0;generation++;value=null;busy=false;failed=false;selected=null;$('inventory-platform').value='ALL';$('inventory-state').value='ALL';$('inventory-search').value='';$('inventory-status').textContent='실제 사업장 연결 후 조회합니다.';render();}
+ function clear(){$('inventory-sort').value='SOURCE';pageIndex=0;generation++;manualRows=[];manualReady=false;value=null;busy=false;failed=false;selected=null;$('inventory-platform').value='ALL';$('inventory-state').value='ALL';$('inventory-search').value='';$('inventory-status').textContent='실제 사업장 연결 후 조회합니다.';render();}
  async function refresh(){
   if(busy||displayMode!=='live')return;const expected=++generation;busy=true;failed=false;value=null;selected=null;pageIndex=0;render();$('inventory-status').textContent='상품과 저장 재고를 조회하고 있습니다…';
   try{const result=await window.moaonHub.readInventory();if(expected!==generation)return;
    if(['LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status)){applyHubResult(result);return;}
    if(result?.status!=='READY'){failed=true;$('inventory-status').textContent=({SERVER_UNAVAILABLE:'상품 서버 오류(503) · 서버의 상품 자료 조회를 확인해야 합니다.',NOT_DEPLOYED:'상품 조회 API가 아직 배포되지 않았습니다.',TIMEOUT:'상품 조회 시간이 초과되었습니다. 잠시 후 다시 조회하세요.'})[result?.status]||'상품 조회 실패 · 연결과 자료 형식을 확인하세요.';return;}
-   value=result;$('inventory-status').textContent=`조회 시각 ${formatTime(result.generatedAt)} · 아래 수량은 채널에서 마지막으로 저장한 자료입니다.`;
+   const stock=await window.moaonHub.readStock();if(expected!==generation)return;manualReady=stock.status==='READY'&&Array.isArray(stock.value);manualRows=manualReady?stock.value:[];value=result;$('inventory-status').textContent=`조회 시각 ${formatTime(result.generatedAt)} · 큰 수량은 직접 등록한 재고 · 채널 수량은 참고값입니다.`;
   }catch{if(expected===generation){failed=true;$('inventory-status').textContent='재고 조회 실패 · 다시 시도해 주세요.';}}
   finally{if(expected===generation){busy=false;render();}}
  }
@@ -79,5 +99,5 @@
  for(const id of ['inventory-platform','inventory-state','inventory-sort'])$(id).addEventListener('change',filter);$('inventory-search').addEventListener('input',filter);$('inventory-refresh').onclick=refresh;
  $('inventory-detail').addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();close();}});
  // Re-entry preserves the rendered view; data and filter changes render at their source.
- window.moaonInventory=Object.freeze({clear,ensure:()=>{if(!value&&!busy)void refresh();}});clear();
+ window.moaonInventory=Object.freeze({clear,invalidate:()=>{generation++;value=null;manualRows=[];manualReady=false;busy=false;},ensure:()=>{if(!value&&!busy)void refresh();}});clear();
 })();

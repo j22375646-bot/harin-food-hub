@@ -29,7 +29,7 @@ function project(p){
    const product=productDetail(c.product),mapping=mappingDetail(c.mapping);
    if(mapping&&(c.state!=='UNKNOWN'||c.quantity!==null||c.externalId!=null||product!==null))throw Error('Ambiguous mapping has claimed values');
    if(product&&!['UNKNOWN',...(c.platform==='CAFE24'?['CAFE24_CATALOG']:c.platform==='NAVER'?['NAVER_COMMERCE','REFERENCE']:['COUPANG_OPTIONS'])].includes(product.basis))throw Error('Crossed product source');
-   return {mapping,product,externalId:c.externalId??null,platform:c.platform,family:c.family,state:c.state,quantity:c.quantity,updatedAt:c.updatedAt,stale:c.stale,stopped:c.stopped,unmanaged:c.unmanaged,detail:c.detail};
+   return {alternatives:mappingDetail(c.alternatives),mapping,product,externalId:c.externalId??null,platform:c.platform,family:c.family,state:c.state,quantity:c.quantity,updatedAt:c.updatedAt,stale:c.stale,stopped:c.stopped,unmanaged:c.unmanaged,detail:c.detail};
   });return {id:r.id,name:r.name,channels};
  })};
 }

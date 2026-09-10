@@ -4,6 +4,7 @@
   const fields = ['name','lot','manufactured','expires','storage','unit','quantity','note'];
   let rows = [], editing = null, busy = false, generation = 0, ready = false, mode = 'edit', products = [], productsReady = false, chosenProduct = null;
   const node = (tag, text, cls) => { const el = document.createElement(tag); el.textContent = text; if (cls) el.className = cls; return el; };
+  let rocketRows=[],rocketReady=false,rocketMode=false,rocketMessage='',rocketBusy=false,lastQueue=0;
   const today = () => new Intl.DateTimeFormat('sv-SE', {timeZone:'Asia/Seoul'}).format(new Date());
   const number = value => value.toLocaleString('ko-KR', {maximumFractionDigits:3});
   function state(row) {
@@ -13,6 +14,7 @@
   }
   const matches = (row, filter) => filter === 'all' || (filter === 'empty' ? row.quantity === 0 : state(row).key === filter);
   function render() {
+    renderRocket();
     const query = $('stock-search').value.trim().toLowerCase(), filter = $('stock-filter').value;
     const searched = rows.filter(r => (r.name+' '+r.lot+' '+r.storage).toLowerCase().includes(query));
     const visible = searched.filter(r => matches(r, filter));
@@ -70,10 +72,10 @@
   }
   async function refresh() {
     if(busy)return;
-    if(displayMode!=='live'){ready=false;rows=[];products=[];productsReady=false;$('stock-status').textContent='사업장 연결 후 재고를 사용할 수 있습니다.';render();return;}
+    if(displayMode!=='live'){ready=false;rocketReady=false;rocketRows=[];rows=[];products=[];productsReady=false;$('stock-status').textContent='사업장 연결 후 재고를 사용할 수 있습니다.';render();return;}
     const expected=generation;busy=true;$('stock-status').textContent='재고 기록을 불러오는 중…';render();
-    try { const result=await window.moaonHub.readStock();if(expected!==generation)return;if(result.status!=='READY')throw Error(result.message);if(!Array.isArray(result.value)||result.value.length>5000||result.value.some(r=>!r||typeof r.id!=='string'||!Number.isInteger(r.revision)||r.revision<1||!Number.isFinite(r.quantity)||r.quantity<0||r.quantity>1e9||fields.filter(k=>k!=='quantity').some(k=>typeof r[k]!=='string')))throw Error('재고 자료 형식을 확인해야 합니다. 다시 조회하세요.');rows=result.value;productsReady=result.productsStatus==='READY'&&Array.isArray(result.products)&&result.products.length<=5000&&result.products.every(p=>typeof p?.name==='string'&&typeof p.productNo==='string'&&/^\d{1,20}$/.test(p.productNo));products=productsReady?result.products.slice().sort((a,b)=>a.name.localeCompare(b.name,'ko')):[];ready=true;$('stock-status').textContent='사업장 DB · 방금 조회 · 같은 사업장에서 공유합니다.'; }
-    catch(e){if(expected!==generation)return;ready=false;rows=[];products=[];productsReady=false;$('stock-status').textContent='조회 실패 · '+e.message;}
+    try { const result=await window.moaonHub.readStock();if(expected!==generation)return;if(result.status!=='READY')throw Error(result.message);if(!Array.isArray(result.value)||result.value.length>5000||result.value.some(r=>!r||typeof r.id!=='string'||!Number.isInteger(r.revision)||r.revision<1||!Number.isFinite(r.quantity)||r.quantity<0||r.quantity>1e9||fields.filter(k=>k!=='quantity').some(k=>typeof r[k]!=='string')))throw Error('재고 자료 형식을 확인해야 합니다. 다시 조회하세요.');rocketReady=result.rocketStatus==='READY'&&Array.isArray(result.rocket)&&result.rocket.length<=5000&&result.rocket.every(r=>typeof r?.id==='string'&&typeof r.name==='string'&&(r.quantity===null||Number.isInteger(r.quantity)&&r.quantity>=0)&&typeof r.stale==='boolean'&&(r.updatedAt===null||typeof r.updatedAt==='string'&&Number.isFinite(Date.parse(r.updatedAt))));rocketRows=rocketReady?result.rocket:[];rows=result.value;productsReady=result.productsStatus==='READY'&&Array.isArray(result.products)&&result.products.length<=5000&&result.products.every(p=>typeof p?.name==='string'&&typeof p.productNo==='string'&&/^\d{1,20}$/.test(p.productNo));products=productsReady?result.products.slice().sort((a,b)=>a.name.localeCompare(b.name,'ko')):[];ready=true;$('stock-status').textContent='사업장 DB · 방금 조회 · 같은 사업장에서 공유합니다.'; }
+    catch(e){if(expected!==generation)return;ready=false;rocketReady=false;rocketRows=[];rocketMessage='';rows=[];products=[];productsReady=false;$('stock-status').textContent='조회 실패 · '+e.message;}
     finally{busy=false;render();}
   }
   $('stock-form').addEventListener('submit',async e=>{
@@ -86,7 +88,7 @@
       input.note=[input.note,line].filter(Boolean).join('\n');if(input.note.length>1000){$('stock-form-status').textContent='메모가 가득 찼습니다. 정보 수정에서 메모를 정리한 뒤 다시 기록하세요.';return;}
     }
     const expected=generation;busy=true;$('stock-save').disabled=true;$('stock-cancel').disabled=true;$('stock-duplicate').disabled=true;for(const b of $('stock-mode').querySelectorAll('button'))b.disabled=true;
-    try {const result=await window.moaonHub.saveStock(input);if(expected!==generation)return;if(result.status!=='READY')throw Error(result.message);$('stock-dialog').close();busy=false;await refresh();if(expected===generation&&ready)$('stock-status').textContent='저장되었습니다 · '+input.name;}
+    try {const result=await window.moaonHub.saveStock(input);if(expected!==generation)return;if(result.status!=='READY')throw Error(result.message);$('stock-dialog').close();window.moaonInventory?.invalidate();busy=false;await refresh();if(expected===generation&&ready)$('stock-status').textContent='저장되었습니다 · '+input.name;}
     catch(e){if(expected===generation)$('stock-form-status').textContent=e.message;}
     finally{busy=false;$('stock-save').disabled=false;$('stock-cancel').disabled=false;$('stock-duplicate').disabled=false;for(const b of $('stock-mode').querySelectorAll('button'))b.disabled=false;render();}
   });
@@ -116,5 +118,30 @@
   $('stock-duplicate').onclick=()=>{const row=editing;$('stock-dialog').close();open(row,true);};
   for(const b of $('stock-mode').querySelectorAll('button'))b.onclick=()=>setMode(b.dataset.mode);
   $('stock-delta').oninput=previewAdjustment;$('stock-refresh').onclick=refresh;$('stock-search').oninput=render;$('stock-filter').onchange=render;$('stock-sort').onchange=render;$('stock-reset').onclick=reset;
-  window.moaonStock={ensure:refresh,clear:()=>{generation++;ready=false;rows=[];products=[];productsReady=false;chosenProduct=null;editing=null;$('stock-product-dialog').close();$('stock-status').textContent='사업장 연결 후 재고를 사용할 수 있습니다.';$('stock-dialog').close();render();}};render();
+
+  function renderRocket(){
+    $('stock-manual').hidden=rocketMode;$('stock-rocket').hidden=!rocketMode;$('stock-new').hidden=rocketMode;
+    $('stock-tab-manual').setAttribute('aria-pressed',String(!rocketMode));$('stock-tab-rocket').setAttribute('aria-pressed',String(rocketMode));
+    $('rocket-count').textContent=rocketReady?rocketRows.length:'';
+    $('rocket-status').textContent=rocketMessage||(!rocketReady?'로켓그로스 재고를 확인하지 못했습니다. 새로 조회해 주세요.':rocketRows.some(r=>r.stale)?'갱신 필요 · 마지막 저장 수량입니다. API 갱신 결과를 확인하세요.':'API 저장 수량 · 화면을 열어 두면 주기적으로 갱신합니다.');
+    $('rocket-refresh').disabled=rocketBusy||busy;$('rocket-status').dataset.loading=String(rocketBusy);
+    const q=$('rocket-search').value.trim().toLowerCase();$('rocket-list').replaceChildren();
+    for(const r of rocketRows.filter(r=>r.name.toLowerCase().includes(q))){
+      const row=node('article','', 'rocket-row'),title=node('div','');title.append(node('strong',r.name),node('small',r.updatedAt?'최근 수집 '+new Intl.DateTimeFormat('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Seoul'}).format(new Date(r.updatedAt)):'수집 시각 확인 필요'));
+      const amount=node('div','', 'rocket-amount');amount.append(node('strong',r.quantity===null?'확인 필요':number(r.quantity)+' 개'),node('span',r.quantity===null?'수량 확인 필요':r.quantity===0?(r.stale?'마지막 수집 시 품절':'품절'):'재고 있음','rocket-badge '+(r.quantity===0?'empty':'available')));if(r.stale)amount.append(node('small','갱신 필요'));row.append(title,amount);$('rocket-list').append(row);
+    }
+    if(rocketReady&&!$('rocket-list').children.length)$('rocket-list').append(node('p',q?'검색 결과가 없습니다.':'아직 관리 대상이 없습니다. 판매 중이고 재고가 있는 로켓그로스 상품이 자동으로 등록됩니다.'));
+  }
+  async function refreshRocket(){
+    if(rocketBusy||busy||displayMode!=='live')return;const expected=generation;rocketBusy=true;rocketMessage='쿠팡 API 재고 수집을 요청하고 있습니다…';renderRocket();
+    try{const r=await window.moaonHub.saveStock({action:'REFRESH_ROCKET'});if(expected!==generation)return;if(r.status!=='READY')throw Error(r.message);lastQueue=Date.now();rocketMessage=r.value?.status==='FAILED'?'최근 수집 실패 · 잠시 후 다시 요청하세요.':'수집 요청 접수 · 작업 서버가 처리하면 수량이 갱신됩니다.';}
+    catch(e){if(expected===generation)rocketMessage='API 갱신 요청 실패 · '+e.message;}
+    finally{rocketBusy=false;renderRocket();}
+  }
+  $('stock-tab-manual').onclick=()=>{rocketMode=false;renderRocket();};
+  $('stock-tab-rocket').onclick=()=>{rocketMode=true;renderRocket();if(Date.now()-lastQueue>300000)void refreshRocket();};
+  $('rocket-search').oninput=renderRocket;$('rocket-refresh').onclick=refreshRocket;
+  setInterval(()=>{if(displayMode==='live'&&rocketMode&&!document.querySelector('[data-page=stock]').hidden&&!document.hidden&&!busy&&!rocketBusy){rocketMessage='';void refresh().then(()=>{if(Date.now()-lastQueue>300000)void refreshRocket();});}},30000);
+
+  window.moaonStock={ensure:refresh,clear:()=>{generation++;rocketMode=false;rocketBusy=false;lastQueue=0;ready=false;rocketReady=false;rocketRows=[];rocketMessage='';rows=[];products=[];productsReady=false;chosenProduct=null;editing=null;$('stock-product-dialog').close();$('stock-status').textContent='사업장 연결 후 재고를 사용할 수 있습니다.';$('stock-dialog').close();render();}};render();
 })();
