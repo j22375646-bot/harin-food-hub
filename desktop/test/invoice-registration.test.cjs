@@ -23,7 +23,7 @@ test('confirmed invoice registration uses one fixed POST and verifies stored reg
  const page=await connection.refresh();assert.equal(page.orders[0].registrationEligible,true);
  await connection.setOrderFilters({delayOnly:false,giftOnly:true});
  const result=await connection.registerInvoices([order().hubOrderId]);
- assert.deepEqual(result,{status:'COMPLETED',results:[{hubOrderId:order().hubOrderId,status:'REGISTERED',trackingStatus:'CHECK_REQUIRED'}]});
+ assert.deepEqual(result,{status:'COMPLETED',results:[{hubOrderId:order().hubOrderId,status:'REGISTERED',invoiceNumber:'1234567890123',trackingStatus:'CHECK_REQUIRED'}]});
  const tracking=calls.filter(call=>call.url.endsWith('/api/shipping/tracking'));
  assert.equal(tracking.length,1);assert.deepEqual(JSON.parse(tracking[0].options.body),{orderIds:[order().hubOrderId],mode:'automatic'});
  const posts=calls.filter(call=>call.options.method==='POST'&&call.url.endsWith('/actions'));assert.equal(posts.length,1);assert.equal(dialogs,1);

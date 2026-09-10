@@ -5,7 +5,7 @@ const {isAllowedRemoteRequest}=require('../connection-policy.cjs');
 const id='HR-C24-1234ABCD',requestId='a2345678-1234-4234-8234-123456789012';
 const base=()=>({hubOrderId:id,externalOrderId:'WEB-1',platform:'CAFE24',fulfillment:'SELLER',stage:'PAID',productName:'차',quantity:1,shippingEligible:true,selectionEligible:true,shippingHistoryStatus:'READY',cancelled:false,cancellationRequested:false,invoiceNumber:'',issuedInvoiceNumber:'',receiver:{name:'TEST',address:'TEST',postCode:'12345',contact:'01012345678'}});
 function host(directory,{dialog=async()=>({response:1}),initial=base(),automaticTimeoutMs=60000}={}){
- let current=initial;const calls=[];
+ let current=initial;const calls=[],progress=[];
  const remote={setPermissionCheckHandler(){},setPermissionRequestHandler(){},on(){},webRequest:{onBeforeRequest(_filter,fn){remote.guard=fn;}},async clearStorageData(){},async clearCache(){},async clearAuthCache(){},async fetch(url,options){
   calls.push({url,options});
   if(options.method==='POST'){
@@ -22,8 +22,8 @@ function host(directory,{dialog=async()=>({response:1}),initial=base(),automatic
   const orders=(scope==='REGISTER')===(current.invoice?.status==='REGISTERED')?[current]:[];
   return Response.json({ok:true,orders,total:orders.length,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});
  }};
- const connection=createHubConnection({BrowserWindow:class{},session:{fromPartition:()=>remote},getMainWindow:()=>({isDestroyed:()=>false}),showShipmentReview:dialog,shipmentDirectory:directory,automaticPollDelayMs:0,automaticTimeoutMs});
- return {connection,calls,remote,setOrder:value=>{current=value;},getOrder:()=>current};
+ const connection=createHubConnection({BrowserWindow:class{},session:{fromPartition:()=>remote},getMainWindow:()=>({isDestroyed:()=>false}),showShipmentReview:dialog,onShippingProgress:value=>progress.push(value),shipmentDirectory:directory,automaticPollDelayMs:0,automaticTimeoutMs});
+ return {connection,calls,progress,remote,setOrder:value=>{current=value;},getOrder:()=>current};
 }
 test('one native approval prepares, journals issue, rereads invoice and registers it',async()=>{
  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-auto-test-'));
@@ -31,8 +31,10 @@ test('one native approval prepares, journals issue, rereads invoice and register
   let confirmations=0;const env=host(directory,{dialog:async(_parent,options)=>{confirmations++;assert.match(options.message,/발급.*등록/);assert.equal(options.defaultId,0);return {response:1};}});
   await env.connection.refresh();assert.equal(typeof env.connection.issueAndRegister,'function');
   const result=await env.connection.issueAndRegister([id]);
-  assert.deepEqual(result,{status:'COMPLETED',results:[{hubOrderId:id,phase:'REGISTER',status:'REGISTERED',trackingStatus:'CHECK_REQUIRED'}]});
+  assert.deepEqual(result,{status:'COMPLETED',results:[{hubOrderId:id,phase:'REGISTER',status:'REGISTERED',invoiceNumber:'1234567890123',trackingStatus:'CHECK_REQUIRED'}]});
   assert.equal(confirmations,1);
+  assert.deepEqual(env.progress.map(v=>v.phase),['CHECK','PREPARE','ISSUE','REGISTER','TRACKING','REGISTER']);
+  assert.equal(env.progress.at(-1).invoiceNumber,'1234567890123');
   const posts=env.calls.filter(call=>call.options.method==='POST');
   assert.ok(posts.every(call=>call.options.headers.Origin==='https://harin-cafe24-sync.vercel.app'));
   assert.deepEqual(posts.map(call=>JSON.parse(call.options.body).action||JSON.parse(call.options.body).mode||'ISSUE'),['PREPARE','ISSUE','UPLOAD_INVOICE','automatic']);
@@ -70,7 +72,7 @@ test('tracking enqueue is exact, bounded and cannot erase verified registration'
    await env.connection.refresh();const result=await env.connection.issueAndRegister([id]);
    assert.equal(trackingCalls,1);
    if(mode==='logout')assert.equal(result.status,'DISCONNECTED');
-   else assert.deepEqual(result.results,[{hubOrderId:id,phase:'REGISTER',status:'REGISTERED',trackingStatus:mode==='success'?'PENDING':'CHECK_REQUIRED'}]);
+   else assert.deepEqual(result.results,[{hubOrderId:id,phase:'REGISTER',status:'REGISTERED',invoiceNumber:'1234567890123',trackingStatus:mode==='success'?'PENDING':'CHECK_REQUIRED'}]);
    let decision;env.remote.guard({url:'https://harin-cafe24-sync.vercel.app/api/shipping/tracking',method:'POST',webContentsId:0},value=>{decision=value;});assert.equal(decision.cancel,true);
    await env.connection.disconnect();
   }finally{await fs.rm(directory,{recursive:true,force:true});}
@@ -219,7 +221,7 @@ test('a missing second preparation outcome cannot hide behind another completed 
    const registered=new URL(url).searchParams.get('stage')==='REGISTER',orders=[...rows.values()].filter(row=>(row.invoice?.status==='REGISTERED')===registered);
    return Response.json({ok:true,orders,total:orders.length,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});
   };
-  await env.connection.refresh();assert.deepEqual(await env.connection.issueAndRegister([id,second]),{status:'PARTIAL',results:[{hubOrderId:id,phase:'REGISTER',status:'REGISTERED',trackingStatus:'CHECK_REQUIRED'},{hubOrderId:second,phase:'PREPARE',status:'CHECK_REQUIRED'}]});
+  await env.connection.refresh();assert.deepEqual(await env.connection.issueAndRegister([id,second]),{status:'PARTIAL',results:[{hubOrderId:id,phase:'REGISTER',status:'REGISTERED',invoiceNumber:'1234567890123',trackingStatus:'CHECK_REQUIRED'},{hubOrderId:second,phase:'PREPARE',status:'CHECK_REQUIRED'}]});
   assert.deepEqual(issuedIds,[id]);await env.connection.disconnect();
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });
@@ -233,7 +235,7 @@ test('pending platform registration resumes only GET after restart and never rei
    if(url.includes('/api/coupang/operations/'))return Response.json({ok:true,request:{id:requestId,status:'PENDING'}},{status:202});
    return original(url,options);
   };
-  await env.connection.refresh();assert.deepEqual((await env.connection.issueAndRegister([cpId])).results,[{hubOrderId:cpId,phase:'REGISTER',status:'PENDING'}]);assert.equal(posts,1);await env.connection.disconnect();
+  await env.connection.refresh();assert.deepEqual((await env.connection.issueAndRegister([cpId])).results,[{hubOrderId:cpId,phase:'REGISTER',status:'PENDING',invoiceNumber:'1234567890123'}]);assert.equal(posts,1);await env.connection.disconnect();
   const resumed=host(directory,{initial}),next=resumed.remote.fetch;
   resumed.remote.fetch=async(url,options)=>{
    if(!url.endsWith('/api/shipping/tracking'))assert.notEqual(options.method,'POST');
@@ -266,7 +268,7 @@ test('same-connection pending registration verifies a row already moved to REGIS
   };
   await env.connection.refresh();assert.equal((await env.connection.issueAndRegister([cpId])).results[0].status,'PENDING');
   pending=false;env.setOrder({...initial,stage:'SHIPPING',invoiceNumber:'1234567890123',invoice:{status:'REGISTERED',number:'1234567890123'}});
-  assert.deepEqual(await env.connection.issueAndRegister([cpId]),{status:'COMPLETED',results:[{hubOrderId:cpId,phase:'REGISTER',status:'REGISTERED',trackingStatus:'CHECK_REQUIRED'}]});assert.equal(posts,1);await env.connection.disconnect();
+  assert.deepEqual(await env.connection.issueAndRegister([cpId]),{status:'COMPLETED',results:[{hubOrderId:cpId,phase:'REGISTER',status:'REGISTERED',invoiceNumber:'1234567890123',trackingStatus:'CHECK_REQUIRED'}]});assert.equal(posts,1);await env.connection.disconnect();
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });
 test('manual ambiguous upload cannot be resent automatically in same process or after restart',async()=>{

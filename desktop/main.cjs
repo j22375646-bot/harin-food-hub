@@ -6,6 +6,7 @@ const { app, BrowserWindow, Menu, ipcMain, protocol, session, dialog, safeStorag
 const {rightDisplayBounds,readRightDisplayPreference,saveRightDisplayPreference,showRightWindow}=require('./window-placement.cjs');
 const {createUpdateGate,guardWorkIpc}=require('./update-gate.cjs');
 const {startAutomaticUpdates,createConfiguredUpdater,createAppUpdates,registerAppUpdates}=require('./app-updates.cjs');
+const {createActionReview}=require('./action-review.cjs');
 const updateGate=createUpdateGate();
 const workIpc=guardWorkIpc(ipcMain,updateGate);
 const {createDraftStore,registerApiDrafts}=require('./api-drafts.cjs');
@@ -188,7 +189,8 @@ if (!hasSingleInstanceLock) {
       worklistPreview: createWorklistPreview({BrowserWindow,Menu,dialog,getParent:()=>mainWindow}),
       selectedDocuments: createSelectedDocuments({dialog,getParent:()=>mainWindow,writeFile:(...args)=>fs.writeFile(...args)}),
       shipmentDirectory: path.join(app.getPath('userData'),'shipments'),
-      showShipmentReview: (parent, options) => dialog.showMessageBox(parent, options),
+      showShipmentReview: createActionReview({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer}),
+      onShippingProgress: value => {if(mainWindow&&!mainWindow.isDestroyed())mainWindow.webContents.send('moaon-hub:shipping-progress',value);},
       BrowserWindow,
       session,
       getMainWindow: () => mainWindow,

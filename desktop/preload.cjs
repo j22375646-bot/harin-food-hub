@@ -12,6 +12,7 @@ const onWindowRestored=listener=>{
 const realDate=value=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;const [y,m,d]=value.split('-').map(Number),date=new Date(Date.UTC(y,m-1,d));return date.getUTCFullYear()===y&&date.getUTCMonth()===m-1&&date.getUTCDate()===d;};
 const validOrderSearch=value=>value&&typeof value==='object'&&!Array.isArray(value)&&['query','start','end'].every(key=>Object.hasOwn(value,key))&&typeof value.query==='string'&&value.query.length<=100&&typeof value.start==='string'&&typeof value.end==='string'&&(!value.start||realDate(value.start))&&(!value.end||realDate(value.end))&&(!value.start||!value.end||value.start<=value.end);
 
+const subscribe=(channel,listener)=>{if(typeof listener!=='function')throw Error('Invalid listener');const handler=(_event,value)=>listener(value);ipcRenderer.on(channel,handler);return ()=>ipcRenderer.removeListener(channel,handler);};
 contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   readCredentialMetadata: value => ipcRenderer.invoke('moaon-hub:read-credential-metadata',value),
   saveServerCredential: value => ipcRenderer.invoke('moaon-hub:save-server-credential',value),
@@ -23,6 +24,9 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   checkOrderCollection: () => ipcRenderer.invoke('moaon-hub:check-order-collection'),
   checkOrderFreshness: () => ipcRenderer.invoke('moaon-hub:check-order-freshness'),
   onWindowRestored,
+  onActionReview: listener=>subscribe('moaon-hub:action-review',listener),
+  answerReview: (token,response)=>ipcRenderer.invoke('moaon-hub:answer-review',token,response),
+  onShippingProgress: listener=>subscribe('moaon-hub:shipping-progress',listener),
   readTracking: (id) => ipcRenderer.invoke('moaon-hub:read-tracking',id),
   refreshTracking: (id) => ipcRenderer.invoke('moaon-hub:refresh-tracking',id),
   readServerShippingHistory: () => ipcRenderer.invoke('moaon-hub:server-shipping-history'),

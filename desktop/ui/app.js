@@ -8,7 +8,7 @@ const sampleOrders = Object.freeze([
 
 const scopeDetails = Object.freeze({
   ACTIVE: Object.freeze({ action: 'viewActive', label: '송장 발급 전', range: '저장된 송장 발급 전 주문', title: '송장 발급 전 주문을', description: '저장된 송장 발급 전 주문을 20건씩 조회합니다.' }),
-  REGISTER: Object.freeze({ action: 'viewRegistered', label: '송장 등록 후', range: '저장된 송장 등록 후 주문', title: '송장 등록 후 주문을', description: '저장된 송장 등록 후 주문을 20건씩 조회합니다.' }),
+  REGISTER: Object.freeze({ action: 'viewRegistered', label: '배송대기중', range: '저장된 배송대기중 주문', title: '배송대기중 주문을', description: '저장된 배송대기중 주문을 20건씩 조회합니다.' }),
   IN_TRANSIT: Object.freeze({ action: 'viewInTransit', label: '배송중', range: '저장된 배송중 주문', title: '배송중 주문을', description: '저장된 배송중 주문을 20건씩 조회합니다.' }),
   COMPLETED: Object.freeze({ action: 'viewCompleted', label: '완료·취소', range: '수집된 완료·취소 주문', title: '완료·취소 주문을', description: '수집된 완료·취소 주문만 20건씩 조회합니다. 전체 이력이나 특정 기간 전체를 뜻하지 않습니다.' }),
 });
@@ -613,7 +613,7 @@ async function recheckSelectedOrder({afterIssue=false}={}) {
       showOrderDetail(order, button, {rechecked:true});
       detailPanel.querySelector('.review-actions button')?.focus();
     } else {
-      updateConnectionChrome(afterIssue?'현재 목록에 주문이 없습니다. 송장 등록 후 목록에서도 확인하세요.':'선택한 주문을 다시 찾지 못했습니다. 새 목록에서 주문을 선택하세요.');
+      updateConnectionChrome(afterIssue?'현재 목록에 주문이 없습니다. 배송대기중 목록에서도 확인하세요.':'선택한 주문을 다시 찾지 못했습니다. 새 목록에서 주문을 선택하세요.');
       document.querySelector('#issued-order-list').hidden=!afterIssue;
     }
   } catch {
@@ -684,11 +684,13 @@ function createOrderRow(order) {
     const channelBadge=makeElement('strong','channel-badge',channels[channel]||channel);
     channelBadge.dataset.channel=channel;
     const delivery={RESERVED:'예약',IN_TRANSIT:'배송중',DELIVERED:'배송완료'};
-    const status=makeElement('span','delivery-badge',delivery[order.details?.delivery?.status]||stage);
+    const status=makeElement('span','delivery-badge',delivery[order.details?.delivery?.status]||(order.details?.invoice?.status==='REGISTERED'?'배송대기중':stage));
     status.dataset.state=order.details?.delivery?.status||order.stage;
     secondary.append(channelBadge);
     status.classList.add('order-state');
     button.append(status);
+    const invoice=order.details?.invoice;
+    if(invoice&&/^\d{13}$/.test(invoice.number||'')){const tag=makeElement('span','order-invoice',invoice.status==='REGISTERED'?'송장 등록 완료':'발급 완료 · 등록 필요');tag.append(makeElement('code','',invoice.number));primary.append(tag);}
     const option=order.details?.items?.[0]?.option;
     if(option)primary.append(makeElement('small','product-option',option));
     const gift=giftBadge(order);if(gift)primary.append(gift);
@@ -1160,6 +1162,16 @@ async function runAutomaticShipping(explicitIds){
   panel.hidden=false;panel.setAttribute('aria-busy','true');
   panel.append(makeElement('strong','','자동 출고 처리'),makeElement('p','','준비 확인 → 우체국 발급 → 플랫폼 등록'),makeElement('p','','확인창에서 승인하면 진행합니다. 대기 작업은 완료 확인 전까지 성공으로 표시하지 않습니다.'));
   const current=()=>generation===actionGeneration&&displayMode==='live';
+  const progressRows=new Map();
+  const live=makeElement('div','shipment-live');live.setAttribute('role','status');panel.append(live);
+  const unsubscribe=window.moaonHub.onShippingProgress?.(value=>{
+    if(!current()||!ids.includes(value?.hubOrderId))return;
+    const phases={CHECK:'주문 변경 확인',PREPARE:'상품 준비 처리',ISSUE:'우체국 송장 발급 중',REGISTER:'쇼핑몰 송장 등록 중',TRACKING:'등록 완료 · 배송 조회 중'};
+    if(!phases[value.phase])return;
+    let row=progressRows.get(value.hubOrderId);if(!row){row=makeElement('div','shipment-live-row');progressRows.set(value.hubOrderId,row);live.append(row);if(document.querySelector('#orders-page')?.classList.contains('is-visible'))row.scrollIntoView({block:'nearest'});}
+    row.dataset.active=value.status==='REGISTERED'?'false':'true';row.replaceChildren(makeElement('strong','',value.status==='REGISTERED'?'송장 등록 완료':value.status==='PENDING'?phases[value.phase].replace(' 중','')+' · 서버 처리 대기':phases[value.phase]),makeElement('span','',value.hubOrderId));
+    if(/^\d{13}$/.test(value.invoiceNumber||''))row.append(makeElement('code','',value.invoiceNumber));
+  });
   try{
     const result=await window.moaonHub.issueAndRegister(ids);
     if(!current())return;
@@ -1178,6 +1190,7 @@ async function runAutomaticShipping(explicitIds){
         if(row.status==='REGISTERED')shippingFollowup.delete(id);
         else shippingFollowup.set(id,{status:labels[row.status]?row.status:'CHECK_REQUIRED'});
         line.append(makeElement('span','',`${id} · ${phases[row.phase]||'출고 처리'}`),makeElement('strong','',labels[row.status]||labels.CHECK_REQUIRED));
+        if(/^\d{13}$/.test(row.invoiceNumber||''))line.append(makeElement('code','shipment-invoice',row.invoiceNumber));
         if(row.status==='REGISTERED'){complete.add(id);appendTrackingOutcome(line,id,row.trackingStatus,generation);}
         if(!['REGISTERED','PENDING'].includes(row.status))appendShipmentRecovery(line,id,generation);
         if(row.status==='PENDING'){
@@ -1189,6 +1202,7 @@ async function runAutomaticShipping(explicitIds){
       panel.append(...rowsById.values());
       displayedOrders=Object.freeze(displayedOrders.map(order=>complete.has(orderId(order))?Object.freeze({...order,issueAndRegisterEligible:false,registrationEligible:false}):order));
       selectedOrderIds.clear();
+      await refreshAfterShipping(result.results,panel,generation);
       panel.append(makeElement('p','','발급 번호는 재사용합니다. 결과 불명·실패 주문은 새 번호를 발급하지 말고 기존 작업을 확인하세요.'));
       if([...rowsById.values()].some(line=>line.dataset.state==='REGISTERED')){
         const openRegistered=makeElement('button','auto-result-navigation','등록된 주문 보기');openRegistered.type='button';
@@ -1203,7 +1217,7 @@ async function runAutomaticShipping(explicitIds){
       }else panel.append(makeElement('p','',messages[result?.status]||messages.CHECK_REQUIRED));
     }
   }catch{if(current()){for(const id of ids)shippingFollowup.set(id,{status:'CHECK_REQUIRED'});panel.replaceChildren(...previousNodes,makeElement('strong','','결과 확인 필요'),makeElement('p','','통신을 확인하지 못했습니다. 새로 발급하지 말고 기존 작업 상태를 확인하세요.'));}}
-  finally{registrationBusy=false;panel.removeAttribute('aria-busy');renderSelection();renderShippingFollowup();}
+  finally{unsubscribe?.();registrationBusy=false;panel.removeAttribute('aria-busy');renderOrders();renderSelection();renderShippingFollowup();}
 }
 
 async function runSelectedDocument(kind){
@@ -1263,7 +1277,7 @@ async function registerSelectedInvoices(){
     if(['COMPLETED','PARTIAL'].includes(result?.status)){
       const rows=ids.map(id=>{
         const matches=Array.isArray(result.results)?result.results.filter(row=>row?.hubOrderId===id):[];
-        return {id,state:matches.length===1&&Object.hasOwn(messages,matches[0].status)?matches[0].status:'CHECK_REQUIRED',trackingStatus:matches.length===1?matches[0].trackingStatus:undefined};
+        return {id,state:matches.length===1&&Object.hasOwn(messages,matches[0].status)?matches[0].status:'CHECK_REQUIRED',invoiceNumber:matches.length===1?matches[0].invoiceNumber:undefined,trackingStatus:matches.length===1?matches[0].trackingStatus:undefined};
       });
       for(const row of rows){
         if(row.state==='REGISTERED')shippingFollowup.delete(row.id);
@@ -1274,12 +1288,13 @@ async function registerSelectedInvoices(){
         const item=makeElement('li','registration-result-item');
         item.dataset.state=row.state;
         item.append(makeElement('span','',row.id),makeElement('strong','',messages[row.state]));
-        if(row.state==='REGISTERED')appendTrackingOutcome(item,row.id,row.trackingStatus,generation);
+        if(row.state==='REGISTERED'){if(/^\d{13}$/.test(row.invoiceNumber||''))item.append(makeElement('code','shipment-invoice',row.invoiceNumber));appendTrackingOutcome(item,row.id,row.trackingStatus,generation);}
         else appendShipmentRecovery(item,row.id,generation);
         return item;
       }));
       if(rows.some(row=>row.state!=='REGISTERED'))appendManualHistoryRefresh(panel,generation);
       disableAttempted();
+      await refreshAfterShipping(result.results,panel,generation);
     }else{
       const messages={REVIEW_CANCELLED:'송장 등록을 취소했습니다 · 전송하지 않았습니다',ORDER_CHANGED:'주문이 변경되었습니다 · 목록을 다시 조회하세요',CHECK_REQUIRED:'송장 등록 조건 확인 필요 · 웹 허브에서 확인하세요',BUSY:'다른 확인 작업이 진행 중입니다',DISCONNECTED:'연결이 변경되어 등록 결과를 확인하지 못했습니다',UNAVAILABLE:'등록 여부 확인 필요 · 웹 허브에서 확인하세요'};
       status.textContent=messages[result?.status]||'등록 결과 확인 필요 · 웹 허브에서 확인하세요';
@@ -1463,3 +1478,36 @@ document.querySelectorAll('[data-settings-target]').forEach(button=>button.addEv
 
 // Independent settings columns prevent one tall card from pushing down the other column.
 {const grid=document.querySelector('.settings-grid');const cards=[...grid.querySelectorAll('.setting-card')].filter(el=>!el.parentElement.closest('.setting-card'));if(cards.length===6){const left=makeElement('div','settings-column'),right=makeElement('div','settings-column');left.append(cards[0],cards[2],cards[3]);right.append(cards[1],cards[4],cards[5]);grid.replaceChildren(left,right);}}
+
+// Keep the result visible while replacing the stored list with a verified read.
+async function refreshAfterShipping(results,panel,generation){
+  if(!results?.some(row=>row.status==='REGISTERED'))return;
+  const nodes=[...panel.childNodes];
+  try{
+    const all=results.every(row=>row.status==='REGISTERED');
+    const result=await (all?window.moaonHub.viewRegistered():window.moaonHub.recheckPage());
+    if(generation!==actionGeneration||displayMode!=='live')return;
+    if(result?.status==='READY'){applyHubResult(result);panel.replaceChildren(...nodes);panel.hidden=false;panel.append(makeElement('p','',all?'배송대기중 목록으로 이동했습니다. 우체국 이동 확인 후 배송중으로 구분됩니다.':'등록 결과를 반영해 현재 목록을 다시 조회했습니다.'));}
+    else panel.append(makeElement('p','','등록은 확인됐지만 목록을 갱신하지 못했습니다. 새로고침으로 확인하세요.'));
+  }catch{if(generation===actionGeneration)panel.append(makeElement('p','','등록 결과는 보존했습니다. 목록 새로고침이 필요합니다.'));}
+}
+
+// App-owned review UI; content and one-use approval token originate in Main.
+(function installActionReview(){
+  if(!window.moaonHub?.onActionReview)return;
+  const dialog=document.createElement('dialog');dialog.className='action-review';dialog.setAttribute('aria-labelledby','action-review-title');document.body.append(dialog);
+  let token=null,returnFocus=null;
+  const answer=async response=>{if(!token)return;const id=token;token=null;dialog.close();await window.moaonHub.answerReview(id,response);returnFocus?.focus?.({preventScroll:true});};
+  dialog.addEventListener('cancel',event=>{event.preventDefault();void answer(0);});
+  window.moaonHub.onActionReview(value=>{
+    if(value?.closed){if(value.token===token){token=null;dialog.close();returnFocus?.focus?.({preventScroll:true});}return;}
+    if(typeof value?.token!=='string')return;
+    token=value.token;returnFocus=document.activeElement;
+    const title=makeElement('h2','',value.title);title.id='action-review-title';
+    const detail=makeElement('p','action-review-detail',value.detail);
+    const actions=makeElement('div','action-review-actions');
+    const cancel=makeElement('button','secondary-action','취소'),confirm=makeElement('button','primary-action',value.confirm);
+    cancel.type=confirm.type='button';cancel.onclick=()=>void answer(0);confirm.onclick=()=>void answer(1);actions.append(cancel,confirm);
+    dialog.replaceChildren(makeElement('span','eyebrow','작업 전 확인'),title,makeElement('p','action-review-message',value.message),detail,actions);dialog.showModal();cancel.focus({preventScroll:true});
+  });
+})();

@@ -112,3 +112,37 @@ html[data-theme="dark"]{--canvas:#151923;--surface:#1e2432;--surface-soft:#262e3
 @media(min-width:900px){#overview-cards{grid-template-columns:repeat(4,minmax(0,1fr))}}#overview-cards button:not([data-state="READY"]):not([data-state="PARTIAL"])>strong{font-size:24px}
 @container(max-width:700px){.order-table-heading{display:block!important}.order-table-heading>span:not(:first-child){display:none}.order-table-heading>span:first-child{display:block}}
 #overview-cards button>strong{min-height:41px}#overview-cards button>small:nth-of-type(2){margin-top:auto}[data-page="today"][data-live="true"]>.workspace-heading{margin-bottom:0}
+/* P4-101: one page scroller; rows and footer own their natural height. */
+.orders-page.is-visible{height:auto;min-height:0}
+.orders-page .orders-layout{flex:none;min-height:0;overflow:visible;align-items:start}
+.orders-layout .orders-workspace:has(#order-list){overflow:visible;min-height:0;padding-bottom:16px}
+.orders-layout .orders-workspace #order-list.order-list{flex:none;min-height:0;max-height:none;overflow:visible;scrollbar-gutter:auto;display:grid;grid-auto-rows:auto}
+.orders-workspace .order-table-head{position:static;flex-shrink:0}
+.orders-workspace .order-item,.orders-workspace .order-row{min-height:86px;height:auto;flex-shrink:0}
+.orders-workspace .order-result-stack{min-height:0;flex:none}
+.orders-workspace .order-result-stack:not(:has(>:not([hidden]))){display:none}
+.orders-workspace .list-state{padding:14px 16px 0;gap:8px;flex-wrap:wrap;font-size:14px;line-height:1.5}
+.orders-workspace .orders-pagination{padding:12px 16px 0;margin:0;min-width:0;max-width:100%;box-sizing:border-box;display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.orders-workspace .orders-pagination button{height:auto;min-height:44px;padding:10px 14px;font-size:14px;white-space:normal;line-height:1.5;flex:0 1 auto;max-width:100%}
+.orders-workspace .selection-toolbar{box-sizing:border-box;flex-wrap:wrap;margin:14px 16px 0;max-width:calc(100% - 32px);background:var(--ink);color:var(--surface)}
+.orders-workspace .order-result-stack{padding:0 16px;box-sizing:border-box}
+.orders-workspace .order-primary>.order-invoice{display:flex;flex-wrap:wrap;align-items:center;gap:6px;overflow:visible;white-space:normal;color:var(--blue);background:var(--blue-soft);padding:4px 8px;border-radius:6px;width:fit-content;font-size:13px;line-height:1.5}
+.order-invoice code,.shipment-invoice,.shipment-live code{font-family:ui-monospace,monospace;font-size:15px;font-weight:700;user-select:text;overflow-wrap:anywhere}
+.action-review{width:min(560px,calc(100vw - 48px));max-height:calc(100vh - 64px);box-sizing:border-box;padding:28px;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--ink);box-shadow:0 24px 90px #10182833;overflow:auto}
+.action-review::backdrop{background:#11182766;backdrop-filter:blur(3px)}
+.action-review h2{font-size:24px;line-height:1.4;margin:10px 0 14px;overflow-wrap:anywhere}
+.action-review-message{font-size:17px;line-height:1.65}
+.action-review-detail{white-space:pre-wrap;overflow-wrap:anywhere;padding:16px;background:var(--surface-soft);border:1px solid var(--line);border-radius:12px;font-size:14px;line-height:1.75}
+.action-review-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;margin-top:24px}
+.action-review-actions button{min-height:44px;height:auto;font-size:15px;line-height:1.5;padding:10px 16px;white-space:normal}
+.shipment-live{display:grid;gap:10px;margin-top:12px}
+.shipment-live-row{display:grid;grid-template-columns:22px minmax(0,1fr);gap:5px 12px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.shipment-live-row:before{content:'';grid-row:1/4;width:18px;height:18px;box-sizing:border-box;border:2px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:moaon-spin .8s linear infinite}
+.shipment-live-row[data-active=false]:before{animation:none;background:var(--blue-soft);border-color:var(--blue)}
+.shipment-live-row strong{font-size:16px}.shipment-live-row span,.shipment-live-row code{grid-column:2;font-size:14px}
+@media(prefers-reduced-motion:reduce){.shipment-live-row:before{animation:none}}
+.action-review-actions button{border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);color:var(--ink);cursor:pointer;font-family:inherit}
+.action-review-actions .primary-action{background:#4c5ee8;border-color:#4c5ee8;color:#fff}
+.action-review-actions button:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
+.action-review-actions button:hover{filter:brightness(.96)}
+.orders-layout.is-detail-closed .detail-panel{display:none}
