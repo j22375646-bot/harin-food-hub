@@ -125,13 +125,29 @@
     $('rocket-count').textContent=rocketReady?rocketRows.length:'';
     $('rocket-status').textContent=rocketMessage||(!rocketReady?'로켓그로스 재고를 확인하지 못했습니다. 새로 조회해 주세요.':rocketRows.some(r=>r.stale)?'갱신 필요 · 마지막 저장 수량입니다. API 갱신 결과를 확인하세요.':'API 저장 수량 · 화면을 열어 두면 주기적으로 갱신합니다.');
     $('rocket-refresh').disabled=rocketBusy||busy;$('rocket-status').dataset.loading=String(rocketBusy);
-    const q=$('rocket-search').value.trim().toLowerCase();$('rocket-list').replaceChildren();
-    for(const r of rocketRows.filter(r=>r.name.toLowerCase().includes(q))){
-      const row=node('article','', 'rocket-row'),title=node('div','');title.append(node('strong',r.name),node('small',r.updatedAt?'최근 수집 '+new Intl.DateTimeFormat('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Seoul'}).format(new Date(r.updatedAt)):'수집 시각 확인 필요'));
-      const amount=node('div','', 'rocket-amount');amount.append(node('strong',r.quantity===null?'확인 필요':number(r.quantity)+' 개'),node('span',r.quantity===null?'수량 확인 필요':r.quantity===0?(r.stale?'마지막 수집 시 품절':'품절'):'재고 있음','rocket-badge '+(r.quantity===0?'empty':'available')));if(r.stale)amount.append(node('small','갱신 필요'));row.append(title,amount);$('rocket-list').append(row);
+
+    const target=Number($('rocket-target').value),q=$('rocket-search').value.trim().toLowerCase();
+    const all=rocketRows.map(r=>({...r,plan:moaonRocketPlanner.plan(r,target)}));
+    const matches=(r,f)=>f==='ALL'||f==='RISK'&&['URGENT','LOW','EMPTY'].includes(r.plan.risk)||f==='EMPTY'&&r.quantity===0||f==='CHECK'&&['CHECK','NO_SALES'].includes(r.plan.risk);
+    $('rocket-summary').replaceChildren();
+    for(const [filter,label]of [['ALL','관리 상품'],['RISK','14일 내 소진'],['EMPTY','품절']]){const b=node('button','', 'rocket-summary-item');b.type='button';b.disabled=!rocketReady;b.setAttribute('aria-pressed',String($('rocket-filter').value===filter));b.append(node('span',label),node('strong',rocketReady?all.filter(r=>matches(r,filter)).length+'개':'—'));b.onclick=()=>{$('rocket-filter').value=filter;renderRocket();};$('rocket-summary').append(b);}
+    const visible=all.filter(r=>r.name.toLowerCase().includes(q)&&matches(r,$('rocket-filter').value));
+    visible.sort((a,b)=>($('rocket-sort').value==='NAME'?0:$('rocket-sort').value==='SALES'?(b.sales30??-1)-(a.sales30??-1):(a.plan.days??Infinity)-(b.plan.days??Infinity))||a.name.localeCompare(b.name,'ko'));
+    $('rocket-visible-count').textContent=rocketReady?visible.length+' / '+all.length+'개':'';$('rocket-list').replaceChildren();
+    const metric=(label,value,caption,cls='')=>{const el=node('div','', 'rocket-metric '+cls);el.append(node('small',label),node('strong',value));if(caption)el.append(node('small',caption));return el;};
+    for(const r of visible){
+      const p=r.plan,row=node('article','', 'rocket-row rocket-planning-row'),title=node('div','', 'rocket-identity');
+      title.append(node('strong',r.name),node('small',r.updatedAt?'수집 '+new Intl.DateTimeFormat('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Seoul'}).format(new Date(r.updatedAt)):'수집 시각 확인 필요'));
+      const label=r.quantity===0?(r.stale?'마지막 수집 시 품절':'품절'):({CHECK:'갱신·자료 확인',NO_SALES:'판매 표본 필요',URGENT:'7일 내 소진',LOW:'14일 내 소진',ENOUGH:'재고 보유'})[p.risk];
+      title.append(node('span',label,'rocket-badge '+(r.quantity===0||p.risk==='URGENT'?'empty':p.risk==='LOW'?'warning':'available')));
+      const metrics=node('div','', 'rocket-metrics');
+      metrics.append(metric('현재 재고',r.quantity===null?'확인 필요':number(r.quantity)+' 개',r.stale?'갱신 필요':'판매 가능 수량','primary'),metric('최근 30일 판매',r.sales30==null?'확인 필요':number(r.sales30)+'개',p.daily===null?'판매 자료 미확인':'하루 평균 '+p.daily.toLocaleString('ko-KR',{maximumFractionDigits:1})+'개'),metric('예상 소진',p.days===null?'판단 보류':p.days.toLocaleString('ko-KR',{maximumFractionDigits:1})+'일분',p.depletesAt?new Intl.DateTimeFormat('ko-KR',{month:'short',day:'numeric',timeZone:'Asia/Seoul'}).format(new Date(p.depletesAt))+' 예상':'판매 이력·수집 확인'),metric('30일 뒤 예상',p.remaining30===null?'판단 보류':number(p.remaining30)+'개',p.shortage30>0?'약 '+number(p.shortage30)+'개 부족':'추가 입고 없는 가정'),metric(target+'일 목표 보충',p.replenish===null?'판단 보류':number(p.replenish)+'개',p.replenish>0?'입고 검토':'추정치','replenish'));
+      const coverage=node('div','', 'rocket-coverage');coverage.append(node('span',target+'일 목표 대비 현재 재고'));const bar=document.createElement('progress');bar.max=100;bar.value=p.coverage??0;bar.hidden=p.coverage===null;bar.setAttribute('aria-label',target+'일 목표 재고 충족률');coverage.append(bar,node('span',p.coverage===null?'예측 보류':Math.round(p.coverage)+'%'));
+      row.append(title,metrics,coverage);$('rocket-list').append(row);
     }
-    if(rocketReady&&!$('rocket-list').children.length)$('rocket-list').append(node('p',q?'검색 결과가 없습니다.':'아직 관리 대상이 없습니다. 판매 중이고 재고가 있는 로켓그로스 상품이 자동으로 등록됩니다.'));
+    if(rocketReady&&!visible.length)$('rocket-list').append(node('p',q||$('rocket-filter').value!=='ALL'?'조건에 맞는 상품이 없습니다.':'아직 관리 대상이 없습니다. 판매 중이고 재고가 있는 로켓그로스 상품이 자동 등록됩니다.'));
   }
+
   async function refreshRocket(){
     if(rocketBusy||busy||displayMode!=='live')return;const expected=generation;rocketBusy=true;rocketMessage='쿠팡 API 재고 수집을 요청하고 있습니다…';renderRocket();
     try{const r=await window.moaonHub.saveStock({action:'REFRESH_ROCKET'});if(expected!==generation)return;if(r.status!=='READY')throw Error(r.message);lastQueue=Date.now();rocketMessage=r.value?.status==='FAILED'?'최근 수집 실패 · 잠시 후 다시 요청하세요.':'수집 요청 접수 · 작업 서버가 처리하면 수량이 갱신됩니다.';}
@@ -140,6 +156,7 @@
   }
   $('stock-tab-manual').onclick=()=>{rocketMode=false;renderRocket();};
   $('stock-tab-rocket').onclick=()=>{rocketMode=true;renderRocket();if(Date.now()-lastQueue>300000)void refreshRocket();};
+  for(const id of ['rocket-filter','rocket-target','rocket-sort'])$(id).onchange=renderRocket;
   $('rocket-search').oninput=renderRocket;$('rocket-refresh').onclick=refreshRocket;
   setInterval(()=>{if(displayMode==='live'&&rocketMode&&!document.querySelector('[data-page=stock]').hidden&&!document.hidden&&!busy&&!rocketBusy){rocketMessage='';void refresh().then(()=>{if(Date.now()-lastQueue>300000)void refreshRocket();});}},30000);
 

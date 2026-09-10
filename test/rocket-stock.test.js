@@ -20,6 +20,12 @@ test('watched Rocket options remain sold out; missing and stale never become fre
  assert.equal(result[1].quantity,null);assert.equal(result[1].state,'UNKNOWN');assert.equal(result[1].stale,true);
  assert.equal(projectRocket(watched,[{vendor_item_id:'a',total_orderable_quantity:0,snapshot_at:'2020-01-01'}],now)[0].stale,true);
 });
+test('missing raw API sales do not inherit the legacy zero default',()=>{
+ const w=[{vendor_item_id:'a',name:'가'}],base={vendor_item_id:'a',sales_last_30_days:0,total_orderable_quantity:10,snapshot_at:new Date().toISOString()};
+ assert.equal(projectRocket(w,[{...base,raw_data:{}}])[0].sales30,null);
+ assert.equal(projectRocket(w,[{...base,raw_data:{salesCountMap:{SALES_COUNT_LAST_THIRTY_DAYS:0}}}])[0].sales30,0);
+ assert.equal(projectRocket(w,[{...base,raw_data:{salesCountMap:{SALES_COUNT_LAST_THIRTY_DAYS:30}}}])[0].sales30,30);
+});
 test('saved choice resolves one channel without combining candidates or crossing tenant',async()=>{
  const data=sources();data.channel_products.push({id:'n3',master_product_id:'product-2',platform:'NAVER',external_product_id:'chosen',updated_at:new Date().toISOString(),raw_data:{source_type:'NAVER_COMMERCE_PRODUCT',stockQuantity:17}});
  data.moaon_product_choices=[{id:'choice1',tenant_id:'a3452bca-e259-40ed-a93d-b8bcc5c1b9e0',master_id:'product-2',platform:'NAVER',link_id:'n3'}];
