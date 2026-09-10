@@ -113,6 +113,7 @@ function ensureTodayOverview(){
  void refreshOverview();
 }
 function renderOverview(){
+ renderScopeCounts();
  const section=document.querySelector('#today-overview');section.hidden=displayMode!=='live';section.setAttribute('aria-busy',String(overviewBusy));section.closest('[data-page]').dataset.live=String(displayMode==='live');
  document.querySelector('#overview-refresh').disabled=overviewBusy||displayMode!=='live';
  const values=Object.values(overviewValues),active=overviewValues.ACTIVE;
@@ -214,6 +215,7 @@ function makeElement(tagName, className, text) {
 
 const routeScroll=new Map();
 function showRoute(route, options = {}) {
+ if(route==='orders'&&displayMode==='live'&&(!overviewLastAttempt||Date.now()-overviewLastAttempt>60000))void refreshOverview();
   const selectedPage = pages.find((page) => page.dataset.page === route);
   if (!selectedPage) return;
   const scroller=document.getElementById('main-content'),previous=pages.find(p=>!p.hidden)?.dataset.page;
@@ -390,6 +392,7 @@ function showOrderDetail(order, button, options = {}) {
   productText.append(makeElement('span','',isSampleMode()?order.option:order.details?.items?.[0]?.option||formatNumber(order.quantity,'개')));
   const present=giftBadge(order);
   if(present)productText.append(present);
+  const badges=makeElement('div','detail-badges');badges.append(makeElement('span','detail-status-badge',order.details?.invoice?.status==='REGISTERED'?'송장 등록 완료':order.details?.invoice?.status==='ISSUED'?'송장 발급 완료':({PAID:'결제완료',PREPARING:'상품준비중',IN_TRANSIT:'배송중',DELIVERED:'배송완료'})[order.stage]||'상태 확인 필요'),makeElement('span','detail-channel-badge',({NAVER:'네이버 · 별도 발급',COUPANG:'쿠팡',CAFE24:'Cafe24'})[order.platform]||'샘플'));productText.append(badges);
   productHero.append(productThumbnail(order),productText);body.append(productHero);
   const facts=makeElement('dl','detail-facts');
   const fact=(title,value)=>facts.append(makeElement('dt','',title),makeElement('dd','',value));
@@ -747,6 +750,7 @@ function renderSelection(){
     box.checked=selectedOrderIds.has(id);box.disabled=orderToolsBusy();
   }
   for(const button of detailPanel.querySelectorAll('[data-invoice-registration]'))button.disabled=registrationBusy||!displayedOrders.some(order=>orderId(order)===button.dataset.invoiceRegistration&&order.registrationEligible===true);
+  const pageSelect=document.querySelector('#order-select-page');pageSelect.disabled=orderToolsBusy()||!boxes.length;pageSelect.textContent=boxes.length&&count===boxes.length?'현재 페이지 선택 해제':'현재 페이지 전체선택';document.querySelector('#order-selected-summary').textContent=count+' / '+boxes.length+'건 선택';
   const all=document.querySelector('#order-select-all');
   const selectable=boxes.filter(box=>!box.disabled);
   all.checked=selectable.length>0&&count===selectable.length;all.indeterminate=count>0&&count<selectable.length;all.disabled=orderToolsBusy()||selectable.length===0;
@@ -873,6 +877,7 @@ function setButtons(mode) {
 }
 
 function updateConnectionChrome(message) {
+ renderScopeCounts();
   const live = displayMode === 'live';
   const sample = displayMode === 'sample';
   const partial = connectionResult?.status === 'PARTIAL';
@@ -947,7 +952,7 @@ function applyHubResult(result) {
     displayMode = 'live';
     if(!businessLoaded){businessLoaded=true;void refreshBusinesses();}
     connectionResult = result;
-    if(selectedChannel==='ALL'&&!serverFilters.delayOnly&&!serverFilters.giftOnly)overviewValues[result.scope]={status:result.status,total:result.total,checkedAt:result.checkedAt};
+    if(selectedChannel==='ALL'&&!serverFilters.delayOnly&&!serverFilters.giftOnly&&!serverFilters.query&&!serverFilters.start&&!serverFilters.end)overviewValues[result.scope]={status:result.status,total:result.total,checkedAt:result.checkedAt};
     displayedOrders = Object.freeze(result.orders.map((order) => Object.freeze({
       hubOrderId: typeof order.hubOrderId === 'string' ? order.hubOrderId : '', platform: typeof order.platform === 'string' ? order.platform : '',
       productName: typeof order.productName === 'string' ? order.productName : '', stage: typeof order.stage === 'string' ? order.stage : '',
@@ -1482,6 +1487,7 @@ document.querySelectorAll('[data-settings-target]').forEach(button=>button.addEv
 // Keep the result visible while replacing the stored list with a verified read.
 async function refreshAfterShipping(results,panel,generation){
   if(!results?.some(row=>row.status==='REGISTERED'))return;
+  overviewLastAttempt=0;void refreshOverview();
   const nodes=[...panel.childNodes];
   try{
     const all=results.every(row=>row.status==='REGISTERED');
@@ -1511,3 +1517,13 @@ async function refreshAfterShipping(results,panel,generation){
     dialog.replaceChildren(makeElement('span','eyebrow','작업 전 확인'),title,makeElement('p','action-review-message',value.message),detail,actions);dialog.showModal();cancel.focus({preventScroll:true});
   });
 })();
+
+function renderScopeCounts(){
+ for(const [scope,detail] of Object.entries(scopeDetails)){
+ const button=document.querySelector('.order-scope-actions [data-action="hub-'+detail.action+'"]');if(!button)continue;
+ const value=overviewValues[scope],known=['READY','PARTIAL'].includes(value?.status)&&Number.isSafeInteger(value?.total);
+ button.replaceChildren(makeElement('span','',detail.label),makeElement('strong','scope-count',known?value.total.toLocaleString('ko-KR')+'건'+(value.status==='PARTIAL'?' · 일부':''):overviewBusy?'조회 중':'확인 필요'));
+ button.title='전체 채널 저장 주문 · '+(value?.status==='PARTIAL'?'일부 확인 · ':'')+(value?.checkedAt?formatTime(value.checkedAt):'조회 필요');
+ }
+}
+document.querySelector('#order-select-page').onclick=()=>{const all=document.querySelector('#order-select-all');if(all.disabled)return;all.checked=!all.checked;all.dispatchEvent(new Event('change'));};

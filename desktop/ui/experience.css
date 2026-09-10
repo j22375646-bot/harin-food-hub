@@ -146,3 +146,50 @@ html[data-theme="dark"]{--canvas:#151923;--surface:#1e2432;--surface-soft:#262e3
 .action-review-actions button:focus-visible{outline:3px solid var(--blue);outline-offset:3px}
 .action-review-actions button:hover{filter:brightness(.96)}
 .orders-layout.is-detail-closed .detail-panel{display:none}
+/* P4-102: consistent selection gutter, visible counts and readable inspector. */
+.orders-workspace .order-table-head,.orders-workspace .order-item{grid-template-columns:52px minmax(0,1fr);gap:0}
+.orders-workspace #order-select-all,.orders-workspace .order-select{width:18px;height:18px;margin:0;justify-self:center;align-self:center;accent-color:#4c5ee8;cursor:pointer}
+.order-selection-summary{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:12px 16px;border-top:1px solid var(--line);font-size:14px}
+.order-selection-summary button{min-height:40px;padding:8px 12px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);font:inherit;color:var(--ink)}
+.order-selection-summary small{font-size:13px;color:var(--muted)}#order-selected-summary{font-weight:700;color:var(--blue)}
+.orders-page .order-scope-actions button{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
+.scope-count{font-size:14px;line-height:1.4;min-width:26px;padding:3px 8px;border-radius:7px;background:var(--surface);color:var(--muted);font-variant-numeric:tabular-nums}
+[aria-pressed=true]>.scope-count{color:var(--blue);background:var(--surface)}
+.orders-layout{--inspector-width:370px;grid-template-columns:minmax(0,1fr) 370px}
+.orders-page .detail-panel{font-size:15px;line-height:1.6}
+.orders-page .detail-header{padding:16px 20px;border-bottom:1px solid var(--line);background:var(--surface-soft)}
+.orders-page .detail-header h2{font-size:17px;font-weight:750;color:var(--ink)}
+.orders-page .detail-body{padding:0 20px 20px}
+.orders-page .detail-product{align-items:flex-start;gap:12px;padding:20px 0}
+.orders-page .detail-product h2{font-size:19px;line-height:1.5;font-weight:750}
+.orders-page .detail-product small,.orders-page .detail-product>div>span{font-size:14px}
+.orders-page .detail-facts{grid-template-columns:80px minmax(0,1fr);font-size:15px;line-height:1.65;padding:16px 0;gap:12px 10px}
+.orders-page .delivery-information .detail-facts{grid-template-columns:80px minmax(0,1fr);gap:12px 10px;padding:14px;background:var(--surface-soft);border:1px solid var(--line);border-radius:12px}
+.orders-page .detail-facts dt{font-weight:600}.orders-page .detail-facts dd{line-height:1.65}
+.orders-page .detail-panel h3{font-size:16px;font-weight:750;color:var(--ink);margin:18px 0 10px}
+.orders-page .detail-panel .preflight-summary{padding:16px;margin:18px 0;background:var(--surface-soft);border:1px solid var(--line);border-radius:12px}
+.orders-page .preflight-summary strong{font-size:16px}.orders-page .preflight-summary :is(p,small,summary,li),.orders-page .detail-more>summary,.orders-page .detail-section :is(strong,span){font-size:14px;line-height:1.65}
+.orders-page .detail-panel button{font-size:14px;min-height:40px;white-space:normal;line-height:1.5}
+.detail-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}.detail-badges span{padding:4px 8px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-weight:650;background:var(--surface-soft)}.detail-badges .detail-status-badge{color:var(--blue);background:var(--blue-soft)}
+@media(max-width:1160px){.orders-layout{--inspector-width:340px;grid-template-columns:minmax(0,1fr) 340px}.orders-layout.is-detail-closed{grid-template-columns:minmax(0,1fr) 0}}
+/* Calendar: date first, shared modal editor, explicit weekend and holiday marks. */
+.month-weekdays span:first-child,.month-day[data-weekday="0"]>strong,.month-day[data-holiday="true"]>strong,.month-holiday{color:#bd3c53}
+.month-weekdays span:last-child,.month-day[data-weekday="6"]>strong{color:var(--blue)}
+.month-day[data-weekday="0"],.month-day[data-holiday="true"]{background:color-mix(in srgb,#bd3c53 5%,var(--surface))}
+.month-day[data-weekday="6"]{background:color-mix(in srgb,var(--blue) 4%,var(--surface))}
+#month-grid .month-day{min-height:104px;align-content:start;gap:6px}.month-day .month-holiday{font-size:13px;white-space:normal;line-height:1.45}
+.month-event-chip{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;background:var(--blue-soft);color:var(--blue);border-radius:5px;padding:3px 5px;font-size:12px;font-weight:650}
+.month-entry[data-type="EVENT"]{border-color:var(--line-strong);background:var(--blue-soft)}.event-state{display:inline-block;padding:5px 9px;border-radius:7px;background:var(--blue-soft);color:var(--blue);font-size:14px}.gift-condition{padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-soft);font-size:14px;line-height:1.6}
+#month-add-selected{width:100%;min-height:44px;padding:10px;border:1px solid var(--line-strong);border-radius:10px;background:var(--blue-soft);color:var(--blue);font:inherit;font-size:15px;font-weight:650;margin:0 0 16px}
+.calendar-editor{width:min(760px,calc(100vw - 48px));max-height:calc(100vh - 64px);padding:28px;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--ink);box-sizing:border-box;overflow:auto;box-shadow:0 24px 90px #10182833}
+.calendar-editor::backdrop{background:#11182766;backdrop-filter:blur(3px)}.calendar-editor h2{font-size:24px;margin:0 0 24px}.calendar-editor fieldset{border:0;padding:0;margin:0;min-width:0}.calendar-editor .month-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.calendar-editor label{display:grid;gap:8px;font-size:14px;font-weight:650;min-width:0}
+.calendar-editor :is(input,select,textarea){width:100%;min-width:0;box-sizing:border-box;border:1px solid var(--line-strong);border-radius:9px;min-height:44px;padding:10px 12px;background:var(--surface);color:var(--ink);font:inherit;font-size:15px}
+.calendar-editor .month-form-body,#month-event-fields{grid-column:1/-1}.calendar-editor button{min-height:44px;padding:10px 14px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;cursor:pointer}.calendar-editor #month-create-save{background:#4c5ee8;border-color:#4c5ee8;color:white;font-weight:700}.calendar-editor .month-form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:24px}.calendar-editor p{font-size:14px;line-height:1.6}
+#month-event-fields{padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--surface-soft)}#month-event-fields[hidden]{display:none}#month-event-fields h3{font-size:16px;margin:18px 0 8px}.gift-tier{display:grid;grid-template-columns:1fr 1fr 1.3fr 80px;gap:10px;padding:14px 0;border-top:1px solid var(--line)}.gift-tier>button{grid-column:4;min-height:36px}.calendar-editor :focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.orders-workspace .order-table-head{padding-inline:1px;box-sizing:border-box}
+.orders-page .detail-panel .detail-facts :is(dt,dd){font-size:15px}
+.orders-page .order-scope-actions button{flex-direction:column;gap:4px}
+.calendar-editor .month-form-actions{position:sticky;bottom:-28px;padding:14px 0;background:var(--surface);border-top:1px solid var(--line)}
+.month-day[data-holiday="true"]>strong{color:#bd3c53}
+.month-event-chip[data-event-color="CORAL"]{background:#fce7eb;color:#a73049}.month-event-chip[data-event-color="VIOLET"]{background:#eee8ff;color:#6845ad}.month-event-chip[data-event-color="AMBER"]{background:#fff0ce;color:#8c5c10}
+.calendar-editor label[hidden]{display:none}

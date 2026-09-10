@@ -54,3 +54,14 @@ test('monthly network permit rejects arbitrary day ranges and renderer requests'
  for(const other of [url+'&x=1',url.replace('02-29','02-28')])assert.equal(isAllowedRemoteRequest({url:other,method:'GET',webContentsId:0},{monthPermit:other}),false);
  assert.equal(isAllowedRemoteRequest({url,method:'GET',webContentsId:2},{monthPermit:url}),false);
 });
+
+test('event draft enforces bounded gift ranges and preserves the server event projection',()=>{
+ const {validCalendarDraft,projectMonth}=require('../today-calendar.cjs');
+ const event={title:'증정 행사',body:'안내',date:'2026-09-11',endDate:'2026-09-20',time:'',type:'EVENT',eventColor:'BLUE',giftTiers:[{minimumAmount:30000,maximumAmount:50000,giftName:'차',quantity:1}]};
+ assert.equal(validCalendarDraft(event),true);
+ for(const bad of [{...event,endDate:'2026-09-10'},{...event,giftTiers:[{...event.giftTiers[0],quantity:0}]},{...event,giftTiers:[event.giftTiers[0],event.giftTiers[0]]},{...event,giftTiers:[{...event.giftTiers[0],maximumAmount:20000}]},{...event,eventColor:'<img>'}])assert.equal(validCalendarDraft(bad),false);
+ const row={...event,id:'evt',status:'OPEN',eventState:'ACTIVE'};const projected=projectMonth({ok:true,entries:[row],range:{from:'2026-09-01',to:'2026-09-30'},holidays:[{date:'2026-09-24',name:'시험 휴일'}],holidayReady:true},'2026-09');
+ assert.deepEqual(projected.entries[0].giftTiers,event.giftTiers);assert.equal(projected.entries[0].eventState,'ACTIVE');assert.equal(projected.holidayReady,true);
+ const {resolveEventGift}=require('../../lib/calendar/calendar-center.js');
+ assert.equal(resolveEventGift(row,{orderAmount:29999,date:'2026-09-11'}),null);assert.equal(resolveEventGift(row,{orderAmount:30000,date:'2026-09-11'}).giftName,'차');assert.equal(resolveEventGift(row,{orderAmount:50001,date:'2026-09-11'}),null);assert.equal(resolveEventGift(row,{orderAmount:30000,date:'2026-09-21'}),null);
+});

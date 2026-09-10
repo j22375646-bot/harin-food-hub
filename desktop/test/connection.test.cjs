@@ -1737,3 +1737,11 @@ test('calendar uncertainty locks a duplicate POST and disconnect during confirma
  }
 });
 test('calendar IPC rejects untrusted frames and extra fields',async()=>{const handlers=new Map(),contents={mainFrame:{url:'moaon://app/index.html'},getURL:()=>'moaon://app/index.html'},main={isDestroyed:()=>false,webContents:contents};let calls=0;registerConnectionIpc({ipcMain:{handle:(k,v)=>handlers.set(k,v)},getMainWindow:()=>main,connection:{createCalendarEntry:async()=>{calls++;return {status:'SAVED'};}}});const draft={title:'가상 일정',body:'',date:'2026-09-11',time:'',type:'MEMO'},handler=handlers.get('moaon-hub:create-calendar-entry'),event={sender:contents,senderFrame:contents.mainFrame};await assert.rejects(handler({sender:{},senderFrame:null},draft),/Untrusted/);for(const args of [[],[draft,'extra'],[{...draft,action:'DELETE'}]])await assert.rejects(handler(event,...args),/Arguments/);assert.equal((await handler(event,draft)).status,'SAVED');assert.equal(calls,1);});
+
+test('calendar event POST preserves periods and gift rules and rejects an unconfirmed server echo',async()=>{
+ for(const mismatch of [false,true]){let sent;
+ const draft={title:'가상 이벤트',body:'',date:'2026-09-11',endDate:'2026-09-15',time:'',type:'EVENT',eventColor:'BLUE',giftTiers:[{minimumAmount:30000,giftName:'가상 차',quantity:1}]};
+ const remote=makeRemoteSession(async(url,o)=>{if(o.method==='POST'){sent=JSON.parse(o.body);return Response.json({ok:true,entry:{id:'event',...draft,giftTiers:mismatch?[]:draft.giftTiers}});}return Response.json(url.includes('/api/calendar/entries?')?{ok:true,entries:[],range:{from:'2026-09-01',to:'2026-09-30'}}:makePagePayload());});
+ const {connection}=makeConnection(remote,{showShipmentReview:async()=>({response:1})});assert.equal((await connection.createCalendarEntry(draft)).status,mismatch?'RESULT_UNKNOWN':'SAVED');assert.equal(sent.endDate,draft.endDate);assert.equal(sent.priority,'HIGH');assert.deepEqual(sent.giftTiers,draft.giftTiers);
+ }
+});
