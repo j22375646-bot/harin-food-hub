@@ -70,7 +70,9 @@ let selectedScope = 'ACTIVE';
 let scopeControlsAvailable = false;
 let businessGeneration=0,businessLoaded=false,businessBusy=false;
 let overviewValues={},overviewGeneration=0,overviewBusy=false,overviewLastAttempt=0;
-let calendarGeneration=0,calendarBusy=false,calendarLastAttempt=0;
+const todayDateFormatter=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'});
+const todayDateKey=()=>todayDateFormatter.format(new Date());
+let calendarGeneration=0,calendarBusy=false,calendarLastAttempt=0,calendarAttemptDate='';
 let financeValue=null,financeGeneration=0,financeBusy=false,financeLastAttempt=0;
 const financeDetails=Object.freeze({sales:{label:'이번 달 결제 매출',note:'결제 기준'},profit:{label:'이번 달 계산 이익',note:'계산 기준'},balance:{label:'향후 30일 예상 잔액',note:'추정치 · 실제 정산 아님'}});
 function renderFinance(){
@@ -81,16 +83,17 @@ function renderFinance(){
 function clearFinance(){financeGeneration++;financeValue=null;financeBusy=false;financeLastAttempt=0;document.querySelector('#finance-status').textContent='조회하지 않은 금액은 확인 필요로 표시합니다.';renderFinance();}
 async function refreshFinance(){if(financeBusy||displayMode!=='live')return;const expected=++financeGeneration;financeBusy=true;financeLastAttempt=Date.now();financeValue=null;renderFinance();const status=document.querySelector('#finance-status');status.textContent='이번 달 자금 판단을 확인하고 있습니다…';try{const result=await window.moaonHub.readFinance();if(expected!==financeGeneration)return;if(['LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status)){applyHubResult(result);return;}if(result?.status!=='READY'){status.textContent='금액을 확인하지 못했습니다. 다시 확인해 주세요.';return;}financeValue=result;status.textContent=Object.values(result.metrics).some(metric=>metric.status!=='READY')?'부분 확인 또는 확인 필요 항목은 금액을 확정해 판단하지 마세요.':'서버 계산 기준의 조회 결과입니다.';}catch{if(expected===financeGeneration)status.textContent='금액을 확인하지 못했습니다. 다시 확인해 주세요.';}finally{if(expected===financeGeneration){financeBusy=false;renderFinance();}}}
 document.querySelector('#finance-refresh').addEventListener('click',refreshFinance);
-function clearTodayCalendar(){calendarGeneration++;calendarBusy=false;calendarLastAttempt=0;document.querySelector('#calendar-list').replaceChildren();document.querySelector('#calendar-status').textContent='연결 후 오늘 일정을 확인합니다.';document.querySelector('#today-calendar').hidden=true;}
+function clearTodayCalendar(){calendarGeneration++;calendarBusy=false;calendarLastAttempt=0;calendarAttemptDate='';document.querySelector('#today-calendar').setAttribute('aria-busy','false');document.querySelector('#calendar-refresh').disabled=false;document.querySelector('#calendar-list').replaceChildren();document.querySelector('#calendar-status').textContent='연결 후 오늘 일정을 확인합니다.';document.querySelector('#today-calendar').hidden=true;}
 async function refreshTodayCalendar(){
  if(calendarBusy||displayMode!=='live')return;
- const expected=++calendarGeneration;calendarBusy=true;calendarLastAttempt=Date.now();
+ const expected=++calendarGeneration;calendarBusy=true;calendarLastAttempt=Date.now();calendarAttemptDate=todayDateKey();
  const section=document.querySelector('#today-calendar'),button=document.querySelector('#calendar-refresh'),status=document.querySelector('#calendar-status'),list=document.querySelector('#calendar-list');
- section.hidden=false;button.disabled=true;list.replaceChildren();status.textContent='오늘 일정을 불러오는 중입니다…';
+ section.hidden=false;section.setAttribute('aria-busy','true');button.disabled=true;list.replaceChildren();status.textContent='오늘 일정을 불러오는 중입니다…';
  try{
   const result=await window.moaonHub.readTodayCalendar();if(expected!==calendarGeneration)return;
   if(['LOGIN_REQUIRED','FORBIDDEN','DISCONNECTED'].includes(result?.status)){applyHubResult(result);return;}
   if(result?.status!=='READY'){status.textContent='일정을 확인하지 못했습니다. 다시 조회해 주세요.';return;}
+  if(result.date!==todayDateKey()){calendarLastAttempt=0;status.textContent='일정의 기준 날짜가 오늘과 다릅니다. 다시 조회해 주세요.';return;}
   status.textContent=result.date+' · 한국 시간 기준 · '+(result.entries.length?result.entries.length+'건':'오늘 등록된 일정이 없습니다.');
   list.replaceChildren(...result.entries.map(entry=>{
    const row=makeElement('li'),time=makeElement('time'),title=makeElement('span'),state=makeElement('span');
@@ -98,13 +101,13 @@ async function refreshTodayCalendar(){
    state.className='calendar-state';row.dataset.done=String(entry.status==='DONE');row.append(time,title,state);return row;
   }));
  }catch{if(expected===calendarGeneration)status.textContent='일정을 확인하지 못했습니다. 다시 조회해 주세요.';}
- finally{if(expected===calendarGeneration){calendarBusy=false;button.disabled=false;}}
+ finally{if(expected===calendarGeneration){calendarBusy=false;button.disabled=false;section.setAttribute('aria-busy','false');}}
 }
 document.querySelector('#calendar-refresh').addEventListener('click',refreshTodayCalendar);
 function clearOverview(){window.moaonInventory?.clear();window.moaonCs?.clear();window.moaonMonth?.clear();window.moaonInsights?.clear();window.moaonSettlement?.clear();clearFinance();clearTodayCalendar();overviewGeneration++;overviewValues={};overviewBusy=false;overviewLastAttempt=0;renderOverview();}
 function ensureTodayOverview(){
  if(displayMode==='live'&&document.querySelector('[data-page="today"]').classList.contains('is-visible')&&(!financeLastAttempt||Date.now()-financeLastAttempt>=300000))void refreshFinance();
- if(displayMode==='live'&&document.querySelector('[data-page="today"]').classList.contains('is-visible')&&(!calendarLastAttempt||Date.now()-calendarLastAttempt>=60000))void refreshTodayCalendar();
+ if(displayMode==='live'&&document.querySelector('[data-page="today"]').classList.contains('is-visible')&&(!calendarLastAttempt||calendarAttemptDate!==todayDateKey()||Date.now()-calendarLastAttempt>=60000))void refreshTodayCalendar();
  if(displayMode!=='live'||overviewBusy||!document.querySelector('[data-page="today"]').classList.contains('is-visible'))return;
  if(overviewLastAttempt&&Date.now()-overviewLastAttempt<60000)return;
  void refreshOverview();
