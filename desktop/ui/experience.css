@@ -193,3 +193,40 @@ html[data-theme="dark"]{--canvas:#151923;--surface:#1e2432;--surface-soft:#262e3
 .month-day[data-holiday="true"]>strong{color:#bd3c53}
 .month-event-chip[data-event-color="CORAL"]{background:#fce7eb;color:#a73049}.month-event-chip[data-event-color="VIOLET"]{background:#eee8ff;color:#6845ad}.month-event-chip[data-event-color="AMBER"]{background:#fff0ce;color:#8c5c10}
 .calendar-editor label[hidden]{display:none}
+/* P4-103: one floating surface, readable inspector, progressive detail. */
+#order-selection.selection-toolbar{position:fixed;left:var(--dock-center,50%);bottom:44px;transform:translateX(-50%);z-index:80;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;width:max-content;max-width:var(--dock-width,calc(100vw - 32px));box-sizing:border-box;margin:0;padding:8px;background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);border-radius:14px;box-shadow:0 8px 32px #17244026;font-size:14px;line-height:1.5}
+#order-selection[hidden]{display:none!important}
+#order-selection #selection-count{padding:0 10px;font-weight:750;color:var(--blue);white-space:nowrap}
+#order-selection button,#order-selection summary{box-sizing:border-box;min-height:40px;padding:9px 12px;font:inherit;font-size:14px;line-height:1.5;border-radius:9px;color:var(--ink);background:transparent;white-space:nowrap;cursor:pointer}
+#order-selection button:disabled{color:var(--muted);background:var(--surface-soft);opacity:.65;cursor:default}
+#order-selection #selection-auto-ship:not(:disabled){background:#4c5ee8;color:white;font-weight:700}
+#order-selection button:not(:disabled):hover,#order-selection summary:hover{background:var(--blue-soft);color:var(--blue)}
+#order-selection :focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+#order-selection details{position:static}
+#order-selection details>div{position:absolute;bottom:calc(100% + 10px);right:0;box-sizing:border-box;min-width:0;width:270px;max-width:100%;max-height:calc(100vh - 170px);overflow:auto;display:grid;gap:3px;padding:8px;background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);border-radius:12px;box-shadow:0 8px 28px #17244026}
+#order-selection details:not([open])>div{display:none}
+#order-selection .selection-more>div button{text-align:left;white-space:normal}
+#order-selection .selection-more small{font-size:13px;color:var(--muted);padding:5px 10px;line-height:1.5}
+#order-selection .selection-block-reason{flex:none;margin:0;padding:0;border:0;font-size:14px;max-width:none}
+#order-selection .selection-block-reason[hidden]{display:none}
+#order-selection .selection-reason-content{width:320px;padding:16px;gap:12px;font-size:15px;line-height:1.6;overflow-wrap:anywhere}
+#order-selection .selection-reason-content button{border:1px solid var(--line);background:var(--surface-soft)}
+body:has(#order-selection:not([hidden])) #main-content{padding-bottom:110px}
+.orders-page .detail-header{background:var(--surface);padding:14px 20px}
+.orders-page .detail-product{padding:20px 0 16px}
+.orders-page .detail-product h2{font-size:19px;line-height:1.5;margin:0 0 6px}
+.orders-page .detail-body>.detail-facts{padding:12px 0;margin:0;border-block:1px solid var(--line);gap:8px 10px}
+.orders-page .delivery-information .detail-facts{background:transparent;border:0;border-radius:0;padding:0;gap:10px 12px;margin:0 0 20px;grid-template-columns:66px minmax(0,1fr)}
+.orders-page .detail-panel .detail-facts dd{font-size:15px;overflow-wrap:anywhere}
+.orders-page .tracking-section{background:var(--surface-soft);border:0;border-radius:12px;padding:16px;margin:0 0 18px;display:grid;gap:8px}
+.orders-page .tracking-section h3{margin:0;font-size:14px;color:var(--muted)}
+.orders-page .tracking-section .detail-invoice-number{font-size:23px;line-height:1.3;letter-spacing:.5px;color:var(--ink);font-variant-numeric:tabular-nums;user-select:all}
+.orders-page .tracking-section>strong:not(.detail-invoice-number){font-size:15px}
+.orders-page .tracking-section p{font-size:13px;line-height:1.5;margin:0;color:var(--muted)}
+.orders-page .tracking-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.orders-page .tracking-actions button{font-size:14px;padding:8px 10px;min-height:40px}
+.orders-page .detail-more{border-top:1px solid var(--line);padding-top:12px}
+.orders-page .detail-more>summary{font-size:15px;min-height:40px;color:var(--muted)}
+.orders-page .detail-panel .preflight-summary{background:transparent;border:0;padding:0;margin:16px 0}
+.orders-page .detail-panel .review-actions{padding:0 20px 16px}
+.orders-page .review-actions>.review-result{display:none}
