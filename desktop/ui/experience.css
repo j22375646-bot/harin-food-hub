@@ -289,3 +289,13 @@ html[data-theme=dark] .orders-page .shipping-timing-badge[data-timing=CHECK_REQU
 #registration-results.document-notice{position:fixed;bottom:100px;right:24px;z-index:90;width:min(440px,calc(100vw - 48px));padding:16px 48px 16px 18px;border-radius:14px;box-shadow:0 8px 30px #16223b20;background:var(--surface);font-size:14px;line-height:1.6}
 #registration-results.document-notice>p,#registration-results.document-notice>ul{display:none}
 #registration-results.document-notice #document-notice-close{display:block;position:absolute;right:8px;top:8px;width:32px;height:32px;padding:0;font-size:20px}
+/* One outer surface; filters and rows share quiet separators. */
+.orders-page .orders-workspace{background:var(--surface);border:1px solid var(--line);border-radius:16px}
+.orders-page .orders-workspace :is(.order-scope-actions,.order-tools,.global-order-search,.order-search-summary,.order-list){border:0;border-radius:0;box-shadow:none}
+.orders-page .order-row[aria-pressed=true]{border-color:transparent;border-bottom-color:var(--line);border-radius:0;background:var(--blue-soft)}
+.orders-page .orders-layout{--order-grid-columns:64px minmax(0,1fr) 72px 110px 100px 84px}
+.orders-page .order-row>.order-date{font-size:13px;line-height:1.5;color:var(--muted);text-align:center;white-space:normal;min-width:0;justify-self:center;font-variant-numeric:tabular-nums}
+.orders-page .order-table-heading>span:nth-child(3){text-align:center}.orders-page .order-table-heading>span:nth-child(4){text-align:right}
+@container(max-width:700px){.orders-page .order-row>.order-date{grid-column:3;grid-row:2;justify-self:end}.orders-page .order-row .order-amount{grid-row:3;grid-column:3}.orders-page .order-row>.order-state{grid-column:2;grid-row:3}}
+
+.orders-page .orders-workspace .order-table-head{padding-inline:0}

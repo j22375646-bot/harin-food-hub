@@ -40,7 +40,7 @@ function createInventoryTransport({fetch,timeoutMs=30000}={}){
   const cancelled=new Promise(resolve=>{stop=()=>{controller.abort();resolve(empty('CANCELLED'));};});signal?.addEventListener('abort',stop,{once:true});
   const run=async()=>{try{
    const res=await fetch(INVENTORY_URL,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
-   if(res.status!==200)return empty(({401:'LOGIN_REQUIRED',403:'FORBIDDEN',504:'TIMEOUT'})[res.status]||'UNAVAILABLE');
+   if(res.status!==200)return empty(({401:'LOGIN_REQUIRED',403:'FORBIDDEN',404:'NOT_DEPLOYED',503:'SERVER_UNAVAILABLE',504:'TIMEOUT'})[res.status]||'UNAVAILABLE');
    if(res.redirected||res.url&&res.url!==INVENTORY_URL||Number(res.headers.get('content-length'))>8388608)throw Error('Response');
    reader=res.body?.getReader();if(!reader)throw Error('Body');let size=0;const chunks=[];
    while(true){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>8388608)throw Error('Size');chunks.push(value);}

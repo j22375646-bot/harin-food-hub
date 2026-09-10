@@ -67,7 +67,7 @@
   if(busy||displayMode!=='live')return;const expected=++generation;busy=true;failed=false;value=null;selected=null;pageIndex=0;render();$('inventory-status').textContent='상품과 저장 재고를 조회하고 있습니다…';
   try{const result=await window.moaonHub.readInventory();if(expected!==generation)return;
    if(['LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status)){applyHubResult(result);return;}
-   if(result?.status!=='READY'){failed=true;$('inventory-status').textContent='재고 조회 실패 · 자료 누락·조회 한도·연결 상태를 확인한 뒤 다시 시도해 주세요.';return;}
+   if(result?.status!=='READY'){failed=true;$('inventory-status').textContent=({SERVER_UNAVAILABLE:'상품 서버 오류(503) · 서버의 상품 자료 조회를 확인해야 합니다.',NOT_DEPLOYED:'상품 조회 API가 아직 배포되지 않았습니다.',TIMEOUT:'상품 조회 시간이 초과되었습니다. 잠시 후 다시 조회하세요.'})[result?.status]||'상품 조회 실패 · 연결과 자료 형식을 확인하세요.';return;}
    value=result;$('inventory-status').textContent=`조회 시각 ${formatTime(result.generatedAt)} · 아래 수량은 채널에서 마지막으로 저장한 자료입니다.`;
   }catch{if(expected===generation){failed=true;$('inventory-status').textContent='재고 조회 실패 · 다시 시도해 주세요.';}}
   finally{if(expected===generation){busy=false;render();}}

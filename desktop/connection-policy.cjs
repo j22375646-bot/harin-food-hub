@@ -127,6 +127,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if(method==='GET'&&context.financePermit===FINANCE_URL&&details.url===FINANCE_URL)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&[SETTLEMENT_URL,SETTLEMENT_URL+'?days=7',SETTLEMENT_URL+'?days=90'].includes(context.settlementPermit)&&details.url===context.settlementPermit)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.csPermit===CS_URL&&details.url===CS_URL)return isMainProcessRequest(details.webContentsId);
+  if(context.stockPermit&&details.url===HARIN_ORIGIN+'/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/stock'&&context.stockPermit.url===details.url&&context.stockPermit.method===method)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.inventoryPermit===INVENTORY_URL&&details.url===INVENTORY_URL)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.insightsPermit===INSIGHTS_URL&&details.url===INSIGHTS_URL)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.exportPermit===details.url&&details.url.endsWith('&format=xlsx'))return isMainProcessRequest(details.webContentsId);

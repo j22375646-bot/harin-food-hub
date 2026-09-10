@@ -80,7 +80,7 @@ async function main(){
    assert.ok(await page.locator('#order-list').evaluate(el=>el.clientHeight)>90);
    await page.locator('.orders-workspace').evaluate(el=>el.style.width='560px');await page.waitForTimeout(350);
    const layout=await visualRow.evaluate(row=>{const x=sel=>row.querySelector(sel).getBoundingClientRect().left;return {primary:x('.order-primary'),channel:x('.order-secondary'),state:x('.order-state'),fit:row.scrollWidth<=row.clientWidth+1,gift:getComputedStyle(row.querySelector('.gift-badge')).backgroundColor,timing:getComputedStyle(row.querySelector('.shipping-timing-badge')).backgroundColor,date:row.querySelector('.order-date').textContent};});
-   assert.ok(Math.abs(layout.primary-layout.channel)<2&&Math.abs(layout.primary-layout.state)<2,JSON.stringify(layout));assert.equal(layout.fit,true);assert.notEqual(layout.gift,layout.timing);assert.match(layout.date,/2026/);
+   assert.ok(Math.abs(layout.primary-layout.channel)<2&&Math.abs(layout.primary-layout.state)<2,JSON.stringify(layout));assert.equal(layout.fit,true);assert.notEqual(layout.gift,layout.timing);assert.doesNotMatch(layout.date,/2026/);assert.match(layout.date,/\d{2}:\d{2}/);
    await page.screenshot({path:path.join(os.tmpdir(),`moaon-order-design-${theme}.png`)});
    await page.locator('.orders-workspace').evaluate(el=>el.style.removeProperty('width'));
   }

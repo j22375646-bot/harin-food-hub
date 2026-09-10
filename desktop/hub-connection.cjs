@@ -1,4 +1,5 @@
 'use strict';
+const {createStockTransport,STOCK_URL}=require('./stock-transport.cjs');
 
 const {
   HARIN_ORIGIN,
@@ -609,6 +610,9 @@ function createHubConnection({
     let tracked;tracked=read({signal:controller.signal}).then(result=>expected===generation?result:empty('CANCELLED')).finally(()=>{if(csController===controller){csController=null;csPermit=null;}if(activeCs===tracked)activeCs=null;});
     activeCs=tracked;return tracked;
   }
+  let stockBusy=false,stockPermit=null;
+  async function stockRequest(input){if(stockBusy||disconnecting||cleanupFailed||isLoginWindowActive())return {status:'ERROR',message:'연결 상태를 확인하거나 진행 중인 작업을 기다려 주세요.'};const expected=generation;stockBusy=true;stockPermit={url:STOCK_URL,method:input?'POST':'GET'};try{const result=await createStockTransport({fetch:(...args)=>getRemoteSession().fetch(...args)})(input);return expected===generation?result:{status:'ERROR',message:'사업장 연결이 변경되었습니다. 다시 조회하세요.'};}finally{stockBusy=false;stockPermit=null;}}
+  const readStock=()=>stockRequest();const saveStock=input=>{if(!input||typeof input!=='object'||JSON.stringify(input).length>12000)throw Error('Invalid stock input');return stockRequest(input);};
   function readInventory(){
     const empty=status=>({status,items:[],generatedAt:null,truncated:false});
     if(disconnecting||cleanupFailed)return Promise.resolve(empty('DISCONNECTED'));
@@ -709,7 +713,7 @@ function createHubConnection({
             financePermit,
             settlementPermit,
             insightsPermit,
-            csPermit,inventoryPermit,
+            csPermit,inventoryPermit,stockPermit,
             trackingRequestMethod,
             automaticTrackingRequestActive,
             collectionPermit,
@@ -1686,7 +1690,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-return Object.freeze({ createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+return Object.freeze({ readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1772,6 +1776,8 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     ['moaon-hub:read-finance', 'readFinance'],
     ['moaon-hub:read-settlement', 'readSettlement'],
     ['moaon-hub:read-insights', 'readInsights'],
+    ['moaon-hub:read-stock', 'readStock'],
+    ['moaon-hub:save-stock', 'saveStock'],
     ['moaon-hub:read-inventory', 'readInventory'],
     ['moaon-hub:read-cs', 'readCs'],
     ['moaon-hub:read-today-calendar', 'readTodayCalendar'],
@@ -1792,6 +1798,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
   for (const [channel, method] of methods) {
     ipcMain.handle(channel, async (event, ...args) => {
       if (!isTrustedRenderer(event, getMainWindow())) throw new Error('Untrusted renderer');
+      if(method==='saveStock'){if(args.length!==1)throw Error('Arguments are not allowed');return connection.saveStock(args[0]);}
       if(method==='createCalendarEntry'){if(args.length!==1||!require('./today-calendar.cjs').validCalendarDraft(args[0]))throw Error('Arguments are not allowed');return connection.createCalendarEntry(args[0]);}
       if(method==='readCalendarMonth'){
         if(args.length!==1||!require('./today-calendar.cjs').monthRange(args[0]))throw Error('Arguments are not allowed');

@@ -104,7 +104,7 @@ async function refreshTodayCalendar(){
  finally{if(expected===calendarGeneration){calendarBusy=false;button.disabled=false;section.setAttribute('aria-busy','false');}}
 }
 document.querySelector('#calendar-refresh').addEventListener('click',refreshTodayCalendar);
-function clearOverview(){window.moaonInventory?.clear();window.moaonCs?.clear();window.moaonMonth?.clear();window.moaonInsights?.clear();window.moaonSettlement?.clear();clearFinance();clearTodayCalendar();overviewGeneration++;overviewValues={};overviewBusy=false;overviewLastAttempt=0;renderOverview();}
+function clearOverview(){window.moaonStock?.clear();window.moaonInventory?.clear();window.moaonCs?.clear();window.moaonMonth?.clear();window.moaonInsights?.clear();window.moaonSettlement?.clear();clearFinance();clearTodayCalendar();overviewGeneration++;overviewValues={};overviewBusy=false;overviewLastAttempt=0;renderOverview();}
 function ensureTodayOverview(){
  if(displayMode==='live'&&document.querySelector('[data-page="today"]').classList.contains('is-visible')&&(!financeLastAttempt||financeAttemptMonth!==todayDateKey().slice(0,7)||Date.now()-financeLastAttempt>=300000))void refreshFinance();
  if(displayMode==='live'&&document.querySelector('[data-page="today"]').classList.contains('is-visible')&&(!calendarLastAttempt||calendarAttemptDate!==todayDateKey()||Date.now()-calendarLastAttempt>=60000))void refreshTodayCalendar();
@@ -238,6 +238,7 @@ function showRoute(route, options = {}) {
   if(route==='today')ensureTodayOverview();
   if(route==='settlement')window.moaonSettlement?.ensure();
   if(route==='inventory')window.moaonInventory?.ensure();
+  if(route==='stock')window.moaonStock?.ensure();
   if(route==='cs')window.moaonCs?.ensure();
   if(route==='insights')window.moaonInsights?.ensure();
   if(route==='calendar')window.moaonMonth?.ensure();
@@ -292,7 +293,7 @@ const formatNumber = (value, suffix = '') => typeof value === 'number' && Number
 const stageLabel = (stage) => stageLabels[stage] || '상태 확인 필요';
 const selectedScopeDetail = () => scopeDetails[selectedScope];
 
-function formatOrderTime(value){const date=new Date(value);return !value||Number.isNaN(date.getTime())?'시각 확인 필요':new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(date);}
+function formatOrderTime(value){const date=new Date(value);return !value||Number.isNaN(date.getTime())?'시각 확인 필요':new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(date);}
 
 function formatTime(value) {
   if (!value) return '확인 시각 없음';
@@ -473,7 +474,7 @@ function showOrderDetail(order, button, options = {}) {
     addDetailSection(more, '플랫폼 주문번호', details.externalOrderId || '확인 필요', '위 허브 주문번호와 구분되는 쇼핑몰 원본 번호입니다.');
     if (details.items?.length) {
       for (const [index, item] of details.items.entries()) {
-        addDetailSection(more, `상품 구성 ${index + 1}`, item.name || '상품명 확인 필요', `${item.option || '옵션 정보 없음'} · ${formatNumber(item.quantity, '개')}`);
+        addDetailSection(more, `상품 구성 ${index + 1}`, item.name || '상품명 확인 필요', `${item.option ? item.option+' · ' : ''}수량 ${formatNumber(item.quantity, '개')}`);
       }
       more.append(makeElement('p', 'detail-notice', '목록 API가 제공한 상품 구성입니다. 최대 8개까지만 표시되며 전체 구성은 웹 허브에서 확인하세요.'));
     } else addDetailSection(more, '상품 구성', '세부 상품 정보 확인 필요', '대표 상품만으로 전체 포장 구성을 판단하지 마세요.');
@@ -699,13 +700,13 @@ function createOrderRow(order) {
     const invoice=order.details?.invoice;
     if(invoice&&/^\d{13}$/.test(invoice.number||'')){const tag=makeElement('span','order-invoice',invoice.status==='REGISTERED'?'송장 등록 완료':'발급 완료 · 등록 필요');tag.append(makeElement('code','',invoice.number));primary.append(tag);}
     const items=order.details?.items||[],option=items[0]?.option;
-    primary.append(makeElement('time','order-date','주문 '+formatOrderTime(order.orderedAt)));
-    primary.append(makeElement('small','product-option','옵션: '+(option||'정보 없음')+(items.length>1?' 외 '+(items.length-1)+'종':'')+' · 수량 '+formatNumber(order.quantity,'개')));
+
+    primary.append(makeElement('small','product-option',(option?'옵션: '+option+(items.length>1?' 외 '+(items.length-1)+'종':'')+' · ':'')+'수량 '+formatNumber(order.quantity,'개')));
     const gift=giftBadge(order);if(gift)primary.append(gift);const timing=timingBadge(order);if(timing)primary.append(timing);
     amount.append(makeElement('strong', '', formatNumber(order.amount, '원')));
   }
   const state=button.querySelector('.order-state')||makeElement('span','order-state delivery-badge',order.status||'확인 필요');
-  button.append(productThumbnail(order),primary, secondary, amount,state);
+  const ordered=makeElement('time','order-date',isSampleMode()?'—':formatOrderTime(order.orderedAt));ordered.setAttribute('aria-label','주문시각');button.append(productThumbnail(order),primary,secondary,ordered,amount,state);
   button.addEventListener('click', () => showOrderDetail(order, button));
   const row = makeElement('div','order-item');
   const checkbox = document.createElement('input');
