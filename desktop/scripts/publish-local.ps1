@@ -34,6 +34,19 @@ $shortcut.Save()
 # Remove only the obsolete app shortcut, never unrelated desktop items.
 $legacy=Join-Path $desktop 'Moaon Preview.lnk'
 if(Test-Path -LiteralPath $legacy){$link=$shell.CreateShortcut($legacy);if($link.TargetPath -eq 'C:\Users\a\AppData\Local\Programs\Moaon Preview\MoaonPreview.exe'){Remove-Item -LiteralPath $legacy}}
+# Explorer merges the personal and public desktops. A public legacy link can
+# otherwise keep launching the old installation under the same visible name.
+$publicDesktop=[Environment]::GetFolderPath('CommonDesktopDirectory')
+foreach($name in @('모아온.lnk','Moaon Preview.lnk')){
+ $publicLink=Join-Path $publicDesktop $name
+ if(-not(Test-Path -LiteralPath $publicLink)){continue}
+ $link=$shell.CreateShortcut($publicLink)
+ if($link.TargetPath -ne 'C:\Users\a\AppData\Local\Programs\Moaon Preview\MoaonPreview.exe'){continue}
+ $backup=Join-Path $root ('shortcut-backups\'+[Guid]::NewGuid().ToString())
+ New-Item -ItemType Directory -Path $backup | Out-Null
+ Copy-Item -LiteralPath $publicLink -Destination (Join-Path $backup $name)
+ Remove-Item -LiteralPath $publicLink
+}
 $running=@(Get-CimInstance Win32_Process -Filter "Name='MoaonPreview.exe'" | ForEach-Object {$_.ExecutablePath})
 $kept=@($version,$old.version)
 foreach($dir in Get-ChildItem -LiteralPath $releases -Directory){
