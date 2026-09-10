@@ -32,6 +32,8 @@ async function main(){
   await page.evaluate(()=>runHubAction('disconnect'));
   await page.evaluate(()=>runHubAction('viewActive'));await page.evaluate(()=>{showRoute('orders');const note=document.createElement('p');note.textContent='주문 UI 검증 · 가상 주문 · 발급/출고 실행 없음';document.querySelector('.orders-page .page-heading').append(note);});
   assert.equal(await page.locator('.gift-badge').first().evaluate(e=>getComputedStyle(e).fontSize),'14px');assert.match(await page.locator('.gift-badge').first().innerText(),/보리차 2개/);assert.equal(await page.locator('.order-primary').first().innerText().then(t=>t.includes('HR-C24')),false);assert.match(await page.locator('.shipping-timing-badge').first().innerText(),/당일출고/);
+  await page.setViewportSize({width:1600,height:1000});
+  const centers=await page.evaluate(()=>{const head=[...document.querySelectorAll('.order-table-heading>span')].slice(1);return ['.order-secondary','.order-date','.order-amount','.order-state'].map((selector,i)=>{const a=head[i].getBoundingClientRect(),b=document.querySelector('.order-row '+selector).getBoundingClientRect();return Math.abs(a.x+a.width/2-b.x-b.width/2);});});assert.ok(centers.every(n=>n<2),'headings and values must share centered columns: '+centers);
   const visualRow=page.locator('.order-row').filter({hasText:'낮은 금액'});
   await visualRow.locator('img').waitFor({timeout:6000});
   await page.waitForFunction(()=>document.querySelector('.order-row img')?.naturalWidth>0);
