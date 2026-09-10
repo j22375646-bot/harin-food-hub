@@ -1745,3 +1745,13 @@ test('calendar event POST preserves periods and gift rules and rejects an unconf
  const {connection}=makeConnection(remote,{showShipmentReview:async()=>({response:1})});assert.equal((await connection.createCalendarEntry(draft)).status,mismatch?'RESULT_UNKNOWN':'SAVED');assert.equal(sent.endDate,draft.endDate);assert.equal(sent.priority,'HIGH');assert.deepEqual(sent.giftTiers,draft.giftTiers);
  }
 });
+
+test('calendar editing uses UPDATE_ENTRY, checks the existing item, and locks unknown edits by id',async()=>{
+ const draft={id:'event',sourceMonth:'2026-09',title:'수정 행사',body:'',date:'2026-09-11',endDate:'2026-09-15',time:'',type:'EVENT',eventColor:'BLUE',giftTiers:[{minimumAmount:30000,giftName:'수정 차',quantity:2}]};
+ for(const mode of ['saved','missing','wrong-id']){let sent,posts=0;
+ const remote=makeRemoteSession(async(url,o)=>{if(o.method==='POST'){posts++;sent=JSON.parse(o.body);return Response.json({ok:true,entry:{...draft,id:mode==='wrong-id'?'other':'event'}});}return Response.json(url.includes('/api/calendar/entries?')?{ok:true,entries:mode==='missing'?[]:[{...draft,title:'이전 행사',status:'OPEN'}],range:{from:'2026-09-01',to:'2026-09-30'}}:makePagePayload());});
+ const {connection}=makeConnection(remote,{showShipmentReview:async()=>({response:1})});const result=await connection.createCalendarEntry(draft);assert.equal(result.status,mode==='saved'?'SAVED':mode==='missing'?'UNAVAILABLE':'RESULT_UNKNOWN');
+ if(mode!=='missing'){assert.equal(sent.action,'UPDATE_ENTRY');assert.equal(sent.id,'event');assert.equal(sent.sourceMonth,undefined);}else assert.equal(posts,0);
+ if(mode==='wrong-id'){assert.equal((await connection.createCalendarEntry({...draft,title:'재시도'})).status,'RESULT_UNKNOWN');assert.equal(posts,1);}
+ }
+});

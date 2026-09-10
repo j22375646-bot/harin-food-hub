@@ -36,8 +36,9 @@ function projectCalendar(payload,date,to=date,allowPartial=false){
 }
 function validGiftTiers(rows){return Array.isArray(rows)&&rows.length<=10&&new Set(rows.map(r=>r?.minimumAmount)).size===rows.length&&rows.every(r=>r&&Object.keys(r).every(k=>['minimumAmount','maximumAmount','giftName','quantity'].includes(k))&&Number.isInteger(r.minimumAmount)&&r.minimumAmount>=1&&r.minimumAmount<=100000000&&(r.maximumAmount==null||Number.isInteger(r.maximumAmount)&&r.maximumAmount>=r.minimumAmount&&r.maximumAmount<=100000000)&&typeof r.giftName==='string'&&r.giftName.trim().length>0&&r.giftName.length<=120&&Number.isInteger(r.quantity)&&r.quantity>=1&&r.quantity<=99);}
 function validCalendarDraft(v){
- if(!v||Object.getPrototypeOf(v)!==Object.prototype||!['title','body','date','time','type'].every(k=>Object.hasOwn(v,k))||Object.keys(v).some(k=>!['title','body','date','time','type','endDate','eventColor','giftTiers'].includes(k)))return false;
+ if(!v||Object.getPrototypeOf(v)!==Object.prototype||!['title','body','date','time','type'].every(k=>Object.hasOwn(v,k))||Object.keys(v).some(k=>!['title','body','date','time','type','endDate','eventColor','giftTiers','id','sourceMonth'].includes(k)))return false;
  if(typeof v.title!=='string'||!v.title.trim()||v.title.length>160||typeof v.body!=='string'||v.body.length>(v.type==='EVENT'?2000:4000)||!validDate(v.date)||!/^20/.test(v.date)||typeof v.time!=='string'||v.time&&!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(v.time)||!['SCHEDULE','MEMO','EVENT'].includes(v.type))return false;
+ if(v.id!==undefined&&(typeof v.id!=='string'||!/^[a-zA-Z0-9-]{1,128}$/.test(v.id)||!monthRange(v.sourceMonth))||v.id===undefined&&v.sourceMonth!==undefined)return false;
  const end=v.endDate||v.date;if(!validDate(end)||end<v.date||!/^20/.test(end)||(Date.parse(end)-Date.parse(v.date))/86400000>366||v.type==='MEMO'&&end!==v.date)return false;
  return v.type==='EVENT'?['BLUE','CORAL','MINT','VIOLET','AMBER'].includes(v.eventColor)&&validGiftTiers(v.giftTiers):v.eventColor===undefined&&v.giftTiers===undefined;
 }

@@ -20,7 +20,7 @@ async function main(){
     if(url.includes('/api/cafe24/orders/delivery-detail'))return Response.json({ok:true,receiver:{name:'TEST',address:'TEST',postCode:'12345',contact:'01012345678'}});
     globalThis.toolReads++;
     const base={platform:'CAFE24',fulfillment:'SELLER',stage:'PAID',quantity:1,externalOrderId:'TEST',shippingHistoryStatus:'READY'};
-    const orders=[{...base,hubOrderId:'HR-C24-00000001',productName:'낮은 금액',amount:1000,items:[{name:'차',option:'30T 1상자',quantity:1,imageUrl:'https://shop-phinf.pstatic.net/product/tea.png'}],giftRequired:true,gifts:[{giftName:'보리차',quantity:2}],listDeliveryBadge:{status:'RESERVED',source:'EPOST'}},
+    const orders=[{...base,hubOrderId:'HR-C24-00000001',productName:'낮은 금액',amount:1000,items:[{name:'차',option:'30T 1상자',quantity:1,imageUrl:'https://shop-phinf.pstatic.net/product/tea.png'}],orderedAt:'2026-09-11T14:59:00+09:00',timingBadge:{type:'SAME_DAY'},shippingEstimate:{confidence:'READY',plannedShipDate:'2026-09-11'},giftRequired:true,gifts:[{giftName:'보리차',quantity:2}],listDeliveryBadge:{status:'RESERVED',source:'EPOST'}},
      {...base,hubOrderId:'HR-C24-00000002',productName:'미확인 금액',amount:null},
      {...base,hubOrderId:'HR-C24-00000003',productName:'높은 금액',amount:30000},
      {...base,hubOrderId:'NAVER-TEST',productName:'네이버 상품',platform:'NAVER',amount:20000}];
@@ -31,10 +31,11 @@ async function main(){
   });
   await page.evaluate(()=>runHubAction('disconnect'));
   await page.evaluate(()=>runHubAction('viewActive'));await page.evaluate(()=>{showRoute('orders');const note=document.createElement('p');note.textContent='주문 UI 검증 · 가상 주문 · 발급/출고 실행 없음';document.querySelector('.orders-page .page-heading').append(note);});
+  assert.equal(await page.locator('.gift-badge').first().evaluate(e=>getComputedStyle(e).fontSize),'14px');assert.match(await page.locator('.gift-badge').first().innerText(),/보리차 2개/);assert.equal(await page.locator('.order-primary').first().innerText().then(t=>t.includes('HR-C24')),false);assert.match(await page.locator('.shipping-timing-badge').first().innerText(),/당일배송 대상/);
   const visualRow=page.locator('.order-row').filter({hasText:'낮은 금액'});
   await visualRow.locator('img').waitFor({timeout:6000});
   await page.waitForFunction(()=>document.querySelector('.order-row img')?.naturalWidth>0);
-  assert.equal(await visualRow.locator('.gift-badge').innerText(),'사은품 동봉');
+  assert.equal(await visualRow.locator('.gift-badge').innerText(),'사은품 · 보리차 2개');
   assert.equal(await visualRow.locator('.delivery-badge').innerText(),'예약');
   await visualRow.click();
   assert.equal(await page.locator('.detail-header').evaluate(el=>getComputedStyle(el).position),'sticky');assert.ok(await page.locator('.detail-header button').evaluate(el=>el.getBoundingClientRect().height>=42));await page.waitForTimeout(500);await page.screenshot({path:path.join(os.tmpdir(),'moaon-order-design-detail.png')});
