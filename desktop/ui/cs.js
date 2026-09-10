@@ -76,5 +76,6 @@
  $('cs-prev').onclick=()=>{if(pageIndex>0){pageIndex--;selected=null;render();}};$('cs-next').onclick=()=>{pageIndex++;selected=null;render();};
  for(const id of ['cs-platform','cs-kind','cs-sort','cs-content-filter'])$(id).addEventListener('change',filter);$('cs-search').addEventListener('input',filter);$('cs-refresh').onclick=refresh;
  $('cs-detail').addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();close();}});
- window.moaonCs=Object.freeze({clear,ensure:()=>{render();if(!value&&!busy)void refresh();}});clear();
+ // Re-entry preserves the rendered view; data and filter changes render at their source.
+ window.moaonCs=Object.freeze({clear,ensure:()=>{if(!value&&!busy)void refresh();}});clear();
 })();

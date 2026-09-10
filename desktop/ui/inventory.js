@@ -78,5 +78,6 @@
  $('inventory-next').onclick=()=>{pageIndex++;selected=null;render();};
  for(const id of ['inventory-platform','inventory-state','inventory-sort'])$(id).addEventListener('change',filter);$('inventory-search').addEventListener('input',filter);$('inventory-refresh').onclick=refresh;
  $('inventory-detail').addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();close();}});
- window.moaonInventory=Object.freeze({clear,ensure:()=>{render();if(!value&&!busy)void refresh();}});clear();
+ // Re-entry preserves the rendered view; data and filter changes render at their source.
+ window.moaonInventory=Object.freeze({clear,ensure:()=>{if(!value&&!busy)void refresh();}});clear();
 })();
