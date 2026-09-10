@@ -53,6 +53,7 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   inspectPrinters: () => ipcRenderer.invoke('moaon-hub:inspect-printers'),
   previewLabel: (id) => ipcRenderer.invoke('moaon-hub:preview-label',id),
   previewLabels: (ids) => ipcRenderer.invoke('moaon-hub:preview-labels',ids),
+  previewStockReceipts: input => ipcRenderer.invoke('moaon-hub:preview-stock-receipts',input),
   previewWorklist,
   exportSelectedCsv: (ids) => ipcRenderer.invoke('moaon-hub:export-selected-csv',ids),
   issueShipment: (id) => ipcRenderer.invoke('moaon-hub:issue-shipment',id),

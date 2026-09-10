@@ -288,7 +288,7 @@ function createHubConnection({
   shipmentDirectory = null,
   labelPreview = null,
   selectedDocuments = null,
-  worklistPreview = null,
+  worklistPreview = null, stockReceiptPreview = null,
   saveOrderExport = null,
   automaticPollDelayMs = 1000,
   automaticTimeoutMs = 60000,
@@ -613,6 +613,11 @@ function createHubConnection({
   let stockBusy=false,stockPermit=null;
   async function stockRequest(input){if(stockBusy||disconnecting||cleanupFailed||isLoginWindowActive())return {status:'ERROR',message:'연결 상태를 확인하거나 진행 중인 작업을 기다려 주세요.'};const expected=generation;stockBusy=true;stockPermit={url:STOCK_URL,method:input?'POST':'GET'};try{const result=await createStockTransport({fetch:(...args)=>getRemoteSession().fetch(...args)})(input);return expected===generation?result:{status:'ERROR',message:'사업장 연결이 변경되었습니다. 다시 조회하세요.'};}finally{stockBusy=false;stockPermit=null;}}
   const readStock=()=>stockRequest();const saveStock=input=>{if(!input||typeof input!=='object'||JSON.stringify(input).length>12000)throw Error('Invalid stock input');return stockRequest(input);};
+  async function previewStockReceipts(input){
+    const {validRequest,documentFor}=require('./stock-receipt-preview.cjs');if(!validRequest(input))throw Error('Invalid receipt arguments');
+    const expected=generation;const result=await readStock();if(result.status!=='READY'||expected!==generation)return {status:'DOCUMENT_UNAVAILABLE'};
+    try{const snapshot=documentFor(result.value,input);return await stockReceiptPreview?.open({rows:result.value,input,validate:async()=>{if(expected!==generation)return false;const latest=await readStock();return expected===generation&&latest.status==='READY'&&documentFor(latest.value,input)===snapshot;}})||{status:'DOCUMENT_UNAVAILABLE'};}catch{return {status:'DOCUMENT_UNAVAILABLE'};}
+  }
   function readInventory(){
     const empty=status=>({status,items:[],generatedAt:null,truncated:false});
     if(disconnecting||cleanupFailed)return Promise.resolve(empty('DISCONNECTED'));
@@ -662,7 +667,7 @@ function createHubConnection({
     registrationController?.abort();
     for(const controller of businessReads)controller.abort();
     labelPreview?.close();
-    worklistPreview?.close();
+    worklistPreview?.close();stockReceiptPreview?.close();
     for(const controller of shipmentAuthReads)controller.abort();
     const old=shipmentRegistry;shipmentRegistry=null;
     shipmentPermits.clear();
@@ -1690,7 +1695,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-return Object.freeze({ readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+return Object.freeze({ previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1776,6 +1781,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     ['moaon-hub:read-finance', 'readFinance'],
     ['moaon-hub:read-settlement', 'readSettlement'],
     ['moaon-hub:read-insights', 'readInsights'],
+    ['moaon-hub:preview-stock-receipts', 'previewStockReceipts'],
     ['moaon-hub:read-stock', 'readStock'],
     ['moaon-hub:save-stock', 'saveStock'],
     ['moaon-hub:read-inventory', 'readInventory'],
@@ -1798,6 +1804,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
   for (const [channel, method] of methods) {
     ipcMain.handle(channel, async (event, ...args) => {
       if (!isTrustedRenderer(event, getMainWindow())) throw new Error('Untrusted renderer');
+      if(method==='previewStockReceipts'){if(args.length!==1||!require('./stock-receipt-preview.cjs').validRequest(args[0]))throw Error('Invalid receipt arguments');return connection.previewStockReceipts(args[0]);}
       if(method==='saveStock'){if(args.length!==1)throw Error('Arguments are not allowed');return connection.saveStock(args[0]);}
       if(method==='createCalendarEntry'){if(args.length!==1||!require('./today-calendar.cjs').validCalendarDraft(args[0]))throw Error('Arguments are not allowed');return connection.createCalendarEntry(args[0]);}
       if(method==='readCalendarMonth'){

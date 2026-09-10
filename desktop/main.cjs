@@ -186,6 +186,7 @@ if (!hasSingleInstanceLock) {
     }
     hubConnection = createHubConnection({
       labelPreview: createLabelPreview({BrowserWindow,Menu,dialog,getParent:()=>mainWindow}),
+      stockReceiptPreview: require('./stock-receipt-preview.cjs').createStockReceiptPreview({BrowserWindow,Menu,getParent:()=>mainWindow}),
       worklistPreview: createWorklistPreview({BrowserWindow,Menu,dialog,getParent:()=>mainWindow}),
       selectedDocuments: createSelectedDocuments({dialog,getParent:()=>mainWindow,writeFile:(...args)=>fs.writeFile(...args)}),
       shipmentDirectory: path.join(app.getPath('userData'),'shipments'),
