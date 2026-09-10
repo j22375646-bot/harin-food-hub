@@ -1,0 +1,9 @@
+{
+  "url": "https://downloads.example.com/moaon/stable/",
+  "publisherName": "REPLACE_WITH_VERIFIED_PUBLISHER",
+  "azureSignOptions": {
+    "endpoint": "https://krc.codesigning.azure.net",
+    "codeSigningAccountName": "REPLACE_WITH_ACCOUNT_NAME",
+    "certificateProfileName": "REPLACE_WITH_PUBLIC_TRUST_PROFILE"
+  }
+}

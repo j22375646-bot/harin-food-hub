@@ -1,0 +1,8 @@
+'use strict';
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const {releaseConfig}=require('../scripts/prepare-distribution.cjs');
+const source=require('../package.json');
+test('manual installer has no update feed and preserves application data',()=>{const p=releaseConfig(source,null);assert.equal(p.build.publish,null);assert.equal(p.build.nsis.deleteAppDataOnUninstall,false);assert.equal(p.build.nsis.shortcutName,'모아온');assert.equal(p.build.artifactName,'Moaon-${version}-Setup.${ext}');});
+test('automatic distribution requires HTTPS, publisher, metadata and mandatory signing',()=>{for(const c of [{url:'http://example.com',publisherName:'Test'},{url:'https://x:y@example.com',publisherName:'Test'},{url:'https://example.com'}])assert.throws(()=>releaseConfig(source,c));const p=releaseConfig(source,{url:'https://example.com/releases',publisherName:'Test'});assert.equal(p.build.forceCodeSigning,true);assert.equal(p.build.win.verifyUpdateCodeSignature,true);assert.equal(p.build.win.signAndEditExecutable,true);assert.deepEqual(p.build.win.signtoolOptions.publisherName,['Test']);assert.equal(p.build.publish.provider,'generic');assert.equal(source.build.publish,null);});
+
+test('generated manual and signing configurations match the installed builder schema',async()=>{const {validateSchema}=require('app-builder-lib/out/util/config/schemaValidator.js');for(const channel of [null,{url:'https://example.com/releases',publisherName:'Test'},{url:'https://example.com/releases',publisherName:'Test',azureSignOptions:{endpoint:'https://krc.codesigning.azure.net',codeSigningAccountName:'test',certificateProfileName:'test'}}])validateSchema(require('app-builder-lib/scheme.json'),releaseConfig(source,channel).build);});

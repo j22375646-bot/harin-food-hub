@@ -54,7 +54,7 @@ function createAppUpdates({updater=null,currentVersion,gate,isBusy=()=>false,sch
 }
 function startAutomaticUpdates({updates,setTimer=setTimeout,clearTimer=clearTimeout,initialDelay=10000,interval=6*60*60*1000}){
  let stopped=false,timer;
- const plan=delay=>{timer=setTimer(async()=>{try{const state=await updates.check();if(!stopped&&state.status==='AVAILABLE')await updates.download();}catch{}finally{if(!stopped)plan(interval);}},delay);timer?.unref?.();};
+ const plan=delay=>{timer=setTimer(async()=>{try{await updates.check();}catch{}finally{if(!stopped)plan(interval);}},delay);timer?.unref?.();};
  plan(initialDelay);return ()=>{stopped=true;clearTimer(timer);};
 }
 function registerAppUpdates({ipcMain,getMainWindow,isTrustedRenderer,updates}){
