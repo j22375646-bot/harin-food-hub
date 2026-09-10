@@ -1755,3 +1755,21 @@ test('calendar editing uses UPDATE_ENTRY, checks the existing item, and locks un
  if(mode==='wrong-id'){assert.equal((await connection.createCalendarEntry({...draft,title:'재시도'})).status,'RESULT_UNKNOWN');assert.equal(posts,1);}
  }
 });
+
+test('postal codes project across Naver, Coupang and Cafe24 without leaking raw fields',async()=>{
+ for(const [platform,prefix,key,postcode] of [['NAVER','NV','zipCode','02560'],['COUPANG','CP','postCode','12345'],['CAFE24','C24','zipcode','06234']]){
+  const order={...reviewOrder(),platform,hubOrderId:'HR-'+prefix+'-1234ABCD',receiver:{name:'가상',address:'서울특별시 가상로 1',contact:'01012345678',[key]:postcode,privateToken:'SECRET'}};
+  const {connection}=makeConnection(makeRemoteSession(async()=>Response.json(makePagePayload({orders:[order]}))));const result=await connection.refresh();assert.equal(result.orders[0].details.receiver.postCode,postcode);assert.equal(JSON.stringify(result).includes('SECRET'),false);
+ }
+});
+test('Naver structured address prefix restores postcode but other numeric text is never guessed',async()=>{
+ for(const [platform,address,expected] of [['NAVER','28780 충청북도 가상시 가상로 1','28780'],['NAVER','02560 서울특별시 가상로 2','02560'],['NAVER','12345 unknown address',''],['CAFE24','28780 충청북도 가상로 1','']]){
+  const order={...reviewOrder(),platform,hubOrderId:platform==='NAVER'?'HR-NV-1234ABCD':'HR-C24-1234ABCD',receiver:{name:'가상',contact:'01012345678',address}};const {connection}=makeConnection(makeRemoteSession(async()=>Response.json(makePagePayload({orders:[order]}))));const receiver=(await connection.refresh()).orders[0].details.receiver;assert.equal(receiver.postCode,expected);if(expected)assert.equal(receiver.address.startsWith(expected),false);
+ }
+});
+test('missing postcode forces Cafe24 and Coupang detail reads even when name and address exist',async()=>{
+ for(const platform of ['CAFE24','COUPANG']){let calls=0;const order={...reviewOrder(),platform,shipmentId:'123456789',hubOrderId:platform==='CAFE24'?'HR-C24-1234ABCD':'HR-CP-1234ABCD',receiver:{name:'가상',address:'서울특별시 가상로 1',contact:'01012345678'}};
+ const {connection}=makeConnection(makeRemoteSession(async(url)=>{if(url.includes('/delivery-detail?')){calls++;return Response.json({ok:true,receiver:{...order.receiver,zip_code:'01234'}});}if(url.includes('/orders/detail?')){calls++;return Response.json({ok:true,request:{id:'12345678-1234-4123-8123-123456789abc'}},{status:202});}if(url.includes('/operations/'))return Response.json({ok:true,order:{shipmentBoxId:'123456789',receiver:{...order.receiver,safeNumber:'05012345678',postCode:'01234'}}});return Response.json(makePagePayload({orders:[order]}));}));
+ await connection.refresh();const result=await connection.readDelivery(order.hubOrderId);assert.equal(result.status,'READY');assert.equal(result.receiver.postCode,'01234');assert.equal(calls,1);
+ }
+});

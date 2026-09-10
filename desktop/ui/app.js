@@ -407,7 +407,7 @@ function showOrderDetail(order, button, options = {}) {
     const fields=makeElement('dl','detail-facts');
     for(const [label,value] of [['받는 분',receiver.name],['연락처',receiver.contact],['우편번호',receiver.postCode],['주소',[receiver.address,receiver.addressDetail].filter(Boolean).join(' ')],['배송 메모',receiver.message||'배송 메모 없음']])fields.append(makeElement('dt','',label),makeElement('dd','',value||'확인 필요'));
     delivery.append(fields);body.append(delivery);
-    const hasRequiredDelivery=value=>['name','address','contact','postCode'].every(key=>typeof value?.[key]==='string'&&value[key].trim().length>0);
+    const hasRequiredDelivery=value=>['name','address','contact'].every(key=>typeof value?.[key]==='string'&&value[key].trim().length>0)&&/^\d{5}$/.test(value?.postCode||'');
     if(!hasRequiredDelivery(receiver)&&['CAFE24','COUPANG'].includes(order.platform)&&window.moaonHub?.readDelivery){
       const state=makeElement('p','detail-notice','배송정보 불러오는 중…');delivery.append(state);
       state.setAttribute('role','status');
@@ -695,8 +695,8 @@ function createOrderRow(order) {
     button.append(status);
     const invoice=order.details?.invoice;
     if(invoice&&/^\d{13}$/.test(invoice.number||'')){const tag=makeElement('span','order-invoice',invoice.status==='REGISTERED'?'송장 등록 완료':'발급 완료 · 등록 필요');tag.append(makeElement('code','',invoice.number));primary.append(tag);}
-    const option=order.details?.items?.[0]?.option;
-    if(option)primary.append(makeElement('small','product-option',option));
+    const items=order.details?.items||[],option=items[0]?.option;
+    primary.append(makeElement('small','product-option','옵션: '+(option||'정보 없음')+(items.length>1?' 외 '+(items.length-1)+'종':'')+' · 수량 '+formatNumber(order.quantity,'개')));
     const gift=giftBadge(order);if(gift)primary.append(gift);const timing=timingBadge(order);if(timing)primary.append(timing);
     amount.append(makeElement('strong', '', formatNumber(order.amount, '원')));
   }

@@ -31,15 +31,15 @@ async function main(){
   });
   await page.evaluate(()=>runHubAction('disconnect'));
   await page.evaluate(()=>runHubAction('viewActive'));await page.evaluate(()=>{showRoute('orders');const note=document.createElement('p');note.textContent='주문 UI 검증 · 가상 주문 · 발급/출고 실행 없음';document.querySelector('.orders-page .page-heading').append(note);});
-  assert.equal(await page.locator('.gift-badge').first().evaluate(e=>getComputedStyle(e).fontSize),'14px');assert.match(await page.locator('.gift-badge').first().innerText(),/보리차 2개/);assert.equal(await page.locator('.order-primary').first().innerText().then(t=>t.includes('HR-C24')),false);assert.match(await page.locator('.shipping-timing-badge').first().innerText(),/당일배송 대상/);
+  assert.equal(await page.locator('.gift-badge').first().evaluate(e=>getComputedStyle(e).fontSize),'14px');assert.match(await page.locator('.gift-badge').first().innerText(),/보리차 2개/);assert.equal(await page.locator('.order-primary').first().innerText().then(t=>t.includes('HR-C24')),false);assert.match(await page.locator('.shipping-timing-badge').first().innerText(),/당일출고/);
   const visualRow=page.locator('.order-row').filter({hasText:'낮은 금액'});
   await visualRow.locator('img').waitFor({timeout:6000});
   await page.waitForFunction(()=>document.querySelector('.order-row img')?.naturalWidth>0);
   assert.equal(await visualRow.locator('.gift-badge').innerText(),'사은품 · 보리차 2개');
   assert.equal(await visualRow.locator('.delivery-badge').innerText(),'예약');
-  await visualRow.click();
+  assert.match(await visualRow.locator('.product-option').innerText(),/옵션: 30T 1상자 · 수량 1개/);assert.equal(await visualRow.locator('.product-thumbnail').evaluate(e=>e.getBoundingClientRect().width),64);await visualRow.click();
   assert.equal(await page.locator('.detail-header').evaluate(el=>getComputedStyle(el).position),'sticky');assert.ok(await page.locator('.detail-header button').evaluate(el=>el.getBoundingClientRect().height>=42));await page.waitForTimeout(500);await page.screenshot({path:path.join(os.tmpdir(),'moaon-order-design-detail.png')});
-  assert.match(await page.locator('.detail-body').innerText(),/보리차/);
+  assert.equal(await page.locator('.order-refresh-link').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(238, 240, 255)');assert.match(await page.locator('.detail-body').innerText(),/보리차/);
   assert.match(await page.locator('.detail-body').innerText(),/2개 · 조회 시점/);
   await visualRow.locator('img').evaluate(img=>img.dispatchEvent(new Event('error')));
   assert.equal(await visualRow.locator('.product-thumbnail').innerText(),'이미지 확인');

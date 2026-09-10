@@ -85,12 +85,19 @@ function safeFiniteNumber(value) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function projectReceiver(order){
+ const raw=order?.receiver||{},result=Object.fromEntries(['name','contact','postCode','address','addressDetail','message'].map(key=>[key,safeString(raw[key]).trim()]));
+ result.postCode=['postCode','zipCode','zipcode','zip_code','post_code','postalCode','postal_code'].map(key=>safeString(raw[key]).trim()).find(value=>/^\d{5}$/.test(value))||'';
+ // Naver sync explicitly stores zipCode + baseAddress + detailedAddress in this field.
+ if(order?.platform==='NAVER'&&!result.postCode){const match=result.address.match(/^(\d{5})\s+((?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충청|충북|충남|전라|전북|전남|경상|경북|경남|제주)[\s\S]*)$/);if(match){result.postCode=match[1];result.address=match[2];}}
+ return Object.freeze(result);
+}
 function projectOrderDetails(order) {
   const invoice = order?.invoice;
   const delivery = order?.listDeliveryBadge;
   return Object.freeze({
     externalOrderId: safeString(order?.externalOrderId),
-    receiver: Object.freeze(Object.fromEntries(['name','contact','postCode','address','addressDetail','message'].map(key=>[key,safeString(order?.receiver?.[key])]))),
+    receiver: projectReceiver(order),
     items: Object.freeze((Array.isArray(order?.items) ? order.items.slice(0, 8) : []).map(item => Object.freeze({
       name: safeString(item?.name),
       option: safeString(item?.option),
@@ -414,7 +421,7 @@ function createHubConnection({
   async function performReadDelivery(id){
     const row=loadedOrders.find(order=>order.hubOrderId===id);
     if(disconnecting||cleanupFailed||!row)return {status:'UNAVAILABLE'};
-    if(row.details.receiver.name&&row.details.receiver.address)return {status:'READY',receiver:row.details.receiver};
+    if(row.details.receiver.name&&row.details.receiver.address&&row.details.receiver.contact&&/^\d{5}$/.test(row.details.receiver.postCode))return {status:'READY',receiver:row.details.receiver};
     const shipmentId=deliveryTargets.get(row);
     const coupang=row.platform==='COUPANG'&&/^HR-CP-[A-F0-9]{8}$/.test(id)&&shipmentId;
     if(!coupang&&(row.platform!=='CAFE24'||!/^HR-C24-[A-F0-9]{8}$/.test(id)||!/^[-A-Za-z0-9_]{1,80}$/.test(row.details.externalOrderId)))return {status:'CHECK_REQUIRED'};

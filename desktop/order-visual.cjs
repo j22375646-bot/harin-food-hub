@@ -30,11 +30,11 @@ function projectTiming(order){
  if(!source||!['DELAYED','SAME_DAY','SAME_DAY_PARTIAL','CHECK_REQUIRED','SCHEDULED'].includes(source.type))return null;
  const known=estimate?.confidence==='READY',day=estimate?.plannedShipDate;
  let type=source.type,label;
- if(type==='DELAYED'){const parsed=new Date(order.orderedAt);const local=Number.isFinite(parsed.getTime())?new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).format(parsed):'';const cutoffConflict=local&&local.slice(0,10)===day&&Number(local.slice(-2))>=15;if(!known||cutoffConflict){type='CHECK_REQUIRED';label='출고일 확인';}else label='배송지연';}
- else if(type==='SAME_DAY'){
+ if(type==='DELAYED'){const parsed=new Date(order.orderedAt);const local=Number.isFinite(parsed.getTime())?new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).format(parsed):'';const cutoffConflict=local&&local.slice(0,10)===day&&Number(local.slice(-2))>=15;if(!known||cutoffConflict){type='CHECK_REQUIRED';label=known?'출고 기준 확인':'출고 지연 확인';}else label='배송지연';}
+ else if(type==='SAME_DAY'||type==='SAME_DAY_PARTIAL'){
   const date=new Date(order.orderedAt);const parts=Number.isFinite(date.getTime())?Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(date).map(p=>[p.type,p.value])):null;
   const before=parts&&Number(parts.hour)<15,orderedDay=parts?parts.year+'-'+parts.month+'-'+parts.day:null;
-  label=known&&before&&day===orderedDay?'당일배송 대상':'오늘 배송출발 예정';if(!known||!parts||day===orderedDay&&!before){type='CHECK_REQUIRED';label='출고일 확인';}
- }else label=({SAME_DAY_PARTIAL:'출고일 확인',CHECK_REQUIRED:'출고일 확인',SCHEDULED:'배송출발 예정'})[type];
+  label=before&&day===orderedDay?(known?'당일출고':'당일출고 예정'):'오늘 출고 예정';if(!parts||day===orderedDay&&!before){type='CHECK_REQUIRED';label='출고 기준 확인';}
+ }else label=({SAME_DAY_PARTIAL:'당일출고 예정',CHECK_REQUIRED:estimate?.status==='OVERDUE'?'출고 지연 확인':'출고 기준 확인',SCHEDULED:'배송출발 예정'})[type];
  return Object.freeze({type,label,detail:(typeof source.detail==='string'?source.detail.slice(0,240):'출고 기준 확인 필요')+' · 당일배송은 15시 이전 주문의 당일 배송 출발 기준입니다. 송장 등록만으로 출발을 확정하지 않습니다.'});
 }

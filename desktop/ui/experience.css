@@ -246,3 +246,15 @@ html[data-theme=dark] .shipping-timing-badge[data-timing=DELAYED]{background:#41
 .orders-page .order-primary .shipping-timing-badge[data-timing=DELAYED]{color:#ad3443}
 .orders-page .order-primary .shipping-timing-badge[data-timing=CHECK_REQUIRED],.orders-page .order-primary .shipping-timing-badge[data-timing=SCHEDULED]{color:var(--muted)}
 html[data-theme=dark] .orders-page .order-primary .shipping-timing-badge[data-timing=DELAYED]{color:#ffb5bc}
+/* Order content hierarchy: image, option/quantity, operational badges. */
+.orders-page .orders-layout{--order-grid-columns:64px minmax(0,1fr) 80px 108px 92px}
+.orders-page .order-row>.product-thumbnail{width:64px;height:64px;border-radius:10px}
+.orders-page .order-row{min-height:104px;padding-block:14px}
+.orders-page .product-option{display:block;font-size:14px;line-height:1.6;color:var(--ink);margin-top:5px;white-space:normal;overflow-wrap:anywhere}
+.orders-page .detail-product>.product-thumbnail{width:72px;height:72px;border:1px solid var(--line);border-radius:12px}
+.orders-page .detail-more>summary{font-size:15px;font-weight:650;color:var(--ink);padding:8px 0;line-height:1.6}
+.orders-page .detail-more>summary::marker{color:var(--blue)}
+.orders-page .detail-panel .review-actions .order-refresh-link{display:flex;justify-content:center;align-items:center;gap:8px;min-height:44px;width:100%;padding:10px 14px;font-size:15px;font-weight:650;border:1px solid var(--line-strong);border-radius:10px;background:var(--blue-soft);color:var(--blue);margin-top:10px}
+.orders-page .order-refresh-link:hover{border-color:var(--blue)!important;filter:brightness(.98)}
+.orders-page .shipping-timing-badge[data-timing=SAME_DAY_PARTIAL]{background:var(--blue-soft);color:var(--blue)}
+@container(max-width:700px){.orders-page .order-row{grid-template-columns:64px minmax(0,1fr) auto!important}.orders-page .order-row>.product-thumbnail{grid-row:1/4;align-self:start}}
