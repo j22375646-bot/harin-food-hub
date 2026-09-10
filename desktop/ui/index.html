@@ -60,20 +60,20 @@
 
         <nav class="primary-nav" aria-label="모아온 Preview 메뉴">
           <button class="nav-button is-active" type="button" data-route="today" aria-label="오늘" aria-current="page">
-            <span class="nav-icon" aria-hidden="true">⌂</span>
+            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9"/></svg></span>
             <span><strong>오늘</strong><small>업무 시작</small></span>
           </button>
           <button class="nav-button" type="button" data-route="orders" aria-label="주문·배송">
-            <span class="nav-icon" aria-hidden="true">▤</span>
+            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v16H4zM8 3v4m8-4v4M8 11h8m-8 4h5"/></svg></span>
             <span><strong>주문·배송</strong><small id="orders-nav-detail">샘플 주문 3건</small></span>
           </button>
-<button class="nav-button" type="button" data-route="settlement" aria-label="운영·정산"><span class="nav-icon" aria-hidden="true">₩</span><span><strong>운영·정산</strong></span></button>
-<button class="nav-button" type="button" data-route="insights" aria-label="분석·인사이트"><span class="nav-icon" aria-hidden="true">◈</span><span><strong>분석</strong></span></button>
-<button class="nav-button" type="button" data-route="calendar" aria-label="캘린더"><span class="nav-icon" aria-hidden="true">▦</span><span><strong>캘린더</strong></span></button>
-          <button class="nav-button" type="button" data-route="inventory" aria-label="재고·상품"><span class="nav-icon" aria-hidden="true">▦</span><span><strong>재고·상품</strong></span></button>
-          <button class="nav-button" type="button" data-route="cs" aria-label="고객·CS"><span class="nav-icon" aria-hidden="true">◎</span><span><strong>고객·CS</strong></span></button>
+<button class="nav-button" type="button" data-route="settlement" aria-label="운영·정산"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18v14H3zM3 10h18m-6 5h3M7 3h11"/></svg></span><span><strong>운영·정산</strong></span></button>
+<button class="nav-button" type="button" data-route="insights" aria-label="분석·인사이트"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v18h17M8 16l4-5 4 2 5-7"/></svg></span><span><strong>분석</strong></span></button>
+<button class="nav-button" type="button" data-route="calendar" aria-label="캘린더"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v16H4zM4 10h16M8 3v4m8-4v4M8 14h1m6 0h1m-8 3h1"/></svg></span><span><strong>캘린더</strong></span></button>
+          <button class="nav-button" type="button" data-route="inventory" aria-label="재고·상품"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m3 7 9-4 9 4v11l-9 4-9-4zm0 0 9 4 9-4M12 11v11M7 5l10 4"/></svg></span><span><strong>재고·상품</strong></span></button>
+          <button class="nav-button" type="button" data-route="cs" aria-label="고객·CS"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v13H9l-5 4zM8 8h8m-8 4h5"/></svg></span><span><strong>고객·CS</strong></span></button>
           <button class="nav-button" type="button" data-route="settings" aria-label="앱 설정">
-            <span class="nav-icon" aria-hidden="true">⚙</span>
+            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg></span>
             <span><strong>앱 설정</strong><small>화면과 버전</small></span>
           </button>
         </nav>
@@ -104,7 +104,7 @@
 
         <main id="main-content" tabindex="-1">
           <section class="page is-visible" data-page="today" aria-labelledby="today-title">
-            <header class="page-heading">
+            <header class="page-heading workspace-heading">
               <p class="context-line"><i aria-hidden="true"></i> <span id="today-context">Windows 시제품 · 샘플 모드</span></p>
               <h1 id="today-title" aria-label="오늘" tabindex="-1"><em id="today-title-mode" class="page-title-accent">지금 가능한 일</em><span id="today-title-tail">부터 확인하세요</span></h1>
               <p id="today-description">실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.</p>
@@ -179,7 +179,7 @@
           </section>
 
           <section class="page orders-page" data-page="orders" aria-labelledby="orders-title" hidden>
-            <header class="page-heading compact-heading">
+            <header class="page-heading compact-heading workspace-heading">
               <p class="context-line"><i aria-hidden="true"></i> <span id="orders-context">주문·배송 · 샘플 3건</span></p>
               <h1 id="orders-title" aria-label="주문 작업실" tabindex="-1"><span id="orders-title-mode">주문 작업실</span></h1>
               <p id="orders-description">검색하거나 주문을 선택해 우측 상세를 확인할 수 있습니다. 발급과 상태 변경은 없습니다.</p>
@@ -249,7 +249,7 @@
           </section>
 
           <section id="settlement-page" class="page settlement-page" data-page="settlement" aria-labelledby="settlement-title" hidden>
-            <header class="settlement-heading"><div><span class="eyebrow">SETTLEMENT</span><h1 id="settlement-title" tabindex="-1">운영·정산</h1><p>예상 지급과 확인된 지급을 채널별로 살펴보세요.</p></div><button id="settlement-refresh" type="button">새로 조회</button></header>
+            <header class="settlement-heading workspace-heading"><div><span class="eyebrow">SETTLEMENT</span><h1 id="settlement-title" tabindex="-1">운영·정산</h1><p>예상 지급과 확인된 지급을 채널별로 살펴보세요.</p></div><button id="settlement-refresh" type="button">새로 조회</button></header>
             <div class="settlement-periods" role="group" aria-label="정산 조회 기간"><button type="button" data-settlement-days="7" aria-pressed="false">7일</button><button type="button" data-settlement-days="30" aria-pressed="true">30일</button><button type="button" data-settlement-days="90" aria-pressed="false">90일</button></div>
             <p id="settlement-period"></p><p id="settlement-status" role="status"></p>
             <div id="settlement-summary" class="settlement-summary"></div>
@@ -263,7 +263,7 @@
             </aside></div>
           </section>
           <section id="insights-page" class="page insights-page" data-page="insights" aria-labelledby="insights-title" hidden>
-            <header class="insights-heading"><div><span class="eyebrow">NAVER / WEEKLY INSIGHTS</span><h1 id="insights-title" tabindex="-1">분석·인사이트</h1><p>네이버 광고의 변화와 판단 근거를 살펴보세요.</p></div><button id="insights-refresh" type="button">새로 조회</button></header>
+            <header class="insights-heading workspace-heading"><div><span class="eyebrow">NAVER / WEEKLY INSIGHTS</span><h1 id="insights-title" tabindex="-1">분석·인사이트</h1><p>네이버 광고의 변화와 판단 근거를 살펴보세요.</p></div><button id="insights-refresh" type="button">새로 조회</button></header>
             <p id="insights-status" role="status"></p><p id="insights-period"></p>
             <div id="insights-metrics" class="insights-metrics"></div><div id="insights-flow" class="insights-flow"></div>
             <ul id="insights-caveats" class="insights-caveats"></ul><h2 class="insights-reports-title">최근 보고서 목록 · 최대 20개</h2>
@@ -274,26 +274,26 @@
             </div>
           </section>
           <section id="month-page" class="page month-page" data-page="calendar" aria-labelledby="month-title" hidden>
-            <header class="month-heading"><div><span class="eyebrow">WORK CALENDAR</span><h1 id="month-title" tabindex="-1">업무 캘린더</h1><p>한 달의 일정과 오늘 할 일을 살펴보세요.</p></div><button id="month-refresh" type="button">새로 조회</button></header>
+            <header class="month-heading workspace-heading"><div><span class="eyebrow">WORK CALENDAR</span><h1 id="month-title" tabindex="-1">업무 캘린더</h1><p>한 달의 일정과 오늘 할 일을 살펴보세요.</p></div><button id="month-refresh" type="button">새로 조회</button></header>
             <div class="month-toolbar"><button id="month-prev" aria-label="이전 달">←</button><h2 id="month-label"></h2><button id="month-next" aria-label="다음 달">→</button><button id="month-today" type="button">이번 달</button></div>
             <p id="month-status" role="status"></p><div id="month-filters" class="month-filters" role="group" aria-label="일정 처리 상태"><button type="button" data-month-state="ALL" aria-pressed="true">전체</button><button type="button" data-month-state="OPEN" aria-pressed="false">진행 중</button><button type="button" data-month-state="DONE" aria-pressed="false">완료</button><span id="month-filter-count" role="status"></span></div><p class="month-filter-note">선택한 상태의 조회된 일정만 표시합니다. 여러 날 일정은 해당 날짜마다 나타납니다.</p><div class="month-workspace"><div><div class="month-weekdays"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div><div id="month-grid"></div></div><aside class="month-agenda"><h2 id="month-selected"></h2><div id="month-entries"></div><div id="month-detail"></div></aside></div>
           </section>
           <section class="page inventory-page" data-page="inventory" hidden>
- <header class="inventory-heading"><div><h1 tabindex="-1">재고·상품</h1><p>상품별 저장 수량과 갱신 상태를 채널별로 확인하세요.</p></div><button id="inventory-refresh" type="button">새로 조회</button></header>
+ <header class="inventory-heading workspace-heading"><div><h1 tabindex="-1">재고·상품</h1><p>상품별 저장 수량과 갱신 상태를 채널별로 확인하세요.</p></div><button id="inventory-refresh" type="button">새로 조회</button></header>
  <p id="inventory-status" role="status" aria-live="polite"></p>
  <div class="inventory-filters"><label>채널<select id="inventory-platform"><option value="ALL">전체 채널</option><option value="NAVER">네이버</option><option value="COUPANG">쿠팡</option><option value="CAFE24">Cafe24</option></select></label><label>재고 상태<select id="inventory-state"><option value="ALL">전체 상태</option><option value="CHECK">확인 필요 모아보기</option><option value="STOPPED">판매중단</option><option value="MULTIPLE">연결 검토 필요</option><option value="OUT_OF_STOCK">품절</option><option value="LOW">저재고</option><option value="STALE">갱신 필요</option><option value="UNKNOWN">수량 확인 필요</option><option value="MISSING">미연결</option><option value="REFERENCE">참고·재고관리 안 함</option><option value="HEALTHY">판매 가능 수량 있음</option></select></label><label>목록 순서<select id="inventory-sort"><option value="SOURCE">기본 순서</option><option value="NAME">상품명순</option><option value="CHECK">확인 필요 먼저</option></select></label><label class="inventory-search">상품 검색<input id="inventory-search" aria-describedby="inventory-search-help" type="search" maxlength="200" placeholder="상품명·연결 상품명·채널 연결 번호"></label><button id="inventory-reset" type="button">조건 초기화</button></div><details class="inventory-help"><summary>검색·확인 필요 기준</summary><p id="inventory-search-help" class="inventory-filter-help">검색은 이번에 조회된 상품명·상품 번호·연결 상품명·채널 연결 번호를 대상으로 합니다. 중복 연결 후보는 표시된 자료 안에서 검색합니다.</p><p class="inventory-filter-help">확인 필요는 선택한 채널의 품절·저재고·자료 갱신·수량 누락·미연결·판매중단·중복 연결 기준입니다.</p></details>
  <div id="inventory-summary" class="inventory-summary" role="group" aria-label="검색어와 선택 채널 기준 상품 상태"></div><p class="inventory-filter-help">상태 건수는 검색어와 선택 채널 기준이며, 같은 상품이 여러 상태에 포함될 수 있습니다.</p><div class="inventory-pagination"><p id="inventory-count"></p><nav aria-label="상품 목록 페이지"><button id="inventory-prev" type="button">이전</button><span id="inventory-page-label" role="status"></span><button id="inventory-next" type="button">다음</button></nav></div><div class="inventory-workspace"><div id="inventory-list"></div><aside id="inventory-detail" hidden aria-label="상품 재고 상세"></aside></div>
  <p class="inventory-note">채널 재고는 합산하지 않습니다. 쿠팡 판매자배송과 로켓그로스도 별도로 확인하세요. 6시간 이상 지난 자료는 갱신이 필요합니다. 재고 수정·상품 연결 변경은 아직 지원하지 않습니다.</p>
 </section>
 <section class="page cs-page" data-page="cs" hidden>
-            <header class="cs-heading"><div><h1 tabindex="-1">고객·CS</h1><p>저장된 미처리 문의와 취소·반품·교환을 확인하세요.</p></div><button id="cs-refresh" type="button">새로 조회</button></header>
+            <header class="cs-heading workspace-heading"><div><h1 tabindex="-1">고객·CS</h1><p>저장된 미처리 문의와 취소·반품·교환을 확인하세요.</p></div><button id="cs-refresh" type="button">새로 조회</button></header>
             <p id="cs-status" role="status" aria-live="polite"></p>
             <div class="cs-filters"><label>채널<select id="cs-platform"><option value="ALL">전체 채널</option><option value="NAVER">네이버</option><option value="COUPANG">쿠팡</option><option value="CAFE24">Cafe24</option></select></label><label>유형<select id="cs-kind"><option value="ALL">전체 유형</option><option value="INQUIRY">문의</option><option value="CANCEL">취소</option><option value="RETURN">반품</option><option value="EXCHANGE">교환</option></select></label><label>접수 순서<select id="cs-sort"><option value="NEWEST">최근 접수부터</option><option value="OLDEST">오래된 접수부터</option></select></label><label>내용 상태<select id="cs-content-filter"><option value="ALL">전체 내용 상태</option><option value="READY">내용 조회됨</option><option value="PARTIAL">일부 내용만 있음</option><option value="MISSING">저장 내용 확인 필요</option><option value="ERROR">내용 복원 실패</option><option value="LEGACY">본문 연결 대기</option></select></label><label class="cs-search">접수 내용 검색<input aria-describedby="cs-search-scope" id="cs-search" type="search" maxlength="240" placeholder="접수 번호·제목·본문·이력"></label><button id="cs-reset" type="button">조건 초기화</button></div>
             <div id="cs-kind-summary" role="group" aria-label="조회된 접수 유형별 빠른 선택"></div><p class="cs-search-help">유형 건수는 조회된 자료에 채널·검색어·내용 상태 조건을 적용한 결과입니다.</p><p id="cs-search-scope" class="cs-search-help" role="status"></p><p id="cs-content-summary" class="cs-search-help" hidden></p><div class="cs-pagination"><p id="cs-count"></p><nav aria-label="고객 CS 목록 페이지"><button id="cs-prev" type="button">이전</button><span id="cs-page-label" role="status"></span><button id="cs-next" type="button">다음</button></nav></div><div class="cs-workspace"><div id="cs-list"></div><aside id="cs-detail" hidden aria-label="접수 상세"></aside></div>
             <p class="cs-note">저장 자료 기준입니다. 본문과 이력은 저장된 조회 범위만 표시합니다. 답변 전송·처리 승인은 아직 연결하지 않았습니다. 채널별 원본은 구분해 표시합니다.</p>
           </section>
           <section class="page settings-page" data-page="settings" aria-labelledby="settings-title" hidden>
-            <header class="page-heading compact-heading">
+            <header class="page-heading compact-heading workspace-heading">
               <p class="context-line"><i aria-hidden="true"></i> 이 PC · 화면 설정</p>
               <h1 id="settings-title" aria-label="앱 설정" tabindex="-1"><em class="page-title-accent">앱 설정</em></h1>
               <p>화면, 앱 업데이트와 사업장 연결을 관리하세요. API 저장 상태와 실제 연결 상태는 별도로 확인합니다.</p>
