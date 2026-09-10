@@ -34,7 +34,7 @@
     if(ready) for(const row of visible) {
       const item=node('button','', 'stock-row');item.type='button';item.disabled=busy;
       const product=node('div','');product.append(node('strong',row.name),node('small',row.lot?'제조번호 '+row.lot:'제조번호 미입력'));if(row.productNo)product.append(node('small','카페24 연결','stock-linked-badge'));if(row.specialNotes)product.append(node('small','특이사항 · '+row.specialNotes,'stock-special-preview'));
-      const amount=node('div','', 'stock-amount');amount.append(node('strong',number(row.quantity)+' '+row.unit));if(row.quantity===0)amount.append(node('small','재고 없음'));
+      const amount=node('div','', 'stock-amount');amount.append(node('strong','총 '+number(row.quantity)+' '+row.unit));const portion=window.moaonPortion.estimate(row.quantity,row.unit,row.portionSize);if(portion&&['봉지','개'].includes(row.packLabel)){amount.append(node('span','약 '+number(portion.count)+row.packLabel,'stock-portion-count'));if(portion.remainder)amount.append(node('small','잔량 '+number(portion.remainder)+portion.remainderUnit));}if(row.quantity===0)amount.append(node('small','재고 없음'));
       const dates=node('div','', 'stock-dates');dates.append(node('small','제조 '+(row.manufactured||'미입력')),node('strong',row.expires||'유통기한 미입력'));
       const info=state(row);item.append(product,amount,dates,node('span',row.storage||'미입력','stock-storage'),node('span',info.label,'stock-badge '+info.key));item.onclick=()=>open(row);$('stock-list').append(item);
     }
@@ -45,27 +45,27 @@
   }
   function reset() {$('stock-search').value='';$('stock-filter').value='all';$('stock-sort').value='expiry';render();}
   function setMode(value) {
-    mode=value;const adjustment=value!=='edit';$('stock-unit').disabled=adjustment;$('stock-storage').disabled=adjustment;$('stock-storage-custom').readOnly=adjustment;$('stock-special-notes').readOnly=adjustment;$('stock-product-open').disabled=adjustment;$('stock-product-clear').disabled=adjustment;$('stock-adjustment').hidden=!adjustment;
+    mode=value;const adjustment=value!=='edit';$('stock-pack-label').disabled=adjustment;$('stock-portion-size').disabled=adjustment;$('stock-portion-none').disabled=adjustment;$('stock-unit').disabled=adjustment;$('stock-storage').disabled=adjustment;$('stock-storage-custom').readOnly=adjustment;$('stock-special-notes').readOnly=adjustment;$('stock-product-open').disabled=adjustment;$('stock-product-clear').disabled=adjustment;$('stock-adjustment').hidden=!adjustment;
     if(!adjustment)$('stock-delta').setCustomValidity('');
     $('stock-delta').required=adjustment;$('stock-reason').required=adjustment;
     for(const button of $('stock-mode').querySelectorAll('button'))button.setAttribute('aria-pressed',String(button.dataset.mode===value));
     for(const field of fields)$('stock-'+field).readOnly=adjustment;
-    $('stock-quantity').value=editing.quantity??0;$('stock-save').textContent=value==='in'?'입고 저장':value==='out'?'출고 저장':'저장';
+    $('stock-quantity').value=editing.quantity??$('stock-quantity').value;$('stock-save').textContent=value==='in'?'입고 저장':value==='out'?'출고 저장':'저장';
     unitConstraints();previewAdjustment();
   }
   function previewAdjustment() {
     if(mode==='edit')return;
     const delta=Number($('stock-delta').value),current=editing.quantity||0,result=Math.round((current+(mode==='in'?delta:-delta))*1000)/1000;
     $('stock-quantity').value=Number.isFinite(result)?result:current;
-    $('stock-adjust-preview').textContent=number(current)+' '+editing.unit+' → '+number(result)+' '+editing.unit;
+    previewPortion();$('stock-adjust-preview').textContent=number(current)+' '+editing.unit+' → '+number(result)+' '+editing.unit;
     $('stock-delta').setCustomValidity(delta<=0?'변경 수량을 입력하세요.':$('stock-unit').value!=='KG'&&!Number.isInteger(delta)?'개·티백·박스는 정수로 입력하세요.':result<0?'보유 수량보다 많이 출고할 수 없습니다.':result>1e9?'보유 수량은 10억 이하로 입력하세요.':'');
   }
   function open(row, duplicate=false) {
     editing=duplicate?{id:crypto.randomUUID(),revision:0}:row||{id:crypto.randomUUID(),revision:0};
     const draft=duplicate?{name:row.name,storage:row.storage,unit:row.unit,quantity:0}:row;
-    for(const field of fields)$('stock-'+field).value=draft?.[field]??(field==='unit'?'개':field==='quantity'?'0':'');
+    for(const field of fields)$('stock-'+field).value=draft?.[field]??(field==='unit'?'개':field==='quantity'?'':'');
     for(const field of ['unit','storage']){const el=$('stock-'+field);for(const o of [...el.options])if(o.dataset.legacy)o.remove();const value=draft?.[field]??(field==='unit'?'개':'');const normalized=field==='unit'&&value.toUpperCase()==='KG'?'KG':value;if(![...el.options].some(o=>o.value===normalized)){const old=node('option',value+' (기존 값)');old.value=value;old.dataset.legacy='true';el.append(old);}el.value=normalized;}
-    $('stock-storage-custom').value='';storageChoice();
+    $('stock-storage-custom').value='';storageChoice();$('stock-pack-label').value=row?.packLabel||(row?'개':'');portionOptions(row?.portionSize??null);
     chosenProduct=row?.productNo?{productNo:row.productNo,name:row.productName||row.name}:null;$('stock-special-notes').value=duplicate?'':row?.specialNotes||'';renderProductLink();
     $('stock-form-title').textContent=duplicate?'새 제조번호 등록':row?'재고 수정':'재고 등록';$('stock-form-status').textContent='';$('stock-mode').hidden=!editing.revision;$('stock-duplicate').hidden=!editing.revision;
     $('stock-delta').value='';$('stock-delta').setCustomValidity('');$('stock-reason').value='';setMode('edit');$('stock-dialog').showModal();$('stock-name').focus();
@@ -80,7 +80,7 @@
   }
   $('stock-form').addEventListener('submit',async e=>{
     e.preventDefault();if(busy)return;
-    const input=Object.fromEntries(fields.map(k=>[k,$('stock-'+k).value]));if(input.storage==='__CUSTOM_STORAGE__')input.storage=$('stock-storage-custom').value.trim();input.quantity=Number(input.quantity);input.specialNotes=$('stock-special-notes').value;input.productNo=chosenProduct?.productNo||null;input.id=editing.id;input.revision=editing.revision;
+    const input=Object.fromEntries(fields.map(k=>[k,$('stock-'+k).value]));if(input.storage==='__CUSTOM_STORAGE__')input.storage=$('stock-storage-custom').value.trim();input.quantity=Number(input.quantity);input.specialNotes=$('stock-special-notes').value;input.packLabel=$('stock-pack-label').value;input.portionSize=$('stock-portion-size').value?Number($('stock-portion-size').value):null;input.productNo=chosenProduct?.productNo||null;input.id=editing.id;input.revision=editing.revision;
     if(input.expires&&input.manufactured&&input.expires<input.manufactured){$('stock-form-status').textContent='유통기한은 제조일자 이후로 입력하세요.';return;}
     if(mode!=='edit'){
       const reason=$('stock-reason').value.trim();if(!reason||!$('stock-delta').checkValidity()||input.quantity<0)return;
@@ -94,11 +94,27 @@
   });
   function storageChoice(){const custom=$('stock-storage').value==='__CUSTOM_STORAGE__';$('stock-storage-custom').hidden=!custom;$('stock-storage-custom').required=custom;}
   $('stock-storage').onchange=storageChoice;
+  function portionOptions(selected=null){
+    const unit=$('stock-unit').value,select=$('stock-portion-size');select.dataset.unit=unit;select.replaceChildren();const none=node('option','없음');none.value='';select.append(none);
+    for(const size of window.moaonPortion.sizes(unit)){const option=node('option',unit==='KG'?(size===1000?'1,000g (1kg)':size+'g'):size+'티백');option.value=String(size);select.append(option);}select.value=selected===null?'':String(selected);if(!select.value)select.value='';
+  }
+  function previewPortion(){
+    const output=$('stock-portion-preview'),unit=$('stock-unit').value,label=$('stock-pack-label').value,value=$('stock-quantity').value;output.replaceChildren();
+    $('stock-portion-label').textContent=label?'1'+label+'당 소분량':'1봉지·1개당 소분량';
+    if(value===''||!$('stock-quantity').checkValidity()){output.append(node('span','총 수량을 입력하면 예상 포장 수를 계산합니다.'));return;}
+    const total=Number(value);output.append(node('span','총 '+number(total)+' '+unit));
+    const result=window.moaonPortion.estimate(total,unit,Number($('stock-portion-size').value));
+    if(result&&label){output.append(node('strong','약 '+number(result.count)+label));output.append(node('small',result.remainder?'소분 후 잔량 '+number(result.remainder)+result.remainderUnit:'계산상 잔량 없음'));}
+    else output.append(node('small',!label?'봉지 또는 개를 선택하세요.':'소분량 없음 · 총 재고만 관리합니다.'));
+  }
+  $('stock-pack-label').onchange=previewPortion;$('stock-portion-size').onchange=previewPortion;$('stock-portion-none').onclick=()=>{$('stock-portion-size').value='';previewPortion();};$('stock-quantity').addEventListener('input',previewPortion);
   function unitConstraints(){
     const unit=$('stock-unit').value,kg=unit==='KG';$('stock-quantity').step=kg?'0.001':'1';$('stock-delta').step=kg?'0.001':'1';$('stock-delta').min=kg?'0.001':'1';
-    $('stock-quantity-label').textContent=kg?'보유 중량 (KG)':'보유 수량 ('+unit+')';$('stock-quantity-help').textContent=kg?'소수 셋째 자리까지 · 0.001 KG = 1g':'소수 없이 '+unit+' 단위로 입력하세요.';
+    $('stock-quantity-label').textContent=kg?'총 보유 중량 (KG)':'총 보유 수량 ('+unit+')';$('stock-quantity-help').textContent=kg?'소수 셋째 자리까지 · 0.001 KG = 1g':'소수 없이 '+unit+' 단위로 입력하세요.';
     $('stock-unit').setCustomValidity(['개','KG','티백','박스'].includes(unit)?'':'단위를 다시 선택하세요.');
     const quantity=Number($('stock-quantity').value);$('stock-quantity').setCustomValidity(!kg&&!Number.isInteger(quantity)?'개·티백·박스는 정수로 입력하세요.':'');
+    if($('stock-portion-size').dataset.unit!==unit)portionOptions();
+    const supported=window.moaonPortion.sizes(unit).length>0;$('stock-portion-size').disabled=mode!=='edit'||!supported;$('stock-portion-none').disabled=mode!=='edit'||!supported;previewPortion();
   }
   function renderProductLink(){
     $('stock-product-open').textContent=chosenProduct?chosenProduct.name:'상품 검색·연결';$('stock-product-clear').hidden=!chosenProduct;
