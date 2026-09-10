@@ -85,6 +85,9 @@ async function main(){
    await page.locator('.orders-workspace').evaluate(el=>el.style.removeProperty('width'));
   }
   await page.getByLabel('전체 조회 판매 채널').selectOption('NAVER');
+  await page.getByLabel('전체 조회 판매 채널').selectOption('ALL');
+  await page.evaluate(()=>{document.querySelector('.order-row').click();document.querySelector('.orders-workspace').style.width='560px';});
+  const position=await page.evaluate(()=>{const scroller=document.querySelector('#main-content');scroller.scrollTop=200;const before=scroller.scrollTop;document.querySelectorAll('.order-row')[1].click();return {before,after:scroller.scrollTop,date:formatOrderTime('2026-09-11T14:59:32+09:00')};});assert.ok(position.before>0);assert.equal(position.after,position.before);await page.waitForTimeout(400);assert.equal(await page.locator('#main-content').evaluate(el=>el.scrollTop),position.before);assert.equal(await page.locator('#order-detail').evaluate(el=>getComputedStyle(el).position),'sticky');assert.match(position.date,/14:59/);assert.doesNotMatch(position.date,/32/);
   await page.evaluate(()=>runHubAction('disconnect'));
   assert.equal(await page.locator('.order-row').count(),0);
   assert.equal(await page.getByLabel('전체 조회 판매 채널').inputValue(),'ALL');

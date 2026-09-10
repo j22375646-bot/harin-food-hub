@@ -292,6 +292,8 @@ const formatNumber = (value, suffix = '') => typeof value === 'number' && Number
 const stageLabel = (stage) => stageLabels[stage] || '상태 확인 필요';
 const selectedScopeDetail = () => scopeDetails[selectedScope];
 
+function formatOrderTime(value){const date=new Date(value);return !value||Number.isNaN(date.getTime())?'시각 확인 필요':new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(date);}
+
 function formatTime(value) {
   if (!value) return '확인 시각 없음';
   const date = new Date(value);
@@ -366,6 +368,7 @@ function trackingSection(order){
 }
 
 function showOrderDetail(order, button, options = {}) {
+  const mainScroller=document.querySelector('#main-content'),listScroll=mainScroller.scrollTop;
   document.querySelector('.orders-layout').classList.remove('is-detail-closed');
   detailPanel.inert = false;
   detailPanel.removeAttribute('aria-hidden');
@@ -391,9 +394,8 @@ function showOrderDetail(order, button, options = {}) {
   const productText=makeElement('div');
   productText.append(makeElement('h2','',order.productName||order.product||'상품 확인 필요'));
   const option=isSampleMode()?order.option:order.details?.items?.[0]?.option;if(option)productText.append(makeElement('span','',option));
-  const present=giftBadge(order);
-  if(present)productText.append(present);const timing=timingBadge(order);if(timing)productText.append(timing);
-  const badges=makeElement('div','detail-badges');badges.append(makeElement('span','detail-status-badge',order.details?.invoice?.status==='REGISTERED'?'송장 등록 완료':order.details?.invoice?.status==='ISSUED'?'송장 발급 완료':({PAID:'결제완료',PREPARING:'상품준비중',IN_TRANSIT:'배송중',DELIVERED:'배송완료'})[order.stage]||'상태 확인 필요'),makeElement('span','detail-channel-badge',({NAVER:'네이버 · 별도 발급',COUPANG:'쿠팡',CAFE24:'Cafe24'})[order.platform]||'샘플'));productText.append(badges);
+  const present=giftBadge(order),timing=timingBadge(order);
+  const badges=makeElement('div','detail-badges');if(present)badges.append(present);if(timing)badges.append(timing);badges.append(makeElement('span','detail-status-badge',order.details?.invoice?.status==='REGISTERED'?'송장 등록 완료':order.details?.invoice?.status==='ISSUED'?'송장 발급 완료':({PAID:'결제완료',PREPARING:'상품준비중',IN_TRANSIT:'배송중',DELIVERED:'배송완료'})[order.stage]||'상태 확인 필요'),makeElement('span','detail-channel-badge',({NAVER:'네이버 · 별도 발급',COUPANG:'쿠팡',CAFE24:'Cafe24'})[order.platform]||'샘플'));productText.append(badges);
   productHero.append(productThumbnail(order),productText);body.append(productHero);
   const facts=makeElement('dl','detail-facts');
   const fact=(title,value)=>facts.append(makeElement('dt','',title),makeElement('dd','',value));
@@ -486,7 +488,7 @@ function showOrderDetail(order, button, options = {}) {
       : details.cancellationRequested === true ? '취소 요청 있음 · 출고 전 확인 필요'
       : details.cancelled === false && details.cancellationRequested === false ? '저장 자료에 취소 요청 없음' : '취소 여부 확인 필요';
     addDetailSection(more, '출고 전 확인', cancellation, '최신 채널 상태를 확인하세요. 이 표시는 출고 가능 승인이나 발급 실행이 아닙니다.');
-    addDetailSection(more, '주문 시각', order.orderedAt ? formatTime(order.orderedAt) : '확인 필요', `목록 확인 ${formatTime(connectionResult?.checkedAt)}`);
+    addDetailSection(more, '주문 시각', order.orderedAt ? formatOrderTime(order.orderedAt) : '확인 필요', `목록 확인 ${formatTime(connectionResult?.checkedAt)}`);
     more.append(checkSection);body.append(more);
   }
   detailPanel.append(header, body);
@@ -597,7 +599,8 @@ function showOrderDetail(order, button, options = {}) {
     detailPanel.append(actions);
   }
   renderDetailNavigation();
-  closeButton.focus();
+  closeButton.focus({preventScroll:true});
+  mainScroller.scrollTop=listScroll;
 }
 
 document.querySelector('#issued-order-list').addEventListener('click',()=>void runHubAction('viewRegistered'));
@@ -638,10 +641,10 @@ function renderDetailNavigation() {
     move.disabled = position < 0 || position >= rows.length;
     move.addEventListener('click', () => {
       rows[position]?.click();
-      rows[position]?.scrollIntoView({ block: 'nearest' });
+      // Selection changes the inspector without moving the order list.
       // Keep keyboard users on the same navigation action when it remains available.
       const next = [...detailPanel.querySelectorAll('.detail-navigation button')].find(item => item.getAttribute('aria-label') === label);
-      if (next && !next.disabled) next.focus();
+      if (next && !next.disabled) next.focus({preventScroll:true});
     });
     navigation.append(move);
   }
@@ -696,7 +699,7 @@ function createOrderRow(order) {
     const invoice=order.details?.invoice;
     if(invoice&&/^\d{13}$/.test(invoice.number||'')){const tag=makeElement('span','order-invoice',invoice.status==='REGISTERED'?'송장 등록 완료':'발급 완료 · 등록 필요');tag.append(makeElement('code','',invoice.number));primary.append(tag);}
     const items=order.details?.items||[],option=items[0]?.option;
-    primary.append(makeElement('time','order-date','주문 '+formatTime(order.orderedAt)));
+    primary.append(makeElement('time','order-date','주문 '+formatOrderTime(order.orderedAt)));
     primary.append(makeElement('small','product-option','옵션: '+(option||'정보 없음')+(items.length>1?' 외 '+(items.length-1)+'종':'')+' · 수량 '+formatNumber(order.quantity,'개')));
     const gift=giftBadge(order);if(gift)primary.append(gift);const timing=timingBadge(order);if(timing)primary.append(timing);
     amount.append(makeElement('strong', '', formatNumber(order.amount, '원')));
@@ -728,7 +731,7 @@ function renderSelection(){
   const blocked=[...selectedOrderIds].map(id=>displayedOrders.find(o=>orderId(o)===id)).filter(o=>o&&!o.issueAndRegisterEligible);
   const names={DELIVERY_INFO:'받는 분·주소·연락처 확인',HISTORY_UNAVAILABLE:'송장 이력 조회 확인',SHIPMENT_ID:'쿠팡 배송묶음 번호 확인',SERVER_CHECK:'서버 출고 조건 확인',PARTIAL:'누락 채널 재조회',NAVER_ROUTE:'네이버 주문은 네이버에서 처리',ROCKET_ROUTE:'로켓그로스는 쿠팡에서 처리',INVOICE_EXISTS:'기존 송장 확인',CANCELLED:'취소 주문 제외',CANCEL_REQUEST:'취소 요청 확인',INVOICE_UNKNOWN:'송장 존재 여부 확인',CANCEL_UNKNOWN:'취소 여부 확인'};
   reason.hidden=!count||autoEligible||registrationBusy;
-  reason.replaceChildren();if(!reason.hidden){reason.append(makeElement('span','',count>20?'한 번에 20건까지 선택하세요.':blocked.slice(0,1).map(o=>(o.platform==='COUPANG'?'쿠팡: ':'')+(o.preflight?.serverReason||o.preflight?.codes?.map(c=>names[c]||'출고 정보 확인').join(' · ')||'최신 발급 조건 확인 필요')).join(' / ')+(blocked.length>1?' 외 '+(blocked.length-1)+'건 · 첫 주문부터 확인하세요.':'')));const check=makeElement('button','','조건 다시 확인');check.type='button';check.onclick=()=>{const row=blocked[0];if(row){showOrderDetail(row);void recheckSelectedOrder();}};reason.append(check);const disclosure=makeElement('details','selection-reason-disclosure');disclosure.append(makeElement('summary','','발급 조건 확인'));const content=makeElement('div','selection-reason-content');content.append(...reason.childNodes);disclosure.append(content);reason.append(disclosure);}
+  reason.replaceChildren();if(!reason.hidden){reason.append(makeElement('span','',count>20?'한 번에 20건까지 선택하세요.':blocked.slice(0,1).map(o=>(o.platform==='COUPANG'?'쿠팡: ':'')+(o.preflight?.serverReason||o.preflight?.codes?.map(c=>names[c]||'출고 정보 확인').join(' · ')||'최신 발급 조건 확인 필요')).join(' / ')+(blocked.length>1?' 외 '+(blocked.length-1)+'건 · 첫 주문부터 확인하세요.':'')));const check=makeElement('button','','조건 다시 확인');check.type='button';check.onclick=()=>{const row=blocked[0];if(row){showOrderDetail(row);void recheckSelectedOrder();}};reason.append(check);const disclosure=makeElement('details','selection-reason-disclosure');disclosure.append(makeElement('summary','','발급 조건 확인'));const content=makeElement('div','selection-reason-content');content.append(...reason.childNodes);disclosure.append(content);reason.append(disclosure);document.querySelector('.selection-more>div').append(reason);}
 
   bar.hidden=count===0||document.querySelector('[data-page=orders]').hidden;
   if(!count)bar.querySelector('details')?.removeAttribute('open');
@@ -1118,7 +1121,9 @@ function renderShippingFollowup(){
     panel.append(row);
   }
 }
+let documentNoticeTimer;
 function clearRegistrationResults(kind='all'){
+  clearTimeout(documentNoticeTimer);document.querySelector('#registration-results').classList.remove('document-notice');
   if(kind!=='manual'){
     document.querySelector('#auto-shipping-results').hidden=true;
     document.querySelector('#auto-shipping-results').replaceChildren();
@@ -1229,20 +1234,21 @@ async function runAutomaticShipping(explicitIds){
 }
 
 async function runSelectedDocument(kind){
-  if(!['csv','labels','packing','dispatch'].includes(kind)||registrationBusy||collectionBusy||collectionShipmentLocks.size>0||displayMode!=='live'||document.querySelector(`#selection-${kind}`).disabled)return;
+  if(!['csv','labels','dispatch'].includes(kind)||registrationBusy||collectionBusy||collectionShipmentLocks.size>0||displayMode!=='live'||document.querySelector(`#selection-${kind}`).disabled)return;
   const ids=[...selectedOrderIds],expected=actionGeneration;
   registrationBusy=true;clearRegistrationResults('documents');renderSelection();
   const detailButtons=[...detailPanel.querySelectorAll('button')].map(button=>({button,disabled:button.disabled}));
   for(const {button} of detailButtons)button.disabled=true;
   const panel=document.querySelector('#registration-results'),status=document.querySelector('#registration-status');
-  panel.hidden=false;status.textContent=kind==='csv'?'선택 주문을 확인하고 CSV 저장 위치를 선택합니다.':kind==='labels'?'선택 송장과 배송정보를 확인하고 있습니다.':`선택 주문으로 출고 작업표 A4를 준비합니다.`;
+  document.querySelector('#document-notice-close').disabled=true;panel.classList.add('document-notice');panel.hidden=false;status.textContent=kind==='csv'?'선택 주문을 확인하고 CSV 저장 위치를 선택합니다.':kind==='labels'?'선택 송장과 배송정보를 확인하고 있습니다.':`선택 주문으로 출고 작업표 A4를 준비합니다.`;
   try{
     const result=kind==='csv'?await window.moaonHub.exportSelectedCsv(ids):kind==='labels'?await window.moaonHub.previewLabels(ids):await window.moaonHub.previewWorklist(ids,kind);
     if(expected!==actionGeneration||displayMode!=='live')return;
     const messages={PREVIEW_OPEN:kind==='labels'?`송장 ${ids.length}건 미리보기를 열었습니다 · 인쇄는 미리보기 창에서 진행하세요`:`출고 작업표 A4 미리보기를 열었습니다 · 인쇄는 미리보기 창에서 진행하세요`,CSV_SAVED:`선택 주문 ${ids.length}건 CSV를 저장했습니다`,SAVE_CANCELLED:'CSV 저장을 취소했습니다',FILE_EXISTS:'같은 이름의 파일이 있습니다 · 다른 이름으로 저장하세요',DOCUMENT_CHANGED:'주문이나 연결이 변경되었습니다 · 목록을 다시 조회하세요',DOCUMENT_UNAVAILABLE:'문서를 준비하지 못했습니다 · 주문 내용과 페이지 범위를 확인하세요',DOCUMENT_ITEM_LIMIT:'상품이 8종 표시되어 전체 목록인지 확인할 수 없습니다 · 주문 상세에서 전체 상품을 확인하세요',PRINT_UNAVAILABLE:'송장 미리보기 확인 필요 · 배송정보와 용지 크기를 확인하세요',BUSY:'다른 작업이 진행 중입니다'};
+    if(['PREVIEW_OPEN','CSV_SAVED','SAVE_CANCELLED'].includes(result?.status))documentNoticeTimer=setTimeout(()=>{if(expected===actionGeneration&&panel.classList.contains('document-notice'))panel.hidden=true;},5000);
     status.textContent=result?.status==='SAVE_CHECK_REQUIRED'?'CSV 저장 결과 확인 필요 · 다시 저장하기 전에 선택한 폴더의 파일을 확인하세요':messages[result?.status]||'문서 처리 결과 확인 필요 · 목록을 다시 조회하세요';
   }catch{if(expected===actionGeneration&&displayMode==='live')status.textContent='문서를 준비하지 못했습니다 · 다시 확인하세요';}
-  finally{registrationBusy=false;for(const {button,disabled} of detailButtons)if(button.isConnected)button.disabled=disabled;renderSelection();}
+  finally{registrationBusy=false;document.querySelector('#document-notice-close').disabled=false;for(const {button,disabled} of detailButtons)if(button.isConnected)button.disabled=disabled;renderSelection();}
 }
 async function changeOrderChannel(channel){
   if(!['ALL','CAFE24','NAVER','COUPANG'].includes(channel))return;
@@ -1382,6 +1388,7 @@ document.querySelector('#selection-register').addEventListener('click',()=>void 
 document.querySelector('#selection-labels').addEventListener('click',()=>void runSelectedDocument('labels'));
 document.querySelector('#selection-csv').addEventListener('click',()=>void runSelectedDocument('csv'));
 
+document.querySelector('#document-notice-close').addEventListener('click',()=>{if(!registrationBusy)document.querySelector('#registration-results').hidden=true;});
 document.querySelector('#selection-dispatch').addEventListener('click',()=>void runSelectedDocument('dispatch'));
 const selectionMenu=document.querySelector('.selection-more');
 selectionMenu.addEventListener('click',event=>{if(event.target.closest('button:not(:disabled)'))selectionMenu.open=false;});
@@ -1543,7 +1550,7 @@ function syncFloatingSelection(){
 function installFloatingSelection(bar){
  syncFloatingSelection();if(bar.dataset.floating)return;bar.dataset.floating='true';
  window.addEventListener('resize',syncFloatingSelection);
- bar.addEventListener('toggle',event=>{if(event.target.open)bar.querySelectorAll('details[open]').forEach(d=>{if(d!==event.target)d.open=false;});},true);
+ bar.addEventListener('toggle',event=>{if(event.target.open)bar.querySelectorAll('details[open]').forEach(d=>{if(d!==event.target&&!d.contains(event.target))d.open=false;});},true);
  document.addEventListener('pointerdown',event=>{if(!bar.contains(event.target))bar.querySelectorAll('details[open]').forEach(d=>d.open=false);});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'){const open=bar.querySelector('details[open]');if(open){open.open=false;open.querySelector('summary').focus();event.preventDefault();}}});
 }
