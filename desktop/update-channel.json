@@ -1,5 +1,6 @@
 {
-  "enabled": false,
-  "url": null,
-  "publisherName": null
+  "enabled": true,
+  "mode": "ed25519",
+  "url": "https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable",
+  "publicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAn+HpTZWQZKXT9XxJSEJK6ySgQzSsZpGwGvyz5JTLSfA=\n-----END PUBLIC KEY-----\n"
 }

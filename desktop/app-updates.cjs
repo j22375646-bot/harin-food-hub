@@ -5,6 +5,7 @@ function newer(next,current){const a=versionParts(next),b=versionParts(current);
 function createConfiguredUpdater({app,config,resourcesPath=process.resourcesPath,load=require}={}){
  if(!app.isPackaged||process.platform!=='win32'||config?.enabled!==true)return null;
  try{
+  if(config.mode==='ed25519')return require('./signed-updates.cjs').createSignedUpdater({config,load});
   const url=new URL(config.url);
   if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash||!url.hostname.includes('.')||!config.publisherName||typeof config.publisherName!=='string')return null;
   // Require build-generated metadata and an explicit trusted Windows publisher.
