@@ -696,6 +696,7 @@ function createOrderRow(order) {
     const invoice=order.details?.invoice;
     if(invoice&&/^\d{13}$/.test(invoice.number||'')){const tag=makeElement('span','order-invoice',invoice.status==='REGISTERED'?'송장 등록 완료':'발급 완료 · 등록 필요');tag.append(makeElement('code','',invoice.number));primary.append(tag);}
     const items=order.details?.items||[],option=items[0]?.option;
+    primary.append(makeElement('time','order-date','주문 '+formatTime(order.orderedAt)));
     primary.append(makeElement('small','product-option','옵션: '+(option||'정보 없음')+(items.length>1?' 외 '+(items.length-1)+'종':'')+' · 수량 '+formatNumber(order.quantity,'개')));
     const gift=giftBadge(order);if(gift)primary.append(gift);const timing=timingBadge(order);if(timing)primary.append(timing);
     amount.append(makeElement('strong', '', formatNumber(order.amount, '원')));
@@ -743,7 +744,6 @@ function renderSelection(){
   const documentLocked=registrationBusy||collectionBusy||collectionShipmentLocks.size>0;
   document.querySelector('#selection-labels').disabled=documentLocked||!csvEligible||labelRows.length!==count||duplicate;
   document.querySelector('#selection-csv').disabled=documentLocked||!csvEligible;
-  document.querySelector('#selection-packing').disabled=documentLocked||!csvEligible;
   document.querySelector('#selection-dispatch').disabled=documentLocked||!csvEligible;
   document.querySelector('#selection-document-hint').textContent=`송장 가능 ${labelRows.length}건 · 제외 ${count-labelRows.length}건${duplicate?' · 중복 송장 확인 필요':count!==labelRows.length?' · 등록·배송정보 또는 지원 채널 확인':''}`;
   document.querySelector('#selection-clear').disabled=orderToolsBusy();
@@ -1235,11 +1235,11 @@ async function runSelectedDocument(kind){
   const detailButtons=[...detailPanel.querySelectorAll('button')].map(button=>({button,disabled:button.disabled}));
   for(const {button} of detailButtons)button.disabled=true;
   const panel=document.querySelector('#registration-results'),status=document.querySelector('#registration-status');
-  panel.hidden=false;status.textContent=kind==='csv'?'선택 주문을 확인하고 CSV 저장 위치를 선택합니다.':kind==='labels'?'선택 송장과 배송정보를 확인하고 있습니다.':`선택 주문으로 ${kind==='packing'?'포장명세서 A4':'출고 작업표 A4'}를 준비합니다.`;
+  panel.hidden=false;status.textContent=kind==='csv'?'선택 주문을 확인하고 CSV 저장 위치를 선택합니다.':kind==='labels'?'선택 송장과 배송정보를 확인하고 있습니다.':`선택 주문으로 출고 작업표 A4를 준비합니다.`;
   try{
     const result=kind==='csv'?await window.moaonHub.exportSelectedCsv(ids):kind==='labels'?await window.moaonHub.previewLabels(ids):await window.moaonHub.previewWorklist(ids,kind);
     if(expected!==actionGeneration||displayMode!=='live')return;
-    const messages={PREVIEW_OPEN:kind==='labels'?`송장 ${ids.length}건 미리보기를 열었습니다 · 인쇄는 미리보기 창에서 진행하세요`:`${kind==='packing'?'포장명세서 A4':'출고 작업표 A4'} 미리보기를 열었습니다 · 인쇄는 미리보기 창에서 진행하세요`,CSV_SAVED:`선택 주문 ${ids.length}건 CSV를 저장했습니다`,SAVE_CANCELLED:'CSV 저장을 취소했습니다',FILE_EXISTS:'같은 이름의 파일이 있습니다 · 다른 이름으로 저장하세요',DOCUMENT_CHANGED:'주문이나 연결이 변경되었습니다 · 목록을 다시 조회하세요',DOCUMENT_UNAVAILABLE:'문서를 준비하지 못했습니다 · 주문 내용과 페이지 범위를 확인하세요',DOCUMENT_ITEM_LIMIT:'상품이 8종 표시되어 전체 목록인지 확인할 수 없습니다 · 주문 상세에서 전체 상품을 확인하세요',PRINT_UNAVAILABLE:'송장 미리보기 확인 필요 · 배송정보와 용지 크기를 확인하세요',BUSY:'다른 작업이 진행 중입니다'};
+    const messages={PREVIEW_OPEN:kind==='labels'?`송장 ${ids.length}건 미리보기를 열었습니다 · 인쇄는 미리보기 창에서 진행하세요`:`출고 작업표 A4 미리보기를 열었습니다 · 인쇄는 미리보기 창에서 진행하세요`,CSV_SAVED:`선택 주문 ${ids.length}건 CSV를 저장했습니다`,SAVE_CANCELLED:'CSV 저장을 취소했습니다',FILE_EXISTS:'같은 이름의 파일이 있습니다 · 다른 이름으로 저장하세요',DOCUMENT_CHANGED:'주문이나 연결이 변경되었습니다 · 목록을 다시 조회하세요',DOCUMENT_UNAVAILABLE:'문서를 준비하지 못했습니다 · 주문 내용과 페이지 범위를 확인하세요',DOCUMENT_ITEM_LIMIT:'상품이 8종 표시되어 전체 목록인지 확인할 수 없습니다 · 주문 상세에서 전체 상품을 확인하세요',PRINT_UNAVAILABLE:'송장 미리보기 확인 필요 · 배송정보와 용지 크기를 확인하세요',BUSY:'다른 작업이 진행 중입니다'};
     status.textContent=result?.status==='SAVE_CHECK_REQUIRED'?'CSV 저장 결과 확인 필요 · 다시 저장하기 전에 선택한 폴더의 파일을 확인하세요':messages[result?.status]||'문서 처리 결과 확인 필요 · 목록을 다시 조회하세요';
   }catch{if(expected===actionGeneration&&displayMode==='live')status.textContent='문서를 준비하지 못했습니다 · 다시 확인하세요';}
   finally{registrationBusy=false;for(const {button,disabled} of detailButtons)if(button.isConnected)button.disabled=disabled;renderSelection();}
@@ -1381,7 +1381,7 @@ document.querySelector('#order-select-all').addEventListener('change',event=>{
 document.querySelector('#selection-register').addEventListener('click',()=>void registerSelectedInvoices());
 document.querySelector('#selection-labels').addEventListener('click',()=>void runSelectedDocument('labels'));
 document.querySelector('#selection-csv').addEventListener('click',()=>void runSelectedDocument('csv'));
-document.querySelector('#selection-packing').addEventListener('click',()=>void runSelectedDocument('packing'));
+
 document.querySelector('#selection-dispatch').addEventListener('click',()=>void runSelectedDocument('dispatch'));
 const selectionMenu=document.querySelector('.selection-more');
 selectionMenu.addEventListener('click',event=>{if(event.target.closest('button:not(:disabled)'))selectionMenu.open=false;});

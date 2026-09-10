@@ -258,3 +258,20 @@ html[data-theme=dark] .orders-page .order-primary .shipping-timing-badge[data-ti
 .orders-page .order-refresh-link:hover{border-color:var(--blue)!important;filter:brightness(.98)}
 .orders-page .shipping-timing-badge[data-timing=SAME_DAY_PARTIAL]{background:var(--blue-soft);color:var(--blue)}
 @container(max-width:700px){.orders-page .order-row{grid-template-columns:64px minmax(0,1fr) auto!important}.orders-page .order-row>.product-thumbnail{grid-row:1/4;align-self:start}}
+/* Badge roles and narrow-row alignment. */
+.orders-page .order-primary>.order-date{display:block;margin-top:5px;font-size:13px;line-height:1.5;color:var(--muted);font-weight:450;white-space:normal}
+.orders-page .gift-badge{background:#fff0da;color:#94520b;border-color:#ebd1aa}
+.orders-page .detail-status-badge{background:#eaf4ee;color:#286447;border-color:#c7ddcf}
+.orders-page .detail-channel-badge{background:var(--surface-soft);color:var(--muted);border-color:var(--line)}
+.orders-page .shipping-timing-badge[data-timing=CHECK_REQUIRED]{background:#fff1ed;color:#a54b2f;border-color:#eccabc}
+html[data-theme=dark] .orders-page .gift-badge{background:#403423;color:#f5ca8b;border-color:#685338}
+html[data-theme=dark] .orders-page .detail-status-badge{background:#233c31;color:#a3d3b5;border-color:#416351}
+html[data-theme=dark] .orders-page .shipping-timing-badge[data-timing=CHECK_REQUIRED]{background:#442f2b;color:#f1b3a0;border-color:#775044}
+@container(max-width:700px){
+ .orders-page .order-row{grid-template-columns:64px minmax(0,1fr) auto!important;gap:8px 10px!important}
+ .orders-page .order-row .order-primary{grid-column:2/-1;grid-row:1}
+ .orders-page .order-row .order-secondary{grid-column:2;grid-row:2;justify-self:start;align-items:flex-start}
+ .orders-page .order-row>.order-state{grid-column:2;grid-row:3;justify-self:start}
+ .orders-page .order-row .order-amount{grid-column:3;grid-row:2/4;align-self:center;justify-self:end}
+ .orders-page .order-row .order-secondary .channel-badge{margin:0}
+}
