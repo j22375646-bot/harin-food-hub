@@ -90,13 +90,13 @@
             <strong id="top-business-name">모아온 데모</strong>
           </div>
           <div class="chrome-actions">
-            <button id="quick-search" class="chrome-button" type="button" aria-label="주문 검색" title="주문 검색 · Ctrl+K"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></svg><span>상품 빠르게 찾기</span><kbd>Ctrl K</kbd></button>
+            <button id="quick-search" class="chrome-button" type="button" aria-label="업무 검색" title="업무 검색 · Ctrl+K"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></svg><span>업무 검색</span><kbd>Ctrl K</kbd></button>
             <button id="update-ready-open" class="chrome-button" type="button" hidden>업데이트 준비됨</button>
-            <span class="app-avatar" aria-label="하린식품">하</span><button id="theme-toggle" class="chrome-button" type="button" aria-label="화면 테마 전환" aria-pressed="false" title="라이트·다크 전환">◐</button>
+            <button id="business-settings-open" class="app-avatar" type="button" aria-label="사업장 및 앱 설정" title="사업장 및 앱 설정">하</button><button id="theme-toggle" class="chrome-button" type="button" aria-label="화면 테마 전환" aria-pressed="false" title="라이트·다크 전환">◐</button>
           </div>
         </header>
 
-        <main id="main-content" tabindex="-1">
+        <dialog id="workspace-search" aria-labelledby="workspace-search-title"><form id="workspace-search-form"><header><h2 id="workspace-search-title">업무 검색</h2><button id="workspace-search-close" type="button" aria-label="검색 닫기">×</button></header><label for="workspace-search-target">검색할 업무</label><select id="workspace-search-target"><option value="orders">저장 주문</option><option value="inventory">상품</option><option value="stock">재고</option><option value="keywords">키워드</option><option value="insights">보고서</option><option value="cs">고객·CS</option></select><label for="workspace-search-query">검색어</label><input id="workspace-search-query" type="search" maxlength="100" required placeholder="상품명, 주문번호 등을 입력" aria-describedby="workspace-search-help"><p id="workspace-search-help"></p><button type="submit" class="primary-action">검색</button></form></dialog><main id="main-content" tabindex="-1">
           <section class="page is-visible" data-page="today" aria-labelledby="today-title">
             <header class="page-heading workspace-heading">
               <p id="daybook-date" class="daybook-date"></p><p class="context-line"><i aria-hidden="true"></i> <span id="today-context">Windows 시제품 · 샘플 모드</span></p>

@@ -216,3 +216,26 @@ html[data-theme=dark] .moaon-logo{color:#b6a4e5}html[data-theme=dark] .preview-s
 .topbar #app-back:disabled{opacity:.4;cursor:default}.topbar #app-back svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7}.topbar .app-breadcrumb{min-width:0;overflow:hidden;text-overflow:ellipsis}.topbar .chrome-actions{flex-shrink:0}.topbar #quick-search{min-width:0}
 @media(max-width:1100px){.topbar #quick-search>span,.topbar #quick-search kbd{display:none}.topbar .app-breadcrumb{font-size:12px;gap:6px}.topbar .chrome-actions{gap:10px}}
 @media(max-width:760px){.topbar #app-back span{display:none}.topbar .app-breadcrumb{display:none}.topbar #app-back{width:40px}.preview-shell .topbar{padding-left:16px}.topbar .chrome-actions{gap:12px}}
+
+/* One shared toolbar rhythm, including the native caption exclusion above. */
+.preview-shell .topbar{align-items:center;min-height:64px}
+.topbar .chrome-actions{display:flex;align-items:center;gap:8px;margin-left:auto}
+.topbar #quick-search,.topbar #business-settings-open,.topbar #theme-toggle,.topbar #app-back{box-sizing:border-box;height:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;margin:0;line-height:1;flex-shrink:0;-webkit-app-region:no-drag}
+.topbar #business-settings-open,.topbar #theme-toggle{width:44px;min-width:44px;padding:0;border:1px solid var(--line);border-radius:13px;font-size:19px;color:var(--ink);background:var(--surface);cursor:pointer}
+.topbar #business-settings-open{background:#edf3ec;color:#4c7162;font-weight:700}
+.topbar #quick-search{gap:9px;padding:0 12px;border:1px solid var(--line);border-radius:13px;background:var(--surface);font-size:14px}
+.topbar #quick-search svg,.topbar #theme-toggle svg{width:20px;height:20px;flex-shrink:0}
+.topbar button:hover:not(:disabled){filter:brightness(.97)}
+.topbar button:focus-visible{outline:2px solid #7161c6;outline-offset:3px}
+.preview-shell .page{min-width:0}.page-heading{min-width:0}.page-heading>p{overflow-wrap:anywhere}
+.page :is(.inventory-toolbar,.stock-toolbar,.keyword-toolbar,.insights-toolbar,.cs-toolbar){align-items:center;gap:12px;flex-wrap:wrap}
+.page :is(input,select,button){max-width:100%;box-sizing:border-box}
+#workspace-search{width:min(520px,calc(100vw - 40px));padding:28px;border:1px solid var(--line);border-radius:22px;background:var(--surface);color:var(--ink);box-shadow:0 24px 80px #19163030}
+#workspace-search::backdrop{background:#17172c55;backdrop-filter:blur(3px)}
+#workspace-search form{display:grid;gap:12px}#workspace-search header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:8px}
+#workspace-search h2{margin:0;font-size:23px}#workspace-search label{font-size:15px;font-weight:600}
+#workspace-search input,#workspace-search select,#workspace-search button{min-height:44px;border-radius:12px;padding:10px 14px;font-size:16px}
+#workspace-search input,#workspace-search select{width:100%;background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+#workspace-search-help{font-size:14px;line-height:1.6;color:var(--muted);margin:0 0 8px}
+#workspace-search-close{width:44px;background:transparent;border:1px solid var(--line);color:var(--ink)}
+@media(max-width:1100px){.topbar #quick-search{width:44px;padding:0}.topbar .chrome-actions{gap:8px}.topbar .app-breadcrumb{white-space:nowrap}}

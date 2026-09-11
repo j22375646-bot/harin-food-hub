@@ -1528,7 +1528,18 @@ document.querySelector('#sidebar-toggle').addEventListener('click', (event) => {
   event.currentTarget.setAttribute('aria-label', collapsed ? '메뉴 펼치기' : '메뉴 접기');
   event.currentTarget.title = collapsed ? '메뉴 펼치기' : '메뉴 접기';
 });
-document.querySelector('#quick-search').addEventListener('click', () => { showRoute('orders'); orderSearch.focus(); orderSearch.select(); });
+const workspaceSearch=document.querySelector('#workspace-search');
+const workspaceTarget=document.querySelector('#workspace-search-target');
+const workspaceQuery=document.querySelector('#workspace-search-query');
+function searchHelp(){document.querySelector('#workspace-search-help').textContent=workspaceTarget.value==='orders'?'현재 주문 상태·채널의 저장 주문 전체를 검색합니다. 기간 조건은 초기화됩니다.':'선택한 페이지에서 조회된 자료를 검색합니다. 해당 페이지의 필터도 적용됩니다.';}
+function openWorkspaceSearch(){if(document.querySelector('dialog[open]'))return;const route=pages.find(p=>!p.hidden)?.dataset.page;if([...workspaceTarget.options].some(o=>o.value===route))workspaceTarget.value=route;searchHelp();workspaceSearch.showModal();workspaceQuery.focus();workspaceQuery.select();}
+workspaceTarget.addEventListener('change',searchHelp);
+workspaceSearch.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();workspaceSearch.close();}});
+document.querySelector('#workspace-search-close').onclick=()=>workspaceSearch.close();
+workspaceSearch.addEventListener('close',()=>{if(workspaceSearch.dataset.submitted!=='true')document.querySelector('#quick-search').focus({preventScroll:true});delete workspaceSearch.dataset.submitted;});
+document.querySelector('#workspace-search-form').addEventListener('submit',event=>{event.preventDefault();const query=workspaceQuery.value.trim();if(!query)return;if(workspaceTarget.value==='orders'&&displayMode==='live'&&orderToolsBusy()){document.querySelector('#workspace-search-help').textContent='주문을 처리하고 있습니다. 완료 후 검색을 다시 눌러 주세요.';return;}workspaceSearch.dataset.submitted='true';workspaceSearch.close();showRoute(workspaceTarget.value);if(workspaceTarget.value==='orders'){if(displayMode==='live'){globalToggle.setAttribute('aria-expanded','true');globalPanel.hidden=false;globalPanel.inert=false;document.querySelector('#order-global-query').value=query;document.querySelector('#order-global-start').value='';document.querySelector('#order-global-end').value='';orderSearch.value='';globalPanel.requestSubmit();document.querySelector('#order-global-query').focus({preventScroll:true});}else{orderSearch.value=query;renderOrders();orderSearch.focus({preventScroll:true});}}else{const input=document.getElementById(({inventory:'inventory-search',stock:'stock-search',keywords:'keyword-search',insights:'insights-search',cs:'cs-search'})[workspaceTarget.value]);input.value=query;input.dispatchEvent(new Event('input',{bubbles:true}));input.focus({preventScroll:true});}});
+document.querySelector('#quick-search').addEventListener('click',openWorkspaceSearch);
+document.querySelector('#business-settings-open').onclick=()=>showRoute('settings',{focusHeading:true});
 document.querySelector('#theme-toggle').addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
 document.addEventListener('keydown', (event) => {
   if (event.isComposing) return;
@@ -1543,8 +1554,8 @@ document.addEventListener('keydown', (event) => {
     showRoute({ '1': 'today', '2': 'orders', '3': 'settings' }[event.key], { focusHeading: true });
     return;
   }
-  if (event.key === 'Escape' && selectedOrderId) { event.preventDefault(); closeOrderDetail({ restoreFocus: true, animate: true }); return; }
-  if (event.ctrlKey && event.key.toLocaleLowerCase('en-US') === 'k') { event.preventDefault(); showRoute('orders'); orderSearch.focus(); orderSearch.select(); return; }
+  if (event.key === 'Escape' && selectedOrderId && !document.querySelector('dialog[open]')) { event.preventDefault(); closeOrderDetail({ restoreFocus: true, animate: true }); return; }
+  if (event.ctrlKey && event.key.toLocaleLowerCase('en-US') === 'k') { event.preventDefault(); openWorkspaceSearch(); return; }
   if (event.ctrlKey && event.key.toLocaleLowerCase('en-US') === 'p') { event.preventDefault(); statusbar.lastElementChild.textContent = '출력: 이 버전에서 비활성'; }
 });
 

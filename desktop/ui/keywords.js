@@ -31,7 +31,7 @@
   const tg=data?.telegram;$('telegram-status').textContent=!tg?'서버 연결 후 설정 상태를 확인합니다.':!tg.configured?'연결 준비 · 봇과 수신 채팅 설정 필요':!tg.enabled||!tg.sendingEnabled?'서버 설정 있음 · 알림 발송 꺼짐':'서버 발송 설정 켜짐 · 실제 수신 여부는 별도 확인 필요';
   rows();
  }
- window.moaonKeywords={set:(next,state={})=>{data=next;busy=!!state.busy;failed=!!state.failed;if(!next){chosen=null;window.moaonBids?.reset();}render();}};
+ window.moaonKeywords={set:(next,state={})=>{if(next===data&&busy===!!state.busy&&failed===!!state.failed)return;data=next;busy=!!state.busy;failed=!!state.failed;if(!next){chosen=null;window.moaonBids?.reset();}render();}};
  const statusRefresh=node('button','','서버 설정 상태 조회');statusRefresh.type='button';statusRefresh.onclick=()=>window.moaonInsights?.refresh();$('telegram-status').after(statusRefresh);
  $('keyword-source-kind').onchange=()=>{chosen=null;render();};
  $('keyword-refresh').onclick=()=>window.moaonInsights?.refresh();$('keyword-search').oninput=rows;for(const id of ['keyword-type','keyword-filter','keyword-sort'])$(id).onchange=rows;
