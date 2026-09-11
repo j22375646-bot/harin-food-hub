@@ -5,7 +5,7 @@ function releaseConfig(source,channel){
  const pkg=structuredClone(source);pkg.build.artifactName='Moaon-${version}-Setup.${ext}';pkg.build.nsis.shortcutName='모아온';pkg.build.nsis.uninstallDisplayName='모아온';pkg.build.nsis.deleteAppDataOnUninstall=false;
  if(channel?.mode==='ed25519'){
   const url=new URL(channel.url);if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash||require('node:crypto').createPublicKey(channel.publicKey).asymmetricKeyType!=='ed25519')throw Error('HTTPS feed and Ed25519 key required');
-  pkg.build.publish={provider:'generic',url:channel.url};pkg.build.forceCodeSigning=false;pkg.build.win.signAndEditExecutable=false;pkg.build.win.verifyUpdateCodeSignature=false;
+  pkg.build.publish={provider:'generic',url:channel.url};pkg.build.forceCodeSigning=false;pkg.build.win.signAndEditExecutable=true;pkg.build.win.signExecutable=false;pkg.build.win.verifyUpdateCodeSignature=false;
  }else if(channel){
   const url=new URL(channel.url);if(url.protocol!=='https:'||url.username||url.password||url.search||url.hash||!url.hostname.includes('.')||!channel.publisherName||typeof channel.publisherName!=='string')throw Error('HTTPS feed and verified publisher required');
   pkg.build.publish={provider:'generic',url:channel.url};pkg.build.forceCodeSigning=true;pkg.build.win.signAndEditExecutable=true;pkg.build.win.verifyUpdateCodeSignature=true;

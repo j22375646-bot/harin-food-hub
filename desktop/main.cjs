@@ -141,6 +141,7 @@ if (!hasSingleInstanceLock) {
     if(rightDisplayRequested&&!rightBounds){console.error('RIGHT_DISPLAY_UNAVAILABLE');app.quit();return;}
     mainWindow = new BrowserWindow({
       title: APP_NAME,
+      icon: path.join(UI_ROOT,'brand','moaon.png'),
       width: 1440,
       height: 960,
       minWidth: rightBounds?Math.min(1040,rightBounds.width):1040,

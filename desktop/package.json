@@ -1,6 +1,6 @@
 {
   "name": "moaon-desktop-preview",
-  "version": "0.106.0",
+  "version": "0.107.0",
   "private": true,
   "description": "Moaon Windows preview - private Harin orders and confirmed shipment",
   "author": "Moaon",
@@ -63,19 +63,24 @@
       "shipment-transport.cjs",
       "shipping-action-journal.cjs",
       "preload.cjs",
-      "ui/**/*"
+      "ui/**/*",
+      "order-activity.cjs"
     ],
     "win": {
       "target": "nsis",
       "executableName": "MoaonPreview",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": true,
+      "icon": "ui/brand/moaon.ico",
+      "signExecutable": false
     },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "runAfterFinish": false,
-      "createDesktopShortcut": true
+      "createDesktopShortcut": true,
+      "installerIcon": "ui/brand/moaon.ico",
+      "uninstallerIcon": "ui/brand/moaon.ico"
     },
     "artifactName": "Moaon-Preview-${version}-Setup.${ext}",
     "publish": null

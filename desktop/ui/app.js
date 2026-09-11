@@ -104,7 +104,7 @@ async function refreshTodayCalendar(){
  finally{if(expected===calendarGeneration){calendarBusy=false;button.disabled=false;section.setAttribute('aria-busy','false');}}
 }
 document.querySelector('#calendar-refresh').addEventListener('click',refreshTodayCalendar);
-function clearOverview(){window.moaonStock?.clear();window.moaonInventory?.clear();window.moaonCs?.clear();window.moaonMonth?.clear();window.moaonInsights?.clear();window.moaonSettlement?.clear();clearFinance();clearTodayCalendar();overviewGeneration++;overviewValues={};overviewScope='ACTIVE';overviewScopeChosen=false;overviewBusy=false;overviewLastAttempt=0;renderOverview();}
+function clearOverview(){window.moaonStock?.clear();window.moaonInventory?.clear();window.moaonCs?.clear();window.moaonMonth?.clear();window.moaonInsights?.clear();window.moaonSettlement?.clear();clearFinance();clearTodayCalendar();overviewGeneration++;overviewValues={};overviewScope='ACTIVE';overviewScopeChosen=false;overviewExpanded=false;overviewActivity=null;overviewBusy=false;overviewLastAttempt=0;renderOverview();}
 function ensureTodayOverview(){
  if(displayMode==='live'&&document.querySelector('[data-page="today"]').classList.contains('is-visible')&&(!financeLastAttempt||financeAttemptMonth!==todayDateKey().slice(0,7)||Date.now()-financeLastAttempt>=300000))void refreshFinance();
  if(displayMode==='live'&&document.querySelector('[data-page="today"]').classList.contains('is-visible')&&(!calendarLastAttempt||calendarAttemptDate!==todayDateKey()||Date.now()-calendarLastAttempt>=60000))void refreshTodayCalendar();
@@ -112,9 +112,14 @@ function ensureTodayOverview(){
  if(overviewLastAttempt&&Date.now()-overviewLastAttempt<60000)return;
  void refreshOverview();
 }
-let overviewScope='ACTIVE',overviewScopeChosen=false;
+let overviewScope='ACTIVE',overviewScopeChosen=false,overviewExpanded=false,overviewActivity=null;
 async function openOverviewOrders(id){
  const scope=overviewScope;
+ // The workbench shows all channels. A previous order-page filter must not hide its target.
+ if(selectedChannel!=='ALL'||serverFilters.delayOnly||serverFilters.giftOnly||serverFilters.query||serverFilters.start||serverFilters.end){
+  await runHubAction('resetOrderFilters');
+  if(displayMode!=='live')return;
+ }
  await runHubAction(scopeDetails[scope].action);
  if(displayMode!=='live')return;
  showRoute('orders');
@@ -123,7 +128,7 @@ async function openOverviewOrders(id){
 }
 function renderDaybookCalendar(){
  const date=todayDateKey(),[year,month,day]=date.split('-').map(Number),grid=document.querySelector('#daybook-calendar');
- const title=makeElement('strong','daybook-month',year+'년 '+month+'월');
+ const title=makeElement('strong','daybook-month',year+'년 '+month+'월');document.querySelector('#calendar-title').replaceChildren(makeElement('span','',month+'월'),makeElement('small','',String(year)));
  const days=makeElement('div','daybook-dates');
  for(const label of ['일','월','화','수','목','금','토'])days.append(makeElement('span','daybook-weekday',label));
  const offset=new Date(Date.UTC(year,month-1,1)).getUTCDay(),last=new Date(Date.UTC(year,month,0)).getUTCDate();
@@ -157,23 +162,48 @@ function renderOverview(){
  const value=overviewValues[overviewScope],list=document.querySelector('#overview-workbench');list.setAttribute('aria-labelledby','overview-tab-'+overviewScope);
  list.replaceChildren();
  const preview=['READY','PARTIAL'].includes(value?.status)&&Array.isArray(value?.preview)?value.preview:[];
- for(const order of preview){
+ for(const order of preview.slice(0,overviewExpanded?6:4)){
   const row=makeElement('button','daybook-order');row.type='button';
   const info=makeElement('span','daybook-order-info');info.append(makeElement('strong','',order.productName||'상품 정보 확인 필요'),makeElement('small','',formatNumber(order.quantity,'개')+' · '+formatNumber(order.amount,'원')));
-  const badge=makeElement('span','channel-badge',({NAVER:'네이버',CAFE24:'Cafe24',COUPANG:'쿠팡'})[order.platform]||'채널 확인 필요');badge.dataset.channel=order.platform;
-  const thumbnail=productThumbnail(order);
-  if(!order.visual?.imageUrl){
-   thumbnail.replaceChildren();thumbnail.title='상품 이미지 없음';
-   const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg'),path=document.createElementNS(ns,'path');
-   svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');
-   path.setAttribute('d','m4 7 8-4 8 4v11l-8 4-8-4Zm0 0 8 4 8-4M12 11v11M8 5l8 4');svg.append(path);thumbnail.append(svg);
-  }
+  const channel=({NAVER:'네이버',CAFE24:'Cafe24',COUPANG:'쿠팡'})[order.platform]||'채널 확인 필요';
+  info.querySelector('small').prepend(channel+' · ');
+  const badge=makeElement('span','daybook-stage',stageLabel(order.stage));badge.dataset.scope=overviewScope;
+  const thumbnail=makeElement('span','product-thumbnail');
+  const kind=/조청|꿀|시럽/.test(order.productName||'')?'jar':/차|티백|tea/i.test(order.productName||'')?'leaf':'box';
+  if(kind==='jar')thumbnail.classList.add('syrup');
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');
+  svg.innerHTML=({"leaf":"<path d=\"M5 19C-2 6 13 4 20 3c0 13-6 20-15 16Zm-1 3L16 8\"/>","jar":"<path d=\"M7 3h10v4H7zM7 7l-2 4v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9l-2-4M5 13h14M5 18h14\"/>","box":"<path d=\"m3 7 9-4 9 4v11l-9 4-9-4Zm0 0 9 5 9-5M12 12v10M7 5l10 5\"/>"})[kind];thumbnail.append(svg);
   row.append(thumbnail,info,badge);row.addEventListener('click',()=>openOverviewOrders(order.hubOrderId));list.append(row);
  }
  if(!preview.length)list.append(makeElement('p','daybook-empty',overviewBusy?'주문을 불러오는 중입니다…':value?.status==='READY'&&value.total===0?'이 단계의 주문이 없습니다.':value?.total>0?'주문 목록에서 상품을 확인해 주세요.':'주문을 확인하지 못했습니다. 새로 확인을 눌러주세요.'));
- const open=document.querySelector('#overview-open');open.disabled=!live||overviewBusy;open.textContent=scopeDetails[overviewScope].label+' 목록 열기 →';
+ const expand=document.querySelector('#overview-expand');expand.hidden=preview.length<=4;expand.textContent=overviewExpanded?'간단히 보기 ↑':scopeDetails[overviewScope].label+' '+preview.length+'건 모두 보기 ↓';
+ const open=document.querySelector('#overview-open');open.hidden=preview.length>4&&!overviewExpanded;open.disabled=!live||overviewBusy;open.textContent=scopeDetails[overviewScope].label+' 목록 열기 →';
+ renderDaybookTrend();
  if(live)renderDaybookCalendar();
+ const focusScope=active?.status==='READY'&&active.total>0?'ACTIVE':'IN_TRANSIT',focusValue=overviewValues[focusScope];
+ document.querySelector('#daybook-focus-open').dataset.scope=focusScope;
+ document.querySelector('#daybook-focus-open').disabled=!live||overviewBusy;
+ document.querySelector('#daybook-focus-open>span').textContent=focusScope==='ACTIVE'?'발급 전 확인':'배송 확인';
+ const focusCount=document.querySelector('#daybook-focus-count');focusCount.replaceChildren(makeElement('span','',focusValue?.status==='READY'?String(focusValue.total):'—'),makeElement('small','','건'));
+ document.querySelector('#nav-order-count').textContent=complete?String(['ACTIVE','REGISTER','IN_TRANSIT'].reduce((n,k)=>n+overviewValues[k].total,0)):'—';
+ document.querySelector('#sidebar-connection').textContent=live?'하린식품 업무 연결됨':'로그인 후 업무를 연결합니다';
+ document.querySelector('#daybook-date').textContent=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'long',day:'numeric',weekday:'long'}).format(new Date());
+ document.querySelector('#daybook-checked').textContent=overviewBusy?'새 자료 확인 중':focusValue?.checkedAt?formatTime(focusValue.checkedAt)+' 조회':'조회 시각 확인 필요';
 }
+function renderDaybookTrend(){
+ const chart=document.querySelector('#daybook-trend-chart'),total=document.querySelector('#daybook-trend-total'),note=document.querySelector('#daybook-trend-note');chart.replaceChildren();
+ const v=overviewActivity;
+ if(overviewBusy||!['READY','PARTIAL'].includes(v?.status)){total.textContent='—';chart.append(makeElement('p','',overviewBusy?'주문 흐름을 확인하고 있어요.':'주문 흐름을 확인하지 못했습니다.'));note.textContent='누락된 자료는 0건으로 계산하지 않습니다.';return;}
+ const max=Math.max(1,...v.days.map(d=>d.count)),ns='http://www.w3.org/2000/svg';
+ total.replaceChildren(makeElement('span','',String(v.days.reduce((n,d)=>n+d.count,0))),makeElement('small','','건 조회'));
+ for(const day of v.days){const column=makeElement('div','daybook-chart-column'),svg=document.createElementNS(ns,'svg'),bar=document.createElementNS(ns,'rect');svg.setAttribute('viewBox','0 0 48 90');svg.setAttribute('role','img');svg.setAttribute('aria-label',day.date+' 조회 주문 '+day.count+'건');const h=day.count/max*76;bar.setAttribute('x','0');bar.setAttribute('y',String(90-h));bar.setAttribute('width','48');bar.setAttribute('height',String(h));bar.setAttribute('rx','5');svg.append(bar);column.append(makeElement('span','',String(day.count)),svg,makeElement('small','',day.date.slice(5).replace('-','.')));chart.append(column);}
+ note.textContent=v.status==='PARTIAL'?'일부 조회분 · 전체 주문 통계가 아닙니다. 상품 수량과 구분합니다.':'조회한 작업실 주문 기준 · 상품 수량과 구분합니다.';
+}
+document.querySelector('#overview-expand').addEventListener('click',()=>{overviewExpanded=!overviewExpanded;renderOverview();});
+document.querySelector('#daybook-focus-open').addEventListener('click',()=>{overviewScope=document.querySelector('#daybook-focus-open').dataset.scope;overviewScopeChosen=true;openOverviewOrders();});
+function showDaybookSources(){document.querySelector('#overview-status').classList.toggle('is-expanded');document.querySelector('#overview-status').scrollIntoView({block:'nearest'});}
+document.querySelector('#daybook-source').addEventListener('click',showDaybookSources);
+document.querySelector('#daybook-source-detail').addEventListener('click',showDaybookSources);
 document.querySelector('#overview-open').addEventListener('click',()=>openOverviewOrders());
 document.querySelector('#daybook-schedule').addEventListener('click',()=>showRoute('calendar'));
 document.querySelector('#daybook-stock-open').addEventListener('click',()=>showRoute('stock'));
@@ -185,7 +215,7 @@ async function refreshOverview(){
   const result=await window.moaonHub.readOverview();
   if(expected!==overviewGeneration)return;
   if(['LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status)){applyHubResult(result);return;}
-  overviewValues=result?.scopes||{};
+  overviewValues=result?.scopes||{};overviewActivity=result?.activity||null;
   status.textContent=result?.status==='READY'?'상태별 조회 시각을 확인하세요. 부분 확인·실패는 전체 건수로 판단하지 마세요.':'요약을 완료하지 못했습니다. 전체 상태 조회로 다시 확인하세요.';
  }catch{if(expected===overviewGeneration)status.textContent='요약 조회 실패 · 다시 확인하세요.';}
  finally{if(expected===overviewGeneration){overviewBusy=false;renderOverview();}}
@@ -265,6 +295,7 @@ const routeScroll=new Map();
 function showRoute(route, options = {}) {
  if(route==='orders'&&displayMode==='live'&&(!overviewLastAttempt||Date.now()-overviewLastAttempt>60000))void refreshOverview();
   const selectedPage = pages.find((page) => page.dataset.page === route);
+  document.querySelector('#app-breadcrumb-page').textContent=({today:'오늘',orders:'주문·배송',settlement:'운영·정산',insights:'분석',calendar:'캘린더',inventory:'상품',stock:'재고',cs:'고객·CS',settings:'앱 설정'})[route]||'오늘';
   if (!selectedPage) return;
   const scroller=document.getElementById('main-content'),previous=pages.find(p=>!p.hidden)?.dataset.page;
   if(previous&&previous!==route)routeScroll.set(previous,scroller.scrollTop);
@@ -965,8 +996,8 @@ function updateConnectionChrome(message) {
   statusElements.globalBadge.textContent = '';
   statusElements.nav.textContent = live ? '주문·배송' : sample ? '샘플 주문' : '연결 확인 필요';
   statusElements.todayContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? 'Windows 시제품 · 샘플 모드' : '하린식품 · 연결 상태 확인 필요';
-  statusElements.todayTitleMode.textContent = live ? '하린식품의 하루.' : sample ? '지금 가능한 일' : '실제 주문을 비우고';
-  statusElements.todayTitleTail.textContent = live ? '' : sample ? '부터 확인하세요' : ' 연결 상태를 확인합니다';
+  statusElements.todayTitleMode.textContent = live ? '하린식품의 하루' : sample ? '지금 가능한 일' : '실제 주문을 비우고';
+  statusElements.todayTitleTail.textContent = live ? '.' : sample ? '부터 확인하세요' : ' 연결 상태를 확인합니다';
   statusElements.todayDescription.textContent = live ? '처리할 주문부터 자금과 일정까지, 오늘의 업무를 한눈에 확인하세요.' : sample ? '실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.' : message;
   statusElements.ordersContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? '주문·배송 · 샘플 3건' : '하린식품 · 연결 상태 확인 필요';
   statusElements.ordersTitleMode.textContent = '주문 작업실';

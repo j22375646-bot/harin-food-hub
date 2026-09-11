@@ -9,7 +9,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
    const names=['국산 작두콩차 30티백, 3봉 세트','수제 쌀조청 500g','구수한 팥차 30티백','얼그레이 홍차 30티백','볶은 우엉차 20티백','도라지 조청 380g'];
    session.fromPartition('persist:moaon-harin-readonly').fetch=async url=>{
     if(url.endsWith('/api/moaon/businesses'))return Response.json({ok:true,businesses:[]});
-    const scope=new URL(url).searchParams.get('stage'),orders=scope==='ACTIVE'?[]:names.map((productName,i)=>({hubOrderId:'HR-C24-'+String(i+1).padStart(8,'0'),productName,platform:['CAFE24','NAVER','COUPANG'][i%3],stage:'DELIVERING',quantity:i%2+1,amount:[32600,29000,22000,15000,24000,32000][i]}));
+    const scope=new URL(url).searchParams.get('stage'),orders=scope==='ACTIVE'?[]:names.map((productName,i)=>({hubOrderId:'HR-C24-'+String(i+1).padStart(8,'0'),productName,platform:['CAFE24','NAVER','COUPANG'][i%3],orderedAt:new Date(Date.now()-i*86400000).toISOString(),stage:'SHIPPING',quantity:i%2+1,amount:[32600,29000,22000,15000,24000,32000][i]}));
     return Response.json({ok:true,orders,total:orders.length,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});
    };
    ipcMain.removeHandler('moaon-hub:read-today-calendar');ipcMain.handle('moaon-hub:read-today-calendar',()=>({status:'READY',date:new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date()),entries:[{time:'14:00',title:'시험 일정 · 차류 생산 확인',status:'OPEN'}]}));
@@ -17,6 +17,14 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
   await page.evaluate(()=>runHubAction('disconnect'));await page.evaluate(()=>runHubAction('viewActive'));await page.evaluate(()=>{showRoute('today');});await page.waitForFunction(()=>!document.querySelector('#overview-refresh').disabled);
   await page.evaluate(()=>{overviewScope='IN_TRANSIT';overviewScopeChosen=true;renderOverview();financeValue={month:todayDateKey().slice(0,7),generatedAt:new Date().toISOString(),metrics:{sales:{value:1264000,status:'READY'},profit:{value:324000,status:'READY'},balance:{value:null,status:'BLOCKED'}}};renderFinance();document.querySelector('.statusbar').textContent='디자인 검증 · 가상 주문과 금액 · 실제 업무 실행 없음';});
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setMinimumSize(640,520));
+  assert.equal(await page.locator('.moaon-logo').count(),3);
+  assert.equal(await page.locator('.nav-label').count(),2);
+  assert.equal(await page.locator('.brand-mark').count(),0);
+  assert.equal(await page.locator('#business-name').count(),1);
+  assert.equal(await page.locator('.daybook-order').count(),4);
+  await page.evaluate(()=>document.querySelector('#overview-expand').click());assert.equal(await page.locator('.daybook-order').count(),6);await page.evaluate(()=>document.querySelector('#overview-expand').click());
+  assert.equal(await page.locator('.daybook-chart-column').count(),7);
+  assert.match(await page.locator('#app-breadcrumb-page').innerText(),/오늘/);
   const results=[];
   for(const width of [1440,1060,820,680])for(const theme of ['light','dark']){
    await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setSize(width,900),width);await page.waitForFunction(width=>innerWidth===width,width);await page.evaluate(theme=>{applyTheme(theme);document.querySelector('#main-content').scrollTop=0;},theme);await page.waitForTimeout(450);
@@ -32,6 +40,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
   }
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1060,600));await page.waitForFunction(()=>innerHeight===600);await page.evaluate(()=>{document.querySelector('#main-content').scrollTop=1000;document.querySelector('.primary-nav').scrollTop=1000;});
   assert.ok(await page.locator('[data-route=settings]').evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight));assert.equal(await page.locator('.sidebar').evaluate(el=>el.getBoundingClientRect().bottom),600);
+  await page.evaluate(async()=>{applyHubResult(await window.moaonHub.viewChannel('NAVER'));overviewScope='IN_TRANSIT';await openOverviewOrders('HR-C24-00000001');});
+  assert.equal(await page.evaluate(()=>selectedChannel),'ALL');assert.equal(await page.evaluate(()=>selectedOrderId),'HR-C24-00000001');
   assert.deepEqual(errors,[]);const placement=await app.evaluate(({BrowserWindow,screen})=>{const w=BrowserWindow.getAllWindows()[0],d=screen.getDisplayMatching(w.getBounds()),p=screen.getPrimaryDisplay();return {right:d.id!==p.id&&d.workArea.x>=p.workArea.x+p.workArea.width,focused:w.isFocused()};});assert.deepEqual(placement,{right:true,focused:false});
   fs.writeFileSync(path.join(output,'results.json'),JSON.stringify(results,null,2));console.log('PASS Daybook 4 widths, 2 themes, ready/error typography and tab alignment, six orders, full-height rail, short window, no focus');
  }finally{await app.close();}

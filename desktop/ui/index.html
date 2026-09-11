@@ -30,9 +30,9 @@
   </head>
   <body>
     <section id="entry-screen" class="entry-screen" aria-labelledby="entry-title">
-      <header class="entry-brand"><span class="brand-mark" aria-hidden="true">모</span><strong>모아온<small>BUSINESS WORKSPACE</small></strong></header>
+      <header class="entry-brand"><svg class="moaon-logo" viewBox="0 0 36 36" aria-hidden="true"><path fill="currentColor" d="M3 25V13a7 7 0 0 1 14 0v12h-5V13a2 2 0 0 0-4 0v12Zm16 0V13a7 7 0 0 1 14 0v12h-5V13a2 2 0 0 0-4 0v12Z"/></svg><strong>모아온<small>사업의 하루를 모으다</small></strong></header>
       <div class="entry-card">
-        <div class="entry-symbol" aria-hidden="true"><span>모</span><i></i></div>
+        <div class="entry-symbol" aria-hidden="true"><svg class="moaon-logo" viewBox="0 0 36 36" aria-hidden="true"><path fill="currentColor" d="M3 25V13a7 7 0 0 1 14 0v12h-5V13a2 2 0 0 0-4 0v12Zm16 0V13a7 7 0 0 1 14 0v12h-5V13a2 2 0 0 0-4 0v12Z"/></svg></div>
         <p class="entry-eyebrow">하린식품 · 업무 공간</p>
         <h1 id="entry-title">오늘도, 모아온에서.</h1>
         <p class="entry-description">로그인하고 오늘의 업무를 이어가세요.</p>
@@ -46,71 +46,61 @@
     </section>
     <div class="preview-shell" hidden inert>
       <aside class="sidebar" aria-label="주요 메뉴">
-        <div class="brand-block">
-          <div class="brand-mark" aria-hidden="true">모</div>
-          <div>
-            <strong>모아온</strong>
-            <span>PC WORKSPACE</span>
-          </div>
-        </div>
+        <div class="brand-block"><svg class="moaon-logo" viewBox="0 0 36 36" aria-hidden="true"><path fill="currentColor" d="M3 25V13a7 7 0 0 1 14 0v12h-5V13a2 2 0 0 0-4 0v12Zm16 0V13a7 7 0 0 1 14 0v12h-5V13a2 2 0 0 0-4 0v12Z"/></svg><div><strong>모아온</strong><span>사업의 하루를 모으다</span></div></div>
 
-        <details class="studio-business"><summary>연결 상태</summary><section class="business-card" aria-label="현재 사업장">
+        <details class="studio-business"><summary><span class="company-avatar">하</span><span class="company-title"><strong id="business-name">모아온 데모</strong><small>내 사업장</small></span><span class="company-chevron">⌄</span></summary><section class="business-card" aria-label="현재 사업장">
           <span><i aria-hidden="true"></i> <b id="business-status">가상 사업장</b></span>
-          <strong id="business-name">모아온 데모</strong>
-          <small id="business-detail">시험 자료만 표시 중</small>
+                    <small id="business-detail">시험 자료만 표시 중</small>
         </section></details>
 
-        <nav class="primary-nav" aria-label="모아온 메뉴">
+        <nav class="primary-nav" aria-label="모아온 메뉴"><span class="nav-label">워크스페이스</span>
           <button class="nav-button is-active" type="button" data-route="today" aria-label="오늘" aria-current="page">
-            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9"/></svg></span>
+            <span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9"/></svg></span>
             <span><strong>오늘</strong><small>업무 시작</small></span>
           </button>
           <button class="nav-button" type="button" data-route="orders" aria-label="주문·배송">
-            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v16H4zM8 3v4m8-4v4M8 11h8m-8 4h5"/></svg></span>
-            <span><strong>주문·배송</strong><small id="orders-nav-detail">샘플 주문 3건</small></span>
+            <span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 7 9-4 9 4v11l-9 4-9-4Zm0 0 9 5 9-5M12 12v10M7 5l10 5"/></svg></span>
+            <span><strong>주문·배송</strong><small id="orders-nav-detail">샘플 주문 3건</small></span><span id="nav-order-count" class="nav-count" aria-label="진행 중 주문 건수">—</span>
           </button>
-<button class="nav-button" type="button" data-route="settlement" aria-label="운영·정산"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18v14H3zM3 10h18m-6 5h3M7 3h11"/></svg></span><span><strong>운영·정산</strong></span></button>
-<button class="nav-button" type="button" data-route="insights" aria-label="분석·인사이트"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3v18h17M8 16l4-5 4 2 5-7"/></svg></span><span><strong>분석</strong></span></button>
-<button class="nav-button" type="button" data-route="calendar" aria-label="캘린더"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v16H4zM4 10h16M8 3v4m8-4v4M8 14h1m6 0h1m-8 3h1"/></svg></span><span><strong>캘린더</strong></span></button>
-          <button class="nav-button" type="button" data-route="inventory" aria-label="상품"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m3 7 9-4 9 4v11l-9 4-9-4zm0 0 9 4 9-4M12 11v11M7 5l10 4"/></svg></span><span><strong>상품</strong></span></button>
-<button class="nav-button" type="button" data-route="stock" aria-label="재고"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m3 7 9-4 9 4v11l-9 4-9-4zm0 0 9 4 9-4M12 11v11M7 5l10 4"/></svg></span><span><strong>재고</strong></span></button>
-          <button class="nav-button" type="button" data-route="cs" aria-label="고객·CS"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v13H9l-5 4zM8 8h8m-8 4h5"/></svg></span><span><strong>고객·CS</strong></span></button>
+<button class="nav-button" type="button" data-route="settlement" aria-label="운영·정산"><span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18m-6 5h4M7 2h10"/></svg></span><span><strong>운영·정산</strong></span></button>
+<button class="nav-button" type="button" data-route="insights" aria-label="분석·인사이트"><span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v18h18M8 15l4-5 4 2 5-7"/></svg></span><span><strong>분석</strong></span></button>
+<button class="nav-button" type="button" data-route="calendar" aria-label="캘린더"><span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="17" rx="3"/><path d="M7 2v6m10-6v6M3 11h18m-13 5h3m3 0h3"/></svg></span><span><strong>캘린더</strong></span></button>
+          <span class="nav-label">상품 관리</span><button class="nav-button" type="button" data-route="inventory" aria-label="상품"><span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19C-2 6 13 4 20 3c0 13-6 20-15 16Zm-1 3L16 8"/></svg></span><span><strong>상품</strong></span></button>
+<button class="nav-button" type="button" data-route="stock" aria-label="재고"><span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 7 9-4 9 4v11l-9 4-9-4Zm0 0 9 5 9-5M12 12v10M7 5l10 5"/></svg></span><span><strong>재고</strong></span></button>
+          <button class="nav-button" type="button" data-route="cs" aria-label="고객·CS"><span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 5v11a3 3 0 0 1-3 3H9l-6 3V5a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3ZM7 8h10M7 13h6"/></svg></span><span><strong>고객·CS</strong></span></button>
           <button class="nav-button" type="button" data-route="settings" aria-label="앱 설정">
-            <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 17h16M8 4v6m8 4v6"/></svg></span>
+            <span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="16" cy="17" r="3"/></svg></span>
             <span><strong>앱 설정</strong><small>화면과 버전</small></span>
           </button>
         </nav>
 
-        <div class="sidebar-note">
-          <strong>송장 발급은 확인 후 실행</strong>
-          <span>하린식품 전용 · 다른 사업장 연결은 준비 중</span>
-        </div>
+        <div class="sidebar-note"><i aria-hidden="true"></i><span id="sidebar-connection">로그인 후 업무를 연결합니다</span></div>
       </aside>
 
       <div class="app-area">
-        <header class="topbar">
+        <header class="topbar"><div class="app-breadcrumb">워크스페이스 <b>/</b> <strong id="app-breadcrumb-page">오늘</strong></div>
           <button id="sidebar-toggle" class="chrome-button" type="button" aria-label="메뉴 접기" aria-expanded="true" title="메뉴 접기">☰</button>
           <div class="preview-warning" role="status">
             <span id="global-mode-badge" aria-hidden="true">시험</span>
             <strong id="global-connection-status">시험 자료 · 하린식품 연결 안 됨</strong>
           </div>
-          <div class="top-business">
+          <div class="top-business visually-hidden">
             <span>현재 사업장</span>
             <strong id="top-business-name">모아온 데모</strong>
           </div>
           <div class="chrome-actions">
-            <button id="quick-search" class="chrome-button" type="button" aria-label="주문 검색" title="주문 검색 · Ctrl+K">검색 <kbd>Ctrl K</kbd></button>
+            <button id="quick-search" class="chrome-button" type="button" aria-label="주문 검색" title="주문 검색 · Ctrl+K"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></svg><span>상품 빠르게 찾기</span><kbd>Ctrl K</kbd></button>
             <button id="update-ready-open" class="chrome-button" type="button" hidden>업데이트 준비됨</button>
-            <button id="theme-toggle" class="chrome-button" type="button" aria-label="화면 테마 전환" aria-pressed="false" title="라이트·다크 전환">◐</button>
+            <span class="app-avatar" aria-label="하린식품">하</span><button id="theme-toggle" class="chrome-button" type="button" aria-label="화면 테마 전환" aria-pressed="false" title="라이트·다크 전환">◐</button>
           </div>
         </header>
 
         <main id="main-content" tabindex="-1">
           <section class="page is-visible" data-page="today" aria-labelledby="today-title">
             <header class="page-heading workspace-heading">
-              <p class="context-line"><i aria-hidden="true"></i> <span id="today-context">Windows 시제품 · 샘플 모드</span></p>
+              <p id="daybook-date" class="daybook-date"></p><p class="context-line"><i aria-hidden="true"></i> <span id="today-context">Windows 시제품 · 샘플 모드</span></p>
               <h1 id="today-title" aria-label="오늘" tabindex="-1"><em id="today-title-mode" class="page-title-accent">지금 가능한 일</em><span id="today-title-tail">부터 확인하세요</span></h1>
-              <p id="today-description">실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.</p>
+              <div class="daybook-heading-actions"><span id="daybook-checked"></span><button id="daybook-source" type="button">자료 기준 <span aria-hidden="true">↗</span></button></div><p id="today-description">실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.</p>
             </header>
 
             <section class="readiness-card" data-sample-only>
@@ -125,14 +115,14 @@
             </section>
 
             <div class="daybook-main"><section id="today-overview" class="panel today-overview" aria-labelledby="overview-title" hidden>
-              <p id="overview-priority" role="status">업무 현황을 확인합니다.</p>
-<header><div><span class="eyebrow">오늘의 업무</span><h2 id="overview-title">주문 작업대</h2></div><button id="overview-refresh" type="button">새로 확인</button></header>
-              
-              <div id="overview-cards" class="overview-cards" role="tablist" aria-label="주문 작업대 상태"></div><div id="overview-workbench" role="tabpanel" aria-label="선택한 상태의 주문"></div><button id="overview-open" class="daybook-more" type="button">주문 목록 열기 →</button>
+              <div class="daybook-focus"><p id="overview-priority" role="status">업무 현황을 확인합니다.</p><button id="daybook-focus-open" class="focus-action" type="button"><span>배송 확인</span><strong id="daybook-focus-count">—</strong><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></button></div>
+<header><div><span class="eyebrow">오늘의 업무</span><h2 id="overview-title">주문 작업대</h2></div><span class="daybook-channel-scope">전체 채널 <small>저장 주문 기준</small></span><button id="overview-refresh" type="button">새로 확인</button></header>
+
+              <div id="overview-cards" class="overview-cards" role="tablist" aria-label="주문 작업대 상태"></div><div id="overview-workbench" role="tabpanel" aria-label="선택한 상태의 주문"></div><button id="overview-expand" class="daybook-more" type="button" hidden>모두 보기 ↓</button><button id="overview-open" class="daybook-more" type="button">주문 목록 열기 →</button>
               <p id="overview-status" role="status">조회하지 않은 상태는 확인 필요로 표시합니다.</p>
             </section>
 
-            <section id="finance-panel" class="panel today-overview finance-panel" aria-labelledby="finance-title" hidden>
+            <section id="daybook-trend" class="daybook-trend"><header><div><h2>주문이 들어온 흐름</h2><p>최근 7일 · 이번에 조회한 작업실 주문 기준</p></div><strong id="daybook-trend-total">—</strong></header><div id="daybook-trend-chart" class="daybook-chart" aria-label="최근 조회 주문의 날짜별 분포"></div><p id="daybook-trend-note">조회 자료를 확인합니다.</p></section><section id="finance-panel" class="panel today-overview finance-panel" aria-labelledby="finance-title" hidden>
               <header><div><span class="eyebrow">이번 달</span><h2 id="finance-title">이번 달 자금 판단</h2></div><button id="finance-refresh" type="button">다시 확인</button></header>
               <p id="finance-meta">연결 후 기준 월과 조회 시각을 확인합니다.</p>
               <div id="finance-cards" class="finance-cards"></div>
@@ -140,12 +130,12 @@
               <p id="finance-status" role="status">조회하지 않은 금액은 확인 필요로 표시합니다.</p>
             </section>
             </div><div class="daybook-aside"><section id="today-calendar" class="panel today-overview" aria-labelledby="calendar-title" hidden>
-              <header><div><span class="eyebrow">나의 일정</span><h2 id="calendar-title">오늘의 일정</h2></div><button id="calendar-refresh" type="button">일정 조회</button></header>
+              <header><div><span class="eyebrow">나의 일정</span><h2 id="calendar-title">이번 달</h2></div><button id="calendar-refresh" type="button" aria-label="오늘 일정 새로 조회" title="오늘 일정 새로 조회"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="17" rx="3"/><path d="M7 2v6m10-6v6M3 11h18m-13 5h3m3 0h3"/></svg></button></header>
               <div id="daybook-calendar" aria-label="이번 달 달력"></div><p id="calendar-status" role="status">연결 후 오늘 일정을 확인합니다.</p>
               <ul id="calendar-list" aria-label="오늘 일정"></ul><button id="daybook-schedule" class="daybook-more" type="button">일정 등록 · 전체 캘린더 →</button>
             </section>
 
-            <section id="daybook-stock" class="daybook-stock"><span class="eyebrow">재고 기록</span><h2>입고부터,<br>차곡차곡.</h2><p>입고와 생산 기록을 모아<br>다음 출고를 준비하세요.</p><button id="daybook-stock-open" type="button">재고 관리 열기 <span aria-hidden="true">→</span></button></section></div><div class="today-grid" data-sample-only>
+            <section id="daybook-stock" class="daybook-stock"><div class="inventory-illustration" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 7 9-4 9 4v11l-9 4-9-4Zm0 0 9 5 9-5M12 12v10M7 5l10 5"/></svg></div><span class="eyebrow">재고 기록</span><h2>입고부터,<br>차곡차곡.</h2><p>입고와 생산 기록을 모아<br>다음 출고를 준비하세요.</p><button id="daybook-stock-open" type="button">재고 관리 열기 <svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></button></section><section class="daybook-data-note"><i aria-hidden="true"></i><div><strong>숫자에도 기준이 있어요.</strong><p>채널별 저장 주문을 읽어 표시합니다. 부분 확인이나 조회 실패는 실제 0건과 구분합니다.</p><button id="daybook-source-detail" type="button">조회 범위 자세히 보기 ↗</button></div></section></div><div class="today-grid" data-sample-only>
               <section class="panel capability-panel">
                 <header>
                   <div><span class="eyebrow">사용 가능</span><h2>이 시제품에서 확인할 수 있어요</h2></div>

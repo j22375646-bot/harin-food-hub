@@ -564,6 +564,7 @@ function createHubConnection({
     if(activeOverview)return activeOverview;
     const expected=generation,controller=new AbortController();businessReads.add(controller);
     let timer,authStatus=null;
+    const activityScopes={},overviewAt=now().toISOString();
     const empty=status=>({status,scopes:{}});
     const readScope=async scope=>{
       try{
@@ -574,6 +575,7 @@ function createHubConnection({
         const payload=await readBoundedJson(response,controller);
         if(controller.signal.aborted||expected!==generation)throw Error('Cancelled');
         const result=projectOrdersPayload(payload,now().toISOString(),{scope});
+        activityScopes[scope]=result;
         // The home workbench uses the same bounded projection, without receiver or invoice data.
         // Do not change loadedOrders, cursors or the user's current order selection here.
         const preview=(result.orders||[]).slice(0,6).map(order=>({hubOrderId:order.hubOrderId,productName:order.productName,platform:order.platform,quantity:order.quantity,amount:order.amount,stage:order.stage,visual:order.visual}));
@@ -582,7 +584,7 @@ function createHubConnection({
     };
     const operation=(async()=>{
       const result=await Promise.race([
-        Promise.all(ORDER_SCOPES.map(readScope)).then(rows=>({status:'READY',scopes:Object.fromEntries(rows)})),
+        Promise.all(ORDER_SCOPES.map(readScope)).then(rows=>({status:'READY',scopes:Object.fromEntries(rows),activity:require('./order-activity.cjs').projectOrderActivity(activityScopes,overviewAt)})),
         new Promise(resolve=>{timer=setTimeout(()=>{resolve(empty('TIMEOUT'));controller.abort();},timeoutMs);}),
         new Promise(resolve=>controller.signal.addEventListener('abort',()=>resolve(empty('CANCELLED')),{once:true})),
       ]);
