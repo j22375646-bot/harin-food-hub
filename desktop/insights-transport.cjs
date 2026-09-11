@@ -1,4 +1,5 @@
 'use strict';
+const {projectMarketing}=require('./marketing-contract.cjs');
 const INSIGHTS_URL='https://harin-cafe24-sync.vercel.app/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/insights';
 const empty=status=>({status,channel:null,reports:[],caveats:[],generatedAt:null});
 const object=v=>v!==null&&typeof v==='object'&&!Array.isArray(v);
@@ -21,7 +22,7 @@ function project(p){
  if(p?.ok!==true||p.writePolicy!=='READ_ONLY'||!date(p.generatedAt)||!object(c)||c.platform!=='NAVER'||!text(c.name)||!Number.isInteger(c.reportCount)||c.reportCount<0||c.reportCount>20||!['revenue','profit','changeRate'].every(k=>number(c[k]))||!['cause','causeNote','action','actionNote'].every(k=>text(c[k]))||!(c.currentPeriod===null||object(c.currentPeriod)&&['start','end','createdAt'].every(k=>date(c.currentPeriod[k]))))throw Error('Channel');
  if(!Array.isArray(p.reports)||p.reports.length>20||p.reports.length!==c.reportCount||!Array.isArray(p.caveats)||p.caveats.length>20||!p.caveats.every(text))throw Error('Reports');
  const ids=new Set();for(const row of p.reports){if(!object(row)||typeof row.id!=='string'||!row.id||row.id.length>128||ids.has(row.id)||!text(row.title)||!['periodStart','periodEnd','createdAt'].every(k=>date(row[k])))throw Error('Report');ids.add(row.id);}
-return {status:'READY',writePolicy:'READ_ONLY',generatedAt:p.generatedAt,channel:{...Object.fromEntries(['platform','name','reportCount','revenue','profit','changeRate','cause','causeNote','action','actionNote'].map(k=>[k,c[k]])),currentPeriod:c.currentPeriod===null?null:Object.fromEntries(['start','end','createdAt'].map(k=>[k,c.currentPeriod[k]]))},reports:p.reports.map(row=>({...Object.fromEntries(['id','title','periodStart','periodEnd','createdAt'].map(k=>[k,row[k]])),detail:detail(row.detail)})),caveats:[...p.caveats]};
+return {status:'READY',marketing:projectMarketing(p.marketing),writePolicy:'READ_ONLY',generatedAt:p.generatedAt,channel:{...Object.fromEntries(['platform','name','reportCount','revenue','profit','changeRate','cause','causeNote','action','actionNote'].map(k=>[k,c[k]])),currentPeriod:c.currentPeriod===null?null:Object.fromEntries(['start','end','createdAt'].map(k=>[k,c.currentPeriod[k]]))},reports:p.reports.map(row=>({...Object.fromEntries(['id','title','periodStart','periodEnd','createdAt'].map(k=>[k,row[k]])),detail:detail(row.detail)})),caveats:[...p.caveats]};
 }
 function createInsightsTransport({fetch,timeoutMs=30000}={}){
  if(typeof fetch!=='function'||!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>30000)throw TypeError('Invalid transport');

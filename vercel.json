@@ -1,10 +1,14 @@
 {
   "functions": {
     "app/api/moaon/businesses/*/orders/route.js": {
-      "regions": ["sin1"]
+      "regions": [
+        "sin1"
+      ]
     },
     "app/api/moaon/businesses/route.js": {
-      "regions": ["sin1"]
+      "regions": [
+        "sin1"
+      ]
     }
   },
   "crons": [
@@ -23,6 +27,10 @@
     {
       "path": "/api/cron/monthly-reports",
       "schedule": "0 23 * * *"
+    },
+    {
+      "path": "/api/cron/naver-marketing",
+      "schedule": "0 22 * * *"
     }
   ]
 }

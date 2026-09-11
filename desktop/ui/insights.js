@@ -27,6 +27,7 @@
  }
  function closeDetail(){const previous=selected;selected=null;detail();Array.from(document.querySelectorAll('[data-insights-report]')).find(el=>el.dataset.insightsReport===previous)?.focus();}
  function render(){
+  window.moaonMarketing?.set(value?.marketing||null);
   select('insights-refresh').disabled=busy||displayMode!=='live';select('insights-page').setAttribute('aria-busy',String(busy));
   const c=value?.channel;
   select('insights-period').textContent=c?.currentPeriod?`분석 기간 ${period(c.currentPeriod.start)} — ${period(c.currentPeriod.end)} · 보고서 작성 ${formatTime(c.currentPeriod.createdAt)}`:'보고서 기간 확인 필요';

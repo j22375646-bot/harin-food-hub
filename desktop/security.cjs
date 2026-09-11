@@ -10,6 +10,8 @@ const ALLOWED_APP_RESOURCES = new Map([
   ['moaon://app/studio.css', 'studio.css'],
   ['moaon://app/settlement.js', 'settlement.js'],
   ['moaon://app/insights.js', 'insights.js'],
+  ['moaon://app/marketing.js', 'marketing.js'],
+  ['moaon://app/marketing.css', 'marketing.css'],
   ['moaon://app/month-calendar.js', 'month-calendar.js'],
   ['moaon://app/month-calendar.css', 'month-calendar.css'],
   ['moaon://app/insights.css', 'insights.css'],

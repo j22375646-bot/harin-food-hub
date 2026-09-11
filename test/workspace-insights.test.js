@@ -92,11 +92,11 @@ test('malformed insight data is rejected, not converted to a successful zero dat
  for(const reports of [null,{},[{...row('bad','2026-08-10',1),summary_json:'bad'}]])assert.throws(()=>summary({reports}));
  const bad=row('bad','2026-08-10',true);assert.equal(summary({reports:[bad]}).channel.revenue,null);
 });
-test('insights loader emits a single bounded channel-specific readonly query and fails closed',async()=>{
+test('insights loader preserves bounded channel-specific reports and fails closed',async()=>{
  const {loadWorkspaceInsights}=require('../lib/dashboard/workspace-insights-loader.js');
  let operations=[];const chain={};for(const name of ['select','eq','order','limit'])chain[name]=(...args)=>{operations.push([name,...args]);return chain;};
  let response={data:[row('one','2026-08-10',1)],error:null};chain.then=(resolve,reject)=>Promise.resolve(response).then(resolve,reject);
- const db={from:name=>{operations.push(['from',name]);return chain;}};
+ const db={from:name=>{if(name!=='reports')throw Error('Additional marketing reader unavailable');operations.push(['from',name]);return chain;}};
  const result=await loadWorkspaceInsights({db});assert.equal(result.reports.length,1);
  assert.deepEqual(operations.filter(r=>r[0]==='eq'),[['eq','platform','NAVER'],['eq','report_type','WEEKLY'],['eq','is_latest',true]]);
  assert.deepEqual(operations.filter(r=>r[0]==='limit'),[['limit',20]]);assert.equal(operations.filter(r=>r[0]==='from').length,1);
