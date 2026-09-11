@@ -42,6 +42,25 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
   assert.ok(await page.locator('[data-route=settings]').evaluate(el=>el.getBoundingClientRect().bottom<=innerHeight));assert.equal(await page.locator('.sidebar').evaluate(el=>el.getBoundingClientRect().bottom),600);
   await page.evaluate(async()=>{applyHubResult(await window.moaonHub.viewChannel('NAVER'));overviewScope='IN_TRANSIT';await openOverviewOrders('HR-C24-00000001');});
   assert.equal(await page.evaluate(()=>selectedChannel),'ALL');assert.equal(await page.evaluate(()=>selectedOrderId),'HR-C24-00000001');
+  await page.waitForTimeout(550);
+  for(const theme of ['light','dark']){
+   await page.evaluate(theme=>{applyTheme(theme);document.querySelector('#order-detail').scrollTop=180;},theme);
+   assert.notEqual(await page.locator('#order-detail .detail-header').evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
+   await page.screenshot({path:path.join(output,`inspector-scrolled-${theme}.png`)});
+  }
+  for(const width of [1440,1060,820,680]){
+   await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setSize(width,900),width);await page.waitForFunction(width=>innerWidth===width,width);
+   await page.evaluate(()=>{applyTheme('light');document.querySelector('.studio-business').open=true;});
+   if(width>1000)assert.ok(await page.locator('.business-card').evaluate(el=>el.getBoundingClientRect().right<=document.querySelector('.sidebar').getBoundingClientRect().right));
+   for(const route of ['today','orders','settlement','insights','calendar','inventory','stock','cs','settings']){
+    await page.evaluate(route=>showRoute(route),route);await page.waitForTimeout(100);
+    const geometry=await page.evaluate(()=>({right:document.querySelector('.chrome-actions').getBoundingClientRect().right,limit:innerWidth-138,overflow:document.querySelector('#main-content').scrollWidth>document.querySelector('#main-content').clientWidth+1}));
+    assert.ok(geometry.right<=geometry.limit,`${route}/${width} caption overlap`);assert.equal(geometry.overflow,false,`${route}/${width} overflow`);
+    if(width===1060)await page.screenshot({path:path.join(output,`audit-${route}.png`)});
+   }
+  }
+  await page.evaluate(()=>{showRoute('calendar');showRoute('settings');goBack();});assert.equal(await page.locator('.page.is-visible').getAttribute('data-page'),'calendar');
+  assert.equal(await page.locator('.month-toolbar').evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
   assert.deepEqual(errors,[]);const placement=await app.evaluate(({BrowserWindow,screen})=>{const w=BrowserWindow.getAllWindows()[0],d=screen.getDisplayMatching(w.getBounds()),p=screen.getPrimaryDisplay();return {right:d.id!==p.id&&d.workArea.x>=p.workArea.x+p.workArea.width,focused:w.isFocused()};});assert.deepEqual(placement,{right:true,focused:false});
   fs.writeFileSync(path.join(output,'results.json'),JSON.stringify(results,null,2));console.log('PASS Daybook 4 widths, 2 themes, ready/error typography and tab alignment, six orders, full-height rail, short window, no focus');
  }finally{await app.close();}
