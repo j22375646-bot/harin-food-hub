@@ -23,9 +23,9 @@ async function main(){
   assert.match(await page.locator('#overview-priority').textContent(),/확인이 필요/);
   assert.equal(await page.locator('.overview-bar').count(),0);
   await app.evaluate(()=>globalThis.slowOverview=true);await page.evaluate(()=>{void refreshOverview();});assert.equal(await page.locator('#today-overview').getAttribute('aria-busy'),'true');assert.match(await card('ACTIVE').innerText(),/조회 중/);await page.waitForFunction(()=>document.getElementById('today-overview').getAttribute('aria-busy')==='false');await app.evaluate(()=>globalThis.slowOverview=false);
-  assert.equal(await page.locator('#overview-cards').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),4);assert.equal(await card('REGISTER').locator('strong').evaluate(el=>getComputedStyle(el).fontSize),'34px');
+  assert.equal(await page.locator('#overview-cards').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),2);assert.equal(await card('REGISTER').locator('strong').evaluate(el=>getComputedStyle(el).fontSize),'32px');
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1060,720));await page.waitForFunction(()=>innerHeight===720);
-  assert.equal(await page.locator('#overview-cards').evaluate(el=>new Set([...el.querySelectorAll('button small:last-child')].map(n=>Math.round(n.getBoundingClientRect().top))).size),1);
+  assert.equal(await page.locator('#overview-cards').evaluate(el=>new Set([...el.querySelectorAll('button small:last-child')].map(n=>Math.round(n.getBoundingClientRect().top))).size),2);
   const savedScroll=await page.evaluate(()=>{const el=document.getElementById('main-content');el.scrollTop=120;return el.scrollTop;});assert.ok(savedScroll>0);await page.evaluate(()=>{showRoute('settings');showRoute('today');});assert.equal(await page.locator('#main-content').evaluate(el=>el.scrollTop),savedScroll);await page.evaluate(()=>document.getElementById('main-content').scrollTop=0);
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1060,1100));await page.waitForFunction(()=>innerHeight===1100);
   const reads=await app.evaluate(()=>globalThis.overviewRegisterReads);
@@ -33,6 +33,15 @@ async function main(){
   await page.waitForTimeout(100);
   assert.equal(await app.evaluate(()=>globalThis.overviewRegisterReads),reads,'rapid return reuses overview instead of fetching again');
   await page.evaluate(()=>{const p=document.createElement('p');p.textContent='오늘 화면 디자인 검증 · 가상 주문/금액 · 실제 업무 실행 없음';p.className='experience-test-banner';document.getElementById('today-overview').prepend(p);});
+  assert.equal(await page.locator('.orbit-segment').count(),0,'Incomplete data must not draw a complete composition');
+  await page.evaluate(()=>{overviewValues=Object.fromEntries(['ACTIVE','REGISTER','IN_TRANSIT','COMPLETED'].map(scope=>[scope,{status:'READY',total:0,checkedAt:new Date().toISOString()}]));renderOverview();});
+  assert.equal(await page.locator('.orbit-total').textContent(),'0');
+  assert.equal(await page.locator('.orbit-segment').count(),0,'Zero orders must not create invalid or decorative chart segments');
+  await page.evaluate(()=>{overviewValues=Object.fromEntries(['ACTIVE','REGISTER','IN_TRANSIT','COMPLETED'].map((scope,i)=>[scope,{status:'READY',total:[7,2,4,90][i],checkedAt:new Date().toISOString()}]));renderOverview();});
+  assert.equal(await page.locator('.orbit-total').textContent(),'13','Completed orders are excluded from work in progress');
+  assert.equal(await page.locator('.orbit-segment').count(),3);
+  assert.match(await page.locator('#overview-orbit svg').getAttribute('aria-label'),/송장 발급 전 7건/);
+  assert.equal(await page.locator('.orbit-segment').evaluateAll(nodes=>nodes.every(node=>!/(NaN|Infinity)/.test(node.getAttribute('stroke-dasharray')))),true);
   await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('[data-page=today]').evaluate(el=>getComputedStyle(el).animationName),'none');await page.emulateMedia({reducedMotion:'no-preference'});
   for(const theme of ['light','dark']){
    await page.evaluate(theme=>applyTheme(theme),theme);await page.waitForTimeout(350);

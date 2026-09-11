@@ -112,6 +112,26 @@ function ensureTodayOverview(){
  if(overviewLastAttempt&&Date.now()-overviewLastAttempt<60000)return;
  void refreshOverview();
 }
+function renderOverviewOrbit(){
+ const figure=document.querySelector('#overview-orbit');if(!figure)return;
+ const scopes=['ACTIVE','REGISTER','IN_TRANSIT'],values=scopes.map(scope=>overviewValues[scope]);
+ const known=values.every(value=>value?.status==='READY'&&Number.isSafeInteger(value.total)&&value.total>=0);
+ const total=known?values.reduce((sum,value)=>sum+value.total,0):null;
+ const complete=known&&Number.isSafeInteger(total),ns='http://www.w3.org/2000/svg';
+ const svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox','0 0 220 220');svg.setAttribute('role','img');
+ svg.setAttribute('aria-label',complete?scopes.map((scope,i)=>`${scopeDetails[scope].label} ${values[i].total}건`).join(', '):'진행 중 주문 구성 확인 필요');
+ const element=(tag,attributes,text)=>{const node=document.createElementNS(ns,tag);for(const [key,value] of Object.entries(attributes))node.setAttribute(key,String(value));if(text!==undefined)node.textContent=text;svg.append(node);return node;};
+ element('circle',{cx:110,cy:110,r:82,class:'orbit-track'});
+ if(complete&&total>0){let offset=0;const perimeter=2*Math.PI*82;
+  scopes.forEach((scope,i)=>{const length=values[i].total/total*perimeter;if(!length)return;
+   const circle=element('circle',{cx:110,cy:110,r:82,class:'orbit-segment','data-scope':scope,'stroke-dasharray':`${Math.max(.2,length-3)} ${perimeter-Math.max(.2,length-3)}`,'stroke-dashoffset':-offset});
+   const title=document.createElementNS(ns,'title');title.textContent=`${scopeDetails[scope].label} ${values[i].total.toLocaleString('ko-KR')}건`;circle.append(title);offset+=length;
+  });
+ }
+ element('text',{x:110,y:104,class:'orbit-total'},complete?total.toLocaleString('ko-KR'):'—');
+ element('text',{x:110,y:131,class:'orbit-label'},complete?'진행 중 주문':'확인 필요');
+ figure.replaceChildren(svg,makeElement('figcaption','',complete?'송장 발급 전부터 배송중까지 · 완료·취소 제외':'상태별 조회가 완료되면 주문 구성을 표시합니다.'));
+}
 function renderOverview(){
  renderScopeCounts();
  const section=document.querySelector('#today-overview');section.hidden=displayMode!=='live';section.setAttribute('aria-busy',String(overviewBusy));section.closest('[data-page]').dataset.live=String(displayMode==='live');
@@ -128,6 +148,7 @@ function renderOverview(){
   button.addEventListener('click',async()=>{button.disabled=true;await runHubAction(detail.action);if(displayMode==='live')showRoute('orders');});
   return button;
  }));
+ renderOverviewOrbit();
 }
 async function refreshOverview(){
  if(overviewBusy||displayMode!=='live')return;
@@ -919,7 +940,7 @@ function updateConnectionChrome(message) {
   statusElements.todayContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? 'Windows 시제품 · 샘플 모드' : '하린식품 · 연결 상태 확인 필요';
   statusElements.todayTitleMode.textContent = live ? '오늘의 운영 현황' : sample ? '지금 가능한 일' : '실제 주문을 비우고';
   statusElements.todayTitleTail.textContent = live ? '' : sample ? '부터 확인하세요' : ' 연결 상태를 확인합니다';
-  statusElements.todayDescription.textContent = live ? '저장된 주문 상태를 확인하고 필요한 업무로 이동하세요. 플랫폼 자동 수집 성공이나 오늘의 매출을 뜻하지 않습니다.' : sample ? '실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.' : message;
+  statusElements.todayDescription.textContent = live ? '처리할 주문부터 자금과 일정까지, 오늘의 업무를 한눈에 확인하세요.' : sample ? '실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.' : message;
   statusElements.ordersContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? '주문·배송 · 샘플 3건' : '하린식품 · 연결 상태 확인 필요';
   statusElements.ordersTitleMode.textContent = '주문 작업실';
   statusElements.ordersDescription.textContent = live ? '주문을 선택하고, 확인부터 출고까지.' : sample ? '샘플 주문으로 화면을 살펴보세요.' : message;

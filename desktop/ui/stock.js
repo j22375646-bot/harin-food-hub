@@ -173,6 +173,7 @@
     const metric=(label,value,caption,cls='')=>{const el=node('div','', 'rocket-metric '+cls);el.append(node('small',label),node('strong',value));if(caption)el.append(node('small',caption));return el;};
     for(const r of visible){
       const p=r.plan,row=node('article','', 'rocket-row rocket-planning-row'),title=node('div','', 'rocket-identity');
+      row.dataset.risk=p.risk;
       title.append(node('strong',r.name),node('small',r.updatedAt?'수집 '+new Intl.DateTimeFormat('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Seoul'}).format(new Date(r.updatedAt)):'수집 시각 확인 필요'));
       const label=r.quantity===0?(r.stale?'마지막 수집 시 품절':'품절'):({CHECK:'갱신·자료 확인',NO_SALES:'판매 표본 필요',URGENT:'7일 내 소진',LOW:'14일 내 소진',ENOUGH:'재고 보유'})[p.risk];
       title.append(node('span',label,'rocket-badge '+(r.quantity===0||p.risk==='URGENT'?'empty':p.risk==='LOW'?'warning':'available')));
