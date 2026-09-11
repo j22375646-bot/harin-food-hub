@@ -23,9 +23,9 @@ async function main(){
   assert.match(await page.locator('#overview-priority').textContent(),/확인이 필요/);
   assert.equal(await page.locator('.overview-bar').count(),0);
   await app.evaluate(()=>globalThis.slowOverview=true);await page.evaluate(()=>{void refreshOverview();});assert.equal(await page.locator('#today-overview').getAttribute('aria-busy'),'true');assert.match(await card('ACTIVE').innerText(),/조회 중/);await page.waitForFunction(()=>document.getElementById('today-overview').getAttribute('aria-busy')==='false');await app.evaluate(()=>globalThis.slowOverview=false);
-  assert.equal(await page.locator('#overview-cards').evaluate(el=>getComputedStyle(el).gridTemplateColumns.split(' ').length),2);assert.equal(await card('REGISTER').locator('strong').evaluate(el=>getComputedStyle(el).fontSize),'32px');
+  assert.equal(await page.locator('.daybook-order').count(),1);assert.match(await page.locator('.daybook-order').innerText(),/가명 상품/);assert.equal(await card('ACTIVE').getAttribute('aria-selected'),'true');
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1060,720));await page.waitForFunction(()=>innerHeight===720);
-  assert.equal(await page.locator('#overview-cards').evaluate(el=>new Set([...el.querySelectorAll('button small:last-child')].map(n=>Math.round(n.getBoundingClientRect().top))).size),2);
+  assert.equal(await page.locator('.sidebar').evaluate(el=>Math.abs(el.getBoundingClientRect().bottom-innerHeight)<1),true,'sidebar must extend to the bottom of the window');
   const savedScroll=await page.evaluate(()=>{const el=document.getElementById('main-content');el.scrollTop=120;return el.scrollTop;});assert.ok(savedScroll>0);await page.evaluate(()=>{showRoute('settings');showRoute('today');});assert.equal(await page.locator('#main-content').evaluate(el=>el.scrollTop),savedScroll);await page.evaluate(()=>document.getElementById('main-content').scrollTop=0);
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1060,1100));await page.waitForFunction(()=>innerHeight===1100);
   const reads=await app.evaluate(()=>globalThis.overviewRegisterReads);
@@ -33,15 +33,13 @@ async function main(){
   await page.waitForTimeout(100);
   assert.equal(await app.evaluate(()=>globalThis.overviewRegisterReads),reads,'rapid return reuses overview instead of fetching again');
   await page.evaluate(()=>{const p=document.createElement('p');p.textContent='오늘 화면 디자인 검증 · 가상 주문/금액 · 실제 업무 실행 없음';p.className='experience-test-banner';document.getElementById('today-overview').prepend(p);});
-  assert.equal(await page.locator('.orbit-segment').count(),0,'Incomplete data must not draw a complete composition');
-  await page.evaluate(()=>{overviewValues=Object.fromEntries(['ACTIVE','REGISTER','IN_TRANSIT','COMPLETED'].map(scope=>[scope,{status:'READY',total:0,checkedAt:new Date().toISOString()}]));renderOverview();});
-  assert.equal(await page.locator('.orbit-total').textContent(),'0');
-  assert.equal(await page.locator('.orbit-segment').count(),0,'Zero orders must not create invalid or decorative chart segments');
-  await page.evaluate(()=>{overviewValues=Object.fromEntries(['ACTIVE','REGISTER','IN_TRANSIT','COMPLETED'].map((scope,i)=>[scope,{status:'READY',total:[7,2,4,90][i],checkedAt:new Date().toISOString()}]));renderOverview();});
-  assert.equal(await page.locator('.orbit-total').textContent(),'13','Completed orders are excluded from work in progress');
-  assert.equal(await page.locator('.orbit-segment').count(),3);
-  assert.match(await page.locator('#overview-orbit svg').getAttribute('aria-label'),/송장 발급 전 7건/);
-  assert.equal(await page.locator('.orbit-segment').evaluateAll(nodes=>nodes.every(node=>!/(NaN|Infinity)/.test(node.getAttribute('stroke-dasharray')))),true);
+  await page.evaluate(()=>document.querySelector('#overview-cards [data-scope=REGISTER]').click());
+  assert.match(await page.locator('#overview-workbench').innerText(),/주문이 없습니다/);
+  await page.evaluate(()=>document.querySelector('#overview-cards [data-scope=IN_TRANSIT]').click());
+  assert.match(await page.locator('#overview-workbench').innerText(),/확인하지 못했습니다/);
+  await page.evaluate(()=>document.querySelector('#overview-cards [data-scope=ACTIVE]').click());
+  assert.equal(await page.locator('.daybook-order').count(),1);
+  assert.equal(await page.locator('#daybook-calendar [aria-current=date]').count(),1);
   await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('[data-page=today]').evaluate(el=>getComputedStyle(el).animationName),'none');await page.emulateMedia({reducedMotion:'no-preference'});
   for(const theme of ['light','dark']){
    await page.evaluate(theme=>applyTheme(theme),theme);await page.waitForTimeout(350);
@@ -49,13 +47,13 @@ async function main(){
    await page.screenshot({path:path.join(os.tmpdir(),`moaon-experience-${theme}.png`)});
   }
   const viewport=await page.evaluate(()=>({width:innerWidth,height:innerHeight}));await page.setViewportSize({width:680,height:1000});assert.equal(await page.locator('#overview-cards').evaluate(el=>el.scrollWidth<=el.clientWidth),true);await page.screenshot({path:path.join(os.tmpdir(),'moaon-experience-narrow.png')});await page.setViewportSize(viewport);
-  await page.evaluate(()=>document.querySelector('#overview-cards [data-scope=REGISTER]').click());await page.locator('[data-page="orders"]:visible').waitFor();
+  await page.evaluate(()=>document.querySelector('#overview-cards [data-scope=REGISTER]').click());await page.evaluate(()=>document.querySelector('#overview-open').click());await page.locator('[data-page="orders"]:visible').waitFor();
   assert.match(await page.locator('#order-result-count').innerText(),/0건/);
   await page.evaluate(()=>runHubAction('disconnect'));
   assert.equal(await page.locator('#today-overview').isVisible(),false);
   assert.equal(await page.locator('#overview-cards').innerText().then(x=>x.includes('1건')),false);
   assert.deepEqual(errors,[]);const placement=await app.evaluate(({BrowserWindow,screen})=>{const w=BrowserWindow.getAllWindows()[0],d=screen.getDisplayMatching(w.getBounds()),p=screen.getPrimaryDisplay();return {right:d.id!==p.id&&d.workArea.x>=p.workArea.x+p.workArea.width,focused:w.isFocused()};});assert.deepEqual(placement,{right:true,focused:false});
-  console.log(JSON.stringify({status:'PASS',packaged,scope:'overview numeric cards, loading, scroll restoration, cached return, reduced motion, light/dark/narrow, order navigation, logout'}));
+  console.log(JSON.stringify({status:'PASS',packaged,scope:'Daybook workbench, scope tabs, calendar, full-height sidebar, loading, scroll restoration, cached return, reduced motion, light/dark/narrow, order navigation, logout'}));
  }finally{await app.close();}
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

@@ -41,7 +41,7 @@ async function main(){
   assert.equal(await visualRow.locator('.delivery-badge').innerText(),'예약');
   assert.match(await visualRow.locator('.product-option').innerText(),/옵션: 30T 1상자 · 수량 1개/);assert.equal(await visualRow.locator('.product-thumbnail').evaluate(e=>e.getBoundingClientRect().width),64);await visualRow.click();
   assert.equal(await page.locator('.detail-header').evaluate(el=>getComputedStyle(el).position),'sticky');assert.ok(await page.locator('.detail-header button').evaluate(el=>el.getBoundingClientRect().height>=42));await page.waitForTimeout(500);await page.screenshot({path:path.join(os.tmpdir(),'moaon-order-design-detail.png')});
-  assert.equal(await page.locator('.order-refresh-link').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(238, 240, 255)');assert.match(await page.locator('.detail-body').innerText(),/보리차/);
+  assert.equal(await page.locator('.order-refresh-link').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(238, 233, 247)');assert.match(await page.locator('.detail-body').innerText(),/보리차/);
   assert.match(await page.locator('.detail-body').innerText(),/2개 · 조회 시점/);
   await visualRow.locator('img').evaluate(img=>img.dispatchEvent(new Event('error')));
   assert.equal(await visualRow.locator('.product-thumbnail').innerText(),'이미지 확인');

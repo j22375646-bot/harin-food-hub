@@ -189,12 +189,12 @@ test('history restoration requires fresh authenticated read and never writes shi
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });
 
-test('overview returns only counts and preserves selected order scope',async()=>{
+test('overview returns bounded safe workbench rows and preserves selected order scope',async()=>{
  const remote=makeRemoteSession(async url=>{
   const scope=new URL(url).searchParams.get('stage');
   if(scope==='IN_TRANSIT')return new Response('',{status:503});
   const total=scope==='REGISTER'?0:1;
-  return Response.json({ok:true,orders:total?[{hubOrderId:'secret-order'}]:[],total,offset:0,nextOffset:null,snapshot:TEST_SNAPSHOT,partial:scope==='COMPLETED'});
+  return Response.json({ok:true,orders:total?[{hubOrderId:'HR-C24-00000001',productName:'시험 상품',platform:'CAFE24',customerName:'private-receiver',raw:{token:'private-token'}}]:[],total,offset:0,nextOffset:null,snapshot:TEST_SNAPSHOT,partial:scope==='COMPLETED'});
  });
  const {connection}=makeConnection(remote);
  await connection.viewRegistered();
@@ -202,7 +202,7 @@ test('overview returns only counts and preserves selected order scope',async()=>
  const result=await connection.readOverview();
  assert.equal(result.scopes.ACTIVE.total,1);assert.equal(result.scopes.REGISTER.total,0);
  assert.equal(result.scopes.IN_TRANSIT.total,null);assert.equal(result.scopes.COMPLETED.status,'PARTIAL');
- assert.equal(JSON.stringify(result).includes('secret-order'),false);
+ assert.equal(result.scopes.ACTIVE.preview[0].productName,'시험 상품');assert.equal(result.scopes.ACTIVE.preview[0].hubOrderId,'HR-C24-00000001');assert.equal('details' in result.scopes.ACTIVE.preview[0],false);assert.equal(JSON.stringify(result).includes('private-'),false);
  assert.equal((await connection.refresh()).scope,'REGISTER');
 });
 test('overview deadline and logout settle even when fetch ignores abort',async()=>{

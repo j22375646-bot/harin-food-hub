@@ -26,7 +26,7 @@
     <link rel="stylesheet" href="moaon://app/settlement.css">
     <link rel="stylesheet" href="moaon://app/app-common.css">
   <link rel="stylesheet" href="moaon://app/experience.css">
-  <link rel="stylesheet" href="moaon://app/pastel.css">
+  <link rel="stylesheet" href="moaon://app/daybook.css">
   </head>
   <body>
     <section id="entry-screen" class="entry-screen" aria-labelledby="entry-title">
@@ -124,28 +124,28 @@
               </div>
             </section>
 
-            <section id="today-overview" class="panel today-overview" aria-labelledby="overview-title" hidden>
-              <header><div><span class="eyebrow">TODAY / OPERATIONS</span><h2 id="overview-title">주문 진행 현황</h2></div><button id="overview-refresh" type="button">전체 상태 조회</button></header>
+            <div class="daybook-main"><section id="today-overview" class="panel today-overview" aria-labelledby="overview-title" hidden>
               <p id="overview-priority" role="status">업무 현황을 확인합니다.</p>
-              <p>상태별 건수를 누르면 해당 주문 목록으로 이동합니다.</p>
-              <div class="overview-layout"><figure id="overview-orbit" class="overview-orbit" aria-label="진행 중 주문 구성"></figure><div id="overview-cards" class="overview-cards"></div></div>
+<header><div><span class="eyebrow">오늘의 업무</span><h2 id="overview-title">주문 작업대</h2></div><button id="overview-refresh" type="button">새로 확인</button></header>
+              
+              <div id="overview-cards" class="overview-cards" role="tablist" aria-label="주문 작업대 상태"></div><div id="overview-workbench" role="tabpanel" aria-label="선택한 상태의 주문"></div><button id="overview-open" class="daybook-more" type="button">주문 목록 열기 →</button>
               <p id="overview-status" role="status">조회하지 않은 상태는 확인 필요로 표시합니다.</p>
             </section>
 
             <section id="finance-panel" class="panel today-overview finance-panel" aria-labelledby="finance-title" hidden>
-              <header><div><span class="eyebrow">TODAY / FINANCE</span><h2 id="finance-title">이번 달 자금 판단</h2></div><button id="finance-refresh" type="button">다시 확인</button></header>
+              <header><div><span class="eyebrow">이번 달</span><h2 id="finance-title">이번 달 자금 판단</h2></div><button id="finance-refresh" type="button">다시 확인</button></header>
               <p id="finance-meta">연결 후 기준 월과 조회 시각을 확인합니다.</p>
               <div id="finance-cards" class="finance-cards"></div>
               <p id="finance-note">향후 30일 예상 잔액은 추정치이며 실제 정산·입금액이 확인된 값이 아닙니다.</p>
               <p id="finance-status" role="status">조회하지 않은 금액은 확인 필요로 표시합니다.</p>
             </section>
-            <section id="today-calendar" class="panel today-overview" aria-labelledby="calendar-title" hidden>
-              <header><div><span class="eyebrow">TODAY / SCHEDULE</span><h2 id="calendar-title">오늘의 일정</h2></div><button id="calendar-refresh" type="button">일정 조회</button></header>
-              <p id="calendar-status" role="status">연결 후 오늘 일정을 확인합니다.</p>
-              <ul id="calendar-list" aria-label="오늘 일정"></ul>
+            </div><div class="daybook-aside"><section id="today-calendar" class="panel today-overview" aria-labelledby="calendar-title" hidden>
+              <header><div><span class="eyebrow">나의 일정</span><h2 id="calendar-title">오늘의 일정</h2></div><button id="calendar-refresh" type="button">일정 조회</button></header>
+              <div id="daybook-calendar" aria-label="이번 달 달력"></div><p id="calendar-status" role="status">연결 후 오늘 일정을 확인합니다.</p>
+              <ul id="calendar-list" aria-label="오늘 일정"></ul><button id="daybook-schedule" class="daybook-more" type="button">일정 등록 · 전체 캘린더 →</button>
             </section>
 
-            <div class="today-grid" data-sample-only>
+            <section id="daybook-stock" class="daybook-stock"><span class="eyebrow">재고 기록</span><h2>입고부터,<br>차곡차곡.</h2><p>입고와 생산 기록을 모아<br>다음 출고를 준비하세요.</p><button id="daybook-stock-open" type="button">재고 관리 열기 <span aria-hidden="true">→</span></button></section></div><div class="today-grid" data-sample-only>
               <section class="panel capability-panel">
                 <header>
                   <div><span class="eyebrow">사용 가능</span><h2>이 시제품에서 확인할 수 있어요</h2></div>

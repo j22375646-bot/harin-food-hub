@@ -574,7 +574,10 @@ function createHubConnection({
         const payload=await readBoundedJson(response,controller);
         if(controller.signal.aborted||expected!==generation)throw Error('Cancelled');
         const result=projectOrdersPayload(payload,now().toISOString(),{scope});
-        return [scope,{status:result.status,total:result.total,checkedAt:result.checkedAt}];
+        // The home workbench uses the same bounded projection, without receiver or invoice data.
+        // Do not change loadedOrders, cursors or the user's current order selection here.
+        const preview=(result.orders||[]).slice(0,6).map(order=>({hubOrderId:order.hubOrderId,productName:order.productName,platform:order.platform,quantity:order.quantity,amount:order.amount,stage:order.stage,visual:order.visual}));
+        return [scope,{status:result.status,total:result.total,checkedAt:result.checkedAt,preview}];
       }catch{return [scope,{status:'UNAVAILABLE',total:null}];}
     };
     const operation=(async()=>{

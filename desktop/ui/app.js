@@ -104,7 +104,7 @@ async function refreshTodayCalendar(){
  finally{if(expected===calendarGeneration){calendarBusy=false;button.disabled=false;section.setAttribute('aria-busy','false');}}
 }
 document.querySelector('#calendar-refresh').addEventListener('click',refreshTodayCalendar);
-function clearOverview(){window.moaonStock?.clear();window.moaonInventory?.clear();window.moaonCs?.clear();window.moaonMonth?.clear();window.moaonInsights?.clear();window.moaonSettlement?.clear();clearFinance();clearTodayCalendar();overviewGeneration++;overviewValues={};overviewBusy=false;overviewLastAttempt=0;renderOverview();}
+function clearOverview(){window.moaonStock?.clear();window.moaonInventory?.clear();window.moaonCs?.clear();window.moaonMonth?.clear();window.moaonInsights?.clear();window.moaonSettlement?.clear();clearFinance();clearTodayCalendar();overviewGeneration++;overviewValues={};overviewScope='ACTIVE';overviewScopeChosen=false;overviewBusy=false;overviewLastAttempt=0;renderOverview();}
 function ensureTodayOverview(){
  if(displayMode==='live'&&document.querySelector('[data-page="today"]').classList.contains('is-visible')&&(!financeLastAttempt||financeAttemptMonth!==todayDateKey().slice(0,7)||Date.now()-financeLastAttempt>=300000))void refreshFinance();
  if(displayMode==='live'&&document.querySelector('[data-page="today"]').classList.contains('is-visible')&&(!calendarLastAttempt||calendarAttemptDate!==todayDateKey()||Date.now()-calendarLastAttempt>=60000))void refreshTodayCalendar();
@@ -112,44 +112,71 @@ function ensureTodayOverview(){
  if(overviewLastAttempt&&Date.now()-overviewLastAttempt<60000)return;
  void refreshOverview();
 }
-function renderOverviewOrbit(){
- const figure=document.querySelector('#overview-orbit');if(!figure)return;
- const scopes=['ACTIVE','REGISTER','IN_TRANSIT'],values=scopes.map(scope=>overviewValues[scope]);
- const known=values.every(value=>value?.status==='READY'&&Number.isSafeInteger(value.total)&&value.total>=0);
- const total=known?values.reduce((sum,value)=>sum+value.total,0):null;
- const complete=known&&Number.isSafeInteger(total),ns='http://www.w3.org/2000/svg';
- const svg=document.createElementNS(ns,'svg');svg.setAttribute('viewBox','0 0 220 220');svg.setAttribute('role','img');
- svg.setAttribute('aria-label',complete?scopes.map((scope,i)=>`${scopeDetails[scope].label} ${values[i].total}건`).join(', '):'진행 중 주문 구성 확인 필요');
- const element=(tag,attributes,text)=>{const node=document.createElementNS(ns,tag);for(const [key,value] of Object.entries(attributes))node.setAttribute(key,String(value));if(text!==undefined)node.textContent=text;svg.append(node);return node;};
- element('circle',{cx:110,cy:110,r:82,class:'orbit-track'});
- if(complete&&total>0){let offset=0;const perimeter=2*Math.PI*82;
-  scopes.forEach((scope,i)=>{const length=values[i].total/total*perimeter;if(!length)return;
-   const circle=element('circle',{cx:110,cy:110,r:82,class:'orbit-segment','data-scope':scope,'stroke-dasharray':`${Math.max(.2,length-3)} ${perimeter-Math.max(.2,length-3)}`,'stroke-dashoffset':-offset});
-   const title=document.createElementNS(ns,'title');title.textContent=`${scopeDetails[scope].label} ${values[i].total.toLocaleString('ko-KR')}건`;circle.append(title);offset+=length;
-  });
- }
- element('text',{x:110,y:104,class:'orbit-total'},complete?total.toLocaleString('ko-KR'):'—');
- element('text',{x:110,y:131,class:'orbit-label'},complete?'진행 중 주문':'확인 필요');
- figure.replaceChildren(svg,makeElement('figcaption','',complete?'송장 발급 전부터 배송중까지 · 완료·취소 제외':'상태별 조회가 완료되면 주문 구성을 표시합니다.'));
+let overviewScope='ACTIVE',overviewScopeChosen=false;
+async function openOverviewOrders(id){
+ const scope=overviewScope;
+ await runHubAction(scopeDetails[scope].action);
+ if(displayMode!=='live')return;
+ showRoute('orders');
+ const order=id&&displayedOrders.find(order=>orderId(order)===id);
+ if(order)showOrderDetail(order);
+}
+function renderDaybookCalendar(){
+ const date=todayDateKey(),[year,month,day]=date.split('-').map(Number),grid=document.querySelector('#daybook-calendar');
+ const title=makeElement('strong','daybook-month',year+'년 '+month+'월');
+ const days=makeElement('div','daybook-dates');
+ for(const label of ['일','월','화','수','목','금','토'])days.append(makeElement('span','daybook-weekday',label));
+ const offset=new Date(Date.UTC(year,month-1,1)).getUTCDay(),last=new Date(Date.UTC(year,month,0)).getUTCDate();
+ for(let i=0;i<offset;i++)days.append(makeElement('span'));
+ for(let d=1;d<=last;d++){const el=makeElement('span','',String(d));if(d===day){el.className='is-today';el.setAttribute('aria-current','date');}days.append(el);}
+ grid.replaceChildren(title,days);
 }
 function renderOverview(){
  renderScopeCounts();
- const section=document.querySelector('#today-overview');section.hidden=displayMode!=='live';section.setAttribute('aria-busy',String(overviewBusy));section.closest('[data-page]').dataset.live=String(displayMode==='live');
- document.querySelector('#overview-refresh').disabled=overviewBusy||displayMode!=='live';
+ const live=displayMode==='live',section=document.querySelector('#today-overview');
+ section.hidden=!live;section.setAttribute('aria-busy',String(overviewBusy));section.closest('[data-page]').dataset.live=String(live);
+ document.querySelector('#daybook-stock').hidden=!live;
+ document.querySelector('#overview-refresh').disabled=overviewBusy||!live;
  const values=Object.values(overviewValues),active=overviewValues.ACTIVE;
  const complete=values.length===4&&values.every(value=>value?.status==='READY'&&Number.isSafeInteger(value.total)&&value.total>=0);
- document.querySelector('#overview-priority').textContent=overviewBusy?'업무 현황을 불러오는 중입니다.':!complete?'일부 상태는 확인이 필요합니다. 누락된 수치는 0건으로 계산하지 않습니다.':active.total>0?`송장 발급 전 ${active.total.toLocaleString('ko-KR')}건을 먼저 살펴보세요. 자동 발급 가능 여부는 주문별로 확인합니다.`:'현재 수집된 송장 발급 전 주문은 없습니다. 배송중·완료 현황을 확인하세요.';
- document.querySelector('#overview-cards').replaceChildren(...Object.entries(scopeDetails).map(([scope,detail])=>{
-  const value=overviewValues[scope],button=makeElement('button');button.type='button';button.dataset.scope=scope;
-  button.dataset.state=value?.status||'UNKNOWN';button.disabled=displayMode!=='live';
+ if(!overviewScopeChosen&&!overviewBusy)overviewScope=['ACTIVE','REGISTER','IN_TRANSIT'].find(scope=>overviewValues[scope]?.total>0)||'ACTIVE';
+ const priority=document.querySelector('#overview-priority');
+ priority.replaceChildren(makeElement('span','daybook-overline','지금 살펴볼 일'),makeElement('strong','',overviewBusy?'업무를 확인하고 있어요.':!complete?'일부 상태는 확인이 필요해요.':active.total>0?'새 주문을 준비할 시간이에요.':'배송을 살필 차례예요.'),makeElement('span','',overviewBusy?'채널별 저장 주문을 조회합니다.':!complete?'확인되지 않은 수치는 0건으로 계산하지 않습니다.':active.total>0?'발급 전 주문부터 차근차근 확인하세요.':'발급 전 주문은 없습니다. 배송과 완료 현황을 살펴보세요.'));
+ const tabs=document.querySelector('#overview-cards');
+ tabs.replaceChildren(...Object.entries(scopeDetails).map(([scope,detail])=>{
+  const value=overviewValues[scope],button=makeElement('button');button.type='button';button.dataset.scope=scope;button.id='overview-tab-'+scope;
+  button.dataset.state=value?.status||'UNKNOWN';button.disabled=!live;button.setAttribute('role','tab');button.setAttribute('aria-selected',String(scope===overviewScope));button.setAttribute('aria-controls','overview-workbench');button.tabIndex=scope===overviewScope?0:-1;
   const known=['READY','PARTIAL'].includes(value?.status)&&Number.isSafeInteger(value?.total)&&value.total>=0;
-  button.append(makeElement('span','',detail.label),makeElement('strong','',known?`${value.total.toLocaleString('ko-KR')}건`:overviewBusy?'조회 중':'확인 필요'),
-   makeElement('small','',known?`${value.status==='PARTIAL'?'부분 확인 · ':''}${formatTime(value.checkedAt)} 조회`:'아직 조회하지 않았거나 조회 실패'),makeElement('small','','주문 목록 열기 →'));
-  button.addEventListener('click',async()=>{button.disabled=true;await runHubAction(detail.action);if(displayMode==='live')showRoute('orders');});
+  button.append(makeElement('span','',detail.label),makeElement('strong','',known?value.total.toLocaleString('ko-KR')+'건':overviewBusy?'조회 중':'확인 필요'));
+  if(value?.status==='PARTIAL')button.append(makeElement('small','visually-hidden','부분 확인'));
+  button.title=known?(value.status==='PARTIAL'?'부분 확인 · ':'')+formatTime(value.checkedAt)+' 조회':'조회 상태 확인 필요';
+  button.addEventListener('click',()=>{overviewScope=scope;overviewScopeChosen=true;renderOverview();document.getElementById('overview-tab-'+scope).focus({preventScroll:true});});
+  button.addEventListener('keydown',e=>{const keys=['ArrowLeft','ArrowRight','Home','End'];if(!keys.includes(e.key))return;e.preventDefault();const scopes=Object.keys(scopeDetails),i=scopes.indexOf(scope);overviewScope=e.key==='Home'?scopes[0]:e.key==='End'?scopes.at(-1):scopes[(i+(e.key==='ArrowRight'?1:scopes.length-1))%scopes.length];overviewScopeChosen=true;renderOverview();document.getElementById('overview-tab-'+overviewScope).focus({preventScroll:true});});
   return button;
  }));
- renderOverviewOrbit();
+ const value=overviewValues[overviewScope],list=document.querySelector('#overview-workbench');list.setAttribute('aria-labelledby','overview-tab-'+overviewScope);
+ list.replaceChildren();
+ const preview=['READY','PARTIAL'].includes(value?.status)&&Array.isArray(value?.preview)?value.preview:[];
+ for(const order of preview){
+  const row=makeElement('button','daybook-order');row.type='button';
+  const info=makeElement('span','daybook-order-info');info.append(makeElement('strong','',order.productName||'상품 정보 확인 필요'),makeElement('small','',formatNumber(order.quantity,'개')+' · '+formatNumber(order.amount,'원')));
+  const badge=makeElement('span','channel-badge',({NAVER:'네이버',CAFE24:'Cafe24',COUPANG:'쿠팡'})[order.platform]||'채널 확인 필요');badge.dataset.channel=order.platform;
+  const thumbnail=productThumbnail(order);
+  if(!order.visual?.imageUrl){
+   thumbnail.replaceChildren();thumbnail.title='상품 이미지 없음';
+   const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg'),path=document.createElementNS(ns,'path');
+   svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');
+   path.setAttribute('d','m4 7 8-4 8 4v11l-8 4-8-4Zm0 0 8 4 8-4M12 11v11M8 5l8 4');svg.append(path);thumbnail.append(svg);
+  }
+  row.append(thumbnail,info,badge);row.addEventListener('click',()=>openOverviewOrders(order.hubOrderId));list.append(row);
+ }
+ if(!preview.length)list.append(makeElement('p','daybook-empty',overviewBusy?'주문을 불러오는 중입니다…':value?.status==='READY'&&value.total===0?'이 단계의 주문이 없습니다.':value?.total>0?'주문 목록에서 상품을 확인해 주세요.':'주문을 확인하지 못했습니다. 새로 확인을 눌러주세요.'));
+ const open=document.querySelector('#overview-open');open.disabled=!live||overviewBusy;open.textContent=scopeDetails[overviewScope].label+' 목록 열기 →';
+ if(live)renderDaybookCalendar();
 }
+document.querySelector('#overview-open').addEventListener('click',()=>openOverviewOrders());
+document.querySelector('#daybook-schedule').addEventListener('click',()=>showRoute('calendar'));
+document.querySelector('#daybook-stock-open').addEventListener('click',()=>showRoute('stock'));
 async function refreshOverview(){
  if(overviewBusy||displayMode!=='live')return;
  const expected=++overviewGeneration;overviewBusy=true;overviewLastAttempt=Date.now();overviewValues={};renderOverview();
@@ -938,7 +965,7 @@ function updateConnectionChrome(message) {
   statusElements.globalBadge.textContent = '';
   statusElements.nav.textContent = live ? '주문·배송' : sample ? '샘플 주문' : '연결 확인 필요';
   statusElements.todayContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? 'Windows 시제품 · 샘플 모드' : '하린식품 · 연결 상태 확인 필요';
-  statusElements.todayTitleMode.textContent = live ? '오늘의 운영 현황' : sample ? '지금 가능한 일' : '실제 주문을 비우고';
+  statusElements.todayTitleMode.textContent = live ? '하린식품의 하루.' : sample ? '지금 가능한 일' : '실제 주문을 비우고';
   statusElements.todayTitleTail.textContent = live ? '' : sample ? '부터 확인하세요' : ' 연결 상태를 확인합니다';
   statusElements.todayDescription.textContent = live ? '처리할 주문부터 자금과 일정까지, 오늘의 업무를 한눈에 확인하세요.' : sample ? '실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.' : message;
   statusElements.ordersContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? '주문·배송 · 샘플 3건' : '하린식품 · 연결 상태 확인 필요';
@@ -994,7 +1021,7 @@ function applyHubResult(result) {
     displayMode = 'live';
     if(!businessLoaded){businessLoaded=true;void refreshBusinesses();}
     connectionResult = result;
-    if(selectedChannel==='ALL'&&!serverFilters.delayOnly&&!serverFilters.giftOnly&&!serverFilters.query&&!serverFilters.start&&!serverFilters.end)overviewValues[result.scope]={status:result.status,total:result.total,checkedAt:result.checkedAt};
+    if(selectedChannel==='ALL'&&!serverFilters.delayOnly&&!serverFilters.giftOnly&&!serverFilters.query&&!serverFilters.start&&!serverFilters.end)overviewValues[result.scope]={status:result.status,total:result.total,checkedAt:result.checkedAt,preview:result.orders.slice(0,6).map(({hubOrderId,productName,platform,quantity,amount,stage,visual})=>({hubOrderId,productName,platform,quantity,amount,stage,visual}))};
     displayedOrders = Object.freeze(result.orders.map((order) => Object.freeze({
       hubOrderId: typeof order.hubOrderId === 'string' ? order.hubOrderId : '', platform: typeof order.platform === 'string' ? order.platform : '',
       productName: typeof order.productName === 'string' ? order.productName : '', stage: typeof order.stage === 'string' ? order.stage : '',
