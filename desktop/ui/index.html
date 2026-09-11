@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="moaon://app/studio.css">
     <script src="moaon://app/app.js" defer></script>
     <script src="moaon://app/settlement.js" defer></script>
+    <link rel="stylesheet" href="moaon://app/keywords.css"><script src="moaon://app/keywords.js" defer></script>
     <link rel="stylesheet" href="moaon://app/marketing.css"><script src="moaon://app/marketing.js" defer></script><script src="moaon://app/insights.js" defer></script>
     <script src="moaon://app/month-calendar.js" defer></script>
     <script src="moaon://app/api-settings.js" defer></script>
@@ -63,7 +64,7 @@
             <span><strong>주문·배송</strong><small id="orders-nav-detail">샘플 주문 3건</small></span><span id="nav-order-count" class="nav-count" aria-label="진행 중 주문 건수">—</span>
           </button>
 <button class="nav-button" type="button" data-route="settlement" aria-label="운영·정산"><span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18m-6 5h4M7 2h10"/></svg></span><span><strong>운영·정산</strong></span></button>
-<button class="nav-button" type="button" data-route="insights" aria-label="분석·인사이트"><span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v18h18M8 15l4-5 4 2 5-7"/></svg></span><span><strong>분석</strong></span></button>
+<button class="nav-button" type="button" data-route="keywords" aria-label="키워드"><span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6M7 10h6M10 7v6"/></svg></span><span><strong>키워드</strong></span></button><button class="nav-button" type="button" data-route="insights" aria-label="분석·인사이트"><span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3v18h18M8 15l4-5 4 2 5-7"/></svg></span><span><strong>분석</strong></span></button>
 <button class="nav-button" type="button" data-route="calendar" aria-label="캘린더"><span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="17" rx="3"/><path d="M7 2v6m10-6v6M3 11h18m-13 5h3m3 0h3"/></svg></span><span><strong>캘린더</strong></span></button>
           <span class="nav-label">상품 관리</span><button class="nav-button" type="button" data-route="inventory" aria-label="상품"><span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19C-2 6 13 4 20 3c0 13-6 20-15 16Zm-1 3L16 8"/></svg></span><span><strong>상품</strong></span></button>
 <button class="nav-button" type="button" data-route="stock" aria-label="재고"><span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 7 9-4 9 4v11l-9 4-9-4Zm0 0 9 5 9-5M12 12v10M7 5l10 5"/></svg></span><span><strong>재고</strong></span></button>
@@ -266,6 +267,13 @@
               </div></aside>
             </div>
           </section>
+          <section id="keyword-page" class="page keyword-page" data-page="keywords" aria-labelledby="keyword-title" hidden>
+            <header class="workspace-heading"><div><span class="eyebrow">NAVER / KEYWORDS</span><h1 id="keyword-title" tabindex="-1">키워드</h1><p>어떤 키워드에 비용이 쓰이고, 어떤 전환으로 이어지는지 확인하세요.</p></div><button id="keyword-refresh" type="button">새로 조회</button></header>
+            <div class="keyword-context"><p id="keyword-period"></p><p id="keyword-source"></p></div>
+            <div class="keyword-tools"><label>자료 종류<select id="keyword-source-kind"><option value="SEARCH_TERMS">쇼핑광고 실제 검색어</option><option value="KEYWORDS">등록 광고 키워드</option></select></label><label>키워드 검색<input id="keyword-search" type="search" maxlength="120" placeholder="키워드 이름으로 찾기"></label><label>광고 유형<select id="keyword-type"><option value="ALL">모든 광고 유형</option></select></label><label>확인할 대상<select id="keyword-filter"><option value="ALL">전체</option><option value="ZERO">비용 발생 · 전환 없음</option><option value="CONVERTED">전환 발생</option><option value="UNKNOWN">자료 확인 필요</option></select></label><label>정렬<select id="keyword-sort"><option value="cost">광고비 높은 순</option><option value="revenue">전환매출 높은 순</option><option value="roas">ROAS 높은 순</option><option value="clicks">클릭 높은 순</option></select></label><button id="keyword-reset" type="button">초기화</button></div>
+            <p id="keyword-count" role="status"></p><div class="keyword-table"><div class="keyword-row keyword-table-heading"><span>키워드·유형</span><span>광고비</span><span>클릭</span><span>전환</span><span>ROAS</span></div><div id="keyword-rows"></div></div>
+            <article id="keyword-detail" tabindex="-1" hidden aria-label="선택 키워드 상세"></article><p class="keyword-note">가장 최근 저장 종료일의 가장 긴 기간을 조회합니다. 검색·정렬은 조회된 최대 200개에 적용되며 전체 광고 키워드를 의미하지 않습니다. 같은 검색어도 광고그룹이 다르면 별도 행입니다. 검색어 원천에 없는 전환 지표와 잘린 원천 표본은 확인 필요로 표시합니다. 쇼핑광고의 실제 검색어는 등록 키워드와 다른 자료입니다. 원천 값이 없거나 분모가 0이면 계산을 보류합니다.</p>
+          </section>
           <section id="month-page" class="page month-page" data-page="calendar" aria-labelledby="month-title" hidden>
             <header class="month-heading workspace-heading"><div><span class="eyebrow">WORK CALENDAR</span><h1 id="month-title" tabindex="-1">업무 캘린더</h1><p>한 달의 일정과 오늘 할 일을 살펴보세요.</p></div><button id="month-refresh" type="button">새로 조회</button></header>
             <div class="month-toolbar"><button id="month-prev" aria-label="이전 달">←</button><h2 id="month-label"></h2><button id="month-next" aria-label="다음 달">→</button><button id="month-today" type="button">이번 달</button></div>
@@ -392,7 +400,7 @@
                 </div>
                 <p id="api-draft-status" role="status"></p><button id="api-draft-load" class="secondary-action" type="button">저장한 설정 확인</button><ul id="api-draft-list"></ul>
               </section>
-              <details class="panel setting-card history-settings">
+              <section class="panel setting-card telegram-guide"><h2>텔레그램 자동 알림</h2><p id="telegram-status" role="status">서버 연결 후 설정 상태를 확인합니다.</p><p>주간 보고서와 중요한 이상 징후를 휴대폰에서 받도록 연결할 수 있습니다. 앱이 꺼져 있어도 서버에서 실행합니다.</p><details><summary>봇 연결 준비 방법</summary><ol><li>텔레그램의 공식 @BotFather에서 /newbot으로 봇을 만듭니다.</li><li>받은 봇 토큰은 채팅이나 앱 메모에 붙여 넣지 말고 서버 비밀 설정에 보관합니다.</li><li>사용할 봇 대화에서 시작을 누르고, 알림을 받을 대화를 정합니다.</li><li>서버의 봇·수신 채팅 설정과 발송 사용 설정을 마친 뒤 실제 수신을 확인합니다.</li></ol><p>현재 화면은 설정 상태만 조회합니다. 실제 연결과 발송 설정은 아직 이 화면에서 변경할 수 없습니다. 텔레그램 조회 명령은 후속 기능입니다.</p></details></section><details class="panel setting-card history-settings">
                 <summary id="settings-history-title">출고 기록</summary>
                 <p>이전 송장 등록과 출고 기록이 필요할 때 확인하세요.</p>
                 <details id="server-shipping-history" class="auto-shipping-results" hidden></details>

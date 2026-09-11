@@ -28,6 +28,7 @@
  function closeDetail(){const previous=selected;selected=null;detail();Array.from(document.querySelectorAll('[data-insights-report]')).find(el=>el.dataset.insightsReport===previous)?.focus();}
  function render(){
   window.moaonMarketing?.set(value?.marketing||null);
+  window.moaonKeywords?.set(value?.marketing||null,{busy,failed});
   select('insights-refresh').disabled=busy||displayMode!=='live';select('insights-page').setAttribute('aria-busy',String(busy));
   const c=value?.channel;
   select('insights-period').textContent=c?.currentPeriod?`분석 기간 ${period(c.currentPeriod.start)} — ${period(c.currentPeriod.end)} · 보고서 작성 ${formatTime(c.currentPeriod.createdAt)}`:'보고서 기간 확인 필요';
@@ -51,11 +52,11 @@
   if(busy||displayMode!=='live')return;const expected=++generation;busy=true;failed=false;value=null;lastAttempt=Date.now();render();select('insights-status').textContent='분석 보고서를 조회하고 있습니다…';
   try{const result=await window.moaonHub.readInsights();if(expected!==generation)return;if(['LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status)){applyHubResult(result);return;}
    if(result?.status!=='READY'){failed=true;select('insights-status').textContent='분석 조회 실패 · 새로 조회해 주세요.';return;}
-   value=result;select('insights-status').textContent=`최근 저장 보고서 ${result.reports.length}개 · 자동 생성·광고 변경 없음`;
+   value=result;select('insights-status').textContent=`최근 저장 보고서 ${result.reports.length}개 · 저장 자료 조회`;
   }catch{if(expected===generation){failed=true;select('insights-status').textContent='분석 조회 실패 · 새로 조회해 주세요.';}}
   finally{if(expected===generation){busy=false;render();}}
  }
- window.moaonInsights=Object.freeze({clear,ensure:()=>{if(displayMode==='live'&&(!lastAttempt||Date.now()-lastAttempt>=300000))void refresh();}});
+ window.moaonInsights=Object.freeze({clear,refresh,ensure:()=>{if(displayMode==='live'&&(!lastAttempt||Date.now()-lastAttempt>=300000))void refresh();}});
  select('insights-search').addEventListener('input',render);select('insights-search-reset').onclick=()=>{select('insights-search').value='';render();select('insights-search').focus();};
  select('insights-refresh').addEventListener('click',refresh);clear();
  select('insights-detail-close').addEventListener('click',closeDetail);

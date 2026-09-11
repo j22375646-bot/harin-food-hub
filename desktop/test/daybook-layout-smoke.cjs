@@ -52,7 +52,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
    await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setSize(width,900),width);await page.waitForFunction(width=>innerWidth===width,width);
    await page.evaluate(()=>{applyTheme('light');document.querySelector('.studio-business').open=true;});
    if(width>1000)assert.ok(await page.locator('.business-card').evaluate(el=>el.getBoundingClientRect().right<=document.querySelector('.sidebar').getBoundingClientRect().right));
-   for(const route of ['today','orders','settlement','insights','calendar','inventory','stock','cs','settings']){
+   for(const route of ['today','orders','settlement','insights','keywords','calendar','inventory','stock','cs','settings']){
     await page.evaluate(route=>showRoute(route),route);await page.waitForTimeout(100);
     const geometry=await page.evaluate(()=>({right:document.querySelector('.chrome-actions').getBoundingClientRect().right,limit:innerWidth-138,overflow:document.querySelector('#main-content').scrollWidth>document.querySelector('#main-content').clientWidth+1}));
     assert.ok(geometry.right<=geometry.limit,`${route}/${width} caption overlap`);assert.equal(geometry.overflow,false,`${route}/${width} overflow`);
