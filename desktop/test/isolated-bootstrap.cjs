@@ -1,11 +1,14 @@
 'use strict';
 // Test-only bootstrap, excluded from packaged files. Never show an Electron
 // error dialog over the user's work when a test fails during startup.
-process.on('uncaughtException', () => {
+process.on('uncaughtException', (error) => {
+  if(String(error?.message).includes('Requested secondary display unavailable'))process.stderr.write('RIGHT_DISPLAY_UNAVAILABLE\n');
   process.stderr.write('MOAON_TEST_BOOTSTRAP_FAILED\n');
   process.exit(1);
 });
-process.on('unhandledRejection', () => {
+process.on('unhandledRejection', error => {
+ if(String(error?.message).includes('Requested secondary display unavailable'))process.stderr.write('RIGHT_DISPLAY_UNAVAILABLE\n');
+ process.stderr.write(String(error?.stack||error)+'\n');
   process.stderr.write('MOAON_TEST_BOOTSTRAP_FAILED\n');
   process.exit(1);
 });

@@ -2,7 +2,7 @@
 
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { app, BrowserWindow, Menu, ipcMain, protocol, session, dialog, safeStorage, screen } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, ipcMain, protocol, session, dialog, safeStorage, screen } = require('electron');
 const {rightDisplayBounds,readRightDisplayPreference,saveRightDisplayPreference,showRightWindow}=require('./window-placement.cjs');
 const {createUpdateGate,guardWorkIpc}=require('./update-gate.cjs');
 const {startAutomaticUpdates,createConfiguredUpdater,createAppUpdates,registerAppUpdates}=require('./app-updates.cjs');
@@ -194,6 +194,7 @@ if (!hasSingleInstanceLock) {
       showShipmentReview: createActionReview({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer}),
       onShippingProgress: value => {if(mainWindow&&!mainWindow.isDestroyed())mainWindow.webContents.send('moaon-hub:shipping-progress',value);},
       BrowserWindow,
+      LoginHost:require('./inline-login.cjs').createInlineLoginHost({WebContentsView}),
       session,
       getMainWindow: () => mainWindow,
       initialCleanupPending,

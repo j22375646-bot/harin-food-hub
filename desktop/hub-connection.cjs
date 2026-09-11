@@ -276,6 +276,7 @@ function validXlsxPackage(bytes){
 
 function createHubConnection({
   BrowserWindow,
+  LoginHost=BrowserWindow,
   session,
   getMainWindow,
   now = () => new Date(),
@@ -479,6 +480,16 @@ function createHubConnection({
   let activeCs=null,csController=null,csPermit=null;
   let activeInventory=null,inventoryController=null,inventoryPermit=null;
   let activeInsights=null,insightsController=null,insightsPermit=null;
+  let activeBid=null,bidPermit=null;
+  function keywordBid(input){
+    const adapter=require('./keyword-bids.cjs');
+    if(!adapter.valid(input))return Promise.resolve({ok:false,code:'INVALID_REQUEST'});
+    if(disconnecting||cleanupFailed||isLoginWindowActive())return Promise.resolve({ok:false,code:'AUTH_REQUIRED'});
+    if(activeBid)return Promise.resolve({ok:false,code:'BID_BUSY'});
+    const expected=generation,controller=new AbortController();businessReads.add(controller);bidPermit=adapter.BID_URL;
+    let tracked;tracked=adapter.sendBid((url,options)=>getRemoteSession().fetch(url,options),input,controller.signal).then(result=>expected===generation?result:{ok:false,code:'BID_RESULT_UNKNOWN'}).finally(()=>{businessReads.delete(controller);if(activeBid===tracked){activeBid=null;bidPermit=null;}});
+    activeBid=tracked;return tracked;
+  }
   let activeCalendar=null,calendarPermit=null;
   function readTodayCalendar(){
     if(disconnecting||cleanupFailed||isLoginWindowActive())return Promise.resolve({status:'UNAVAILABLE',date:require('./today-calendar.cjs').calendarDay(now()),entries:[]});
@@ -723,6 +734,7 @@ function createHubConnection({
             financePermit,
             settlementPermit,
             insightsPermit,
+            bidPermit,
             csPermit,inventoryPermit,stockPermit,
             trackingRequestMethod,
             automaticTrackingRequestActive,
@@ -1463,7 +1475,7 @@ function createHubConnection({
     let loginOutcome = 'cancelled';
     let loginSubmissionStarted = false;
 
-    loginWindow = new BrowserWindow({
+    loginWindow = new LoginHost({
       parent,
       modal: true,
       width: 520,
@@ -1497,10 +1509,12 @@ function createHubConnection({
       if (url.origin !== HARIN_ORIGIN || url.pathname !== '/login') return;
       // Presentation only: retain the server form, validation and authentication.
       void contents.insertCSS(`
+        html,body { margin:0 !important; } [class*="loginPage"] { box-sizing:border-box !important; }
         [class*="loginPage"] { --login-canvas:#f3f3f8 !important; --login-surface:#fff !important; --login-soft:#f8f7fc !important; --login-ink:#282836 !important; --login-muted:#6f6d80 !important; --login-line:#e4e2ed !important; --login-blue:#7565b4 !important; --login-blue-soft:#ede9fa !important; --login-mint:#247867 !important; --login-navy:#282836 !important; --login-rose:#b64f5e !important; color:#282836 !important; font-family:'Pretendard Variable',Pretendard,'Malgun Gothic',sans-serif !important; }
         [class*="loginPage"] input,[class*="loginPage"] button { font-family:inherit !important; }
         html::before { content:''; position:fixed; top:0; left:0; right:138px; height:36px; -webkit-app-region:drag; z-index:9999; }
-        [class*="loginPage"] { padding: 44px 22px 22px !important; min-height: 100vh !important; background:var(--login-canvas,#f3f6fa) !important; }
+        [class*="loginPage"] { display:grid !important; place-items:center !important; padding: 30px 22px !important; min-height: 100vh !important; background:var(--login-canvas,#f3f6fa) !important; }
+        [class*="loginFrame"] { max-width:520px !important; margin:auto !important; }
         [class*="loginFrame"] { display: flex !important; flex-direction: column !important; min-height: 0 !important; width: 100% !important; background:var(--login-surface,#fff) !important; border:1px solid var(--login-line,#dfe5ee) !important; border-radius:24px !important; box-shadow:0 18px 60px #1720360d !important; animation:moaonLoginArrive .35s ease-out both !important; }
         [class*="loginHero"], [class*="frameFooter"], [class*="ownerAccess"] { display: none !important; }
         [class*="loginTopbar"] { min-height: 72px !important; padding: 14px 22px !important; }
@@ -1700,7 +1714,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-return Object.freeze({ previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+return Object.freeze({ keywordBid, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1786,6 +1800,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     ['moaon-hub:read-finance', 'readFinance'],
     ['moaon-hub:read-settlement', 'readSettlement'],
     ['moaon-hub:read-insights', 'readInsights'],
+    ['moaon-hub:keyword-bid','keywordBid'],
     ['moaon-hub:preview-stock-receipts', 'previewStockReceipts'],
     ['moaon-hub:read-stock', 'readStock'],
     ['moaon-hub:save-stock', 'saveStock'],
@@ -1809,6 +1824,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
   for (const [channel, method] of methods) {
     ipcMain.handle(channel, async (event, ...args) => {
       if (!isTrustedRenderer(event, getMainWindow())) throw new Error('Untrusted renderer');
+      if(method==='keywordBid'){if(args.length!==1||!require('./keyword-bids.cjs').valid(args[0]))throw Error('Invalid bid arguments');return connection.keywordBid(args[0]);}
       if(method==='previewStockReceipts'){if(args.length!==1||!require('./stock-receipt-preview.cjs').validRequest(args[0]))throw Error('Invalid receipt arguments');return connection.previewStockReceipts(args[0]);}
       if(method==='saveStock'){if(args.length!==1)throw Error('Arguments are not allowed');return connection.saveStock(args[0]);}
       if(method==='createCalendarEntry'){if(args.length!==1||!require('./today-calendar.cjs').validCalendarDraft(args[0]))throw Error('Arguments are not allowed');return connection.createCalendarEntry(args[0]);}

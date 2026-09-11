@@ -130,6 +130,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if(context.stockPermit&&details.url===HARIN_ORIGIN+'/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/stock'&&context.stockPermit.url===details.url&&context.stockPermit.method===method)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.inventoryPermit===INVENTORY_URL&&details.url===INVENTORY_URL)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.insightsPermit===INSIGHTS_URL&&details.url===INSIGHTS_URL)return isMainProcessRequest(details.webContentsId);
+  if(method==='POST'&&context.bidPermit===`${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/keyword-bids`&&details.url===context.bidPermit)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.exportPermit===details.url&&details.url.endsWith('&format=xlsx'))return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&Number.isInteger(context.labelWebContentsId)&&context.labelWebContentsId>0&&details.webContentsId===context.labelWebContentsId&&details.url===context.labelUrl
     && /^https:\/\/harin-cafe24-sync\.vercel\.app\/api\/shipping\/print\?type=label&ids=HR-(?:C24|CP)-[A-F0-9]{8}$/.test(details.url))return true;

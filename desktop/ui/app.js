@@ -1048,7 +1048,7 @@ function applyHubResult(result) {
     gate.hidden=true;shell.hidden=false;shell.inert=false;
   }else if(!gate.hidden||['LOGIN_REQUIRED','LOGIN_OPEN','DISCONNECTED'].includes(result?.status)){
     gate.hidden=false;shell.hidden=true;shell.inert=true;
-    document.querySelector('#entry-status').textContent=result?.status==='LOGIN_REQUIRED'?'로그인이 필요합니다. 아래 버튼으로 시작하세요.':result?.status==='LOGIN_OPEN'?'열려 있는 보안 로그인 창에서 계속해주세요.':result?.status==='DISCONNECTED'?'로그아웃했습니다. 다시 로그인할 수 있습니다.':result?.message||'연결을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.';
+    document.querySelector('#entry-status').textContent=result?.status==='LOGIN_REQUIRED'?'로그인이 필요합니다. 아래 버튼으로 시작하세요.':result?.status==='LOGIN_OPEN'?'앱의 로그인 화면에서 계속해주세요.':result?.status==='DISCONNECTED'?'로그아웃했습니다. 다시 로그인할 수 있습니다.':result?.message||'연결을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.';
   }
   if (result?.status === 'READY' || result?.status === 'PARTIAL') {
     if (scopeDetails[result.scope]) selectedScope = result.scope;
@@ -1083,7 +1083,7 @@ function applyHubResult(result) {
   }
   if (result?.status === 'LOGIN_OPEN') {
     scopeControlsAvailable = false;
-    clearDisplayedOrders('connecting', result.message || '하린식품 로그인 창에서 로그인을 완료하세요.');
+    clearDisplayedOrders('connecting', result.message || '앱의 로그인 화면에서 로그인을 완료하세요.');
     return;
   }
   scopeControlsAvailable = ['UNAVAILABLE', 'SNAPSHOT_CHANGED'].includes(result?.status);
@@ -1103,7 +1103,7 @@ async function runHubAction(action) {
   if (action === 'connect' || action === 'refresh') {
     if(action==='connect'){shippingFollowup.clear();historyGeneration++;historyAutoLoaded=false;}
     if (action === 'connect') scopeControlsAvailable = false;
-    clearDisplayedOrders('connecting', action === 'connect' ? '별도 하린식품 로그인 창을 확인하세요. 로그인 완료 후 저장 주문을 조회합니다.' : `${selectedScopeDetail().range}을 다시 조회하고 있습니다.`);
+    clearDisplayedOrders('connecting', action === 'connect' ? '앱 안에서 로그인하면 저장 주문을 조회합니다.' : `${selectedScopeDetail().range}을 다시 조회하고 있습니다.`);
   }
   if (action === 'nextPage' || action === 'previousPage') clearDisplayedOrders('connecting', action === 'nextPage' ? '다음 주문 페이지를 조회하고 있습니다.' : '이전 주문 페이지를 조회하고 있습니다.');
   if (action === 'disconnect') {
@@ -1556,7 +1556,7 @@ Promise.resolve().then(()=>window.moaonHub.appInfo()).then(info=>{
 let entryBusy=false;
 async function enterWorkspace(){
  if(entryBusy)return;entryBusy=true;const button=document.querySelector('#entry-login');button.disabled=true;
- document.querySelector('#entry-status').textContent='로그인을 확인합니다. 필요한 경우 보안 로그인 창이 열립니다.';
+ document.querySelector('#entry-status').textContent='앱 안에서 로그인 상태를 확인합니다.';
  try{await runHubAction('connect');}finally{entryBusy=false;button.disabled=false;}
 }
 document.querySelector('#entry-login').addEventListener('click',enterWorkspace);
@@ -1582,7 +1582,7 @@ closeOrderDetail();
 renderOrders();
 updateConnectionChrome('현재는 샘플 화면입니다. 사용자가 연결을 누르기 전에는 운영 서버를 조회하지 않습니다.');
 // Check only existing authorization. Password collection stays on the trusted remote form.
-void runHubAction('viewActive');
+void runHubAction('connect');
 
 // Settings shortcuts navigate locally without invoking connection or credential actions.
 document.querySelectorAll('[data-settings-target]').forEach(button=>button.addEventListener('click',()=>{

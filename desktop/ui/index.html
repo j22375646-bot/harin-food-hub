@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="moaon://app/studio.css">
     <script src="moaon://app/app.js" defer></script>
     <script src="moaon://app/settlement.js" defer></script>
-    <link rel="stylesheet" href="moaon://app/keywords.css"><script src="moaon://app/keywords.js" defer></script>
+    <link rel="stylesheet" href="moaon://app/keywords.css"><script src="moaon://app/keyword-bids.js" defer></script><script src="moaon://app/keywords.js" defer></script>
     <link rel="stylesheet" href="moaon://app/marketing.css"><script src="moaon://app/marketing.js" defer></script><script src="moaon://app/insights.js" defer></script>
     <script src="moaon://app/month-calendar.js" defer></script>
     <script src="moaon://app/api-settings.js" defer></script>
@@ -39,7 +39,7 @@
         <p class="entry-description">로그인하고 오늘의 업무를 이어가세요.</p>
         <p id="entry-status" class="entry-status" role="status" aria-live="polite">저장된 로그인 상태를 확인하고 있습니다.</p>
         <button id="entry-login" class="primary-action" type="button">로그인하고 시작하기 <span aria-hidden="true">→</span></button>
-        <p class="entry-security">비밀번호는 별도의 보안 로그인 창에서 입력합니다.<br>유효한 로그인은 다시 입력하지 않아도 됩니다.</p>
+        <p class="entry-security">비밀번호는 이 앱의 보안 로그인 화면에서 입력합니다.<br>유효한 로그인은 다시 입력하지 않아도 됩니다.</p>
         <button id="entry-printers" class="entry-link" type="button">출고 PC 프린터 점검</button>
         <button id="entry-reset" class="entry-link" type="button">저장된 로그인 해제</button>
       </div>
@@ -356,7 +356,7 @@
               <div class="settings-pair">
               <section class="panel setting-card connection-setting" aria-labelledby="settings-connection-title">
                 <header><div><span class="eyebrow">HARIN CONNECTION</span><h2 id="settings-connection-title">하린식품 조회 연결</h2></div><span id="settings-connection-chip" class="status-chip status-sample">샘플</span></header>
-                <p>운영 비밀번호는 별도 하린식품 로그인 창에만 입력하며, 이 앱은 저장된 주문을 상태 범위별로 20건씩 조회합니다.</p>
+                <p>운영 비밀번호는 앱 안의 보안 로그인 화면에 입력하며, 이 앱은 저장된 주문을 상태 범위별로 20건씩 조회합니다.</p>
                 <div class="connection-actions setting-actions">
                   <button class="primary-action" type="button" data-action="hub-connect">하린식품 연결</button>
                   <button class="secondary-action" type="button" data-action="hub-refresh" hidden>다시 조회</button>
