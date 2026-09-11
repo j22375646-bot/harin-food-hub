@@ -267,10 +267,16 @@ async function checkVisibleOrderFreshness(){
     if(expectedAction!==actionGeneration||expectedFreshness!==freshnessGeneration||!ordersAreVisible())return;
     if(result?.status==='CHANGED')freshnessChanged=true;
     if(['CURRENT','CHANGED','UNAVAILABLE','AUTH_REQUIRED'].includes(result?.status))renderFreshness(result.status,result.checkedAt);
+    if(freshnessChanged&&['CURRENT','CHANGED'].includes(result?.status)&&canAutoRefreshOrders())await reloadChangedOrders();
   }catch{if(expectedAction===actionGeneration&&expectedFreshness===freshnessGeneration&&ordersAreVisible())renderFreshness('UNAVAILABLE');}
 }
-freshnessReload.addEventListener('click',async()=>{
+function canAutoRefreshOrders(){
+  return !orderToolsBusy()&&!selectedOrderIds.size&&!selectedOrderId&&connectionResult?.offset===0
+    &&!document.querySelector('dialog[open]')&&!document.activeElement?.matches('input,textarea,select,[contenteditable="true"]');
+}
+async function reloadChangedOrders(){
   if(freshnessReloadBusy||orderToolsBusy()||!freshnessChanged||!ordersAreVisible())return;
+  const scrollX=window.scrollX,scrollY=window.scrollY,localQuery=orderSearch.value;
   freshnessReloadBusy=true;freshnessReload.disabled=true;selectedOrderIds.clear();closeOrderDetail();renderOrders();renderCollection();
   const expected=++actionGeneration;++freshnessGeneration;
   try{
@@ -279,8 +285,9 @@ freshnessReload.addEventListener('click',async()=>{
     if(result?.status==='READY'){freshnessChanged=false;applyHubResult(result);renderFreshness('CURRENT',result.checkedAt);}
     else renderFreshness(result?.status==='LOGIN_REQUIRED'||result?.status==='FORBIDDEN'?'AUTH_REQUIRED':'UNAVAILABLE');
   }catch{if(expected===actionGeneration)renderFreshness('UNAVAILABLE');}
-  finally{freshnessReloadBusy=false;if(expected===actionGeneration){renderOrders();renderCollection();}}
-});
+  finally{freshnessReloadBusy=false;if(expected===actionGeneration){orderSearch.value=localQuery;renderOrders();renderCollection();window.scrollTo(scrollX,scrollY);}}
+}
+freshnessReload.addEventListener('click',()=>void reloadChangedOrders());
 setInterval(()=>void checkVisibleOrderFreshness(),60_000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)void checkVisibleOrderFreshness();});
 window.addEventListener('focus',()=>void checkVisibleOrderFreshness());
@@ -701,7 +708,10 @@ function createOrderRow(order) {
     if(invoice&&/^\d{13}$/.test(invoice.number||'')){const tag=makeElement('span','order-invoice',invoice.status==='REGISTERED'?'송장 등록 완료':'발급 완료 · 등록 필요');tag.append(makeElement('code','',invoice.number));primary.append(tag);}
     const items=order.details?.items||[],option=items[0]?.option;
 
-    primary.append(makeElement('small','product-option',(option?'옵션: '+option+(items.length>1?' 외 '+(items.length-1)+'종':'')+' · ':'')+'수량 '+formatNumber(order.quantity,'개')));
+    if(items.length>1){
+      primary.append(makeElement('small','product-option',`상품주문 ${items.length}${items.length===8?'+':''}건 묶음 · 총 수량 ${formatNumber(order.quantity,'개')}`));
+      for(const item of items)primary.append(makeElement('small','product-option',`${item.name}${item.option?' · '+item.option:''} · ${formatNumber(item.quantity,'개')}`));
+    }else primary.append(makeElement('small','product-option',(option?'옵션: '+option+' · ':'')+'수량 '+formatNumber(order.quantity,'개')));
     const gift=giftBadge(order);if(gift)primary.append(gift);const timing=timingBadge(order);if(timing)primary.append(timing);
     amount.append(makeElement('strong', '', formatNumber(order.amount, '원')));
   }
@@ -815,6 +825,10 @@ function renderOrders() {
     orderEmpty.textContent = '검색 결과가 없습니다. 다른 주문번호, 고객명 또는 상품명을 입력하세요.';
   } else if (displayMode === 'live') {
     resultCount.textContent = `${serverFilterLabels.length?`전체 조회 ${serverFilterLabels.join(' · ')} · `:''}현재 페이지 ${query ? '검색 · ' : ''}${reviewLabels[reviewFilter]} ${visibleOrders.length}건`;
+    if(visibleOrders.some(order=>order.platform==='NAVER')){
+      const naver=visibleOrders.filter(order=>order.platform==='NAVER');
+      resultCount.textContent+=` · 네이버 주문 ${naver.length}건 / 상품주문 ${naver.some(order=>order.details?.items?.length===8)?'최소 ':''}${naver.reduce((sum,order)=>sum+Math.max(1,order.details?.items?.length||0),0)}건`;
+    }
     orderEmpty.textContent = query || reviewFilter !== 'ALL' || channel!=='ALL' ? '현재 페이지에서 조건에 맞는 주문이 없습니다. 검색·필터 초기화로 다시 확인하세요.' : '현재 페이지에 표시할 주문이 없습니다.';
   } else {
     resultCount.textContent = displayMode === 'connecting' ? '연결 확인 중 · 주문 목록 비움' : '표시 중인 실제 주문 없음';
