@@ -108,5 +108,6 @@
  const settings=document.querySelector('[data-page="settings"]'),shell=document.querySelector('.preview-shell');
  new MutationObserver(()=>{if(settings.hidden||shell.hidden){generation++;invalidateServer();clear();$('api-draft-list').replaceChildren();$('api-draft-status').textContent='';}}).observe(settings,{attributes:true,attributeFilter:['hidden']});
  new MutationObserver(()=>{if(shell.hidden){generation++;invalidateServer();clear();$('api-business').value='';$('api-draft-list').replaceChildren();}}).observe(shell,{attributes:true,attributeFilter:['hidden']});
+ settings.addEventListener('settings-tab-change',()=>{if($('api-settings').closest('[hidden]')){generation++;invalidateServer();clear();$('api-draft-list').replaceChildren();}});
  renderFields();syncServer();
 })();
