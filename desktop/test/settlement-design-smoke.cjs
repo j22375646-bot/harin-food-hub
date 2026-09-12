@@ -51,6 +51,19 @@ Object.assign(payload.channels[1],{advertising:560050.221192,advertisingStats:29
  for(const days of [7,90,30]){await page.locator('[data-settlement-days="'+days+'"]').click();await page.waitForFunction(days=>document.querySelector('#settlement-period').textContent.includes('최근 '+days+'일')&&document.querySelector('#settlement-page').getAttribute('aria-busy')==='false',days);assert.equal(await page.locator('[data-settlement-days="'+days+'"]').getAttribute('aria-pressed'),'true');}
  assert.equal(await page.locator('#settlement-detail').getAttribute('aria-hidden'),'true');
  for(const width of [1040,1440]){await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setSize(width,900),width);await page.waitForFunction(width=>innerWidth===width,width);for(const theme of ['light','dark']){await page.evaluate(theme=>applyTheme(theme),theme);await page.waitForTimeout(300);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);assert.equal(await page.locator('#settlement-summary').evaluate(el=>el.getBoundingClientRect().right<=innerWidth),true);await page.screenshot({path:'D:/GPT/tmp/p4136-settlement-'+width+'-'+theme+'.png'});}}
+ // Shared-scale chart and scroll-following detail, including long recovery labels.
+ assert.equal(await page.locator('.settlement-chart-row').count(),4);
+ assert.equal(await page.locator('[data-chart-platform=CAFE24] .settlement-overview-fill').evaluate(e=>e.style.width),'0%');
+ assert.equal(await page.locator('[data-chart-platform=NAVER] .settlement-overview-fill').evaluate(e=>e.style.width),'100%');
+ assert.equal(await page.locator('[data-chart-platform=COUPANG] .settlement-overview-fill').count(),0);
+ await page.locator('[data-settlement-metric=expected]').click();assert.equal(await page.locator('[data-settlement-metric=expected]').getAttribute('aria-pressed'),'true');
+ await page.locator('[data-settlement-metric=actual]').click();await page.locator('[data-chart-platform=NAVER]').click();await page.waitForTimeout(450);
+ await page.evaluate(()=>document.getElementById('main-content').scrollTop=750);
+ const sticky=await page.locator('#settlement-detail').evaluate(e=>({top:e.getBoundingClientRect().top,scroll:document.getElementById('main-content').getBoundingClientRect().top+parseFloat(getComputedStyle(document.getElementById('main-content')).paddingTop),position:getComputedStyle(e).position}));assert.equal(sticky.position,'sticky');assert.ok(sticky.top>=sticky.scroll&&sticky.top<sticky.scroll+35,JSON.stringify(sticky));
+ const recovery=page.locator('.settlement-reconnect');await recovery.evaluate(e=>e.textContent='API 연결 설정 열기 · 연결 정보와 만료일을 확인하고 다시 연결합니다');
+ await page.locator('.settlement-detail-inner').evaluate(e=>e.scrollTop=e.scrollHeight);await page.waitForTimeout(100);
+ const fit=await recovery.evaluate(e=>{const r=e.getBoundingClientRect(),p=e.closest('.settlement-detail-inner').getBoundingClientRect();return {inside:r.left>=p.left&&r.right<=p.right&&r.bottom<=p.bottom,wrap:e.scrollWidth<=e.clientWidth,height:r.height};});assert.equal(fit.inside,true);assert.equal(fit.wrap,true);assert.ok(fit.height>=44);
+ await recovery.click();assert.equal(await page.locator('#settings-panel-api-title').isVisible(),true);assert.equal(await page.locator('[data-settings-target=api-title]').getAttribute('aria-selected'),'true');await page.evaluate(()=>showRoute('settlement'));
  for(const width of [1040,1440]){
   await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setSize(width,900),width);await page.waitForFunction(width=>innerWidth===width,width);
   await page.locator('[data-settlement-channel="NAVER"]').click();await page.waitForTimeout(400);

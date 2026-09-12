@@ -176,3 +176,23 @@ html body .team-task input.team-complete:checked { background:var(--mint); borde
 /* Keep receipt toolbar actions and equal-width presets on the same baseline. */
 .stock-history-toolbar .stock-history-presets>button{height:46px;min-height:46px;padding:0 12px}
 #month-filter-count{font-size:14px;line-height:1.6}
+
+/* P4-146: main-content owns scrolling; the detail follows it without clipping. */
+#settlement-page{overflow:visible}
+#settlement-workspace.has-detail{grid-template-columns:minmax(0,1fr) minmax(340px,380px);align-items:start}
+#settlement-detail{position:sticky;top:12px;align-self:start}
+#settlement-workspace.has-detail #settlement-detail{overflow:visible}
+#settlement-detail .settlement-detail-inner{width:100%;height:auto;max-height:calc(100dvh - 132px);overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-gutter:stable;padding:22px;box-sizing:border-box}
+#settlement-detail .settlement-detail-inner::-webkit-scrollbar{display:block;width:8px}
+#settlement-detail header{position:sticky;top:-22px;z-index:1;background:var(--surface);padding:12px 0;margin-top:-12px}
+#settlement-detail h2{min-width:0;overflow-wrap:anywhere;line-height:1.5}
+#settlement-detail-body{min-width:0}
+#settlement-detail-body button{box-sizing:border-box;max-width:100%;white-space:normal;overflow-wrap:anywhere;line-height:1.5;height:auto;min-height:44px}
+.settlement-chart{border:1px solid var(--line);border-radius:16px;padding:22px;margin-bottom:24px;background:var(--surface);min-width:0}
+.settlement-chart-heading{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px}.settlement-chart-heading h2{font-size:19px;line-height:1.5;margin:0}.settlement-chart-heading .settlement-periods{margin:0}
+.settlement-chart-note,.settlement-chart-state{font-size:14px;line-height:1.65;color:var(--muted)}.settlement-chart-list{display:grid;gap:10px}
+.settlement-chart .settlement-chart-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 16px;width:100%;min-width:0;padding:14px;border:1px solid var(--line);border-radius:12px;box-sizing:border-box;text-align:left;font:inherit;font-size:15px;background:var(--surface);color:var(--ink);cursor:pointer}
+.settlement-chart-row:hover{background:var(--surface-soft);border-color:var(--blue)}.settlement-chart-row:focus-visible{outline:2px solid var(--blue);outline-offset:2px}.settlement-chart-row strong{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.settlement-chart-label{overflow-wrap:anywhere}
+.settlement-overview-track,.settlement-overview-unknown{grid-column:1/-1;display:block;min-width:0;border-radius:6px;min-height:12px;background:var(--surface-soft)}.settlement-overview-fill{display:block;height:12px;border-radius:6px;background:var(--blue);transition:width .25s ease}.settlement-overview-unknown{padding:5px 10px;font-size:14px;color:var(--muted);border:1px dashed var(--line-strong)}.settlement-chart-state{grid-column:1/-1}
+@media(max-width:1000px){#settlement-workspace.has-detail{grid-template-columns:minmax(0,1fr)}#settlement-detail{position:static}#settlement-detail .settlement-detail-inner{max-height:none}#settlement-workspace.has-detail #settlement-detail{grid-row:1}#settlement-detail[aria-hidden=true]{height:0;overflow:hidden}}
+@media(prefers-reduced-motion:reduce){.settlement-overview-fill{transition:none}}

@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
- let value=null,busy=false,generation=0,lastAttempt=0,days=30,selectedChannel=null,selectedSchedule=null,detailOrigin=null;
+ let value=null,busy=false,generation=0,lastAttempt=0,days=30,chartMetric='actual',selectedChannel=null,selectedSchedule=null,detailOrigin=null;
  const select=id=>document.getElementById(id),money=v=>typeof v==='number'&&Number.isFinite(v)?`${v.toLocaleString('ko-KR',{maximumFractionDigits:0})}원`:'확인 필요';
  const node=(tag,css,text)=>makeElement(tag,css,text);
  function guidance(channel){
@@ -11,6 +11,24 @@
   if(['UNAVAILABLE','NO_DATA','VERIFY_REQUIRED'].includes(channel.stateCode))return '정산 원장과 수집 상태를 확인해야 합니다. 자료가 없거나 조회되지 않은 금액은 0원이 아닙니다.';
   if(channel.actual===null)return '실제 지급 근거가 확인되지 않았습니다. 예상 지급액을 입금 완료 금액으로 판단하지 마세요.';
   return '확인된 지급액만 표시합니다. 일부 지급이나 대조 차이가 있으면 플랫폼 원장과 기간을 확인하세요. 전체 입금 완료를 의미하지 않습니다.';
+ }
+ function renderChart(){
+  const host=select('settlement-chart');host.replaceChildren();
+  const labels={gross:'매출',expected:'예상 지급',actual:'확인된 지급'};
+  const heading=node('header','settlement-chart-heading');heading.append(node('h2','','플랫폼별 정산 한눈에 보기'));
+  const tabs=node('div','settlement-periods');tabs.setAttribute('role','group');tabs.setAttribute('aria-label','그래프 표시 금액');
+  for(const [key,label] of Object.entries(labels)){const b=node('button','',label);b.type='button';b.dataset.settlementMetric=key;b.setAttribute('aria-pressed',String(chartMetric===key));b.addEventListener('click',()=>{chartMetric=key;renderChart();host.querySelector('[data-settlement-metric='+key+']')?.focus();});tabs.append(b);}heading.append(tabs);host.append(heading);
+  const channels=value?.channels||[];
+  host.append(node('p','settlement-chart-note',channels.length?'같은 눈금으로 비교합니다. 채널을 누르면 정산 근거를 확인할 수 있어요.':'정산 조회 후 플랫폼별 그래프를 표시합니다.'));
+  const max=Math.max(1,...channels.map(c=>c[chartMetric]).filter(n=>Number.isFinite(n)&&n>=0));
+  const list=node('div','settlement-chart-list');
+  for(const channel of channels){const amount=channel[chartMetric],known=Number.isFinite(amount)&&amount>=0;
+   const b=node('button','settlement-chart-row');b.type='button';b.dataset.chartPlatform=channel.platform;b.setAttribute('aria-controls','settlement-detail');b.setAttribute('aria-label',channel.label+' '+labels[chartMetric]+' '+money(amount)+' 정산 상세');
+   b.append(node('span','settlement-chart-label',channel.label),node('strong','',money(amount)));
+   const track=node('span',known?'settlement-overview-track':'settlement-overview-unknown');track.setAttribute('aria-hidden','true');
+   if(known){const fill=node('span','settlement-overview-fill');fill.style.width=(100*amount/max)+'%';track.append(fill);}else track.textContent=amount<0?'음수 금액 · 원장 확인 필요':'미확인 · 그래프에서 제외';
+   b.append(track,node('small','settlement-chart-state',channel.stateLabel));b.addEventListener('click',()=>{selectedChannel=channel.platform;selectedSchedule=null;detailOrigin=b;detail(true);});list.append(b);
+  }host.append(list,node('p','settlement-chart-note','미확인 금액은 0원이 아닙니다. 매출·예상 지급·확인된 지급은 서로 다른 기준이며, 입금 완료율을 뜻하지 않습니다.'));
  }
  function detail(openFocus=false){
   const channel=value?.channels.find(row=>row.platform===selectedChannel),panel=select('settlement-detail'),open=Boolean(channel);
@@ -27,16 +45,16 @@
   select('settlement-detail-body').replaceChildren(node('p','settlement-state',channel.stateLabel),node('p','settlement-basis',`최근 ${days}일 · ${channel.asOf?formatTime(channel.asOf):'자료 시각 확인 필요'}`),body,
    node('p','settlement-detail-note settlement-guidance',guidance(channel)),
    node('h3','','계산 근거'),node('p','settlement-detail-note',channel.basis||'계산 근거 확인 필요'),
-   node('h3','','지급 확인 기준'),node('p','settlement-detail-note',channel.payoutBasis||'지급 확인 기준 확인 필요'),
+   node('h3','','지급 확인 기준'),node('p','settlement-detail-note',({SALES_MINUS_PLATFORM_FEES:'매출에서 플랫폼 수수료 차감 · 실제 PG 지급은 별도 확인',PLATFORM_SETTLEMENT_LEDGER:'플랫폼 정산 원장 기준',SALES_MINUS_PLATFORM_AND_WING_DEDUCTIONS:'매출에서 플랫폼 수수료·WING 차감 내역 반영'})[channel.payoutBasis]||channel.payoutBasis||'지급 확인 기준 확인 필요'),
    node('p','settlement-detail-note','미확인 금액은 0원이 아닙니다. 지급 차이는 서버에서 대조한 값이며, 표시된 항목을 단순 합산한 금액과 다를 수 있습니다.'));
   if(channel.platform==='NAVER'){const ads=node('section','settlement-ad-evidence');ads.append(node('h3','','광고비를 따로 확인하세요'),node('p','',`캠페인 성과 비용 ${money(channel.advertisingStats)}`),node('p','',`비즈머니 충전 ${money(channel.advertisingCharged)}`),node('p','settlement-detail-note',`소진 집계: ${{BIZMONEY_EXHAUST:'비즈머니 사용내역',BIZMONEY_AND_CAMPAIGN_STATS:'비즈머니 사용내역 + 없는 날짜의 캠페인 비용',CAMPAIGN_STATS:'캠페인 성과 비용'}[channel.advertisingSource]||'출처 확인 필요'}. 광고 계정 전체 기준으로, 이 쇼핑몰의 정산 차감액과 같지 않습니다. 충전액은 광고비가 아니며 성과 비용과 세금·반영 시점이 다를 수 있습니다. 원 단위로 반올림해 표시합니다.`));select('settlement-detail-body').append(ads);}
-  const recovery=node('button','settlement-reconnect','API 연결 설정 열기');recovery.type='button';recovery.addEventListener('click',()=>{closeDetail();showRoute('settings');document.getElementById('api-settings')?.scrollIntoView({block:'start'});});select('settlement-detail-body').append(recovery);
+  const recovery=node('button','settlement-reconnect','API 연결 설정 열기');recovery.type='button';recovery.addEventListener('click',()=>{closeDetail();showRoute('settings');window.moaonSettings?.open('api-title');document.getElementById('api-settings')?.scrollIntoView({block:'start'});});select('settlement-detail-body').append(recovery);
   if(selectedSchedule){
    const info=node('section','settlement-selected-schedule');
    info.append(node('h3','','선택한 지급 일정'),node('p','',`${selectedSchedule.date||'날짜 확인 필요'} · ${selectedSchedule.type||'유형 확인 필요'}`),node('strong','',money(selectedSchedule.amount)),node('p','',selectedSchedule.status||'상태 확인 필요'),node('p','settlement-detail-note','일정에 표시된 금액이며 입금 완료를 뜻하지 않습니다.'));
    select('settlement-detail-body').prepend(info);
   }
-  if(openFocus)select('settlement-detail-close').focus();
+  if(openFocus){select('settlement-detail-close').focus();panel.querySelector('.settlement-detail-inner').scrollTop=0;}
  }
  function closeDetail(){
   const previous=selectedChannel,origin=detailOrigin;selectedChannel=null;selectedSchedule=null;detailOrigin=null;detail();
@@ -56,6 +74,7 @@
    [value?.summary?.actual?.status==='READY'?'실제 지급':'확인된 지급',value?.summary?.actual?.value,value?.summary?.actual?.status==='PARTIAL'?'부분 확인 · 전체 지급액 아님':'플랫폼 확인 기준'],
    ['대조 차이',value?.summary?.variance,`${value?.summary?.comparableChannels??'미확인'}개 채널 대조 · 전체 차이 아님`]
   ].map(([label,amount,note])=>{const card=node('article','settlement-total');card.append(node('span','',label),node('strong','',money(amount)),node('small','',note));return card;}));
+  renderChart();
   select('settlement-channels').replaceChildren(...(value?.channels||[]).map(channel=>{
    const card=node('article','settlement-channel');card.dataset.platform=channel.platform;const header=node('header',''),body=node('dl','settlement-values');header.append(node('h3','',channel.label),node('span','settlement-state',channel.stateLabel));
    const comparison=node('div','settlement-comparison');comparison.setAttribute('aria-label',channel.label+' 예상 지급과 확인된 지급');
