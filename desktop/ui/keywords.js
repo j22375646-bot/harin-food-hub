@@ -3,6 +3,8 @@
  const $=id=>document.getElementById(id),node=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
  let data=null,busy=false,failed=false,chosen=null;
  const campaignLabel=node('label','','캠페인'),campaignSelect=node('select');campaignSelect.id='keyword-campaign';campaignLabel.append(campaignSelect);document.querySelector('.keyword-tools').insertBefore(campaignLabel,$('keyword-type').parentElement);campaignSelect.onchange=rows;
+ const groupDesk=node('details','keyword-group-desk'),groupSummary=node('summary','','쇼핑광고 입찰 관리'),groupBody=node('div','keyword-group-body'),groupLoad=node('button','','운영 중인 광고그룹 조회');groupLoad.type='button';groupDesk.append(groupSummary,groupBody);groupBody.append(node('p','','쇼핑광고의 그룹 기본 입찰가를 조회하고, 금액을 확인한 뒤 네이버에 반영합니다.'),groupLoad);document.querySelector('.keyword-tools').after(groupDesk);let groupEpoch=0;
+ groupLoad.onclick=async()=>{const epoch=++groupEpoch;groupLoad.disabled=true;const r=await window.moaonHub.keywordBid({action:'GROUP_LIST'}).catch(()=>({ok:false}));groupLoad.disabled=false;if(epoch!==groupEpoch)return;groupBody.querySelector('.keyword-group-picker')?.remove();const wrap=node('div','keyword-group-picker');if(!r.ok){wrap.append(node('p','','광고그룹을 조회하지 못했습니다. 연결을 확인한 뒤 다시 조회하세요.'));groupBody.append(wrap);return;}const select=node('select'),label=node('label','','광고그룹'),empty=node('option','','광고그룹을 선택하세요');empty.value='';select.append(empty);for(const g of r.groups){const o=node('option','',g.campaignName+' · '+g.name);o.value=g.id;select.append(o);}label.append(select);const detail=node('div');wrap.append(label,detail);if(!r.groups.length)wrap.append(node('p','','운영 중인 쇼핑 광고그룹이 없습니다.'));select.onchange=()=>{detail.replaceChildren();const g=r.groups.find(g=>g.id===select.value);if(g)window.moaonBids.mount(detail,g,false);};groupBody.append(wrap);};
  const fmt=(v,u='',d=0)=>typeof v==='number'?v.toLocaleString('ko-KR',{maximumFractionDigits:d})+u:'확인 필요';
  const advice=r=>r.cost===null||r.conversions===null?'자료 확인':r.cost>0&&r.conversions===0?'전환 없음':r.conversions<3?'표본 관찰':'효율 비교';
  const snapshot=()=>data?.[$('keyword-source-kind').value==='SEARCH_TERMS'?'searchTerms':'workbench'];
@@ -31,7 +33,7 @@
   const tg=data?.telegram;$('telegram-status').textContent=!tg?'서버 연결 후 설정 상태를 확인합니다.':!tg.configured?'연결 준비 · 봇과 수신 채팅 설정 필요':!tg.enabled||!tg.sendingEnabled?'서버 설정 있음 · 알림 발송 꺼짐':'서버 발송 설정 켜짐 · 실제 수신 여부는 별도 확인 필요';
   rows();
  }
- window.moaonKeywords={set:(next,state={})=>{if(next===data&&busy===!!state.busy&&failed===!!state.failed)return;data=next;busy=!!state.busy;failed=!!state.failed;if(!next){chosen=null;window.moaonBids?.reset();}render();}};
+ window.moaonKeywords={set:(next,state={})=>{if(next===data&&busy===!!state.busy&&failed===!!state.failed)return;data=next;busy=!!state.busy;failed=!!state.failed;if(!next){chosen=null;groupEpoch++;groupDesk.open=false;groupBody.querySelector('.keyword-group-picker')?.remove();window.moaonBids?.reset();}render();}};
  const statusRefresh=node('button','','서버 설정 상태 조회');statusRefresh.type='button';statusRefresh.onclick=()=>window.moaonInsights?.refresh();$('telegram-status').after(statusRefresh);
  $('keyword-source-kind').onchange=()=>{chosen=null;render();};
  $('keyword-refresh').onclick=()=>window.moaonInsights?.refresh();$('keyword-search').oninput=rows;for(const id of ['keyword-type','keyword-filter','keyword-sort'])$(id).onchange=rows;

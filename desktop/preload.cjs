@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   keywordBid: input => ipcRenderer.invoke('moaon-hub:keyword-bid', input),
   readSettlement: (days=30) => ipcRenderer.invoke('moaon-hub:read-settlement',days),
   readTodayCalendar: () => ipcRenderer.invoke('moaon-hub:read-today-calendar'),
+  deleteCalendarEntry: entry => ipcRenderer.invoke('moaon-hub:delete-calendar-entry',entry),
   createCalendarEntry: entry => ipcRenderer.invoke('moaon-hub:create-calendar-entry',entry),
   readCalendarMonth: month => ipcRenderer.invoke('moaon-hub:read-calendar-month',month),
   listBusinesses: () => ipcRenderer.invoke('moaon-hub:list-businesses'),

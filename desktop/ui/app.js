@@ -1524,7 +1524,11 @@ document.querySelector('#sidebar-toggle').addEventListener('click', (event) => {
   event.currentTarget.setAttribute('aria-expanded', String(!collapsed));
   event.currentTarget.setAttribute('aria-label', collapsed ? '메뉴 펼치기' : '메뉴 접기');
   event.currentTarget.title = collapsed ? '메뉴 펼치기' : '메뉴 접기';
+  try{localStorage.setItem('moaon-sidebar-collapsed',String(collapsed));}catch{}
+  window.dispatchEvent(new Event('resize'));
 });
+try{if(localStorage.getItem('moaon-sidebar-collapsed')==='true')document.querySelector('#sidebar-toggle').click();}catch{}
+for(const b of document.querySelectorAll('.primary-nav .nav-button'))b.title=b.getAttribute('aria-label')||b.textContent.trim();
 const workspaceSearch=document.querySelector('#workspace-search');
 const workspaceTarget=document.querySelector('#workspace-search-target');
 const workspaceQuery=document.querySelector('#workspace-search-query');

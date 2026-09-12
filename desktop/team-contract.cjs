@@ -8,7 +8,7 @@ function validAvatar(v){
 }
 function validInput(v){
  if(!v||typeof v!=='object'||Array.isArray(v))return false;
- const fields={READ:['action'],PROFILE:['action','name','title','color','notifications','revision'],CREATE:['action','id','title','notes','dueDate','assignedTo','checklist'],CHECK:['action','id','revision','index','done'],COMPLETE:['action','id','revision'],REOPEN:['action','id','revision']}[v.action];
+ const fields={READ:['action'],PROFILE:['action','name','title','color','notifications','revision'],CREATE:['action','id','title','notes','dueDate','assignedTo','checklist'],CHECK:['action','id','revision','index','done'],COMPLETE:['action','id','revision'],REOPEN:['action','id','revision'],DELETE:['action','id','revision']}[v.action];
  if(v.action==='PROFILE'&&Object.hasOwn(v,'avatar'))fields.push('avatar');
  if(!fields||Object.keys(v).length!==fields.length||!fields.every(k=>Object.hasOwn(v,k)))return false;
  if(v.action==='READ')return true;

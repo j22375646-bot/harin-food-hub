@@ -23,7 +23,7 @@ export function LoginForm({ nextPath = '/' }) {
     <input type="hidden" name="next" value={nextPath} />
     <label htmlFor="account">로그인할 사람</label>
     <select id="account" name="account" value={account} onChange={event=>setAccount(event.target.value)} disabled={pending}>
-      <option value="president">사장 · 엄마</option><option value="owner">직원 · 나</option><option value="vice-president">부사장 · 아빠</option>
+      <option value="president">사장 · 엄마</option><option value="owner">직원 · 나</option><option value="vice-president">사장 · 아빠</option>
     </select>
     {pending&&<input type="hidden" name="account" value={account}/>}
     <label htmlFor="password">비밀번호</label>

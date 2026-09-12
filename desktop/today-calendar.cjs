@@ -42,4 +42,5 @@ function validCalendarDraft(v){
  const end=v.endDate||v.date;if(!validDate(end)||end<v.date||!/^20/.test(end)||(Date.parse(end)-Date.parse(v.date))/86400000>366||v.type==='MEMO'&&end!==v.date)return false;
  return v.type==='EVENT'?['BLUE','CORAL','MINT','VIOLET','AMBER'].includes(v.eventColor)&&validGiftTiers(v.giftTiers):v.eventColor===undefined&&v.giftTiers===undefined;
 }
-module.exports={calendarDay,projectCalendar,monthRange,projectMonth,validCalendarDraft,validGiftTiers};
+function validCalendarRemoval(v){return !!v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===2&&typeof v.id==='string'&&/^[0-9a-f-]{36}$/i.test(v.id)&&!!monthRange(v.month);}
+module.exports={validCalendarRemoval,calendarDay,projectCalendar,monthRange,projectMonth,validCalendarDraft,validGiftTiers};
