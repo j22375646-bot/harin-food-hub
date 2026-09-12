@@ -22,4 +22,6 @@
 - 빌드: `D:/GPT/moaon/desktop/dist/distribution-20260913-044339-119`. 설치파일 114152301 bytes, SHA256 `0d4981282fef2452b17f35035003f4362e5d1221c4a7044677f0783a4a6dd717`.
 - ASAR 소스 93개 대조 PASS. 패키지 및 `D:/GPT/Apps/Moaon/releases/0.129.0` 설치 위치에서 격리 Electron 화면·실제 Windows 시험 바로가기 검증 PASS.
 - 실제 바탕화면/시작 메뉴 바로가기의 대상·고정 ICO·AppUserModelID 복구. 옛 Moaon Preview 링크도 0.129.0의 존재하는 실행 파일을 가리키도록 복구했다. 사용자 실행 중인 앱은 종료하지 않았다.
-- 공개 서명 업데이트 게시/다운로드 검증 진행 중. 실제 사용자 작업표시줄의 최종 표시 상태와 다른 PC의 업데이트 실행은 별도 확인 범위다.
+- 코드 adc8e33 푸시 및 GitHub moaon-stable 공개 서명 업데이트 게시 완료. 0.118.0으로 인식하는 격리 앱에서 0.129.0 다운로드 및 서명 검증 READY 확인 (`p4142-live-update.log`). 설치 프로그램은 인수 시험에서 실행하지 않았다. 실제 사용자 작업표시줄의 최종 표시 상태와 다른 PC의 업데이트 실행은 별도 확인 범위다.
+
+- [0.129.0 설치파일](https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable/Moaon-0.129.0-Setup.exe)
