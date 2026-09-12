@@ -28,7 +28,8 @@ $shell=New-Object -ComObject WScript.Shell
 $shortcut=$shell.CreateShortcut((Join-Path $desktop '모아온.lnk'))
 $shortcut.TargetPath=Join-Path $target 'MoaonPreview.exe'
 $shortcut.WorkingDirectory=$target
-$shortcut.Arguments='--display-right'
+# Preserve the user's launch arguments. A missing right monitor must not be
+# forced by a release refresh; window placement is the user's preference.
 $shortcut.Save()
 @{version=$version;path=$target;previous=$old.version} | ConvertTo-Json | Set-Content -LiteralPath $stateFile -Encoding utf8
 # Remove only the obsolete app shortcut, never unrelated desktop items.
