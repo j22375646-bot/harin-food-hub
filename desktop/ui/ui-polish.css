@@ -101,3 +101,14 @@ html[data-theme=dark] :is(.month-weekdays>span:first-child,.month-day.is-sunday 
 @media(prefers-reduced-motion:reduce) {
   .page *, .page *::before, .page *::after, #workspace-search[open] { animation:none!important; transition:none!important; scroll-behavior:auto!important; }
 }
+
+/* Confirmed feedback never changes row size or moves the user's focus. */
+.order-row:has(.order-change-badge) { position:relative; }
+.order-row.order-confirmed-change { animation:confirmed-order 1200ms ease-out; }
+.order-change-badge { position:absolute; top:7px; right:12px; font-size:13px; line-height:18px; padding:1px 7px; border:1px solid var(--mint); border-radius:6px; background:var(--mint-soft); color:var(--mint); pointer-events:none; }
+@keyframes confirmed-order { from { background:var(--mint-soft); box-shadow:inset 0 0 0 1px var(--mint); } to { box-shadow:inset 0 0 0 1px transparent; } }
+.action-feedback:popover-open { position:fixed; inset:auto 24px 42px auto; margin:0; display:flex; align-items:center; gap:12px; max-width:min(420px,calc(100vw - 32px)); box-sizing:border-box; padding:14px 16px; border:1px solid var(--line-strong); border-radius:16px; background:var(--surface); color:var(--ink); box-shadow:0 8px 30px #14192b20; font:500 15px/1.5 'Moaon Pretendard',sans-serif; animation:moaon-panel-reveal 180ms ease-out; }
+.action-feedback-check { display:grid; place-items:center; width:32px; height:32px; flex-shrink:0; border-radius:50%; background:var(--mint-soft); color:var(--mint); font-size:21px; animation:confirmed-check 240ms ease-out; }
+.action-feedback button { width:36px; height:36px; flex-shrink:0; padding:0; border:1px solid var(--line); border-radius:10px; background:var(--surface-soft); color:var(--muted); font-size:22px; cursor:pointer; }
+@keyframes confirmed-check { from { transform:scale(.75); opacity:.4; } to { transform:scale(1); opacity:1; } }
+@media(prefers-reduced-motion:reduce) { .order-row.order-confirmed-change,.action-feedback:popover-open,.action-feedback-check { animation:none!important; } }

@@ -763,6 +763,12 @@ function createOrderRow(order) {
   const button = makeElement('button', 'order-row');
   button.type = 'button';
   button.dataset.orderId = id;
+  if(displayMode==='live'&&window.moaonFeedback.orders.has(id)){
+    const badge=makeElement('span','order-change-badge','변경 확인');
+    button.append(badge);
+    requestAnimationFrame(()=>{if(button.isConnected&&window.moaonFeedback.orders.take(id))button.classList.add('order-confirmed-change');});
+    setTimeout(()=>{badge.remove();button.classList.remove('order-confirmed-change');},window.moaonFeedback.orders.remaining());
+  }
   button.setAttribute('aria-pressed', String(id === selectedOrderId));
   const primary = makeElement('span', 'order-primary');
   const secondary = makeElement('span', 'order-secondary');
@@ -1020,6 +1026,7 @@ function updateConnectionChrome(message) {
 }
 
 function clearDisplayedOrders(mode, message) {
+  if(mode!=='connecting'){window.moaonFeedback.orders.reset();window.moaonFeedback.clear();}
   ++freshnessGeneration;
   if(['sample','disconnected'].includes(mode)){freshnessChanged=false;freshnessReloadBusy=false;}
   clearRegistrationResults();
@@ -1038,6 +1045,7 @@ function clearDisplayedOrders(mode, message) {
 }
 
 function applyHubResult(result) {
+  if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status))window.moaonFeedback.orders.reset();
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){historyAutoLoaded=false;historyGeneration++;}
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status))shippingFollowup.clear();
   if(!['READY','PARTIAL'].includes(result?.status)){clearBusinesses();clearOverview();window.moaonTeam?.stop();}
@@ -1072,6 +1080,7 @@ function applyHubResult(result) {
     })));
     orderSearch.value = '';
     closeOrderDetail();
+    window.moaonFeedback.orders.accept(JSON.stringify([selectedScope,selectedChannel,serverFilters,result.offset||0]),displayedOrders,result.status==='READY');
     renderOrders();
     updateConnectionChrome(result.message);
     renderShippingFollowup();
@@ -1105,6 +1114,7 @@ async function runHubAction(action) {
   }
   if (action === 'nextPage' || action === 'previousPage') clearDisplayedOrders('connecting', action === 'nextPage' ? '다음 주문 페이지를 조회하고 있습니다.' : '이전 주문 페이지를 조회하고 있습니다.');
   if (action === 'disconnect') {
+    window.moaonFeedback.orders.reset();window.moaonFeedback.clear();
     historyGeneration++;historyAutoLoaded=false;
     clearCollection();
     shippingFollowup.clear();
@@ -1426,6 +1436,7 @@ async function registerSelectedInvoices(){
 }
 
 async function returnToSample() {
+  window.moaonFeedback.orders.reset();window.moaonFeedback.clear();
   historyGeneration++;historyAutoLoaded=false;
   clearCollection();
   clearBusinesses();

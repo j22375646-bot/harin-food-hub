@@ -13,7 +13,7 @@
  function status(text){let p=dialog.querySelector('[role=status]');if(!p){p=el('p','team-message');p.setAttribute('role','status');dialog.append(p);}p.textContent=text;}
  const message=code=>({TEAM_CONFLICT:'다른 사람이 먼저 수정했습니다. 최신 내용을 확인하고 다시 처리하세요.',TEAM_ASSIGNEE_INVALID:'담당자를 다시 선택해 주세요.',TEAM_AUTH_REQUIRED:'로그인이 만료되었습니다. 다시 로그인해 주세요.',TEAM_RESULT_UNKNOWN:'저장 결과를 확인하지 못했습니다. 새로 조회해 반영 여부를 확인하세요.',TEAM_BUSY:'처리 중입니다. 잠시 후 다시 시도하세요.'})[code]||'연결을 확인하지 못했습니다. 잠시 후 다시 조회해 주세요.';
  async function refresh(){if(!active||busy)return;const expected=generation;busy=true;try{const r=await window.moaonHub.teamCommand({action:'READ'});if(expected!==generation)return;if(r.ok){snapshot=r.value;syncError='';render();if(dialog.open&&selected&&!creating)detail();}else{if(r.code==='TEAM_AUTH_REQUIRED'){stop();return;}syncError=message(r.code);}}catch{syncError='업무 연결 확인 필요';}finally{if(expected===generation){busy=false;render();if(dialog.open&&selected&&!creating)detail();}}}
- async function mutate(input){if(busy)return;const expected=generation;busy=true;render();try{const r=await window.moaonHub.teamCommand(input);if(expected!==generation)return;if(!r.ok){notice=message(r.code);status(notice);return false;}notice='';return true;}catch{notice=message('TEAM_RESULT_UNKNOWN');status(notice);return false;}finally{if(expected===generation){busy=false;await refresh();}}}
+ async function mutate(input){if(busy)return;window.moaonFeedback.clear();const expected=generation;let saved=false;busy=true;render();try{const r=await window.moaonHub.teamCommand(input);if(expected!==generation)return;if(!r.ok){notice=message(r.code);status(notice);return false;}notice='';saved=true;return true;}catch{notice=message('TEAM_RESULT_UNKNOWN');status(notice);return false;}finally{if(expected===generation){busy=false;await refresh();if(saved&&expected===generation&&input.action==='COMPLETE')window.moaonFeedback.notify('업무 완료를 저장했습니다.');}}}
  function avatar(id){const m=snapshot?.members.find(m=>m.id===id);const v=el('span','team-avatar',m?.name.slice(0,1)||'?');v.dataset.color=m?.color||'violet';v.setAttribute('aria-hidden','true');if(m?.avatar){const img=el('img','');img.src=m.avatar;img.alt='';v.replaceChildren(img);}return v;}
  function dueLabel(t){return t.due_date===date()?'오늘':t.due_date?.slice(5).replace('-','월 ')+'일';}
  function taskRow(t,compact=false){
@@ -69,7 +69,7 @@
   const host=document.getElementById('month-entries');if(!host)return;host.querySelector('.team-date-list')?.remove();const selectedDate=document.querySelector('[data-calendar-day][aria-pressed=true]')?.dataset.calendarDay;const rows=(snapshot?.tasks||[]).filter(t=>t.due_date===selectedDate);if(rows.length){const list=el('section','team-date-list');list.append(el('h3','','이 날짜의 업무 · '+rows.length),...rows.map(t=>taskRow(t,true)));host.append(list);}
  }
  function start(){if(active)return;active=true;void refresh();timer=setInterval(()=>void refresh(),10000);}
- function stop(){active=false;generation++;busy=false;clearInterval(timer);timer=null;snapshot=null;dialog.close();profile.close();render();}
+ function stop(){window.moaonFeedback.clear();active=false;generation++;busy=false;clearInterval(timer);timer=null;snapshot=null;dialog.close();profile.close();render();}
  $('#business-settings-open').onclick=()=>snapshot?openProfile():showRoute('settings');
  window.moaonHub.onTeamOpen?.(id=>{if(snapshot){showRoute('calendar');openDetail(id);}});
  window.moaonTeam={start,stop,refresh,decorateCalendar,decorateToday};render();if(!$('.preview-shell').hidden)start();
