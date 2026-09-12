@@ -31,7 +31,9 @@
 - SHA256: `f85a9867d0938c256cf39e1f2c3d478b88f76d82c461b4a305b23cf2e2d7dd0e`.
 - 소스/배포 ASAR/설치 위치 ASAR 각각 64개 화면 상태 검증 PASS. 실제 사용자 프로필 대신 격리 프로필을 사용했다.
 - 설치 위치 `D:/GPT/Apps/Moaon/releases/0.127.0`, `D:/OneDrive/바탕 화면/모아온.lnk` 갱신. 현재 실행 중인 이전 버전은 유지했다.
-- 공개 서명 업데이트 게시/이전 버전 다운로드 검증 진행 중. 기존 운영 앱 프로세스나 고객 PC의 세션은 강제 종료하지 않는다.
+- GitHub moaon-stable 공개 Ed25519 서명 업데이트 게시 완료. 0.118.0으로 인식하는 격리 앱에서 0.127.0 실제 다운로드·서명 검증 READY 확인. 설치 프로그램 실행은 하지 않았다. (`D:/GPT/tmp/p4140-public-release.log`, `D:/GPT/tmp/p4140-live-update.log`)
+- 코드 커밋 `2f659cf`, origin/codex/moaon-print-preview 푸시 완료. 웹 서버·DB 변경 없음. 고객 PC의 실제 업데이트 실행 여부는 별도 확인 범위다.
+- [설치파일 다운로드](https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable/Moaon-0.127.0-Setup.exe)
 
 ## 다음 효과 추천
 
