@@ -29,3 +29,5 @@
 [0.133.0 설치파일](https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable/Moaon-0.133.0-Setup.exe)
 
 - 설치 ASAR 소스93개 대조 PASS, 정산 그래프·패널·긴 버튼·API 탭 이동 회귀 및 전체44화면+설정24상태 PASS (p4146-installed-settlement.log, p4146-installed-audit-final.log).
+
+- 90eaa74 푸시·GitHub moaon-stable 0.133.0 서명 업데이트 게시 완료. 0.132.0으로 인식하는 격리 설치 앱이 공개 설치파일 다운로드·Ed25519 서명 검증 READY PASS (p4146-live-update.log). 실제 설치 프로그램 실행/사용자 앱 강제 종료는 하지 않았다.
