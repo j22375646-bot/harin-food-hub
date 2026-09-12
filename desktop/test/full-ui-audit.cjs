@@ -21,8 +21,10 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
     const root=document.querySelector('.page.is-visible'),visible=e=>!!e.getClientRects().length,css=e=>getComputedStyle(e);
     return {title:[...root.querySelectorAll('h1')].map(e=>({text:e.textContent,size:css(e).fontSize,spacing:css(e).letterSpacing})),overflow:root.scrollWidth>root.clientWidth+1,buttons:[...root.querySelectorAll('button')].filter(visible).map(e=>({id:e.id,cls:e.className,text:e.textContent.trim().slice(0,36),font:css(e).fontSize,height:Math.round(e.getBoundingClientRect().height),bg:css(e).backgroundColor,color:css(e).color})),small:[...root.querySelectorAll('p,label,small,th,td,button')].filter(visible).filter(e=>parseFloat(css(e).fontSize)<13).map(e=>({tag:e.tagName,cls:e.className,text:e.textContent.trim().slice(0,40),size:css(e).fontSize}))};
    });report.push({theme,width,route,...state});
-   assert.equal(state.overflow,false,`${theme}/${width}/${route}: page overflow`);
-   assert.deepEqual(state.small,[],`${theme}/${width}/${route}: unreadably small copy`);
+   if(process.env.MOAON_AUDIT_REPORT_ONLY!=='1')assert.equal(state.overflow,false,`${theme}/${width}/${route}: page overflow`);
+   if(process.env.MOAON_AUDIT_REPORT_ONLY!=='1')assert.deepEqual(state.small,[],`${theme}/${width}/${route}: unreadably small copy`);
+   const groups=await page.locator('.page.is-visible :is(.settlement-periods,.team-tabs,.stock-tabs,.marketing-switch,.month-filters)').evaluateAll(es=>es.filter(e=>e.getClientRects().length).map(e=>{const s=getComputedStyle(e),r=e.getBoundingClientRect();return {border:[s.borderTopWidth,s.borderRightWidth,s.borderBottomWidth,s.borderLeftWidth],buttons:[...e.querySelectorAll(':scope > button')].filter(b=>b.getClientRects().length).map(b=>{const q=b.getBoundingClientRect();return {height:q.height,contained:q.left>=r.left+1&&q.right<=r.right-1,font:parseFloat(getComputedStyle(b).fontSize)};})};}));
+   for(const group of groups){assert.deepEqual(group.border,['1px','1px','1px','1px'],'selection group has a balanced enclosing border');for(const button of group.buttons){assert.ok(button.height>=44,'selection control touch target');assert.equal(button.contained,true,'selection stays inside its box');assert.ok(button.font>=14,'selection label readability');}}
    await page.screenshot({path:path.join(out,`${theme}-${width}-${route}.png`),animations:'disabled'});
   }
   for(const id of ['theme-title','app-update-title','settings-connection-title','business-list-title','api-title','settings-history-title']){

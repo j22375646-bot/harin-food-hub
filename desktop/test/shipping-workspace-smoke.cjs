@@ -1,7 +1,7 @@
 'use strict';
 const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs'),os=require('node:os'),{_electron}=require('playwright');
-(async()=>{const app=await _electron.launch({executablePath:require('electron'),args:[path.join(__dirname,'isolated-bootstrap.cjs')],env:{...process.env,MOAON_TEST_RUNTIME_ROOT:process.env.MOAON_SHIPPING_UI_RUNTIME||path.resolve(__dirname,'..'),MOAON_TEST_PROFILE:fs.mkdtempSync(path.join(os.tmpdir(),'moaon-shipping-ui-')),MOAON_TEST_HIDDEN:'0',MOAON_TEST_DISPLAY:'right'}});try{
- const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');await page.waitForFunction(()=>!document.getElementById('entry-status').textContent.includes('확인하고 있습니다'));
+(async()=>{const app=await _electron.launch({executablePath:require('electron'),args:[path.join(__dirname,'isolated-bootstrap.cjs')],env:{...process.env,MOAON_TEST_RUNTIME_ROOT:process.env.MOAON_SHIPPING_UI_RUNTIME||path.resolve(__dirname,'..'),MOAON_TEST_PROFILE:fs.mkdtempSync(path.join(os.tmpdir(),'moaon-shipping-ui-')),MOAON_TEST_HIDDEN:'0',MOAON_TEST_DISPLAY:'main'}});try{
+ const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');await page.evaluate(()=>runHubAction('disconnect'));
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await app.evaluate(async({session,ipcMain,BrowserWindow})=>{
   session.fromPartition('persist:moaon-harin-readonly').fetch=async()=>Response.json({ok:true,orders:[],total:0,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false,businesses:[]});
