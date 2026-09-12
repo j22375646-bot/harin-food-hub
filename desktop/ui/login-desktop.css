@@ -27,3 +27,5 @@ html,body{margin:0!important;background:#f4f5f3!important}
 @media(max-width:800px){[class*="loginPage"]{padding:22px!important}[class*="loginFrame"]{display:block!important;max-width:460px!important;min-height:0!important}[class*="loginHero"]{display:none!important}[class*="loginTopbar"]{padding:26px 30px 8px!important}[class*="loginAccess"]{padding:30px!important}}
 @media(max-height:680px) and (min-width:801px){[class*="loginPage"]{padding:16px!important}[class*="loginFrame"]{min-height:0!important}[class*="loginTopbar"]{padding-block:16px!important;min-height:72px!important}[class*="loginAccess"]{padding-block:24px!important}[class*="loginHero"]{padding-block:24px!important}}
 @media(prefers-reduced-motion:reduce){[class*="loginPage"] *{animation:none!important;transition:none!important}}
+
+[class*="loginForm"] select{width:100%!important;min-height:48px!important;padding:10px 14px!important;margin:8px 0 20px!important;border:1px solid #dcdde4!important;border-radius:12px!important;font-size:16px!important;background:#f8f9fa!important;color:#292d38!important}

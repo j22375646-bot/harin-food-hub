@@ -277,6 +277,7 @@ function validXlsxPackage(bytes){
 function createHubConnection({
   BrowserWindow,
   LoginHost=BrowserWindow,
+  onTeamSnapshot=()=>{},
   session,
   getMainWindow,
   now = () => new Date(),
@@ -626,6 +627,12 @@ function createHubConnection({
     let tracked;tracked=read({signal:controller.signal}).then(result=>expected===generation?result:empty('CANCELLED')).finally(()=>{if(csController===controller){csController=null;csPermit=null;}if(activeCs===tracked)activeCs=null;});
     activeCs=tracked;return tracked;
   }
+  let teamBusy=false,teamPermit=null;
+  async function teamCommand(input){
+    if(teamBusy||disconnecting||cleanupFailed||isLoginWindowActive())return {ok:false,code:'TEAM_BUSY'};
+    const {TEAM_URL,teamRequest}=require('./team-transport.cjs'),expected=generation,controller=new AbortController();teamBusy=true;businessReads.add(controller);teamPermit={url:TEAM_URL,method:input?.action==='READ'?'GET':'POST'};const timer=setTimeout(()=>controller.abort(),15000);
+    try{const result=await teamRequest((...args)=>getRemoteSession().fetch(...args),input,controller.signal);if(expected!==generation)return {ok:false,code:'TEAM_AUTH_REQUIRED'};if(input.action==='READ'&&result.ok)onTeamSnapshot(result.value);if(result.code==='TEAM_AUTH_REQUIRED')onTeamSnapshot(null);return result;}finally{clearTimeout(timer);businessReads.delete(controller);teamBusy=false;teamPermit=null;}
+  }
   let stockBusy=false,stockPermit=null;
   async function stockRequest(input){if(stockBusy||disconnecting||cleanupFailed||isLoginWindowActive())return {status:'ERROR',message:'연결 상태를 확인하거나 진행 중인 작업을 기다려 주세요.'};const expected=generation;stockBusy=true;stockPermit={url:STOCK_URL,method:input?'POST':'GET'};try{const result=await createStockTransport({fetch:(...args)=>getRemoteSession().fetch(...args)})(input);return expected===generation?result:{status:'ERROR',message:'사업장 연결이 변경되었습니다. 다시 조회하세요.'};}finally{stockBusy=false;stockPermit=null;}}
   const readStock=()=>stockRequest();const saveStock=input=>{if(!input||typeof input!=='object'||JSON.stringify(input).length>12000)throw Error('Invalid stock input');return stockRequest(input);};
@@ -735,7 +742,7 @@ function createHubConnection({
             settlementPermit,
             insightsPermit,
             bidPermit,
-            csPermit,inventoryPermit,stockPermit,
+            csPermit,inventoryPermit,stockPermit,teamPermit,
             trackingRequestMethod,
             automaticTrackingRequestActive,
             collectionPermit,
@@ -1571,6 +1578,7 @@ function createHubConnection({
   }
 
   function disconnect() {
+    onTeamSnapshot(null);
     if (disconnecting) return disconnecting;
     collection.reset();
     invalidateGeneration();
@@ -1694,7 +1702,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-return Object.freeze({ keywordBid, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+return Object.freeze({ teamCommand, keywordBid, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1745,6 +1753,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     if(args.length!==1||!filters||typeof filters!=='object'||Array.isArray(filters)||![2,5].includes(Object.keys(filters).length)||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean'||(Object.keys(filters).length===5&&!validSearch({query:filters.query,start:filters.start,end:filters.end})))throw Error('Invalid filter arguments');
     return connection.setOrderFilters(filters);
   });
+  ipcMain.handle('moaon-hub:team-command',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!require('./team-contract.cjs').validInput(args[0]))throw Error('Invalid team request');return connection.teamCommand(args[0]);});
   ipcMain.handle('moaon-hub:apply-order-search',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');if(args.length!==1||!validSearch(args[0]))throw Error('Invalid search arguments');return connection.applyOrderSearch(args[0]);});
   ipcMain.handle('moaon-hub:reset-order-filters',async(event,...args)=>{
     if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');

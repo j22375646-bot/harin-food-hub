@@ -1042,10 +1042,10 @@ function clearDisplayedOrders(mode, message) {
 function applyHubResult(result) {
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){historyAutoLoaded=false;historyGeneration++;}
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status))shippingFollowup.clear();
-  if(!['READY','PARTIAL'].includes(result?.status)){clearBusinesses();clearOverview();}
+  if(!['READY','PARTIAL'].includes(result?.status)){clearBusinesses();clearOverview();window.moaonTeam?.stop();}
   const gate=document.querySelector('#entry-screen'),shell=document.querySelector('.preview-shell');
   if(result?.status==='READY'||result?.status==='PARTIAL'){
-    gate.hidden=true;shell.hidden=false;shell.inert=false;
+    gate.hidden=true;shell.hidden=false;shell.inert=false;window.moaonTeam?.start();
   }else if(!gate.hidden||['LOGIN_REQUIRED','LOGIN_OPEN','DISCONNECTED'].includes(result?.status)){
     gate.hidden=false;gate.classList.remove('is-preparing');shell.hidden=true;shell.inert=true;
     document.querySelector('#entry-status').textContent=result?.status==='LOGIN_REQUIRED'?'로그인이 필요합니다. 다시 연결해 주세요.':result?.status==='LOGIN_OPEN'?'앱의 로그인 화면에서 계속해주세요.':result?.status==='DISCONNECTED'?'로그아웃했습니다. 다시 로그인할 수 있습니다.':result?.message||'연결을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.';

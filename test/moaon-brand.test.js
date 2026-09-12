@@ -49,7 +49,7 @@ test('manifest and layout expose the MOAON product identity while preserving ins
   assert.equal(metadata.manifest,'/manifest.webmanifest');
 });
 
-test('login renders MOAON as the product without changing password-only owner access',async()=>{
+test('login renders MOAON as the product with equal-account password access',async()=>{
   const {default:LoginPage}=loadOwned('app/login/page.js',{
     'next/headers':{cookies:async()=>({get:()=>undefined})},
     'next/navigation':{redirect:path=>{throw new Error(`unexpected redirect ${path}`);}},
@@ -61,7 +61,7 @@ test('login renders MOAON as the product without changing password-only owner ac
   assert.match(html,/>M<\/span>/u);
   assert.match(html,/<b>모아온<\/b><small>사업 운영 허브<\/small>/u);
   assert.match(html,/MOAON DAILY DESK/u);
-  assert.match(html,/계정 이름 없이 사장님 비밀번호만 입력해주세요\./u);
+  assert.match(html,/로그인할 사람을 선택하고 비밀번호를 입력해주세요\./u);
 });
 
 test('current and fallback shells render product and Harin Food business as separate identities',async()=>{

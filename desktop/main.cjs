@@ -2,7 +2,7 @@
 
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { app, BrowserWindow, WebContentsView, Menu, ipcMain, protocol, session, dialog, safeStorage, screen } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, ipcMain, protocol, session, dialog, safeStorage, screen, Notification } = require('electron');
 const {rightDisplayBounds,readRightDisplayPreference,saveRightDisplayPreference,showRightWindow}=require('./window-placement.cjs');
 const {createUpdateGate,guardWorkIpc}=require('./update-gate.cjs');
 const {startAutomaticUpdates,createConfiguredUpdater,createAppUpdates,registerAppUpdates}=require('./app-updates.cjs');
@@ -185,7 +185,9 @@ if (!hasSingleInstanceLock) {
     try { await fs.access(cleanupMarker); } catch (error) {
       if (error.code === 'ENOENT') initialCleanupPending = false;
     }
+    const teamNotifications=require('./team-notifications.cjs').createTeamNotifications({Notification,directory:path.join(app.getPath('userData'),'team-notifications'),getWindow:()=>mainWindow});
     hubConnection = createHubConnection({
+      onTeamSnapshot:value=>teamNotifications.receive(value),
       labelPreview: createLabelPreview({BrowserWindow,Menu,dialog,getParent:()=>mainWindow}),
       stockReceiptPreview: require('./stock-receipt-preview.cjs').createStockReceiptPreview({BrowserWindow,Menu,getParent:()=>mainWindow}),
       worklistPreview: createWorklistPreview({BrowserWindow,Menu,dialog,getParent:()=>mainWindow}),

@@ -14,6 +14,8 @@ const validOrderSearch=value=>value&&typeof value==='object'&&!Array.isArray(val
 
 const subscribe=(channel,listener)=>{if(typeof listener!=='function')throw Error('Invalid listener');const handler=(_event,value)=>listener(value);ipcRenderer.on(channel,handler);return ()=>ipcRenderer.removeListener(channel,handler);};
 contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
+  teamCommand:input=>ipcRenderer.invoke('moaon-hub:team-command',input),
+  onTeamOpen:listener=>subscribe('moaon-hub:team-open',listener),
   readCredentialMetadata: value => ipcRenderer.invoke('moaon-hub:read-credential-metadata',value),
   saveServerCredential: value => ipcRenderer.invoke('moaon-hub:save-server-credential',value),
   saveApiDraft: value => ipcRenderer.invoke('moaon-hub:save-api-draft',value),

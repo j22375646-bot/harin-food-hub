@@ -7,6 +7,8 @@ import styles from './login.module.css';
 export function LoginForm({ nextPath = '/' }) {
   const submittingRef = useRef(false);
   const [pending, setPending] = useState(false);
+  const [account,setAccount]=useState('owner');
+  const digits=account==='owner'?6:4;
 
   function handleSubmit(event) {
     if (submittingRef.current) {
@@ -19,7 +21,12 @@ export function LoginForm({ nextPath = '/' }) {
 
   return <form className={styles.loginForm} action="/api/dashboard/login" method="post" onSubmit={handleSubmit} aria-busy={pending}>
     <input type="hidden" name="next" value={nextPath} />
-    <label htmlFor="password">사장님 비밀번호</label>
+    <label htmlFor="account">로그인할 사람</label>
+    <select id="account" name="account" value={account} onChange={event=>setAccount(event.target.value)} disabled={pending}>
+      <option value="president">사장 · 엄마</option><option value="owner">직원 · 나</option><option value="vice-president">부사장 · 아빠</option>
+    </select>
+    {pending&&<input type="hidden" name="account" value={account}/>}
+    <label htmlFor="password">비밀번호</label>
     <div className={styles.loginPasswordField}>
       <HarinIcon name="shield"/>
       <input
@@ -27,10 +34,10 @@ export function LoginForm({ nextPath = '/' }) {
         name="password"
         type="password"
         inputMode="numeric"
-        pattern="[0-9]{6}"
+        pattern={`[0-9]{${digits}}`}
         autoComplete="current-password"
-        minLength="6"
-        maxLength="6"
+        minLength={digits}
+        maxLength={digits}
         required
         autoFocus
         // disabled 입력값은 브라우저의 native form 전송에서 제외된다.
@@ -38,10 +45,10 @@ export function LoginForm({ nextPath = '/' }) {
         readOnly={pending}
         aria-disabled={pending}
         aria-describedby="password-help"
-        placeholder="6자리 숫자"
+        placeholder={`${digits}자리 숫자`}
       />
     </div>
-    <p id="password-help" className={styles.fieldHint}>숫자 6자리를 입력하면 바로 허브로 이동합니다.</p>
+    <p id="password-help" className={styles.fieldHint}>선택한 사람의 비밀번호를 입력하세요. 세 사람 모두 같은 권한으로 사용합니다.</p>
     <button className={styles.submitButton} type="submit" disabled={pending}>
       <span>{pending ? '안전하게 확인 중…' : '허브 시작하기'}</span>
       <HarinIcon name={pending ? 'sync' : 'chevron'}/>

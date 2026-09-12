@@ -61,14 +61,14 @@ test('개인 세션은 사용자·역할·12시간 만료를 서명하고 위조
   assert.equal(auth.parseSession(token,Date.now()+120_000),null);
 }));
 
-test('단일 OWNER 로그인은 계정 입력 없이 비밀번호만 받는다', () => {
+test('공동 계정 로그인은 계정을 선택하고 비밀번호를 받는다', () => {
   const page=fs.readFileSync(path.resolve(__dirname,'../app/login/page.js'),'utf8');
   const form=fs.readFileSync(path.resolve(__dirname,'../app/login/login-form.js'),'utf8');
   const route=fs.readFileSync(path.resolve(__dirname,'../app/api/dashboard/login/route.js'),'utf8');
-  assert.doesNotMatch(`${page}\n${form}`,/name="account"/);
-  assert.match(form,/minLength="6"/);
-  assert.match(form,/pattern="\[0-9\]\{6\}"/);
-  assert.match(route,/account:'owner'/);
+  assert.match(form,/name="account"/);
+  assert.match(form,/minLength=\{digits\}/);
+  assert.match(form,/account==='owner'\?6:4/);
+  assert.match(route,/president/);
 });
 
 test('로그인 폼은 중복 제출을 막고 처리 상태를 즉시 알린다', () => {
@@ -82,7 +82,7 @@ test('로그인 폼은 중복 제출을 막고 처리 상태를 즉시 알린다
 
 test('로그인 제출 중에도 비밀번호 입력값은 폼 전송 대상에 남는다', () => {
   const form=fs.readFileSync(path.resolve(__dirname,'../app/login/login-form.js'),'utf8');
-  const passwordInput=form.match(/<input\s+[\s\S]*?id="password"[\s\S]*?\/>/)?.[0]||'';
+  const passwordInput=form.match(/<input\s+id="password"[\s\S]*?\/>/)?.[0]||'';
   assert.ok(passwordInput,'비밀번호 입력칸을 찾을 수 있어야 한다');
   assert.doesNotMatch(passwordInput,/(?:^|\s)disabled=\{pending\}/);
   assert.match(passwordInput,/readOnly=\{pending\}/);
