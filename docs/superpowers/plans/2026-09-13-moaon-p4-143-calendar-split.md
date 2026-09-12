@@ -34,4 +34,7 @@
 - 최종 패키지 `D:/GPT/moaon/desktop/dist/distribution-20260913-050237-987`. ASAR 소스 93개 대조 PASS.
 - 설치파일 114155513 bytes, SHA256 `4f59e58211a4346c6fe54b7968a76af4810c964fb35c7c7e309118b8ed7a6624`.
 - `D:/GPT/Apps/Moaon/releases/0.130.0` 설치와 바탕화면 바로가기 갱신. 패키지 및 설치 위치 ASAR 기반 격리 Electron 이벤트 시나리오 PASS. 실제 로그인 프로필 대신 시험 프로필·가상 데이터를 사용했다.
-- 공개 서명 업데이트 게시/다운로드 검증 진행 중. 실제 고객 PC의 업데이트 실행은 별도 확인 범위다.
+- 코드 0ac8bf2 푸시. GitHub moaon-stable 공개 서명 업데이트 게시 완료. 0.118.0으로 인식하는 격리 앱에서 0.130.0 다운로드/서명 검증 READY PASS (`p4143-live-update.log`). 인수 시험에서 설치 프로그램은 실행하지 않았다. 실제 고객 PC의 업데이트 실행은 별도 확인 범위다.
+
+- 업무 월간 캘린더의 월 이동·날짜 선택·중복 조회 없음·실패·로그아웃·창 크기 회귀 PASS (p4143-work-month.log).
+- [0.130.0 설치파일](https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable/Moaon-0.130.0-Setup.exe)
