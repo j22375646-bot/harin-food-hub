@@ -186,6 +186,7 @@ if (!hasSingleInstanceLock) {
       if (error.code === 'ENOENT') initialCleanupPending = false;
     }
     const teamNotifications=require('./team-notifications.cjs').createTeamNotifications({Notification,directory:path.join(app.getPath('userData'),'team-notifications'),getWindow:()=>mainWindow});
+    workIpc.handle('moaon-hub:test-team-notification',async(event,...args)=>{if(!isTrustedRenderer(event,mainWindow)||args.length)throw Error('Untrusted notification test');return teamNotifications.test();});
     hubConnection = createHubConnection({
       onTeamSnapshot:value=>teamNotifications.receive(value),
       labelPreview: createLabelPreview({BrowserWindow,Menu,dialog,getParent:()=>mainWindow}),
