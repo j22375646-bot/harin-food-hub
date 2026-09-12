@@ -75,9 +75,14 @@ const todayDateKey=()=>todayDateFormatter.format(new Date());
 let calendarGeneration=0,calendarBusy=false,calendarLastAttempt=0,calendarAttemptDate='';
 let financeValue=null,financeGeneration=0,financeBusy=false,financeLastAttempt=0,financeAttemptMonth='';
 const financeDetails=Object.freeze({sales:{label:'이번 달 결제 매출',note:'결제 기준'},profit:{label:'이번 달 계산 이익',note:'계산 기준'},balance:{label:'향후 30일 예상 잔액',note:'추정치 · 실제 정산 아님'}});
+function todayGreeting(date=new Date()){
+ const hour=Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Seoul',hour:'2-digit',hourCycle:'h23'}).format(date));
+ return hour<6?'늦은 시간에도, 차근차근':hour<12?'좋은 아침, 오늘도 함께':hour<18?'오늘의 일, 하나씩 함께':'오늘 하루도 수고했어요';
+}
 function renderFinance(){
  const section=document.querySelector('#finance-panel'),cards=document.querySelector('#finance-cards');section.hidden=displayMode!=='live';section.setAttribute('aria-busy',String(financeBusy));document.querySelector('#finance-refresh').disabled=financeBusy||displayMode!=='live';
- cards.replaceChildren(...Object.entries(financeDetails).map(([key,detail])=>{const metric=financeValue?.metrics?.[key],known=['READY','PARTIAL'].includes(metric?.status)&&typeof metric.value==='number'&&Number.isFinite(metric.value),card=makeElement('article','finance-card');card.dataset.finance=key;card.dataset.state=known?metric.status:'BLOCKED';if(key==='profit'&&known&&metric.value<0)card.dataset.negative='true';card.append(makeElement('span','',detail.label),makeElement('strong','',known?`${metric.value.toLocaleString('ko-KR')}원`:'확인 필요'),makeElement('small','',known?`${metric.status==='PARTIAL'?'부분 확인 · ':''}${detail.note}`:'누락된 금액을 숫자로 판단하지 마세요.'));return card;}));
+ const scale=Math.max(1,...Object.values(financeValue?.metrics||{}).filter(m=>['READY','PARTIAL'].includes(m?.status)&&Number.isFinite(m.value)).map(m=>Math.abs(m.value)));
+ cards.replaceChildren(...Object.entries(financeDetails).map(([key,detail])=>{const metric=financeValue?.metrics?.[key],known=['READY','PARTIAL'].includes(metric?.status)&&typeof metric.value==='number'&&Number.isFinite(metric.value),card=makeElement('article','finance-card');card.dataset.finance=key;card.dataset.state=known?metric.status:'BLOCKED';if(key==='profit'&&known&&metric.value<0)card.dataset.negative='true';card.append(makeElement('span','',detail.label),makeElement('strong','',known?`${metric.value.toLocaleString('ko-KR')}원`:'확인 필요'),makeElement('small','',known?`${metric.status==='PARTIAL'?'부분 확인 · ':''}${detail.note}`:'자료 확인 후 표시'));const track=makeElement('div','finance-meter');track.setAttribute('aria-hidden','true');if(known){const bar=makeElement('i','finance-meter-fill');bar.style.width=`${Math.abs(metric.value)/scale*100}%`;track.append(bar);track.dataset.negative=String(metric.value<0);}else track.dataset.unknown='true';card.append(track);return card;}));
  const month=financeValue?.month?.match(/^(\d{4})-(\d{2})$/),checked=financeValue?.generatedAt;document.querySelector('#finance-meta').textContent=month&&checked?`${month[1]}년 ${Number(month[2])}월 · ${formatTime(checked)} 확인`:'기준 월과 조회 시각을 확인할 수 없습니다.';
 }
 function clearFinance(){financeGeneration++;financeValue=null;financeBusy=false;financeLastAttempt=0;financeAttemptMonth='';document.querySelector('#finance-status').textContent='조회하지 않은 금액은 확인 필요로 표시합니다.';renderFinance();}
@@ -184,6 +189,7 @@ function renderOverview(){
  const focusCount=document.querySelector('#daybook-focus-count');focusCount.replaceChildren(makeElement('span','',focusValue?.status==='READY'?String(focusValue.total):'—'),makeElement('small','','건'));
  document.querySelector('#nav-order-count').textContent=complete?String(['ACTIVE','REGISTER','IN_TRANSIT'].reduce((n,k)=>n+overviewValues[k].total,0)):'—';
  document.querySelector('#sidebar-connection').textContent=live?'하린식품 업무 연결됨':'로그인 후 업무를 연결합니다';
+ if(live)statusElements.todayTitleMode.textContent=todayGreeting();
  document.querySelector('#daybook-date').textContent=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'long',day:'numeric',weekday:'long'}).format(new Date());
  document.querySelector('#daybook-checked').textContent=overviewBusy?'새 자료 확인 중':focusValue?.checkedAt?formatTime(focusValue.checkedAt)+' 조회':'조회 시각 확인 필요';
 }
@@ -1006,7 +1012,7 @@ function updateConnectionChrome(message) {
   statusElements.globalBadge.textContent = '';
   statusElements.nav.textContent = live ? '주문·배송' : sample ? '샘플 주문' : '연결 확인 필요';
   statusElements.todayContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? 'Windows 시제품 · 샘플 모드' : '하린식품 · 연결 상태 확인 필요';
-  statusElements.todayTitleMode.textContent = live ? '하린식품의 하루' : sample ? '지금 가능한 일' : '실제 주문을 비우고';
+  statusElements.todayTitleMode.textContent = live ? todayGreeting() : sample ? '지금 가능한 일' : '실제 주문을 비우고';
   statusElements.todayTitleTail.textContent = live ? '.' : sample ? '부터 확인하세요' : ' 연결 상태를 확인합니다';
   statusElements.todayDescription.textContent = live ? '처리할 주문부터 자금과 일정까지, 오늘의 업무를 한눈에 확인하세요.' : sample ? '실제 사업장에 연결하기 전, 앱의 화면 구조와 기본 조작만 안전하게 살펴봅니다.' : message;
   statusElements.ordersContext.textContent = live ? `하린식품 · ${scope.range} · ${formatTime(connectionResult.checkedAt)} 확인` : sample ? '주문·배송 · 샘플 3건' : '하린식품 · 연결 상태 확인 필요';

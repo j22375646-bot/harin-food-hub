@@ -169,7 +169,7 @@ if (!hasSingleInstanceLock) {
       },
     });
 
-    if(process.platform==='win32'){const taskbarIcon=path.join(app.getPath('userData'),'moaon-desktop-icon-v1.ico');await fs.writeFile(taskbarIcon,await fs.readFile(path.join(UI_ROOT,'brand','moaon.ico')));mainWindow.setIcon(taskbarIcon);mainWindow.setAppDetails({appId:WINDOWS_APP_ID});if(app.isPackaged&&path.basename(process.execPath).toLowerCase()==='moaonpreview.exe'){try{await require('./windows-shortcuts.cjs').repairShortcuts({shell,fs,appData:app.getPath('appData'),desktop:app.getPath('desktop'),executable:process.execPath,icon:taskbarIcon,appId:WINDOWS_APP_ID});}catch{console.error('MOAON_SHORTCUT_REFRESH_UNAVAILABLE');}}}
+    if(process.platform==='win32'){const taskbarIcon=path.join(app.getPath('userData'),'moaon-desktop-icon-v1.ico');await fs.writeFile(taskbarIcon,await fs.readFile(path.join(UI_ROOT,'brand','moaon.ico')));mainWindow.setIcon(taskbarIcon);mainWindow.setAppDetails({appId:WINDOWS_APP_ID});if(app.isPackaged&&path.basename(process.execPath).toLowerCase()==='moaonpreview.exe'){mainWindow.once('ready-to-show',()=>{const repairTimer=setTimeout(()=>{if(!mainWindow||mainWindow.isDestroyed())return;require('./windows-shortcuts.cjs').repairShortcuts({shell,fs,appData:app.getPath('appData'),desktop:app.getPath('desktop'),executable:process.execPath,icon:taskbarIcon,appId:WINDOWS_APP_ID}).catch(()=>console.error('MOAON_SHORTCUT_REFRESH_UNAVAILABLE'));},250);repairTimer.unref();});}}
     mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     mainWindow.on('show',()=>mainWindow?.setSkipTaskbar(false));
     registerPrinterInspection({ipcMain:workIpc,getMainWindow:()=>mainWindow,isTrustedRenderer,

@@ -10,3 +10,9 @@ test('does not overwrite unrelated shortcuts or create a pinned link',async()=>{
  const writes=[],shell={readShortcutLink(){return {target:'D:/other/App.exe'};},writeShortcutLink(...args){writes.push(args);return true;}};
  assert.deepEqual(await repairShortcuts({shell,fs:{mkdir:async()=>{}},appData:'D:/profile',desktop:'D:/desktop',executable:'D:/current/MoaonPreview.exe',icon:'D:/fixed.ico',appId:'test'}),[]);assert.equal(writes.length,0);
 });
+
+test('unchanged shortcuts cause no Explorer writes on repeated startup',async()=>{
+ const executable='D:/current/MoaonPreview.exe',icon='D:/profile/moaon.ico',appId='com.moaon.desktop.main';let writes=0;
+ const shell={readShortcutLink:()=>({target:executable,cwd:path.dirname(executable),args:'',icon,iconIndex:0,description:'모아온',appUserModelId:appId}),writeShortcutLink:()=>{writes++;return true;}};
+ assert.deepEqual(await repairShortcuts({shell,fs:{mkdir:async()=>{}},appData:'D:/profile',desktop:'D:/desktop',executable,icon,appId}),[]);assert.equal(writes,0);
+});

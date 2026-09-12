@@ -15,7 +15,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
    ipcMain.removeHandler('moaon-hub:read-today-calendar');ipcMain.handle('moaon-hub:read-today-calendar',()=>({status:'READY',date:new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date()),entries:[{time:'14:00',title:'시험 일정 · 차류 생산 확인',status:'OPEN'}]}));
   });
   await page.evaluate(()=>runHubAction('disconnect'));await page.evaluate(()=>runHubAction('viewActive'));await page.evaluate(()=>{showRoute('today');});await page.waitForFunction(()=>!document.querySelector('#overview-refresh').disabled);
-  await page.evaluate(()=>{overviewScope='IN_TRANSIT';overviewScopeChosen=true;renderOverview();financeValue={month:todayDateKey().slice(0,7),generatedAt:new Date().toISOString(),metrics:{sales:{value:1264000,status:'READY'},profit:{value:324000,status:'READY'},balance:{value:null,status:'BLOCKED'}}};renderFinance();document.querySelector('#statusbar-data').textContent='디자인 검증 · 가상 주문과 금액 · 실제 업무 실행 없음';});
+  await page.evaluate(()=>{overviewScope='IN_TRANSIT';overviewScopeChosen=true;renderOverview();financeValue={month:todayDateKey().slice(0,7),generatedAt:new Date().toISOString(),metrics:{sales:{value:1264000,status:'READY'},profit:{value:324000,status:'READY'},balance:{value:null,status:'BLOCKED'}}};renderFinance();document.querySelector('#finance-status').textContent='예상 잔액은 자료 확인이 필요합니다.';document.querySelector('#statusbar-data').textContent='디자인 검증 · 가상 주문과 금액 · 실제 업무 실행 없음';});
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setMinimumSize(640,520));
   assert.equal(await page.locator('.moaon-logo').count(),3);
   assert.equal(await page.locator('.nav-button').count(),11);
@@ -25,6 +25,10 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
   await page.evaluate(()=>document.querySelector('#overview-expand').click());assert.equal(await page.locator('.daybook-order').count(),6);await page.evaluate(()=>document.querySelector('#overview-expand').click());
   assert.equal(await page.locator('.daybook-chart-column').count(),7);
   assert.match(await page.locator('#app-breadcrumb-page').innerText(),/오늘/);
+  assert.deepEqual(await page.evaluate(()=>[0,8,14,20].map(h=>todayGreeting(new Date(`2026-09-13T${String(h).padStart(2,'0')}:00:00+09:00`)))),['늦은 시간에도, 차근차근','좋은 아침, 오늘도 함께','오늘의 일, 하나씩 함께','오늘 하루도 수고했어요']);
+  assert.equal(await page.locator('[data-finance=sales] .finance-meter-fill').evaluate(el=>el.style.width),'100%');
+  assert.equal(await page.locator('[data-finance=balance] .finance-meter-fill').count(),0);
+  assert.equal(await page.locator('[data-finance=balance] .finance-meter').getAttribute('data-unknown'),'true');
   const results=[];
   for(const width of [1440,1060,820,680])for(const theme of ['light','dark']){
    await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setSize(width,900),width);await page.waitForFunction(width=>innerWidth===width,width);await page.evaluate(theme=>{applyTheme(theme);document.querySelector('#main-content').scrollTop=0;},theme);await page.waitForTimeout(450);
@@ -35,7 +39,14 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
      return {sidebarBottom:rect(document.querySelector('.sidebar')).bottom,viewport:innerHeight,bodyOverflow:document.body.scrollHeight>innerHeight+1,horizontal:main.scrollWidth>main.clientWidth+1,tabsHeight:tabs.map(el=>rect(el).height),countFont:tabs.map(el=>getComputedStyle(el.querySelector('strong')).fontSize),tabClipping:tabs.some(el=>el.scrollWidth>el.clientWidth+1),orderFont:document.querySelector('.daybook-order-info strong')?getComputedStyle(document.querySelector('.daybook-order-info strong')).fontSize:null};
     });
     assert.equal(geometry.bodyOverflow,false);assert.equal(geometry.horizontal,false);assert.equal(geometry.tabClipping,false);assert.equal(geometry.sidebarBottom,geometry.viewport);assert.ok(Math.max(...geometry.tabsHeight)-Math.min(...geometry.tabsHeight)<1);assert.ok(geometry.countFont.every(size=>parseFloat(size)>=13));if(state==='READY')assert.ok(parseFloat(geometry.orderFont)>=15);else assert.equal(geometry.orderFont,null);results.push({width,theme,state,...geometry});
-    if(state==='READY')await page.screenshot({path:path.join(output,`today-${width}-${theme}.png`)});
+    if(state==='READY'){
+     await page.screenshot({path:path.join(output,`today-${width}-${theme}.png`)});
+     await page.locator('#finance-panel').scrollIntoViewIfNeeded();
+     const financeGeometry=await page.locator('#finance-panel').evaluate(el=>({height:el.getBoundingClientRect().height,overflow:el.scrollWidth>el.clientWidth+1}));
+     assert.equal(financeGeometry.overflow,false);if(width>=1060)assert.ok(financeGeometry.height<420,JSON.stringify(financeGeometry));
+     await page.screenshot({path:path.join(output,`finance-${width}-${theme}.png`)});
+     await page.evaluate(()=>document.querySelector('#main-content').scrollTop=0);
+    }
    }
   }
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].setSize(1060,600));await page.waitForFunction(()=>innerHeight===600);await page.evaluate(()=>{document.querySelector('#main-content').scrollTop=1000;document.querySelector('.primary-nav').scrollTop=1000;});

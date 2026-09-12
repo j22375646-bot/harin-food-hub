@@ -12,6 +12,7 @@ async function repairShortcuts({shell,fs,appData,desktop,executable,icon,appId})
   if(!previous&&(name!=='모아온.lnk'||directory===pinned))continue;
   if(previous&&path.basename(previous.target||'').toLowerCase()!=='moaonpreview.exe')continue;
   const options={target:executable,cwd:path.dirname(executable),args:previous?.args||'',icon,iconIndex:0,description:'모아온',appUserModelId:appId};
+  if(previous&&Object.entries(options).every(([key,value])=>previous[key]===value))continue;
   if(shell.writeShortcutLink(link,previous?'update':'create',options))repaired.push(link);
  }
  return repaired;
