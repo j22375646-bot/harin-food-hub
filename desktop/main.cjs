@@ -2,7 +2,7 @@
 
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { app, BrowserWindow, WebContentsView, Menu, ipcMain, protocol, session, dialog, safeStorage, screen, Notification } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, ipcMain, protocol, session, dialog, safeStorage, screen, Notification, shell } = require('electron');
 const {rightDisplayBounds,readRightDisplayPreference,saveRightDisplayPreference,showRightWindow}=require('./window-placement.cjs');
 const {createUpdateGate,guardWorkIpc}=require('./update-gate.cjs');
 const {startAutomaticUpdates,createConfiguredUpdater,createAppUpdates,registerAppUpdates}=require('./app-updates.cjs');
@@ -165,6 +165,7 @@ if (!hasSingleInstanceLock) {
       },
     });
 
+    if(process.platform==='win32'){const taskbarIcon=path.join(app.getPath('userData'),'moaon-taskbar.ico');await fs.writeFile(taskbarIcon,await fs.readFile(path.join(UI_ROOT,'brand','moaon.ico')));mainWindow.setAppDetails({appId:'com.moaon.preview',appIconPath:taskbarIcon,appIconIndex:0,relaunchDisplayName:'모아온',relaunchCommand:'"'+process.execPath+'"'});if(app.isPackaged&&path.basename(process.execPath).toLowerCase()==='moaonpreview.exe'){try{const menu=path.join(app.getPath('appData'),'Microsoft','Windows','Start Menu','Programs'),link=path.join(menu,'모아온.lnk');await fs.mkdir(menu,{recursive:true});let previous={};try{previous=shell.readShortcutLink(link);}catch{}shell.writeShortcutLink(link,'create',{...previous,target:process.execPath,cwd:path.dirname(process.execPath),icon:process.execPath,iconIndex:0,description:'모아온',appUserModelId:'com.moaon.preview'});}catch{console.error('MOAON_SHORTCUT_REFRESH_UNAVAILABLE');}}}
     mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     registerPrinterInspection({ipcMain:workIpc,getMainWindow:()=>mainWindow,isTrustedRenderer,
       inspect:createPrinterInspection({getMainWindow:()=>mainWindow,dialog})});
