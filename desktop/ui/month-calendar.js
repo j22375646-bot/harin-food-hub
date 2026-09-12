@@ -81,5 +81,6 @@ button.addEventListener('click',()=>{el('month-detail').replaceChildren(node('h3
  el('month-prev').addEventListener('click',()=>move(-1));el('month-next').addEventListener('click',()=>move(1));el('month-refresh').addEventListener('click',refresh);
  el('month-today').addEventListener('click',()=>{const target=today();selected=target;el('month-detail').replaceChildren();if(month===target.slice(0,7)&&value){render();return;}month=target.slice(0,7);void refresh();});
  document.querySelectorAll('[data-month-state]').forEach(b=>b.onclick=()=>{state=b.dataset.monthState;el('month-detail').replaceChildren();render();});
- window.moaonMonth=Object.freeze({clear,ensure:()=>{if(displayMode==='live'&&(!lastAttempt||Date.now()-lastAttempt>=60000))void refresh();else syncToday();}});clear();
+ async function selectDate(date){if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||date<'2000-01-01'||date>'2099-12-31')return;for(let i=0;busy&&i<160;i++)await new Promise(r=>setTimeout(r,100));if(busy||displayMode!=='live')return;selected=date;el('month-detail').replaceChildren();if(month!==date.slice(0,7)){month=date.slice(0,7);lastAttempt=0;void refresh();}else render();}
+ window.moaonMonth=Object.freeze({clear,selectDate,createToday:()=>{selected=today();openEditor();},ensure:()=>{if(displayMode==='live'&&(!lastAttempt||Date.now()-lastAttempt>=60000))void refresh();else syncToday();}});clear();
 })();

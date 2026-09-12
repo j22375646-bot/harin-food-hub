@@ -85,22 +85,22 @@ async function refreshFinance(){if(financeBusy||displayMode!=='live')return;cons
 document.querySelector('#finance-refresh').addEventListener('click',refreshFinance);
 function clearTodayCalendar(){calendarGeneration++;calendarBusy=false;calendarLastAttempt=0;calendarAttemptDate='';document.querySelector('#today-calendar').setAttribute('aria-busy','false');document.querySelector('#calendar-refresh').disabled=false;document.querySelector('#calendar-list').replaceChildren();document.querySelector('#calendar-status').textContent='연결 후 오늘 일정을 확인합니다.';document.querySelector('#today-calendar').hidden=true;}
 async function refreshTodayCalendar(){
- if(calendarBusy||displayMode!=='live')return;
+ if(calendarBusy||displayMode!=='live')return;renderDaybookCalendar();
  const expected=++calendarGeneration;calendarBusy=true;calendarLastAttempt=Date.now();calendarAttemptDate=todayDateKey();
  const section=document.querySelector('#today-calendar'),button=document.querySelector('#calendar-refresh'),status=document.querySelector('#calendar-status'),list=document.querySelector('#calendar-list');
- section.hidden=false;section.setAttribute('aria-busy','true');button.disabled=true;list.replaceChildren();status.textContent='오늘 일정을 불러오는 중입니다…';
+ section.hidden=false;section.setAttribute('aria-busy','true');button.disabled=true;list.replaceChildren();document.querySelector('#today-agenda-count').textContent='';section.dataset.agendaState='loading';status.textContent='오늘 일정을 불러오는 중입니다…';
  try{
   const result=await window.moaonHub.readTodayCalendar();if(expected!==calendarGeneration)return;
   if(['LOGIN_REQUIRED','FORBIDDEN','DISCONNECTED'].includes(result?.status)){applyHubResult(result);return;}
-  if(result?.status!=='READY'){status.textContent='일정을 확인하지 못했습니다. 다시 조회해 주세요.';return;}
+  if(result?.status!=='READY'){section.dataset.agendaState='error';status.textContent='일정을 확인하지 못했습니다. 다시 조회해 주세요.';return;}
   if(result.date!==todayDateKey()){calendarLastAttempt=0;status.textContent='일정의 기준 날짜가 오늘과 다릅니다. 다시 조회해 주세요.';return;}
-  status.textContent=result.date+' · 한국 시간 기준 · '+(result.entries.length?result.entries.length+'건':'오늘 등록된 일정이 없습니다.');
+  section.dataset.agendaState='ready';document.querySelector('#today-agenda-count').textContent=result.entries.length+'건';status.textContent=result.date+' · 한국 시간 기준 · '+(result.entries.length?result.entries.length+'건':'오늘 등록된 일정이 없습니다.');
   list.replaceChildren(...result.entries.map(entry=>{
-   const row=makeElement('li'),time=makeElement('time'),title=makeElement('span'),state=makeElement('span');
+   const row=makeElement('li'),time=makeElement('time'),title=makeElement('button','today-agenda-entry'),state=makeElement('span');title.type='button';title.onclick=()=>{showRoute('calendar');window.moaonMonth?.selectDate(todayDateKey());};
    time.textContent=entry.time||'종일';title.textContent=entry.title;state.textContent=entry.status==='DONE'?'완료':'예정';
-   state.className='calendar-state';row.dataset.done=String(entry.status==='DONE');row.append(time,title,state);return row;
+   state.className='calendar-state';row.dataset.done=String(entry.status==='DONE');const copy=makeElement('div','today-agenda-copy');copy.append(title,state);row.append(time,copy);return row;
   }));
- }catch{if(expected===calendarGeneration)status.textContent='일정을 확인하지 못했습니다. 다시 조회해 주세요.';}
+ }catch{if(expected===calendarGeneration){section.dataset.agendaState='error';status.textContent='일정을 확인하지 못했습니다. 다시 조회해 주세요.';}}
  finally{if(expected===calendarGeneration){calendarBusy=false;button.disabled=false;section.setAttribute('aria-busy','false');}}
 }
 document.querySelector('#calendar-refresh').addEventListener('click',refreshTodayCalendar);
@@ -128,13 +128,10 @@ async function openOverviewOrders(id){
 }
 function renderDaybookCalendar(){
  const date=todayDateKey(),[year,month,day]=date.split('-').map(Number),grid=document.querySelector('#daybook-calendar');
- const title=makeElement('strong','daybook-month',year+'년 '+month+'월');document.querySelector('#calendar-title').replaceChildren(makeElement('span','',month+'월'),makeElement('small','',String(year)));
- const days=makeElement('div','daybook-dates');
- for(const label of ['일','월','화','수','목','금','토'])days.append(makeElement('span','daybook-weekday',label));
- const offset=new Date(Date.UTC(year,month-1,1)).getUTCDay(),last=new Date(Date.UTC(year,month,0)).getUTCDate();
- for(let i=0;i<offset;i++)days.append(makeElement('span'));
- for(let d=1;d<=last;d++){const el=makeElement('span','',String(d));if(d===day){el.className='is-today';el.setAttribute('aria-current','date');}days.append(el);}
- grid.replaceChildren(title,days);
+ document.querySelector('#calendar-title').textContent='나의 일정';document.querySelector('#today-agenda-date').textContent=new Intl.DateTimeFormat('ko-KR',{month:'long',day:'numeric',weekday:'long',timeZone:'UTC'}).format(new Date(date+'T00:00:00Z'));
+ const days=makeElement('div','today-agenda-week'),start=new Date(Date.UTC(year,month-1,day));start.setUTCDate(day-start.getUTCDay());
+ for(let i=0;i<7;i++){const current=new Date(start);current.setUTCDate(start.getUTCDate()+i);const key=current.toISOString().slice(0,10),item=makeElement('button','today-agenda-day');item.type='button';item.dataset.agendaDate=key;item.setAttribute('aria-label',key+' 일정 보기');item.append(makeElement('span','', ['일','월','화','수','목','금','토'][i]),makeElement('strong','',String(current.getUTCDate())));if(key===date){item.classList.add('is-today');item.setAttribute('aria-current','date');}item.onclick=()=>{window.moaonMonth?.selectDate(key);showRoute('calendar');};days.append(item);}
+ grid.replaceChildren(days);window.moaonTeam?.decorateToday?.();
 }
 function renderOverview(){
  renderScopeCounts();
@@ -205,7 +202,7 @@ function showDaybookSources(){document.querySelector('#overview-status').classLi
 document.querySelector('#daybook-source').addEventListener('click',showDaybookSources);
 document.querySelector('#daybook-source-detail').addEventListener('click',showDaybookSources);
 document.querySelector('#overview-open').addEventListener('click',()=>openOverviewOrders());
-document.querySelector('#daybook-schedule').addEventListener('click',()=>showRoute('calendar'));
+document.querySelector('#daybook-schedule').addEventListener('click',()=>showRoute('calendar'));document.querySelector('#today-agenda-add').addEventListener('click',()=>window.moaonMonth?.createToday());
 document.querySelector('#daybook-stock-open').addEventListener('click',()=>showRoute('stock'));
 async function refreshOverview(){
  if(overviewBusy||displayMode!=='live')return;
