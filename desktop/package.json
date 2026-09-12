@@ -1,6 +1,6 @@
 {
   "name": "moaon-desktop-preview",
-  "version": "0.128.0",
+  "version": "0.129.0",
   "private": true,
   "description": "Moaon Windows preview - private Harin orders and confirmed shipment",
   "author": "Moaon",
@@ -27,6 +27,7 @@
       "output": "dist"
     },
     "files": [
+      "windows-shortcuts.cjs",
       "team-contract.cjs",
       "team-transport.cjs",
       "team-notifications.cjs",
@@ -72,7 +73,8 @@
       "shipping-action-journal.cjs",
       "preload.cjs",
       "ui/**/*",
-      "order-activity.cjs", "marketing-contract.cjs"
+      "order-activity.cjs",
+      "marketing-contract.cjs"
     ],
     "win": {
       "target": "nsis",

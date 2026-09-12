@@ -112,3 +112,13 @@ html[data-theme=dark] :is(.month-weekdays>span:first-child,.month-day.is-sunday 
 .action-feedback button { width:36px; height:36px; flex-shrink:0; padding:0; border:1px solid var(--line); border-radius:10px; background:var(--surface-soft); color:var(--muted); font-size:22px; cursor:pointer; }
 @keyframes confirmed-check { from { transform:scale(.75); opacity:.4; } to { transform:scale(1); opacity:1; } }
 @media(prefers-reduced-motion:reduce) { .order-row.order-confirmed-change,.action-feedback:popover-open,.action-feedback-check { animation:none!important; } }
+
+/* Give hover and focus outlines their own space inside scrolling surfaces. */
+#today-overview #overview-workbench { padding:4px 16px; }
+#today-overview .daybook-order { padding:15px 12px; margin:4px 0; border:1px solid transparent; border-radius:12px!important; }
+#today-overview .daybook-order:hover { background:var(--surface-soft); border-color:var(--line); }
+#today-overview .daybook-order:focus-visible { outline:2px solid var(--blue); outline-offset:2px; }
+.team-list { padding:6px; margin-inline:-6px; scrollbar-gutter:stable; }
+html body .team-task input.team-complete { width:24px; height:24px; flex-basis:24px; border-radius:8px; }
+html body .team-task input[type=checkbox]::after { content:none; display:none; }
+html body .team-task input.team-complete:checked { background:var(--mint); border-color:var(--mint); color:var(--surface); box-shadow:none; }
