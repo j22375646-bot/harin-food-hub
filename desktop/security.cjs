@@ -7,6 +7,7 @@ const ALLOWED_APP_RESOURCES = new Map([
   [APP_ENTRY_URL, 'index.html'],
   ['moaon://app/team.js','team.js'],
   ['moaon://app/team.css','team.css'],
+  ['moaon://app/refinement.css','refinement.css'],
   ['moaon://app/styles.css', 'styles.css'],
   ['moaon://app/app.js', 'app.js'],
   ['moaon://app/studio.css', 'studio.css'],

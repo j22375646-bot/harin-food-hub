@@ -1,9 +1,11 @@
 'use strict';
 (()=>{
  let value=null,busy=false,generation=0,lastAttempt=0,days=30,selectedChannel=null,selectedSchedule=null,detailOrigin=null;
- const select=id=>document.getElementById(id),money=v=>typeof v==='number'&&Number.isFinite(v)?`${v.toLocaleString('ko-KR')}원`:'확인 필요';
+ const select=id=>document.getElementById(id),money=v=>typeof v==='number'&&Number.isFinite(v)?`${v.toLocaleString('ko-KR',{maximumFractionDigits:0})}원`:'확인 필요';
  const node=(tag,css,text)=>makeElement(tag,css,text);
  function guidance(channel){
+  if(channel.platform==='CAFE24')return '카페24 주문 결제액과 PG사 실제 지급액은 다릅니다. 매출통계 권한 확인과 별도로, 확정 정산은 계약한 PG사의 지급 내역이 필요합니다.';
+  if(['COUPANG','COUPANG_RG'].includes(channel.platform)&&['FAMILY_REQUIRED','SEPARATE_SOURCE_REQUIRED'].includes(channel.stateCode))return '원본에 배송유형이 확인되지 않아 합산에서 제외했습니다. 판매자배송(판매자로켓 포함)과 로켓그로스 원장을 구분해 대조해야 합니다.';
   if(['RECONNECT_REQUIRED','SCOPE_REQUIRED','APPROVAL_REQUIRED'].includes(channel.stateCode))return '플랫폼 연결·조회 권한을 확인해야 합니다. 이 화면에서는 권한을 변경하지 않습니다.';
   if(['FAMILY_REQUIRED','SEPARATE_SOURCE_REQUIRED'].includes(channel.stateCode))return '판매자배송과 로켓그로스의 원장 구분을 확인해야 합니다. 서로 다른 배송 유형의 금액을 합치지 않습니다.';
   if(['UNAVAILABLE','NO_DATA','VERIFY_REQUIRED'].includes(channel.stateCode))return '정산 원장과 수집 상태를 확인해야 합니다. 자료가 없거나 조회되지 않은 금액은 0원이 아닙니다.';
@@ -19,7 +21,7 @@
   if(!channel)return;
   select('settlement-detail-title').textContent=channel.label+' 정산';
   const body=node('dl','settlement-values');
-  for(const [label,key] of [['매출','gross'],['환불','refunds'],['수수료','fees'],['물류비','logistics'],['광고비','advertising'],['예상 지급','expected'],['확인된 지급','actual'],['지급 대기','pending'],['지급 차이','variance']]){
+  for(const [label,key] of [['매출','gross'],['환불','refunds'],['수수료','fees'],['물류비','logistics'],[channel.platform==='NAVER'?(channel.advertisingSource==='BIZMONEY_EXHAUST'?'비즈머니 사용':channel.advertisingSource==='CAMPAIGN_STATS'?'캠페인 성과 비용':'비즈머니 소진·보완'):'광고비','advertising'],['예상 지급','expected'],['확인된 지급','actual'],['지급 대기','pending'],['지급 차이','variance']]){
    const row=node('div','');row.append(node('dt','',label),node('dd','',money(channel[key])));body.append(row);
   }
   select('settlement-detail-body').replaceChildren(node('p','settlement-state',channel.stateLabel),node('p','settlement-basis',`최근 ${days}일 · ${channel.asOf?formatTime(channel.asOf):'자료 시각 확인 필요'}`),body,
@@ -27,6 +29,8 @@
    node('h3','','계산 근거'),node('p','settlement-detail-note',channel.basis||'계산 근거 확인 필요'),
    node('h3','','지급 확인 기준'),node('p','settlement-detail-note',channel.payoutBasis||'지급 확인 기준 확인 필요'),
    node('p','settlement-detail-note','미확인 금액은 0원이 아닙니다. 지급 차이는 서버에서 대조한 값이며, 표시된 항목을 단순 합산한 금액과 다를 수 있습니다.'));
+  if(channel.platform==='NAVER'){const ads=node('section','settlement-ad-evidence');ads.append(node('h3','','광고비를 따로 확인하세요'),node('p','',`캠페인 성과 비용 ${money(channel.advertisingStats)}`),node('p','',`비즈머니 충전 ${money(channel.advertisingCharged)}`),node('p','settlement-detail-note',`소진 집계: ${{BIZMONEY_EXHAUST:'비즈머니 사용내역',BIZMONEY_AND_CAMPAIGN_STATS:'비즈머니 사용내역 + 없는 날짜의 캠페인 비용',CAMPAIGN_STATS:'캠페인 성과 비용'}[channel.advertisingSource]||'출처 확인 필요'}. 광고 계정 전체 기준으로, 이 쇼핑몰의 정산 차감액과 같지 않습니다. 충전액은 광고비가 아니며 성과 비용과 세금·반영 시점이 다를 수 있습니다. 원 단위로 반올림해 표시합니다.`));select('settlement-detail-body').append(ads);}
+  const recovery=node('button','settlement-reconnect','API 연결 설정 열기');recovery.type='button';recovery.addEventListener('click',()=>{closeDetail();showRoute('settings');document.getElementById('api-settings')?.scrollIntoView({block:'start'});});select('settlement-detail-body').append(recovery);
   if(selectedSchedule){
    const info=node('section','settlement-selected-schedule');
    info.append(node('h3','','선택한 지급 일정'),node('p','',`${selectedSchedule.date||'날짜 확인 필요'} · ${selectedSchedule.type||'유형 확인 필요'}`),node('strong','',money(selectedSchedule.amount)),node('p','',selectedSchedule.status||'상태 확인 필요'),node('p','settlement-detail-note','일정에 표시된 금액이며 입금 완료를 뜻하지 않습니다.'));
@@ -53,16 +57,16 @@
    ['대조 차이',value?.summary?.variance,`${value?.summary?.comparableChannels??'미확인'}개 채널 대조 · 전체 차이 아님`]
   ].map(([label,amount,note])=>{const card=node('article','settlement-total');card.append(node('span','',label),node('strong','',money(amount)),node('small','',note));return card;}));
   select('settlement-channels').replaceChildren(...(value?.channels||[]).map(channel=>{
-   const card=node('article','settlement-channel'),header=node('header',''),body=node('dl','settlement-values');header.append(node('h3','',channel.label),node('span','settlement-state',channel.stateLabel));
+   const card=node('article','settlement-channel');card.dataset.platform=channel.platform;const header=node('header',''),body=node('dl','settlement-values');header.append(node('h3','',channel.label),node('span','settlement-state',channel.stateLabel));
    const comparison=node('div','settlement-comparison');comparison.setAttribute('aria-label',channel.label+' 예상 지급과 확인된 지급');
    const maximum=Math.max(1,...[channel.expected,channel.actual].filter(v=>Number.isFinite(v)&&v>=0));
    for(const [label,key] of [['예상 지급','expected'],['확인된 지급','actual']]){const row=node('div','settlement-compare-row');row.dataset.metric=key;row.append(node('span','',label),node('strong','',money(channel[key])));const known=Number.isFinite(channel[key])&&channel[key]>=0;
     if(known){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 100 6');svg.setAttribute('preserveAspectRatio','none');svg.setAttribute('aria-hidden','true');for(const [css,width] of [['settlement-compare-track',100],['settlement-compare-fill',100*channel[key]/maximum]]){const rect=document.createElementNS(svg.namespaceURI,'rect');for(const [k,v] of Object.entries({width,height:6,rx:2,class:css}))rect.setAttribute(k,String(v));svg.append(rect);}row.append(svg);}else row.append(node('small','settlement-compare-unknown',channel[key]<0?'음수 금액 · 원장 확인 필요':'금액 근거 확인 필요'));comparison.append(row);
    }
-   for(const [label,key] of [['매출','gross'],['예상 지급','expected'],['확인된 지급','actual'],['지급 대기','pending'],['수수료','fees'],['물류비','logistics'],['광고비','advertising']]){const row=node('div','');row.append(node('dt','',label),node('dd','',money(channel[key])));body.append(row);}
+   for(const [label,key] of [['매출','gross'],['예상 지급','expected'],['확인된 지급','actual'],['지급 대기','pending'],['수수료','fees'],['물류비','logistics'],[channel.platform==='NAVER'?(channel.advertisingSource==='BIZMONEY_EXHAUST'?'비즈머니 사용':channel.advertisingSource==='CAMPAIGN_STATS'?'캠페인 성과 비용':'비즈머니 소진·보완'):'광고비','advertising']]){const row=node('div','');row.append(node('dt','',label),node('dd','',money(channel[key])));body.append(row);}
    const button=node('button','settlement-detail-trigger','근거·상세 보기');button.type='button';button.dataset.settlementChannel=channel.platform;button.setAttribute('aria-controls','settlement-detail');button.setAttribute('aria-expanded','false');button.setAttribute('aria-label',channel.label+' 정산 근거·상세 보기');button.addEventListener('click',()=>{selectedChannel=channel.platform;selectedSchedule=null;detailOrigin=button;detail(true);});
    const breakdown=node('details','settlement-breakdown');breakdown.append(node('summary','','금액·비용 내역 펼치기'),body);
-   card.append(header,comparison,node('p','settlement-chart-caption','두 막대는 이 채널의 금액 비교입니다. 입금 완료율이 아닙니다.'),breakdown,node('p','settlement-basis',channel.basis||'근거 자료 확인 필요'),node('p','settlement-basis settlement-asof',channel.asOf?`자료 시각 ${formatTime(channel.asOf)}`:'자료 시각 확인 필요'),button);return card;
+   card.append(header,node('p','settlement-family-note',({CAFE24:'자사몰 · 주문 결제 / PG 지급 확인',NAVER:'스마트스토어 · 정산 원장',COUPANG:'판매자배송 · 판매자로켓 포함',COUPANG_RG:'쿠팡 보관·배송 · 로켓그로스 전용'})[channel.platform]),comparison,node('p','settlement-chart-caption','두 막대는 이 채널의 금액 비교입니다. 입금 완료율이 아닙니다.'),breakdown,node('p','settlement-basis',channel.basis||'근거 자료 확인 필요'),node('p','settlement-basis settlement-asof',channel.asOf?`자료 시각 ${formatTime(channel.asOf)}`:'자료 시각 확인 필요'),button);return card;
   }));
   const schedules=value?.schedules||[];select('settlement-schedules').replaceChildren(...(schedules.length?schedules.map((item,index)=>{
    const row=node('button','settlement-schedule'),label=value.channels.find(c=>c.platform===item.platform)?.label||item.platform;

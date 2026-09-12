@@ -1,0 +1,45 @@
+/* Shared controls and the evening palette. Keep native keyboard semantics. */
+html body input[type=checkbox]{appearance:none;box-sizing:border-box;display:inline-grid;place-content:center;vertical-align:middle;flex:0 0 22px;width:22px;height:22px;min-height:22px;margin:0;border:1.5px solid var(--line-strong);border-radius:7px;background:var(--surface);color:var(--surface);cursor:pointer;box-shadow:0 1px 2px #16132d08;transition:background .16s,border-color .16s,box-shadow .16s}
+html body input[type=checkbox]::before{content:'';width:10px;height:6px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:translateY(-1px) rotate(-45deg) scale(0);transition:transform .12s}
+html body input[type=checkbox]::after{content:none}
+html body input[type=checkbox]:checked{background:var(--blue);border-color:var(--blue);color:var(--surface)}
+html body input[type=checkbox]:checked::before{transform:translateY(-1px) rotate(-45deg) scale(1)}
+html body input[type=checkbox]:indeterminate{background:var(--blue);border-color:var(--blue)}
+html body input[type=checkbox]:indeterminate::before{height:2px;width:10px;background:currentColor;border:0;transform:none;border-radius:2px}
+html body input[type=checkbox]:hover:not(:disabled){border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-soft)}
+html body input[type=checkbox]:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+html body input[type=checkbox]:disabled{opacity:.45;cursor:not-allowed}
+html body input.team-complete{border-radius:50%}
+:root[data-theme=dark]{color-scheme:dark;--canvas:#191c23;--surface:#222630;--surface-soft:#2a2e39;--ink:#ececf2;--muted:#aeb3c3;--line:#363b49;--line-strong:#62677c;--blue:#c3b5ef;--blue-soft:#373249;--mint:#a2d4c3;--mint-soft:#293d38;--rose:#e9a9ba;--rose-soft:#44303a;--amber:#e4c297;--amber-soft:#41382e;--pastel-lilac:#373249;--pastel-mint:#293d38;--pastel-peach:#41362e;--pastel-sky:#2b3847;--tone-lilac:#c3b5ef;--tone-mint:#a2d4c3;--tone-peach:#e4bc98;--tone-sky:#aac8e7;--shadow:0 8px 28px #00000018}
+html[data-theme=dark] :is(body,.preview-shell,.main-content,.page){background:var(--canvas);color:var(--ink)}
+html[data-theme=dark] :is(.sidebar,.topbar,.business-switcher,.setting-card,.team-dialog,.month-editor,.month-agenda,.settlement-channel,.settlement-detail-inner,.settlement-schedule-panel,.insights-card,.marketing-card,.keyword-group-desk,.order-list,.stock-card){background:var(--surface);color:var(--ink);border-color:var(--line)}
+html[data-theme=dark] :is(input:not([type=checkbox]),select,textarea){color:var(--ink);background-color:var(--surface-soft);border-color:var(--line-strong)}
+html[data-theme=dark] select::picker(select){background:var(--surface);color:var(--ink);border-color:var(--line-strong)}
+html[data-theme=dark] :is(.daybook-focus,#overview-priority,.settlement-total){background:var(--blue-soft);color:var(--ink)}
+html[data-theme=dark] :is(.daybook-stock,.daybook-stock>button){background:var(--pastel-peach);color:var(--tone-peach);border-color:var(--line)}
+html[data-theme=dark] :is(.daybook-stock p,.daybook-stock .eyebrow,#overview-priority>span:last-child,.daybook-overline){color:var(--muted)}
+html[data-theme=dark] :is(.order-selection,.bulk-bar){background:var(--surface-soft);color:var(--ink);border:1px solid var(--line-strong)}
+html[data-theme=dark] .daybook-focus .focus-action{color:var(--blue);border-color:var(--line-strong)}
+html[data-theme=dark] :is(.team-avatar,.business-avatar){background:var(--mint-soft);color:var(--mint)}
+html[data-theme=dark] :is(.primary-action,#stock-new,#stock-save,#calendar-entry-save,.team-submit){color:var(--canvas)}
+html[data-theme=dark] dialog::backdrop{background:#080a1299;backdrop-filter:blur(5px)}
+/* Settlement reads like an account book; each delivery family keeps its own card. */
+.settlement-summary{gap:1px;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--line)}
+.settlement-total{border-radius:0;background:var(--surface);padding:24px}
+.settlement-total strong{letter-spacing:-.04em}.settlement-total:nth-child(2){background:var(--mint-soft)}
+.settlement-channels{gap:18px}.settlement-page .settlement-channel{border:1px solid var(--line);padding:24px;border-radius:20px;box-shadow:var(--shadow)}
+.settlement-family-note{font-size:13px;color:var(--muted);margin:8px 0 22px;line-height:1.5}
+.settlement-channel .settlement-comparison{background:var(--surface-soft);border-radius:12px;padding:16px}
+.settlement-channel header{align-items:start}.settlement-channel .settlement-state{max-width:100%;line-height:1.5}
+.settlement-page .settlement-values{gap:0}.settlement-page .settlement-values>div{min-height:40px;align-items:center;border-bottom:1px solid var(--line);font-size:15px;line-height:1.5;padding:5px 0}
+.settlement-values dd{flex-shrink:0}.settlement-values dt{min-width:0}
+.settlement-workspace.has-detail{grid-template-columns:minmax(0,1fr) 380px}.settlement-detail-inner{width:380px;border:1px solid var(--line);padding:24px}
+.settlement-detail .settlement-reconnect{width:100%;height:auto;min-height:44px;font-size:15px;margin-top:16px;padding:10px 14px;background:var(--blue-soft);color:var(--blue)}
+.settlement-ad-evidence{margin-top:24px;padding:16px;background:var(--surface-soft);border-radius:12px;font-size:14px}.settlement-ad-evidence h3{margin-top:0}.settlement-ad-evidence p{line-height:1.6}
+.settlement-page .settlement-chart-caption{font-size:12px}.settlement-page .settlement-detail-trigger{background:var(--surface-soft);border-color:var(--line);margin-top:18px}
+@media(max-width:1000px){.settlement-workspace.has-detail{grid-template-columns:minmax(0,1fr)}.settlement-detail{position:static}.settlement-detail-inner{width:100%;max-height:none}.settlement-detail[aria-hidden=true]{height:0}}
+@media(prefers-reduced-motion:reduce){html body input[type=checkbox],html body input[type=checkbox]::before{transition:none}}
+@media(forced-colors:active){html body input[type=checkbox]{appearance:auto}html body input[type=checkbox]::before{content:none}}
+
+html[data-theme=dark] .settlement-total{background:var(--surface)}html[data-theme=dark] .settlement-total:nth-child(2){background:var(--mint-soft)}
+html[data-theme=dark] :is(#business-settings-open,#calendar-refresh,.nav-count){background:var(--surface-soft);color:var(--blue)}

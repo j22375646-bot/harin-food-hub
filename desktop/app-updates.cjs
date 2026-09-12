@@ -53,12 +53,13 @@ function createAppUpdates({updater=null,currentVersion,gate,isBusy=()=>false,sch
   dispose(){disposed=true;for(const [event,fn] of [['download-progress',onProgress],['update-downloaded',onDownloaded]])updater?.removeListener(event,fn);gate.resume();},
  });
 }
-function startAutomaticUpdates({updates,setTimer=setTimeout,clearTimer=clearTimeout,initialDelay=10000,interval=6*60*60*1000}){
+function startAutomaticUpdates({updates,setTimer=setTimeout,clearTimer=clearTimeout,initialDelay=3000,interval=6*60*60*1000,retryDelay=60000}){
  let stopped=false,timer;
- const plan=delay=>{timer=setTimer(async()=>{try{await updates.check();}catch{}finally{if(!stopped)plan(interval);}},delay);timer?.unref?.();};
+ const plan=delay=>{timer=setTimer(async()=>{let next=interval;try{const result=await updates.check();if(result?.status==='ERROR')next=retryDelay;}catch{next=retryDelay;}finally{if(!stopped)plan(next);}},delay);timer?.unref?.();};
  plan(initialDelay);return ()=>{stopped=true;clearTimer(timer);};
 }
-function registerAppUpdates({ipcMain,getMainWindow,isTrustedRenderer,updates}){
+function registerAppUpdates({ipcMain,getMainWindow,isTrustedRenderer,updates,onPromptVisibility=()=>{}}){
+ ipcMain.handle('moaon-hub:update-prompt-visible',(event,...args)=>{if(args.length!==1||typeof args[0]!=='boolean'||!isTrustedRenderer(event,getMainWindow()))throw Error('INVALID_UPDATE_REQUEST');const visible=args[0]&&['AVAILABLE','DOWNLOADING','READY','ERROR'].includes(updates.read().status);onPromptVisibility(visible);return visible;});
  for(const [channel,method] of [['update-state','read'],['update-check','check'],['update-download','download'],['update-restart','restart']]){
   ipcMain.handle(`moaon-hub:${channel}`,(event,...args)=>{if(args.length||!isTrustedRenderer(event,getMainWindow()))throw Error('INVALID_UPDATE_REQUEST');return updates[method]();});
  }

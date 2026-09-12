@@ -191,6 +191,7 @@ if (!hasSingleInstanceLock) {
     }
     const teamNotifications=require('./team-notifications.cjs').createTeamNotifications({Notification,directory:path.join(app.getPath('userData'),'team-notifications'),getWindow:()=>mainWindow});
     workIpc.handle('moaon-hub:test-team-notification',async(event,...args)=>{if(!isTrustedRenderer(event,mainWindow)||args.length)throw Error('Untrusted notification test');return teamNotifications.test();});
+    const LoginHost=require('./inline-login.cjs').createInlineLoginHost({WebContentsView});
     hubConnection = createHubConnection({
       onTeamSnapshot:value=>teamNotifications.receive(value),
       labelPreview: createLabelPreview({BrowserWindow,Menu,dialog,getParent:()=>mainWindow}),
@@ -201,7 +202,7 @@ if (!hasSingleInstanceLock) {
       showShipmentReview: createActionReview({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer}),
       onShippingProgress: value => {if(mainWindow&&!mainWindow.isDestroyed())mainWindow.webContents.send('moaon-hub:shipping-progress',value);},
       BrowserWindow,
-      LoginHost:require('./inline-login.cjs').createInlineLoginHost({WebContentsView}),
+      LoginHost,
       session,
       getMainWindow: () => mainWindow,
       initialCleanupPending,
@@ -216,7 +217,7 @@ if (!hasSingleInstanceLock) {
       connection: hubConnection,
     });
     const updates=createAppUpdates({updater:createConfiguredUpdater({app,config:require('./update-channel.json')}),currentVersion:app.getVersion(),gate:updateGate,isBusy:()=>BrowserWindow.getAllWindows().length>1});
-    registerAppUpdates({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer,updates});
+    registerAppUpdates({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer,updates,onPromptVisibility:visible=>LoginHost.setObscured(visible)});
     // Background preparation never installs on ordinary quit or interrupts work.
     const stopAutomaticUpdates=startAutomaticUpdates({updates});
     mainWindow.once('closed',()=>{stopAutomaticUpdates();updates.dispose();});

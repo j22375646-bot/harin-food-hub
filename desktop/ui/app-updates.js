@@ -6,14 +6,15 @@
  const dialog=document.getElementById('app-update-dialog'),accept=document.getElementById('app-update-accept'),later=document.getElementById('app-update-later');
  let busy=false,polling=false,lastValue={status:'SETUP_REQUIRED'},dismissed=new Set();
  function dismiss(){dismissed.add(lastValue.version);dialog.close();}
- function showPrompt(force=false){if(!['AVAILABLE','DOWNLOADING','READY','ERROR'].includes(lastValue.status))return;if(!force&&(dismissed.has(lastValue.version)||!['AVAILABLE','READY'].includes(lastValue.status)||document.querySelector('dialog[open]')||!document.getElementById('entry-screen').hidden||document.hidden))return;if(!dialog.open)dialog.showModal();}
+ function showPrompt(force=false){if(!['AVAILABLE','DOWNLOADING','READY','ERROR'].includes(lastValue.status))return;if(!force&&(dismissed.has(lastValue.version)||!['AVAILABLE','READY'].includes(lastValue.status)||document.querySelector('dialog[open]')||document.hidden))return;if(!dialog.open){dialog.showModal();void hub.updatePromptVisible(true);}}
+ dialog.addEventListener('close',()=>{void hub.updatePromptVisible(false);});
  later.onclick=dismiss;dialog.addEventListener('cancel',()=>dismissed.add(lastValue.version));
  accept.onclick=()=>{if(lastValue.status==='AVAILABLE')void run('downloadUpdate');else if(lastValue.status==='READY'){dialog.close();void run('restartForUpdate');}else if(lastValue.status==='ERROR')void run('checkUpdate');};
  function render(value){
   const state=Object.hasOwn(labels,value?.status)?value.status:'ERROR';lastValue=value;
   const version=typeof value?.version==='string'&&/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(value.version)?` (v${value.version})`:'';
   document.getElementById('app-update-badge').textContent=({SETUP_REQUIRED:'배포 연결 대기',CURRENT:'최신 버전',READY:'적용 준비 완료',DOWNLOADING:'다운로드 중',ERROR:'다시 확인 필요'})[state]||'업데이트';
-  document.getElementById('app-update-policy').textContent=state==='SETUP_REQUIRED'?'이 버전은 자동 배포 연결 전입니다. 검증된 배포가 연결되면 새 버전을 알리고, 동의한 경우 다운로드합니다.':'앱 시작 후와 6시간마다 새 버전을 확인합니다. 동의한 경우 다운로드하고 재시작하여 적용하며, 처리 중인 작업이 있으면 적용을 기다립니다.';
+  document.getElementById('app-update-policy').textContent=state==='SETUP_REQUIRED'?'이 버전은 자동 배포 연결 전입니다. 검증된 배포가 연결되면 새 버전을 알리고, 동의한 경우 다운로드합니다.':'앱 시작 후와 6시간마다 확인하며, 연결 실패 시 1분 뒤 다시 확인합니다. 동의한 경우 다운로드하고 재시작하여 적용하며, 처리 중인 작업이 있으면 적용을 기다립니다.';
   document.querySelector('.app-update-panel').dataset.state=state;
   status.textContent=value?.blocked&&state==='READY'?'처리 중인 작업이나 열린 창을 마친 뒤 다시 눌러주세요.':labels[state]+version;
   check.disabled=busy||!['IDLE','CURRENT','ERROR','AVAILABLE'].includes(state);download.hidden=state!=='AVAILABLE';restart.hidden=state!=='READY';ready.hidden=!['AVAILABLE','DOWNLOADING','READY'].includes(state);ready.textContent=state==='READY'?'업데이트 적용':state==='DOWNLOADING'?'업데이트 다운로드 중':'새 버전 있음';

@@ -4,8 +4,8 @@ const fs=require('fs'),os=require('os'),{_electron}=require('playwright');
 const {buildWorkspaceSettlementSummary}=require('../../lib/tenancy/workspace-settlement-summary.js');
 const payload={ok:true,...buildWorkspaceSettlementSummary({generatedAt:'2026-09-09T09:00:00Z',unifiedSettlement:{period_start:'2026-08-10T09:00:00Z',period_end:'2026-09-09T09:00:00Z',channels:[{platform:'CAFE24',gross_sales:0,actual_payout:0,status:'ACTUAL'},{platform:'NAVER',actual_payout:2000,payout_complete:false,status:'ACTUAL'}],waterfall:{actual_payout:2000,actual_payout_complete:false,expected_payout:null,variance:-100,comparable_channels:1},schedules:[{platform:'NAVER',date:'2026-09-10',amount:100,status:'정산예정',type:'일별 정산'}]}})};
 payload.channels.find(channel=>channel.platform==='NAVER').asOf='2026-09-08T09:00:00Z';
-Object.assign(payload.channels[1],{expected:4000,fees:123,refunds:456,variance:-78,basis:'매출·비용 대조 근거',payoutBasis:'일부 지급 확인 <img src=x>'});
-(async()=>{const profile=fs.mkdtempSync(path.join(os.tmpdir(),'moaon-settlement-design-'));const app=await _electron.launch({executablePath:require('electron'),args:[path.join(__dirname,'isolated-bootstrap.cjs')],env:{...process.env,MOAON_TEST_RUNTIME_ROOT:process.env.MOAON_SETTLEMENT_DESIGN_RUNTIME||path.resolve(__dirname,'..'),MOAON_TEST_PROFILE:profile,MOAON_TEST_HIDDEN:'0',MOAON_TEST_DISPLAY:'right'}});try{
+Object.assign(payload.channels[1],{advertising:560050.221192,advertisingStats:298005,advertisingCharged:600000,advertisingSource:'BIZMONEY_EXHAUST',expected:4000,fees:123,refunds:456,variance:-78,basis:'매출·비용 대조 근거',payoutBasis:'일부 지급 확인 <img src=x>'});
+(async()=>{const profile=fs.mkdtempSync(path.join(os.tmpdir(),'moaon-settlement-design-'));const app=await _electron.launch({executablePath:require('electron'),args:[path.join(__dirname,'isolated-bootstrap.cjs')],env:{...process.env,MOAON_TEST_RUNTIME_ROOT:process.env.MOAON_SETTLEMENT_DESIGN_RUNTIME||path.resolve(__dirname,'..'),MOAON_TEST_PROFILE:profile,MOAON_TEST_HIDDEN:'0',MOAON_TEST_DISPLAY:'main'}});try{
  const page=await app.firstWindow();page.on('pageerror',error=>console.log('PAGE_ERROR',error.message));await page.waitForLoadState('domcontentloaded');
  assert.equal(await page.locator('[data-route="settlement"]').count(),1);
  await app.evaluate(({session},payload)=>{globalThis.settlementMode='ready';globalThis.settlementReads=0;session.fromPartition('persist:moaon-harin-readonly').fetch=async url=>{
@@ -26,7 +26,7 @@ Object.assign(payload.channels[1],{expected:4000,fees:123,refunds:456,variance:-
  await page.evaluate(()=>{showRoute('orders');showRoute('settlement');});assert.equal(await app.evaluate(()=>globalThis.settlementReads),1);
  assert.equal(await page.locator('#settlement-schedules button').count(),1);
  const schedule=page.locator('#settlement-schedules button').first();await schedule.focus();await page.keyboard.press('Enter');
- assert.match(await page.locator('#settlement-detail-title').innerText(),/네이버/);
+ assert.match(await page.locator('#settlement-detail-title').innerText(),/네이버/);assert.match(await page.locator('#settlement-detail').innerText(),/560,050원/);assert.match(await page.locator('#settlement-detail').innerText(),/298,005원/);assert.doesNotMatch(await page.locator('#settlement-detail').innerText(),/560,050\.221/);
  assert.equal(await schedule.getAttribute('aria-expanded'),'true');
  assert.match(await page.locator('.settlement-selected-schedule').innerText(),/2026-09-10/);
  assert.match(await page.locator('.settlement-selected-schedule').innerText(),/100원/);
@@ -50,7 +50,7 @@ Object.assign(payload.channels[1],{expected:4000,fees:123,refunds:456,variance:-
  await page.locator('[data-settlement-channel="CAFE24"]').click();assert.match(await page.locator('#settlement-detail').innerText(),/0원/);assert.doesNotMatch(await page.locator('#settlement-detail').innerText(),/456원/);
  for(const days of [7,90,30]){await page.locator('[data-settlement-days="'+days+'"]').click();await page.waitForFunction(days=>document.querySelector('#settlement-period').textContent.includes('최근 '+days+'일')&&document.querySelector('#settlement-page').getAttribute('aria-busy')==='false',days);assert.equal(await page.locator('[data-settlement-days="'+days+'"]').getAttribute('aria-pressed'),'true');}
  assert.equal(await page.locator('#settlement-detail').getAttribute('aria-hidden'),'true');
- for(const width of [1040,1440]){await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setSize(width,900),width);await page.waitForFunction(width=>innerWidth===width,width);for(const theme of ['light','dark']){await page.evaluate(theme=>applyTheme(theme),theme);await page.waitForTimeout(300);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);assert.equal(await page.locator('#settlement-summary').evaluate(el=>el.getBoundingClientRect().right<=innerWidth),true);}}
+ for(const width of [1040,1440]){await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setSize(width,900),width);await page.waitForFunction(width=>innerWidth===width,width);for(const theme of ['light','dark']){await page.evaluate(theme=>applyTheme(theme),theme);await page.waitForTimeout(300);assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);assert.equal(await page.locator('#settlement-summary').evaluate(el=>el.getBoundingClientRect().right<=innerWidth),true);await page.screenshot({path:'D:/GPT/tmp/p4136-settlement-'+width+'-'+theme+'.png'});}}
  for(const width of [1040,1440]){
   await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setSize(width,900),width);await page.waitForFunction(width=>innerWidth===width,width);
   await page.locator('[data-settlement-channel="NAVER"]').click();await page.waitForTimeout(400);
@@ -74,6 +74,6 @@ Object.assign(payload.channels[1],{expected:4000,fees:123,refunds:456,variance:-
  assert.equal(await page.locator('#settlement-detail-body').innerText(),'');
  assert.equal(await page.locator('#settlement-detail').getAttribute('aria-hidden'),'true');
  await page.evaluate(()=>runHubAction('disconnect'));assert.doesNotMatch(await page.locator('#settlement-page').innerText(),/2,000원/);
- const placement=await app.evaluate(({BrowserWindow,screen})=>{const w=BrowserWindow.getAllWindows()[0],d=screen.getDisplayMatching(w.getBounds()),p=screen.getPrimaryDisplay();return {right:d.id!==p.id&&d.workArea.x>=p.workArea.x+p.workArea.width,focused:w.isFocused()};});assert.deepEqual(placement,{right:true,focused:false});
+ const placement=await app.evaluate(({BrowserWindow,screen})=>{const w=BrowserWindow.getAllWindows()[0],d=screen.getDisplayMatching(w.getBounds()),p=screen.getPrimaryDisplay();return {right:d.id!==p.id&&d.workArea.x>=p.workArea.x+p.workArea.width,focused:w.isFocused()};});assert.deepEqual(placement,{right:false,focused:false});
  console.log('PASS settlement cards, partial/null, schedule, cooldown, error, logout, two widths/themes');
  }finally{await app.close();}})().catch(error=>{console.error(error);process.exitCode=1;});

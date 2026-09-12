@@ -14,6 +14,7 @@ const validOrderSearch=value=>value&&typeof value==='object'&&!Array.isArray(val
 
 const subscribe=(channel,listener)=>{if(typeof listener!=='function')throw Error('Invalid listener');const handler=(_event,value)=>listener(value);ipcRenderer.on(channel,handler);return ()=>ipcRenderer.removeListener(channel,handler);};
 contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
+  updatePromptVisible:visible=>{if(typeof visible!=='boolean')throw Error('Invalid update visibility');return ipcRenderer.invoke('moaon-hub:update-prompt-visible',visible);},
   testTeamNotification:()=>ipcRenderer.invoke('moaon-hub:test-team-notification'),
   teamCommand:input=>ipcRenderer.invoke('moaon-hub:team-command',input),
   onTeamOpen:listener=>subscribe('moaon-hub:team-open',listener),
