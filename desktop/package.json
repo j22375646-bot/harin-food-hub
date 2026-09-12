@@ -1,6 +1,6 @@
 {
   "name": "moaon-desktop-preview",
-  "version": "0.130.0",
+  "version": "0.131.0",
   "private": true,
   "description": "Moaon Windows preview - private Harin orders and confirmed shipment",
   "author": "Moaon",
@@ -87,7 +87,7 @@
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
-      "runAfterFinish": false,
+      "runAfterFinish": true,
       "createDesktopShortcut": true,
       "installerIcon": "ui/brand/moaon.ico",
       "uninstallerIcon": "ui/brand/moaon.ico"
