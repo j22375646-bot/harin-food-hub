@@ -44,7 +44,11 @@
 - Vercel 운영 배포 `dpl_8sKPZpurfwjPFoQspZYs5SyPp9ts` READY, `harin-cafe24-sync.vercel.app` alias 반영. CLI가 당시 변경 작업 트리를 업로드한 배포다. AWS worker나 DB 스키마 변경은 없다.
 - 설치 위치: `D:/GPT/Apps/Moaon/releases/0.126.0`, 바탕화면 바로가기 갱신.
 - 설치파일 SHA-256: `6c1a67533cea71e80981f483b3e0303637391c236a3c0b087f885dd28c4c2ed3`.
-- 공개 업데이트 게시와 다운로드/서명 인수 결과는 최종 배포 기록에 추가한다.
+- 소스 `91314c2` 원격 push 완료. GitHub `moaon-stable` 0.126.0 공개 서명 업데이트 게시 완료.
+- [0.126.0 설치파일](https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable/Moaon-0.126.0-Setup.exe).
+- 0.118.0으로 버전을 인식시킨 격리 앱에서 실제 공개 0.126.0 감지·다운로드·파일/서명 검증 후 READY PASS. 이 시험에서는 설치 프로그램을 실행하지 않았다.
+- 운영 API의 비인증 LIST는 401/UNAUTHENTICATED로 차단 확인.
+- 로그: `D:/GPT/tmp/api-installed-test.log`, `D:/GPT/tmp/api-public-release.log`, `D:/GPT/tmp/api-live-update.log`.
 
 실제 사용자 로그인 세션의 새 API 탭 전체 데이터 표시와 사장님 PC 설치는 합성 UI 시험과 별도다. 표시되는 설정 존재 여부는 실제 해당 서비스의 외부 인증 시험을 대신하지 않는다.
 
