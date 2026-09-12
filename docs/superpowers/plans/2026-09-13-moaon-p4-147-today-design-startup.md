@@ -22,3 +22,11 @@
 - 합성 주문/금액의 가시 격리 시험이며 사용자 실제 로그인 세션이나 실주문 작업을 실행한 검증은 아니다.
 
 후속 설치본 회귀와 공개 서명 배포 결과는 아래에 기록한다.
+
+## 설치본·공개 배포 완료
+
+- 설치본 오늘4너비×2테마, 금융 동작/로그아웃/0·음수·미확인, 전체44화면+설정24상태 PASS. 결과 D:/GPT/tmp/p4147-installed-today 및 p4147-installed-audit.
+- 설치 ASAR 격리 로컬 셸 준비 1432/1199/921ms; DOMContentLoaded125/120/127ms, load163/158/166ms. 앞선 소스 측정과 실행 조건이 달라 사용자 체감 속도 개선율로 해석하지 않는다.
+- feature commit8ab437d pushed. 0.134.0 공개 서명 배포 완료; installer114157845bytes.
+- 이전 버전0.133.0으로 인식시킨 격리 앱에서 공개0.134.0 AVAILABLE → 다운로드 READY 및 고정 공개키 서명 확인 PASS. 실제 사용자 설치/재실행은 이 시험에서 실행하지 않았다.
+- [0.134.0 설치파일](https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable/Moaon-0.134.0-Setup.exe)
