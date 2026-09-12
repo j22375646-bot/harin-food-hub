@@ -24,7 +24,9 @@
 - 빌드: `D:/GPT/moaon/desktop/dist/distribution-20260913-042859-617`.
 - `Moaon-0.128.0-Setup.exe` (114152041 bytes), SHA256 `803898fd4b64297e0ffbeccaf40d900aa2a2a71a328f519dfc3f39f4d2b330ef`.
 - 배포 ASAR의 소스 파일 92개 대조 PASS. 배포 ASAR 기반 격리 Electron 피드백 시나리오 PASS.
-- 로컬 설치/공개 서명 업데이트 검증 진행 중. 실제 사용자 프로필 대신 별도의 시험 프로필로 실행 검증한다.
+- `D:/GPT/Apps/Moaon/releases/0.128.0` 설치와 바탕화면 모아온 바로가기 갱신. 설치 위치 ASAR의 격리 Electron 피드백 시나리오 PASS (`p4141-installed-feedback.log`). 실제 사용자 프로필 대신 별도의 시험 프로필을 사용했다.
+- 코드 `3cf688c`, origin/codex/moaon-print-preview 푸시 완료. GitHub moaon-stable에 서명 업데이트 게시 완료 (`p4141-public-release.log`). 0.118.0으로 인식하는 격리 앱에서 공개 0.128.0 다운로드/서명 검증 READY 확인 (`p4141-live-update.log`). 인수 시험에서 설치 프로그램을 실행하지 않았으며 고객 PC의 실제 업데이트 실행은 별도 확인 범위다.
+- [0.128.0 설치파일](https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable/Moaon-0.128.0-Setup.exe)
 
 ## 추가 추천 · 미구현
 
