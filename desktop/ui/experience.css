@@ -300,19 +300,19 @@ html[data-theme=dark] .orders-page .shipping-timing-badge[data-timing=CHECK_REQU
 
 .orders-page .orders-workspace .order-table-head{padding-inline:0}
 /* Shared select menu: Chromium's accessible top-layer picker keeps native keyboard behavior. */
-.page select{font-size:16px!important;min-height:44px;min-inline-size:0;max-inline-size:100%;cursor:pointer}
+:is(.page,dialog) select{font-size:16px!important;min-height:44px;min-inline-size:0;max-inline-size:100%;cursor:pointer}
 @supports(appearance:base-select){
- .page select,.page select::picker(select){appearance:base-select}
- .page select{align-items:center;gap:12px;padding:10px 13px}
- .page select::picker-icon{color:var(--muted);transition:transform .15s ease}
- .page select:open::picker-icon{transform:rotate(180deg)}
- .page select::picker(select){background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:6px;margin-block:6px;box-shadow:0 12px 32px #14234225;max-height:min(360px,60vh);overflow:auto;font-size:16px}
- .page select option{padding:10px 14px;min-height:44px;border-radius:7px;line-height:1.5;gap:12px;white-space:normal;overflow-wrap:anywhere}
- .page select option:checked{background:var(--blue-soft);color:var(--blue);font-weight:650}
- .page select option:hover{background:var(--surface-soft)}
- .page select option::checkmark{color:var(--blue)}
+ :is(.page,dialog) select,:is(.page,dialog) select::picker(select){appearance:base-select}
+ :is(.page,dialog) select{align-items:center;gap:12px;padding:10px 13px}
+ :is(.page,dialog) select::picker-icon{color:var(--muted);transition:transform .15s ease}
+ :is(.page,dialog) select:open::picker-icon{transform:rotate(180deg)}
+ :is(.page,dialog) select::picker(select){background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:6px;margin-block:6px;box-shadow:0 12px 32px #14234225;max-height:min(360px,60vh);overflow:auto;font-size:16px}
+ :is(.page,dialog) select option{padding:10px 14px;min-height:44px;border-radius:7px;line-height:1.5;gap:12px;white-space:normal;overflow-wrap:anywhere}
+ :is(.page,dialog) select option:checked{background:var(--blue-soft);color:var(--blue);font-weight:650}
+ :is(.page,dialog) select option:hover{background:var(--surface-soft)}
+ :is(.page,dialog) select option::checkmark{color:var(--blue)}
 }
-@media(prefers-reduced-motion:reduce){.page select::picker-icon{transition:none}}
+@media(prefers-reduced-motion:reduce){:is(.page,dialog) select::picker-icon{transition:none}}
 .stock-tabs{display:flex;gap:8px;margin:0 0 24px;border-bottom:1px solid var(--line,#dde2ee);padding-bottom:12px}
 .stock-tabs button{min-height:46px;font-size:17px;padding:10px 22px;border-radius:12px}
 .stock-tabs button[aria-pressed=true]{background:var(--accent,#5354ef);color:white;border-color:transparent}
