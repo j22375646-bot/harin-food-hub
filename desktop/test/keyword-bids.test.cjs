@@ -15,7 +15,7 @@ test('bid transport rejects redirect, oversized and forged responses without lea
 });
 test('inline login view follows content bounds and cleans up sandboxed content exactly once',()=>{
  const parent=new EventEmitter(),children=[];parent.getContentSize=()=>[1440,960];parent.isDestroyed=()=>false;parent.contentView={addChildView:v=>children.push(v),removeChildView:v=>children.splice(children.indexOf(v),1)};
- let closed=0,prefs;class View{constructor(o){prefs=o.webPreferences;this.webContents=new EventEmitter();this.webContents.isDestroyed=()=>false;this.webContents.close=()=>closed++;}setBounds(b){this.bounds=b;}}
+ let closed=0,prefs;class View{constructor(o){prefs=o.webPreferences;this.webContents=new EventEmitter();this.webContents.isDestroyed=()=>false;this.webContents.close=()=>closed++;}setBounds(b){this.bounds=b;}setVisible(v){this.visible=v;}}
  const Host=require('../inline-login.cjs').createInlineLoginHost({WebContentsView:View}),h=new Host({parent,webPreferences:{sandbox:true,nodeIntegration:false,contextIsolation:true}});
- assert.deepEqual(prefs,{sandbox:true,nodeIntegration:false,contextIsolation:true});assert.deepEqual(h.view.bounds,{x:0,y:48,width:1440,height:912});parent.getContentSize=()=>[1040,720];parent.emit('resize');assert.equal(h.view.bounds.height,672);h.destroy();h.destroy();assert.equal(children.length,0);assert.equal(closed,1);assert.equal(parent.listenerCount('resize'),0);
+ assert.equal(h.view.visible,false);h.show();assert.equal(h.view.visible,true);assert.deepEqual(prefs,{sandbox:true,nodeIntegration:false,contextIsolation:true});assert.deepEqual(h.view.bounds,{x:0,y:48,width:1440,height:912});parent.getContentSize=()=>[1040,720];parent.emit('resize');assert.equal(h.view.bounds.height,672);h.destroy();h.destroy();assert.equal(children.length,0);assert.equal(closed,1);assert.equal(parent.listenerCount('resize'),0);
 });

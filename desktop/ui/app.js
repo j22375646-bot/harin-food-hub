@@ -1047,8 +1047,8 @@ function applyHubResult(result) {
   if(result?.status==='READY'||result?.status==='PARTIAL'){
     gate.hidden=true;shell.hidden=false;shell.inert=false;
   }else if(!gate.hidden||['LOGIN_REQUIRED','LOGIN_OPEN','DISCONNECTED'].includes(result?.status)){
-    gate.hidden=false;shell.hidden=true;shell.inert=true;
-    document.querySelector('#entry-status').textContent=result?.status==='LOGIN_REQUIRED'?'로그인이 필요합니다. 아래 버튼으로 시작하세요.':result?.status==='LOGIN_OPEN'?'앱의 로그인 화면에서 계속해주세요.':result?.status==='DISCONNECTED'?'로그아웃했습니다. 다시 로그인할 수 있습니다.':result?.message||'연결을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.';
+    gate.hidden=false;gate.classList.remove('is-preparing');shell.hidden=true;shell.inert=true;
+    document.querySelector('#entry-status').textContent=result?.status==='LOGIN_REQUIRED'?'로그인이 필요합니다. 다시 연결해 주세요.':result?.status==='LOGIN_OPEN'?'앱의 로그인 화면에서 계속해주세요.':result?.status==='DISCONNECTED'?'로그아웃했습니다. 다시 로그인할 수 있습니다.':result?.message||'연결을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.';
   }
   if (result?.status === 'READY' || result?.status === 'PARTIAL') {
     if (scopeDetails[result.scope]) selectedScope = result.scope;
@@ -1101,7 +1101,7 @@ async function runHubAction(action) {
     clearDisplayedOrders('connecting', `${selectedScopeDetail().range} 첫 페이지를 조회하고 있습니다.`);
   }
   if (action === 'connect' || action === 'refresh') {
-    if(action==='connect'){shippingFollowup.clear();historyGeneration++;historyAutoLoaded=false;}
+    if(action==='connect'){document.querySelector('#entry-screen').classList.add('is-preparing');shippingFollowup.clear();historyGeneration++;historyAutoLoaded=false;}
     if (action === 'connect') scopeControlsAvailable = false;
     clearDisplayedOrders('connecting', action === 'connect' ? '앱 안에서 로그인하면 저장 주문을 조회합니다.' : `${selectedScopeDetail().range}을 다시 조회하고 있습니다.`);
   }
@@ -1130,7 +1130,7 @@ async function runHubAction(action) {
   } catch {
     if (generation === actionGeneration) {
       clearDisplayedOrders('error', '하린식품 연결 요청을 완료하지 못했습니다.');
-      if(!document.querySelector('#entry-screen').hidden)document.querySelector('#entry-status').textContent='연결을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.';
+      document.querySelector('#entry-screen').classList.remove('is-preparing');if(!document.querySelector('#entry-screen').hidden)document.querySelector('#entry-status').textContent='연결을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.';
     }
   }
 }

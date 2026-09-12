@@ -28,7 +28,7 @@ if (process.env.MOAON_TEST_HIDDEN === '1') {
   BrowserWindow.prototype.showInactive = function () {};
   BrowserWindow.prototype.focus = function () {};
 }
-if (process.env.MOAON_TEST_HIDDEN !== '1' && process.env.MOAON_TEST_DISPLAY === 'right') {
+if (process.env.MOAON_TEST_HIDDEN !== '1' && ['right','main'].includes(process.env.MOAON_TEST_DISPLAY)) {
   // User-requested visible verification must stay off the primary workspace.
   // showInactive reveals this test window without activating it; no input APIs.
   const showInactive = BrowserWindow.prototype.showInactive;
@@ -39,7 +39,7 @@ if (process.env.MOAON_TEST_HIDDEN !== '1' && process.env.MOAON_TEST_DISPLAY === 
     // remains testable, while OS activation cannot interrupt the user's work.
     win.setFocusable(false);
     const primary = screen.getPrimaryDisplay();
-    const display = screen.getAllDisplays().filter(d => d.id !== primary.id && d.workArea.x >= primary.workArea.x + primary.workArea.width).sort((a,b) => a.workArea.x-b.workArea.x)[0];
+    const display = process.env.MOAON_TEST_DISPLAY==='main'?primary:screen.getAllDisplays().filter(d => d.id !== primary.id && d.workArea.x >= primary.workArea.x + primary.workArea.width).sort((a,b) => a.workArea.x-b.workArea.x)[0];
     if (!display) throw new Error('Requested secondary display unavailable');
     const area = display.workArea;
     const width = Math.min(1060, area.width-20), height = Math.min(1100, area.height-60);
