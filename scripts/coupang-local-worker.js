@@ -331,6 +331,7 @@ async function dispatchOperation(
   handlers = coupangActions,
   db = getSupabase(),
 ) {
+  if(request.operation_type==='MANAGED_KEY_PROBE')return require('../lib/integrations/key-probe.js').probe(request.target_id,{db,adResult:payload.adResult});
   if (request.operation_type === "NAVER_COMMERCE_PROBE")
     return { naverCommerce: await naverCommerceProbe.probeReadAccess({ db }) };
   if (request.operation_type === "NAVER_COMMERCE_SYNC")
@@ -339,7 +340,7 @@ async function dispatchOperation(
     return { naverCustomerService: await naverCustomerService.sync({ db }) };
   if (request.operation_type === "EPOST_CONFIG_PROBE") {
     const actualIp = await publicIp();
-    return { epost: epostConfig.readiness({ actualIp }) };
+    return { epost: epostConfig.readiness({ actualIp,env:await require('../lib/integrations/managed-keys.js').environment('EPOST') }) };
   }
   if (request.operation_type === "EPOST_TEST_ISSUE") {
     if (payload.testOnly !== true)

@@ -101,6 +101,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if (url.username || url.password) return false;
 
   const method = details.method.toUpperCase();
+  if(context.keyPermit?.url===details.url&&context.keyPermit.method===method&&details.url===HARIN_ORIGIN+'/api/moaon/connections'&&method==='POST')return isMainProcessRequest(details.webContentsId);
   if(context.teamPermit?.url===details.url&&context.teamPermit.method===method&&details.url===HARIN_ORIGIN+'/api/moaon/team'&&['GET','POST'].includes(method))return isMainProcessRequest(details.webContentsId);
   if(context.credentialPermit?.url===details.url&&context.credentialPermit.method===method&&url.origin===HARIN_ORIGIN&&url.pathname==='/api/moaon/credentials'&&!url.hash){
     const valid=method==='POST'&&!url.search||method==='GET'&&/^\?tenantId=[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}&provider=(?:CAFE24|NAVER|COUPANG|EPOST)$/.test(url.search);
