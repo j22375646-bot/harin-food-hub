@@ -8,4 +8,6 @@
 - 패키지 `D:/GPT/moaon/desktop/dist/distribution-20260913-050932-277`, ASAR 소스 93개 대조 PASS. 로컬 설치 `D:/GPT/Apps/Moaon/releases/0.131.0`, 바탕화면 바로가기 갱신.
 - 설치파일 114155834 bytes, SHA256 `fbe7119b90d116e3491daa6dccdc4df80a49535a820f786479c91806a5192365`.
 - 로그: `D:/GPT/tmp/p4144-update-test.log`, `p4144-distribution-test.log`, `p4144-update-ui.log`, `p4144-installed-ui.log`, `p4144-build.log`.
-- 공개 서명 업데이트 및 다운로드 검증 진행 중. 고객 PC의 실제 설치 종료/재실행은 별도 확인 범위다.
+- 코드 5826c26 푸시 및 GitHub moaon-stable 서명 업데이트 게시 완료. 0.130.0으로 인식하는 격리 앱에서 0.131.0 다운로드/서명 검증 READY PASS (`p4144-live-update.log`). 실제 설치 프로그램은 인수 시험에서 실행하지 않았다. 고객 PC의 실제 설치 종료/재실행은 별도 확인 범위다.
+
+- [0.131.0 설치파일](https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable/Moaon-0.131.0-Setup.exe)
