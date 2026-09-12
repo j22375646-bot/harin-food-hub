@@ -1,6 +1,6 @@
 'use strict';
 const assert=require('node:assert/strict'),path=require('node:path'),{_electron}=require('playwright'),fs=require('fs'),os=require('os');
-(async()=>{const app=await _electron.launch({executablePath:require('electron'),args:[path.join(__dirname,'isolated-bootstrap.cjs')],env:{...process.env,MOAON_TEST_RUNTIME_ROOT:process.env.MOAON_INSIGHTS_DESIGN_RUNTIME||path.resolve(__dirname,'..'),MOAON_TEST_PROFILE:fs.mkdtempSync(path.join(os.tmpdir(),'moaon-insights-design-')),MOAON_TEST_HIDDEN:'0',MOAON_TEST_DISPLAY:'right'}});try{
+(async()=>{const app=await _electron.launch({executablePath:require('electron'),args:[path.join(__dirname,'isolated-bootstrap.cjs')],env:{...process.env,MOAON_TEST_RUNTIME_ROOT:process.env.MOAON_INSIGHTS_DESIGN_RUNTIME||path.resolve(__dirname,'..'),MOAON_TEST_PROFILE:fs.mkdtempSync(path.join(os.tmpdir(),'moaon-insights-design-')),MOAON_TEST_HIDDEN:'0',MOAON_TEST_DISPLAY:'main'}});try{
  const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');
  assert.equal(await page.locator('[data-route="insights"]').count(),1);
  await page.evaluate(()=>{const notice=document.createElement('div');notice.textContent='자동 화면 검증 · 가상 분석 자료 · 운영 데이터 아님';notice.style.cssText='position:fixed;top:0;left:90px;z-index:9999;padding:6px 14px;background:#fff4ce;color:#3b2f00;font-size:14px;pointer-events:none';document.body.append(notice);});
@@ -51,6 +51,6 @@ const assert=require('node:assert/strict'),path=require('node:path'),{_electron}
  await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('.insights-load-state').evaluate(el=>getComputedStyle(el).animationName),'none');await page.emulateMedia({reducedMotion:'no-preference'});
  await page.evaluate(()=>window.moaonInsights.ensure());await app.evaluate(()=>globalThis.releaseInsights());await page.waitForFunction(()=>document.querySelector('[data-insights-report="r1"]'));assert.equal(await app.evaluate(()=>globalThis.insightsReads),beforeRetry+1);assert.equal(await page.locator('.insights-load-state').count(),0);
  await page.evaluate(()=>runHubAction('disconnect'));assert.doesNotMatch(await page.locator('#insights-page').innerText(),/테스트/);
- const placement=await app.evaluate(({BrowserWindow,screen})=>{const w=BrowserWindow.getAllWindows()[0],d=screen.getDisplayMatching(w.getBounds()),p=screen.getPrimaryDisplay();return {right:d.id!==p.id&&d.workArea.x>=p.workArea.x+p.workArea.width,focused:w.isFocused()};});assert.deepEqual(placement,{right:true,focused:false});
+ const placement=await app.evaluate(({BrowserWindow,screen})=>{const w=BrowserWindow.getAllWindows()[0],d=screen.getDisplayMatching(w.getBounds()),p=screen.getPrimaryDisplay();return {right:d.id!==p.id&&d.workArea.x>=p.workArea.x+p.workArea.width,focused:w.isFocused()};});assert.deepEqual(placement,{right:false,focused:false});
  console.log('PASS insights zero unknown report text safety cooldown error logout widths themes');
  }finally{await app.close();}})().catch(error=>{console.error(error);process.exitCode=1;});

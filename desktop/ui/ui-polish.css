@@ -1,0 +1,103 @@
+/* P4-140: one control language across the operational pages.
+   Data colors retain their meaning; primary actions use an explicit foreground. */
+:root {
+  --accent:var(--blue); --text:var(--ink); --soft:var(--surface-soft);
+  --on-accent:#fff; --danger:#a83e55; --warning:#946026;
+  --control-radius:11px; --control-height:44px;
+}
+html[data-theme=dark] { --on-accent:#211c30; --danger:#efaabd; --warning:#e4c297; }
+
+.preview-shell .page h1 { letter-spacing:-.035em; line-height:1.35; }
+.preview-shell .page :is(h2,h3) { letter-spacing:-.025em; }
+.preview-shell .page :is(button,input,select,textarea) { letter-spacing:-.01em; }
+.preview-shell .page button { font-size:14px; }
+.preview-shell .page :is(p,label) { line-height:1.65; }
+.page .workspace-heading { gap:16px; align-items:flex-start; }
+.page .workspace-heading > div { min-width:0; }
+.page .workspace-heading > button,.stock-header-actions { flex-shrink:0; }
+
+/* Refresh/secondary actions are quiet outlined controls, regardless of route. */
+.page :is(#daybook-source,#overview-refresh,#month-refresh,#settlement-refresh,#insights-refresh,#keyword-refresh,#inventory-refresh,#cs-refresh,#stock-refresh,#collect-orders),
+.page .key-button {
+  min-height:var(--control-height); height:auto; padding:10px 14px;
+  border:1px solid var(--line-strong); border-radius:var(--control-radius);
+  background:var(--surface); color:var(--ink); font-size:14px; line-height:22px;
+}
+.page :is(#calendar-refresh,#settlement-detail-close,#insights-detail-close) { width:44px; height:44px; min-height:44px; flex-shrink:0; }
+.page :is(.primary-action,.team-submit,#stock-new,#stock-save,#stock-history-print,#calendar-entry-save,#api-server-save,#api-server-confirm-save,#app-update-accept),
+.page .key-button.primary,.keyword-bid-form button[type=submit],.keyword-bid-review button:first-of-type {
+  background:var(--blue); color:var(--on-accent); border-color:var(--blue);
+}
+html[data-theme=dark] .page :is(.primary-action,.team-submit,#stock-new,#stock-save,#calendar-entry-save),
+html[data-theme=dark] .key-button.primary { color:var(--on-accent); }
+#app-update-accept { color:var(--on-accent); }
+.page .stock-tabs button[aria-pressed=true],.stock-history-presets button[aria-pressed=true] {
+  background:var(--blue-soft); color:var(--blue); border:1px solid var(--blue);
+}
+.page .stock-tabs button[aria-pressed=false] { background:var(--surface); color:var(--muted); }
+.page :is(.stock-tabs,.stock-header-actions) { flex-wrap:wrap; }
+.stock-page :is(button,input,select) { line-height:22px; }
+.key-card,.key-field input,html[data-theme=dark] :is(.key-card,.key-field input) { background:var(--surface); color:var(--ink); border-color:var(--line); }
+.key-field input[readonly] { background:var(--surface-soft); }
+.key-badge,html[data-theme=dark] .key-badge { background:var(--blue-soft); color:var(--blue); font-size:13px; }
+.key-expiry.is-expired,html[data-theme=dark] .key-expiry.is-expired { color:var(--danger); }
+.stock-page .stock-badge.expired { background:var(--rose-soft); color:var(--danger); }
+.stock-page .stock-badge.soon { background:var(--amber-soft); color:var(--warning); }
+.stock-summary-item.soon>strong { color:var(--warning); }
+.stock-summary-item.expired>strong,#stock-form-status { color:var(--danger); }
+
+/* Summary tiles stack label and value, so '확인 필요' never breaks syllable by syllable. */
+.page #cs-kind-summary,.page .inventory-summary { grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; }
+.page #cs-kind-summary button,.page .inventory-summary button {
+  display:flex; flex-direction:column; align-items:flex-start; justify-content:center;
+  gap:8px; padding:16px; min-height:94px; border-radius:12px;
+}
+.page #cs-kind-summary :is(span,strong),.page .inventory-summary :is(span,strong) {
+  max-width:100%; word-break:keep-all; overflow-wrap:break-word; line-height:1.4;
+}
+.page #cs-kind-summary strong,.page .inventory-summary strong { font-size:20px; letter-spacing:-.025em; }
+#inventory-list:has(>.inventory-empty) { border:0; background:transparent; }
+.page :is(.inventory-filters,.keyword-tools) {
+  padding:16px; border:1px solid var(--line); border-radius:16px; background:var(--surface);
+  gap:12px; align-items:end;
+}
+.page :is(.inventory-filters,.keyword-tools,.cs-filters) label { min-width:0; font-size:14px; gap:8px; }
+.page :is(.inventory-filters,.keyword-tools,.cs-filters) :is(select,input) { width:100%; }
+.page :is(.inventory-note,.cs-note,.keyword-note,.inventory-filter-help,.cs-search-help) { font-size:14px; line-height:1.75; }
+
+/* Small operational caveats must remain readable: they qualify the numbers above. */
+#today-overview #overview-status { font-size:14px!important; }
+.page #finance-note,.page #daybook-trend p,.page .daybook-data-note p,
+.page .today-overview small,.page .daybook-stock .eyebrow { font-size:14px; line-height:1.65; }
+.page :is(.daybook-flow,.daybook-source-note) p { font-size:14px; }
+.page #overview-priority .daybook-overline { font-size:14px; opacity:1; }
+.page :is(#daybook-source,#overview-refresh,#daybook-source-open) { font-size:14px; }
+.orders-page #review-filters button,.page :is(.order-scope-actions,.order-filter-tabs) button { font-size:14px; }
+.page :is(.settlement-values dd,.keyword-row,.marketing-row,.order-amount) { font-variant-numeric:tabular-nums; }
+.page :is(.settlement-values dd,.keyword-row>span:not(:first-child)) { letter-spacing:0; }
+html[data-theme=dark] .settlement-summary .settlement-total { background:var(--surface); }
+html[data-theme=dark] .settlement-summary .settlement-total:nth-child(2) { background:var(--mint-soft); }
+html[data-theme=dark] :is(.month-weekdays>span:first-child,.month-day.is-sunday .month-date) { color:var(--rose); }
+
+/* Feedback is brief and local. No layout shift or repeated decoration. */
+.page :is(button,input,select,textarea),.settings-jump button {
+  transition:background-color 160ms ease,border-color 160ms ease,color 160ms ease,box-shadow 160ms ease;
+}
+.page button:not(:disabled):hover { border-color:var(--blue); }
+.page button:not(:disabled):active { filter:brightness(.97); }
+.page :is(input,select,textarea):focus-visible { outline:2px solid var(--blue); outline-offset:3px; }
+.settings-tab-panel:not([hidden]),.team-dialog[open],#stock-dialog[open],#workspace-search[open] {
+  animation:moaon-panel-reveal 180ms ease-out;
+}
+@keyframes moaon-panel-reveal { from { opacity:.5; transform:translateY(4px); } to { opacity:1; transform:none; } }
+@media(max-width:1100px) {
+  .keyword-tools label { flex:1 1 180px; }
+}
+@media(max-width:750px) {
+  .page .workspace-heading { flex-wrap:wrap; }
+  .page #cs-kind-summary,.page .inventory-summary { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .page :is(.inventory-filters,.keyword-tools,.cs-filters) { gap:12px; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .page *, .page *::before, .page *::after, #workspace-search[open] { animation:none!important; transition:none!important; scroll-behavior:auto!important; }
+}
