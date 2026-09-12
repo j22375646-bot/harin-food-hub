@@ -2,7 +2,7 @@
 
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { app, BrowserWindow, WebContentsView, Menu, ipcMain, protocol, session, dialog, safeStorage, screen, Notification, shell } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, Tray, ipcMain, protocol, session, dialog, safeStorage, screen, Notification, shell } = require('electron');
 const {rightDisplayBounds,readRightDisplayPreference,saveRightDisplayPreference,showRightWindow}=require('./window-placement.cjs');
 const {createUpdateGate,guardWorkIpc}=require('./update-gate.cjs');
 const {startAutomaticUpdates,createConfiguredUpdater,createAppUpdates,registerAppUpdates}=require('./app-updates.cjs');
@@ -80,6 +80,7 @@ if (!hasSingleInstanceLock) {
 } else {
   let mainWindow = null;
   let hubConnection = null;
+  let trayLifecycle=null,backgroundMonitor=null,updates=null;
   let rightDisplayRequested=false;
   const displayPreferenceFile=path.join(app.getPath('userData'),'display-preference.json');
 
@@ -170,6 +171,7 @@ if (!hasSingleInstanceLock) {
 
     if(process.platform==='win32'){const taskbarIcon=path.join(app.getPath('userData'),'moaon-desktop-icon-v1.ico');await fs.writeFile(taskbarIcon,await fs.readFile(path.join(UI_ROOT,'brand','moaon.ico')));mainWindow.setIcon(taskbarIcon);mainWindow.setAppDetails({appId:WINDOWS_APP_ID});if(app.isPackaged&&path.basename(process.execPath).toLowerCase()==='moaonpreview.exe'){try{const menu=path.join(app.getPath('appData'),'Microsoft','Windows','Start Menu','Programs'),link=path.join(menu,'모아온.lnk');await fs.mkdir(menu,{recursive:true});let previous={};try{previous=shell.readShortcutLink(link);}catch{}shell.writeShortcutLink(link,'create',{...previous,target:process.execPath,cwd:path.dirname(process.execPath),icon:process.execPath,iconIndex:0,description:'모아온',appUserModelId:WINDOWS_APP_ID});}catch{console.error('MOAON_SHORTCUT_REFRESH_UNAVAILABLE');}}}
     mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    mainWindow.on('show',()=>mainWindow?.setSkipTaskbar(false));
     registerPrinterInspection({ipcMain:workIpc,getMainWindow:()=>mainWindow,isTrustedRenderer,
       inspect:createPrinterInspection({getMainWindow:()=>mainWindow,dialog})});
     registerAppInfo({ipcMain:workIpc,getMainWindow:()=>mainWindow,isTrustedRenderer,getVersion:()=>app.getVersion()});
@@ -193,7 +195,7 @@ if (!hasSingleInstanceLock) {
     workIpc.handle('moaon-hub:test-team-notification',async(event,...args)=>{if(!isTrustedRenderer(event,mainWindow)||args.length)throw Error('Untrusted notification test');return teamNotifications.test();});
     const LoginHost=require('./inline-login.cjs').createInlineLoginHost({WebContentsView});
     hubConnection = createHubConnection({
-      onTeamSnapshot:value=>teamNotifications.receive(value),
+      onTeamSnapshot:value=>{teamNotifications.receive(value);backgroundMonitor?.identity(value);},
       labelPreview: createLabelPreview({BrowserWindow,Menu,dialog,getParent:()=>mainWindow}),
       stockReceiptPreview: require('./stock-receipt-preview.cjs').createStockReceiptPreview({BrowserWindow,Menu,getParent:()=>mainWindow}),
       worklistPreview: createWorklistPreview({BrowserWindow,Menu,dialog,getParent:()=>mainWindow}),
@@ -216,7 +218,11 @@ if (!hasSingleInstanceLock) {
       getMainWindow: () => mainWindow,
       connection: hubConnection,
     });
-    const updates=createAppUpdates({updater:createConfiguredUpdater({app,config:require('./update-channel.json')}),currentVersion:app.getVersion(),gate:updateGate,isBusy:()=>BrowserWindow.getAllWindows().length>1});
+    trayLifecycle=require('./tray-lifecycle.cjs').createTrayLifecycle({app,Tray,Menu,window:mainWindow,icon:path.join(UI_ROOT,'brand','moaon.ico'),onStop:()=>backgroundMonitor?.stop(),allowClose:()=>updates?.read().status==='INSTALLING',canHide:()=>!BrowserWindow.getAllWindows().some(w=>w!==mainWindow&&w.isModal?.())});
+    backgroundMonitor=require('./background-monitor.cjs').createBackgroundMonitor({connection:hubConnection,Notification,getWindow:()=>mainWindow,directory:path.join(app.getPath('userData'),'background-notifications'),onStatus:status=>trayLifecycle?.setStatus(status)});
+    backgroundMonitor.start();
+    mainWindow.on('closed',()=>{backgroundMonitor.stop();trayLifecycle.dispose();});
+    updates=createAppUpdates({updater:createConfiguredUpdater({app,config:require('./update-channel.json')}),currentVersion:app.getVersion(),gate:updateGate,isBusy:()=>BrowserWindow.getAllWindows().length>1});
     registerAppUpdates({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer,updates,onPromptVisibility:visible=>LoginHost.setObscured(visible)});
     // Background preparation never installs on ordinary quit or interrupts work.
     const stopAutomaticUpdates=startAutomaticUpdates({updates});

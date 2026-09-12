@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   teamCommand:input=>ipcRenderer.invoke('moaon-hub:team-command',input),
   connectionCommand:input=>ipcRenderer.invoke('moaon-hub:connection-command',input),
   onTeamOpen:listener=>subscribe('moaon-hub:team-open',listener),
+  onBackgroundOpen:listener=>{if(typeof listener!=='function')throw Error('Invalid listener');return subscribe('moaon-hub:background-open',value=>{if(['orders','calendar','cs'].includes(value))listener(value);});},
   readCredentialMetadata: value => ipcRenderer.invoke('moaon-hub:read-credential-metadata',value),
   saveServerCredential: value => ipcRenderer.invoke('moaon-hub:save-server-credential',value),
   saveApiDraft: value => ipcRenderer.invoke('moaon-hub:save-api-draft',value),

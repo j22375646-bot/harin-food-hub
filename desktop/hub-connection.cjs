@@ -341,6 +341,50 @@ function createHubConnection({
   let collectionWorkActive=false;
   async function runCollection(check){if(collectionWorkActive)return {status:'BUSY'};collectionWorkActive=true;try{return await collection[check?'check':'collect']();}finally{collectionWorkActive=false;}}
   const collectOrders=()=>runCollection(false),checkOrderCollection=()=>runCollection(true);
+  let backgroundCollectionState=null,backgroundCollectionAt=0;
+  const backgroundCollection=createOrderCollection({authorize:verifyShipmentSession,fetch:(url,options)=>getRemoteSession().fetch(url,options),readJson:readBoundedJson,
+    permit:(url,method)=>{collectionPermit=method?{url,method}:null;},timeoutMs:Math.min(timeoutMs*3,45000),
+    blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive()||registrationController||automaticController||reviewingShipment)});
+  async function collectBackgroundOrders(){
+    if(collectionWorkActive)return {status:'BUSY'};collectionWorkActive=true;
+    try{
+      // Collection only reads channel data. An uncertain job is checked for ten minutes
+      // before a fresh read request; never reset the user's manual collection state.
+      if(backgroundCollectionState&&backgroundCollectionState.status!=='BUSY'&&(backgroundCollectionState.canCollect||Date.now()-backgroundCollectionAt>600000))backgroundCollectionState=null;
+      if(!backgroundCollectionState){backgroundCollection.reset();backgroundCollectionAt=Date.now();}
+      backgroundCollectionState=await (backgroundCollectionState?.canCheck?backgroundCollection.check():backgroundCollection.collect());
+      return backgroundCollectionState;
+    }finally{collectionWorkActive=false;}
+  }
+  let backgroundCsActive=false,backgroundCsPermit=false;
+  async function collectBackgroundCs(){
+    if(backgroundCsActive||disconnecting||cleanupFailed||isLoginWindowActive()||registrationController||automaticController||reviewingShipment)return {status:'BUSY'};
+    backgroundCsActive=true;const expected=generation,controller=new AbortController(),timer=setTimeout(()=>controller.abort(),Math.min(timeoutMs*8,120000));businessReads.add(controller);
+    try{
+      const auth=await verifyShipmentSession();if(!['READY','PARTIAL'].includes(auth)||expected!==generation||controller.signal.aborted)return {status:'LOGIN_REQUIRED'};
+      backgroundCsPermit=true;
+      const response=await getRemoteSession().fetch(HARIN_ORIGIN+'/api/customer-service/sync',{method:'POST',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal,headers:{'Content-Type':'application/json',Origin:HARIN_ORIGIN},body:'{}'});
+      const body=await readBoundedJson(response,controller);
+      if(expected!==generation||controller.signal.aborted)return {status:'CANCELLED'};
+      return {status:[200,202].includes(response.status)&&body?.ok===true?'QUEUED':'CHECK_REQUIRED'};
+    }catch{return {status:'CHECK_REQUIRED'};}finally{clearTimeout(timer);businessReads.delete(controller);backgroundCsPermit=false;backgroundCsActive=false;}
+  }
+  async function readBackgroundOrders(){
+    if(disconnecting||cleanupFailed||isLoginWindowActive())return {status:'LOGIN_REQUIRED',items:[]};
+    const expected=generation,controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);businessReads.add(controller);
+    try{const items=[];let offset=0,snapshot=null;
+      for(let page=0;page<5;page++){
+        const url=offset?buildOrdersPageUrl(offset,snapshot,'ACTIVE','ALL'):buildOrdersScopeUrl('ACTIVE','ALL');
+        const response=await getRemoteSession().fetch(url,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
+        if(response.status!==200)return {status:response.status===401?'LOGIN_REQUIRED':'UNAVAILABLE',items:[]};
+        const payload=await readBoundedJson(response,controller),result=projectOrdersPayload(payload,now().toISOString(),{requestedOffset:offset,expectedSnapshot:snapshot});
+        if(expected!==generation||controller.signal.aborted||result.status!=='READY')return {status:'UNAVAILABLE',items:[]};
+        items.push(...result.orders.map(r=>({id:r.hubOrderId,at:r.orderedAt,platform:r.platform})));
+        if(payload.nextOffset===null)return {status:'READY',items};offset=payload.nextOffset;snapshot=payload.snapshot;
+      }
+      return {status:'READY',items,truncated:true};
+    }catch{return {status:'UNAVAILABLE',items:[]};}finally{clearTimeout(timer);businessReads.delete(controller);}
+  }
   async function enqueueRegisteredTracking(row,approved,controller,alive){
     const id=row?.hubOrderId;
     if(!alive()||controller.signal.aborted||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id||'')
@@ -773,7 +817,7 @@ function createHubConnection({
             csPermit,inventoryPermit,stockPermit,teamPermit,keyPermit,
             trackingRequestMethod,
             automaticTrackingRequestActive,
-            collectionPermit,
+            collectionPermit,backgroundCsPermit,
             credentialPermit,
             exportPermit,
             automaticRequestActive:automaticPermits.has(details.url),
@@ -1608,7 +1652,7 @@ function createHubConnection({
   function disconnect() {
     onTeamSnapshot(null);
     if (disconnecting) return disconnecting;
-    collection.reset();
+    collection.reset();backgroundCollection.reset();backgroundCollectionState=null;
     invalidateGeneration();
     activeFinanceController?.abort();financePermit=null;
     settlementController?.abort();settlementPermit=null;insightsController?.abort();insightsPermit=null;csController?.abort();csPermit=null;inventoryController?.abort();inventoryPermit=null;
@@ -1656,7 +1700,7 @@ function createHubConnection({
   }
 
   function closeChildren() {
-    collection.reset();
+    collection.reset();backgroundCollection.reset();backgroundCollectionState=null;
     invalidateGeneration();
     activeFinanceController?.abort();financePermit=null;
     settlementController?.abort();settlementPermit=null;insightsController?.abort();insightsPermit=null;csController?.abort();csPermit=null;inventoryController?.abort();inventoryPermit=null;
@@ -1730,7 +1774,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-return Object.freeze({ connectionCommand, teamCommand, keywordBid, deleteCalendarEntry, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+return Object.freeze({ readBackgroundOrders, collectBackgroundOrders, collectBackgroundCs, connectionCommand, teamCommand, keywordBid, deleteCalendarEntry, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {

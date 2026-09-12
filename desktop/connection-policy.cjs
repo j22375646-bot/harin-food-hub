@@ -113,6 +113,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
     const range=require('./today-calendar.cjs').monthRange(url.searchParams.get('from')?.slice(0,7));
     if(range&&url.search===`?from=${range.from}&to=${range.to}`)return isMainProcessRequest(details.webContentsId);
   }
+  if(context.backgroundCsPermit===true&&method==='POST'&&details.url===HARIN_ORIGIN+'/api/customer-service/sync')return isMainProcessRequest(details.webContentsId);
   if(context.collectionPermit?.url===details.url&&context.collectionPermit.method===method&&['GET','POST'].includes(method)
     &&url.origin===HARIN_ORIGIN&&url.pathname==='/api/orders/live-refresh'&&!url.hash)return isMainProcessRequest(details.webContentsId);
   if(method==='POST'&&context.automaticTrackingRequestActive===true&&details.url===`${HARIN_ORIGIN}/api/shipping/tracking`)return isMainProcessRequest(details.webContentsId);

@@ -374,6 +374,7 @@ setInterval(()=>void checkVisibleOrderFreshness(),60_000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)void checkVisibleOrderFreshness();});
 window.addEventListener('focus',()=>void checkVisibleOrderFreshness());
 window.moaonHub?.onWindowRestored?.(()=>void checkVisibleOrderFreshness());
+window.moaonHub?.onBackgroundOpen?.(route=>showRoute(route));
 
 const isSampleMode = () => displayMode === 'sample';
 const orderId = (order) => isSampleMode() ? order.id : order.hubOrderId;
