@@ -19,6 +19,11 @@ const profile = process.env.MOAON_TEST_PROFILE;
 if (!runtimeRoot || !profile || !path.isAbsolute(runtimeRoot) || !path.isAbsolute(profile)) {
   throw new Error('Absolute test runtime and profile are required');
 }
+// Test Electron windows must never share Explorer's production app group/icon cache.
+const setAppUserModelId=app.setAppUserModelId.bind(app);
+app.setAppUserModelId=()=>setAppUserModelId('com.moaon.verification');
+const setAppDetails=BrowserWindow.prototype.setAppDetails;
+BrowserWindow.prototype.setAppDetails=function(details){return setAppDetails.call(this,{...details,appId:'com.moaon.verification'});};
 const originalSetPath = app.setPath.bind(app);
 app.setPath = (name, value) => originalSetPath(name, name === 'userData' ? profile : value);
 if (process.env.MOAON_TEST_HIDDEN === '1') {

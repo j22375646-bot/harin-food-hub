@@ -21,6 +21,9 @@ const {
 } = require('./hub-connection.cjs');
 
 const APP_NAME = '모아온 Preview';
+// Windows presentation identity is separate from the signed installer/update ID.
+// The old preview identity was shared with development Electron windows.
+const WINDOWS_APP_ID = 'com.moaon.desktop.main';
 const {createLabelPreview}=require('./label-preview.cjs');
 const {createWorklistPreview}=require('./worklist-preview.cjs');
 const {createSelectedDocuments,createOrderExportSaver}=require('./selected-documents.cjs');
@@ -94,7 +97,7 @@ if (!hasSingleInstanceLock) {
   });
 
   app.whenReady().then(async () => {
-    app.setAppUserModelId('com.moaon.preview');
+    app.setAppUserModelId(WINDOWS_APP_ID);
     Menu.setApplicationMenu(null);
 
     await protocol.handle('moaon', async (request) => {
@@ -165,7 +168,7 @@ if (!hasSingleInstanceLock) {
       },
     });
 
-    if(process.platform==='win32'){const taskbarIcon=path.join(app.getPath('userData'),'moaon-taskbar.ico');await fs.writeFile(taskbarIcon,await fs.readFile(path.join(UI_ROOT,'brand','moaon.ico')));mainWindow.setAppDetails({appId:'com.moaon.preview',appIconPath:taskbarIcon,appIconIndex:0,relaunchDisplayName:'모아온',relaunchCommand:'"'+process.execPath+'"'});if(app.isPackaged&&path.basename(process.execPath).toLowerCase()==='moaonpreview.exe'){try{const menu=path.join(app.getPath('appData'),'Microsoft','Windows','Start Menu','Programs'),link=path.join(menu,'모아온.lnk');await fs.mkdir(menu,{recursive:true});let previous={};try{previous=shell.readShortcutLink(link);}catch{}shell.writeShortcutLink(link,'create',{...previous,target:process.execPath,cwd:path.dirname(process.execPath),icon:process.execPath,iconIndex:0,description:'모아온',appUserModelId:'com.moaon.preview'});}catch{console.error('MOAON_SHORTCUT_REFRESH_UNAVAILABLE');}}}
+    if(process.platform==='win32'){const taskbarIcon=path.join(app.getPath('userData'),'moaon-desktop-icon-v1.ico');await fs.writeFile(taskbarIcon,await fs.readFile(path.join(UI_ROOT,'brand','moaon.ico')));mainWindow.setIcon(taskbarIcon);mainWindow.setAppDetails({appId:WINDOWS_APP_ID});if(app.isPackaged&&path.basename(process.execPath).toLowerCase()==='moaonpreview.exe'){try{const menu=path.join(app.getPath('appData'),'Microsoft','Windows','Start Menu','Programs'),link=path.join(menu,'모아온.lnk');await fs.mkdir(menu,{recursive:true});let previous={};try{previous=shell.readShortcutLink(link);}catch{}shell.writeShortcutLink(link,'create',{...previous,target:process.execPath,cwd:path.dirname(process.execPath),icon:process.execPath,iconIndex:0,description:'모아온',appUserModelId:WINDOWS_APP_ID});}catch{console.error('MOAON_SHORTCUT_REFRESH_UNAVAILABLE');}}}
     mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     registerPrinterInspection({ipcMain:workIpc,getMainWindow:()=>mainWindow,isTrustedRenderer,
       inspect:createPrinterInspection({getMainWindow:()=>mainWindow,dialog})});
