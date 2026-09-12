@@ -579,6 +579,7 @@ function createHubConnection({
         if([400,401,403,404,405,413,415,429].includes(response.status))return {status:response.status===401?'LOGIN_REQUIRED':response.status===403?'FORBIDDEN':response.status===429?'RATE_LIMITED':'UNAVAILABLE'};
         const payload=await readBoundedJson(response,controller);
         if(expected!==generation||controller.signal.aborted||response.status!==200||payload?.ok!==true||typeof payload.entry?.id!=='string'||!payload.entry.id||payload.entry.id.length>128||payload.entry.title!==input.title||payload.entry.date!==input.date)throw Error('Unconfirmed');
+        if(input.type==='EVENT'&&(input.platforms&&JSON.stringify(payload.entry.platforms)!==JSON.stringify(input.platforms)||input.plan&&JSON.stringify(payload.entry.plan)!==JSON.stringify(input.plan)))throw Error('Planning not confirmed');
         if(input.id&&payload.entry.id!==input.id)throw Error('Wrong edited entry');
         if(input.endDate&&payload.entry.endDate!==input.endDate||input.type==='EVENT'&&(payload.entry.type!=='EVENT'||payload.entry.eventConfigInvalid||payload.entry.eventColor!==input.eventColor||JSON.stringify(payload.entry.giftTiers)!==JSON.stringify([...input.giftTiers].sort((a,b)=>a.minimumAmount-b.minimumAmount))))throw Error('Event not confirmed');
         return {status:'SAVED'};

@@ -20,7 +20,7 @@ function projectMonth(payload,month){
  const validHolidays=Array.isArray(payload.holidays)&&payload.holidays.length<=100&&payload.holidays.every(row=>row&&validDate(row.date)&&typeof row.name==='string'&&row.name.trim()&&row.name.length<=80);
  const holidays=validHolidays?payload.holidays.filter(row=>row.date>=range.from&&row.date<=range.to).map(row=>({date:row.date,name:row.name})):[];
  const eventById=new Map(payload.entries.filter(row=>row.type==='EVENT').map(row=>[row.id,row]));
- return {status:'READY',month,...range,complete:typeof payload.complete==='boolean'?payload.complete:null,entries:result.entries.map(row=>({...row,body:bodies.get(row.id),...(row.type==='EVENT'?{eventColor:eventById.get(row.id)?.eventColor||'BLUE',giftTiers:validGiftTiers(eventById.get(row.id)?.giftTiers)?eventById.get(row.id).giftTiers.map(t=>({...t})):[],eventState:eventById.get(row.id)?.eventState||'UNKNOWN',eventConfigInvalid:eventById.get(row.id)?.eventConfigInvalid===true||!validGiftTiers(eventById.get(row.id)?.giftTiers)}:{})})),holidays,holidayReady:validHolidays&&payload.holidayReady===true};
+ return {status:'READY',month,...range,complete:typeof payload.complete==='boolean'?payload.complete:null,entries:result.entries.map(row=>({...row,body:bodies.get(row.id),...(row.type==='EVENT'?{...projectEventPlanning(eventById.get(row.id)),eventColor:eventById.get(row.id)?.eventColor||'BLUE',giftTiers:validGiftTiers(eventById.get(row.id)?.giftTiers)?eventById.get(row.id).giftTiers.map(t=>({...t})):[],eventState:eventById.get(row.id)?.eventState||'UNKNOWN',eventConfigInvalid:!validEventPlanning(eventById.get(row.id))||eventById.get(row.id)?.eventConfigInvalid===true||!validGiftTiers(eventById.get(row.id)?.giftTiers)}:{})})),holidays,holidayReady:validHolidays&&payload.holidayReady===true};
 }
 function projectCalendar(payload,date,to=date,allowPartial=false){
  const empty={status:'UNAVAILABLE',date,entries:[]};
@@ -35,12 +35,18 @@ function projectCalendar(payload,date,to=date,allowPartial=false){
  return {status:'READY',date,entries};
 }
 function validGiftTiers(rows){return Array.isArray(rows)&&rows.length<=10&&new Set(rows.map(r=>r?.minimumAmount)).size===rows.length&&rows.every(r=>r&&Object.keys(r).every(k=>['minimumAmount','maximumAmount','giftName','quantity'].includes(k))&&Number.isInteger(r.minimumAmount)&&r.minimumAmount>=1&&r.minimumAmount<=100000000&&(r.maximumAmount==null||Number.isInteger(r.maximumAmount)&&r.maximumAmount>=r.minimumAmount&&r.maximumAmount<=100000000)&&typeof r.giftName==='string'&&r.giftName.trim().length>0&&r.giftName.length<=120&&Number.isInteger(r.quantity)&&r.quantity>=1&&r.quantity<=99);}
+function validEventPlanning(v){
+ if(v.platforms!==undefined&&(!Array.isArray(v.platforms)||!v.platforms.length||v.platforms.length>3||new Set(v.platforms).size!==v.platforms.length||v.platforms.some(p=>!['NAVER','COUPANG','CAFE24'].includes(p))))return false;
+ if(v.plan!==undefined&&(!v.plan||typeof v.plan!=='object'||Array.isArray(v.plan)||!['DRAFT','READY'].includes(v.plan.stage)||Object.keys(v.plan).some(k=>!['stage','goal','audience','benefit','preparation','review'].includes(k))||['goal','audience','benefit','preparation','review'].some(k=>v.plan[k]!==undefined&&(typeof v.plan[k]!=='string'||v.plan[k].length>300))))return false;
+ return true;
+}
+function projectEventPlanning(v){return validEventPlanning(v)?{platforms:v.platforms||['NAVER','COUPANG','CAFE24'],plan:{stage:'READY',goal:'',audience:'',benefit:'',preparation:'',review:'',...v.plan}}:{platforms:[],plan:{stage:'DRAFT'}};}
 function validCalendarDraft(v){
- if(!v||Object.getPrototypeOf(v)!==Object.prototype||!['title','body','date','time','type'].every(k=>Object.hasOwn(v,k))||Object.keys(v).some(k=>!['title','body','date','time','type','endDate','eventColor','giftTiers','id','sourceMonth'].includes(k)))return false;
+ if(!v||Object.getPrototypeOf(v)!==Object.prototype||!['title','body','date','time','type'].every(k=>Object.hasOwn(v,k))||Object.keys(v).some(k=>!['title','body','date','time','type','endDate','eventColor','giftTiers','id','sourceMonth','platforms','plan'].includes(k)))return false;
  if(typeof v.title!=='string'||!v.title.trim()||v.title.length>160||typeof v.body!=='string'||v.body.length>(v.type==='EVENT'?2000:4000)||!validDate(v.date)||!/^20/.test(v.date)||typeof v.time!=='string'||v.time&&!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(v.time)||!['SCHEDULE','MEMO','EVENT'].includes(v.type))return false;
  if(v.id!==undefined&&(typeof v.id!=='string'||!/^[a-zA-Z0-9-]{1,128}$/.test(v.id)||!monthRange(v.sourceMonth))||v.id===undefined&&v.sourceMonth!==undefined)return false;
  const end=v.endDate||v.date;if(!validDate(end)||end<v.date||!/^20/.test(end)||(Date.parse(end)-Date.parse(v.date))/86400000>366||v.type==='MEMO'&&end!==v.date)return false;
- return v.type==='EVENT'?['BLUE','CORAL','MINT','VIOLET','AMBER'].includes(v.eventColor)&&validGiftTiers(v.giftTiers):v.eventColor===undefined&&v.giftTiers===undefined;
+ return v.type==='EVENT'?['BLUE','CORAL','MINT','VIOLET','AMBER'].includes(v.eventColor)&&validGiftTiers(v.giftTiers)&&validEventPlanning(v):v.eventColor===undefined&&v.giftTiers===undefined&&v.platforms===undefined&&v.plan===undefined;
 }
 function validCalendarRemoval(v){return !!v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===2&&typeof v.id==='string'&&/^[0-9a-f-]{36}$/i.test(v.id)&&!!monthRange(v.month);}
 module.exports={validCalendarRemoval,calendarDay,projectCalendar,monthRange,projectMonth,validCalendarDraft,validGiftTiers};

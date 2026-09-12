@@ -96,7 +96,7 @@ async function refreshTodayCalendar(){
   if(result.date!==todayDateKey()){calendarLastAttempt=0;status.textContent='일정의 기준 날짜가 오늘과 다릅니다. 다시 조회해 주세요.';return;}
   section.dataset.agendaState='ready';document.querySelector('#today-agenda-count').textContent=result.entries.length+'건';status.textContent=result.date+' · 한국 시간 기준 · '+(result.entries.length?result.entries.length+'건':'오늘 등록된 일정이 없습니다.');
   list.replaceChildren(...result.entries.map(entry=>{
-   const row=makeElement('li'),time=makeElement('time'),title=makeElement('button','today-agenda-entry'),state=makeElement('span');title.type='button';title.onclick=()=>{showRoute('calendar');window.moaonMonth?.selectDate(todayDateKey());};
+   const row=makeElement('li'),time=makeElement('time'),title=makeElement('button','today-agenda-entry'),state=makeElement('span');title.type='button';title.onclick=()=>{showRoute(entry.type==='EVENT'?'events':'calendar');window.moaonMonth?.selectDate(todayDateKey());};
    time.textContent=entry.time||'종일';title.textContent=entry.title;state.textContent=entry.status==='DONE'?'완료':'예정';
    state.className='calendar-state';row.dataset.done=String(entry.status==='DONE');const copy=makeElement('div','today-agenda-copy');copy.append(title,state);row.append(time,copy);return row;
   }));
@@ -297,7 +297,7 @@ document.addEventListener('keydown',event=>{if(event.altKey&&event.key==='ArrowL
 function showRoute(route, options = {}) {
  if(route==='orders'&&displayMode==='live'&&(!overviewLastAttempt||Date.now()-overviewLastAttempt>60000))void refreshOverview();
   const selectedPage = pages.find((page) => page.dataset.page === route);
-  document.querySelector('#app-breadcrumb-page').textContent=({today:'오늘',orders:'주문·배송',settlement:'운영·정산',insights:'분석',keywords:'키워드',calendar:'캘린더',inventory:'상품',stock:'재고',cs:'고객·CS',settings:'앱 설정'})[route]||'오늘';
+  document.querySelector('#app-breadcrumb-page').textContent=({today:'오늘',orders:'주문·배송',settlement:'운영·정산',insights:'분석',keywords:'키워드',calendar:'업무 캘린더',events:'이벤트 캘린더',inventory:'상품',stock:'재고',cs:'고객·CS',settings:'앱 설정'})[route]||'오늘';
   if (!selectedPage) return;
   const scroller=document.getElementById('main-content'),previous=pages.find(p=>!p.hidden)?.dataset.page;
   if(previous&&previous!==route){routeScroll.set(previous,scroller.scrollTop);if(!options.back){routeHistory.push(previous);if(routeHistory.length>50)routeHistory.shift();}}
@@ -323,7 +323,7 @@ function showRoute(route, options = {}) {
   if(route==='stock')window.moaonStock?.ensure();
   if(route==='cs')window.moaonCs?.ensure();
   if(['insights','keywords'].includes(route))window.moaonInsights?.ensure();
-  if(route==='calendar')window.moaonMonth?.ensure();
+  if(['calendar','events'].includes(route)){window.moaonMonth?.setMode(route);window.moaonMonth?.ensure();}
 }
 
 const freshnessRow=document.querySelector('#order-freshness');

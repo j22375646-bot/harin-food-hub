@@ -67,8 +67,9 @@ export async function POST(request){
     const db=supabaseModule.getSupabase();
     let result;
     if(action==='CREATE_ENTRY'||action==='UPDATE_ENTRY'){
-      const entry=calendarCenter.normalizeEntryInput(body);
-      if(action==='UPDATE_ENTRY')await calendarItem(db,body.id);
+      const previous=action==='UPDATE_ENTRY'?calendarCenter.decorateEntry(await calendarItem(db,body.id)):null;
+      // Older clients do not know planning fields; preserve platform scoping on edits.
+      const entry=calendarCenter.normalizeEntryInput({...body,...(previous?.type==='EVENT'&&body.type==='EVENT'?{platforms:body.platforms??previous.platforms,plan:body.plan??previous.plan}:{})});
       result=await ownerWorkspace.mutateWorkspace(db,{
         action:action==='CREATE_ENTRY'?'CREATE_ITEM':'UPDATE_ITEM',id:body.id,
         itemType:entry.type==='MEMO'?'NOTE':'TASK',title:entry.title,body:entry.type==='EVENT'?calendarCenter.encodeEventBody(entry):entry.body,priority:entry.priority,

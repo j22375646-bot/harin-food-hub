@@ -32,12 +32,12 @@
  profileSummary.replaceChildren();if(snapshot){const identity=snapshot.members.find(m=>m.id===snapshot.me),text=el('div','');text.append(el('strong','',identity?.name||'내 계정'),el('span','',identity?.title||'프로필 설정'));profileSummary.append(avatar(snapshot.me),text);}else profileSummary.append(el('p','','로그인 후 프로필을 확인합니다.'));
  if(snapshot){const m=snapshot.members.find(m=>m.id===snapshot.me);$('#business-settings-open').dataset.profileColor=m?.color||'violet';$('#business-settings-open').replaceChildren(avatar(snapshot.me));$('#business-settings-open').title=(m?.name||'나')+' · 프로필 설정';$('#business-settings-open').setAttribute('aria-label',(m?.name||'나')+' 프로필 설정');}
  }
- function openCreate(){
+ function openCreate(selectedDate){
   if(!snapshot)return;selected=null;creating=true;requestId=crypto.randomUUID();dialog.replaceChildren(header('새 업무',()=>dialog.close()));dialog.append(el('p','team-dialog-intro','누가, 언제까지 할 일인지 정해 주세요.'));
   const form=el('form','team-form');const field=(label,element,css='')=>{const wrap=el('label',css);wrap.append(el('span','',label),element);form.append(wrap);return element;};
   const title=field('업무 제목',el('input',''),'team-field-wide');title.required=true;title.maxLength=160;title.placeholder='예: 오늘 출고 수량 확인';
   const assigned=field('담당자',el('select',''));assigned.setAttribute('aria-label','담당자');const selectedButton=el('button','team-selected-person');selectedButton.type='button';selectedButton.append(el('selectedcontent',''));assigned.append(selectedButton);for(const m of snapshot.members){const o=el('option','');o.value=m.id;o.append(avatar(m.id),el('span','',m.name+(m.title?' · '+m.title:'')));assigned.append(o);}assigned.value=snapshot.me;
-  const due=field('기한',el('input',''));due.type='date';due.required=true;due.value=date();
+  const due=field('기한',el('input',''));due.type='date';due.required=true;due.value=typeof selectedDate==='string'&&/^20\d{2}-\d{2}-\d{2}$/.test(selectedDate)?selectedDate:date();
   const notes=field('업무 내용 · 선택',el('textarea',''),'team-field-wide');notes.maxLength=4000;notes.rows=2;notes.placeholder='함께 알아야 할 내용을 적어 주세요.';
   const section=el('section','team-check-editor team-field-wide'),heading=el('div','team-editor-heading'),count=el('span','team-editor-count','0 / 30');heading.append(el('h3','','체크리스트'),count);const rows=el('div','team-editor-rows');
   const add=el('button','team-add-check','+ 항목 추가');add.type='button';
@@ -64,6 +64,7 @@
  }
  function decorateToday(){for(const cell of document.querySelectorAll('[data-agenda-date]')){cell.querySelector('.today-agenda-dot')?.remove();const count=(snapshot?.tasks||[]).filter(t=>t.due_date===cell.dataset.agendaDate&&t.status==='OPEN').length;if(count){const dot=el('i','today-agenda-dot');dot.setAttribute('aria-hidden','true');cell.append(dot);cell.title='업무 '+count+'건';}else cell.removeAttribute('title');}}
  function decorateCalendar(){
+  if(window.moaonMonth?.mode()==='events')return;
  decorateToday();
   for(const cell of document.querySelectorAll('[data-calendar-day]')){cell.querySelector('.team-calendar-items')?.remove();cell.querySelector('.team-day-count')?.remove();const rows=(snapshot?.tasks||[]).filter(t=>t.due_date===cell.dataset.calendarDay);if(rows.length){const items=el('span','team-calendar-items');for(const t of rows.slice(0,2)){const chip=el('span','team-calendar-chip'+(t.status==='DONE'?' is-done':''));chip.title=t.title+' · '+name(t.assigned_to);chip.append(avatar(t.assigned_to),el('span','',t.title));items.append(chip);}if(rows.length>2)items.append(el('small','team-calendar-more','+'+(rows.length-2)+'건'));cell.append(items);}}
   const host=document.getElementById('month-entries');if(!host)return;host.querySelector('.team-date-list')?.remove();const selectedDate=document.querySelector('[data-calendar-day][aria-pressed=true]')?.dataset.calendarDay;const rows=(snapshot?.tasks||[]).filter(t=>t.due_date===selectedDate);if(rows.length){const list=el('section','team-date-list');list.append(el('h3','','이 날짜의 업무 · '+rows.length),...rows.map(t=>taskRow(t,true)));host.append(list);}
@@ -72,5 +73,5 @@
  function stop(){window.moaonFeedback.clear();active=false;generation++;busy=false;clearInterval(timer);timer=null;snapshot=null;dialog.close();profile.close();render();}
  $('#business-settings-open').onclick=()=>snapshot?openProfile():showRoute('settings');
  window.moaonHub.onTeamOpen?.(id=>{if(snapshot){showRoute('calendar');openDetail(id);}});
- window.moaonTeam={start,stop,refresh,decorateCalendar,decorateToday};render();if(!$('.preview-shell').hidden)start();
+ window.moaonTeam={start,stop,refresh,decorateCalendar,decorateToday,create:openCreate};render();if(!$('.preview-shell').hidden)start();
 })();
