@@ -35,6 +35,14 @@
 
 ## 배포 기록
 
-검증 후 GitHub 공개 서명 업데이트와 로컬 바로가기를 갱신한다. 유료 Windows 코드서명 대신 기존 고정 Ed25519 공개키 검증을 유지한다.
+- 소스 커밋: `308bfea`, `codex/moaon-print-preview` 원격 push 완료.
+- 최종 설치 산출물: `desktop/dist/distribution-20260913-031057-153/Moaon-0.125.1-Setup.exe` (114,147,196 bytes).
+- SHA-256: `719acf30abc9d38443b59d837a2d7d77ff3894feb4a78a0138d38848415b62d3`.
+- GitHub `moaon-stable` 공개 게시 완료. [0.125.1 설치파일](https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable/Moaon-0.125.1-Setup.exe).
+- 로컬 설치 위치: `D:/GPT/Apps/Moaon/releases/0.125.1`, 바탕화면 모아온 바로가기 갱신 완료. 실행 중이던 이전 사용자 앱을 강제로 종료하지 않았다.
+- 최종 설치 파일의 app.asar를 격리 가시 Electron에서 실행: 숨김 상태 Main 호출 `team=3, orders=1, cs=1`, 트레이 복원·종료 PASS. 합성 배정 업무의 실제 Windows `show` 이벤트를 확인했다.
+- 공개 업데이트 인수: 버전을 0.118.0으로 인식시킨 격리 앱에서 0.125.1 감지 → 실제 공개 다운로드 → 고정 공개키 서명/파일 검증 → READY PASS. 인수 시험에서 설치 프로그램을 실행하지 않았으며 사장님 PC 자체의 설치/소리 수신을 대신 확인한 것은 아니다.
+- 유료 Windows 코드서명 대신 기존 고정 Ed25519 공개키 검증을 유지한다. 0.125.0은 로컬 중간 검증 버전이며 공개하지 않았다.
+- 결과 로그: `D:/GPT/tmp/tray-installed-final.log`, `D:/GPT/tmp/tray-live-update.log`, `D:/GPT/tmp/tray-publish.log`.
 
 복구는 트레이에서 완전 종료 후 보존된 이전 설치 버전으로 실행한다. 알림 중복 방지 기록 외 업무 원장을 변경하는 마이그레이션은 없다.
