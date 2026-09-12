@@ -13,3 +13,5 @@
 [0.132.0 설치파일](https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable/Moaon-0.132.0-Setup.exe)
 
 - 추가 오늘 화면: 680/820/1060/1440px, 밝음/어두움, 정상/조회불가 상태의 정렬·잘림·짧은 창·메뉴 이동 PASS. 오늘 일정 날짜 변경/늦은 응답 차단/등록 화면·캘린더 이동 PASS. 전체 15개 합성 UI 회귀 최종 PASS. 오늘 시험은 실제 스크롤 컨테이너(body/main-content)와 상태줄 DOM을 유지하도록 보정했다.
+
+- 코드 d5c985d 푸시, GitHub moaon-stable 0.132.0 공개 서명 업데이트 게시 완료. 0.131.0으로 인식하는 격리 설치 앱에서 공개 서버 다운로드·Ed25519 서명 확인 READY PASS (D:/GPT/tmp/p4145-live-update.log). 실제 사용자 앱을 종료하거나 설치 프로그램을 시험 실행하지 않았다. 다른 PC의 실제 업데이트 완료는 해당 PC에서 확인해야 한다.
