@@ -570,7 +570,7 @@ function createHubConnection({
     calendarWriting=true;let controller,timer,dispatched=false;
     try{
       const proof=await readCalendarMonth(input.sourceMonth||input.date.slice(0,7));if(proof.status!=='READY'||expected!==generation||input.id&&!proof.entries.some(row=>row.id===input.id))return {status:'UNAVAILABLE'};
-      const answer=await showShipmentReview(getMainWindow(),{type:'question',title:input.id?'모아온 · 일정 수정':'모아온 · 일정 등록',message:input.id?'하린식품 캘린더의 이 일정을 수정할까요?':'하린식품 캘린더에 일정을 등록할까요?',detail:input.date+(input.endDate&&input.endDate!==input.date?' ~ '+input.endDate:'')+' '+(input.time||'종일')+'\n'+input.title+(input.type==='EVENT'?'\n사은품 조건 '+input.giftTiers.length+'개 · 적용 기간 주문에 서버 기준으로 반영됩니다.':''),buttons:['취소',input.id?'수정 저장':'일정 등록'],defaultId:0,cancelId:0,noLink:true});
+      const answer=await showShipmentReview(getMainWindow(),{type:'question',title:input.id?'모아온 · 일정 수정':'모아온 · 일정 등록',message:input.id?'하린식품 캘린더의 이 일정을 수정할까요?':'하린식품 캘린더에 일정을 등록할까요?',detail:input.date+(input.endDate&&input.endDate!==input.date?' ~ '+input.endDate:'')+' '+(input.time||'종일')+'\n'+input.title+(input.type==='EVENT'?'\n사은품 조건 '+input.giftTiers.length+'개 · 적용 기간 주문에 서버 기준으로 반영됩니다.\n할인·메시지 발송은 기획 기록이며 자동 실행되지 않습니다.':''),buttons:['취소',input.id?'수정 저장':'일정 등록'],defaultId:0,cancelId:0,noLink:true});
       if(answer?.response!==1)return {status:'CANCELLED'};
       if(expected!==generation||disconnecting||cleanupFailed||isLoginWindowActive())return {status:'UNAVAILABLE'};
       controller=new AbortController();businessReads.add(controller);timer=setTimeout(()=>controller.abort(),timeoutMs);
@@ -579,7 +579,7 @@ function createHubConnection({
         if([400,401,403,404,405,413,415,429].includes(response.status))return {status:response.status===401?'LOGIN_REQUIRED':response.status===403?'FORBIDDEN':response.status===429?'RATE_LIMITED':'UNAVAILABLE'};
         const payload=await readBoundedJson(response,controller);
         if(expected!==generation||controller.signal.aborted||response.status!==200||payload?.ok!==true||typeof payload.entry?.id!=='string'||!payload.entry.id||payload.entry.id.length>128||payload.entry.title!==input.title||payload.entry.date!==input.date)throw Error('Unconfirmed');
-        if(input.type==='EVENT'&&(input.platforms&&JSON.stringify(payload.entry.platforms)!==JSON.stringify(input.platforms)||input.plan&&JSON.stringify(payload.entry.plan)!==JSON.stringify(input.plan)))throw Error('Planning not confirmed');
+        if(input.type==='EVENT'&&(input.platforms&&JSON.stringify(payload.entry.platforms)!==JSON.stringify(input.platforms)||input.plan&&JSON.stringify(payload.entry.plan)!==JSON.stringify(input.plan)||input.campaign&&Object.keys(input.campaign).some(k=>payload.entry.campaign?.[k]!==input.campaign[k])))throw Error('Planning not confirmed');
         if(input.id&&payload.entry.id!==input.id)throw Error('Wrong edited entry');
         if(input.endDate&&payload.entry.endDate!==input.endDate||input.type==='EVENT'&&(payload.entry.type!=='EVENT'||payload.entry.eventConfigInvalid||payload.entry.eventColor!==input.eventColor||JSON.stringify(payload.entry.giftTiers)!==JSON.stringify([...input.giftTiers].sort((a,b)=>a.minimumAmount-b.minimumAmount))))throw Error('Event not confirmed');
         return {status:'SAVED'};

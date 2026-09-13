@@ -26,3 +26,44 @@ test('invalid platform/planning metadata fails closed before save and gift resol
  assert.throws(()=>calendar.normalizeEntryInput({...draft,plan:{stage:'INVALID'}}));
  const n=calendar.normalizeEntryInput(draft);const corrupted=calendar.decorateEntry({id:'x',due_at:n.dueAt,context_label:n.contextLabel,body:'[[HARIN_CALENDAR_EVENT_V1]]\n'+JSON.stringify({...draft,platforms:['OTHER']}),status:'OPEN'});assert.equal(corrupted.eventConfigInvalid,true);assert.equal(compactOrders([order('NAVER')],[corrupted])[0].gifts.length,0);
 });
+
+const campaign={discountType:'PERCENT',discountValue:15,discountConditions:'선물세트 5만원 이상',messageStatus:'PLANNED',messageChannel:'카카오 · 재구매 고객',messagePlannedDate:'2026-09-14',messageSentDate:''};
+test('discount and marketing records survive storage/projection without changing gift calculations',()=>{
+ for(const fields of [campaign,{...campaign,discountType:'AMOUNT',discountValue:5000,messageStatus:'SENT',messageSentDate:'2026-09-15'}]){
+  const event=stored({...draft,campaign:fields});assert.deepEqual(event.campaign,fields);assert.equal(validCalendarDraft({...draft,campaign:fields}),true);
+  const out=projectMonth({ok:true,range:{from:'2026-09-01',to:'2026-09-30'},entries:[event]},'2026-09');assert.deepEqual(out.entries[0].campaign,fields);
+  assert.deepEqual(compactOrders([order('NAVER')],[event])[0].gifts,compactOrders([order('NAVER')],[stored()])[0].gifts);
+ }
+ assert.equal(stored().campaign.discountType,'NONE');
+});
+test('campaign rejects invalid amounts, invalid calendar dates, unsupported keys and contradictory sent state',()=>{
+ for(const patch of [{discountValue:101},{discountValue:0},{discountValue:1.5},{discountValue:'15'},{discountType:'NONE',discountValue:15},{discountType:'AMOUNT',discountValue:100000001},{messageStatus:'SENT'},{messageSentDate:'2026-09-15'},{messagePlannedDate:'2026-02-30'},{messageChannel:'x'.repeat(101)},{sendAutomatically:true}]){
+  const input={...draft,campaign:{...campaign,...patch}};assert.equal(validCalendarDraft(input),false);assert.throws(()=>calendar.normalizeEntryInput(input));
+ }
+ const old=calendar.decodeEventBody('[[HARIN_CALENDAR_EVENT_V1]]\n'+JSON.stringify({description:'옛 이벤트',plan:draft.plan,giftTiers:[]}));assert.equal(old.campaign.messageStatus,'NOT_PLANNED');
+});
+
+test('event body persists through an isolated SQL row without a schema change',()=>{
+ const {DatabaseSync}=require('node:sqlite'),db=new DatabaseSync(':memory:');
+ try{
+  db.exec('CREATE TABLE hub_work_items (id TEXT PRIMARY KEY, title TEXT, body TEXT CHECK(length(body)<=4000), due_at TEXT, context_label TEXT, item_type TEXT, status TEXT)');
+  const entry=calendar.normalizeEntryInput({...draft,campaign});
+  db.prepare('INSERT INTO hub_work_items VALUES (?,?,?,?,?,?,?)').run('event-1',entry.title,calendar.encodeEventBody(entry),entry.dueAt,entry.contextLabel,'TASK','OPEN');
+  const restored=calendar.decorateEntry(db.prepare('SELECT * FROM hub_work_items').get());assert.deepEqual(restored.campaign,campaign);assert.deepEqual(restored.giftTiers,draft.giftTiers);
+ }finally{db.close();}
+});
+
+test('actual calendar POST preserves campaign when an older client edits without that field',async()=>{
+ const fs=require('node:fs'),{DatabaseSync}=require('node:sqlite'),db=new DatabaseSync(':memory:');
+ try{
+  db.exec('CREATE TABLE hub_work_items (id TEXT PRIMARY KEY, title TEXT, body TEXT, due_at TEXT, context_label TEXT, item_type TEXT, status TEXT)');
+  const n=calendar.normalizeEntryInput({...draft,campaign});db.prepare('INSERT INTO hub_work_items VALUES (?,?,?,?,?,?,?)').run('event-1',n.title,calendar.encodeEventBody(n),n.dueAt,n.contextLabel,'TASK','OPEN');
+  const row=()=>db.prepare('SELECT * FROM hub_work_items').get();
+  const sqlAdapter={from(){return {select(){return this;},eq(){return this;},async maybeSingle(){return {data:row()};}};}};
+  const owner={async mutateWorkspace(_db,input){db.prepare('UPDATE hub_work_items SET title=?,body=? WHERE id=?').run(input.title,input.body,input.id);return {item:row()};}};
+  const source=fs.readFileSync(require.resolve('../app/api/calendar/entries/route.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace(/export /g,'');
+  const post=new Function('authModule','apiSafety','supabaseModule','ownerWorkspace','calendarCenter','calendarPages','revalidatePath',source+';return POST;')({}, {isAuthorized:()=>true,readJson:async request=>request,json:value=>value,inputErrorResponse:()=>null},{getSupabase:()=>sqlAdapter},owner,calendar,{},()=>{});
+  const response=await post({...draft,action:'UPDATE_ENTRY',id:'event-1',title:'옛 앱에서 제목 수정'});
+  assert.equal(response.ok,true);assert.equal(response.entry.title,'옛 앱에서 제목 수정');assert.deepEqual(response.entry.campaign,campaign);assert.deepEqual(calendar.decorateEntry(row()).campaign,campaign);
+ }finally{db.close();}
+});

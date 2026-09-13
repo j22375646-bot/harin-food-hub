@@ -1798,3 +1798,12 @@ test('background CS collection is authenticated, main-only, bounded to exact end
  let cancel;remote.beforeRequestHandler({url:'https://harin-cafe24-sync.vercel.app/api/customer-service/sync',method:'POST',webContentsId:0},v=>cancel=v.cancel);assert.equal(cancel,true);
  const denied=makeConnection(makeRemoteSession(async()=>new Response('',{status:401})));assert.equal((await denied.connection.collectBackgroundCs()).status,'LOGIN_REQUIRED');
 });
+
+test('event campaign must be echoed by server before reporting saved',async()=>{
+ const campaign={discountType:'PERCENT',discountValue:10,discountConditions:'세트',messageStatus:'PLANNED',messageChannel:'카카오',messagePlannedDate:'2026-09-14',messageSentDate:''};
+ for(const mode of ['saved','missing','changed']){
+  const draft={title:'발송 기록',body:'',date:'2026-09-14',time:'',type:'EVENT',eventColor:'BLUE',giftTiers:[],campaign};
+  const remote=makeRemoteSession(async(url,o)=>o.method==='POST'?Response.json({ok:true,entry:{...draft,id:'event',campaign:mode==='saved'?campaign:mode==='missing'?undefined:{...campaign,messageStatus:'SENT'}}}):Response.json(url.includes('/api/calendar/entries?')?{ok:true,entries:[],range:{from:'2026-09-01',to:'2026-09-30'}}:makePagePayload()));
+  const {connection}=makeConnection(remote,{showShipmentReview:async()=>({response:1})});assert.equal((await connection.createCalendarEntry(draft)).status,mode==='saved'?'SAVED':'RESULT_UNKNOWN');
+ }
+});
