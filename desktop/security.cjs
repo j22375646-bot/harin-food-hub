@@ -20,6 +20,8 @@ const ALLOWED_APP_RESOURCES = new Map([
   ['moaon://app/marketing.js', 'marketing.js'],
   ['moaon://app/marketing.css', 'marketing.css'],
   ['moaon://app/keywords.js', 'keywords.js'],
+  ['moaon://app/market-research.js','market-research.js'],
+  ['moaon://app/market-research.css','market-research.css'],
   ['moaon://app/keyword-bids.js', 'keyword-bids.js'],
   ['moaon://app/keywords.css', 'keywords.css'],
   ['moaon://app/event-tools.js','event-tools.js'],

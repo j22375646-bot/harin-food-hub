@@ -2,6 +2,7 @@
 const BID_URL='https://harin-cafe24-sync.vercel.app/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/keyword-bids';
 function valid(v){
  if(!v||typeof v!=='object'||Array.isArray(v))return false;
+ if(v.action==='RESEARCH')return require('./research-contract.cjs').valid(v);
  if(v.action==='GROUP_LIST')return Object.keys(v).length===1;
  const group=typeof v.action==='string'&&v.action.startsWith('GROUP_');
  const action=group?v.action.slice(6):v.action;
@@ -14,6 +15,7 @@ function valid(v){
 function project(p,input){
  const bid=n=>Number.isInteger(n)&&n>=70&&n<=100000&&n%10===0;
  if(p?.ok!==true)return {ok:false,code:typeof p?.code==='string'&&/^[A-Z][A-Z0-9_]{1,70}$/.test(p.code)?p.code:'BID_UNAVAILABLE'};
+ if(input.action==='RESEARCH')return require('./research-contract.cjs').project(p,input);
  if(input.action==='GROUP_LIST'){if(!Array.isArray(p.groups)||p.groups.length>5000||!p.groups.every(g=>typeof g.id==='string'&&/^grp-[A-Za-z0-9-]{1,115}$/.test(g.id)&&typeof g.name==='string'&&g.name.length<=120&&typeof g.campaignName==='string'&&g.campaignName.length<=120))throw Error('Groups response');return {ok:true,groups:p.groups.map(({id,name,campaignName})=>({id,name,campaignName}))};}
  const action=input.action.replace(/^GROUP_/,'');
  if(action==='READ'){
@@ -26,13 +28,14 @@ function project(p,input){
 }
 async function sendBid(fetch,input,signal,timeoutMs=30000){
  if(!valid(input))return {ok:false,code:'INVALID_REQUEST'};
+ const maxBytes=input.action==='RESEARCH'?131072:16384;
  const controller=new AbortController(),stop=()=>controller.abort(),timer=setTimeout(stop,timeoutMs);signal?.addEventListener('abort',stop,{once:true});let reader;
  try{
   if(signal?.aborted)throw Error('Cancelled');
   const response=await fetch(BID_URL,{method:'POST',credentials:'include',redirect:'error',cache:'no-store',headers:{'content-type':'application/json',origin:new URL(BID_URL).origin},body:JSON.stringify(input),signal:controller.signal});
-  if(response.redirected||response.url&&response.url!==BID_URL||Number(response.headers.get('content-length'))>16384)throw Error('Response');
+  if(response.redirected||response.url&&response.url!==BID_URL||Number(response.headers.get('content-length'))>maxBytes)throw Error('Response');
   reader=response.body?.getReader();if(!reader)throw Error('Body');const parts=[];let size=0;
-  for(;;){const r=await reader.read();if(r.done)break;size+=r.value.byteLength;if(size>16384)throw Error('Size');parts.push(r.value);}
+  for(;;){const r=await reader.read();if(r.done)break;size+=r.value.byteLength;if(size>maxBytes)throw Error('Size');parts.push(r.value);}
   const p=JSON.parse(Buffer.concat(parts).toString('utf8'));
   if(response.status!==200&&p?.ok===true)throw Error('Status');
   return project(p,input);
