@@ -1,0 +1,5 @@
+'use strict';
+const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs'),os=require('node:os'),{_electron}=require('playwright');
+(async()=>{if(!process.env.MOAON_LIVE_UPDATE_RUNTIME)throw Error('Packaged runtime required');
+const app=await _electron.launch({executablePath:require('electron'),args:[path.join(__dirname,'live-update-bootstrap.cjs')],env:{...process.env,MOAON_LIVE_UPDATE_ACCEPTANCE:'1',MOAON_FROM_VERSION:'0.135.0',MOAON_TEST_RUNTIME_ROOT:process.env.MOAON_LIVE_UPDATE_RUNTIME,MOAON_TEST_PROFILE:fs.mkdtempSync(path.join(os.tmpdir(),'moaon-current-')),MOAON_TEST_HIDDEN:'0',MOAON_TEST_DISPLAY:'main'}});
+try{const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');for(let i=0;i<2;i++){const state=await page.evaluate(()=>window.moaonHub.checkUpdate());assert.equal(state.status,'CURRENT',JSON.stringify(state));assert.equal(state.version,null);}console.log('PASS public signed release matches running version: CURRENT twice, no download/install');}finally{await app.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

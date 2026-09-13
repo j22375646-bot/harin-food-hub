@@ -9,3 +9,12 @@ test('manifest requires pinned key and signed application, channel, version and 
 test('unsigned transport metadata cannot change the signed version, digest, size, filename or add web packages',()=>{assertMetadata(info,payload);for(const x of [{version:'0.999.0'},{files:[{...info.files[0],sha512:'x'}]},{files:[{...info.files[0],url:'https://evil.invalid/a.exe'}]},{files:[...info.files,info.files[0]]},{packages:{x64:{path:'other'}}}])assert.throws(()=>assertMetadata({...info,...x},payload));});
 test('downloads including cached files and pre-install contents are independently verified before ready or execution',async()=>{const dir=fs.mkdtempSync(path.join(os.tmpdir(),'moaon-signed-update-')),file=path.join(dir,payload.file);fs.writeFileSync(file,bytes);const backend=new EventEmitter();backend.installerPath=file;backend.checkForUpdates=async()=>({updateInfo:info});backend.downloadUpdate=async()=>{backend.emit('update-downloaded',info);return [file];};let installs=0;backend.quitAndInstall=()=>installs++;const u=new SignedUpdater({backend,config:{url:'https://example.com',publicKey},fetchManifest:async()=>envelope()});let ready=0;u.on('update-downloaded',()=>ready++);await assert.rejects(u.downloadUpdate());await u.checkForUpdates();fs.writeFileSync(file,'tampered');await assert.rejects(u.downloadUpdate());assert.equal(ready,0);fs.writeFileSync(file,bytes);await u.downloadUpdate();assert.equal(ready,1);fs.writeFileSync(file,'tampered');assert.throws(()=>u.quitAndInstall(true,true));assert.equal(installs,0);fs.writeFileSync(file,bytes);u.quitAndInstall(true,true);assert.equal(installs,1);fs.unlinkSync(file);fs.rmdirSync(dir);});
 test('unavailable and oversized manifest responses fail closed',async()=>{await assert.rejects(readManifest('https://example.com',async()=>new Response('',{status:404})));await assert.rejects(readManifest('https://example.com',async()=>new Response('x'.repeat(16001))));});
+
+test('NSIS updates the running app directory instead of a stale registry installation',()=>{
+ const {createSignedUpdater}=require('../signed-updates.cjs');let backend;
+ class Backend extends EventEmitter{constructor(){super();backend=this;}}
+ const config={mode:'ed25519',url:'https://example.com/stable',publicKey};
+ createSignedUpdater({config,executable:path.join('D:/apps','모아온','MoaonPreview.exe'),load:()=>({NsisUpdater:Backend})});
+ assert.equal(backend.installDirectory,path.dirname(path.join('D:/apps','모아온','MoaonPreview.exe')));
+ assert.equal(backend.autoInstallOnAppQuit,false);
+});

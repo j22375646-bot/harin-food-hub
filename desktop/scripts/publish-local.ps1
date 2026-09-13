@@ -31,6 +31,19 @@ $shortcut.WorkingDirectory=$target
 # Preserve the user's launch arguments. A missing right monitor must not be
 # forced by a release refresh; window placement is the user's preference.
 $shortcut.Save()
+# Update existing launchers together; otherwise a pinned old release wins the
+# single-instance lock and reopens the old version after an update.
+$launcherFolders=@((Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'),(Join-Path $env:APPDATA 'Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar'))
+foreach($folder in $launcherFolders){foreach($name in @('모아온.lnk','Moaon Preview.lnk')){
+ $linkPath=Join-Path $folder $name
+ if(-not(Test-Path -LiteralPath $linkPath)){continue}
+ $link=$shell.CreateShortcut($linkPath)
+ if([IO.Path]::GetFileName($link.TargetPath) -ine 'MoaonPreview.exe'){continue}
+ $link.TargetPath=Join-Path $target 'MoaonPreview.exe'
+ $link.WorkingDirectory=$target
+ $link.Save()
+}}
+
 @{version=$version;path=$target;previous=$old.version} | ConvertTo-Json | Set-Content -LiteralPath $stateFile -Encoding utf8
 # Remove only the obsolete app shortcut, never unrelated desktop items.
 $legacy=Join-Path $desktop 'Moaon Preview.lnk'
