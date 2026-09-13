@@ -9,6 +9,6 @@ function project(p,input){
  return {ok:true,query:p.query,days:p.days,sort:p.sort,checkedAt:p.checkedAt,
   keywords:section(p.keywords,'rows',50,r=>({keyword:text(r.keyword,80),pc:metric(r.pc),mobile:metric(r.mobile),competition:['HIGH','MEDIUM','LOW'].includes(r.competition)?r.competition:null})),
   trend:section(p.trend,'points',90,r=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(r.date)||number(r.ratio)===null||r.ratio>100)throw Error('Research trend');return {date:r.date,ratio:r.ratio};}),
-  products:{...section(p.products,'rows',40,r=>({id:text(r.id,80),title:text(r.title,240),store:text(r.store,100),brand:text(r.brand,100),category:text(r.category,160),price:number(r.price)>0?r.price:null})),total:Number.isSafeInteger(p.products.total)&&p.products.total>=0?p.products.total:null}};
+  products:{...section(p.products,'rows',40,r=>({id:text(r.id,80),title:text(r.title,240),store:text(r.store,100),brand:text(r.brand,100),category:text(r.category,160),price:number(r.price)>0?r.price:null})),retired:p.products.retired===true,total:Number.isSafeInteger(p.products.total)&&p.products.total>=0?p.products.total:null}};
 }
 module.exports={valid,project,text};
