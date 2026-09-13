@@ -26,6 +26,14 @@
   if(points.some(p=>view==='trend'?p.cost!==null||p.revenue!==null:true))box.append(svg);else box.append(el('p','','표시할 광고 원천 자료가 없습니다. 수집 상태를 확인하세요.'));
   box.append(info);return box;
  }
+ function summary(w){
+ const section=el('section','marketing-summary'),head=el('header');head.append(el('h2','','이번 기간 살펴볼 점'),el('small','', '네이버 광고 · '+w.start+' ~ '+w.end));section.append(head);
+ const cards=el('div','marketing-summary-cards');for(const item of window.MoaonMarketingSummary.summarize(w)){
+  const card=el('article','marketing-summary-card');card.dataset.direction=item.direction;const title=el('h3');title.append(el('span','marketing-summary-icon',({up:'↗',down:'↘',flat:'↔',unknown:'–'})[item.direction]),el('span','',item.title));card.append(title);
+  const facts=el('dl');const add=(label,text)=>facts.append(el('dt','',label),el('dd','',text));const unit=item.key==='cvr'?'%':'원';add('근거',w.start+' ~ '+w.end+' '+fmt(item.current,unit,item.key==='cvr'?2:0)+' / 직전 '+w.previousStart+' ~ '+w.previousEnd+' '+fmt(item.previous,unit,item.key==='cvr'?2:0));add('변화',item.change);add('다음 행동',item.action);card.append(facts);
+  if(item.enabled){const go=button('키워드 확인',()=>showRoute('keywords'));card.append(go);}else card.append(el('span','marketing-summary-hold','판단 보류'));cards.append(card);
+ }section.append(cards,el('p','marketing-source','변화의 원인은 단정하지 않습니다. 광고 전환매출은 전체 주문매출과 다르며, 광고비 감소만으로 성과 개선을 판단하지 않습니다.'));return section;
+ }
  function render(){
   host.hidden=!value;document.querySelector('#insights-metrics').hidden=!!value;document.querySelector('#insights-flow').hidden=!!value;if(!value){host.replaceChildren();return;}
   const w=value.windows.find(w=>w.id===period)||value.windows[0];if(!w){host.replaceChildren(el('p','','광고 분석 자료 확인 필요'));return;}
@@ -47,7 +55,7 @@
   const keyword=el('details','marketing-keywords');keyword.append(el('summary','',`키워드 비용 상위 자료 · ${value.keywords.start||'기간 미확인'} ~ ${value.keywords.end||'미확인'}`),el('p','','키워드는 저장된 별도 기간의 상위 자료입니다. 위 캠페인 기간과 다를 수 있으며 합산하지 않습니다.'));for(const k of value.keywords.rows){const r=el('article');r.append(el('strong','',k.name),el('span','',`광고비 ${fmt(k.cost,'원')} · 클릭 ${fmt(k.clicks,'회')} · 전환 ${fmt(k.conversions,'회')} · 전환매출 ${fmt(k.revenue,'원')}`));keyword.append(r);}if(!value.keywords.rows.length)keyword.append(el('p','','키워드 자료 확인 필요'));
   const automation=el('section','marketing-automation');const a=value.automation;automation.append(el('h2','','주간 보고서 자동화'),el('p','',a.schedule),el('strong','',({SUCCESS:'최근 실행 완료',PARTIAL:'최근 실행 일부 확인 필요',FAILED:'최근 실행 실패',RUNNING:'생성 중',UNVERIFIED:'실행 이력 확인 필요'})[a.status]||'실행 상태 확인 필요'),el('p','',a.finishedAt?`최근 완료 시각 ${new Date(a.finishedAt).toLocaleString('ko-KR')}`:'서버 예약 설정과 실제 완료 이력을 구분합니다.'),button('저장 보고서 보기',()=>document.querySelector('#insights-reports').scrollIntoView({block:'start'})),el('small','','앱을 닫아도 서버 예약으로 실행됩니다. AI 제공자 연결 전에는 기존 규칙 보고서를 사용합니다.'));
   const notes=el('details','marketing-notes');notes.append(el('summary','','계산식·자료 기준'));for(const t of [...value.notes,'ROAS=전환매출÷광고비×100 · CPA=광고비÷전환수 · CTR=클릭÷노출×100 · CVR=전환÷클릭×100. 분모0은 계산 불가입니다.'])notes.append(el('p','',t));
-  host.replaceChildren(toolbar,source,metrics,secondary,chart(w),diagnosis,campaigns,keyword,automation,notes);
+  host.replaceChildren(toolbar,source,metrics,secondary,summary(w),chart(w),diagnosis,campaigns,keyword,automation,notes);
  }
  window.moaonMarketing={set:v=>{if(v===value)return;value=v;campaign=null;render();}};
 })();
