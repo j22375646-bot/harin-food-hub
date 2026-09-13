@@ -69,7 +69,8 @@ function createBackgroundMonitor({connection,Notification,getWindow,directory,on
     if(orders.status==='READY')rows('order',orders.items);
     if(cs.status==='READY')rows('cs',cs.items.filter(r=>r.kind==='INQUIRY').map(r=>({id:r.id,at:r.occurredAt})));
     if(calendar.status==='READY')for(const e of calendar.entries){if(e.status!=='OPEN'||e.type==='MEMO')continue;const at=Date.parse(calendar.date+'T'+(e.time||'09:00')+':00+09:00');if(now()>=at-10*60000&&now()<=at+60*60000)notify('calendar:'+e.id+':'+calendar.date+':'+e.time,e.time?'일정이 곧 시작돼요':'오늘의 일정',e.title,'calendar');}
-    readFailed=[orders,cs,calendar].some(r=>r.status!=='READY')||orders.truncated===true||cs.truncated===true;
+    if(calendar.status==='READY'&&calendar.planningRemindersReady)for(const reminder of calendar.planningReminders||[])notify(reminder.key,reminder.kind==='message'?'이벤트 메시지 발송 확인':'이벤트 준비 확인',reminder.title+' · '+reminder.text,'events');
+    readFailed=calendar.planningRemindersReady===false||[orders,cs,calendar].some(r=>r.status!=='READY')||orders.truncated===true||cs.truncated===true;
    }
    // Collection can take longer than a polling interval. It must not hold up team reminders.
    void collect(token);

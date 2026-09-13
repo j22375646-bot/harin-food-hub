@@ -192,6 +192,7 @@ if (!hasSingleInstanceLock) {
       if (error.code === 'ENOENT') initialCleanupPending = false;
     }
     const teamNotifications=require('./team-notifications.cjs').createTeamNotifications({Notification,directory:path.join(app.getPath('userData'),'team-notifications'),getWindow:()=>mainWindow});
+    workIpc.handle('moaon-hub:copy-event-text',async(event,...args)=>{if(!isTrustedRenderer(event,mainWindow)||args.length!==1||typeof args[0]!=='string'||!args[0].trim()||args[0].length>2000)throw Error('Invalid clipboard request');require('electron').clipboard.writeText(args[0]);return {ok:true};});
     workIpc.handle('moaon-hub:test-team-notification',async(event,...args)=>{if(!isTrustedRenderer(event,mainWindow)||args.length)throw Error('Untrusted notification test');return teamNotifications.test();});
     const LoginHost=require('./inline-login.cjs').createInlineLoginHost({WebContentsView});
     hubConnection = createHubConnection({

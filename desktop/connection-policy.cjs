@@ -107,6 +107,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
     const valid=method==='POST'&&!url.search||method==='GET'&&/^\?tenantId=[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}&provider=(?:CAFE24|NAVER|COUPANG|EPOST)$/.test(url.search);
     return Boolean(valid)&&isMainProcessRequest(details.webContentsId);
   }
+  if(method==='GET'&&context.performancePermit===details.url&&url.origin===HARIN_ORIGIN&&url.pathname==='/api/calendar/performance'&&!url.hash&&/^\?id=[0-9a-f-]{36}$/i.test(url.search))return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.calendarPermit===details.url&&url.origin===HARIN_ORIGIN&&url.pathname==='/api/calendar/entries'&&!url.hash&&/^\?from=(\d{4}-\d{2}-\d{2})&to=\1$/.test(url.search))return isMainProcessRequest(details.webContentsId);
   if(method==='POST'&&context.calendarWritePermit===true&&details.url===HARIN_ORIGIN+'/api/calendar/entries')return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.monthPermit===details.url&&url.origin===HARIN_ORIGIN&&url.pathname==='/api/calendar/entries'&&!url.hash){

@@ -32,3 +32,8 @@ test('due tasks batch; schedule reminder deduplicates; logout invalidates old no
 test('collection never blocks team polling; poll single flight and stop discard late reads',async t=>{const h=monitor(t);let resolveOrder;h.connection.collectBackgroundOrders=()=>new Promise(r=>resolveOrder=r);await h.api.tick();h.advance();await h.api.tick();assert.equal(h.reads(),2);resolveOrder({status:'SUCCESS'});await new Promise(r=>setImmediate(r));let release;h.connection.readBackgroundOrders=()=>new Promise(r=>release=r);h.advance();const pending=h.api.tick();await new Promise(r=>setImmediate(r));await h.api.tick();h.api.stop();release({status:'READY',items:[{id:'late',at:h.stamp()}]});await pending;assert.equal(h.created.length,0);});
 
 test('CS collection failure stays visible after subsequent successful order collection',async t=>{const h=monitor(t);h.connection.collectBackgroundCs=async()=>({status:'CHECK_REQUIRED'});await h.api.tick();await new Promise(r=>setImmediate(r));h.advance();h.advance();await h.api.tick();await new Promise(r=>setImmediate(r));h.advance();await h.api.tick();assert.match(h.statuses.at(-1),/일부 연결 확인 필요/);});
+
+test('event preparation and message notices persist deduplication and navigate to events',async t=>{
+ const h=monitor(t);h.connection.readTodayCalendar=async()=>({status:'READY',date:'2026-09-13',entries:[],planningRemindersReady:true,planningReminders:[{kind:'message',key:'event-message:id:2026-09-12',title:'행사',text:'미발송'}]});
+ await h.api.tick();assert.equal(h.created.length,1);h.advance();await h.api.tick();assert.equal(h.created.length,1);h.created[0].emit('click');assert.equal(h.window.route,'events');
+});

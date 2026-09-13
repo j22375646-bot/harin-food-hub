@@ -57,13 +57,13 @@ test('actual calendar POST preserves campaign when an older client edits without
  const fs=require('node:fs'),{DatabaseSync}=require('node:sqlite'),db=new DatabaseSync(':memory:');
  try{
   db.exec('CREATE TABLE hub_work_items (id TEXT PRIMARY KEY, title TEXT, body TEXT, due_at TEXT, context_label TEXT, item_type TEXT, status TEXT)');
-  const n=calendar.normalizeEntryInput({...draft,campaign});db.prepare('INSERT INTO hub_work_items VALUES (?,?,?,?,?,?,?)').run('event-1',n.title,calendar.encodeEventBody(n),n.dueAt,n.contextLabel,'TASK','OPEN');
+  const n=calendar.normalizeEntryInput({...draft,campaign,execution:{targetOrders:100,checks:{stock:true}}});db.prepare('INSERT INTO hub_work_items VALUES (?,?,?,?,?,?,?)').run('event-1',n.title,calendar.encodeEventBody(n),n.dueAt,n.contextLabel,'TASK','OPEN');
   const row=()=>db.prepare('SELECT * FROM hub_work_items').get();
   const sqlAdapter={from(){return {select(){return this;},eq(){return this;},async maybeSingle(){return {data:row()};}};}};
   const owner={async mutateWorkspace(_db,input){db.prepare('UPDATE hub_work_items SET title=?,body=? WHERE id=?').run(input.title,input.body,input.id);return {item:row()};}};
   const source=fs.readFileSync(require.resolve('../app/api/calendar/entries/route.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace(/export /g,'');
   const post=new Function('authModule','apiSafety','supabaseModule','ownerWorkspace','calendarCenter','calendarPages','revalidatePath',source+';return POST;')({}, {isAuthorized:()=>true,readJson:async request=>request,json:value=>value,inputErrorResponse:()=>null},{getSupabase:()=>sqlAdapter},owner,calendar,{},()=>{});
   const response=await post({...draft,action:'UPDATE_ENTRY',id:'event-1',title:'옛 앱에서 제목 수정'});
-  assert.equal(response.ok,true);assert.equal(response.entry.title,'옛 앱에서 제목 수정');assert.deepEqual(response.entry.campaign,campaign);assert.deepEqual(calendar.decorateEntry(row()).campaign,campaign);
+  assert.equal(response.ok,true);assert.equal(response.entry.title,'옛 앱에서 제목 수정');assert.deepEqual(response.entry.campaign,campaign);assert.deepEqual(calendar.decorateEntry(row()).campaign,campaign);assert.equal(response.entry.execution.targetOrders,100);assert.equal(response.entry.execution.checks.stock,true);
  }finally{db.close();}
 });

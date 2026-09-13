@@ -11,3 +11,13 @@ if(process.env.MOAON_VERIFY_CONNECTIONS==='1'){
   console.log('MOAON_WEB_CONNECTION_CHECK '+JSON.stringify({provider:'CAFE24',...await probe.probe('CAFE24',{db})}));
  })().catch(()=>{console.error('MOAON_WEB_CONNECTION_CHECK_UNAVAILABLE');process.exitCode=1;});
 }
+
+// P4-152: deployment-time aggregate-only read verification. No event/order writes.
+if(process.env.MOAON_VERIFY_EVENT_PERFORMANCE==='1'){
+ (async()=>{
+  const calendar=require('../lib/calendar/calendar-center'),date=calendar.seoulDateKey(),event={id:'read-only-verification',date:calendar.addDays(date,-7),endDate:calendar.addDays(date,-1),platforms:['NAVER','CAFE24','COUPANG']};
+  const result=await require('../lib/calendar/event-performance').load(require('../lib/cafe24/supabase').getSupabase(),event);
+  console.log('MOAON_EVENT_PERFORMANCE_PROBE '+JSON.stringify({status:result.status,channels:result.channels.map(c=>({key:c.key,periods:c.periods.map(p=>({status:p.status,orders:p.orders,amountKnown:p.amount!==null}))}))}));
+  if(result.channels.every(c=>c.periods.every(p=>p.orders===null)))throw Error('No source verified');
+ })().catch(()=>{console.error('MOAON_EVENT_PERFORMANCE_PROBE_UNAVAILABLE');process.exitCode=1;});
+}

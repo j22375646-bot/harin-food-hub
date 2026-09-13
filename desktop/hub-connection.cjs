@@ -580,6 +580,7 @@ function createHubConnection({
         const payload=await readBoundedJson(response,controller);
         if(expected!==generation||controller.signal.aborted||response.status!==200||payload?.ok!==true||typeof payload.entry?.id!=='string'||!payload.entry.id||payload.entry.id.length>128||payload.entry.title!==input.title||payload.entry.date!==input.date)throw Error('Unconfirmed');
         if(input.type==='EVENT'&&(input.platforms&&JSON.stringify(payload.entry.platforms)!==JSON.stringify(input.platforms)||input.plan&&JSON.stringify(payload.entry.plan)!==JSON.stringify(input.plan)||input.campaign&&Object.keys(input.campaign).some(k=>payload.entry.campaign?.[k]!==input.campaign[k])))throw Error('Planning not confirmed');
+        if(input.execution&&(payload.entry.execution===undefined||JSON.stringify(require('./ui/event-tools.js').normalize(payload.entry.execution))!==JSON.stringify(require('./ui/event-tools.js').normalize(input.execution))))throw Error('Event execution not confirmed');
         if(input.id&&payload.entry.id!==input.id)throw Error('Wrong edited entry');
         if(input.endDate&&payload.entry.endDate!==input.endDate||input.type==='EVENT'&&(payload.entry.type!=='EVENT'||payload.entry.eventConfigInvalid||payload.entry.eventColor!==input.eventColor||JSON.stringify(payload.entry.giftTiers)!==JSON.stringify([...input.giftTiers].sort((a,b)=>a.minimumAmount-b.minimumAmount))))throw Error('Event not confirmed');
         return {status:'SAVED'};
@@ -609,6 +610,15 @@ function createHubConnection({
     finally{clearTimeout(timer);controller?.abort();if(controller)businessReads.delete(controller);calendarWritePermit=false;calendarWriting=false;}
   }
   let activeMonth=null,monthPermit=null,activeMonthKey=null;
+  let performancePermit=null,performanceBusy=false;
+  async function readEventPerformance(id){
+    if(!/^[0-9a-f-]{36}$/i.test(id||'')||performanceBusy||disconnecting||cleanupFailed||isLoginWindowActive())return {status:'UNAVAILABLE'};
+    const expected=generation,controller=new AbortController();businessReads.add(controller);performanceBusy=true;let timer;
+    const url=HARIN_ORIGIN+'/api/calendar/performance?id='+id;performancePermit=url;
+    try{return await Promise.race([(async()=>{const response=await getRemoteSession().fetch(url,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});if(response.status!==200)return {status:'UNAVAILABLE'};const p=await readBoundedJson(response,controller);if(expected!==generation||controller.signal.aborted||p.ok!==true||p.status!=='READY'||p.eventId!==id||p.coverage!=='UNCONFIRMED'||p.basis!=='COLLECTED_ORDER_AMOUNTS_BEFORE_CANCELLATIONS'||!Number.isInteger(p.days)||p.days<1||p.days>367||typeof p.generatedAt!=='string'||!Number.isFinite(Date.parse(p.generatedAt))||!Array.isArray(p.channels)||p.channels.length>4)throw Error('Unconfirmed performance');
+      const keys=new Set();for(const c of p.channels){if(!['NAVER','CAFE24','COUPANG','COUPANG_RG'].includes(c.key)||keys.has(c.key)||typeof c.label!=='string'||c.label.length>40||!Array.isArray(c.periods)||c.periods.length!==3)throw Error('Invalid channel');keys.add(c.key);for(const r of c.periods){if(typeof r.label!=='string'||r.label.length>20||!/^\d{4}-\d{2}-\d{2}$/.test(r.from)||!/^\d{4}-\d{2}-\d{2}$/.test(r.to)||!['FUTURE','UNAVAILABLE','OBSERVED','IN_PROGRESS'].includes(r.status)||!(r.orders===null||Number.isInteger(r.orders)&&r.orders>=0&&r.orders<=5000)||!(r.amount===null||typeof r.amount==='number'&&Number.isFinite(r.amount)&&r.amount>=0&&r.amount<=5e15)||['FUTURE','UNAVAILABLE'].includes(r.status)&&(r.orders!==null||r.amount!==null))throw Error('Invalid period');}}
+      return p;})(),new Promise(resolve=>{timer=setTimeout(()=>{controller.abort();resolve({status:'UNAVAILABLE'});},timeoutMs);})]);}catch{return {status:'UNAVAILABLE'};}finally{clearTimeout(timer);controller.abort();businessReads.delete(controller);performancePermit=null;performanceBusy=false;}
+  }
   function readCalendarMonth(month){
     const {monthRange,projectMonth}=require('./today-calendar.cjs'),range=monthRange(month);
     if(!range)return Promise.resolve({status:'UNAVAILABLE',month,entries:[]});
@@ -810,7 +820,7 @@ function createHubConnection({
             registrationRequestActive,
             serverHistoryRequestActive,
             calendarPermit,
-            monthPermit,calendarWritePermit,
+            monthPermit,performancePermit,calendarWritePermit,
             financePermit,
             settlementPermit,
             insightsPermit,
@@ -1775,7 +1785,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-return Object.freeze({ readBackgroundOrders, collectBackgroundOrders, collectBackgroundCs, connectionCommand, teamCommand, keywordBid, deleteCalendarEntry, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+return Object.freeze({ readEventPerformance, readBackgroundOrders, collectBackgroundOrders, collectBackgroundCs, connectionCommand, teamCommand, keywordBid, deleteCalendarEntry, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1853,6 +1863,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
   });
   const methods = [
     ['moaon-hub:read-calendar-month', 'readCalendarMonth'],
+    ['moaon-hub:read-event-performance','readEventPerformance'],
     ['moaon-hub:create-calendar-entry','createCalendarEntry'],
     ['moaon-hub:delete-calendar-entry','deleteCalendarEntry'],
     ['moaon-hub:collect-orders', 'collectOrders'],
@@ -1893,6 +1904,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
       if(method==='saveStock'){if(args.length!==1)throw Error('Arguments are not allowed');return connection.saveStock(args[0]);}
       if(method==='deleteCalendarEntry'){if(args.length!==1||!require('./today-calendar.cjs').validCalendarRemoval(args[0]))throw Error('Invalid arguments');return connection.deleteCalendarEntry(args[0]);}
       if(method==='createCalendarEntry'){if(args.length!==1||!require('./today-calendar.cjs').validCalendarDraft(args[0]))throw Error('Arguments are not allowed');return connection.createCalendarEntry(args[0]);}
+      if(method==='readEventPerformance'){if(args.length!==1||typeof args[0]!=='string'||!/^[0-9a-f-]{36}$/i.test(args[0]))throw Error('Invalid event id');return connection.readEventPerformance(args[0]);}
       if(method==='readCalendarMonth'){
         if(args.length!==1||!require('./today-calendar.cjs').monthRange(args[0]))throw Error('Arguments are not allowed');
         return connection.readCalendarMonth(args[0]);
