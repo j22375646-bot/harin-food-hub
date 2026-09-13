@@ -11,6 +11,14 @@
 
 ## 검증 및 배포
 
-결과는 최종 패키지 확인 후 아래에 기록한다. 실제 고객 주문 발급·발송·원장 변경은 시험하지 않는다.
+- 단위 404/404 PASS. 소스 및 설치 위치 ASAR 가시 격리 Electron/DB 회귀 PASS, 21명령. 실제 고객 주문 발급·발송·원장 변경 없음.
+- 밝음/다크, 700/1040/1440 패널 경계 검사 및 긴 본문 스크롤 200px에서 제목 상단 틈 0~2px 확인. 메뉴 문구/버튼 상태 보존.
+- 선택 행을 실제 표시하여 네 면 테두리와 출고 뱃지 독립 배경 확인. 캘린더 주말/공휴일 색상 검사. 테마 전환 완료를 기다린 캡처로 확인.
+- 발급 전 2 + 배송 대기 3 + 배송 중 90 + 완료 70 → 알림 5, 배송 중 조회 실패 → 5, 발급 전 조회 실패 → — 시험 PASS.
+- 패키지 0.140.1 소스 99파일 대조 PASS. D:/GPT/Apps/Moaon/releases/0.140.1 설치 위치에서 검증. 바탕화면 및 current.json 갱신. 실행 중 사용자 프로세스는 강제 종료하지 않았다.
+- 기능 커밋 117ada0 푸시, GitHub moaon-stable 0.140.1 공개 Ed25519 서명 배포. 웹/API 변경 없음, 서버1.60.0 유지.
+- 산출물 desktop/dist/distribution-20260914-010126-457/Moaon-0.140.1-Setup.exe, 114177959 bytes, SHA256 01392700D46D80B7913B5F861B7D2C632D7AE9BFD201BB6E3D34F163953C9BC5.
+- 로그 D:/GPT/tmp/p4155-unit.log, p4155-final-ui.log, p4155-installed.log, p4155-build.log, p4155-publish.log. 화면 p4155-sticky/selected/event-light/dark.png. 가상자료 UI 시험이며 실제 사용자 로그인 화면 인수는 구분한다.
 
 [전체 계획](./2026-09-07-multi-business-desktop-master-plan.md)
+- 공개 업데이트 인수: 0.140.0 인식 격리 앱의 0.140.1 다운로드·서명 검증 READY PASS, 최신 0.140.1 CURRENT 연속 두 번 PASS. 인수 시험에서 설치 프로그램을 실행하지 않았다.
