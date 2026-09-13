@@ -44,4 +44,8 @@
 - 운영 성과 API 미인증 호출 HTTP 401 확인.
 - 최종 패키지 desktop/dist/distribution-20260913-154102-839, ASAR 95개 소스 대조 PASS. D:/GPT/Apps/Moaon/releases/0.138.2 설치 및 바탕화면 바로가기 갱신.
 - 설치파일 114168362 bytes, SHA256 335ed955b80da37ecbc814e208326ad3cbb79c1e879babe19359d0f428a1010e. Ed25519 서명.
-- 공개 서명 업데이트 검증은 다음 기록에서 확정한다.
+- 최종 설치 위치 ASAR 0.138.2의 가시 격리 Electron 통합 시험 PASS: 준비/비용/문구/UTM/복제 CREATE/템플릿/성과 창/연결 초기화 및 기존 사은품·주문 회귀. 실제 사용자 프로필·클립보드는 시험에 사용하지 않음.
+- 기능 커밋 b20886d 푸시, GitHub moaon-stable 0.138.2 공개 서명 업데이트 게시 완료.
+- 0.137.0 인식 격리 앱이 공개 설치파일 다운로드 및 Ed25519 서명 검증 READY PASS. 0.138.2 인식 앱 CURRENT 연속 두 번 PASS. 인수 시험에서 설치 프로그램을 실행하거나 사용자 앱을 강제 재시작하지 않음.
+- 로그 D:/GPT/tmp/p4152-*.log, UI 캡처 p4152-workbench-*.png / p4152-performance.png.
+- [0.138.2 설치파일](https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable/Moaon-0.138.2-Setup.exe)
