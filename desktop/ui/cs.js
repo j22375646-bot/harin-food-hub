@@ -55,9 +55,9 @@
   if(!d)content.append(node('p','본문 조회 기능의 서버 반영이 필요합니다.'));
   else if(d.status!=='AVAILABLE')content.append(node('p',d.status==='UNAVAILABLE'?'내용 복원 실패 · 원문 확인 필요':'저장된 본문 확인 필요'));
   else{
-   if(d.title)content.append(node('h4',d.title));content.append(node('p',d.body||'문의 본문 확인 필요'),node('h3','저장된 상담·답변 이력'));
+   if(d.title)content.append(node('h4',d.title));const incoming=node('p',d.body||'문의 본문 확인 필요');incoming.className='cs-message cs-message-incoming';content.append(incoming,node('h3','저장된 상담·답변 이력'));
    if(!d.history.length)content.append(node('p','조회 가능한 이력이 없습니다. 답변 여부는 원본 처리 상태를 확인해 주세요.'));
-   for(const entry of d.history){const article=node('article','');article.append(node('small',entry.occurredAt?formatTime(entry.occurredAt):'기록 시각 확인 필요'),node('p',entry.content||'기록 내용 확인 필요'));content.append(article);}
+   for(const entry of d.history){const article=node('article','');article.className='cs-message cs-message-history';article.append(node('small',entry.occurredAt?formatTime(entry.occurredAt):'기록 시각 확인 필요'),node('p',entry.content||'기록 내용 확인 필요'));content.append(article);}
    if(d.truncated)content.append(node('p','긴 내용 또는 이력이 일부만 표시됩니다. 원본 채널에서 전체 내용을 확인해 주세요.'));
   }
   if(d)content.append(node('small',d.updatedAt?'원본 갱신 '+formatTime(d.updatedAt):'원본 갱신 시각 확인 필요'));

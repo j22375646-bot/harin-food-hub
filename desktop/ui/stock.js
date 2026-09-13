@@ -15,10 +15,24 @@
     return days < 0 ? {key:'expired', label:Math.abs(days)+'일 경과'} : days <= 30 ? {key:'soon', label:days === 0 ? '오늘까지' : days+'일 남음'} : {key:'normal', label:days+'일 남음'};
   }
   const matches = (row, filter) => filter === 'all' || (filter === 'empty' ? row.quantity === 0 : state(row).key === filter);
+  const expiryTimeline=document.createElement('section');expiryTimeline.className='stock-expiry-timeline';expiryTimeline.setAttribute('aria-label','유통기한 임박 예정');expiryTimeline.hidden=true;$('stock-list').after(expiryTimeline);
+  function renderExpiry(searched){
+    expiryTimeline.replaceChildren();expiryTimeline.hidden=!ready;if(!ready)return;
+    const head=node('header','','stock-expiry-heading'),title=node('div','');title.append(node('h2','유통기한 임박 예정'),node('p','현재 검색 조건 · 수량이 남은 재고 중 오늘부터 30일 이내'));
+    const more=node('button','임박 목록 보기');more.type='button';more.disabled=busy;more.onclick=()=>{$('stock-filter').value='soon';render();$('stock-list').scrollIntoView({block:'start'});};head.append(title,more);expiryTimeline.append(head);
+    const expiring=searched.filter(r=>r.quantity>0&&state(r).key==='soon').sort((a,b)=>a.expires.localeCompare(b.expires)||a.name.localeCompare(b.name,'ko'));
+    if(!expiring.length){expiryTimeline.append(node('p','현재 검색 조건에서 30일 이내 기한이 도래하는 보유 재고가 없습니다.','stock-expiry-empty'));return;}
+    const track=node('div','','stock-expiry-track');track.setAttribute('role','list');
+    for(const row of expiring){const item=node('div','','stock-expiry-stop');item.setAttribute('role','listitem');const control=node('button','','stock-expiry-item'),days=Math.round((Date.parse(row.expires)-Date.parse(today()))/86400000);control.type='button';control.disabled=busy;control.dataset.urgency=days<=7?'urgent':days<=14?'near':'later';control.onclick=()=>openHistory(row);
+      const icon=document.createElementNS('http://www.w3.org/2000/svg','svg');icon.setAttribute('viewBox','0 0 24 24');icon.setAttribute('aria-hidden','true');icon.classList.add('stock-expiry-icon');const leaf=document.createElementNS(icon.namespaceURI,'path');leaf.setAttribute('d','M5 19C-2 6 13 4 20 3c0 13-6 20-15 16ZM4 22 16 8');icon.append(leaf);
+      const copy=node('span','','stock-expiry-copy');copy.append(node('strong',row.expires+' · '+state(row).label),node('span',row.name),node('small',(row.lot||'제조번호 미입력')+' · '+number(row.quantity)+' '+row.unit));control.append(icon,copy);item.append(control);track.append(item);
+    }expiryTimeline.append(track);
+  }
   function render() {
     renderRocket();planner.render();
     const query = $('stock-search').value.trim().toLowerCase(), filter = $('stock-filter').value;
     const searched = rows.filter(r => (r.name+' '+r.lot+' '+r.storage).toLowerCase().includes(query));
+    renderExpiry(searched);
     const visible = searched.filter(r => matches(r, filter));
     const sort = $('stock-sort').value;
     visible.sort((a,b) => sort === 'name' ? a.name.localeCompare(b.name,'ko') : sort === 'updated' ? (b.updatedAt||'').localeCompare(a.updatedAt||'') : (a.expires||'9999').localeCompare(b.expires||'9999') || a.name.localeCompare(b.name,'ko'));
