@@ -5,6 +5,53 @@
   --on-accent:#fff; --danger:#a83e55; --warning:#946026;
   --control-radius:11px; --control-height:44px;
 }
+
+/* P4-153: shared operational helpers, with readable controls outside page roots. */
+.ops-card { min-width:0; padding:20px; margin:16px 0; border:1px solid var(--line); border-radius:18px; background:var(--surface); color:var(--ink); }
+.ops-toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+.ops-toolbar > * { min-width:0; }
+.ops-toolbar h2,.ops-card h3 { margin:0; }
+.ops-note { color:var(--muted); font-size:14px; line-height:1.65; overflow-wrap:anywhere; }
+.ops-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+.ops-form { display:grid; gap:16px; }
+.ops-form p { margin:0; }
+.ops-form h3 { margin:8px 0 0; }
+.ops-note:empty { display:none; }
+.team-dialog .ops-card { margin:0; }
+.team-dialog .ops-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.team-dialog .team-form-actions { position:sticky; bottom:0; background:var(--surface); padding:14px 0 0; z-index:1; }
+.ops-card label,.ops-dialog label { display:grid; gap:8px; min-width:0; font-size:14px; line-height:1.5; }
+.ops-card :is(input,textarea,select),.ops-dialog :is(input,textarea,select) { box-sizing:border-box; width:100%; min-width:0; min-height:44px; padding:10px 12px; border:1px solid var(--line-strong); border-radius:11px; background:var(--surface-soft); color:var(--ink); font:inherit; font-size:15px; }
+.ops-card textarea,.ops-dialog textarea { resize:vertical; line-height:1.65; }
+.ops-card button,.ops-dialog button,.team-dialog .ops-card button { min-height:44px; border:1px solid var(--line-strong); border-radius:11px; padding:10px 14px; background:var(--surface-soft); color:var(--ink); font:inherit; font-size:14px; line-height:1.5; cursor:pointer; }
+.ops-card button:disabled,.ops-dialog button:disabled { opacity:.55; cursor:default; }
+.ops-card button:hover:not(:disabled),.ops-dialog button:hover:not(:disabled) { background:var(--blue-soft); border-color:var(--blue); }
+.ops-dialog { width:min(760px,calc(100vw - 40px)); max-height:calc(100dvh - 48px); box-sizing:border-box; overflow:auto; padding:24px; border:1px solid var(--line-strong); border-radius:22px; background:var(--surface); color:var(--ink); }
+.ops-dialog::backdrop { background:rgb(15 18 30 / .46); }
+.ops-dialog > .ops-toolbar { margin-bottom:20px; }
+.ops-dialog .primary-action { background:var(--blue); color:var(--on-accent); border-color:var(--blue); }
+.ops-segments { display:flex; flex-wrap:wrap; gap:8px; }
+.ops-segments [aria-pressed=true] { background:var(--blue-soft); border-color:var(--blue); color:var(--blue); }
+.ops-template-list { display:grid; gap:14px; }
+.ops-template { display:grid; gap:12px; padding:16px; border:1px solid var(--line); border-radius:14px; }
+.ops-template > button { justify-self:start; }
+.ops-deadline,.ops-repeat-badge { display:inline-flex; align-items:center; gap:6px; width:fit-content; max-width:100%; border-radius:8px; background:var(--blue-soft); color:var(--blue); font-size:13px; line-height:1.5; padding:5px 8px; }
+.ops-deadline[data-state=OVERDUE],.ops-warning { color:var(--danger); }
+.ops-deadline[data-state=SOON] { color:var(--warning); }
+.cs-reply-draft { display:grid; gap:14px; }
+.cs-reply-draft > button { justify-self:start; }
+.stock-planning > summary { cursor:pointer; font-size:17px; font-weight:750; min-height:36px; }
+.ops-stock-grid { display:grid; gap:14px; margin-top:16px; }
+.ops-stock-lot { min-width:0; padding:16px; border:1px solid var(--line); border-radius:14px; background:var(--surface-soft); }
+.ops-stock-lot .ops-toolbar strong { flex:1 1 220px; overflow-wrap:anywhere; }
+.ops-metric { display:grid; gap:8px; padding:12px; background:var(--surface); border-radius:11px; min-width:0; }
+.ops-metric span { font-size:13px; color:var(--muted); }
+.ops-metric strong { font-size:17px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.ops-stock-lot > button { margin-top:14px; }
+.ops-hold { display:flex; align-items:center; flex-wrap:wrap; gap:8px; padding-top:14px; }
+.ops-hold > span { flex:1 1 250px; overflow-wrap:anywhere; font-size:14px; line-height:1.65; }
+.ops-card :focus-visible,.ops-dialog :focus-visible { outline:2px solid var(--blue); outline-offset:3px; }
+@media(max-width:760px) { .ops-grid { grid-template-columns:1fr; } .ops-dialog { padding:18px; } .ops-card { padding:16px; } }
 html[data-theme=dark] { --on-accent:#211c30; --danger:#efaabd; --warning:#e4c297; }
 
 .preview-shell .page h1 { letter-spacing:-.035em; line-height:1.35; }

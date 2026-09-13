@@ -4,6 +4,7 @@
   let editorTitle='재고 등록',historyProduct=null;
   const fields = ['name','lot','manufactured','expires','storage','unit','quantity','note'];
   let rows = [], editing = null, busy = false, generation = 0, ready = false, mode = 'edit', products = [], productsReady = false, chosenProduct = null;
+  const planner=window.MoaonStockPlanning.create(()=>rows);
   const node = (tag, text, cls) => { const el = document.createElement(tag); el.textContent = text; if (cls) el.className = cls; return el; };
   let rocketRows=[],rocketReady=false,rocketMode=false,rocketMessage='',rocketBusy=false,lastQueue=0;
   const today = () => new Intl.DateTimeFormat('sv-SE', {timeZone:'Asia/Seoul'}).format(new Date());
@@ -15,7 +16,7 @@
   }
   const matches = (row, filter) => filter === 'all' || (filter === 'empty' ? row.quantity === 0 : state(row).key === filter);
   function render() {
-    renderRocket();
+    renderRocket();planner.render();
     const query = $('stock-search').value.trim().toLowerCase(), filter = $('stock-filter').value;
     const searched = rows.filter(r => (r.name+' '+r.lot+' '+r.storage).toLowerCase().includes(query));
     const visible = searched.filter(r => matches(r, filter));
@@ -95,7 +96,7 @@
     if(busy)return;
     if(displayMode!=='live'){window.moaonSales?.clear();ready=false;rocketReady=false;rocketRows=[];rows=[];products=[];productsReady=false;$('stock-status').textContent='사업장 연결 후 재고를 사용할 수 있습니다.';render();return;}
     const expected=generation;busy=true;$('stock-status').textContent='재고 기록을 불러오는 중…';render();
-    try { const result=await window.moaonHub.readStock();if(expected!==generation)return;if(result.status!=='READY')throw Error(result.message);if(!Array.isArray(result.value)||result.value.length>5000||result.value.some(r=>!r||typeof r.id!=='string'||!Number.isInteger(r.revision)||r.revision<1||!Number.isFinite(r.quantity)||r.quantity<0||r.quantity>1e9||fields.filter(k=>k!=='quantity').some(k=>typeof r[k]!=='string')))throw Error('재고 자료 형식을 확인해야 합니다. 다시 조회하세요.');rocketReady=result.rocketStatus==='READY'&&Array.isArray(result.rocket)&&result.rocket.length<=5000&&result.rocket.every(r=>typeof r?.id==='string'&&typeof r.name==='string'&&(r.quantity===null||Number.isInteger(r.quantity)&&r.quantity>=0)&&typeof r.stale==='boolean'&&(r.updatedAt===null||typeof r.updatedAt==='string'&&Number.isFinite(Date.parse(r.updatedAt))));rocketRows=rocketReady?result.rocket:[];rows=result.value;window.moaonSales?.setData(result.salesStatus==='READY'?result.sales:null,rows);productsReady=result.productsStatus==='READY'&&Array.isArray(result.products)&&result.products.length<=5000&&result.products.every(p=>typeof p?.name==='string'&&typeof p.productNo==='string'&&/^\d{1,20}$/.test(p.productNo));products=productsReady?result.products.slice().sort((a,b)=>a.name.localeCompare(b.name,'ko')):[];ready=true;lastLoaded=Date.now();$('stock-status').textContent='사업장 DB · '+new Date(lastLoaded).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})+' 조회 · 같은 사업장에서 공유합니다.'; }
+    try { const result=await window.moaonHub.readStock();if(expected!==generation)return;if(result.status!=='READY')throw Error(result.message);if(!Array.isArray(result.value)||result.value.length>5000||result.value.some(r=>!r||typeof r.id!=='string'||!Number.isInteger(r.revision)||r.revision<1||!Number.isFinite(r.quantity)||r.quantity<0||r.quantity>1e9||fields.filter(k=>k!=='quantity').some(k=>typeof r[k]!=='string')))throw Error('재고 자료 형식을 확인해야 합니다. 다시 조회하세요.');rocketReady=result.rocketStatus==='READY'&&Array.isArray(result.rocket)&&result.rocket.length<=5000&&result.rocket.every(r=>typeof r?.id==='string'&&typeof r.name==='string'&&(r.quantity===null||Number.isInteger(r.quantity)&&r.quantity>=0)&&typeof r.stale==='boolean'&&(r.updatedAt===null||typeof r.updatedAt==='string'&&Number.isFinite(Date.parse(r.updatedAt))));rocketRows=rocketReady?result.rocket:[];rows=result.value;void planner.load();window.moaonSales?.setData(result.salesStatus==='READY'?result.sales:null,rows);productsReady=result.productsStatus==='READY'&&Array.isArray(result.products)&&result.products.length<=5000&&result.products.every(p=>typeof p?.name==='string'&&typeof p.productNo==='string'&&/^\d{1,20}$/.test(p.productNo));products=productsReady?result.products.slice().sort((a,b)=>a.name.localeCompare(b.name,'ko')):[];ready=true;lastLoaded=Date.now();$('stock-status').textContent='사업장 DB · '+new Date(lastLoaded).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'})+' 조회 · 같은 사업장에서 공유합니다.'; }
     catch(e){if(expected!==generation)return;window.moaonSales?.clear();ready=false;rocketReady=false;rocketRows=[];rocketMessage='';rows=[];products=[];productsReady=false;$('stock-status').textContent='조회 실패 · '+e.message;}
     finally{busy=false;render();}
   }
@@ -198,5 +199,5 @@
   $('rocket-search').oninput=renderRocket;$('rocket-refresh').onclick=refreshRocket;
   setInterval(()=>{if(displayMode==='live'&&rocketMode&&!document.querySelector('[data-page=stock]').hidden&&!document.hidden&&!busy&&!rocketBusy){rocketMessage='';void refresh().then(()=>{if(Date.now()-lastQueue>300000)void refreshRocket();});}},30000);
 
-  window.moaonStock={ensure:()=>{if(!ready||Date.now()-lastLoaded>=30000)void refresh();},clear:()=>{$('stock-history-dialog').close();historyProduct=null;lastLoaded=0;window.moaonSales?.clear();generation++;rocketMode=false;rocketBusy=false;lastQueue=0;ready=false;rocketReady=false;rocketRows=[];rocketMessage='';rows=[];products=[];productsReady=false;chosenProduct=null;editing=null;$('stock-product-dialog').close();$('stock-status').textContent='사업장 연결 후 재고를 사용할 수 있습니다.';$('stock-dialog').close();render();}};render();
+  window.moaonStock={ensure:()=>{if(!ready||Date.now()-lastLoaded>=30000)void refresh();},clear:()=>{planner.clear();$('stock-history-dialog').close();historyProduct=null;lastLoaded=0;window.moaonSales?.clear();generation++;rocketMode=false;rocketBusy=false;lastQueue=0;ready=false;rocketReady=false;rocketRows=[];rocketMessage='';rows=[];products=[];productsReady=false;chosenProduct=null;editing=null;$('stock-product-dialog').close();$('stock-status').textContent='사업장 연결 후 재고를 사용할 수 있습니다.';$('stock-dialog').close();render();}};render();
 })();
