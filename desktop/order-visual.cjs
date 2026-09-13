@@ -26,7 +26,7 @@ module.exports={safeImage,projectVisual,isImageRequest};
 
 function projectTiming(order){
  if(!['PAID','PREPARING','READY_TO_SHIP','WAITING_FOR_CARRIER'].includes(order?.stage))return null;
- const estimate=order.shippingEstimate;const source=order.timingBadge||(order.stage==='WAITING_FOR_CARRIER'&&estimate?.status==='OVERDUE'?{type:'DELAYED',detail:'배송 출발 확인 전 · 예정 출고일 '+estimate.plannedShipDate}:null);
+ const estimate=order.shippingEstimate;const source=order.timingBadge||(order.stage==='WAITING_FOR_CARRIER'&&/^\d{4}-\d{2}-\d{2}$/.test(estimate?.plannedShipDate||'')&&['OVERDUE','DUE_TODAY','SCHEDULED'].includes(estimate?.status)?{type:({OVERDUE:'DELAYED',DUE_TODAY:estimate.confidence==='READY'?'SAME_DAY':'SAME_DAY_PARTIAL',SCHEDULED:'SCHEDULED'})[estimate.status],detail:'배송 출발 확인 전 · 예정 출고일 '+estimate.plannedShipDate}:null);
  if(!source||!['DELAYED','SAME_DAY','SAME_DAY_PARTIAL','CHECK_REQUIRED','SCHEDULED'].includes(source.type))return null;
  const known=estimate?.confidence==='READY',day=estimate?.plannedShipDate;
  let type=source.type,label;

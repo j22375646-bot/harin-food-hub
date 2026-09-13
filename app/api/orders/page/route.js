@@ -5,6 +5,7 @@ import unified from '../../../../lib/orders/unified-orders.js';
 import adapter from '../../../../lib/ui/phase28-adapters/orders.js';
 import calendar from '../../../../lib/calendar/calendar-center.js';
 import orderEvents from '../../../../lib/calendar/order-events.js';
+import cafe24Receiver from '../../../../lib/cafe24/order-receiver.js';
 
 const ALLOWED=new Set(['stage','platform','offset','snapshot','delayOnly','giftOnly','query','start','end','format']);
 const XLSX_MIME='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -48,7 +49,7 @@ export async function GET(request){
     const events=eventResult.data.map(calendar.decorateEntry);
     const candidates=adapter.orderCandidates(center.orders,events,options);
     if(options.format==='xlsx'){const proof=adapter.buildOrderPage(center.orders,events,{...options,offset:0,snapshot:null});return xlsxResponse(candidates,events,proof.snapshot);}
-    const page=adapter.buildOrderPage(center.orders,events,options);
+    const page=await cafe24Receiver.hydratePage(adapter.buildOrderPage(center.orders,events,options));
     const summary=adapter.buildPhase28OrdersModel({unifiedOrders:center,calendarEntries:eventResult.data,generatedAt:new Date().toISOString()});
     return apiSafety.json({ok:true,...page,searchContractVersion:1,appliedSearch:{query:options.query,start:options.start,end:options.end},orderReadStates,partial:failedChannels.length>0,warning:failedChannels.length?`${failedChannels.map(channel=>channel.platform).join(', ')} 주문 불러오기 실패 · 정상 채널의 주문은 계속 확인할 수 있습니다.`:null,workspaces:summary.workspaces,hero:summary.hero},{headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
   }catch(error){

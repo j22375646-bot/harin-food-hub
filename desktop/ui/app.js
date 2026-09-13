@@ -492,7 +492,7 @@ function showOrderDetail(order, button, options = {}) {
   productText.append(makeElement('h2','',order.productName||order.product||'상품 확인 필요'));
   const option=isSampleMode()?order.option:order.details?.items?.[0]?.option;if(option)productText.append(makeElement('span','',option));
   const present=giftBadge(order),timing=timingBadge(order);
-  const badges=makeElement('div','detail-badges');if(present)badges.append(present);if(timing)badges.append(timing);badges.append(makeElement('span','detail-status-badge',order.details?.invoice?.status==='REGISTERED'?'송장 등록 완료':order.details?.invoice?.status==='ISSUED'?'송장 발급 완료':({PAID:'결제완료',PREPARING:'상품준비중',IN_TRANSIT:'배송중',DELIVERED:'배송완료'})[order.stage]||'상태 확인 필요'),makeElement('span','detail-channel-badge',({NAVER:'네이버 · 별도 발급',COUPANG:'쿠팡',CAFE24:'Cafe24'})[order.platform]||'샘플'));badges.querySelector('.detail-status-badge').dataset.state=['IN_TRANSIT','DELIVERED'].includes(order.stage)?order.stage:(['REGISTERED','ISSUED'].includes(order.details?.invoice?.status)?order.details.invoice.status:order.stage);productText.append(badges);
+  const badges=makeElement('div','detail-badges');if(present)badges.append(present);if(timing)badges.append(timing);const statusView=shippingStatusView(order,true),statusBadge=makeElement('span','detail-status-badge',statusView.label),channelBadge=makeElement('span','detail-channel-badge',({NAVER:'네이버 · 별도 발급',COUPANG:'쿠팡',CAFE24:'Cafe24'})[order.platform]||'채널 확인 필요');statusBadge.dataset.state=statusView.state;channelBadge.dataset.channel=order.platform||'UNKNOWN';badges.append(statusBadge,channelBadge);productText.append(badges);
   productHero.append(productThumbnail(order),productText);body.append(productHero);
   const facts=makeElement('dl','detail-facts');
   const fact=(title,value)=>facts.append(makeElement('dt','',title),makeElement('dd','',value));
@@ -794,8 +794,8 @@ function createOrderRow(order) {
     const channelBadge=makeElement('strong','channel-badge',channels[channel]||channel);
     channelBadge.dataset.channel=channel;
     const delivery={RESERVED:'예약',IN_TRANSIT:'배송중',DELIVERED:'배송완료'};
-    const status=makeElement('span','delivery-badge',delivery[order.details?.delivery?.status]||(order.details?.invoice?.status==='REGISTERED'?'배송대기중':stage));
-    status.dataset.state=order.details?.delivery?.status||(order.details?.invoice?.status==='REGISTERED'?'REGISTERED':order.stage);
+    const stateView=shippingStatusView(order),status=makeElement('span','delivery-badge',stateView.label);
+    status.dataset.state=stateView.state;
     secondary.append(channelBadge);
     status.classList.add('order-state');
     button.append(status);
@@ -833,12 +833,18 @@ function renderSelection(){
   const bar=document.querySelector('#order-selection');
   if(bar.parentElement!==document.body)document.body.append(bar);
   installFloatingSelection(bar);
-  let reason=document.getElementById('selection-block-reason');if(!reason){reason=makeElement('div','selection-block-reason');reason.id='selection-block-reason';reason.setAttribute('role','status');bar.append(reason);}
-  const blocked=[...selectedOrderIds].map(id=>displayedOrders.find(o=>orderId(o)===id)).filter(o=>o&&!o.issueAndRegisterEligible);
-  const names={DELIVERY_INFO:'받는 분·주소·연락처 확인',HISTORY_UNAVAILABLE:'송장 이력 조회 확인',SHIPMENT_ID:'쿠팡 배송묶음 번호 확인',SERVER_CHECK:'서버 출고 조건 확인',PARTIAL:'누락 채널 재조회',NAVER_ROUTE:'네이버 주문은 네이버에서 처리',ROCKET_ROUTE:'로켓그로스는 쿠팡에서 처리',INVOICE_EXISTS:'기존 송장 확인',CANCELLED:'취소 주문 제외',CANCEL_REQUEST:'취소 요청 확인',INVOICE_UNKNOWN:'송장 존재 여부 확인',CANCEL_UNKNOWN:'취소 여부 확인'};
-  reason.hidden=!count||autoEligible||registrationBusy;
-  reason.replaceChildren();if(!reason.hidden){reason.append(makeElement('span','',count>20?'한 번에 20건까지 선택하세요.':blocked.slice(0,1).map(o=>(o.platform==='COUPANG'?'쿠팡: ':'')+(o.preflight?.serverReason||o.preflight?.codes?.map(c=>names[c]||'출고 정보 확인').join(' · ')||'최신 발급 조건 확인 필요')).join(' / ')+(blocked.length>1?' 외 '+(blocked.length-1)+'건 · 첫 주문부터 확인하세요.':'')));const check=makeElement('button','','조건 다시 확인');check.type='button';check.onclick=()=>{const row=blocked[0];if(row){showOrderDetail(row);void recheckSelectedOrder();}};reason.append(check);const disclosure=makeElement('details','selection-reason-disclosure');disclosure.append(makeElement('summary','','발급 조건 확인'));const content=makeElement('div','selection-reason-content');content.append(...reason.childNodes);disclosure.append(content);reason.append(disclosure);document.querySelector('.selection-more>div').append(reason);}
-
+  let reason=document.getElementById('selection-block-reason');if(!reason){reason=makeElement('div','selection-block-reason');reason.id='selection-block-reason';reason.setAttribute('role','status');bar.append(reason);}else bar.append(reason);
+  const selected=[...selectedOrderIds].map(id=>displayedOrders.find(o=>orderId(o)===id)),blocked=selected.filter(o=>!o?.issueAndRegisterEligible),ready=selected.filter(o=>o?.issueAndRegisterEligible===true);
+  const names={DELIVERY_INFO:'받는 분·주소·연락처 확인',HISTORY_UNAVAILABLE:'송장 이력 조회 확인',SHIPMENT_ID:'쿠팡 배송묶음 번호 확인',SERVER_CHECK:'서버 출고 조건 확인',PARTIAL:'누락 채널 재조회',NAVER_ROUTE:'네이버에서 별도 발급',ROCKET_ROUTE:'로켓그로스는 쿠팡에서 처리',INVOICE_EXISTS:'기존 송장 확인',CANCELLED:'취소 주문 제외',CANCEL_REQUEST:'취소 요청 확인',INVOICE_UNKNOWN:'송장 존재 여부 확인',CANCEL_UNKNOWN:'취소 여부 확인',SHIPPED:'이미 배송 진행 중',STAGE_UNKNOWN:'주문 상태 확인',ORDER_ID:'주문번호 확인',QUANTITY:'수량 확인',ROUTE_UNKNOWN:'출고 경로 확인'};
+  reason.hidden=!count||autoEligible||registrationBusy;reason.replaceChildren();
+  document.querySelector('#selection-auto-ship').setAttribute('aria-describedby','selection-block-reason');
+  if(!reason.hidden){
+    const summary=makeElement('strong','',count>20?'한 번에 20건까지 선택하세요.':`선택 ${count}건 중 ${ready.length}건 발급 가능 · ${blocked.length}건 확인 필요`);reason.append(summary);
+    const list=makeElement('div','selection-reasons');
+    for(const order of blocked){const item=makeElement('div','selection-reason-item'),label=order?(({CAFE24:'Cafe24',COUPANG:'쿠팡',NAVER:'네이버'})[order.platform]||'채널 확인')+' · '+order.productName:'목록에서 사라진 주문';const message=order?.preflight?.serverReason||order?.preflight?.codes?.map(c=>names[c]||'출고 정보 확인').join(' · ')||'최신 발급 조건 확인 필요';item.append(makeElement('span','',label),makeElement('small','',message));list.append(item);}reason.append(list);
+    const actions=makeElement('div','selection-reason-actions'),check=makeElement('button','','선택 주문 조건 다시 확인');check.type='button';check.onclick=()=>void recheckShippingSelection();actions.append(check);
+    if(ready.length&&ready.length<=20&&blocked.length){const choose=makeElement('button','',`발급 가능한 ${ready.length}건만 선택`);choose.type='button';choose.onclick=()=>{selectedOrderIds.clear();ready.forEach(o=>selectedOrderIds.add(orderId(o)));renderOrders();};actions.append(choose);}reason.append(actions);
+  }
   bar.hidden=count===0||document.querySelector('[data-page=orders]').hidden;
   if(!count)bar.querySelector('details')?.removeAttribute('open');
   document.querySelector('#selection-count').textContent=count?`${count}건 선택`:'상세 보기';
@@ -1686,3 +1692,21 @@ function installFloatingSelection(bar){
 }
 
 function timingBadge(order){const timing=order.visual?.timing;if(!timing)return null;const badge=makeElement('span','shipping-timing-badge',timing.label);badge.dataset.timing=timing.type;badge.title=timing.detail;return badge;}
+
+function shippingStatusView(order,detail=false){
+ const stage=order.stage,invoice=order.details?.invoice?.status,delivery=order.details?.delivery?.status;
+ if(stage==='CANCELLED'||order.details?.cancelled===true)return {state:'CANCELLED',label:'취소'};
+ if(order.details?.cancellationRequested===true)return {state:'CANCEL_REQUEST',label:'취소·반품 요청'};
+ if(stage==='DELIVERED'||delivery==='DELIVERED')return {state:'DELIVERED',label:'배송완료'};
+ if(['SHIPPING','IN_TRANSIT'].includes(stage)||delivery==='IN_TRANSIT')return {state:'IN_TRANSIT',label:'배송중'};
+ if(invoice==='REGISTERED')return {state:'REGISTERED',label:detail?'송장 등록 완료':'배송대기중'};
+ if(invoice==='ISSUED')return {state:'ISSUED',label:detail?'송장 발급 완료':'발급완료 · 등록대기'};
+ if(['PAID','PREPARING','READY_TO_SHIP','WAITING_FOR_CARRIER'].includes(stage))return {state:stage,label:stageLabel(stage)};
+ return {state:'CHECK_REQUIRED',label:'상태 확인 필요'};
+}
+async function recheckShippingSelection(){
+ if(orderToolsBusy()||displayMode!=='live')return;const ids=[...selectedOrderIds],generation=++actionGeneration;
+ clearDisplayedOrders('connecting','선택 주문의 최신 발급 조건을 확인하고 있습니다.');
+ try{const result=await window.moaonHub.recheckPage();if(generation!==actionGeneration)return;applyHubResult(result);if(displayMode==='live'&&['READY','PARTIAL'].includes(result.status)){const remaining=new Set(displayedOrders.map(o=>orderId(o)));ids.filter(id=>remaining.has(id)).forEach(id=>selectedOrderIds.add(id));renderOrders();}}
+ catch{if(generation===actionGeneration)clearDisplayedOrders('error','발급 조건을 확인하지 못했습니다. 다시 조회하세요.');}
+}
