@@ -303,7 +303,7 @@ document.addEventListener('keydown',event=>{if(event.altKey&&event.key==='ArrowL
 function showRoute(route, options = {}) {
  if(route==='orders'&&displayMode==='live'&&(!overviewLastAttempt||Date.now()-overviewLastAttempt>60000))void refreshOverview();
   const selectedPage = pages.find((page) => page.dataset.page === route);
-  document.querySelector('#app-breadcrumb-page').textContent=({today:'오늘',orders:'주문·배송',settlement:'운영·정산',insights:'분석',keywords:'키워드',calendar:'업무 캘린더',events:'이벤트 캘린더',inventory:'상품',stock:'재고',cs:'고객·CS',settings:'앱 설정'})[route]||'오늘';
+  document.querySelector('#app-breadcrumb-page').textContent=({today:'오늘',orders:'주문·배송',settlement:'운영·정산',insights:'분석',keywords:'키워드',calendar:'업무 캘린더',events:'이벤트',inventory:'상품',stock:'재고',cs:'고객·CS',settings:'앱 설정'})[route]||'오늘';
   if (!selectedPage) return;
   const scroller=document.getElementById('main-content'),previous=pages.find(p=>!p.hidden)?.dataset.page;
   if(previous&&previous!==route){routeScroll.set(previous,scroller.scrollTop);if(!options.back){routeHistory.push(previous);if(routeHistory.length>50)routeHistory.shift();}}

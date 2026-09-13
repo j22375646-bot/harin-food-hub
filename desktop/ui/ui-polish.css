@@ -223,3 +223,9 @@ html body .team-task input.team-complete:checked { background:var(--mint); borde
 .daybook-focus{transition:background-color .2s ease,box-shadow .2s ease}
 .daybook-focus:focus-within{box-shadow:0 0 0 2px var(--line-strong)}
 @media(prefers-reduced-motion:reduce){.daybook-focus{transition:none}}
+
+/* Purpose groups remain within the existing scrollable navigation. */
+.preview-shell .primary-nav .nav-label{font-size:13px;line-height:1.5;color:var(--muted);padding:0 14px;margin:8px 0 6px;font-weight:550}
+.nav-section-break{display:block;flex-shrink:0;height:1px;background:var(--line);margin:12px 12px 4px}
+.preview-shell.is-sidebar-collapsed .primary-nav .nav-label{display:none!important}
+.preview-shell.is-sidebar-collapsed .nav-section-break{margin:10px 8px}
