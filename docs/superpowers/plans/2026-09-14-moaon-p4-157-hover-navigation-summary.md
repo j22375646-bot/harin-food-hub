@@ -14,6 +14,9 @@
 - 순수 비교 규칙: 상승/하락, %p, 부분/누락/무한값/이전0 검사.
 - 가시 격리 Electron: hover 테두리·Cafe24 대비·공통 버튼색, 접힘 활성 메뉴 중앙 오차1px 미만(1040/1440), 분석 3개 카드/부분자료3개 판단보류/초기화, 밝음·다크 700/1040/1440 PASS.
 - 고객 자료·광고비·실주문 발급 변경 없음. 화면은 가상 원장으로 검증하며 실제 로그인 사용자 인수와 구분.
-- 최종 패키지/공개 업데이트 결과는 아래에 추가.
+- 단위409/409 PASS. 소스101파일 대조 PASS. D:/GPT/Apps/Moaon/releases/0.142.0/resources/app.asar 설치 위치 가시 격리 UI PASS.
+- 기능 커밋9d048cd 푸시. 패키지 desktop/dist/distribution-20260914-012224-245/Moaon-0.142.0-Setup.exe, 114181062 bytes, SHA256 8962339FAB6AE9040CF8D3256340F08BA71E6D83D3B7F24F1D61993AA94029FF.
+- 로그 D:/GPT/tmp/p4157-unit.log, p4157-ui.log, p4157-installed.log, p4157-build.log. 캡처 p4157-hover-light/dark.png, p4157-sidebar.png, p4157-summary-light/dark.png.
 
 웹1.60.0/API·DB는 변경하지 않는다. [전체 계획](./2026-09-07-multi-business-desktop-master-plan.md)
+- GitHub moaon-stable 0.142.0 공개 Ed25519 서명 배포 완료. 0.141.0 인식 격리 앱의 다운로드/서명 READY PASS, 0.142.0 CURRENT 연속 두 번 PASS. 바탕화면 바로가기 대상 및 current.json 0.142.0 반영. 실제 사용자 앱 강제 종료·인수 시험 중 설치파일 실행 없음. 로그 p4157-publish/live-update/current-update.log.
