@@ -6,3 +6,8 @@
 - 그룹 제목은 기존 글자 크기/색상 토큰을 사용하고 메뉴 접기 시 숨긴다. 구분선은 남긴다. 기존 라우트·순서·조회·권한·데이터 처리 변경 없음.
 
 검증 및 배포 결과는 아래에 기록한다.
+
+- 소스 오늘4너비×2테마×정상/실패 및 전체44화면+설정24상태 PASS. 설치본 오늘·메뉴·짧은 창·접기·다크모드 회귀 PASS. 가시 격리 합성 자료로 확인했다.
+- 설치 소스 대조를 포함한 publish-local PASS. D:/GPT/Apps/Moaon/releases/0.136.0, 배포 산출물 desktop/dist/distribution-20260913-102742-137.
+- b1ccd70 pushed. 공개0.136.0 서명 배포 및 이전0.135.0 인식 앱의 다운로드/서명 PASS. 최신0.136.0 인식 앱 반복 CURRENT PASS. 실제 사용자의 설치 실행/재시작은 시험에 포함하지 않았다.
+- [설치파일](https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable/Moaon-0.136.0-Setup.exe)
