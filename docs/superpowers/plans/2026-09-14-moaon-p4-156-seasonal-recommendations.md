@@ -15,10 +15,15 @@
 
 - 단위407/407 PASS. 12개월 커버리지, 블랙프라이데이 연도별 계산, 명절 자료 누락/잘못된 날짜/다른 연도·대체휴일 제외 검사.
 - 소스 가시 Electron UI: 월 이동, 밝음/다크 700/1040/1440, 초안 필드, 미확인 날짜 공란, 플랫폼/사은품 비활성 기본값, 업무 페이지 숨김 PASS. 실제 이벤트 저장 없음.
-- 기존 운영 기능 회귀와 최종 패키지 결과는 배포 후 아래에 추가한다.
+- 기존 운영 기능 가시 격리DB/HTTP/IPC 회귀 21명령 PASS. 주문·체크리스트·CS·재고 및 최근 UI 수정 회귀 포함.
+- 최종 설치 위치 D:/GPT/Apps/Moaon/releases/0.141.0/resources/app.asar의 추천 UI PASS. 소스100파일 대조 PASS. 한 카드의 과도한 너비/높이는 데스크톱 2열 배치로 보완했다.
+- 커밋 bfc09e4 푸시 및 GitHub moaon-stable 0.141.0 공개 Ed25519 서명 업데이트 게시 완료.
+- 패키지 desktop/dist/distribution-20260914-011119-972/Moaon-0.141.0-Setup.exe, 114179718 bytes, SHA256 72BFF270BDE5DB66F5FA7B01AF696947A8BE3C088F7621F5B2CDE12CC428BCFB.
+- 로그 D:/GPT/tmp/p4156-unit.log, p4156-ui.log, p4156-regression.log, p4156-installed.log, p4156-build.log, p4156-publish.log. 캡처 p4156-recommendations-light/dark.png. 실제 로그인 사용자 계정 화면 인수와 가상자료 시험은 구분한다.
 
 ## 범위와 복구
 
 웹1.60.0/API·DB 변경 없음. 기존 이벤트 저장 계약 유지. 추천 UI/규칙 파일과 로컬 리소스 허용 항목 추가. 공개 이전 버전은 0.140.1이며 문제 시 해당 설치파일로 복구 가능하다.
 
 [전체 계획](./2026-09-07-multi-business-desktop-master-plan.md)
+- 공개 인수: 0.140.1 인식 격리 앱의 0.141.0 다운로드·Ed25519 서명 READY PASS, 0.141.0 CURRENT 연속 두 번 PASS. 바탕화면 바로가기 대상 0.141.0 확인. 인수 과정에서 설치 프로그램 실행·사용자 앱 강제 종료 없음.
