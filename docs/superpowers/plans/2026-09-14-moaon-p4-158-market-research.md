@@ -44,3 +44,13 @@
 - 최종 0.143.1 설치 ASAR 104개 파일 대조 및 가시 격리 UI PASS. 표 붙여넣기/가격 정렬 포함. 웹 운영 /login 200, 버전1.61.1, 비로그인 연구 요청401 확인.
 - 최종 패키지 `desktop/dist/distribution-20260914-014534-747/Moaon-0.143.1-Setup.exe`, 114187109 bytes, SHA256 `E302465F5A16D2BF2FA80EDC50B9E4594071BDB01C2AD9894D365E32596C9659`.
 - 판다랭크 공식 Chrome Web Store 페이지 확인: https://chromewebstore.google.com/detail/gklilelpemfocehaklnbninplkkokgdn . Chrome 탭 생성 시 `Browser is not available: chrome`. 제어 가능한 브라우저는 Codex 내장 브라우저만 확인되었으며 확장 프로그램은 설치하지 못했다. 네이티브 입력·브라우저 정책 우회·강제 설치는 하지 않았다.
+
+
+## 최종 상태
+
+- 최종 공개 업데이트 **0.143.1** / 웹 **1.61.1**. 기능 커밋0825595와 정정5654547 푸시 완료.
+- GitHub moaon-stable 공개 Ed25519 배포 완료. 격리 0.142.0에서 0.143.1 다운로드·서명 검증 PASS, 최신0.143.1 CURRENT 연속 2회 PASS. 인수 중 설치파일 실행이나 실사용 앱 강제 종료 없음.
+- `D:/GPT/Apps/Moaon/current.json`, 바탕화면·시작 메뉴·고정 바로가기 0.143.1 반영. 바탕화면 모아온.lnk 대상 `D:/GPT/Apps/Moaon/releases/0.143.1/MoaonPreview.exe` 확인.
+- 최종 로그 `p4158-final-publish.log`, `p4158-final-installed.log`, `p4158-final-live-update.log`, `p4158-final-current-update.log`, `p4158-shortcuts.log`.
+- 실계정의 검색광고/API HUB 응답 검증은 미완료. 상품 자동 수집은 공식 API 종료로 제공하지 않는다. 상품 직접 입력·표 붙여넣기·정렬·요약은 설치 코드에서 검증했다.
+- 판다랭크 확장 프로그램: Chrome 제어 연결 없음으로 설치 미완료. 사용자에게 공식 Chrome Web Store 링크와 남은 단계를 안내한다.
