@@ -35,6 +35,29 @@
  const templates=node('div','event-campaign-segments');templates.setAttribute('role','group');templates.setAttribute('aria-label','이벤트 기획 템플릿');for(const template of eventTools.templates){const b=node('button','','+ '+template.name);b.type='button';b.onclick=()=>{openEditor();el('month-create-title').value=template.name;for(const k of ['goal','audience','benefit'])el('event-plan-'+k).value=template[k];};templates.append(b);}el('month-add-selected').after(templates);
  function duplicateEvent(row){try{const copy=eventTools.duplicate(row,selected);openEditor(copy);editing=null;el('month-editor-title').textContent='복제한 이벤트 · 새 일정으로 저장';el('month-create-title').value=copy.title.slice(0,160);el('month-create-date').value=copy.date;el('month-create-end').value=copy.endDate;fillPlanning(copy);el('month-event-color').value=copy.eventColor||'VIOLET';for(const tier of copy.giftTiers||[]){el('month-add-tier').click();for(const i of el('month-gift-tiers').lastElementChild.querySelectorAll('input'))i.value=tier[i.dataset.giftField]??'';}typeChanged();syncCampaign();el('month-create-status').textContent='새 날짜를 확인해주세요. 준비 체크·발송 완료·회고는 초기화했습니다.';}catch(e){el('month-status').textContent=e.message;}}
  const overview=node('div','event-plan-overview');el('month-filters').before(overview);
+ const recommendations=node('section','event-recommendations');recommendations.setAttribute('aria-label','월별 마케팅 추천');overview.after(recommendations);
+ function renderRecommendations(){
+  recommendations.hidden=mode!=='events';recommendations.replaceChildren();if(mode!=='events')return;
+  const head=node('header','event-recommendation-heading');head.append(node('h2','',Number(month.slice(5))+'월, 이런 행사를 준비해 보세요'),node('span','event-recommendation-label','시즌 기획 아이디어'));
+  recommendations.append(head,node('p','event-recommendation-note','월별 시즌을 바탕으로 한 추천입니다. 실제 트렌드·매출 예측은 아니며, 날짜와 혜택은 기획에서 조정할 수 있어요.'));
+  const list=node('div','event-recommendation-list');
+  for(const idea of window.MoaonEventRecommendations.forMonth(month,value?.holidays||[])){
+   const card=node('article','event-recommendation-card');card.dataset.idea=idea.id;
+   card.append(node('span','event-recommendation-date',idea.start?idea.start+' ~ '+idea.end:idea.dateKind),node('h3','',idea.title));
+   if(idea.start)card.append(node('small','',idea.dateKind));
+   card.append(node('p','',idea.goal),node('p','event-recommendation-benefit',idea.benefit));
+   const details=node('details','event-recommendation-preparation');details.append(node('summary','','대상 · 준비할 일'),node('p','',idea.audience));const tasks=node('ul','');for(const item of idea.preparation.split('\n'))tasks.append(node('li','',item));details.append(tasks);card.append(details);
+   const existing=scoped().some(r=>r.type==='EVENT'&&r.title.includes(idea.title));if(existing)card.append(node('small','event-recommendation-existing','비슷한 이름의 이벤트가 있어요. 기존 기획을 먼저 확인해 주세요.'));
+   const use=node('button','secondary-action','이 기획으로 시작');use.type='button';use.disabled=saving||displayMode!=='live';use.onclick=()=>{
+    if(saving||displayMode!=='live')return;openEditor();el('month-create-title').value=idea.title;el('month-create-date').value=idea.start;el('month-create-end').value=idea.end;
+    for(const k of ['goal','audience','benefit','preparation'])el('event-plan-'+k).value=idea[k];
+    form.querySelectorAll('[name="event-platform"]').forEach(i=>i.checked=false);
+    el('month-create-status').textContent='추천 초안 · 날짜와 진행 플랫폼을 선택하고 혜택을 검토한 뒤 저장하세요. 기획 중 상태는 주문에 적용되지 않습니다.';
+    workbench.update();renderGiftPreview();
+   };card.append(use);list.append(card);
+  }recommendations.append(list);
+ }
+
  const editor=document.createElement('dialog');editor.id='month-editor';editor.className='calendar-editor';editor.setAttribute('aria-labelledby','month-editor-title');
  const heading=node('h2','','일정 · 이벤트 등록');heading.id='month-editor-title';editor.append(heading,form);document.body.append(editor);
  function closeEditor(){if(saving)return;editor.close();el('month-compose').open=false;}
@@ -52,7 +75,7 @@
  function syncToday(){const current=today();if(current===renderedToday)return;document.querySelectorAll('[data-calendar-day]').forEach(button=>button.classList.toggle('is-today',button.dataset.calendarDay===current));renderedToday=current;}
  let month=today().slice(0,7),selected=today(),value=null,busy=false,generation=0,lastAttempt=0,state='ALL';
  const matches=row=>state==='ALL'||(mode==='events'?(state==='DONE'?row.eventState==='ENDED':row.eventState!=='ENDED'):row.status===state);
- function render(){
+ function render(){renderRecommendations();
   const currentDay=today();renderedToday=currentDay;
   el(mode==='events'?'event-page':'month-page').setAttribute('aria-busy',String(busy));taskAdd.hidden=mode==='events';templates.hidden=mode!=='events';
   document.querySelectorAll('[data-month-state]').forEach(b=>{b.textContent=mode==='events'?({ALL:'전체',OPEN:'기획 · 진행',DONE:'종료'})[b.dataset.monthState]:({ALL:'전체',OPEN:'진행 중',DONE:'완료'})[b.dataset.monthState];b.setAttribute('aria-pressed',String(b.dataset.monthState===state));b.disabled=busy||!value;});

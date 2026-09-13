@@ -23,6 +23,7 @@ const ALLOWED_APP_RESOURCES = new Map([
   ['moaon://app/keyword-bids.js', 'keyword-bids.js'],
   ['moaon://app/keywords.css', 'keywords.css'],
   ['moaon://app/event-tools.js','event-tools.js'],
+  ['moaon://app/event-recommendations.js','event-recommendations.js'],
   ...['operations-tools.js','operations-ui.js','cs-tools.js','stock-planning.js'].map(file=>['moaon://app/'+file,file]),
   ['moaon://app/event-workbench.js','event-workbench.js'],
   ['moaon://app/month-calendar.js', 'month-calendar.js'],
