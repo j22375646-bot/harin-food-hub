@@ -187,7 +187,7 @@ function renderOverview(){
  document.querySelector('#daybook-focus-open').disabled=!live||overviewBusy;
  document.querySelector('#daybook-focus-open>span').textContent=focusScope==='ACTIVE'?'발급 전 확인':'배송 확인';
  const focusCount=document.querySelector('#daybook-focus-count');focusCount.replaceChildren(makeElement('span','',focusValue?.status==='READY'?String(focusValue.total):'—'),makeElement('small','','건'));
- document.querySelector('#nav-order-count').textContent=complete?String(['ACTIVE','REGISTER','IN_TRANSIT'].reduce((n,k)=>n+overviewValues[k].total,0)):'—';
+ document.querySelector('#nav-order-count').textContent=['ACTIVE','REGISTER'].every(k=>overviewValues[k]?.status==='READY'&&Number.isSafeInteger(overviewValues[k].total)&&overviewValues[k].total>=0)?String(overviewValues.ACTIVE.total+overviewValues.REGISTER.total):'—';
  document.querySelector('#sidebar-connection').textContent=live?'하린식품 업무 연결됨':'로그인 후 업무를 연결합니다';
  if(live)statusElements.todayTitleMode.textContent=todayGreeting();
  document.querySelector('#daybook-date').textContent=new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',year:'numeric',month:'long',day:'numeric',weekday:'long'}).format(new Date());
@@ -492,7 +492,7 @@ function showOrderDetail(order, button, options = {}) {
   productText.append(makeElement('h2','',order.productName||order.product||'상품 확인 필요'));
   const option=isSampleMode()?order.option:order.details?.items?.[0]?.option;if(option)productText.append(makeElement('span','',option));
   const present=giftBadge(order),timing=timingBadge(order);
-  const badges=makeElement('div','detail-badges');if(present)badges.append(present);if(timing)badges.append(timing);badges.append(makeElement('span','detail-status-badge',order.details?.invoice?.status==='REGISTERED'?'송장 등록 완료':order.details?.invoice?.status==='ISSUED'?'송장 발급 완료':({PAID:'결제완료',PREPARING:'상품준비중',IN_TRANSIT:'배송중',DELIVERED:'배송완료'})[order.stage]||'상태 확인 필요'),makeElement('span','detail-channel-badge',({NAVER:'네이버 · 별도 발급',COUPANG:'쿠팡',CAFE24:'Cafe24'})[order.platform]||'샘플'));productText.append(badges);
+  const badges=makeElement('div','detail-badges');if(present)badges.append(present);if(timing)badges.append(timing);badges.append(makeElement('span','detail-status-badge',order.details?.invoice?.status==='REGISTERED'?'송장 등록 완료':order.details?.invoice?.status==='ISSUED'?'송장 발급 완료':({PAID:'결제완료',PREPARING:'상품준비중',IN_TRANSIT:'배송중',DELIVERED:'배송완료'})[order.stage]||'상태 확인 필요'),makeElement('span','detail-channel-badge',({NAVER:'네이버 · 별도 발급',COUPANG:'쿠팡',CAFE24:'Cafe24'})[order.platform]||'샘플'));badges.querySelector('.detail-status-badge').dataset.state=['IN_TRANSIT','DELIVERED'].includes(order.stage)?order.stage:(['REGISTERED','ISSUED'].includes(order.details?.invoice?.status)?order.details.invoice.status:order.stage);productText.append(badges);
   productHero.append(productThumbnail(order),productText);body.append(productHero);
   const facts=makeElement('dl','detail-facts');
   const fact=(title,value)=>facts.append(makeElement('dt','',title),makeElement('dd','',value));
@@ -795,7 +795,7 @@ function createOrderRow(order) {
     channelBadge.dataset.channel=channel;
     const delivery={RESERVED:'예약',IN_TRANSIT:'배송중',DELIVERED:'배송완료'};
     const status=makeElement('span','delivery-badge',delivery[order.details?.delivery?.status]||(order.details?.invoice?.status==='REGISTERED'?'배송대기중':stage));
-    status.dataset.state=order.details?.delivery?.status||order.stage;
+    status.dataset.state=order.details?.delivery?.status||(order.details?.invoice?.status==='REGISTERED'?'REGISTERED':order.stage);
     secondary.append(channelBadge);
     status.classList.add('order-state');
     button.append(status);
