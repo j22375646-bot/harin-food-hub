@@ -48,6 +48,8 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   readInsights: () => ipcRenderer.invoke('moaon-hub:read-insights'),
   insightAi: command => ipcRenderer.invoke('moaon-hub:insight-ai',command),
   cancelInsightAi: () => ipcRenderer.invoke('moaon-hub:cancel-insight-ai'),
+  marketAi: command => ipcRenderer.invoke('moaon-hub:market-ai',command),
+  cancelMarketAi: () => ipcRenderer.invoke('moaon-hub:cancel-market-ai'),
   keywordBid: input => ipcRenderer.invoke('moaon-hub:keyword-bid', input),
   readSettlement: (days=30) => ipcRenderer.invoke('moaon-hub:read-settlement',days),
   readTodayCalendar: () => ipcRenderer.invoke('moaon-hub:read-today-calendar'),

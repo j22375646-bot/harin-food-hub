@@ -135,6 +135,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if(method==='GET'&&context.inventoryPermit===INVENTORY_URL&&details.url===INVENTORY_URL)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.insightsPermit===INSIGHTS_URL&&details.url===INSIGHTS_URL)return isMainProcessRequest(details.webContentsId);
   if(['GET','POST','DELETE'].includes(method)&&context.insightAiPermit?.method===method&&context.insightAiPermit.url===INSIGHTS_URL+'/ai'&&details.url===INSIGHTS_URL+'/ai')return isMainProcessRequest(details.webContentsId);
+  if(['GET','POST'].includes(method)&&context.marketAiPermit?.method===method&&context.marketAiPermit.url===HARIN_ORIGIN+'/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/market-ai'&&details.url===HARIN_ORIGIN+'/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/market-ai')return isMainProcessRequest(details.webContentsId);
   if(method==='POST'&&context.bidPermit===`${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/keyword-bids`&&details.url===context.bidPermit)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.exportPermit===details.url&&details.url.endsWith('&format=xlsx'))return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&Number.isInteger(context.labelWebContentsId)&&context.labelWebContentsId>0&&details.webContentsId===context.labelWebContentsId&&details.url===context.labelUrl

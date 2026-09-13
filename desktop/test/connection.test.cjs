@@ -1214,6 +1214,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
     readFinance: async()=>({status:'READY'}),
     readSettlement: async()=>({status:'READY'}),
     readInsights: async()=>({status:'READY'}),
+    marketAi:async command=>({ok:true,operation:command.operation}),cancelMarketAi:async()=>({ok:true,status:'CANCELLED'}),
     insightAi:async command=>({ok:true,operation:command.operation}),cancelInsightAi:async()=>({ok:true,status:'CANCELLED'}),
     readStock:async()=>({status:'READY',value:[]}),saveStock:async input=>({status:'READY',value:input}),readInventory: async()=>({status:'READY',items:[]}),
     readCs: async()=>({status:'READY',items:[]}),
@@ -1255,7 +1256,7 @@ test('IPC registration rejects arguments and untrusted senders before dispatchin
 
 await assert.rejects(handlers.get('moaon-hub:preview-stock-receipts')({sender:{},senderFrame:null},{}),/Untrusted renderer/);
   for(const args of [[],[{}],[{id:'bad',from:'',to:''}],[{id:'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',from:'2026-09-12',to:'2026-09-11'}]])await assert.rejects(handlers.get('moaon-hub:preview-stock-receipts')(trusted,...args),/Invalid receipt/);
-  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-credential-metadata','moaon-hub:save-server-credential','moaon-hub:read-tracking','moaon-hub:refresh-tracking','moaon-hub:read-delivery','moaon-hub:preview-worklist','moaon-hub:preview-labels','moaon-hub:export-selected-csv','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:set-order-filters','moaon-hub:insight-ai','moaon-hub:connection-command','moaon-hub:team-command','moaon-hub:apply-order-search','moaon-hub:reset-order-filters','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:read-calendar-month','moaon-hub:read-event-performance','moaon-hub:create-calendar-entry','moaon-hub:delete-calendar-entry','moaon-hub:collect-orders','moaon-hub:check-order-collection','moaon-hub:check-order-freshness','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:read-finance','moaon-hub:read-settlement','moaon-hub:read-insights','moaon-hub:cancel-insight-ai', 'moaon-hub:keyword-bid','moaon-hub:preview-stock-receipts','moaon-hub:read-stock','moaon-hub:save-stock','moaon-hub:read-inventory','moaon-hub:read-cs','moaon-hub:read-today-calendar','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect','moaon-hub:export-orders-xlsx']);
+  assert.deepEqual([...handlers.keys()], ['moaon-hub:read-credential-metadata','moaon-hub:save-server-credential','moaon-hub:read-tracking','moaon-hub:refresh-tracking','moaon-hub:read-delivery','moaon-hub:preview-worklist','moaon-hub:preview-labels','moaon-hub:export-selected-csv','moaon-hub:issue-and-register','moaon-hub:view-channel','moaon-hub:set-order-filters','moaon-hub:insight-ai','moaon-hub:market-ai','moaon-hub:connection-command','moaon-hub:team-command','moaon-hub:apply-order-search','moaon-hub:reset-order-filters','moaon-hub:register-invoices','moaon-hub:find-order','moaon-hub:preview-label','moaon-hub:issue-shipment','moaon-hub:check-shipment','moaon-hub:confirm-shipment-review','moaon-hub:read-calendar-month','moaon-hub:read-event-performance','moaon-hub:create-calendar-entry','moaon-hub:delete-calendar-entry','moaon-hub:collect-orders','moaon-hub:check-order-collection','moaon-hub:check-order-freshness','moaon-hub:server-shipping-history','moaon-hub:restore-shipping-history','moaon-hub:read-overview','moaon-hub:read-finance','moaon-hub:read-settlement','moaon-hub:read-insights','moaon-hub:cancel-insight-ai','moaon-hub:cancel-market-ai', 'moaon-hub:keyword-bid','moaon-hub:preview-stock-receipts','moaon-hub:read-stock','moaon-hub:save-stock','moaon-hub:read-inventory','moaon-hub:read-cs','moaon-hub:read-today-calendar','moaon-hub:list-businesses','moaon-hub:connect', 'moaon-hub:refresh', 'moaon-hub:recheck-page', 'moaon-hub:next-page', 'moaon-hub:previous-page', 'moaon-hub:view-active', 'moaon-hub:view-registered', 'moaon-hub:view-in-transit', 'moaon-hub:view-completed', 'moaon-hub:disconnect','moaon-hub:export-orders-xlsx']);
   for(const channel of ['moaon-hub:preview-labels','moaon-hub:export-selected-csv']){
     await assert.rejects(handlers.get(channel)({sender:{},senderFrame:null},['HR-C24-1234ABCD']),/Untrusted renderer/);
     for(const args of [[],[[]],[['bad']],[['HR-C24-1234ABCD','HR-C24-1234ABCD']],[['HR-C24-1234ABCD'],'evil.csv']])await assert.rejects(handlers.get(channel)(trusted,...args),/Invalid document/);
@@ -1272,6 +1273,11 @@ await assert.rejects(handlers.get('moaon-hub:preview-stock-receipts')({sender:{}
   for(const args of [[],[{operation:'LIST',url:'evil'}],[{operation:'LIST'},'extra']])await assert.rejects(handlers.get('moaon-hub:insight-ai')(trusted,...args),/Invalid analysis AI request/);
   await assert.rejects(handlers.get('moaon-hub:insight-ai')({sender:{},senderFrame:null},{operation:'LIST'}),/Invalid analysis AI request/);
   await assert.rejects(handlers.get('moaon-hub:cancel-insight-ai')(trusted,'extra'),/Arguments are not allowed/);
+  assert.equal((await handlers.get('moaon-hub:market-ai')(trusted,{operation:'CONFIG'})).operation,'CONFIG');
+  assert.equal((await handlers.get('moaon-hub:cancel-market-ai')(trusted)).status,'CANCELLED');
+  for(const args of [[],[{operation:'CONFIG',url:'evil'}],[{operation:'CONFIG'},'extra']])await assert.rejects(handlers.get('moaon-hub:market-ai')(trusted,...args),/Invalid market AI request/);
+  await assert.rejects(handlers.get('moaon-hub:market-ai')({sender:{},senderFrame:null},{operation:'CONFIG'}),/Invalid market AI request/);
+  await assert.rejects(handlers.get('moaon-hub:cancel-market-ai')(trusted,'extra'),/Arguments are not allowed/);
   assert.equal((await handlers.get('moaon-hub:read-insights')(trusted)).status,'READY');
   await assert.rejects(handlers.get('moaon-hub:read-insights')(trusted,'other'),/Arguments are not allowed/);
   await assert.rejects(handlers.get('moaon-hub:read-insights')({sender:{},senderFrame:null}),/Untrusted renderer/);
@@ -1332,7 +1338,7 @@ test('preload exposes only a frozen moaonHub bridge with fixed no-argument chann
   assert.deepEqual([...exposed.keys()], ['moaonHub']);
   const bridge = exposed.get('moaonHub');
   assert.equal(Object.isFrozen(bridge), true);
-assert.deepEqual(Object.keys(bridge), ['updatePromptVisible', 'testTeamNotification','teamCommand','connectionCommand','onTeamOpen','onBackgroundOpen','readCredentialMetadata','saveServerCredential','saveApiDraft','saveOwnedApiDraft','listApiDrafts','removeApiDraft','collectOrders','checkOrderCollection','checkOrderFreshness','onWindowRestored','onActionReview','answerReview','onShippingProgress','readTracking','refreshTracking','readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','readFinance','readStock','saveStock','readInventory','readCs','readInsights','insightAi','cancelInsightAi', 'keywordBid','readSettlement','readTodayCalendar','deleteCalendarEntry','createCalendarEntry','copyEventText','readEventPerformance','readCalendarMonth','listBusinesses','appInfo','updateState','checkUpdate','downloadUpdate','restartForUpdate','inspectPrinters','previewLabel','previewLabels','previewStockReceipts','previewWorklist','exportSelectedCsv','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'setOrderFilters', 'resetOrderFilters','applyOrderSearch','exportOrdersXlsx', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
+assert.deepEqual(Object.keys(bridge), ['updatePromptVisible', 'testTeamNotification','teamCommand','connectionCommand','onTeamOpen','onBackgroundOpen','readCredentialMetadata','saveServerCredential','saveApiDraft','saveOwnedApiDraft','listApiDrafts','removeApiDraft','collectOrders','checkOrderCollection','checkOrderFreshness','onWindowRestored','onActionReview','answerReview','onShippingProgress','readTracking','refreshTracking','readServerShippingHistory','findOrder','restoreShippingHistory','readDelivery','readOverview','readFinance','readStock','saveStock','readInventory','readCs','readInsights','insightAi','cancelInsightAi','marketAi','cancelMarketAi', 'keywordBid','readSettlement','readTodayCalendar','deleteCalendarEntry','createCalendarEntry','copyEventText','readEventPerformance','readCalendarMonth','listBusinesses','appInfo','updateState','checkUpdate','downloadUpdate','restartForUpdate','inspectPrinters','previewLabel','previewLabels','previewStockReceipts','previewWorklist','exportSelectedCsv','issueShipment','issueAndRegister','checkShipment','confirmShipmentReview', 'connect', 'refresh', 'recheckPage', 'nextPage', 'previousPage', 'viewActive', 'viewChannel', 'setOrderFilters', 'resetOrderFilters','applyOrderSearch','exportOrdersXlsx', 'registerInvoices', 'viewRegistered', 'viewInTransit', 'viewCompleted', 'disconnect']);
   let restored=0;assert.throws(()=>bridge.onWindowRestored('bad'),/Invalid restore listener/);const unsubscribe=bridge.onWindowRestored(()=>restored++);listeners.get('moaon-hub:window-restored')({private:'event'},'ignored');assert.equal(restored,1);unsubscribe();assert.equal(listeners.has('moaon-hub:window-restored'),false);
   await bridge.listBusinesses('ignored');
   await bridge.readFinance('ignored');
@@ -1837,4 +1843,26 @@ test('analysis AI cancellation removes live permit and invalid commands never ca
  let calls=0;const {connection}=makeConnection(makeRemoteSession(async()=>{calls++;return new Promise(()=>{});}));
  assert.equal((await connection.insightAi({operation:'LIST',provider:'CLOVA'})).status,'INVALID_REQUEST');assert.equal(calls,0);
  const pending=connection.insightAi({operation:'LIST'});connection.cancelInsightAi();assert.equal((await pending).status,'CANCELLED');assert.equal(calls,1);
+});
+
+test('market AI connection prevents duplicate active call and drops result on disconnect',async()=>{
+ const endpoint=require('../market-ai-transport.cjs').MARKET_AI_URL;let calls=0,release,started;const entered=new Promise(r=>started=r);
+ const remote=makeRemoteSession(async(url)=>{if(url===endpoint){calls++;started();return new Promise(r=>release=r);}return Response.json(makePagePayload());});
+ const {connection}=makeConnection(remote);const pending=connection.marketAi({operation:'CONFIG'});await entered;
+ assert.equal((await connection.marketAi({operation:'CONFIG'})).status,'PENDING');assert.equal(calls,1);
+ await connection.disconnect();assert.equal((await pending).status,'CANCELLED');
+ release(Response.json({ok:true,configuration:{provider:'GEMINI_FREE',model:'gemini-2.5-flash-lite',enabled:false,ready:false,status:'DISABLED',freeConfirmedAt:null,dailyLimit:20},runs:[]}));
+ let blocked;remote.beforeRequestHandler({url:endpoint,method:'GET',webContentsId:0},result=>blocked=result.cancel);assert.equal(blocked,true);
+});
+test('market AI cancellation removes live permit and invalid commands never call network',async()=>{
+ let calls=0;const {connection}=makeConnection(makeRemoteSession(async()=>{calls++;return new Promise(()=>{});}));
+ assert.equal((await connection.marketAi({operation:'CONFIG',provider:'CLOVA'})).status,'INVALID_REQUEST');assert.equal(calls,0);
+ const pending=connection.marketAi({operation:'CONFIG'});connection.cancelMarketAi();assert.equal((await pending).status,'CANCELLED');assert.equal(calls,1);
+});
+
+test('closing child windows cancels market AI and removes its permit',async()=>{
+ const endpoint=require('../market-ai-transport.cjs').MARKET_AI_URL;
+ const remote=makeRemoteSession(async()=>new Promise(()=>{}));const {connection}=makeConnection(remote);
+ const pending=connection.marketAi({operation:'CONFIG'});connection.closeChildren();assert.equal((await pending).status,'CANCELLED');
+ let blocked;remote.beforeRequestHandler({url:endpoint,method:'GET',webContentsId:0},result=>blocked=result.cancel);assert.equal(blocked,true);
 });

@@ -1,6 +1,6 @@
 # P4-160 분석 AI Implementation Plan
 
-실행 현황: 160A 구현·운영 배포 및 설치 검증 완료(웹 1.62.0 / 앱 0.144.0). 아래는 최초 개발 체크리스트이며 최종 구현 차이와 실제 검증 증거는 [실행 보고서](./2026-09-14-moaon-p4-160-analysis-ai-report.md)를 기준으로 한다. 실제 CLOVA 계정 호출은 미설정으로 OFF, Task 8 Gemini는 별도 후속이다.
+실행 현황: 160A 구현·운영 배포 및 설치 검증 완료(웹 1.62.0 / 앱 0.144.0). 아래는 최초 개발 체크리스트이며 최종 구현 차이와 실제 검증 증거는 [실행 보고서](./2026-09-14-moaon-p4-160-analysis-ai-report.md)를 기준으로 한다. 실제 CLOVA 계정 호출은 미설정으로 OFF. Task 8 Gemini 160B도 구현했으며 실제 공급자 호출은 OFF다. [160B 실행 보고](./2026-09-14-moaon-p4-160b-public-market-ai-report.md).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. 이번 계획은 현재 작업에서 순서대로 실행하며 별도 에이전트 사용을 전제하지 않는다.
 
@@ -200,17 +200,17 @@ Files: gemini-client.js, lib/ai/public-market-snapshot.js, test/gemini-public-an
 
 Interfaces: buildPublicMarketSnapshot({approvedPublicSources})는 dataClass=PUBLIC_MARKET, sources[{id,url,observedAt,kind}], relative metrics만 반환. 내부 snapshot/자유 사용자 질문 인자를 받지 않는다.
 
-- [ ] 내부자료 유출 방지부터 시험한다.
+- [x] 내부자료 유출 방지부터 시험한다.
 
 ```js
 assert.throws(()=>buildPublicMarketSnapshot({approvedPublicSources:[{kind:'ORDER_LEDGER',data:{revenue:1000}}]}),{code:'PUBLIC_SOURCE_REQUIRED'});
 assert.throws(()=>assertProviderAllowed({provider:'GEMINI_FREE',dataClass:'INTERNAL_AGGREGATE',enabled:true,ready:true}),{code:'DATA_POLICY_BLOCKED'});
 ```
 
-- [ ] Gemini 계정의 무료 tier/model/쿼터 확인 결과를 readiness로 보관. 무료 가능 여부가 불분명하면 OFF. 유료 grounding·자동 tier전환·다른 유료 엔진 fallback을 등록하지 않는다.
-- [ ] ‘검색 관심 추이 설명’, ‘시즌 기획 참고점’ 정해진 두 동작만 우선 제공. 동일 공개 snapshot 질문은 캐시 재사용. 실제 검색량/경쟁사 매출로 변환하지 않는다.
-- [ ] quota429/정책/키/형식 오류→지정된 상태 반환. 내부 대화·비공개 수치가 prompt에 들어가지 않는 outgoing request 검사.
-- [ ] A와 별도 공개자료 평가/설치/배포 후 시장자료 카드로 노출. 전체 AI 기능이 Gemini 무료 하나에 의존하도록 바꾸지 않는다.
+- [x] Gemini 계정의 무료 tier/model/쿼터 확인 결과를 readiness로 보관. 무료 가능 여부가 불분명하면 OFF. 유료 grounding·자동 tier전환·다른 유료 엔진 fallback을 등록하지 않는다.
+- [x] ‘검색 관심 추이 설명’, ‘시즌 기획 참고점’ 정해진 두 동작만 우선 제공. 동일 공개 snapshot 질문은 캐시 재사용. 실제 검색량/경쟁사 매출로 변환하지 않는다.
+- [x] quota429/정책/키/형식 오류→지정된 상태 반환. 내부 대화·비공개 수치가 prompt에 들어가지 않는 outgoing request 검사.
+- [x] A와 별도 공개자료 평가/설치/배포 후 시장자료 카드로 노출. 전체 AI 기능이 Gemini 무료 하나에 의존하도록 바꾸지 않는다.
 
 ## 계획 자체 검토
 

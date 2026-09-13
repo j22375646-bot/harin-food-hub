@@ -30,6 +30,8 @@ const {createSettlementTransport,settlementUrl}=require('./settlement-transport.
 const {createInsightsTransport,INSIGHTS_URL}=require('./insights-transport.cjs');
 const {createInsightAiTransport,INSIGHT_AI_URL,METHODS:INSIGHT_AI_METHODS}=require('./insight-ai-transport.cjs');
 const {validCommand:validInsightAiCommand,empty:emptyInsightAi}=require('./insight-ai-contract.cjs');
+const {createMarketAiTransport,MARKET_AI_URL,METHODS:MARKET_AI_METHODS}=require('./market-ai-transport.cjs');
+const {validCommand:validMarketAiCommand,empty:emptyMarketAi}=require('./market-ai-contract.cjs');
 const {createCsTransport,CS_URL}=require('./cs-transport.cjs');
 const {createInventoryTransport,INVENTORY_URL}=require('./inventory-transport.cjs');
 const {createOrderCollection}=require('./order-collection.cjs');
@@ -312,7 +314,7 @@ function createHubConnection({
   let cleanupFailed = initialCleanupPending;
   let generation = 0;
   let credentialPermit=null;
-  function invalidateGeneration(){generation+=1;credentialTransport.cancel();credentialPermit=null;cancelInsightAi();}
+  function invalidateGeneration(){generation+=1;credentialTransport.cancel();credentialPermit=null;cancelInsightAi();cancelMarketAi();}
   const credentialTransport=createCredentialTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options),authorize:options=>listBusinesses(options),permit:value=>{credentialPermit=value;},blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive()),timeoutMs:Math.min(timeoutMs*2,30000)});
   const readCredentialMetadata=value=>credentialTransport.read(value),saveServerCredential=value=>credentialTransport.save(value);
   let pageCursor = null;
@@ -528,6 +530,7 @@ function createHubConnection({
   let activeInventory=null,inventoryController=null,inventoryPermit=null;
   let activeInsights=null,insightsController=null,insightsPermit=null;
   let activeInsightAi=null,insightAiController=null,insightAiPermit=null;
+  let activeMarketAi=null,marketAiController=null,marketAiPermit=null;
   let activeBid=null,bidPermit=null;
   function keywordBid(input){
     const adapter=require('./keyword-bids.cjs');
@@ -749,6 +752,18 @@ function createHubConnection({
     let tracked;tracked=transport(command,{signal:controller.signal}).then(result=>expected===generation&&!controller.signal.aborted?result:emptyInsightAi('CANCELLED')).finally(()=>{if(insightAiController===controller){insightAiController=null;insightAiPermit=null;}if(activeInsightAi===tracked)activeInsightAi=null;});
     activeInsightAi=tracked;return tracked;
   }
+  function cancelMarketAi(){marketAiController?.abort();marketAiController=null;marketAiPermit=null;activeMarketAi=null;return {ok:true,status:'CANCELLED'};}
+  function marketAi(command){
+    if(!validMarketAiCommand(command))return Promise.resolve(emptyMarketAi('INVALID_REQUEST'));
+    if(disconnecting||cleanupFailed)return Promise.resolve(emptyMarketAi('DISCONNECTED'));
+    if(isLoginWindowActive())return Promise.resolve(emptyMarketAi('LOGIN_REQUIRED'));
+    if(activeMarketAi)return Promise.resolve(emptyMarketAi('PENDING'));
+    const expected=generation,controller=new AbortController();marketAiController=controller;
+    marketAiPermit={url:MARKET_AI_URL,method:MARKET_AI_METHODS[command.operation]};
+    const transport=createMarketAiTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options)});
+    let tracked;tracked=transport(command,{signal:controller.signal}).then(result=>expected===generation&&!controller.signal.aborted?result:emptyMarketAi('CANCELLED')).finally(()=>{if(marketAiController===controller){marketAiController=null;marketAiPermit=null;}if(activeMarketAi===tracked)activeMarketAi=null;});
+    activeMarketAi=tracked;return tracked;
+  }
   function readInsights(){
     const empty=status=>({status,channel:null,reports:[],caveats:[],generatedAt:null});
     if(disconnecting||cleanupFailed)return Promise.resolve(empty('DISCONNECTED'));
@@ -838,7 +853,7 @@ function createHubConnection({
             monthPermit,performancePermit,calendarWritePermit,
             financePermit,
             settlementPermit,
-            insightsPermit,insightAiPermit,
+            insightsPermit,insightAiPermit,marketAiPermit,
             bidPermit,
             csPermit,inventoryPermit,stockPermit,teamPermit,keyPermit,
             trackingRequestMethod,
@@ -1800,7 +1815,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-return Object.freeze({ insightAi,cancelInsightAi,readEventPerformance, readBackgroundOrders, collectBackgroundOrders, collectBackgroundCs, connectionCommand, teamCommand, keywordBid, deleteCalendarEntry, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+return Object.freeze({ marketAi,cancelMarketAi,insightAi,cancelInsightAi,readEventPerformance, readBackgroundOrders, collectBackgroundOrders, collectBackgroundCs, connectionCommand, teamCommand, keywordBid, deleteCalendarEntry, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1852,6 +1867,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     return connection.setOrderFilters(filters);
   });
   ipcMain.handle('moaon-hub:insight-ai',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!validInsightAiCommand(args[0]))throw Error('Invalid analysis AI request');return connection.insightAi(args[0]);});
+  ipcMain.handle('moaon-hub:market-ai',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!validMarketAiCommand(args[0]))throw Error('Invalid market AI request');return connection.marketAi(args[0]);});
   ipcMain.handle('moaon-hub:connection-command',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!require('./connections-transport.cjs').validInput(args[0]))throw Error('Invalid connection request');return connection.connectionCommand(args[0]);});
   ipcMain.handle('moaon-hub:team-command',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!require('./team-contract.cjs').validInput(args[0]))throw Error('Invalid team request');return connection.teamCommand(args[0]);});
   ipcMain.handle('moaon-hub:apply-order-search',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');if(args.length!==1||!validSearch(args[0]))throw Error('Invalid search arguments');return connection.applyOrderSearch(args[0]);});
@@ -1892,6 +1908,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     ['moaon-hub:read-settlement', 'readSettlement'],
     ['moaon-hub:read-insights', 'readInsights'],
     ['moaon-hub:cancel-insight-ai','cancelInsightAi'],
+    ['moaon-hub:cancel-market-ai','cancelMarketAi'],
     ['moaon-hub:keyword-bid','keywordBid'],
     ['moaon-hub:preview-stock-receipts', 'previewStockReceipts'],
     ['moaon-hub:read-stock', 'readStock'],
