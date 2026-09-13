@@ -60,4 +60,7 @@
 - 패키지 D:/GPT/moaon/desktop/dist/distribution-20260913-115650-677. ASAR 93개 소스 대조 PASS.
 - D:/GPT/Apps/Moaon/releases/0.137.0 설치 및 바탕화면 링크 갱신. 설치 위치 ASAR로 가시 격리 Electron 동일 행사 저장/수정/삭제 및 밝음·다크/크기 시험 PASS. 실제 사용자 세션과 구분한다.
 - 설치파일 114159415 bytes, SHA256 6943f8942b0b69f27a762d65f113415dec6f49fe2ff30ccb06f442f4619d3a4f. Ed25519 서명 완료. Windows Authenticode 유료 서명과 구분한다.
-- 공개 서명 업데이트 게시/다운로드 검증은 다음 기록에서 확정한다.
+- 기능 커밋 f2de6ce 푸시. 공개 moaon-stable 0.137.0 게시 완료.
+- 설치본으로 0.136.0을 인식하는 격리 앱에서 공개 파일 다운로드 및 Ed25519 서명 검증 READY PASS. 0.137.0 인식 앱은 연속 두 번 CURRENT PASS. 시험에서 설치 프로그램을 실행하거나 사용자 앱의 재시작을 강제하지 않았다.
+- 로그: D:/GPT/tmp/p4151-publish.log, p4151-live-update.log, p4151-current-update.log, p4151-ui-installed.log. 버전 변경 이력 시험 1/1 PASS.
+- [0.137.0 설치파일](https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable/Moaon-0.137.0-Setup.exe)
