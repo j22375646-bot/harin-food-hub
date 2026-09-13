@@ -22,6 +22,10 @@
 
 - 이전 P4-153의 Vercel 인증 대기 해소. 웹 1.60.0 운영 배포 dpl_Dh15xvXq4bDg2pgPiNg8UEVf8aDQ READY, 운영 /login HTTP 200 / X-Harin-Version 1.60.0 확인.
 - 설치파일 desktop/dist/distribution-20260913-234817-460/Moaon-0.140.0-Setup.exe, 114177637 bytes. SHA256 1E6AFCEE7504C09D347D2F89A807AE990A82C5872549BC1E5B8DEC2A5936A001. 기존 Ed25519 키 서명; Windows Authenticode 인증서는 사용하지 않는다.
-- 공개 업데이트 검증 결과는 아래 최종 기록에 추가한다.
+- 설치 위치 ASAR의 가시 격리 UI 20명령 PASS. 오른쪽 보조 모니터에서 실행하고 실제 로그인 프로필과 운영 자료는 사용하지 않았다.
+- 기능 커밋 c13b84c 푸시. GitHub moaon-stable 0.140.0 공개 게시 완료. 0.138.2 인식 격리 앱의 공개 다운로드·Ed25519 검증 READY PASS, 0.140.0 인식 앱 CURRENT 연속 두 번 PASS. 설치 프로그램 실행은 인수 시험에서 제외했다.
+- 바탕화면 바로가기 및 current.json은 D:/GPT/Apps/Moaon/releases/0.140.0으로 갱신, 바로가기 대상 직접 확인. 사용자 실행 중 프로세스는 0.138.2이며 강제 종료하지 않았다. 사용자 앱 업데이트 적용 후 실제 계정 화면 전환 확인은 별도다.
+- 공개 인수 로그: D:/GPT/tmp/p4154-publish.log, p4154-live-update.log, p4154-current-update.log.
+- [0.140.0 설치파일](https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable/Moaon-0.140.0-Setup.exe)
 
 전체 계획: [마스터 계획](./2026-09-07-multi-business-desktop-master-plan.md)
