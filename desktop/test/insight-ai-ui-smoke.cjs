@@ -1,0 +1,38 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{_electron}=require('playwright');
+(async()=>{
+ fs.mkdirSync('D:/GPT/tmp',{recursive:true});
+ const folder=fs.mkdtempSync('D:/GPT/tmp/insight-ai-ui-'),main=path.join(folder,'main.cjs');
+ fs.writeFileSync(main,`const {app,BrowserWindow,screen}=require('electron');app.setPath('userData',${JSON.stringify(path.join(folder,'profile'))});app.whenReady().then(()=>{const w=new BrowserWindow({width:1040,height:900,show:false,webPreferences:{contextIsolation:true}});const other=screen.getAllDisplays().filter(d=>d.id!==screen.getPrimaryDisplay().id).sort((a,b)=>b.bounds.x-a.bounds.x)[0];if(other){w.setPosition(other.workArea.x,other.workArea.y);w.showInactive();}w.loadURL('data:text/html,<h1>가상자료 · 운영 변경 없음</h1><section id="insight-ai" class="insight-ai"></section>');});`);
+ const app=await _electron.launch({executablePath:require('electron'),args:[main],env:{...process.env,ELECTRON_USER_DATA_DIR:path.join(folder,'profile')}});
+ try{const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');
+  await page.addStyleTag({content:':root{--surface:#fff;--surface-soft:#f8f6fc;--blue-soft:#f0eaff;--blue:#7356aa;--ink:#272333;--muted:#625b70;--line-strong:#d4cce2}body{font-family:Arial,sans-serif;margin:20px}'+fs.readFileSync(path.resolve(__dirname,'../ui/insight-ai.css'),'utf8')});
+  await page.evaluate(()=>{window.calls=[];window.cancelCount=0;window.pending=null;window.moaonInsights={closeDetail(){},showReport(id){window.evidence=id;}};window.moaonHub={cancelInsightAi:async()=>{window.cancelCount++;return {ok:true};},insightAi:async input=>{window.calls.push(input);if(input.operation==='LIST'){if(window.holdList)return new Promise(resolve=>{window.pendingList=resolve;});return {ok:true,configuration:{enabled:true,ready:true,status:'READY'},runs:[]};}if(input.operation==='DELETE')return {ok:true,deleted:true};return new Promise(resolve=>{window.pending=resolve;});}};});
+  await page.addScriptTag({content:fs.readFileSync(path.resolve(__dirname,'../ui/insight-ai.js'),'utf8')});
+  await page.evaluate(()=>window.moaonInsightAI.setReports([{id:'r1',title:'가상 주간 보고서',periodStart:'2026-09-01',periodEnd:'2026-09-07'},{id:'r2',title:'가상 비교 보고서',periodStart:'2026-08-25',periodEnd:'2026-08-31'}]));
+  await page.waitForFunction(()=>window.calls.length===1);assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.operation==='GENERATE').length),0);
+  await page.evaluate(()=>{document.querySelector('[data-ai-generate]').click();document.querySelector('[data-ai-generate]').click();});assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.operation==='GENERATE').length),1);
+  const run={id:'12345678-1234-4234-8234-123456789abc',status:'READY',dataState:'PARTIAL',turn:1,reportIds:['r1'],period:{start:'2026-09-01',end:'2026-09-07'},createdAt:'2026-09-14T00:00:00Z',provider:'CLOVA',model:'HCX-007',cards:[{findingId:'revenue',observation:'광고 전환매출 120,000원',hypothesis:'클릭 변화는 추가 확인이 필요합니다.',nextCheck:'보고서 표본을 확인하세요.',evidenceRefs:['r1']}],answer:'가상 분석 결과',exclusions:['원천 수집 시각 확인 필요'],nextChecks:[]};
+  run.status='SUCCEEDED';run.usage={promptTokens:120,completionTokens:50};run.snapshotHash='test-hash';
+  await page.evaluate(run=>window.pending({ok:true,run}),run);await page.waitForFunction(()=>document.querySelector('#insight-ai').textContent.includes('가상 분석 결과'));
+  assert.match(await page.locator('#insight-ai').innerText(),/분석 초안을 만들었어요/);assert.match(await page.locator('#insight-ai').innerText(),/입력 120 \/ 출력 50/);assert.equal(await page.locator('.insight-ai-picker').evaluate(e=>e.open),false);
+  await page.evaluate(()=>{window.moaonInsightAI.openQuestion();document.querySelector('[data-ai-question]').value='이전 자료 비공개 초안';window.moaonInsightAI.setScope({reportIds:['r2']});window.moaonInsightAI.openQuestion();});assert.equal(await page.locator('[data-ai-question]').inputValue(),'');
+  await page.evaluate(()=>window.moaonInsightAI.setScope({reportIds:['r1']}));await page.evaluate(()=>document.querySelector('[data-ai-generate]').click());await page.evaluate(run=>window.pending({ok:true,run}),run);
+  await page.evaluate(()=>window.moaonInsightAI.openQuestion());assert.equal(await page.locator('[data-ai-question]').inputValue(),'');
+  for(const width of [700,1040,1440]){await app.evaluate(({BrowserWindow},width)=>BrowserWindow.getAllWindows()[0].setContentSize(width,900),width);await page.waitForFunction(w=>innerWidth===w,width);assert.equal(await page.locator('#insight-ai').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true);assert.equal(await page.locator('[data-ai-panel]').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true);}
+  await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.locator('[data-ai-panel]').evaluate(e=>getComputedStyle(e).animationName),'none');
+  await page.evaluate(()=>{document.querySelector('[data-ai-question]').value='선택 자료 질문';document.querySelector('[data-ai-question]').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));});assert.equal(await page.locator('[data-ai-question]').count(),0);
+  await page.evaluate(()=>document.querySelector('[data-ai-evidence]').click());assert.equal(await page.evaluate(()=>window.evidence),'r1');
+  await page.evaluate(()=>{document.documentElement.style.setProperty('--surface','#211c2b');document.documentElement.style.setProperty('--ink','#eee8f6');document.documentElement.style.setProperty('--blue-soft','#383047');});assert.equal(await page.locator('#insight-ai').evaluate(e=>e.scrollWidth<=e.clientWidth+1),true);
+  await page.evaluate(()=>document.querySelector('[data-ai-generate]').click());await page.evaluate(()=>Array.from(document.querySelectorAll('#insight-ai button')).find(b=>b.textContent==='대기 취소').click());await page.evaluate(run=>window.pending({ok:true,run:{...run,answer:'취소 뒤 늦은 결과'}}),run);assert.doesNotMatch(await page.locator('#insight-ai').innerText(),/취소 뒤 늦은 결과/);
+  await page.evaluate(()=>{document.querySelector('[data-ai-generate]').click();window.moaonInsightAI.setScope({reportIds:['r2']});});await page.evaluate(run=>window.pending({ok:true,run:{...run,answer:'다른 범위 늦은 결과'}}),run);assert.doesNotMatch(await page.locator('#insight-ai').innerText(),/다른 범위 늦은 결과/);
+  const beforeList=await page.evaluate(()=>window.calls.filter(c=>c.operation==='GENERATE').length);
+  await page.evaluate(()=>{window.holdList=true;Array.from(document.querySelectorAll('#insight-ai button')).find(b=>b.textContent==='기록 새로 조회').click();document.querySelector('[data-ai-generate]').click();});
+  assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.operation==='GENERATE').length),beforeList);
+  await page.evaluate(()=>window.pendingList({ok:true,configuration:{enabled:true,ready:true,status:'READY'},runs:[]}));
+  await page.waitForFunction(()=>document.querySelector('[data-ai-generate]').disabled===false);
+  assert.equal(await page.evaluate(()=>Array.from(document.querySelectorAll('#insight-ai button')).find(b=>b.textContent==='기록 새로 조회').disabled),false);
+  await page.evaluate(()=>document.querySelector('[data-ai-generate]').click());await page.evaluate(()=>window.moaonInsightAI.clear());await page.evaluate(run=>window.pending({ok:true,run}),run);assert.doesNotMatch(await page.locator('#insight-ai').innerText(),/가상 분석 결과/);assert.ok(await page.evaluate(()=>window.cancelCount)>=3);
+  console.log('PASS: isolated Electron AI manual generation, duplicate lock, evidence, blank drafts, Escape, reduced motion, 700/1040/1440 overflow, stale disconnect result. Visible on secondary display only.');
+ }finally{await app.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

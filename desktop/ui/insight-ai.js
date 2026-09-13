@@ -1,0 +1,83 @@
+'use strict';
+(()=>{
+ const $=id=>document.getElementById(id),el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
+ const root=$('insight-ai');if(!root)return;
+ const messages={DISABLED:'분석 AI 사용이 꺼져 있어요. 기존 보고서는 계속 볼 수 있어요.',SETUP_REQUIRED:'분석 AI 계정과 자료 처리 설정을 확인해야 해요.',BLOCKED:'설명할 자료가 충분하지 않아요. 보고서 근거를 확인해 주세요.',PARTIAL:'일부 자료 확인 필요',STALE:'이전 자료 · 현재 행동 판단 보류',READY:'분석 초안',COMPLETE:'자료 확인 완료',BUDGET_BLOCKED:'설정한 사용 한도에 도달했어요.',QUOTA_BLOCKED:'공급자 사용 한도에 도달했어요. 나중에 다시 시도해 주세요.',TIMEOUT:'응답 시간이 초과됐어요. 사용량 확인 후 다시 시도해 주세요.',INVALID_OUTPUT:'근거 검증을 통과하지 못해 답변을 표시하지 않았어요.',PENDING:'근거에 맞는 설명을 작성하고 있어요…',OUT_OF_SCOPE:'현재 네이버 광고 자료의 범위를 벗어난 질문이에요.',CANCELLED:'화면의 대기를 취소했어요. 이미 시작한 요청에는 사용량이 발생할 수 있어요.',FORBIDDEN:'사업장 접근 권한을 확인해 주세요.',LOGIN_REQUIRED:'사업장에 다시 연결해 주세요.'};
+ let reports=[],ids=[],generation=0,busy=false,run=null,runs=[],configuration=null,questionOpen=false,loaded=false,status='',historyBusy=false;
+ let historyGeneration=0;
+ Object.assign(messages,{SUCCEEDED:'분석 초안을 만들었어요.',SCOPE_BLOCKED:'현재 네이버 광고 자료로는 확인할 수 없는 질문이에요.',QUESTION_PRIVACY_BLOCKED:'개인정보가 포함된 질문은 보낼 수 없어요. 개인정보를 제외하고 다시 질문해 주세요.',ALREADY_PROCESSED:'이미 처리한 요청이에요. 분석 기록을 확인해 주세요.'});
+ const button=(label,action)=>{const b=el('button','',label);b.type='button';b.onclick=action;return b;};
+ const date=v=>typeof v==='string'?v.slice(0,10):'확인 필요';
+ const time=v=>{const d=new Date(v);return v&&!Number.isNaN(d.getTime())?d.toLocaleString('ko-KR'):'확인 필요';};
+ function notice(code){status=messages[code]||'요청을 마치지 못했어요. 연결과 자료 상태를 확인한 뒤 다시 시도해 주세요.';}
+ function cancel(){generation++;busy=false;void window.moaonHub?.cancelInsightAi?.();notice('CANCELLED');render();}
+ function discardDraft(){const input=$('insight-ai-question');if(input)input.value='';}
+ function clear(){if(busy)void window.moaonHub?.cancelInsightAi?.();discardDraft();generation++;historyGeneration++;busy=false;historyBusy=false;reports=[];ids=[];run=null;runs=[];configuration=null;questionOpen=false;loaded=false;status='사업장 연결 후 네이버 저장 보고서를 선택해 주세요.';render();}
+ function setScope({reportIds=[],snapshotHash}={}){
+  const next=[...new Set(reportIds)].filter(id=>reports.some(r=>r.id===id)).slice(0,2);
+  if(JSON.stringify(next)===JSON.stringify(ids)&&(!snapshotHash||snapshotHash===run?.snapshotHash))return;
+  if(busy)void window.moaonHub?.cancelInsightAi?.();discardDraft();generation++;busy=false;ids=next;run=null;questionOpen=false;status='선택한 저장 보고서만 설명합니다. 새 질문은 이 자료에서 시작해요.';render();
+ }
+ function setReports(value){
+  if(!Array.isArray(value)){if(reports.length||run||loaded)clear();return;}
+  const old=JSON.stringify(reports.map(r=>[r.id,r.periodStart,r.periodEnd,r.createdAt]));
+  reports=value.slice(0,20);
+  if(old!==JSON.stringify(reports.map(r=>[r.id,r.periodStart,r.periodEnd,r.createdAt]))){if(busy)void window.moaonHub?.cancelInsightAi?.();discardDraft();generation++;busy=false;run=null;questionOpen=false;ids=ids.filter(id=>reports.some(r=>r.id===id));if(!ids.length&&reports.length)ids=[reports[0].id];}
+  render();if(!loaded&&reports.length){loaded=true;void loadHistory();}
+ }
+ function closeQuestion(){questionOpen=false;render();}
+ function openQuestion(){window.moaonInsights?.closeDetail(false);questionOpen=true;render();$('insight-ai-question')?.focus({preventScroll:true});}
+ async function loadHistory(){
+  if(historyBusy||!window.moaonHub?.insightAi)return;const expected=++historyGeneration;historyBusy=true;render();
+  try{const response=await window.moaonHub.insightAi({operation:'LIST'});if(expected!==historyGeneration)return;if(response?.ok){const received=Array.isArray(response.runs)?response.runs:[];runs=run?.id?[run,...received.filter(r=>r.id!==run.id)]:received;configuration=response.configuration||null;if(!busy&&configuration?.status&&(!run||['DISABLED','SETUP_REQUIRED'].includes(configuration.status)))notice(configuration.status);}else if(!busy)notice(response?.status);}
+  catch{if(expected===historyGeneration&&!busy)notice('UNAVAILABLE');}finally{if(expected===historyGeneration){historyBusy=false;render();}}
+ }
+ async function generate(kind){
+  if(busy||historyBusy||!ids.length||!window.moaonHub?.insightAi)return;
+  const question=kind==='QUESTION'?$('insight-ai-question').value.trim():'';
+  if(kind==='QUESTION'&&(!question||Array.from(question).length>500||(run?.turn||0)>=6))return;
+  const bytes=crypto.getRandomValues(new Uint8Array(16));bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;
+  const hex=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+  const input={requestId:[hex.slice(0,8),hex.slice(8,12),hex.slice(12,16),hex.slice(16,20),hex.slice(20)].join('-'),reportIds:[...ids],question,kind};
+  if(kind==='QUESTION'&&run?.id)input.parentRunId=run.id;
+  const expected=++generation;busy=true;notice('PENDING');render();
+  try{const response=await window.moaonHub.insightAi({operation:'GENERATE',input});if(expected!==generation)return;
+   if(response?.ok&&response.run){run=response.run;notice(run.status);if(run.id)runs=[run,...runs.filter(r=>r.id!==run.id)].slice(0,50);}
+   else notice(response?.status);
+  }catch{if(expected===generation)notice('UNAVAILABLE');}finally{if(expected===generation){busy=false;render();}}
+ }
+ async function remove(id){
+  if(busy)return;const expected=++generation;busy=true;render();
+  try{const response=await window.moaonHub.insightAi({operation:'DELETE',runId:id});if(expected!==generation)return;if(response?.ok&&response.deleted){runs=runs.filter(r=>r.id!==id);if(run?.id===id){run=null;questionOpen=false;}status='분석 기록을 삭제했어요.';}else notice(response?.status);}
+  catch{if(expected===generation)notice('UNAVAILABLE');}finally{if(expected===generation){busy=false;render();}}
+ }
+ function render(){
+  const draft=$('insight-ai-question')?.value||'';
+  root.replaceChildren();root.setAttribute('aria-busy',String(busy));
+  const heading=el('header','insight-ai-heading');heading.append(el('div','',undefined));heading.firstChild.append(el('h2','','선택한 보고서 살펴보기'),el('p','','네이버 광고 · 저장 보고서에 근거한 AI 설명'));
+  const badge=el('span','insight-ai-badge','AI 초안');heading.append(badge);root.append(heading);
+  const chooser=el('details','insight-ai-picker'),summary=el('summary','',`${ids.length} / 2개 선택 · ${ids.map(id=>{const r=reports.find(r=>r.id===id);return `${date(r?.periodStart)} — ${date(r?.periodEnd)}`;}).join(' / ')||'보고서 선택'}`);chooser.append(summary);
+  const choices=el('fieldset','insight-ai-scope');choices.append(el('legend','','분석할 보고서 · 최대 두 개'));
+  for(const report of reports){const label=el('label','insight-ai-choice');const input=el('input');input.type='checkbox';input.checked=ids.includes(report.id);input.disabled=busy||!input.checked&&ids.length>=2;input.onchange=()=>setScope({reportIds:input.checked?[...ids,report.id]:ids.filter(id=>id!==report.id)});label.append(input,el('span','',`${report.title} · ${date(report.periodStart)} — ${date(report.periodEnd)}`));choices.append(label);}
+  if(!reports.length)choices.append(el('p','','저장된 보고서를 조회하면 선택할 수 있어요.'));chooser.append(choices);root.append(chooser);
+  const actions=el('div','insight-ai-actions'),go=button('선택한 자료 설명하기',()=>generate('SUMMARY'));
+  go.disabled=busy||historyBusy||!ids.length||configuration?.enabled===false||configuration?.ready===false;go.dataset.aiGenerate='';
+  const ask=button('이 자료에 질문하기',openQuestion);ask.disabled=busy||!ids.length;actions.append(go,ask);if(busy)actions.append(button('대기 취소',cancel));root.append(actions);
+  const state=el('p','insight-ai-status',status||'버튼을 누르면 분석을 생성해요. 페이지 조회에는 생성 요청이 발생하지 않아요.');state.setAttribute('role','status');root.append(state);
+  if(run){
+   const meta=el('p','insight-ai-meta',`${messages[run.dataState]||run.dataState||'자료 확인 필요'} · ${date(run.period?.start)} — ${date(run.period?.end)} · ${run.provider||'엔진 확인 필요'} ${run.model||''} · 생성 ${time(run.createdAt)}${run.reused?' · 저장 결과 재사용':''}`);root.append(meta,el('p','insight-ai-meta',`원천 수집 시각 ${time(run.sourceAsOf)} · 전체 주문 매출과 다른 네이버 광고 자료`));
+   const cards=el('div','insight-ai-cards');for(const c of (run.cards||[]).slice(0,5)){const card=el('article','insight-ai-card');card.append(el('h3','',c.observation),el('p','',c.hypothesis),el('strong','','다음 확인'),el('p','',c.nextCheck));const evidence=el('div','insight-ai-evidence');for(const id of c.evidenceRefs||[]){const b=button('보고서 근거 보기',()=>{closeQuestion();window.moaonInsights?.showReport(id);});b.dataset.aiEvidence=id;evidence.append(b);}card.append(evidence);cards.append(card);}root.append(cards);
+   if(run.answer)root.append(el('p','insight-ai-answer',run.answer));
+   for(const check of run.nextChecks||[])root.append(el('p','',check));
+   const caveats=el('ul','insight-ai-caveats');for(const text of run.exclusions||[])caveats.append(el('li','',text));root.append(caveats);
+   const usage=run.usage;root.append(el('p','insight-ai-meta',usage?`사용량 · 입력 ${usage.promptTokens??'확인 필요'} / 출력 ${usage.completionTokens??'확인 필요'} 토큰`:'사용량 확인 필요'));
+   const chain=[];let prior=runs.find(r=>r.id===run.parentRunId);while(prior&&chain.length<5&&!chain.some(r=>r.id===prior.id)&&prior.snapshotHash===run.snapshotHash&&JSON.stringify(prior.reportIds)===JSON.stringify(run.reportIds)){chain.unshift(prior);prior=runs.find(r=>r.id===prior.parentRunId);}
+   if(chain.length){const conversation=el('details','insight-ai-history');conversation.append(el('summary','','이 자료의 이전 대화'));for(const turn of chain){if(turn.question)conversation.append(el('h3','',turn.question));if(turn.answer)conversation.append(el('p','',turn.answer));}root.append(conversation);}
+  }
+  if(questionOpen){const panel=el('section','insight-ai-question-panel');panel.dataset.aiPanel='';panel.append(el('h3','','이 자료에 질문하기'),button('질문 닫기',closeQuestion));const label=el('label','','질문 · 최대 500자');label.htmlFor='insight-ai-question';const input=el('textarea');input.id='insight-ai-question';input.dataset.aiQuestion='';input.maxLength=500;input.rows=3;input.value=busy?'':draft;input.disabled=busy;panel.append(label,input,el('p','',`같은 자료에서 최대 여섯 턴 · 현재 ${run?.turn||0}턴`));const send=button('질문 보내기',()=>generate('QUESTION'));send.disabled=busy||historyBusy||(run?.turn||0)>=6||configuration?.enabled===false||configuration?.ready===false;panel.append(send);root.append(panel);}
+  const history=el('details','insight-ai-history');history.append(el('summary','','분석 기록'));const reload=button('기록 새로 조회',loadHistory);reload.disabled=busy||historyBusy||!reports.length;history.append(reload);
+  for(const item of runs){const row=el('div','insight-ai-history-row'),open=button(`${date(item.period?.start)} — ${date(item.period?.end)} · ${time(item.createdAt)} · ${messages[item.status]||item.status}`,()=>{discardDraft();generation++;busy=false;run=item;ids=(item.reportIds||[]).filter(id=>reports.some(r=>r.id===id));questionOpen=false;notice(item.status);render();});open.disabled=busy;row.append(open);const del=button('기록 삭제',()=>remove(item.id));del.disabled=busy;row.append(del);history.append(row);}if(!runs.length)history.append(el('p','','저장된 분석 기록이 없어요.'));root.append(history);
+ }
+ window.moaonInsightAI=Object.freeze({setScope,setReports,clear,openQuestion,closeQuestion});
+ root.addEventListener('keydown',event=>{if(event.key==='Escape'&&questionOpen){event.preventDefault();closeQuestion();}});render();
+})();

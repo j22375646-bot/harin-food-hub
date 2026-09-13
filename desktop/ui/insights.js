@@ -10,6 +10,7 @@
   document.querySelectorAll('[data-insights-report]').forEach(button=>{const active=open&&button.dataset.insightsReport===selected;button.setAttribute('aria-expanded',String(active));button.classList.toggle('is-selected',active);});
   if(!value){select('insights-detail-body').replaceChildren();select('insights-detail-title').textContent='보고서 상세';}
   if(!report)return;
+  window.moaonInsightAI?.closeQuestion();
   select('insights-detail-title').textContent=report.title;
   const content=[node('p','',`${period(report.periodStart)} — ${period(report.periodEnd)} · 저장 당시 근거`)];
   if(!report.detail)content.push(node('p','','이 보고서의 상세 근거를 불러오지 못했습니다. 새로 조회해 주세요.'));
@@ -25,8 +26,9 @@
   content.push(node('p','insights-detail-notice','저장 보고서의 판단 근거입니다. 광고·입찰·상품을 자동 변경하지 않습니다.'));
   select('insights-detail-body').replaceChildren(...content);if(focus)select('insights-detail-close').focus();
  }
- function closeDetail(){const previous=selected;selected=null;detail();Array.from(document.querySelectorAll('[data-insights-report]')).find(el=>el.dataset.insightsReport===previous)?.focus();}
+ function closeDetail(focus=true){const previous=selected;selected=null;detail();if(focus)Array.from(document.querySelectorAll('[data-insights-report]')).find(el=>el.dataset.insightsReport===previous)?.focus();}
  function render(){
+  window.moaonInsightAI?.setReports(value?.reports||null);
   window.moaonMarketing?.set(value?.marketing||null);
   window.moaonKeywords?.set(value?.marketing||null,{busy,failed});
   select('insights-refresh').disabled=busy||displayMode!=='live';select('insights-page').setAttribute('aria-busy',String(busy));
@@ -56,7 +58,7 @@
   }catch{if(expected===generation){failed=true;select('insights-status').textContent='분석 조회 실패 · 새로 조회해 주세요.';}}
   finally{if(expected===generation){busy=false;render();}}
  }
- window.moaonInsights=Object.freeze({clear,refresh,ensure:()=>{if(displayMode==='live'&&(!lastAttempt||Date.now()-lastAttempt>=300000))void refresh();}});
+ window.moaonInsights=Object.freeze({clear,refresh,closeDetail,showReport:id=>{if(value?.reports.some(r=>r.id===id)){selected=id;detail(true);select('insights-detail').scrollIntoView({block:'nearest'});}},ensure:()=>{if(displayMode==='live'&&(!lastAttempt||Date.now()-lastAttempt>=300000))void refresh();}});
  select('insights-search').addEventListener('input',render);select('insights-search-reset').onclick=()=>{select('insights-search').value='';render();select('insights-search').focus();};
  select('insights-refresh').addEventListener('click',refresh);clear();
  select('insights-detail-close').addEventListener('click',closeDetail);

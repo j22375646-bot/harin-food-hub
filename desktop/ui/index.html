@@ -26,7 +26,7 @@
     <script src="moaon://app/cs-tools.js" defer></script><script src="moaon://app/cs.js" defer></script>
     <link rel="stylesheet" href="moaon://app/cs.css">
     <link rel="stylesheet" href="moaon://app/month-calendar.css">
-    <link rel="stylesheet" href="moaon://app/insights.css">
+    <link rel="stylesheet" href="moaon://app/insights.css"><link rel="stylesheet" href="moaon://app/insight-ai.css"><script src="moaon://app/insight-ai.js" defer></script>
     <link rel="stylesheet" href="moaon://app/settlement.css">
     <link rel="stylesheet" href="moaon://app/app-common.css">
   <link rel="stylesheet" href="moaon://app/experience.css">
@@ -266,6 +266,7 @@
             <header class="insights-heading workspace-heading"><div><span class="eyebrow">NAVER / WEEKLY INSIGHTS</span><h1 id="insights-title" tabindex="-1">분석·인사이트</h1><p>네이버 광고의 변화와 판단 근거를 살펴보세요.</p></div><button id="insights-refresh" type="button">새로 조회</button></header>
             <p id="insights-status" role="status"></p><p id="insights-period"></p>
             <div id="insights-metrics" class="insights-metrics"></div><div id="insights-flow" class="insights-flow"></div>
+            <section id="insight-ai" class="insight-ai" aria-label="네이버 보고서 AI 설명"></section>
             <ul id="insights-caveats" class="insights-caveats"></ul><h2 class="insights-reports-title">최근 보고서 목록 · 최대 20개</h2>
             <div class="insights-search-tools"><label for="insights-search">보고서에서 찾기<input id="insights-search" type="search" maxlength="200" placeholder="제목·기간·조회된 근거 내용" aria-describedby="insights-search-help"></label><button id="insights-search-reset" type="button">검색 초기화</button><span id="insights-search-count" role="status"></span></div><p id="insights-search-help">현재 조회된 최대 20개 보고서 안에서 검색합니다. 잘린 내용은 검색되지 않습니다.</p><div id="insights-workspace" class="insights-workspace"><div id="insights-reports"></div>
               <aside id="insights-detail" class="insights-detail" aria-labelledby="insights-detail-title" aria-hidden="true" inert><div class="insights-detail-inner">
