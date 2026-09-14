@@ -3,7 +3,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { app, BrowserWindow, WebContentsView, Menu, Tray, ipcMain, protocol, session, dialog, safeStorage, screen, Notification, shell } = require('electron');
-const {rightDisplayBounds,readRightDisplayPreference,saveRightDisplayPreference,showRightWindow}=require('./window-placement.cjs');
+const {defaultWindowBounds,rightDisplayBounds,readRightDisplayPreference,saveRightDisplayPreference,showRightWindow}=require('./window-placement.cjs');
 const {createUpdateGate,guardWorkIpc}=require('./update-gate.cjs');
 const {startAutomaticUpdates,createConfiguredUpdater,createAppUpdates,registerAppUpdates}=require('./app-updates.cjs');
 const {createActionReview}=require('./action-review.cjs');
@@ -143,14 +143,13 @@ if (!hasSingleInstanceLock) {
     }catch{console.error('DISPLAY_PREFERENCE_UNAVAILABLE');app.quit();return;}
     const rightBounds=rightDisplayRequested?rightDisplayBounds(screen.getAllDisplays(),screen.getPrimaryDisplay()):null;
     if(rightDisplayRequested&&!rightBounds){console.error('RIGHT_DISPLAY_UNAVAILABLE');app.quit();return;}
+    const initialBounds=rightBounds||defaultWindowBounds(screen.getPrimaryDisplay());
     mainWindow = new BrowserWindow({
       title: APP_NAME,
       icon: path.join(UI_ROOT,'brand','moaon.png'),
-      width: 1440,
-      height: 960,
-      minWidth: rightBounds?Math.min(1040,rightBounds.width):1040,
-      minHeight: rightBounds?Math.min(720,rightBounds.height):720,
-      ...(rightBounds||{}),
+      ...initialBounds,
+      minWidth: Math.min(1040,initialBounds.width),
+      minHeight: Math.min(720,initialBounds.height),
       show: false,
       frame: true,
       titleBarStyle: 'hidden',
@@ -229,7 +228,10 @@ if (!hasSingleInstanceLock) {
     // Background preparation never installs on ordinary quit or interrupts work.
     const stopAutomaticUpdates=startAutomaticUpdates({updates});
     mainWindow.once('closed',()=>{stopAutomaticUpdates();updates.dispose();});
-    mainWindow.once('ready-to-show', () => rightDisplayRequested?mainWindow.showInactive():mainWindow.show());
+    mainWindow.once('ready-to-show', () => {
+      if(rightDisplayRequested){showRightWindow(mainWindow,screen.getAllDisplays(),screen.getPrimaryDisplay());return;}
+      mainWindow.setBounds(initialBounds);mainWindow.show();
+    });
     mainWindow.on('closed', () => {
       hubConnection?.closeChildren();
       hubConnection = null;
