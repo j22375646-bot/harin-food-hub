@@ -12,7 +12,7 @@ test('Gemini defaults OFF; explicit model/project/current free/data confirmation
  for(const key of Object.keys(env).filter(key=>key!=='MOAON_MARKET_AI_ENABLED'))assert.equal(configuration({...env,[key]:''},NOW).ready,false,key);
  for(const value of [new Date(NOW+1).toISOString(),new Date(NOW-CONFIRMATION_MAX_AGE).toISOString(),'invalid'])assert.equal(configuration({...env,GEMINI_FREE_PROJECT_CONFIRMED_AT:value},NOW).ready,false);
  assert.equal(configuration({...env,GEMINI_MODEL:'gemini-2.5-pro'},NOW).ready,false);
- assert.equal(configuration(env,NOW).ready,true);assert.equal(configuration(env,NOW).dailyLimit,20);
+ assert.equal(configuration(env,NOW).ready,true);assert.equal(configuration(env,NOW).dailyLimit,500);
  assert.equal(JSON.stringify(configuration(env,NOW)).includes(env.GEMINI_API_KEY),false);
  let calls=0;await assert.rejects(client(()=>calls++,{}).generate(args()),{code:'DISABLED'});assert.equal(calls,0);
 });
