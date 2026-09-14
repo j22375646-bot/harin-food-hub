@@ -1851,7 +1851,7 @@ test('market AI connection prevents duplicate active call and drops result on di
  const {connection}=makeConnection(remote);const pending=connection.marketAi({operation:'CONFIG'});await entered;
  assert.equal((await connection.marketAi({operation:'CONFIG'})).status,'PENDING');assert.equal(calls,1);
  await connection.disconnect();assert.equal((await pending).status,'CANCELLED');
- release(Response.json({ok:true,configuration:{provider:'GEMINI_FREE',model:'gemini-2.5-flash-lite',enabled:false,ready:false,status:'DISABLED',freeConfirmedAt:null,dailyLimit:20},runs:[]}));
+ release(Response.json({ok:true,configuration:{provider:'GEMINI_FREE',model:'gemini-3.5-flash-lite',enabled:false,ready:false,status:'DISABLED',freeConfirmedAt:null,dailyLimit:20},runs:[]}));
  let blocked;remote.beforeRequestHandler({url:endpoint,method:'GET',webContentsId:0},result=>blocked=result.cancel);assert.equal(blocked,true);
 });
 test('market AI cancellation removes live permit and invalid commands never call network',async()=>{

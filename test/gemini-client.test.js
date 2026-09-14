@@ -17,7 +17,7 @@ test('Gemini defaults OFF; explicit model/project/current free/data confirmation
  let calls=0;await assert.rejects(client(()=>calls++,{}).generate(args()),{code:'DISABLED'});assert.equal(calls,0);
 });
 test('Gemini fixed endpoint, header auth, structured JSON, limits and no tools/history',async()=>{
- let calls=0;const result=await client(async(url,init)=>{calls++;assert.equal(url,`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`);assert.equal(init.headers['x-goog-api-key'],env.GEMINI_API_KEY);assert.equal(init.redirect,'error');const body=JSON.parse(init.body);assert.equal(body.generationConfig.maxOutputTokens,1500);assert.equal(body.generationConfig.responseMimeType,'application/json');assert.ok(body.generationConfig.responseJsonSchema);assert.equal(body.tools,undefined);assert.equal(body.contents.length,1);assert.equal(body.generationConfig.thinkingConfig.thinkingBudget,0);return response();}).generate(args());
+ let calls=0;const result=await client(async(url,init)=>{calls++;assert.equal(url,`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`);assert.equal(init.headers['x-goog-api-key'],env.GEMINI_API_KEY);assert.equal(init.redirect,'error');const body=JSON.parse(init.body);assert.equal(body.generationConfig.maxOutputTokens,1500);assert.equal(body.generationConfig.responseMimeType,'application/json');assert.ok(body.generationConfig.responseJsonSchema);assert.equal(body.tools,undefined);assert.equal(body.contents.length,1);assert.equal(body.generationConfig.thinkingConfig.thinkingLevel,'minimal');return response();}).generate(args());
  assert.equal(calls,1);assert.equal(result.model,MODEL);assert.equal(result.usage.totalTokens,120);
 });
 test('reject arbitrary arguments and internal data before any outgoing call',async()=>{
@@ -45,3 +45,5 @@ test('absolute deadlines and active cancellation settle even if fetch ignores ab
  await assert.rejects(client(()=>new Promise(()=>{})).generate({...args(),deadlineAt:0}),{code:'TIMEOUT'});
  const controller=new AbortController();const result=client(()=>new Promise(()=>{})).generate({...args(),signal:controller.signal});controller.abort();await assert.rejects(result,{code:'TIMEOUT'});
 });
+
+test('Gemini text thought signature is metadata only and never enters output',async()=>{const result=await client(async()=>response({candidates:[{finishReason:'STOP',content:{parts:[{text:'{"cards":[],"answer":"확인 필요","nextChecks":[]}',thoughtSignature:'opaque-provider-signature'}]}}]})).generate(args());assert.equal(result.output.answer,'확인 필요');assert.equal(JSON.stringify(result).includes('opaque-provider-signature'),false);});

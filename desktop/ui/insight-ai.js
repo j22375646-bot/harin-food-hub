@@ -26,7 +26,7 @@
   if(old!==JSON.stringify(reports.map(r=>[r.id,r.periodStart,r.periodEnd,r.createdAt]))){if(busy)void window.moaonHub?.cancelInsightAi?.();discardDraft();generation++;busy=false;run=null;questionOpen=false;ids=ids.filter(id=>reports.some(r=>r.id===id));if(!ids.length&&reports.length)ids=[reports[0].id];}
   render();if(!loaded&&reports.length){loaded=true;void loadHistory();}
  }
- function closeQuestion(focus=false){questionOpen=false;render();if(focus)root.querySelector('[data-ai-open]')?.focus({preventScroll:true});}
+ function closeQuestion(focus=false){questionOpen=false;render();if(focus)$('insight-ai-launcher')?.focus({preventScroll:true});}
  function openQuestion(){window.moaonInsights?.closeDetail(false);questionOpen=true;render();$('insight-ai-chat')?.scrollIntoView({block:'nearest'});$('insight-ai-question')?.focus({preventScroll:true});}
  async function loadHistory(){
   if(historyBusy||!window.moaonHub?.insightAi)return;const expected=++historyGeneration;historyBusy=true;render();
@@ -71,9 +71,12 @@
   const help=el('p','insight-ai-meta');help.id='insight-ai-question-help';const send=button('질문 보내기',()=>generate('QUESTION'));send.dataset.aiSend='';const unavailable=configuration?.enabled===false||configuration?.ready===false;
   const update=()=>{const length=Array.from(input.value.trim()).length;help.textContent=`${length} / 500자 · ${run?.turn||0} / 6턴 · 개인정보는 입력하지 마세요`;send.disabled=busy||historyBusy||!ids.length||!length||length>500||(run?.turn||0)>=6||unavailable;};input.oninput=()=>{pendingQuestion='';update();};input.onkeydown=event=>{if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();if(!send.disabled)void generate('QUESTION');}};update();
   composer.append(label,input,help);const state=el('p','insight-ai-chat-status',status);state.setAttribute('role','status');composer.append(state);const controls=el('div','insight-ai-actions');controls.append(send);if(busy)controls.append(button('대기 취소',cancel));composer.append(controls);panel.append(composer);$('insights-workspace').append(panel);
-  let followLatest=true;transcript.addEventListener('scroll',()=>{followLatest=transcript.scrollHeight-transcript.clientHeight-transcript.scrollTop<12;});transcriptResize=new ResizeObserver(()=>{if(followLatest)transcript.scrollTop=transcript.scrollHeight;});transcriptResize.observe(transcript);requestAnimationFrame(()=>{if(transcript.isConnected)transcript.scrollTop=transcript.scrollHeight;});if(hadFocus&&!busy)input.focus({preventScroll:true});
+  transcript.scrollTop=transcript.scrollHeight;let followLatest=true;transcript.addEventListener('scroll',()=>{followLatest=transcript.scrollHeight-transcript.clientHeight-transcript.scrollTop<12;});transcriptResize=new ResizeObserver(()=>{if(followLatest)transcript.scrollTop=transcript.scrollHeight;});transcriptResize.observe(transcript);requestAnimationFrame(()=>{if(transcript.isConnected)transcript.scrollTop=transcript.scrollHeight;});if(hadFocus&&!busy)input.focus({preventScroll:true});
  }
+ const launcher=button('✦ AI와 대화',()=>questionOpen?closeQuestion(true):openQuestion());
+ launcher.id='insight-ai-launcher';launcher.className='insight-ai-launcher';launcher.setAttribute('aria-controls','insight-ai-chat');$('insights-page').append(launcher);
  function render(){
+  launcher.setAttribute('aria-expanded',String(questionOpen));launcher.setAttribute('aria-label',questionOpen?'AI 대화창 닫기':'AI 대화창 열기');
   const draft=$('insight-ai-question')?.value??(!busy?pendingQuestion:'');const hadFocus=document.activeElement?.id==='insight-ai-question';transcriptResize?.disconnect();$('insight-ai-chat')?.remove();$('insights-workspace')?.classList.toggle('has-ai-chat',questionOpen);
   root.replaceChildren();root.setAttribute('aria-busy',String(busy));
   const heading=el('header','insight-ai-heading');heading.append(el('div','',undefined));heading.firstChild.append(el('h2','','선택한 보고서 살펴보기'),el('p','','네이버 광고 · 저장 보고서에 근거한 AI 설명'));

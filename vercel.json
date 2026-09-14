@@ -10,6 +10,21 @@
       "regions": [
         "sin1"
       ]
+    },
+    "app/api/moaon/connections/route.js": {
+      "regions": [
+        "sin1"
+      ]
+    },
+    "app/api/moaon/businesses/*/insights/ai/route.js": {
+      "regions": [
+        "sin1"
+      ]
+    },
+    "app/api/moaon/businesses/*/market-ai/route.js": {
+      "regions": [
+        "sin1"
+      ]
     }
   },
   "crons": [
