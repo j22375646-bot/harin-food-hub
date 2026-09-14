@@ -1,0 +1,33 @@
+/* Keep dismissal reachable within the dialog's own scrollport. */
+dialog > .dialog-close-bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  justify-content: flex-end;
+  grid-column: 1 / -1;
+  align-self: start;
+  flex-shrink: 0;
+  width: 100%;
+  margin: 0 0 8px;
+  padding: 0 0 4px;
+  background: var(--surface, #fff);
+}
+dialog .dialog-close-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--line, #dfe2ed);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  color: var(--text, #223047);
+  font-size: 26px;
+  line-height: 1;
+}
+dialog .dialog-close-button:hover { background: var(--accent-soft, #eee9f8); }
+dialog .dialog-close-button:focus-visible { outline: 2px solid var(--accent, #8270bd); outline-offset: 2px; }
