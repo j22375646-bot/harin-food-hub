@@ -446,3 +446,6 @@ html[data-theme] .orders-page .shipping-timing-badge[data-timing=DELAYED]{backgr
 .orders-page .bundle-product-quantity{font-size:14px;line-height:1.5;font-weight:600;color:var(--blue);white-space:nowrap}
 
 @media(max-width:900px){.orders-page .orders-layout{display:flex;flex-direction:column;overflow:visible}.orders-page .orders-workspace{flex:none;width:100%;min-width:0}.orders-page .orders-layout:not(.is-detail-closed) #order-detail{order:-1;width:100%;min-width:0;max-height:70vh;min-height:260px;flex:none;overflow:auto}.orders-page .orders-layout.is-detail-closed #order-detail{display:none}}
+
+/* Keep Korean product titles inside a full line box without glyph clipping. */
+.orders-page .order-primary>strong{display:block;overflow:visible;-webkit-line-clamp:unset;white-space:normal;line-height:1.6;padding-block:2px;overflow-wrap:anywhere}.orders-page #order-detail .detail-product h2{padding-block:2px;overflow:visible}

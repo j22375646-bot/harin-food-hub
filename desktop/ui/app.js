@@ -589,7 +589,7 @@ function showOrderDetail(order, button, options = {}) {
     addDetailSection(more, '주문 시각', order.orderedAt ? formatOrderTime(order.orderedAt) : '확인 필요', `목록 확인 ${formatTime(connectionResult?.checkedAt)}`);
     more.append(checkSection);body.append(more);
   }
-  detailPanel.append(header, body);
+  detailPanel.append(header, body);detailPanel.scrollTop=0;
   if (!isSampleMode()) {
     const actions = makeElement('section', 'review-actions');
     actions.setAttribute('aria-label', '주문 재확인');
@@ -825,7 +825,7 @@ function createOrderRow(order) {
   }
   const state=button.querySelector('.order-state')||makeElement('span','order-state delivery-badge',order.status||'확인 필요');
   const ordered=makeElement('time','order-date',isSampleMode()?'—':formatOrderTime(order.orderedAt));ordered.setAttribute('aria-label','주문시각');button.append(productThumbnail(order),primary,secondary,ordered,amount,state);
-  button.addEventListener('click', () => showOrderDetail(order, button));
+  button.addEventListener('click', () => {if(displayMode==='live'&&!orderToolsBusy())selectedOrderIds.add(id);showOrderDetail(order, button);});
   const row = makeElement('div','order-item');
   const checkbox = document.createElement('input');
   checkbox.type='checkbox';checkbox.className='order-select';checkbox.checked=selectedOrderIds.has(id);
