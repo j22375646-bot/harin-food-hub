@@ -31,3 +31,5 @@ dialog .dialog-close-button {
 }
 dialog .dialog-close-button:hover { background: var(--accent-soft, #eee9f8); }
 dialog .dialog-close-button:focus-visible { outline: 2px solid var(--accent, #8270bd); outline-offset: 2px; }
+
+[data-dialog-dismiss-original=true]{display:none!important}dialog>.dialog-close-bar{height:0;margin:0;padding:0;overflow:visible}dialog h2{padding-right:52px}dialog .dialog-close-button{flex:none;position:relative;z-index:31}button.unified-close-button{display:inline-grid!important;place-items:center;flex:none;width:44px;min-width:44px;height:44px;min-height:44px;padding:0!important;font-size:24px!important;line-height:1!important;border-radius:12px}dialog.general-chat-confirm h2{padding-right:0}

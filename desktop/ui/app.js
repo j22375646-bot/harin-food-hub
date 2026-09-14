@@ -1569,7 +1569,8 @@ for(const b of document.querySelectorAll('.primary-nav .nav-button'))b.title=b.g
 const workspaceSearch=document.querySelector('#workspace-search');
 const workspaceTarget=document.querySelector('#workspace-search-target');
 const workspaceQuery=document.querySelector('#workspace-search-query');
-function searchHelp(){document.querySelector('#workspace-search-help').textContent=workspaceTarget.value==='orders'?'현재 주문 상태·채널의 저장 주문 전체를 검색합니다. 기간 조건은 초기화됩니다.':'선택한 페이지에서 조회된 자료를 검색합니다. 해당 페이지의 필터도 적용됩니다.';}
+const scopeHost=document.querySelector('#workspace-search-scopes');for(const option of workspaceTarget.options){const button=makeElement('button','',option.textContent);button.type='button';button.dataset.searchScope=option.value;button.onclick=()=>{workspaceTarget.value=option.value;searchHelp();workspaceQuery.focus();};scopeHost.append(button);}
+function searchHelp(){for(const button of scopeHost.children)button.setAttribute('aria-pressed',String(button.dataset.searchScope===workspaceTarget.value));workspaceQuery.placeholder=({orders:'상품명 또는 주문번호',inventory:'찾을 상품 이름',stock:'상품명 또는 로트',keywords:'찾을 키워드',insights:'보고서 제목',cs:'문의 내용 또는 상품명'})[workspaceTarget.value];document.querySelector('#workspace-search-help').textContent=workspaceTarget.value==='orders'?'현재 주문 상태·채널의 저장 주문 전체를 검색합니다. 기간 조건은 초기화됩니다.':'선택한 페이지에서 조회된 자료를 검색합니다. 해당 페이지의 필터도 적용됩니다.';}
 function openWorkspaceSearch(){if(document.querySelector('dialog[open]'))return;const route=pages.find(p=>!p.hidden)?.dataset.page;if([...workspaceTarget.options].some(o=>o.value===route))workspaceTarget.value=route;searchHelp();workspaceSearch.showModal();workspaceQuery.focus();workspaceQuery.select();}
 workspaceTarget.addEventListener('change',searchHelp);
 workspaceSearch.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();workspaceSearch.close();}});

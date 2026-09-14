@@ -5,6 +5,7 @@
     return buttons.find(button => /닫기|close/i.test(button.getAttribute('aria-label') || '') || /(?:close|cancel|update-later)$/.test(button.id))
       || buttons.find(button => /^(닫기|취소|나중에|×|✕)$/.test(button.textContent.trim()));
   }
+  const dismissal=button=>/^(?:.*\s)?닫기$|^[×✕✖]$/.test(button.textContent.trim());
   function enhance(dialog) {
     let bar = dialog.querySelector(':scope > .dialog-close-bar');
     if (!bar) {
@@ -24,11 +25,12 @@
       bar.append(close);
       dialog.prepend(bar);
     }
+    for(const button of dialog.querySelectorAll('button')){if(!button.closest('.dialog-close-bar')&&dismissal(button)){button.dataset.dialogDismissOriginal='true';if(document.activeElement===button)bar.firstChild.focus({preventScroll:true});}}
     const original = originalClose(dialog);
     const disabled = Boolean(original?.matches(':disabled'));
     if (bar.firstChild.disabled !== disabled) bar.firstChild.disabled = disabled;
   }
-  const update = () => document.querySelectorAll('dialog').forEach(enhance);
+  const update = () => {document.querySelectorAll('dialog').forEach(enhance);for(const button of document.querySelectorAll('button')){if(button.closest('dialog')||button.classList.contains('unified-close-button')||!dismissal(button))continue;button.setAttribute('aria-label',button.getAttribute('aria-label')||button.textContent.trim());button.title=button.title||'닫기';button.textContent='×';button.classList.add('unified-close-button');}};
   new MutationObserver(update).observe(document.body, {childList: true, subtree: true, attributes: true, attributeFilter: ['disabled', 'open']});
   update();
 })();
