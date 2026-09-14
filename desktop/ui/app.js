@@ -489,11 +489,12 @@ function showOrderDetail(order, button, options = {}) {
   const body = makeElement('div', 'detail-body');
   const productHero=makeElement('section','detail-product');
   const productText=makeElement('div');
-  productText.append(makeElement('h2','',order.productName||order.product||'상품 확인 필요'));
-  const option=isSampleMode()?order.option:order.details?.items?.[0]?.option;if(option)productText.append(makeElement('span','',option));
+  const bundled=!isSampleMode()&&order.details?.items?.length>1;
+  productText.append(makeElement('h2','',bundled?'묶음 주문':order.productName||order.product||'상품 확인 필요'));
+  const option=isSampleMode()?order.option:order.details?.items?.[0]?.option;if(option&&!bundled)productText.append(makeElement('span','',option));
   const present=giftBadge(order),timing=timingBadge(order);
   const badges=makeElement('div','detail-badges');if(present)badges.append(present);if(timing)badges.append(timing);const statusView=shippingStatusView(order,true),statusBadge=makeElement('span','detail-status-badge',statusView.label),channelBadge=makeElement('span','detail-channel-badge',({NAVER:'네이버 · 별도 발급',COUPANG:'쿠팡',CAFE24:'Cafe24'})[order.platform]||'채널 확인 필요');statusBadge.dataset.state=statusView.state;channelBadge.dataset.channel=order.platform||'UNKNOWN';badges.append(statusBadge,channelBadge);productText.append(badges);
-  productHero.append(productThumbnail(order),productText);body.append(productHero);
+  productHero.append(productThumbnail(order),productText);body.append(productHero);if(bundled)body.append(bundleProducts(order.details.items));
   const facts=makeElement('dl','detail-facts');
   const fact=(title,value)=>facts.append(makeElement('dt','',title),makeElement('dd','',value));
   fact('결제금액',isSampleMode()?`${order.amount} · 샘플`:formatNumber(order.amount,'원'));
@@ -748,6 +749,17 @@ function renderDetailNavigation() {
   detailPanel.append(navigation);
 }
 
+function bundleProducts(items){
+ const list=makeElement('span','bundle-products');
+      for(const [index,item] of items.entries()){
+        const row=makeElement('span','bundle-product'),info=makeElement('span','bundle-product-info');
+        info.append(makeElement('strong','bundle-product-name',item.name||'상품명 확인 필요'));
+        if(item.option)info.append(makeElement('span','bundle-product-option',item.option));
+        row.append(makeElement('span','bundle-product-index',String(index+1)),info,makeElement('span','bundle-product-quantity',formatNumber(item.quantity,'개')));list.append(row);
+      }
+      
+ return list;
+}
 function productThumbnail(order) {
   const box=makeElement('span','product-thumbnail','이미지 없음');
   if(order.visual?.imageUrl){
@@ -785,7 +797,8 @@ function createOrderRow(order) {
     secondary.append(makeElement('strong', '', order.channel), makeElement('span', '', order.status));
     amount.append(makeElement('strong', '', order.amount), makeElement('span', 'order-tag', '샘플'));
   } else {
-    const product = order.productName || '상품 정보 확인 필요';
+    const items=order.details?.items||[];
+    const product = items.length>1?'묶음 주문':order.productName || '상품 정보 확인 필요';
     const channel = order.platform || '채널 확인 필요';
     const stage = stageLabel(order.stage);
     button.setAttribute('aria-label', `${id || '주문번호 확인 필요'}, ${product}, ${channel}, ${stage}, ${reviewLabels[reviewStatus(order)]}, 조회 전용 주문 상세 열기`);
@@ -801,11 +814,11 @@ function createOrderRow(order) {
     button.append(status);
     const invoice=order.details?.invoice;
     if(invoice&&/^\d{13}$/.test(invoice.number||'')){const tag=makeElement('span','order-invoice',invoice.status==='REGISTERED'?'송장 등록 완료':'발급 완료 · 등록 필요');tag.append(makeElement('code','',invoice.number));primary.append(tag);}
-    const items=order.details?.items||[],option=items[0]?.option;
+    const option=items[0]?.option;
 
     if(items.length>1){
       primary.append(makeElement('small','product-option',`상품주문 ${items.length}${items.length===8?'+':''}건 묶음 · 총 수량 ${formatNumber(order.quantity,'개')}`));
-      for(const item of items)primary.append(makeElement('small','product-option',`${item.name}${item.option?' · '+item.option:''} · ${formatNumber(item.quantity,'개')}`));
+      primary.append(bundleProducts(items));
     }else primary.append(makeElement('small','product-option',(option?'옵션: '+option+' · ':'')+'수량 '+formatNumber(order.quantity,'개')));
     const gift=giftBadge(order);if(gift)primary.append(gift);const timing=timingBadge(order);if(timing)primary.append(timing);
     amount.append(makeElement('strong', '', formatNumber(order.amount, '원')));

@@ -435,3 +435,14 @@ html[data-theme] .orders-page .detail-badges .gift-badge{background:var(--rose-s
 html[data-theme] .orders-page .shipping-timing-badge:is([data-timing=SAME_DAY],[data-timing=SCHEDULED]){background:var(--blue-soft);color:var(--blue);border-color:var(--blue)}
 html[data-theme] .orders-page .shipping-timing-badge:is([data-timing=CHECK_REQUIRED],[data-timing=SAME_DAY_PARTIAL]){background:var(--amber-soft);color:var(--amber);border-color:var(--amber)}
 html[data-theme] .orders-page .shipping-timing-badge[data-timing=DELAYED]{background:var(--rose-soft);color:var(--rose);border-color:var(--rose)}
+
+/* Readable bundled order contents, including selected rows. */
+.orders-page .bundle-products{display:grid;gap:8px;width:100%;min-width:0;margin-block:8px}
+.orders-page .bundle-product{display:grid;grid-template-columns:20px minmax(0,1fr) auto;gap:8px;align-items:start;padding:10px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);text-align:left}
+.orders-page .bundle-product-info{display:grid;gap:4px;min-width:0}
+.orders-page .bundle-product-name{font-size:14px;line-height:1.5;color:var(--ink);font-weight:600;white-space:normal;overflow-wrap:anywhere}
+.orders-page .bundle-product-option{font-size:14px;line-height:1.55;color:var(--muted);white-space:normal;overflow-wrap:anywhere}
+.orders-page .bundle-product-index{font-size:12px;line-height:21px;color:var(--muted);font-variant-numeric:tabular-nums}
+.orders-page .bundle-product-quantity{font-size:14px;line-height:1.5;font-weight:600;color:var(--blue);white-space:nowrap}
+
+@media(max-width:900px){.orders-page .orders-layout{display:flex;flex-direction:column;overflow:visible}.orders-page .orders-workspace{flex:none;width:100%;min-width:0}.orders-page .orders-layout:not(.is-detail-closed) #order-detail{order:-1;width:100%;min-width:0;max-height:70vh;min-height:260px;flex:none;overflow:auto}.orders-page .orders-layout.is-detail-closed #order-detail{display:none}}
