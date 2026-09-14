@@ -49,7 +49,7 @@
    select('insights-reports').replaceChildren(state);
   }
  }
- function clear(){window.moaonResearch?.clear();select('insights-search').value='';generation++;value=null;busy=false;failed=false;lastAttempt=0;select('insights-status').textContent='실제 사업장 연결 후 조회합니다.';render();}
+ function clear(){window.moaonInsightAI?.clear();window.moaonResearch?.clear();select('insights-search').value='';generation++;value=null;busy=false;failed=false;lastAttempt=0;select('insights-status').textContent='실제 사업장 연결 후 조회합니다.';render();}
  async function refresh(){
   if(busy||displayMode!=='live')return;const expected=++generation;busy=true;failed=false;value=null;lastAttempt=Date.now();render();select('insights-status').textContent='분석 보고서를 조회하고 있습니다…';
   try{const result=await window.moaonHub.readInsights();if(expected!==generation)return;if(['LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status)){applyHubResult(result);return;}

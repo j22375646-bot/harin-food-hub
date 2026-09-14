@@ -1,0 +1,7 @@
+# P4-168 Global AI panel
+
+Desktop 0.147.5. Global header entry opens a right panel across app routes. Close retains the conversation and in-memory draft; completed conversations remain in the existing authenticated server history and the latest available report conversation restores on reload. New conversation and confirmed conversation deletion are separate actions. Logout clears renderer state. Current page is displayed without automatically attaching its contents; the provider remains CLOVA and the scope remains selected Naver advertising reports.
+
+Validation: 451 desktop unit tests passed. Actual Electron source and packaged UI smoke passed at widths 700/1040/1440, light/dark themes and short viewport heights. Verified close/reopen draft preservation across Orders and Settings, reload restoration, new conversation, deletion cancel/confirm and logout clearing using isolated fixture data. No operational shipping writes or credential changes.
+
+Distribution: desktop/dist/distribution-20260915-013406-983. ASAR SHA256 945a44db3116c5b277c9a892fe1d90c83fd7a67b8bacb78b8137d38fb49c1edd; 114 packaged files verified. Installer SHA256 53F073D21F14682D96FFF195972024357AA6B9B5C82973ADB3A485DB8FC50792. Ed25519 release published to GitHub moaon-stable. Installed copy and shortcuts updated to D:/GPT/Apps/Moaon/releases/0.147.5. Visible installed-package window opened on right secondary display without bringing focus to the main monitor.
