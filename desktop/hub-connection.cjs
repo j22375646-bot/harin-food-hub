@@ -31,6 +31,8 @@ const {createInsightsTransport,INSIGHTS_URL}=require('./insights-transport.cjs')
 const {createInsightAiTransport,INSIGHT_AI_URL,METHODS:INSIGHT_AI_METHODS}=require('./insight-ai-transport.cjs');
 const {validCommand:validInsightAiCommand,empty:emptyInsightAi}=require('./insight-ai-contract.cjs');
 const {createMarketAiTransport,MARKET_AI_URL,METHODS:MARKET_AI_METHODS}=require('./market-ai-transport.cjs');
+const {createGeneralChatTransport,GENERAL_CHAT_URL,METHODS:GENERAL_CHAT_METHODS}=require('./general-chat-transport.cjs');
+const {validCommand:validGeneralChatCommand,empty:emptyGeneralChat}=require('./general-chat-contract.cjs');
 const {validCommand:validMarketAiCommand,empty:emptyMarketAi}=require('./market-ai-contract.cjs');
 const {createCsTransport,CS_URL}=require('./cs-transport.cjs');
 const {createInventoryTransport,INVENTORY_URL}=require('./inventory-transport.cjs');
@@ -314,7 +316,7 @@ function createHubConnection({
   let cleanupFailed = initialCleanupPending;
   let generation = 0;
   let credentialPermit=null;
-  function invalidateGeneration(){generation+=1;credentialTransport.cancel();credentialPermit=null;cancelInsightAi();cancelMarketAi();}
+  function invalidateGeneration(){generation+=1;credentialTransport.cancel();credentialPermit=null;cancelInsightAi();cancelMarketAi();cancelGeneralChat();}
   const credentialTransport=createCredentialTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options),authorize:options=>listBusinesses(options),permit:value=>{credentialPermit=value;},blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive()),timeoutMs:Math.min(timeoutMs*2,30000)});
   const readCredentialMetadata=value=>credentialTransport.read(value),saveServerCredential=value=>credentialTransport.save(value);
   let pageCursor = null;
@@ -531,6 +533,7 @@ function createHubConnection({
   let activeInsights=null,insightsController=null,insightsPermit=null;
   let activeInsightAi=null,insightAiController=null,insightAiPermit=null;
   let activeMarketAi=null,marketAiController=null,marketAiPermit=null;
+  let activeGeneralChat=null,generalChatController=null,generalChatPermit=null;
   let activeBid=null,bidPermit=null;
   function keywordBid(input){
     const adapter=require('./keyword-bids.cjs');
@@ -764,6 +767,18 @@ function createHubConnection({
     let tracked;tracked=transport(command,{signal:controller.signal}).then(result=>expected===generation&&!controller.signal.aborted?result:emptyMarketAi('CANCELLED')).finally(()=>{if(marketAiController===controller){marketAiController=null;marketAiPermit=null;}if(activeMarketAi===tracked)activeMarketAi=null;});
     activeMarketAi=tracked;return tracked;
   }
+  function cancelGeneralChat(){generalChatController?.abort();generalChatController=null;generalChatPermit=null;activeGeneralChat=null;return {ok:true,status:'CANCELLED'};}
+  function generalChat(command){
+    if(!validGeneralChatCommand(command))return Promise.resolve(emptyGeneralChat('INVALID_REQUEST'));
+    if(disconnecting||cleanupFailed)return Promise.resolve(emptyGeneralChat('DISCONNECTED'));
+    if(isLoginWindowActive())return Promise.resolve(emptyGeneralChat('LOGIN_REQUIRED'));
+    if(activeGeneralChat)return Promise.resolve(emptyGeneralChat('PENDING'));
+    const expected=generation,controller=new AbortController();generalChatController=controller;
+    generalChatPermit={url:GENERAL_CHAT_URL,method:GENERAL_CHAT_METHODS[command.operation]};
+    const transport=createGeneralChatTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options)});
+    let tracked;tracked=transport(command,{signal:controller.signal}).then(result=>expected===generation&&!controller.signal.aborted?result:emptyGeneralChat('CANCELLED')).finally(()=>{if(generalChatController===controller){generalChatController=null;generalChatPermit=null;}if(activeGeneralChat===tracked)activeGeneralChat=null;});
+    activeGeneralChat=tracked;return tracked;
+  }
   function readInsights(){
     const empty=status=>({status,channel:null,reports:[],caveats:[],generatedAt:null});
     if(disconnecting||cleanupFailed)return Promise.resolve(empty('DISCONNECTED'));
@@ -853,7 +868,7 @@ function createHubConnection({
             monthPermit,performancePermit,calendarWritePermit,
             financePermit,
             settlementPermit,
-            insightsPermit,insightAiPermit,marketAiPermit,
+            insightsPermit,insightAiPermit,marketAiPermit,generalChatPermit,
             bidPermit,
             csPermit,inventoryPermit,stockPermit,teamPermit,keyPermit,
             trackingRequestMethod,
@@ -1815,7 +1830,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-return Object.freeze({ marketAi,cancelMarketAi,insightAi,cancelInsightAi,readEventPerformance, readBackgroundOrders, collectBackgroundOrders, collectBackgroundCs, connectionCommand, teamCommand, keywordBid, deleteCalendarEntry, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+return Object.freeze({ generalChat,cancelGeneralChat,marketAi,cancelMarketAi,insightAi,cancelInsightAi,readEventPerformance, readBackgroundOrders, collectBackgroundOrders, collectBackgroundCs, connectionCommand, teamCommand, keywordBid, deleteCalendarEntry, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1868,6 +1883,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
   });
   ipcMain.handle('moaon-hub:insight-ai',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!validInsightAiCommand(args[0]))throw Error('Invalid analysis AI request');return connection.insightAi(args[0]);});
   ipcMain.handle('moaon-hub:market-ai',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!validMarketAiCommand(args[0]))throw Error('Invalid market AI request');return connection.marketAi(args[0]);});
+  ipcMain.handle('moaon-hub:general-chat',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!validGeneralChatCommand(args[0]))throw Error('Invalid general chat request');return connection.generalChat(args[0]);});
   ipcMain.handle('moaon-hub:connection-command',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!require('./connections-transport.cjs').validInput(args[0]))throw Error('Invalid connection request');return connection.connectionCommand(args[0]);});
   ipcMain.handle('moaon-hub:team-command',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!require('./team-contract.cjs').validInput(args[0]))throw Error('Invalid team request');return connection.teamCommand(args[0]);});
   ipcMain.handle('moaon-hub:apply-order-search',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');if(args.length!==1||!validSearch(args[0]))throw Error('Invalid search arguments');return connection.applyOrderSearch(args[0]);});
@@ -1909,6 +1925,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     ['moaon-hub:read-insights', 'readInsights'],
     ['moaon-hub:cancel-insight-ai','cancelInsightAi'],
     ['moaon-hub:cancel-market-ai','cancelMarketAi'],
+    ['moaon-hub:cancel-general-chat','cancelGeneralChat'],
     ['moaon-hub:keyword-bid','keywordBid'],
     ['moaon-hub:preview-stock-receipts', 'previewStockReceipts'],
     ['moaon-hub:read-stock', 'readStock'],

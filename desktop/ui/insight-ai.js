@@ -27,7 +27,7 @@
   render();if(!loaded&&reports.length){loaded=true;void loadHistory();}
  }
  function closeQuestion(focus=false){if(!busy)draftText=$('insight-ai-question')?.value??draftText;questionOpen=false;render();if(focus)$('insight-ai-launcher')?.focus({preventScroll:true});}
- function openQuestion(){window.moaonInsights?.closeDetail(false);questionOpen=true;render();window.moaonInsights?.ensure();$('insight-ai-question')?.focus({preventScroll:true});}
+ function openQuestion(){window.moaonGeneralChat?.close();window.moaonInsights?.closeDetail(false);questionOpen=true;render();window.moaonInsights?.ensure();$('insight-ai-question')?.focus({preventScroll:true});}
  async function loadHistory(){
   if(historyBusy||!window.moaonHub?.insightAi)return;const expected=++historyGeneration;historyBusy=true;render();
   try{const response=await window.moaonHub.insightAi({operation:'LIST'});if(expected!==historyGeneration)return;if(response?.ok){const received=Array.isArray(response.runs)?response.runs:[];runs=run?.id?[run,...received.filter(r=>r.id!==run.id)]:received;configuration=response.configuration||null;if(!restored){restored=true;const latest=runs.find(r=>(r.reportIds||[]).length&&(r.reportIds||[]).every(id=>reports.some(p=>p.id===id)));if(!run&&latest){run=latest;ids=[...latest.reportIds];}}if(!busy&&configuration?.status&&(!run||['DISABLED','SETUP_REQUIRED'].includes(configuration.status)))notice(configuration.status);}else if(!busy)notice(response?.status);}
@@ -79,8 +79,8 @@
   composer.append(label,input,help);const state=el('p','insight-ai-chat-status',status);state.setAttribute('role','status');composer.append(state);const controls=el('div','insight-ai-actions');controls.append(send);if(busy)controls.append(button('대기 취소',cancel));composer.append(controls);panel.append(composer);document.querySelector('.app-area').append(panel);
   transcript.scrollTop=transcript.scrollHeight;let followLatest=true;transcript.addEventListener('scroll',()=>{followLatest=transcript.scrollHeight-transcript.clientHeight-transcript.scrollTop<12;});transcriptResize=new ResizeObserver(()=>{if(followLatest)transcript.scrollTop=transcript.scrollHeight;});transcriptResize.observe(transcript);requestAnimationFrame(()=>{if(transcript.isConnected)transcript.scrollTop=transcript.scrollHeight;});if(hadFocus&&!busy)input.focus({preventScroll:true});
  }
- const launcher=button('✦ AI에게 물어보기',()=>questionOpen?closeQuestion(true):openQuestion());
- launcher.id='insight-ai-launcher';launcher.className='insight-ai-launcher';launcher.setAttribute('aria-controls','insight-ai-chat');document.querySelector('.chrome-actions').prepend(launcher);
+ const launcher=button('CLOVA 분석 대화',()=>questionOpen?closeQuestion(true):openQuestion());
+ launcher.id='insight-ai-launcher';launcher.className='insight-ai-launcher';launcher.setAttribute('aria-controls','insight-ai-chat');root.before(launcher);
  function render(){
   launcher.setAttribute('aria-expanded',String(questionOpen));launcher.setAttribute('aria-label',questionOpen?'AI 대화창 닫기':'AI 대화창 열기');
   const draft=busy?'':($('insight-ai-question')?.value??draftText);if(!busy)draftText=draft;const hadFocus=document.activeElement?.id==='insight-ai-question';transcriptResize?.disconnect();$('insight-ai-chat')?.remove();document.querySelector('.app-area')?.classList.toggle('has-global-ai',questionOpen);

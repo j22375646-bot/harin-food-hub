@@ -25,6 +25,11 @@
       "regions": [
         "sin1"
       ]
+    },
+    "app/api/moaon/businesses/*/general-chat/route.js": {
+      "regions": [
+        "sin1"
+      ]
     }
   },
   "crons": [

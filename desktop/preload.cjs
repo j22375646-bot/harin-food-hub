@@ -48,6 +48,8 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   readInsights: () => ipcRenderer.invoke('moaon-hub:read-insights'),
   insightAi: command => ipcRenderer.invoke('moaon-hub:insight-ai',command),
   cancelInsightAi: () => ipcRenderer.invoke('moaon-hub:cancel-insight-ai'),
+  generalChat: command => ipcRenderer.invoke('moaon-hub:general-chat',command),
+  cancelGeneralChat: () => ipcRenderer.invoke('moaon-hub:cancel-general-chat'),
   marketAi: command => ipcRenderer.invoke('moaon-hub:market-ai',command),
   cancelMarketAi: () => ipcRenderer.invoke('moaon-hub:cancel-market-ai'),
   keywordBid: input => ipcRenderer.invoke('moaon-hub:keyword-bid', input),
