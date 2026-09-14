@@ -1723,3 +1723,5 @@ async function recheckShippingSelection(){
  try{const result=await window.moaonHub.recheckPage();if(generation!==actionGeneration)return;applyHubResult(result);if(displayMode==='live'&&['READY','PARTIAL'].includes(result.status)){const remaining=new Set(displayedOrders.map(o=>orderId(o)));ids.filter(id=>remaining.has(id)).forEach(id=>selectedOrderIds.add(id));renderOrders();}}
  catch{if(generation===actionGeneration)clearDisplayedOrders('error','발급 조건을 확인하지 못했습니다. 다시 조회하세요.');}
 }
+
+document.getElementById('web-hub-open').addEventListener('click',async()=>{const button=document.getElementById('web-hub-open');button.disabled=true;try{const result=await window.moaonHub.openWebHub();button.title=result?.ok?'웹 허브 · 기본 브라우저에서 열기':'브라우저를 열지 못했습니다 · 다시 눌러주세요';}catch{button.title='브라우저를 열지 못했습니다 · 다시 눌러주세요';}finally{button.disabled=false;}});
