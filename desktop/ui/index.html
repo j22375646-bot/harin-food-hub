@@ -79,7 +79,7 @@
 <button class="nav-button" type="button" data-route="settings" aria-label="앱 설정">
             <span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="16" cy="17" r="3"/></svg></span>
             <span><strong>앱 설정</strong><small>화면과 버전</small></span>
-          </button></nav>
+          </button><button id="workspace-logout" class="nav-button" type="button" data-action="hub-disconnect" aria-label="로그아웃" title="로그아웃"><span class="nav-icon" aria-hidden="true"><svg class="ui-pictogram" viewBox="0 0 24 24"><path d="M10 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h5M14 8l4 4-4 4M8 12h10"/></svg></span><span><strong>로그아웃</strong></span></button></nav>
 
         <div class="sidebar-note"><i aria-hidden="true"></i><span id="sidebar-connection">로그인 후 업무를 연결합니다</span></div>
       </aside>
@@ -367,7 +367,7 @@
                 <div class="connection-actions setting-actions">
                   <button class="primary-action" type="button" data-action="hub-connect">하린식품 연결</button>
                   <button class="secondary-action" type="button" data-action="hub-refresh" hidden>다시 조회</button>
-                  <button class="secondary-action" type="button" data-action="hub-disconnect" hidden>연결 해제</button>
+                  <button class="secondary-action" type="button" data-action="hub-disconnect" hidden>로그아웃</button>
                   <button class="secondary-action" type="button" data-action="sample-mode" hidden>샘플 화면으로</button>
                 </div>
                 <p class="connection-message setting-message" data-connection-message aria-live="polite">자동 연결하지 않습니다.</p>
