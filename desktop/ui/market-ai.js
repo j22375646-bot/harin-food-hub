@@ -26,5 +26,6 @@
  lines.push('검색 관심 상대지수이며 실제 검색량·매출이 아닙니다. 전년 비교 없음 · 계절성 판단 보류.');const copy=el('button','','해석 요약 복사'),copyState=el('span','research-help'),text=el('textarea','market-ai-copy');text.readOnly=true;text.setAttribute('aria-label','복사할 AI 해석 요약');text.value=lines.join('\n').slice(0,24000);text.hidden=true;copy.type='button';copy.onclick=()=>{text.hidden=false;text.select();let copied=false;try{copied=document.execCommand('copy');}catch{}copyState.textContent=copied?'해석 요약을 복사했습니다.':'선택된 요약을 Ctrl+C로 복사해 주세요.';if(copied){text.hidden=true;copy.focus();}};output.append(copy,copyState,text);
  }
  for(const id of ['research-query','research-days'])$(id).addEventListener(id==='research-query'?'input':'change',()=>{invalidate();research=null;status.textContent='키워드·기간이 바뀌었습니다. 시장 조사를 다시 진행해 주세요.';sync();});
+ window.addEventListener('moaon-ai-keys-changed',event=>{if(event.detail?.provider!=='GEMINI')return;configEpoch++;configPending=false;configuration=null;sync();if(matches())void config();});
  window.moaonMarketAI={setResearch,clear};status.textContent=message();sync();
 })();

@@ -101,6 +101,7 @@
   for(const item of runs){const row=el('div','insight-ai-history-row'),open=button(`${date(item.period?.start)} — ${date(item.period?.end)} · ${time(item.createdAt)} · ${messages[item.status]||item.status}`,()=>{discardDraft();generation++;busy=false;run=item;ids=(item.reportIds||[]).filter(id=>reports.some(r=>r.id===id));questionOpen=false;notice(item.status);render();});open.disabled=busy;row.append(open);const del=button('기록 삭제',()=>remove(item.id));del.disabled=busy;row.append(del);history.append(row);}if(!runs.length)history.append(el('p','','저장된 분석 기록이 없어요.'));root.append(history);
  }
  window.moaonInsightAI=Object.freeze({setScope,setReports,clear,openQuestion,closeQuestion});
+ window.addEventListener('moaon-ai-keys-changed',event=>{if(event.detail?.provider!=='CLOVA')return;historyGeneration++;historyBusy=false;configuration=null;loaded=false;if(reports.length){loaded=true;void loadHistory();}});
  $('insights-workspace')?.addEventListener('keydown',event=>{if(event.key==='Escape'&&questionOpen){event.preventDefault();closeQuestion(true);}});
  root.addEventListener('keydown',event=>{if(event.key==='Escape'&&questionOpen){event.preventDefault();closeQuestion(true);}});render();
 })();
