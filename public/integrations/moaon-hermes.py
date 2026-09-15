@@ -87,7 +87,7 @@ ok=true와 sources를 확인한다. 오류면 실패 코드만 설명하고 운�
 ''')
     save(skill / '.moaon-managed', '1\n')
     print(json.dumps({'ok': True, 'installed': True, 'home': str(HOME), 'status': data.get('status'), 'scopes': list(data['sources']), 'retrievedAt': data.get('retrievedAt')}, ensure_ascii=False))
-    print('Telegram: /moaon-read 오늘 업무 요약해 줘')
+    print('Telegram: moaon-read 스킬을 불러와서 오늘 업무를 요약해 줘')
 
 def main():
     try:
