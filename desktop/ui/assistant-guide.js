@@ -15,7 +15,7 @@
  const roles=el('div','','guide-role-tabs');roles.setAttribute('aria-label','연결 안내 대상');view.append(roles);
  const body=el('div');view.append(body,status);
  let role='user';const choices=[];
- for(const [key,title,desc] of [['user','기존 봇 사용하기','이미 있는 모아온 봇에 참여해요'],['owner','운영자 설정하기','연결·권한·알림을 관리해요']]){const b=button(roles,'',()=>{role=key;render();});b.dataset.guideRole=key;b.append(el('strong',title),el('span',desc));choices.push(b);}
+ for(const [key,title,desc] of [['user','기존 봇 사용하기','이미 있는 모아온 봇에 참여해요'],['owner','운영자 설정하기','연결·권한·알림을 관리해요'],['hermes','Hermes 서버 연결','서버 준비부터 자동화 점검까지']]){const b=button(roles,'',()=>{role=key;render();});b.dataset.guideRole=key;b.append(el('strong',title),el('span',desc));choices.push(b);}
  function step(parent,n,title,text,actions=[]){const card=el('article','','guide-step');card.append(el('span',String(n).padStart(2,'0'),'guide-step-number'));const content=el('div');content.append(el('h3',title),el('p',text));const controls=el('div','','guide-actions');for(const [label,fn] of actions)button(controls,label,fn);content.append(controls);card.append(content);parent.append(card);}
  function render(){choices.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.guideRole===role)));body.replaceChildren();const steps=el('div','','guide-steps');body.append(steps);
   if(role==='user'){
@@ -24,14 +24,14 @@
    step(steps,2,'시작을 누르고 사용 권한을 받아요','봇 대화에서 시작 또는 /start를 보내세요. 응답이 없으면 운영자에게 내 텔레그램 숫자 ID의 허용 여부를 확인해 달라고 요청하세요. @사용자명과 숫자 ID는 다릅니다. 연결 승인 코드가 나오면 운영자에게 전달하세요.',[['/start 복사',()=>copy('/start')]]);
    step(steps,3,'내 업무를 연결해요','개인비서의 업무 조회·완료 기능은 모아온 계정 연결이 필요해요. 현재 개인·학습비서는 각각 한 개의 개인 텔레그램 계정을 연결하는 구조입니다. 모아온에 가입했다고 자동 연결되지는 않아요. 운영자와 연결 대상을 먼저 확인하세요.',[['텔레그램 봇 설정 보기',()=>jump('bots')]]);
    step(steps,4,'메뉴로 첫 대화를 시작해요','권한 연결이 끝나면 “메뉴”를 보내세요. 업무비서의 업무 브리핑이나 개인비서의 오늘 내 업무를 눌러 확인할 수 있어요. 원래 대화처럼 질문해도 됩니다.',[['메뉴 복사',()=>copy('메뉴')],['메뉴 설정 보기',()=>jump('menus')]]);
-  }else{
+  }else if(role==='owner'){
    const note=el('p','현재 앱은 아래에 지정된 모아온 세 봇의 사용자명을 확인합니다. 임의로 새 봇을 만든 뒤 토큰만 넣는 방식은 지원하지 않아요. 기존 연결이 있으면 토큰을 다시 만들 필요가 없습니다.','guide-note');steps.append(note);
    step(steps,1,'봇 소유권과 서버를 준비해요','BotFather는 봇 생성·소유권·토큰을 관리하고, Hermes 서버는 실제 AI 대화를 실행해요. BotFather에서 /mybots로 기존 봇을 확인하세요. 별도 봇으로 운영하려면 지원 사용자명 등록 작업이 먼저 필요합니다.',[['BotFather 사용자명 복사',()=>copy('@BotFather')],['/mybots 복사',()=>copy('/mybots')]]);
    step(steps,2,'대화 연결과 수신처를 저장해요','텔레그램 봇 탭에서 해당 봇의 토큰, 대화 ID와 허용 사용자 숫자 ID를 입력해 저장하세요. 본인 계정에서 먼저 /start를 보내야 합니다. 저장된 토큰은 비워두면 유지됩니다. 개인·학습비서는 개인 대화, 업무비서는 개인 또는 그룹을 사용할 수 있어요.',[['텔레그램 봇 설정 열기',()=>jump('bots')]]);
    step(steps,3,'모아온 자료 조회를 연결해요','연결 설정에서 조회 키를 발급하고 관리자가 Hermes 연결기에 등록합니다. 봇 대화 연결과 자료 조회는 별도예요. 토큰은 봇 접속용, 조회 키는 모아온 자료 접근용입니다. 개인 업무는 텔레그램 봇 탭에서 현재 모아온 계정까지 연결하세요.',[['연결 설정 열기',()=>jump('connections')]]);
    step(steps,4,'시험 알림과 실제 대화를 모두 확인해요','저장 후 Hermes 적용에는 약 2분이 걸릴 수 있어요. 상태 새로고침으로 “Hermes 실행 중”을 확인하고 시험 알림을 보내세요. 시험 알림 성공은 메시지 전송 확인입니다. AI 답변과 업무 자료 조회도 각각 확인해야 합니다.',[['연결 상태·시험 알림',()=>jump('bots')]]);
    step(steps,5,'예약 브리핑과 메뉴를 정해요','예약·알림에서 봇별 시간·요일·발송 스위치·내용을 저장하세요. 시간은 한국 시간 기준입니다. 봇 메뉴에서 항목과 순서를 바꾸고, 텔레그램에서 “메뉴”를 보내 다시 표시하세요. 표시된 설명은 현재 연결 상태를 뜻하지 않습니다.',[['예약·알림 열기',()=>jump('automation')],['봇 메뉴 열기',()=>jump('menus')]]);
-  }
+  }else if(root.renderHermesGuide){root.renderHermesGuide(steps);}
  }
  render();
  const faq=el('section','','guide-faq');faq.append(el('h2','막히는 순간, 여기서 찾아보세요'));const label=el('label','도움말 검색','guide-search'),search=el('input');search.type='search';search.placeholder='예: 계정 이전, 알림, 토큰, 그룹';label.append(search);faq.append(label);view.append(faq);
