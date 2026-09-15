@@ -38,3 +38,14 @@ Files: assistant-bots-contract.cjs, assistant-bots.js, bots.js, moaon-bots.py; n
 
 ## Status
 현재 1단계 구현 시작. 이후 단계는 별도 검증 가능한 릴리스로 진행하며 완료로 보고하지 않는다.
+
+## 1단계 운영 검증 (2026-09-16)
+- 서버1.68.0 READY, desktop0.150.0 서명 설치파일 생성 및 실제 설치 앱 확인.
+- STUDY 암호화 저장, 본인 개인 대화 수신처, 본인 SOLO의 단일 personal Codex credential을 별도 STUDY 프로필에 구성. 다른 프로필 기억/세션은 복사하지 않음.
+- 세 프로필 RUNNING/applied_revision 일치. STUDY Telegram 시험 알림 SENT. STUDY 모델 직접 응답 시험 성공(자연어 자료 업로드부터 전체 스킬 실행까지의 시험과는 구분).
+- STUDY helper 실제 제출 → PENDING → 설치앱 승인/공유 표시 → WORK helper 동일 출처/본문/revision 조회 성공.
+- 시험 지식은 공유 목록에서 soft remove, 승인 이력은 유지.
+- SQLite가 아닌 PGlite SQL 승인/중복/충돌/반려 검증, 봇 계약7개, Python helpers, desktop459개 통과. 학습 UI 소스/패키지 및 세 봇 UI 6크기·테마 조합 통과.
+- 상태 보고가 분당 조회 한도를 소모하던 점 수정: BOT_REPORT도 권한 검증하지만 자료 조회 카운트는 소모하지 않음. BOT_CONFIG의 제한은 유지. 회귀 시험 통과, migration50300 적용.
+- systemd Result=success/ExecMainStatus=0, timer active. WORK 매일09시 활성화, SOLO 예약 꺼짐 유지.
+- 다음 단계: 개인 계정 연결과 내 업무 처리. 아직 구현 완료로 보고하지 않는다.
