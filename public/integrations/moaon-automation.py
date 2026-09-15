@@ -78,26 +78,49 @@ def briefing(data,sections,slot):
         if k in sections and (not data.get('sources',{}).get(k) or k in ('orders','cs') and not data['sources'][k].get('channels')):text+='\n'+label+' 자료 확인 필요'
     return text.replace('모아온 업무 브리핑','모아온 개인비서 브리핑' if slot=='SOLO' else '모아온 업무비서 브리핑',1)
 
-def telegram(c,chat,text,bot_token=None):
+def telegram(c,chat,text,bot_token=None,card_id=None):
     from dotenv import dotenv_values
     token=bot_token or os.environ.get('TELEGRAM_BOT_TOKEN') or dotenv_values(HOME/'.env').get('TELEGRAM_BOT_TOKEN')
     if not token:raise ValueError('TELEGRAM_NOT_CONFIGURED')
     # Token remains inside this process and is never included in output or exception logs.
-    req=urllib.request.Request('https://api.telegram.org/bot'+token+'/sendMessage',data=json.dumps({'chat_id':chat,'text':text[:3900],'disable_web_page_preview':True,'reply_markup':{'inline_keyboard':[[{'text':'모아온에서 확인','url':'https://harin-cafe24-sync.vercel.app'}]]}}).encode(),headers={'Content-Type':'application/json'},method='POST')
+    markup={'inline_keyboard':[[{'text':'모아온에서 확인','url':'https://harin-cafe24-sync.vercel.app'}]]}
+    if card_id:markup['inline_keyboard'].insert(0,[{'text':'업무 등록안 만들기','callback_data':'moa:D:'+card_id},{'text':'1시간 뒤 다시 알림','callback_data':'moa:S:'+card_id}])
+    req=urllib.request.Request('https://api.telegram.org/bot'+token+'/sendMessage',data=json.dumps({'chat_id':chat,'text':text[:3900],'disable_web_page_preview':True,'reply_markup':markup}).encode(),headers={'Content-Type':'application/json'},method='POST')
     with urllib.request.build_opener(c.NoRedirect).open(req,timeout=25) as r:
         data=json.loads(r.read(20000))
         if data.get('ok') is not True:raise ValueError('SEND_FAILED')
+        return str(data['result']['message_id'])
 
 def deliver(c,key,cfg,event_id,kind,message):
     claim=command(c,key,{'action':'AUTO_CLAIM','slot':cfg['slot'],'id':event_id,'revision':cfg['revision'],'botRevision':cfg['botRevision'],'kind':kind})
     if not claim.get('claimed'):return
-    status='UNKNOWN'
-    try:telegram(c,claim['chatId'],message,cfg.get('botToken'));status='SENT'
-    except urllib.error.HTTPError as e:status='FAILED' if 400<=e.code<500 else 'UNKNOWN'
-    except ValueError:status='FAILED'
+    status='UNKNOWN';sent=False
+    try:
+        card=command(c,key,{'action':'ACT_PREPARE','slot':cfg['slot'],'eventId':event_id,'botRevision':cfg['botRevision'],'body':message[:3900]})
+        mid=telegram(c,claim['chatId'],message,cfg.get('botToken'),card['id'])
+        sent=True
+        command(c,key,{'action':'ACT_BIND','id':card['id'],'messageId':mid})
+        status='SENT'
+    except urllib.error.HTTPError as e:status='FAILED' if not sent and 400<=e.code<500 else 'UNKNOWN'
+    except ValueError:status='UNKNOWN' if sent else 'FAILED'
     except Exception:status='UNKNOWN'
     # No automatic retry after an uncertain Telegram response, including process interruption.
     command(c,key,{'action':'AUTO_RESULT','slot':cfg['slot'],'id':event_id,'status':status})
+
+def send_reminders(c,key,bots):
+    pending=command(c,key,{'action':'ACT_PULSE'})['due']
+    for item in pending:
+        bot=next((b for b in bots if b['slot']==item['slot']),None)
+        if not bot:continue
+        claim=command(c,key,{'action':'ACT_CLAIM','id':item['id'],'botRevision':bot['revision']})
+        if not claim.get('claimed'):continue
+        status='UNKNOWN'
+        try:
+            telegram(c,claim['chatId'],'다시 알림 · 이전 브리핑\n지금 새로 조회한 자료가 아닙니다.\n\n'+claim['body'],bot.get('token'));status='SENT'
+        except urllib.error.HTTPError as e:status='FAILED' if 400<=e.code<500 else 'UNKNOWN'
+        except ValueError:status='FAILED'
+        except Exception:status='UNKNOWN'
+        command(c,key,{'action':'ACT_RESULT','id':item['id'],'status':status})
 
 def tick(c,key):
     import fcntl
@@ -136,6 +159,8 @@ def tick(c,key):
         except Exception:errors.append(cfg['slot'])
         finally:
             command(c,key,{'action':'AUTO_HEALTH','slot':cfg['slot'],'status':'ERROR' if cfg['slot'] in errors else 'OK'})
+    try:send_reminders(c,key,bots)
+    except Exception:errors.append('REMINDERS')
     print(json.dumps({'ok':not errors,'state':'CHECK_REQUIRED' if errors else 'CHECKED','failedSlots':errors}))
     if errors:raise ValueError('BOT_AUTOMATION_CHECK_REQUIRED')
 

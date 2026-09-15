@@ -40,6 +40,25 @@ await assert.rejects(auto({action:'AUTO_SAVE',slot:'WORK',revision:1,settings:au
 await auto({action:'AUTO_SAVE',slot:'WORK',revision:1,settings:autoDefaults});
 await assert.rejects(auto({...ac,revision:2,id:'schedule:fake',kind:'SCHEDULE'},true),/DISABLED/);
 await db.exec('set role anon');await assert.rejects(db.query('select * from public.moaon_bot_automations'),/permission denied/);await db.exec('reset role');
+await db.exec(fs.readFileSync('supabase/migrations/20260916140000_moaon_briefing_actions.sql','utf8'));
+const act=async(input,worker=true)=>{return (await db.query('select public.moaon_assistant_actions($1,$2,$3,$4,$5) v',[worker?null:U,worker?null:S,worker?null:'sessionhash',JSON.stringify(input),worker?H:null])).rows[0].v;};
+await db.exec(`update public.moaon_assistant_bots set settings=settings||'{"allowedUsers":["123"]}';update public.moaon_bot_automations set test_created_at=now()-interval '1 minute';`);
+const tid='44444444-4444-4444-8444-444444444444';
+await auto({action:'AUTO_TEST',slot:'WORK',revision:2,id:tid});await auto({...ac,revision:2,id:'test:'+tid},true);
+const card=await act({action:'ACT_PREPARE',slot:'WORK',eventId:'test:'+tid,botRevision:1,body:'시험 브리핑 · 자료 기준 확인'});
+await act({action:'ACT_BIND',id:card.id,messageId:'456'});
+await auto({action:'AUTO_RESULT',slot:'WORK',id:'test:'+tid,status:'SENT'},true);
+const click={action:'ACT_CLICK',slot:'WORK',id:card.id,messageId:'456',chatId:'123',userId:'123',verb:'SNOOZE'};
+for(const change of [{userId:'999'},{chatId:'999'},{messageId:'999'},{slot:'SOLO'}])await assert.rejects(act({...click,...change}),/AUTH_REQUIRED|DISABLED/);
+await assert.rejects(act(click,false),/INVALID/);
+const job=await act(click);assert.equal(job.status,'PENDING');assert.equal((await act(click)).id,job.id);assert.ok(Date.parse(job.dueAt)>Date.now()+3500000);
+await assert.rejects(act({action:'ACT_CLAIM',id:job.id,botRevision:1}),/DISABLED/);
+const draft=await act({...click,verb:'DRAFT'});assert.equal(draft.status,'PENDING');assert.equal((await act({...click,verb:'DRAFT'})).id,draft.id);assert.equal((await db.query('select status from moaon_assistant_drafts where id=$1',[draft.id])).rows[0].status,'PENDING');
+await act({action:'ACT_CANCEL',id:job.id},false);assert.equal((await act({action:'ACT_CLAIM',id:job.id,botRevision:1})).claimed,false);
+await db.query("update moaon_briefing_actions set status='PENDING',due_at=now()-interval '1 second' where id=$1",[job.id]);
+assert.equal((await act({action:'ACT_CLAIM',id:job.id,botRevision:1})).claimed,true);assert.equal((await act({action:'ACT_CLAIM',id:job.id,botRevision:1})).claimed,false);await act({action:'ACT_RESULT',id:job.id,status:'UNKNOWN'});assert.equal((await act({action:'ACT_READ'},false)).reminders[0].status,'UNKNOWN');
+await db.exec('update moaon_assistant_bots set revision=2');await assert.rejects(act(click),/AUTH_REQUIRED/);
+await db.exec('set role anon');await assert.rejects(db.query('select * from moaon_briefing_cards'),/permission denied/);await db.exec('reset role');
 await db.exec('update moaon_control.memberships set version=2');await assert.rejects(bot({action:'BOT_CONFIG'},true),/AUTH_REQUIRED/);await assert.rejects(call({action:'CONFIG'},true),/AUTH_REQUIRED/);await db.exec('set role anon');await assert.rejects(db.query('select * from public.moaon_assistant_settings'),/permission denied/);
 }finally{await db.close();}});
 
