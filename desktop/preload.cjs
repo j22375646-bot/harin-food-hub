@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   openWebHub:()=>ipcRenderer.invoke('moaon-hub:open-web-hub'),
   testTeamNotification:()=>ipcRenderer.invoke('moaon-hub:test-team-notification'),
   teamCommand:input=>ipcRenderer.invoke('moaon-hub:team-command',input),
+  assistantAccess:input=>ipcRenderer.invoke('moaon-hub:assistant-access',input),
   connectionCommand:input=>ipcRenderer.invoke('moaon-hub:connection-command',input),
   onTeamOpen:listener=>subscribe('moaon-hub:team-open',listener),
   onBackgroundOpen:listener=>{if(typeof listener!=='function')throw Error('Invalid listener');return subscribe('moaon-hub:background-open',value=>{if(['orders','calendar','events','cs'].includes(value))listener(value);});},

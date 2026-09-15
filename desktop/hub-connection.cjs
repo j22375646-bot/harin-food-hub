@@ -721,6 +721,14 @@ function createHubConnection({
     try{const result=await transport.command((...args)=>getRemoteSession().fetch(...args),input,controller.signal);return expected===generation?result:{ok:false,code:'KEYS_AUTH_REQUIRED'};}
     finally{clearTimeout(timer);businessReads.delete(controller);keyBusy=false;keyPermit=null;}
   }
+  let assistantAccessBusy=false,assistantAccessPermit=null;
+  async function assistantAccess(input){
+    if(assistantAccessBusy||disconnecting||cleanupFailed||isLoginWindowActive())return {ok:false,code:'ASSISTANT_AUTH_REQUIRED'};
+    const transport=require('./assistant-access-transport.cjs'),expected=generation,controller=new AbortController();
+    assistantAccessBusy=true;assistantAccessPermit={url:transport.URL,method:'POST'};businessReads.add(controller);const timer=setTimeout(()=>controller.abort(),30000);
+    try{const result=await transport.command((...args)=>getRemoteSession().fetch(...args),input,controller.signal);return expected===generation?result:{ok:false,code:'ASSISTANT_AUTH_REQUIRED'};}
+    finally{clearTimeout(timer);businessReads.delete(controller);assistantAccessBusy=false;assistantAccessPermit=null;}
+  }
   let teamBusy=false,teamPermit=null;
   async function teamCommand(input){
     if(teamBusy||disconnecting||cleanupFailed||isLoginWindowActive())return {ok:false,code:'TEAM_BUSY'};
@@ -882,7 +890,7 @@ function createHubConnection({
             settlementPermit,
             assistantPermit,insightsPermit,insightAiPermit,marketAiPermit,generalChatPermit,
             bidPermit,
-            csPermit,inventoryPermit,stockPermit,teamPermit,keyPermit,
+            csPermit,inventoryPermit,stockPermit,teamPermit,keyPermit,assistantAccessPermit,
             trackingRequestMethod,
             automaticTrackingRequestActive,
             collectionPermit,backgroundCsPermit,
@@ -1842,7 +1850,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-return Object.freeze({ generalChat,cancelGeneralChat,marketAi,cancelMarketAi,insightAi,cancelInsightAi,readEventPerformance, readBackgroundOrders, collectBackgroundOrders, collectBackgroundCs, connectionCommand, teamCommand, keywordBid, deleteCalendarEntry, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readAssistant, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+return Object.freeze({ generalChat,cancelGeneralChat,marketAi,cancelMarketAi,insightAi,cancelInsightAi,readEventPerformance, readBackgroundOrders, collectBackgroundOrders, collectBackgroundCs, assistantAccess, connectionCommand, teamCommand, keywordBid, deleteCalendarEntry, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readAssistant, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -1896,6 +1904,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
   ipcMain.handle('moaon-hub:insight-ai',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!validInsightAiCommand(args[0]))throw Error('Invalid analysis AI request');return connection.insightAi(args[0]);});
   ipcMain.handle('moaon-hub:market-ai',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!validMarketAiCommand(args[0]))throw Error('Invalid market AI request');return connection.marketAi(args[0]);});
   ipcMain.handle('moaon-hub:general-chat',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!validGeneralChatCommand(args[0]))throw Error('Invalid general chat request');return connection.generalChat(args[0]);});
+  ipcMain.handle('moaon-hub:assistant-access',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!require('./assistant-access-transport.cjs').validInput(args[0]))throw Error('Invalid assistant access request');return connection.assistantAccess(args[0]);});
   ipcMain.handle('moaon-hub:connection-command',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!require('./connections-transport.cjs').validInput(args[0]))throw Error('Invalid connection request');return connection.connectionCommand(args[0]);});
   ipcMain.handle('moaon-hub:team-command',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!require('./team-contract.cjs').validInput(args[0]))throw Error('Invalid team request');return connection.teamCommand(args[0]);});
   ipcMain.handle('moaon-hub:apply-order-search',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');if(args.length!==1||!validSearch(args[0]))throw Error('Invalid search arguments');return connection.applyOrderSearch(args[0]);});

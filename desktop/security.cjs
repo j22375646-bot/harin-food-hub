@@ -5,6 +5,7 @@ const path = require('node:path');
 const APP_ENTRY_URL = 'moaon://app/index.html';
 const ALLOWED_APP_RESOURCES = new Map([
   [APP_ENTRY_URL, 'index.html'],
+  ['moaon://app/assistant-access.js','assistant-access.js'],
   ['moaon://app/assistant.js','assistant.js'],
   ['moaon://app/assistant.css','assistant.css'],
   ['moaon://app/action-feedback.js','action-feedback.js'],
