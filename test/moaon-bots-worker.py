@@ -24,3 +24,17 @@ with tempfile.TemporaryDirectory(dir='D:/GPT/tmp') as temp:
   assert not (home/'.env').exists()
   assert (home/'profiles/moaon-solo/integrations/moaon/read.key').exists()
  print('PASS: separate owned profiles, preserved default, connector files, status reporting')
+
+with tempfile.TemporaryDirectory(dir='D:/GPT/tmp') as temp:
+ root=Path(temp);profile=root/'moaon-work';profile.mkdir();proc=root/'proc'/'123';proc.mkdir(parents=True)
+ state={'pid':123,'platforms':{'telegram':{'writer_pid':123,'writer_start_time':777}}}
+ (profile/'gateway_state.json').write_text(json.dumps(state))
+ fields=['S']+['0']*18+['777'];(proc/'stat').write_text('123 (hermes gateway) '+' '.join(fields))
+ (proc/'cmdline').write_text('python\0hermes\0-p\0moaon-work\0gateway\0run\0')
+ assert m.process_running(profile,root/'proc')
+ (proc/'cmdline').write_text('python\0hermes\0-p\0moaon-solo\0gateway\0run\0')
+ assert not m.process_running(profile,root/'proc')
+ (proc/'cmdline').write_text('python\0hermes\0-p\0moaon-work\0gateway\0run\0')
+ fields[-1]='888';(proc/'stat').write_text('123 (hermes gateway) '+' '.join(fields))
+ assert not m.process_running(profile,root/'proc')
+ print('PASS: missing pid file supported; wrong profile and reused PID rejected')

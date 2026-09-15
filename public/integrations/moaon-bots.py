@@ -12,7 +12,23 @@ def cli(home,*args,required=True):
     if required and r.returncode:raise ValueError('HERMES_PROFILE_CHECK_REQUIRED')
     return r.returncode==0
 
+def process_running(p,proc_root=Path('/proc')):
+    """Validate a profile's live process identity even when Hermes omits gateway.pid."""
+    try:
+        state=json.loads((p/'gateway_state.json').read_text())
+        pid=state.get('pid')
+        if not isinstance(pid,int) or pid<=1:return False
+        proc=proc_root/str(pid)
+        fields=(proc/'stat').read_text().rsplit(')',1)[1].split()
+        platform=state.get('platforms',{}).get('telegram',{})
+        if fields[0]=='Z' or int(fields[19])!=platform.get('writer_start_time') or platform.get('writer_pid')!=pid:return False
+        argv=(proc/'cmdline').read_text().split('\0')
+        scoped=any(argv[i] in ('-p','--profile') and argv[i+1]==p.name for i in range(len(argv)-1)) or '--profile='+p.name in argv
+        return scoped and 'gateway' in argv
+    except Exception:return False
+
 def running(home,p):
+    if process_running(p):return True
     try:
         if '/opt/hermes' not in sys.path:sys.path.insert(0,'/opt/hermes')
         from gateway.status import get_running_pid
@@ -23,6 +39,7 @@ def running(home,p):
             return p.name in state.get('served_profiles',[])
     except Exception:pass
     return False
+
 
 def sync(c,key,command,home):
     import yaml
