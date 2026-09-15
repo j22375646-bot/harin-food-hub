@@ -61,3 +61,6 @@ dialog.insight-ai.general-chat-confirm{position:fixed;inset:0;margin:auto;width:
 .clova-chat .general-chat-welcome>p{font-size:24px}
 .clova-chat .general-chat-send{color:var(--surface)!important}
 @media(prefers-reduced-motion:reduce){.clova-chat .general-chat-thinking i{animation:none}}
+
+/* Header launchers have no report-section top margin. */
+.chrome-actions .insight-ai-launcher{margin:0;min-height:44px;height:44px;align-self:center;padding:8px 16px;transform:none}
