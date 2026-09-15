@@ -1,6 +1,7 @@
 {
   "buildCommand": "pnpm build && node scripts/verify-managed-web.js",
   "functions": {
+    "app/api/moaon/businesses/*/assistant/route.js": {"regions":["sin1"]},
     "app/api/moaon/businesses/*/orders/route.js": {
       "regions": [
         "sin1"

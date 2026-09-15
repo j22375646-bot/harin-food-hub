@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   saveStock:input=>ipcRenderer.invoke('moaon-hub:save-stock',input),
   readInventory: () => ipcRenderer.invoke('moaon-hub:read-inventory'),
   readCs: () => ipcRenderer.invoke('moaon-hub:read-cs'),
+  readAssistant: () => ipcRenderer.invoke('moaon-hub:read-assistant'),
   readInsights: () => ipcRenderer.invoke('moaon-hub:read-insights'),
   insightAi: command => ipcRenderer.invoke('moaon-hub:insight-ai',command),
   cancelInsightAi: () => ipcRenderer.invoke('moaon-hub:cancel-insight-ai'),

@@ -14,6 +14,7 @@ const SETTLEMENT_URL = `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-
 const CS_URL = `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/cs`;
 const INVENTORY_URL = `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/inventory`;
 const INSIGHTS_URL = `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/insights`;
+const ASSISTANT_URL = `${HARIN_ORIGIN}/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/assistant`;
 const READONLY_PARTITION = 'persist:moaon-harin-readonly';
 const MAX_LOGIN_QUERY_LENGTH = 512;
 const LOGIN_QUERY_KEYS = new Set(['error', 'next']);
@@ -134,6 +135,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if(context.stockPermit&&details.url===HARIN_ORIGIN+'/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/stock'&&context.stockPermit.url===details.url&&context.stockPermit.method===method)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.inventoryPermit===INVENTORY_URL&&details.url===INVENTORY_URL)return isMainProcessRequest(details.webContentsId);
   if(method==='GET'&&context.insightsPermit===INSIGHTS_URL&&details.url===INSIGHTS_URL)return isMainProcessRequest(details.webContentsId);
+  if(method==='GET'&&context.assistantPermit===ASSISTANT_URL&&details.url===ASSISTANT_URL)return isMainProcessRequest(details.webContentsId);
   if(['GET','POST','DELETE'].includes(method)&&context.insightAiPermit?.method===method&&context.insightAiPermit.url===INSIGHTS_URL+'/ai'&&details.url===INSIGHTS_URL+'/ai')return isMainProcessRequest(details.webContentsId);
   if(['GET','POST'].includes(method)&&context.marketAiPermit?.method===method&&context.marketAiPermit.url===HARIN_ORIGIN+'/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/market-ai'&&details.url===HARIN_ORIGIN+'/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/market-ai')return isMainProcessRequest(details.webContentsId);
   if(['GET','POST','DELETE'].includes(method)&&context.generalChatPermit?.method===method&&context.generalChatPermit.url===HARIN_ORIGIN+'/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/general-chat'&&details.url===HARIN_ORIGIN+'/api/moaon/businesses/a3452bca-e259-40ed-a93d-b8bcc5c1b9e0/general-chat')return isMainProcessRequest(details.webContentsId);
