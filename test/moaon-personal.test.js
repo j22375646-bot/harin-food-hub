@@ -67,4 +67,3 @@ test('personal worker routes to dedicated RPC and cannot perform owner binding',
  assert.equal((await h(request({action:'PERSONAL_LIST',userId:'123',chatId:'123'}))).status,200);assert.equal(called.name,'moaon_assistant_personal');assert.equal(called.args.p_actor,null);
  assert.equal((await h(request({action:'PERSONAL_BIND',revision:0}))).status,400);
 });
-
