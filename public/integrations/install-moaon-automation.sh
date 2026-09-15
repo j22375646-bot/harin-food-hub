@@ -7,6 +7,8 @@ for unit in /etc/systemd/system/moaon-assistant.service /etc/systemd/system/moao
 done
 su - hermes -c 'podman exec --user hermes hermes-agent curl -fsS https://harin-cafe24-sync.vercel.app/integrations/moaon-automation.py -o /tmp/moaon-automation.py'
 su - hermes -c 'podman exec --user hermes hermes-agent /opt/hermes/.venv/bin/python /tmp/moaon-automation.py --install'
+su - hermes -c 'podman exec --user hermes hermes-agent curl -fsS https://harin-cafe24-sync.vercel.app/integrations/moaon-bots.py -o /opt/data/integrations/moaon/bots.py'
+su - hermes -c 'podman exec --user hermes hermes-agent chmod 600 /opt/data/integrations/moaon/bots.py'
 user_id=$(id -u hermes)
 cat > /etc/systemd/system/moaon-assistant.service <<EOF
 # Moaon managed automation
@@ -19,7 +21,7 @@ Type=oneshot
 User=hermes
 Environment=XDG_RUNTIME_DIR=/run/user/$user_id
 ExecStart=/usr/bin/podman exec --user hermes hermes-agent /opt/hermes/.venv/bin/python /opt/data/integrations/moaon/automation.py --tick
-TimeoutStartSec=180
+TimeoutStartSec=300
 EOF
 cat > /etc/systemd/system/moaon-assistant.timer <<'EOF'
 # Moaon managed automation

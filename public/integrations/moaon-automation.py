@@ -63,9 +63,9 @@ def summary(data):
     lines.extend(['조회: '+str(data.get('retrievedAt','확인 필요')),'모아온 저장 자료 기준 · 원본 수집 시각 확인 필요'])
     return '\n'.join(lines)
 
-def telegram(c,chat,text):
+def telegram(c,chat,text,bot_token=None):
     from dotenv import dotenv_values
-    token=os.environ.get('TELEGRAM_BOT_TOKEN') or dotenv_values(HOME/'.env').get('TELEGRAM_BOT_TOKEN')
+    token=bot_token or os.environ.get('TELEGRAM_BOT_TOKEN') or dotenv_values(HOME/'.env').get('TELEGRAM_BOT_TOKEN')
     if not token:raise ValueError('TELEGRAM_NOT_CONFIGURED')
     # Token remains inside this process and is never included in output or exception logs.
     req=urllib.request.Request('https://api.telegram.org/bot'+token+'/sendMessage',data=json.dumps({'chat_id':chat,'text':text[:3900],'disable_web_page_preview':True}).encode(),headers={'Content-Type':'application/json'},method='POST')
@@ -77,7 +77,7 @@ def deliver(c,key,cfg,event_id,kind,message):
     claim=command(c,key,{'action':'CLAIM','id':event_id,'revision':cfg['revision'],'kind':kind})
     if not claim.get('claimed'):return
     status='UNKNOWN'
-    try:telegram(c,claim['chatId'],message);status='SENT'
+    try:telegram(c,cfg.get('botChatId') or claim['chatId'],message,cfg.get('botToken'));status='SENT'
     except urllib.error.HTTPError as e:status='FAILED' if 400<=e.code<500 else 'UNKNOWN'
     except ValueError:status='FAILED'
     except Exception:status='UNKNOWN'
@@ -89,8 +89,16 @@ def tick(c,key):
     lock=open(DIRECTORY/'automation.lock','a')
     try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
     except BlockingIOError:return
+    bots=[]
+    bot_path=DIRECTORY/'bots.py'
+    if bot_path.exists():
+        spec=importlib.util.spec_from_file_location('moaon_bots',bot_path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);bots=module.sync(c,key,command,HOME)
     cfg=command(c,key,{'action':'PULSE'});s=cfg['settings'];now=dt.datetime.now(KST)
     if not (s['schedule'] or s['changes'] or cfg.get('testId')):print('{"ok":true,"state":"IDLE"}');return
+    for bot in bots:
+        if bot['slot']=='WORK' and bot['settings']['notifications']:
+            if not bot['settings']['enabled'] or not bot.get('token'):raise ValueError('BOT_DISABLED')
+            cfg['botToken']=bot['token'];cfg['botChatId']=bot['settings']['chatId']
     data=c.read(key)
     if cfg.get('testId'):deliver(c,key,cfg,'test:'+cfg['testId'],'TEST','모아온 시험 알림\n\n'+summary(data))
     if due(s,now):deliver(c,key,cfg,'schedule:'+now.date().isoformat()+':'+s['time'].replace(':','')+':'+s['chatId'],'SCHEDULE',summary(data))
