@@ -63,26 +63,41 @@ def summary(data):
     lines.extend(['조회: '+str(data.get('retrievedAt','확인 필요')),'모아온 저장 자료 기준 · 원본 수집 시각 확인 필요'])
     return '\n'.join(lines)
 
+def section_counts(data,sections):
+    result={k:v for k,v in counts(data).items() if ('orders' if k.startswith('order:') else 'cs') in sections}
+    if 'tasks' in sections:
+        for k,v in (data.get('sources',{}).get('tasks',{}).get('counts') or {}).items():
+            if k in ('dueToday','overdue') and isinstance(v,int) and not isinstance(v,bool):result['tasks:'+k]=v
+    return result
+
+def briefing(data,sections,slot):
+    filtered={**data,'sources':{k:v for k,v in data.get('sources',{}).items() if k in sections}}
+    text=summary(filtered)
+    if 'tasks' not in sections:text='\n'.join(x for x in text.splitlines() if not x.startswith('키 발급자 업무'))
+    for k,label in [('orders','주문'),('cs','문의'),('tasks','업무')]:
+        if k in sections and (not data.get('sources',{}).get(k) or k in ('orders','cs') and not data['sources'][k].get('channels')):text+='\n'+label+' 자료 확인 필요'
+    return text.replace('모아온 업무 브리핑','모아온 개인비서 브리핑' if slot=='SOLO' else '모아온 업무비서 브리핑',1)
+
 def telegram(c,chat,text,bot_token=None):
     from dotenv import dotenv_values
     token=bot_token or os.environ.get('TELEGRAM_BOT_TOKEN') or dotenv_values(HOME/'.env').get('TELEGRAM_BOT_TOKEN')
     if not token:raise ValueError('TELEGRAM_NOT_CONFIGURED')
     # Token remains inside this process and is never included in output or exception logs.
-    req=urllib.request.Request('https://api.telegram.org/bot'+token+'/sendMessage',data=json.dumps({'chat_id':chat,'text':text[:3900],'disable_web_page_preview':True}).encode(),headers={'Content-Type':'application/json'},method='POST')
+    req=urllib.request.Request('https://api.telegram.org/bot'+token+'/sendMessage',data=json.dumps({'chat_id':chat,'text':text[:3900],'disable_web_page_preview':True,'reply_markup':{'inline_keyboard':[[{'text':'모아온에서 확인','url':'https://harin-cafe24-sync.vercel.app'}]]}}).encode(),headers={'Content-Type':'application/json'},method='POST')
     with urllib.request.build_opener(c.NoRedirect).open(req,timeout=25) as r:
         data=json.loads(r.read(20000))
         if data.get('ok') is not True:raise ValueError('SEND_FAILED')
 
 def deliver(c,key,cfg,event_id,kind,message):
-    claim=command(c,key,{'action':'CLAIM','id':event_id,'revision':cfg['revision'],'kind':kind})
+    claim=command(c,key,{'action':'AUTO_CLAIM','slot':cfg['slot'],'id':event_id,'revision':cfg['revision'],'botRevision':cfg['botRevision'],'kind':kind})
     if not claim.get('claimed'):return
     status='UNKNOWN'
-    try:telegram(c,cfg.get('botChatId') or claim['chatId'],message,cfg.get('botToken'));status='SENT'
+    try:telegram(c,claim['chatId'],message,cfg.get('botToken'));status='SENT'
     except urllib.error.HTTPError as e:status='FAILED' if 400<=e.code<500 else 'UNKNOWN'
     except ValueError:status='FAILED'
     except Exception:status='UNKNOWN'
     # No automatic retry after an uncertain Telegram response, including process interruption.
-    command(c,key,{'action':'RESULT','id':event_id,'status':status})
+    command(c,key,{'action':'AUTO_RESULT','slot':cfg['slot'],'id':event_id,'status':status})
 
 def tick(c,key):
     import fcntl
@@ -93,30 +108,37 @@ def tick(c,key):
     bot_path=DIRECTORY/'bots.py'
     if bot_path.exists():
         spec=importlib.util.spec_from_file_location('moaon_bots',bot_path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);bots=module.sync(c,key,command,HOME)
-    cfg=command(c,key,{'action':'PULSE'});s=cfg['settings'];now=dt.datetime.now(KST)
-    if not (s['schedule'] or s['changes'] or cfg.get('testId')):print('{"ok":true,"state":"IDLE"}');return
-    for bot in bots:
-        if bot['slot']=='WORK' and bot['settings']['notifications']:
-            if not bot['settings']['enabled'] or not bot.get('token'):raise ValueError('BOT_DISABLED')
-            cfg['botToken']=bot['token'];cfg['botChatId']=bot['settings']['chatId']
-    data=c.read(key)
-    if cfg.get('testId'):deliver(c,key,cfg,'test:'+cfg['testId'],'TEST','모아온 시험 알림\n\n'+summary(data))
-    if due(s,now):deliver(c,key,cfg,'schedule:'+now.date().isoformat()+':'+s['time'].replace(':','')+':'+s['chatId'],'SCHEDULE',summary(data))
-    if s['changes']:
-        state_path=DIRECTORY/'baseline.json';previous={}
-        if state_path.exists():previous=json.loads(state_path.read_text())
-        current=counts(data);old=previous.get('counts',{}) if previous.get('revision')==cfg['revision'] else {}
-        change=increased(old,current)
-        if change and s['quietStart']<=now.hour<s['quietEnd']:
-            fingerprint=hashlib.sha256(json.dumps([previous.get('at'),current],sort_keys=True).encode()).hexdigest()[:24]
-            labels={'NAVER':'네이버','CAFE24':'카페24','COUPANG':'쿠팡'}
-            lines=['모아온 변화 알림']
-            for name,delta in change.items():kind,platform=name.split(':');lines.append(labels.get(platform,platform)+' · '+('발급 전 주문' if kind=='order' else '미답변 문의')+' '+str(delta)+'건 증가')
-            lines.extend(['저장 자료의 이전 확인 대비 변화입니다.','조회 '+str(data.get('retrievedAt'))+' · 원본 수집 시각 확인 필요'])
-            deliver(c,key,cfg,'change:'+fingerprint,'CHANGE','\n'.join(lines))
-        # Missing sources are removed; recovery establishes a new baseline instead of a false increase.
-        temporary=DIRECTORY/'baseline.next';c.save(temporary,json.dumps({'counts':current,'revision':cfg['revision'],'at':now.isoformat()}));os.replace(temporary,state_path)
-    print('{"ok":true,"state":"CHECKED"}')
+    config=command(c,key,{'action':'AUTO_PULSE'})
+    now=dt.datetime.now(KST)
+    data=None;errors=[]
+    for cfg in config['automations']:
+        try:
+            bot=next((b for b in bots if b['slot']==cfg['slot']),None)
+            if not bot or not bot['settings']['enabled'] or not bot.get('token'):continue
+            s=cfg['settings']
+            if not (s['schedule'] or s['changes'] or cfg.get('testId')):continue
+            cfg['botToken']=bot['token'];cfg['botRevision']=bot['revision']
+            if data is None:data=c.read(key)
+            body=briefing(data,s['sections'],cfg['slot'])
+            if cfg.get('testId'):deliver(c,key,cfg,'test:'+cfg['testId'],'TEST','모아온 시험 브리핑\n\n'+body)
+            if due(s,now):deliver(c,key,cfg,'schedule:'+now.date().isoformat()+':'+s['time'].replace(':',''),'SCHEDULE',body)
+            if s['changes']:
+                state_path=DIRECTORY/('baseline-'+cfg['slot'].lower()+'.json');previous={}
+                if state_path.exists():previous=json.loads(state_path.read_text())
+                current=section_counts(data,s['sections']);old=previous.get('counts',{}) if previous.get('revision')==cfg['revision'] and previous.get('botRevision')==bot['revision'] else {}
+                change=increased(old,current)
+                if change and s['quietStart']<=now.hour<s['quietEnd']:
+                    fingerprint=hashlib.sha256(json.dumps([previous.get('at'),current],sort_keys=True).encode()).hexdigest()[:24]
+                    labels={'order:NAVER':'네이버 발급 전 주문','order:CAFE24':'카페24 발급 전 주문','order:COUPANG':'쿠팡 발급 전 주문','cs:NAVER':'네이버 미답변','cs:CAFE24':'카페24 미답변','cs:COUPANG':'쿠팡 미답변','tasks:dueToday':'키 발급자 오늘 마감 업무','tasks:overdue':'키 발급자 기한 초과 업무'}
+                    message='모아온 변화 알림\n'+'\n'.join(labels.get(k,k)+' '+str(v)+'건 증가' for k,v in change.items())+'\n\n'+body
+                    deliver(c,key,cfg,'change:'+fingerprint,'CHANGE',message)
+                temporary=state_path.with_suffix('.next');c.save(temporary,json.dumps({'counts':current,'revision':cfg['revision'],'botRevision':bot['revision'],'at':now.isoformat()}));os.replace(temporary,state_path)
+        except Exception:errors.append(cfg['slot'])
+        finally:
+            command(c,key,{'action':'AUTO_HEALTH','slot':cfg['slot'],'status':'ERROR' if cfg['slot'] in errors else 'OK'})
+    print(json.dumps({'ok':not errors,'state':'CHECK_REQUIRED' if errors else 'CHECKED','failedSlots':errors}))
+    if errors:raise ValueError('BOT_AUTOMATION_CHECK_REQUIRED')
+
 
 def install(c):
     key=secret(c);command(c,key,{'action':'CONFIG'})

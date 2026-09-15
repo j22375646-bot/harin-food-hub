@@ -12,8 +12,14 @@ class WorkerTest(unittest.TestCase):
   self.assertEqual(w.increased({}, {'order:NAVER':8}),{})
   self.assertEqual(w.increased({'order:NAVER':3},{'order:NAVER':5}),{'order:NAVER':2})
  def test_unclaimed_never_sends(self):
-  with patch.object(w,'command',return_value={'claimed':False}),patch.object(w,'telegram') as send:w.deliver(None,'x',{'revision':1},'e','TEST','m');send.assert_not_called()
+  with patch.object(w,'command',return_value={'claimed':False}),patch.object(w,'telegram') as send:w.deliver(None,'x',{'revision':1,'slot':'WORK','botRevision':1},'e','TEST','m');send.assert_not_called()
  def test_network_ambiguity_no_retry(self):
   with patch.object(w,'command',side_effect=[{'claimed':True,'chatId':'1'},{}]) as cmd,patch.object(w,'telegram',side_effect=TimeoutError()) as send:
-   w.deliver(None,'x',{'revision':1},'e','TEST','m');self.assertEqual(send.call_count,1);self.assertEqual(cmd.call_args.args[2]['status'],'UNKNOWN')
+   w.deliver(None,'x',{'revision':1,'slot':'WORK','botRevision':1},'e','TEST','m');self.assertEqual(send.call_count,1);self.assertEqual(cmd.call_args.args[2]['status'],'UNKNOWN')
+ def test_bot_sections_are_isolated(self):
+  data={'sources':{'orders':{'channels':[{'platform':'NAVER','counts':{'ACTIVE':3}}]},'tasks':{'counts':{'dueToday':2,'overdue':1}}}}
+  self.assertEqual(w.section_counts(data,['tasks']),{'tasks:dueToday':2,'tasks:overdue':1})
+  self.assertNotIn('네이버',w.briefing(data,['tasks'],'SOLO'))
+  self.assertNotIn('키 발급자 업무',w.briefing(data,['orders'],'WORK'))
+  self.assertIn('문의 자료 확인 필요',w.briefing({},['cs'],'WORK'))
 if __name__=='__main__':unittest.main()
