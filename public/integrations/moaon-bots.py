@@ -57,6 +57,8 @@ def sync(c,key,command,home):
                 # Stop this named profile before replacing its credentials, never the default gateway.
                 cli(home,'-p',name,'gateway','stop',required=False)
                 base=yaml.safe_load((home/'config.yaml').read_text()) or {}
+                existing=yaml.safe_load((p/'config.yaml').read_text()) if (p/'config.yaml').is_file() else {}
+                if isinstance(existing,dict) and isinstance(existing.get('model'),dict):base['model']=existing['model']
                 config={'model':base.get('model',{}),'terminal':{'cwd':str(p/'workspace')},'telegram':{'require_mention':True,'exclusive_bot_mentions':True,'allowed_chats':list(dict.fromkeys([s['chatId'],*s['allowedUsers']])),'observe_unmentioned_group_messages':False},'gateway':{'allow_all_users':False}}
                 if slot!='WORK':config['telegram']['allowed_chats']=[s['chatId']]
                 c.save(p/'config.yaml',yaml.safe_dump(config,allow_unicode=True))

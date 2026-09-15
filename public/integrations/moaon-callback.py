@@ -15,6 +15,9 @@ def execute(payload):
 
 async def handle(adapter,update,context):
     query=update.callback_query
+    if (query.data or "").startswith("moa:m:"):
+        spec=importlib.util.spec_from_file_location("moaon_menu", "/opt/data/integrations/moaon/menu.py");m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+        await m.dispatch(adapter,update,context,callback=True);return
     match=re.fullmatch(r'moa:([DS]):([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})',query.data or '')
     msg=getattr(query,'message',None);user=getattr(query,'from_user',None)
     if not match or not msg or not user or getattr(user,'is_bot',False):

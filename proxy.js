@@ -7,6 +7,8 @@ function isPublic(pathname) {
     || pathname === '/integrations/moaon-bots.py'
     || pathname === '/integrations/moaon-learning.py'
     || pathname === '/integrations/moaon-learning-skill.md'
+    || pathname === '/integrations/moaon-menu.py'
+    || pathname === '/integrations/install-moaon-menu.py'
     || pathname === '/integrations/moaon-callback.py'
     || pathname === '/integrations/install-moaon-callback.py'
     || pathname === '/integrations/install-moaon-automation.sh'
