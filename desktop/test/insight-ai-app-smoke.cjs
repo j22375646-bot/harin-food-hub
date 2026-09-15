@@ -20,6 +20,14 @@ const stored={runId:'12345678-1234-4123-8123-123456789abc',status:'SUCCEEDED',sc
   };},{configuration,reports,run:publicInsightRun(stored)});
   await page.evaluate(async()=>{await runHubAction('disconnect');await runHubAction('viewActive');showRoute('insights');});
   await page.waitForFunction(()=>document.querySelector('#insights-reports').textContent.includes('가상자료'));await page.evaluate(()=>{const box=document.querySelector('#insight-ai input[type=checkbox]');if(box&&!box.checked)box.click();});await page.waitForFunction(()=>document.querySelector('#insight-ai [data-ai-generate]')?.disabled===false);
+  for(const theme of ['light','dark']){
+   await page.evaluate(theme=>applyTheme(theme),theme);
+   const style=await page.locator('#insight-ai-launcher').evaluate(n=>{const s=getComputedStyle(n);return {height:n.getBoundingClientRect().height,font:parseFloat(s.fontSize),appearance:s.appearance,fg:s.color,bg:s.backgroundColor,icon:!!n.querySelector('svg')};});
+   const luminance=color=>{const channels=color.match(/[\d.]+/g).slice(0,3).map(Number).map(n=>{n/=255;return n<=.04045?n/12.92:((n+.055)/1.055)**2.4});return channels[0]*.2126+channels[1]*.7152+channels[2]*.0722;};
+   const l1=luminance(style.fg),l2=luminance(style.bg),contrast=(Math.max(l1,l2)+.05)/(Math.min(l1,l2)+.05);
+   assert.ok(style.height>=44&&style.font>=14&&style.icon,JSON.stringify(style));assert.equal(style.appearance,'none');assert.ok(contrast>=4.5,theme+' contrast '+contrast);
+   await page.locator('#insight-ai-launcher').screenshot({path:'D:/GPT/tmp/p4177-launcher-'+theme+'.png'});
+  }
   assert.equal(await app.evaluate(()=>globalThis.aiCalls.generate),0);assert.equal(await app.evaluate(()=>globalThis.aiCalls.list),1);
   await page.evaluate(()=>document.querySelector('[data-ai-generate]').click());
   await page.waitForFunction(()=>document.querySelector('#insight-ai').textContent.includes('원가 미확인'));

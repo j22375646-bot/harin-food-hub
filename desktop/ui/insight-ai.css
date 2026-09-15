@@ -6,12 +6,12 @@
 .insight-ai-chat-limits summary{cursor:pointer;min-height:44px;display:flex;align-items:center;font-size:13px}.insight-ai-chat-limits p{font-size:13px}@media(max-height:700px){.insight-ai.insight-ai-chat{height:calc(100vh - 96px);min-height:0}.insight-ai-composer{max-height:55%;overflow:auto;overscroll-behavior:contain}.insight-ai-transcript{min-height:0}.insight-ai-suggestions{display:none}}
 
 /* Global entry remains in the app header; closing never clears the conversation. */
-.chrome-actions .insight-ai-launcher{position:static;display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 16px;border:1px solid var(--blue);border-radius:999px;background:var(--blue-soft);color:var(--blue);font:inherit;font-size:14px;font-weight:650;white-space:nowrap;cursor:pointer}
+.insight-ai-launcher{position:static;display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:8px 16px;border:1px solid var(--blue);border-radius:999px;background:var(--blue-soft);color:var(--blue);font:inherit;font-size:14px;font-weight:650;white-space:nowrap;cursor:pointer}
 .insight-ai-launcher:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
 .insight-ai.insight-ai-chat{position:fixed;z-index:35;right:16px;top:80px;bottom:16px;width:min(460px,calc(100vw - 32px));height:auto;min-height:0;box-shadow:0 12px 38px #0002}
 .insight-ai-chat-tools{display:flex;gap:8px;padding:4px 18px 10px;align-items:center;flex:none}.insight-ai-chat-tools button,.insight-ai-chat-tools summary{font-size:13px;min-height:44px}.insight-ai-chat-tools details{position:relative}.insight-ai-chat-tools summary{display:flex;align-items:center;cursor:pointer}.insight-ai-chat-tools details[open]{position:absolute;z-index:2;top:62px;left:18px;right:18px;max-height:40%;overflow:auto;background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;padding:12px}.insight-ai-chat-tools details button{display:block;width:100%;text-align:left;margin-top:8px}
 .insight-ai-chat>.insight-ai-picker{margin:0 18px 10px;flex:none}.insight-ai-chat>.insight-ai-picker[open]{max-height:25%;overflow:auto}.insight-ai-chat .insight-ai-chat-scope{font-size:12px;padding-bottom:8px}.insight-ai-chat .insight-ai-picker>summary{font-size:12px;min-height:36px;padding:7px 10px}
-@media(max-width:760px){.chrome-actions .insight-ai-launcher{font-size:12px;padding:6px 10px}.insight-ai.insight-ai-chat{right:10px;top:70px;bottom:10px;width:calc(100vw - 20px)}.insight-ai-chat-tools{padding:0 14px 6px}}
+@media(max-width:760px){.insight-ai-launcher{font-size:12px;padding:6px 10px}.insight-ai.insight-ai-chat{right:10px;top:70px;bottom:10px;width:calc(100vw - 20px)}.insight-ai-chat-tools{padding:0 14px 6px}}
 @media(max-height:700px){.insight-ai-chat>.insight-ai-picker{display:none}.insight-ai-chat-tools{padding-bottom:2px}.insight-ai-chat .insight-ai-chat-scope{display:none}.insight-ai-composer{max-height:48%}}
 
 .insight-ai .insight-ai-page-context{margin:0;padding:0 18px 8px;font-size:12px;color:var(--muted)}
@@ -37,3 +37,11 @@ dialog.insight-ai.general-chat-confirm{position:fixed;inset:0;margin:auto;width:
 @media(prefers-reduced-motion:reduce){.general-chat .is-revealing::after{animation:none}.general-chat-welcome button:hover,.general-chat .general-chat-send:hover,.general-chat .general-chat-send:active{transform:none}}
 
 .general-chat-welcome::before{display:none}.general-chat-welcome{padding:14px 2px 8px}.general-chat-welcome>p{margin-bottom:20px}.general-chat-welcome button{padding:11px 14px}
+
+/* The analysis launcher lives beside the report section, outside chrome-actions. */
+.insight-ai-launcher{appearance:none;gap:10px;min-height:46px;padding:11px 18px;margin:12px 0 0;box-sizing:border-box;line-height:1.5;font-size:15px;font-weight:650;color:var(--ink);border-color:var(--blue);box-shadow:0 2px 6px #0000000a;transition:background-color .16s ease,box-shadow .16s ease,transform .16s ease}
+.insight-ai-launcher svg{width:20px;height:20px;flex:none;color:var(--blue)}
+.insight-ai-launcher:hover{background:color-mix(in srgb,var(--blue-soft) 82%,var(--blue));box-shadow:0 3px 10px #00000014;transform:translateY(-1px)}
+.insight-ai-launcher:active{transform:translateY(0)}
+.insight-ai-launcher[aria-expanded="true"]{box-shadow:0 0 0 2px var(--blue-soft)}
+@media(prefers-reduced-motion:reduce){.insight-ai-launcher{transition:none;transform:none}}
