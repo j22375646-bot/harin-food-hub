@@ -31,3 +31,12 @@
 4. 0.149.0 설치 앱에서 두 봇 시험 브리핑 요청, SENT 확인.
 5. 실제 Telegram 버튼 및 승인대기/예약/취소/전송 확인. 테스트 예약의 시간 가속을 한다면 테스트 ID에만 적용하고 별도 기록한다.
 6. 모아온 설치 UI 검증 후 GitHub moaon-stable 서명 업데이트 배포.
+
+## 2026-09-16 운영 반영 재개
+- 사용자 Supabase 로그인 후 MCP 복구. 기존 카드/RPC 미존재 확인 후 최종 migration 성공, 생성 확인.
+- 서버 1.67.0 운영 READY. 설치 과정에서 CRLF 및 새 정적 파일의 proxy 공개 경로 누락을 발견하고 수정했다(d6ed3f4, e1871dc). 인증 회귀 17/17 통과. 최종 deployment dpl_Ap8VoAe5pP2yyLEAesEYdVFRMBXn READY.
+- Hermes 설치 CALLBACK_BRIDGE_INSTALLED → 재검사 CALLBACK_BRIDGE_PRESENT. timer active, 두 named profile 연결 정상. 기존 계정 설정 변경 없음.
+- 0.149.0 실제 설치 앱에서 업무비서 화면, 봇별 자동화/다시 알림 영역/오전9시 예약 확인. Playwright mouse click이 timeout되어 앱 DOM click으로 검증했다(사용자 OS 입력 없음).
+- 설치 앱에서 두 봇 AUTO_TEST 요청. WORK message10, SOLO message9 모두 SENT(07:16 KST). 실제 사용자 Telegram 버튼 클릭 확인은 요청 후 대기 중이다. 아직 실제 snooze 예약/발송을 검증했다고 주장하지 않는다.
+- 기존 WORK 매일09시 활성화 / SOLO 예약 꺼짐 유지.
+- GitHub moaon-stable 서명 업데이트 0.149.0 published:true 확인. 실제 Telegram 클릭 후속 검증은 대기 중.
