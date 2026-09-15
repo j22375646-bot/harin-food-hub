@@ -9,6 +9,10 @@ su - hermes -c 'podman exec --user hermes hermes-agent curl -fsS https://harin-c
 su - hermes -c 'podman exec --user hermes hermes-agent /opt/hermes/.venv/bin/python /tmp/moaon-automation.py --install'
 su - hermes -c 'podman exec --user hermes hermes-agent curl -fsS https://harin-cafe24-sync.vercel.app/integrations/moaon-bots.py -o /opt/data/integrations/moaon/bots.py'
 su - hermes -c 'podman exec --user hermes hermes-agent chmod 600 /opt/data/integrations/moaon/bots.py'
+su - hermes -c 'podman exec --user hermes hermes-agent curl -fsS https://harin-cafe24-sync.vercel.app/integrations/moaon-learning.py -o /opt/data/integrations/moaon/learning.py'
+su - hermes -c 'podman exec --user hermes hermes-agent mkdir -p /opt/data/skills/moaon-learning'
+su - hermes -c 'podman exec --user hermes hermes-agent curl -fsS https://harin-cafe24-sync.vercel.app/integrations/moaon-learning-skill.md -o /opt/data/skills/moaon-learning/SKILL.md'
+su - hermes -c 'podman exec --user hermes hermes-agent chmod 600 /opt/data/integrations/moaon/learning.py /opt/data/skills/moaon-learning/SKILL.md'
 su - hermes -c 'podman exec --user hermes hermes-agent curl -fsS https://harin-cafe24-sync.vercel.app/integrations/moaon-callback.py -o /opt/data/integrations/moaon/callback.py'
 su - hermes -c 'podman exec --user hermes hermes-agent curl -fsS https://harin-cafe24-sync.vercel.app/integrations/install-moaon-callback.py -o /tmp/install-moaon-callback.py'
 su - hermes -c 'podman exec --user root hermes-agent /opt/hermes/.venv/bin/python /tmp/install-moaon-callback.py'
@@ -40,9 +44,12 @@ WantedBy=timers.target
 EOF
 systemctl daemon-reload
 systemctl enable --now moaon-assistant.timer
-# Reload only the two managed profiles so their callback handler sees the bridge.
+# Reload only named managed profiles so their callback handler sees the bridge.
 su - hermes -c 'podman exec --user hermes hermes-agent /opt/hermes/.venv/bin/hermes -p moaon-work gateway stop'
 su - hermes -c 'podman exec --user hermes hermes-agent /opt/hermes/.venv/bin/hermes -p moaon-solo gateway stop'
+if su - hermes -c 'podman exec --user hermes hermes-agent test -f /opt/data/profiles/moaon-study/.moaon-managed-profile'; then
+  su - hermes -c 'podman exec --user hermes hermes-agent /opt/hermes/.venv/bin/hermes -p moaon-study gateway stop'
+fi
 systemctl start moaon-assistant.service
 systemctl is-active moaon-assistant.timer
 printf 'Installed. Recipient and delivery switches are managed in Moaon.\n'

@@ -1,6 +1,6 @@
 'use strict';
 const exact=(v,keys)=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===keys.length&&keys.every(k=>Object.hasOwn(v,k));
-const slots=['WORK','SOLO'],slot=s=>slots.includes(s),rev=n=>Number.isSafeInteger(n)&&n>=0&&n<2147483647;
+const slots=['WORK','SOLO','STUDY'],slot=s=>slots.includes(s),rev=n=>Number.isSafeInteger(n)&&n>=0&&n<2147483647;
 const token=s=>typeof s==='string'&&/^\d{5,16}:[A-Za-z0-9_-]{30,60}$/.test(s);
 const user=s=>typeof s==='string'&&/^[1-9]\d{0,18}$/.test(s);
 function settings(s,id){return exact(s,['enabled','chatId','allowedUsers','instructions','notifications'])&&typeof s.enabled==='boolean'&&typeof s.notifications==='boolean'&&(id==='WORK'||!s.notifications)&&typeof s.chatId==='string'&&(user(s.chatId)||id==='WORK'&&/^-[1-9]\d{0,18}$/.test(s.chatId))&&Array.isArray(s.allowedUsers)&&s.allowedUsers.length>0&&s.allowedUsers.length<=20&&s.allowedUsers.every(user)&&new Set(s.allowedUsers).size===s.allowedUsers.length&&(id==='WORK'||s.allowedUsers.length===1&&s.allowedUsers[0]===s.chatId)&&typeof s.instructions==='string'&&s.instructions.length<=4000;}

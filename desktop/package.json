@@ -1,6 +1,6 @@
 {
   "name": "moaon-desktop-preview",
-  "version": "0.149.0",
+  "version": "0.150.0",
   "private": true,
   "description": "Moaon Windows preview - private Harin orders and confirmed shipment",
   "author": "Moaon",
@@ -56,6 +56,8 @@
       "assistant-automation-transport.cjs",
       "assistant-automation-contract.cjs",
       "assistant-bots-contract.cjs",
+      "assistant-learning-contract.cjs",
+      "assistant-learning-transport.cjs",
       "assistant-bot-automation-contract.cjs",
       "assistant-actions-contract.cjs",
       "api-drafts.cjs",

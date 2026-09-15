@@ -5,7 +5,10 @@ s=importlib.util.spec_from_file_location('bots','public/integrations/moaon-bots.
 with tempfile.TemporaryDirectory(dir='D:/GPT/tmp') as temp:
  home=Path(temp);(home/'config.yaml').write_text('model:\n  default: example\n',encoding='utf-8');source=home/'integrations'/'moaon';source.mkdir(parents=True)
  for f in ['read.py','automation.py','read.key']:(source/f).write_text('test only',encoding='utf-8')
- rows=[dict(slot=x,revision=1,token='fake-'+x,settings=dict(enabled=True,chatId='123',allowedUsers=['123'],instructions='간결하게')) for x in ['WORK','SOLO']];reports=[]
+ (source/'learning.py').write_text('learning helper test only',encoding='utf-8')
+ (home/'skills/moaon-learning').mkdir(parents=True)
+ (home/'skills/moaon-learning/SKILL.md').write_text('knowledge test only',encoding='utf-8')
+ rows=[dict(slot=x,revision=1,token='fake-'+x,settings=dict(enabled=True,chatId='123',allowedUsers=['123'],instructions='간결하게')) for x in ['WORK','SOLO','STUDY']];reports=[]
  def command(c,key,p):
   if p['action']=='BOT_CONFIG':return {'bots':rows}
   reports.append(p);return {'saved':True}
@@ -17,12 +20,18 @@ with tempfile.TemporaryDirectory(dir='D:/GPT/tmp') as temp:
   def save(p,t):p.write_text(t,encoding='utf-8')
  with patch.object(m,'cli',cli),patch.object(m,'running',lambda *a:True),patch.dict(m.os.environ,{},clear=False):
   m.sync(C,'not-a-real-key',command,home)
-  assert len(reports)==2 and all(x['status']=='RUNNING' for x in reports)
+  assert len(reports)==3 and all(x['status']=='RUNNING' for x in reports)
   assert 'fake-WORK' in (home/'profiles/moaon-work/.env').read_text()
   assert 'fake-SOLO' in (home/'profiles/moaon-solo/.env').read_text()
   assert not (home/'profiles/moaon-solo/memories').exists()
   assert not (home/'.env').exists()
   assert (home/'profiles/moaon-solo/integrations/moaon/read.key').exists()
+  assert 'fake-STUDY' in (home/'profiles/moaon-study/.env').read_text()
+  assert (home/'profiles/moaon-study/integrations/moaon/learning.py').exists()
+  assert (home/'profiles/moaon-study/skills/moaon-learning/SKILL.md').exists()
+  assert not (home/'profiles/moaon-study/skills/moaon-operations').exists()
+  assert not (home/'profiles/moaon-study/auth.json').exists()
+  assert not (home/'profiles/moaon-study/memories').exists()
  print('PASS: separate owned profiles, preserved default, connector files, status reporting')
 
 with tempfile.TemporaryDirectory(dir='D:/GPT/tmp') as temp:

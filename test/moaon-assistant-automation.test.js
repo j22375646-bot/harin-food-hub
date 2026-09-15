@@ -59,6 +59,25 @@ await db.query("update moaon_briefing_actions set status='PENDING',due_at=now()-
 assert.equal((await act({action:'ACT_CLAIM',id:job.id,botRevision:1})).claimed,true);assert.equal((await act({action:'ACT_CLAIM',id:job.id,botRevision:1})).claimed,false);await act({action:'ACT_RESULT',id:job.id,status:'UNKNOWN'});assert.equal((await act({action:'ACT_READ'},false)).reminders[0].status,'UNKNOWN');
 await db.exec('update moaon_assistant_bots set revision=2');await assert.rejects(act(click),/AUTH_REQUIRED/);
 await db.exec('set role anon');await assert.rejects(db.query('select * from moaon_briefing_cards'),/permission denied/);await db.exec('reset role');
+await db.exec(fs.readFileSync('supabase/migrations/20260916150000_moaon_study_bot.sql','utf8'));
+const studySettings={enabled:true,chatId:'123',allowedUsers:['123'],instructions:'지식은 승인 후 공유',notifications:false};
+const studySaved=await bot({action:'PUT',slot:'STUDY',revision:0,username:'moaon_study_bot',envelope:{ciphertext:'study-encrypted-test'},settings:studySettings});
+const studyMeta=studySaved.find(x=>x.slot==='STUDY');assert.equal(studyMeta.revision,1);assert.equal(studyMeta.username,'moaon_study_bot');assert.equal(studyMeta.envelope,undefined);assert.equal(studyMeta.token,undefined);assert.equal(JSON.stringify(studySaved).includes('study-encrypted-test'),false);
+await db.exec('update public.moaon_assistant_access set requests=0');
+await bot({action:'BOT_REPORT',slot:'STUDY',revision:1,status:'RUNNING'},true);
+assert.equal((await bot({action:'BOT_LIST'})).find(x=>x.slot==='STUDY').runtime_status,'RUNNING');
+const studyConfig=(await bot({action:'BOT_CONFIG'},true)).find(x=>x.slot==='STUDY');assert.deepEqual(studyConfig.settings,studySettings);assert.equal(studyConfig.envelope.ciphertext,'study-encrypted-test');
+assert.equal((await auto({action:'AUTO_READ'})).automations.length,2);await assert.rejects(auto({action:'AUTO_SAVE',slot:'STUDY',revision:0,settings:autoDefaults}),/INVALID/);
+await db.exec(fs.readFileSync('supabase/migrations/20260916150200_moaon_knowledge_revision.sql','utf8'));
+const lookupDefinition=(await db.query("select pg_get_functiondef('public.moaon_assistant_automation(uuid,uuid,text,jsonb,text)'::regprocedure) source")).rows[0].source;
+assert.ok(lookupDefinition.includes("'revision',revision,'updatedAt',updated_at"));assert.ok(lookupDefinition.includes("'revision',k.revision,'updatedAt',k.updated_at"));
+const knowledgeId='55555555-5555-4555-8555-555555555555';
+await call({action:'KNOWLEDGE',id:knowledgeId,revision:0,title:'포장 지침',body:'승인된 시험 지식'});
+await db.exec('update public.moaon_assistant_access set requests=0');
+assert.equal((await call({action:'CATALOG'},true)).items.find(x=>x.id===knowledgeId).revision,1);
+const article=await call({action:'ARTICLE',id:knowledgeId},true);assert.equal(article.revision,1);assert.equal(article.body,'승인된 시험 지식');
+await call({action:'KNOWLEDGE',id:knowledgeId,revision:1,title:'포장 지침',body:'수정된 승인 시험 지식'});
+assert.equal((await call({action:'ARTICLE',id:knowledgeId},true)).revision,2);
 await db.exec('update moaon_control.memberships set version=2');await assert.rejects(bot({action:'BOT_CONFIG'},true),/AUTH_REQUIRED/);await assert.rejects(call({action:'CONFIG'},true),/AUTH_REQUIRED/);await db.exec('set role anon');await assert.rejects(db.query('select * from public.moaon_assistant_settings'),/permission denied/);
 }finally{await db.close();}});
 
