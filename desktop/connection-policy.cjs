@@ -102,6 +102,7 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if (url.username || url.password) return false;
 
   const method = details.method.toUpperCase();
+  if(context.assistantAutomationPermit?.url===details.url&&context.assistantAutomationPermit.method===method&&details.url===HARIN_ORIGIN+'/api/moaon/assistant/automation'&&method==='POST')return isMainProcessRequest(details.webContentsId);
   if(context.assistantAccessPermit?.url===details.url&&context.assistantAccessPermit.method===method&&details.url===HARIN_ORIGIN+'/api/moaon/assistant/access'&&method==='POST')return isMainProcessRequest(details.webContentsId);
   if(context.keyPermit?.url===details.url&&context.keyPermit.method===method&&details.url===HARIN_ORIGIN+'/api/moaon/connections'&&method==='POST')return isMainProcessRequest(details.webContentsId);
   if(context.teamPermit?.url===details.url&&context.teamPermit.method===method&&details.url===HARIN_ORIGIN+'/api/moaon/team'&&['GET','POST'].includes(method))return isMainProcessRequest(details.webContentsId);

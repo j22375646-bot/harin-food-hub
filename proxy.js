@@ -3,7 +3,10 @@ import authModule from './lib/dashboard-auth.js';
 import hubRoutesModule from './lib/navigation/hub-routes.js';
 
 function isPublic(pathname) {
-  return pathname === '/api/moaon/assistant/read'
+  return pathname === '/integrations/moaon-automation.py'
+    || pathname === '/integrations/install-moaon-automation.sh'
+    || pathname === '/api/moaon/assistant/worker'
+    || pathname === '/api/moaon/assistant/read'
     || pathname === '/integrations/moaon-hermes.py'
     || pathname === '/login'
     || pathname === '/manifest.webmanifest'
