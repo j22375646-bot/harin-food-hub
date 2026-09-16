@@ -65,6 +65,11 @@ class Tests(unittest.IsolatedAsyncioTestCase):
   job={'id':ID,'start_date':'2026-09-01','end_date':'2026-09-07','status':'SUCCEEDED','delivery':'SENT','summary':{'status':'OBSERVED','metrics':{'cost':120,'clicks':10,'conversions':1,'revenue':250,'roas':250},'revisionComparison':{'reason':'수치 갱신','caveat':'같은 기간 재조회','rows':[{'label':'ROAS','before':200,'after':250,'delta':50,'unit':'%p','state':'CHANGED'}]}}}
   with patch.object(m,'api',return_value={'jobs':[job]}):
    text,rows=await m.render('AD','report:'+ID,'123','123');self.assertIn('+50%p',text);self.assertIn('같은 기간 재조회',text)
+ async def test_case_menu_preserves_identity_and_revision(self):
+  calls=[]
+  def api(v):calls.append(v);return {'cases':[],'activeCount':0}
+  with patch.object(m,'api',side_effect=api):
+   text,rows=await m.render('WORK','case:S:'+ID+':7','123','123');self.assertIn('확인할 일',text);self.assertEqual(calls,[{'action':'CASE_ACT','userId':'123','chatId':'123','id':ID,'revision':7,'verb':'SNOOZE'}]);self.assertLessEqual(len(('moa:m:case:S:'+ID+':2147483646').encode()),64)
  def test_keyboard_and_callbacks_fit(self):
   for slot,entries in m.CATALOG.items():
    k=m.keyboard(slot,[x[0] for x in entries]);self.assertEqual(len(k['keyboard']),(len(entries)+1)//2);self.assertTrue(k['is_persistent'])

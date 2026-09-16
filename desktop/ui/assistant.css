@@ -47,3 +47,5 @@
 .assistant-campaign-choices{max-height:320px;overflow:auto;overflow-wrap:anywhere;padding:0 8px}.assistant-campaign-choices .assistant-field{align-items:flex-start!important}
 
 .assistant-revision{margin:20px 0;padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--surface-soft)}.assistant-revision h4{margin:0 0 12px;font-size:17px}.assistant-revision-table{overflow-x:auto}.assistant-revision table{width:100%;border-collapse:collapse;font-size:15px}.assistant-revision th,.assistant-revision td{padding:12px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}.assistant-revision th:first-child{text-align:left}.assistant-revision p{overflow-wrap:anywhere}
+
+[data-assistant-view=cases] .assistant-card{margin:18px 0;padding:22px;overflow-wrap:anywhere}[data-assistant-view=cases] button{margin:8px 8px 8px 0;min-height:44px}[data-assistant-view=cases] .assistant-check{display:flex;align-items:center;gap:12px}[data-assistant-view=cases] input[type=checkbox]{width:20px;height:20px}[data-assistant-view=cases] summary{cursor:pointer;font-size:17px;line-height:1.7}

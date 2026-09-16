@@ -28,7 +28,7 @@ def secret(c):
 
 def command(c,key,payload):
     req=urllib.request.Request(API,data=json.dumps(payload).encode(),headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'},method='POST')
-    with urllib.request.build_opener(c.NoRedirect).open(req,timeout=180 if payload.get('action')=='ADS_TICK' else 30) as r:
+    with urllib.request.build_opener(c.NoRedirect).open(req,timeout=180 if payload.get('action') in ('ADS_TICK','CASE_TICK','CASE_TEST') else 30) as r:
         raw=r.read(4194305)
         if len(raw)>4194304:raise ValueError('TOO_LARGE')
         data=json.loads(raw)
@@ -161,6 +161,8 @@ def tick(c,key):
             command(c,key,{'action':'AUTO_HEALTH','slot':cfg['slot'],'status':'ERROR' if cfg['slot'] in errors else 'OK'})
     try:send_reminders(c,key,bots)
     except Exception:errors.append('REMINDERS')
+    try:command(c,key,{'action':'CASE_TICK'})
+    except Exception:errors.append('CASE_TRACKING')
     try:command(c,key,{'action':'ADS_TICK'})
     except Exception:errors.append('AD_REPORTS')
     print(json.dumps({'ok':not errors,'state':'CHECK_REQUIRED' if errors else 'CHECKED','failedSlots':errors}))

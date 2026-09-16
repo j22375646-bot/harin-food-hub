@@ -166,6 +166,18 @@ async def render(slot,key,uid,chat):
  if slot=='SOLO' and re.fullmatch(r'c:'+UUID,key):
   v=await asyncio.to_thread(api,{'action':'PERSONAL_CONFIRM',**identity,'confirmationId':key[2:]})
   return ('완료 처리했어요.' if v['status']=='DONE' else '기한을 '+v['dueDate']+'로 변경했어요.')+'\n같은 확인 버튼을 반복해서 눌러도 중복 처리되지 않습니다.',[[('내 업무 보기','tasks')],*nav()]
+ if slot=='WORK' and (key=='cases' or re.fullmatch(r'case:'+UUID,key) or re.fullmatch(r'case:[TSR]:'+UUID+r':[0-9]{1,10}',key)):
+  if re.fullmatch(r'case:[TSR]:'+UUID+r':[0-9]{1,10}',key):
+   _,verb,cid,revision=key.split(':');data=await asyncio.to_thread(api,{'action':'CASE_ACT',**identity,'id':cid,'revision':int(revision),'verb':{'T':'TAKE','S':'SNOOZE','R':'RESUME'}[verb]})
+  else:data=await asyncio.to_thread(api,{'action':'CASE_READ',**identity})
+  cases=data.get('cases',[])
+  if re.fullmatch(r'case:'+UUID,key):
+   c=next((x for x in cases if x['id']==key[5:]),None)
+   if not c:raise ValueError('CASE_NOT_FOUND')
+   text=c['platform']+' · '+('송장 발급 전 주문' if c['kind']=='ORDER' else '미답변 문의')+'\n참조: '+c['source_id']+'\n추적 상태: '+c['status']+'\n관측 상태: '+c['observed_state']+'\n모아온 저장 자료 기준 · 실제 주문·문의를 변경하지 않습니다.'
+   rows=[] if c['status']=='RESOLVED' else [[('처리 중 표시','case:T:'+c['id']+':'+str(c['revision'])),('30분 뒤 확인','case:S:'+c['id']+':'+str(c['revision']))],[('추적 재개','case:R:'+c['id']+':'+str(c['revision']))]]
+   return text,rows+[[('확인 항목 목록','cases')]]+nav()
+  return '확인할 일 '+str(data.get('activeCount',0))+'건 · 최근 항목\n모아온 저장 자료 기준. 조회 실패·목록 누락을 완료로 처리하지 않습니다.',[[(c['platform']+' · '+c['source_id'][:30]+' · '+c['status'],'case:'+c['id'])] for c in cases[:15]]+nav()
  if slot=='WORK' and key in ('briefing','orders','cs','tasks'):
   d=await asyncio.to_thread(snapshot);sources=d.get('sources',{});lines=[]
   if key in ('briefing','orders'):
@@ -182,7 +194,7 @@ async def render(slot,key,uid,chat):
   if key in ('briefing','tasks'):
    n=sources.get('tasks',{}).get('counts') or {};lines.append('\n조회 키 발급자 업무 · 오늘 마감 '+count(n.get('dueToday'))+' / 기한 초과 '+count(n.get('overdue')))
   lines.extend(['\n조회: '+str(d.get('retrievedAt','확인 필요')),'모아온 저장 자료 기준입니다. 현재 채널을 실시간 재수집한 결과가 아니며 원본 수집 시각은 별도 확인이 필요합니다.'])
-  return '\n'.join(lines),[[('주문·배송','orders'),('고객 문의','cs')],[('업무 현황','tasks')],*nav()]
+  return '\n'.join(lines),[[('확인할 일','cases')],[('주문·배송','orders'),('고객 문의','cs')],[('업무 현황','tasks')],*nav()]
  if key in ('knowledge','correct','quiz') and slot in ('WORK','STUDY'):
   result=await asyncio.to_thread(api,{'action':'CATALOG'});rows=result.get('items',[]) if isinstance(result,dict) else []
   text={'knowledge':'승인된 공유 지식','correct':'수정할 지식을 선택하세요. 현재 내용을 확인한 뒤 수정 내용·출처와 함께 새 등록안을 요청하세요.','quiz':'기억 테스트 · 자료를 선택하면 제목을 보고 핵심 내용을 떠올린 뒤 정답 원문을 확인할 수 있어요.'}[key]
@@ -225,7 +237,7 @@ async def dispatch(adapter,update,context,callback=False):
  if query:await query.answer()
  try:
   menu=await asyncio.to_thread(api,{'action':'MENU_OPEN','slot':slot,'userId':uid,'chatId':chat})
-  base=('create' if key.startswith('make:') else 'archive') if key.startswith(('make:','report:','revise:')) else key if ':' not in key else ('tasks' if key[0] in 'tpc' else 'focus' if key[0]=='f' else 'quiz' if key[0]=='q' else 'knowledge')
+  base='tasks' if key=='cases' or key.startswith('case:') else ('create' if key.startswith('make:') else 'archive') if key.startswith(('make:','report:','revise:')) else key if ':' not in key else ('tasks' if key[0] in 'tpc' else 'focus' if key[0]=='f' else 'quiz' if key[0]=='q' else 'knowledge')
   permitted=base in menu['items'] or base=='knowledge' and bool(set(menu['items'])&{'correct','quiz'}) or base=='tasks' and bool(set(menu['items'])&{'review','focus'})
   if key!='home' and not permitted:raise ValueError('MENU_DISABLED')
   if key=='home':
