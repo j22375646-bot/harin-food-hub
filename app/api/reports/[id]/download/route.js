@@ -20,7 +20,7 @@ export async function GET(request, { params }) {
   if (result.error) return Response.json({ok:false,error:result.error.message},{status:500});
   if (!result.data) return Response.json({ok:false,error:'보고서를 찾을 수 없습니다.'},{status:404});
   const owner = new URL(request.url).searchParams.get('mode') === 'owner';
-  const html = owner ? presentation.ownerHtml(result.data) : presentation.fullHtml(result.data);
+  const html = result.data.summary_json?.advertisingAssistant ? require('../../../../../lib/assistant/ads-report.js').html(result.data) : owner ? presentation.ownerHtml(result.data) : presentation.fullHtml(result.data);
   const suffix = owner ? '-사장님요약' : '-상세보고서';
   return new Response(html,{headers:{'content-type':'text/html; charset=utf-8','content-disposition':`attachment; filename*=UTF-8''${encodeURIComponent(filename(result.data.title + suffix))}.html`,'cache-control':'private, no-store'}});
 }

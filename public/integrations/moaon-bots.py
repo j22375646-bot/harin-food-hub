@@ -84,6 +84,10 @@ def sync(c,key,command,home):
             source=home/'skills'/'moaon-learning'/'SKILL.md'
             if source.exists():
                 skill_target=p/'skills'/'moaon-learning';skill_target.mkdir(parents=True,exist_ok=True);c.save(skill_target/'SKILL.md',source.read_text())
+            if slot=='AD':
+                source=home/'skills'/'moaon-ads'/'SKILL.md'
+                if source.exists():
+                    destination=p/'skills'/'moaon-ads';destination.mkdir(parents=True,exist_ok=True);c.save(destination/'SKILL.md',source.read_text())
             if s['enabled']:
                 if not running(home,p):
                     cli(home,'-p',name,'gateway','start',required=False)

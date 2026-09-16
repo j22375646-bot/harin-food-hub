@@ -4,6 +4,8 @@ import hubRoutesModule from './lib/navigation/hub-routes.js';
 
 function isPublic(pathname) {
   return pathname === '/integrations/moaon-automation.py'
+    || pathname === '/integrations/moaon-ads.py'
+    || pathname === '/integrations/moaon-ads-skill.md'
     || pathname === '/integrations/moaon-bots.py'
     || pathname === '/integrations/moaon-learning.py'
     || pathname === '/integrations/moaon-learning-skill.md'

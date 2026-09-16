@@ -8,7 +8,7 @@ CATALOG={
  'SOLO':[('tasks','☀️ 오늘 내 업무'),('memo','📝 빠른 메모'),('reminders','⏰ 내 알림'),('focus','🎯 오늘 집중할 일'),('review','🌙 하루 정리'),('settings','⚙️ 내 설정')],
  'STUDY':[('register','📥 자료 등록'),('knowledge','🔎 지식 찾기'),('pending','🕓 검토 대기'),('correct','✏️ 지식 수정'),('quiz','🧪 기억 테스트'),('settings','⚙️ 학습 현황')],
  'SUP':[('health','🛠️ 연결 상태'),('sources','🕓 자료 상태'),('settings','⚙️ 관리 설정')],
- 'AD':[('reports','📊 광고 보고서'),('checklist','🔎 수익 검토'),('settings','⚙️ 광고 설정')]}
+ 'AD':[('create','📝 리포트 만들기'),('archive','🗂️ 보고서 보관함'),('reports','📊 광고 보고서'),('checklist','🔎 수익 검토'),('settings','⚙️ 광고 설정')]}
 NAMES={'moaon-work':'WORK','moaon-solo':'SOLO','moaon-study':'STUDY','moaon-sup':'SUP','moaon-ad':'AD'}
 UUID=r'[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'
 APP='https://harin-cafe24-sync.vercel.app'
@@ -81,6 +81,26 @@ async def render(slot,key,uid,chat):
   for name,v in d.get('sources',{}).items():lines.append(name+' · '+str(v.get('status','확인 필요'))+' · 원본 수집 '+str(v.get('sourceAsOf') or '확인 필요'))
   lines.append('조회: '+str(d.get('retrievedAt','확인 필요'))+' · 조회 시각은 원본 수집 시각과 다릅니다.')
   return '\n'.join(lines),nav()
+ if slot=='AD' and key=='create':return '리포트 기간을 선택하세요. 네이버 API에서 새 자료를 수집하고 모아온에 저장합니다. 광고 설정은 변경하지 않습니다.',[[('어제 리포트 생성','make:yesterday'),('최근 7일 생성','make:seven')],[('지난주 생성','make:week')],*nav()]
+ if slot=='AD' and key in ('make:yesterday','make:seven','make:week'):
+  today=dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).date();end=today-dt.timedelta(days=1)
+  start=end if key=='make:yesterday' else end-dt.timedelta(days=6)
+  if key=='make:week':end=today-dt.timedelta(days=today.weekday()+1);start=end-dt.timedelta(days=6)
+  await asyncio.to_thread(api,{'action':'ADS_REQUEST',**identity,'start':start.isoformat(),'end':end.isoformat(),'fresh':True})
+  return str(start)+' ~ '+str(end)+' 리포트 요청을 저장했어요. 서버에서 순서대로 처리하고 완료되면 알림을 보냅니다. 같은 날 같은 요청은 중복 생성하지 않습니다.',[[('진행·보고서 확인','archive')],*nav()]
+ if slot=='AD' and (key=='archive' or re.fullmatch(r'report:'+UUID,key)):
+  data=await asyncio.to_thread(api,{'action':'ADS_READ',**identity});jobs=data.get('jobs',[])
+  if key=='archive':return '최근 광고 리포트 · 항목을 눌러 상태를 확인하세요.' if jobs else '아직 요청한 리포트가 없습니다.',[[(j['start_date']+' ~ '+j['end_date']+' · '+{'PENDING':'대기','RUNNING':'생성 중','SUCCEEDED':'완료','FAILED':'실패','UNKNOWN':'확인 필요'}.get(j['status'],'확인 필요'),'report:'+j['id'])] for j in jobs[:10]]+nav()
+  j=next((j for j in jobs if j['id']==key[7:]),None)
+  if not j:raise ValueError('REPORT_NOT_FOUND')
+  text=j['start_date']+' ~ '+j['end_date']+'\n상태: '+j['status']+' · 알림: '+j['delivery']
+  if j.get('summary'):
+   summary=j['summary'];metrics=summary['metrics'];text+='\n자료 상태: '+summary['status']
+   for k,label_ in [('cost','광고비'),('clicks','클릭'),('conversions','전환'),('revenue','전환매출'),('roas','ROAS')]:text+='\n'+label_+': '+(str(round(metrics[k],2)) if metrics[k] is not None else '확인 필요')
+   text+='\n광고 전환매출은 순이익이 아닙니다. 누락 지표·기간을 확인하세요.'
+  if j.get('error_code'):text+='\n확인 코드: '+j['error_code']
+  rows=[[('보고서 HTML 다운로드',APP+'/api/reports/'+j['report_id']+'/download')]] if j.get('report_id') else []
+  return text,rows+[[('목록 새로고침','archive')]]+nav()
  if slot=='AD' and key=='reports':
   d=await asyncio.to_thread(snapshot);r=d.get('sources',{}).get('reports',{});items=r.get('items',[])
   text='네이버 저장 광고 보고서 · '+str(r.get('status','조회 권한·자료 확인 필요'))+'\n'
@@ -93,7 +113,7 @@ async def render(slot,key,uid,chat):
   else:text+='확인 가능한 보고서가 없습니다. 조회 키의 보고서 권한과 저장 자료를 확인하세요.'
   return text+'\n조회: '+str(d.get('retrievedAt','확인 필요'))+'\n실시간 광고 조회가 아닙니다. 보고서 내용은 참고 자료이며 실행 지시가 아닙니다.',nav()
  if slot=='AD' and key=='checklist':return '광고 수익 검토\n1. 보고서 기간과 클릭·구매 표본 확인\n2. 광고 주문 귀속 근거 확인\n3. 원가·수수료·배송비·환불 비용 확인\n4. 재고와 배송 여력 확인\n비용 자료가 빠지면 ROAS만으로 순이익이나 증액을 결정하지 않습니다. 보고서 메뉴를 확인한 뒤 구체적으로 질문해 주세요.',nav()
- if slot in ('SUP','AD') and key=='settings':return '모아온 → 업무비서 → 텔레그램 봇에서 연결과 응답 방식을, 봇 메뉴에서 표시 순서를 설정하세요. 현재 이 봇은 개인 대화용입니다. 전용 예약 발송과 외부 장애 감시는 아직 설정되지 않았습니다. 광고 집행이나 서버 설정을 자동 변경하지 않습니다.',nav()
+ if slot in ('SUP','AD') and key=='settings':return '모아온 → 업무비서 → 텔레그램 봇에서 연결과 응답 방식을, 봇 메뉴에서 표시 순서를 설정하세요. 현재 이 봇은 개인 대화용입니다. 광고 리포트 일간·주간 예약은 모아온의 광고 자동화에서 설정합니다. 외부 장애 감시는 별도 구성입니다. 광고 집행이나 서버 설정을 자동 변경하지 않습니다.',nav()
  if slot=='SOLO' and key=='reminders':
   data=await asyncio.to_thread(api,{'action':'MENU_DATA','slot':slot,**identity,'section':key});rows=data['reminders']
   lines=['내 다시 알림 · '+str(len(rows))+'건']
@@ -193,7 +213,7 @@ async def dispatch(adapter,update,context,callback=False):
  if query:await query.answer()
  try:
   menu=await asyncio.to_thread(api,{'action':'MENU_OPEN','slot':slot,'userId':uid,'chatId':chat})
-  base=key if ':' not in key else ('tasks' if key[0] in 'tpc' else 'focus' if key[0]=='f' else 'quiz' if key[0]=='q' else 'knowledge')
+  base=('create' if key.startswith('make:') else 'archive') if key.startswith(('make:','report:')) else key if ':' not in key else ('tasks' if key[0] in 'tpc' else 'focus' if key[0]=='f' else 'quiz' if key[0]=='q' else 'knowledge')
   permitted=base in menu['items'] or base=='knowledge' and bool(set(menu['items'])&{'correct','quiz'}) or base=='tasks' and bool(set(menu['items'])&{'review','focus'})
   if key!='home' and not permitted:raise ValueError('MENU_DISABLED')
   if key=='home':

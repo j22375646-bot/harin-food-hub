@@ -1,7 +1,7 @@
 'use strict';
 (()=>{
  const root=document.querySelector('[data-page=assistant]');if(!root)return;
- const catalog={WORK:[['briefing','📊 업무 브리핑'],['orders','📦 주문·배송'],['cs','💬 고객 문의'],['tasks','✅ 업무 관리'],['knowledge','📚 제품·운영 지식'],['settings','⚙️ 알림 설정']],SOLO:[['tasks','☀️ 오늘 내 업무'],['memo','📝 빠른 메모'],['reminders','⏰ 내 알림'],['focus','🎯 오늘 집중할 일'],['review','🌙 하루 정리'],['settings','⚙️ 내 설정']],STUDY:[['register','📥 자료 등록'],['knowledge','🔎 지식 찾기'],['pending','🕓 검토 대기'],['correct','✏️ 지식 수정'],['quiz','🧪 기억 테스트'],['settings','⚙️ 학습 현황']],SUP:[['health','🛠️ 연결 상태'],['sources','🕓 자료 상태'],['settings','⚙️ 관리 설정']],AD:[['reports','📊 광고 보고서'],['checklist','🔎 수익 검토'],['settings','⚙️ 광고 설정']]};
+ const catalog={WORK:[['briefing','📊 업무 브리핑'],['orders','📦 주문·배송'],['cs','💬 고객 문의'],['tasks','✅ 업무 관리'],['knowledge','📚 제품·운영 지식'],['settings','⚙️ 알림 설정']],SOLO:[['tasks','☀️ 오늘 내 업무'],['memo','📝 빠른 메모'],['reminders','⏰ 내 알림'],['focus','🎯 오늘 집중할 일'],['review','🌙 하루 정리'],['settings','⚙️ 내 설정']],STUDY:[['register','📥 자료 등록'],['knowledge','🔎 지식 찾기'],['pending','🕓 검토 대기'],['correct','✏️ 지식 수정'],['quiz','🧪 기억 테스트'],['settings','⚙️ 학습 현황']],SUP:[['health','🛠️ 연결 상태'],['sources','🕓 자료 상태'],['settings','⚙️ 관리 설정']],AD:[['create','📝 리포트 만들기'],['archive','🗂️ 보고서 보관함'],['reports','📊 광고 보고서'],['checklist','🔎 수익 검토'],['settings','⚙️ 광고 설정']]};
  const names={WORK:'업무비서',SOLO:'개인비서',STUDY:'지식비서',SUP:'관리비서',AD:'광고비서'};
  const el=(tag,text='',cls='')=>{const n=document.createElement(tag);n.textContent=text;n.className=cls;return n;};
  const button=(parent,text,fn,cls='')=>{const b=el('button',text,cls);b.type='button';b.onclick=fn;parent.append(b);return b;};
