@@ -56,6 +56,11 @@ class Tests(unittest.IsolatedAsyncioTestCase):
    text,rows=await m.render('AD','reports','123','123');self.assertIn('확인 가능한 보고서가 없습니다',text)
   with patch.object(m,'snapshot',return_value={'sources':{'reports':{'status':'READY','items':[{'title':'시험 보고서','periodStart':'2026-09-01','periodEnd':'2026-09-07','detail':{'sections':[{'items':[{'title':'판단 보류','body':'비용 확인 필요'}]}]}}]}}}):
    text,rows=await m.render('AD','reports','123','123');self.assertIn('시험 보고서',text);self.assertIn('비용 확인 필요',text);self.assertNotIn('"sections"',text)
+ async def test_ad_revision_binds_identity(self):
+  calls=[]
+  def api(v):calls.append(v);return {}
+  with patch.object(m,'api',side_effect=api):
+   text,rows=await m.render('AD','revise:'+ID,'123','123');self.assertIn('원본',text);self.assertEqual(calls,[{'action':'ADS_REVISE','userId':'123','chatId':'123','id':ID}]);self.assertLessEqual(len(('moa:m:revise:'+ID).encode()),64)
  def test_keyboard_and_callbacks_fit(self):
   for slot,entries in m.CATALOG.items():
    k=m.keyboard(slot,[x[0] for x in entries]);self.assertEqual(len(k['keyboard']),(len(entries)+1)//2);self.assertTrue(k['is_persistent'])

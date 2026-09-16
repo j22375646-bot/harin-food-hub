@@ -43,3 +43,5 @@
 [data-assistant-view=ads] details summary{font-size:17px;line-height:1.7;cursor:pointer}
 [data-assistant-view=ads] .assistant-card{margin:20px 0}
 [data-assistant-view=ads] button{margin:6px 8px 6px 0}
+
+.assistant-campaign-choices{max-height:320px;overflow:auto;overflow-wrap:anywhere;padding:0 8px}.assistant-campaign-choices .assistant-field{align-items:flex-start!important}

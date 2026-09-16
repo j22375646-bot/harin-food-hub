@@ -81,13 +81,16 @@ async def render(slot,key,uid,chat):
   for name,v in d.get('sources',{}).items():lines.append(name+' · '+str(v.get('status','확인 필요'))+' · 원본 수집 '+str(v.get('sourceAsOf') or '확인 필요'))
   lines.append('조회: '+str(d.get('retrievedAt','확인 필요'))+' · 조회 시각은 원본 수집 시각과 다릅니다.')
   return '\n'.join(lines),nav()
- if slot=='AD' and key=='create':return '리포트 기간을 선택하세요. 네이버 API에서 새 자료를 수집하고 모아온에 저장합니다. 광고 설정은 변경하지 않습니다.',[[('어제 리포트 생성','make:yesterday'),('최근 7일 생성','make:seven')],[('지난주 생성','make:week')],*nav()]
+ if slot=='AD' and key=='create':return '리포트 기간을 선택하세요. 네이버 API에서 새 자료를 수집하고 모아온에 저장합니다. 모아온에서 저장한 캠페인 선택을 사용하며 광고 설정은 변경하지 않습니다.',[[('어제 리포트 생성','make:yesterday'),('최근 7일 생성','make:seven')],[('지난주 생성','make:week')],*nav()]
  if slot=='AD' and key in ('make:yesterday','make:seven','make:week'):
   today=dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).date();end=today-dt.timedelta(days=1)
   start=end if key=='make:yesterday' else end-dt.timedelta(days=6)
   if key=='make:week':end=today-dt.timedelta(days=today.weekday()+1);start=end-dt.timedelta(days=6)
   await asyncio.to_thread(api,{'action':'ADS_REQUEST',**identity,'start':start.isoformat(),'end':end.isoformat(),'fresh':True})
   return str(start)+' ~ '+str(end)+' 리포트 요청을 저장했어요. 서버에서 순서대로 처리하고 완료되면 알림을 보냅니다. 같은 날 같은 요청은 중복 생성하지 않습니다.',[[('진행·보고서 확인','archive')],*nav()]
+ if slot=='AD' and re.fullmatch(r'revise:'+UUID,key):
+  await asyncio.to_thread(api,{'action':'ADS_REVISE',**identity,'id':key[7:]})
+  return '원본과 같은 기간·캠페인으로 재작성 요청을 저장했습니다. 원본은 유지됩니다. 반복 클릭은 중복 생성하지 않습니다.',[[('진행·보고서 확인','archive')],*nav()]
  if slot=='AD' and (key=='archive' or re.fullmatch(r'report:'+UUID,key)):
   data=await asyncio.to_thread(api,{'action':'ADS_READ',**identity});jobs=data.get('jobs',[])
   if key=='archive':return '최근 광고 리포트 · 항목을 눌러 상태를 확인하세요.' if jobs else '아직 요청한 리포트가 없습니다.',[[(j['start_date']+' ~ '+j['end_date']+' · '+{'PENDING':'대기','RUNNING':'생성 중','SUCCEEDED':'완료','FAILED':'실패','UNKNOWN':'확인 필요'}.get(j['status'],'확인 필요'),'report:'+j['id'])] for j in jobs[:10]]+nav()
@@ -100,6 +103,9 @@ async def render(slot,key,uid,chat):
    text+='\n광고 전환매출은 순이익이 아닙니다. 누락 지표·기간을 확인하세요.'
   if j.get('error_code'):text+='\n확인 코드: '+j['error_code']
   rows=[[('보고서 HTML 다운로드',APP+'/api/reports/'+j['report_id']+'/download')]] if j.get('report_id') else []
+  text+='\n집계 범위: '+(str(len(j.get('campaign_ids',[])))+'개 캠페인' if j.get('campaign_ids') else '전체 캠페인')
+  if j.get('parent_id'):text+='\n재작성 원본: '+j['parent_id'][:8]
+  if j['status']=='SUCCEEDED':rows.append([('같은 범위로 재작성','revise:'+j['id'])])
   return text,rows+[[('목록 새로고침','archive')]]+nav()
  if slot=='AD' and key=='reports':
   d=await asyncio.to_thread(snapshot);r=d.get('sources',{}).get('reports',{});items=r.get('items',[])
@@ -213,7 +219,7 @@ async def dispatch(adapter,update,context,callback=False):
  if query:await query.answer()
  try:
   menu=await asyncio.to_thread(api,{'action':'MENU_OPEN','slot':slot,'userId':uid,'chatId':chat})
-  base=('create' if key.startswith('make:') else 'archive') if key.startswith(('make:','report:')) else key if ':' not in key else ('tasks' if key[0] in 'tpc' else 'focus' if key[0]=='f' else 'quiz' if key[0]=='q' else 'knowledge')
+  base=('create' if key.startswith('make:') else 'archive') if key.startswith(('make:','report:','revise:')) else key if ':' not in key else ('tasks' if key[0] in 'tpc' else 'focus' if key[0]=='f' else 'quiz' if key[0]=='q' else 'knowledge')
   permitted=base in menu['items'] or base=='knowledge' and bool(set(menu['items'])&{'correct','quiz'}) or base=='tasks' and bool(set(menu['items'])&{'review','focus'})
   if key!='home' and not permitted:raise ValueError('MENU_DISABLED')
   if key=='home':
