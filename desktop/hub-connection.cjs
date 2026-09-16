@@ -730,13 +730,13 @@ function createHubConnection({
     finally{clearTimeout(timer);businessReads.delete(controller);assistantAccessBusy=false;assistantAccessPermit=null;}
   }
   let assistantAutomationBusy=false,assistantAutomationPermit=null;
-  async function assistantAutomation(input){
+  const assistantAutomation=require('./assistant-read-queue.cjs').createReadQueue(async function(input){
     if(assistantAutomationBusy||disconnecting||cleanupFailed||isLoginWindowActive())return {ok:false,code:'ASSISTANT_AUTH_REQUIRED'};
     const transport=require('./assistant-automation-transport.cjs'),expected=generation,controller=new AbortController();
     assistantAutomationBusy=true;assistantAutomationPermit={url:transport.URL,method:'POST'};businessReads.add(controller);const timer=setTimeout(()=>controller.abort(),30000);
     try{const result=await transport.command((...args)=>getRemoteSession().fetch(...args),input,controller.signal);return expected===generation?result:{ok:false,code:'ASSISTANT_AUTH_REQUIRED'};}
     finally{clearTimeout(timer);businessReads.delete(controller);assistantAutomationBusy=false;assistantAutomationPermit=null;}
-  }
+  },()=>generation);
   let teamBusy=false,teamPermit=null;
   async function teamCommand(input){
     if(teamBusy||disconnecting||cleanupFailed||isLoginWindowActive())return {ok:false,code:'TEAM_BUSY'};

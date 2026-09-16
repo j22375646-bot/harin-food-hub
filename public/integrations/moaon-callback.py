@@ -1,13 +1,13 @@
-"""Only moa: callbacks for the two managed profiles. No Telegram polling."""
+"""Only moa: callbacks for managed briefing profiles. No Telegram polling."""
 import asyncio,importlib.util,os,re
 from pathlib import Path
 
 def worker():
     home=Path(os.environ.get('HERMES_HOME','')).resolve()
-    if home.name not in ('moaon-work','moaon-solo') or home.parent!=Path('/opt/data/profiles'):raise ValueError('PROFILE_SCOPE')
+    if home.name not in ('moaon-work','moaon-solo','moaon-sup','moaon-study') or home.parent!=Path('/opt/data/profiles'):raise ValueError('PROFILE_SCOPE')
     path=home/'integrations/moaon/automation.py'
     spec=importlib.util.spec_from_file_location('moaon_action_worker',path);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
-    return m,'WORK' if home.name=='moaon-work' else 'SOLO'
+    return m,{'moaon-work':'WORK','moaon-solo':'SOLO','moaon-sup':'SUP','moaon-study':'STUDY'}[home.name]
 
 def execute(payload):
     m,slot=worker();c=m.connector();key=m.secret(c)

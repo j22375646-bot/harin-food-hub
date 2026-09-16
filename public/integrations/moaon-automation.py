@@ -79,13 +79,49 @@ def briefing(data,sections,slot):
         if k in sections and (not data.get('sources',{}).get(k) or k in ('orders','cs') and not data['sources'][k].get('channels')):text+='\n'+label+' 자료 확인 필요'
     return text.replace('모아온 업무 브리핑','모아온 개인비서 브리핑' if slot=='SOLO' else '모아온 업무비서 브리핑',1)
 
-def telegram(c,chat,text,bot_token=None,card_id=None,image=None):
+def role_briefing(data,sections,slot):
+    names={'WORK':'업무비서','SOLO':'개인비서','SUP':'관리비서','STUDY':'학습비서','AD':'광고비서'}
+    def n(v):return str(v)+'건' if isinstance(v,int) and not isinstance(v,bool) else '확인 필요'
+    lines=['모아온 '+names[slot]+' 브리핑']
+    if slot=='SUP':
+        if 'health' in sections:
+            checks=[];issues=0
+            for name in names:
+                b=next((x for x in data.get('bots',[]) if x.get('slot')==name),None)
+                state='미연결'
+                if b:
+                    fresh=False
+                    try:fresh=(dt.datetime.now(dt.timezone.utc)-dt.datetime.fromisoformat(b['checkedAt'].replace('Z','+00:00'))).total_seconds()<300
+                    except (KeyError,TypeError,ValueError):pass
+                    state='연결 꺼짐' if not b.get('enabled') else '실행 확인' if fresh and b.get('status')=='RUNNING' else '확인 필요'
+                if state=='확인 필요':issues+=1
+                checks.append(names[name]+' · '+state)
+            lines.append('연결 확인 필요 · '+n(issues));lines.extend(checks)
+        if 'deliveries' in sections:
+            d=data.get('deliveries',{});lines.extend(['발송 실패 · 24시간 · '+n(d.get('failed')),'결과 확인 필요 · 24시간 · '+n(d.get('unknown'))])
+        lines.append('봇 실행 신호와 일반 브리핑 발송 이력 기준 · 광고 리포트 발송 이력은 광고 자동화에서 확인하세요.')
+        lines.append('Hermes 중단 시 이 브리핑도 중단됩니다. 외부 장애 점검은 별도입니다.')
+    else:
+        if data.get('knowledgeEnabled') is not True:lines.append('지식 공유 꺼짐 · 모아온에서 연결 설정을 확인하세요.')
+        else:
+            lines.extend(['검토 대기 · '+n(data.get('pending')),'공유 지식 · '+n(data.get('published'))])
+            recent=data.get('recent',[])
+            lines.append('최근 7일 등록·수정 지식 · 최대 3개')
+            for item in recent:lines.append('지식 · '+' '.join(str(item.get('title','제목 확인 필요')).split())[:100])
+            if not recent:lines.append('최근 7일 등록·수정 지식이 없어요.')
+        lines.append('승인·저장된 공유 지식 기준 · 개인 대화 기억이나 AI 모델 재학습이 아닙니다.')
+    lines.append('조회: '+str(data.get('retrievedAt','확인 필요')))
+    return '\n'.join(lines)
+
+def telegram(c,chat,text,bot_token=None,card_id=None,image=None,slot=None):
     from dotenv import dotenv_values
     token=bot_token or os.environ.get('TELEGRAM_BOT_TOKEN') or dotenv_values(HOME/'.env').get('TELEGRAM_BOT_TOKEN')
     if not token:raise ValueError('TELEGRAM_NOT_CONFIGURED')
     # Token remains inside this process and is never included in output or exception logs.
     markup={'inline_keyboard':[[{'text':'모아온에서 확인','url':'https://harin-cafe24-sync.vercel.app'}]]}
     if card_id:markup['inline_keyboard'].insert(0,[{'text':'업무 등록안 만들기','callback_data':'moa:D:'+card_id},{'text':'1시간 뒤 다시 알림','callback_data':'moa:S:'+card_id}])
+    if slot in ('SUP','STUDY'):
+        markup['inline_keyboard'].insert(0,[{'text':'연결 상태 확인' if slot=='SUP' else '검토 대기 확인','callback_data':'moa:m:'+('health' if slot=='SUP' else 'pending')}])
     method='sendMessage';payload=json.dumps({'chat_id':chat,'text':text[:3900],'disable_web_page_preview':True,'reply_markup':markup}).encode();content_type='application/json'
     if image:
         boundary='moaon'+uuid.uuid4().hex;parts=[]
@@ -117,7 +153,7 @@ def deliver(c,key,cfg,event_id,kind,message):
     try:
         card=command(c,key,{'action':'ACT_PREPARE','slot':cfg['slot'],'eventId':event_id,'botRevision':cfg['botRevision'],'body':message[:3900]})
         image=card_image(c,key,message,cfg['slot']) if kind in ('SCHEDULE','TEST') else None
-        mid=telegram(c,claim['chatId'],message,cfg.get('botToken'),card['id'],image=image)
+        mid=telegram(c,claim['chatId'],message,cfg.get('botToken'),card['id'],image=image,slot=cfg['slot'])
         sent=True
         command(c,key,{'action':'ACT_BIND','id':card['id'],'messageId':mid})
         status='SENT'
@@ -161,8 +197,11 @@ def tick(c,key):
             s=cfg['settings']
             if not (s['schedule'] or s['changes'] or cfg.get('testId')):continue
             cfg['botToken']=bot['token'];cfg['botRevision']=bot['revision']
-            if data is None:data=c.read(key)
-            body=briefing(data,s['sections'],cfg['slot'])
+            if cfg['slot'] in ('SUP','STUDY'):
+                body=role_briefing(command(c,key,{'action':'AUTO_BRIEF','slot':cfg['slot']}),s['sections'],cfg['slot'])
+            else:
+                if data is None:data=c.read(key)
+                body=briefing(data,s['sections'],cfg['slot'])
             if cfg.get('testId'):deliver(c,key,cfg,'test:'+cfg['testId'],'TEST','모아온 시험 브리핑\n\n'+body)
             if due(s,now):deliver(c,key,cfg,'schedule:'+now.date().isoformat()+':'+s['time'].replace(':',''),'SCHEDULE',body)
             if s['changes']:

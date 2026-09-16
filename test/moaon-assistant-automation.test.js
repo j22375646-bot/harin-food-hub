@@ -78,6 +78,31 @@ assert.equal((await call({action:'CATALOG'},true)).items.find(x=>x.id===knowledg
 const article=await call({action:'ARTICLE',id:knowledgeId},true);assert.equal(article.revision,1);assert.equal(article.body,'승인된 시험 지식');
 await call({action:'KNOWLEDGE',id:knowledgeId,revision:1,title:'포장 지침',body:'수정된 승인 시험 지식'});
 assert.equal((await call({action:'ARTICLE',id:knowledgeId},true)).revision,2);
+// Role schedules keep old state, gate knowledge and never expose source bodies or tokens.
+await db.exec(fs.readFileSync('supabase/migrations/20260916150100_moaon_learning.sql','utf8'));
+await db.exec(fs.readFileSync('supabase/migrations/20260917110000_moaon_role_briefings.sql','utf8'));
+const roleRead=await auto({action:'AUTO_READ'});assert.equal(roleRead.automations.length,4);
+await db.exec("alter table moaon_assistant_bots drop constraint moaon_assistant_bots_slot_check;alter table moaon_assistant_bots add check(slot in ('WORK','SOLO','STUDY','SUP','AD'));");
+await db.query("insert into moaon_assistant_bots(tenant_id,slot,username,envelope,revision,settings) values($1,'SUP','moaon_sup_bot','{}',1,$2)",[T,JSON.stringify(studySettings)]);
+const supBrief=await auto({action:'AUTO_BRIEF',slot:'SUP'},true);assert.ok(supBrief.bots.some(b=>b.slot==='SUP'));assert.equal(supBrief.deliveries.unknown,1);assert.equal(supBrief.bots.some(b=>Object.hasOwn(b,'envelope')||Object.hasOwn(b,'settings')),false);
+assert.equal(roleRead.automations.find(x=>x.slot==='WORK').revision,2);
+assert.deepEqual(roleRead.automations.find(x=>x.slot==='SUP').settings.sections,['health','deliveries']);
+assert.equal(roleRead.automations.find(x=>x.slot==='STUDY').settings.schedule,false);
+await assert.rejects(auto({action:'AUTO_BRIEF',slot:'STUDY'}),/INVALID/);
+await assert.rejects(auto({action:'AUTO_SAVE',slot:'STUDY',revision:0,settings:{...autoDefaults,sections:['tasks']}}),/INVALID/);
+await assert.rejects(auto({action:'AUTO_SAVE',slot:'STUDY',revision:0,settings:{...autoDefaults,sections:['knowledge'],changes:true}}),/INVALID/);
+const knowledgeBrief=await auto({action:'AUTO_BRIEF',slot:'STUDY'},true);assert.equal(knowledgeBrief.published,1);assert.equal(knowledgeBrief.pending,0);assert.equal(knowledgeBrief.recent[0].title,'포장 지침');assert.equal(knowledgeBrief.recent[0].body,undefined);
+await db.exec("update moaon_assistant_settings set settings=settings||'{\"knowledge\":false}'");assert.equal((await auto({action:'AUTO_BRIEF',slot:'STUDY'},true)).knowledgeEnabled,false);
+await auto({action:'AUTO_TEST',slot:'STUDY',revision:0,id:ID});
+const sc={action:'AUTO_CLAIM',slot:'STUDY',revision:0,botRevision:1,id:'test:'+ID,kind:'TEST'};
+assert.equal((await auto(sc,true)).claimed,true);assert.equal((await auto(sc,true)).claimed,false);
+const studyCard=await act({action:'ACT_PREPARE',slot:'STUDY',eventId:'test:'+ID,botRevision:1,body:'학습 브리핑'});await act({action:'ACT_BIND',id:studyCard.id,messageId:'999'});
+const studyClick={action:'ACT_CLICK',slot:'STUDY',id:studyCard.id,messageId:'999',chatId:'123',userId:'123',verb:'SNOOZE'};
+await auto({action:'AUTO_RESULT',slot:'STUDY',id:'test:'+ID,status:'SENT'},true);
+assert.equal((await act(studyClick)).status,'PENDING');await assert.rejects(act({...studyClick,userId:'456'}),/AUTH_REQUIRED/);
+await auto({action:'AUTO_SAVE',slot:'STUDY',revision:0,settings:{...autoDefaults,sections:['knowledge'],schedule:true}});
+await assert.rejects(auto(sc,true),/CONFLICT/);
+await db.exec('set role anon');await assert.rejects(db.query("select public.moaon_assistant_bot_automation(null,null,null,'{}',null)"),/permission denied/);await db.exec('reset role');
 await db.exec(fs.readFileSync('supabase/migrations/20260916150300_moaon_bot_report_accounting.sql','utf8'));await db.exec('update moaon_assistant_access set requests=10,window_start=now()');await bot({action:'BOT_REPORT',slot:'STUDY',revision:1,status:'RUNNING'},true);assert.equal((await db.query('select requests from moaon_assistant_access')).rows[0].requests,10);await assert.rejects(bot({action:'BOT_CONFIG'},true),/RATE_LIMITED/);await db.exec('update moaon_control.memberships set version=2');await assert.rejects(bot({action:'BOT_CONFIG'},true),/AUTH_REQUIRED/);await assert.rejects(call({action:'CONFIG'},true),/AUTH_REQUIRED/);await db.exec('set role anon');await assert.rejects(db.query('select * from public.moaon_assistant_settings'),/permission denied/);
 }finally{await db.close();}});
 

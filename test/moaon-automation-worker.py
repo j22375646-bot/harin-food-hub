@@ -13,6 +13,11 @@ class WorkerTest(unittest.TestCase):
   self.assertEqual(w.counts({'sources':{'orders':{'channels':[{'platform':'NAVER','counts':None}]}}}),{})
   self.assertEqual(w.increased({}, {'order:NAVER':8}),{})
   self.assertEqual(w.increased({'order:NAVER':3},{'order:NAVER':5}),{'order:NAVER':2})
+ def test_role_data_missing_and_separate(self):
+  text=w.role_briefing({'knowledgeEnabled':False},['knowledge'],'STUDY');self.assertIn('지식 공유 꺼짐',text);self.assertNotIn('0건',text)
+  text=w.role_briefing({'knowledgeEnabled':True,'pending':2,'published':4,'recent':[{'title':'승인된 지식'}]},['knowledge'],'STUDY');self.assertIn('검토 대기 · 2건',text);self.assertIn('승인된 지식',text)
+  text=w.role_briefing({'bots':[{'slot':'WORK','enabled':True,'status':'RUNNING','checkedAt':'2020-01-01T00:00:00Z'}]},['health'],'SUP');self.assertIn('업무비서 · 확인 필요',text);self.assertNotIn('발송 실패',text)
+  text=w.role_briefing({},['deliveries'],'SUP');self.assertIn('발송 실패 · 24시간 · 확인 필요',text)
  def test_unclaimed_never_sends(self):
   with patch.object(w,'command',return_value={'claimed':False}),patch.object(w,'telegram') as send:w.deliver(None,'x',{'revision':1,'slot':'WORK','botRevision':1},'e','TEST','m');send.assert_not_called()
  def test_network_ambiguity_no_retry(self):
@@ -56,7 +61,7 @@ class ImageTest(unittest.TestCase):
   class Opener:
    def open(self,req,timeout):requests.append(req);return Response()
   with patch.dict('sys.modules',{'dotenv':types.SimpleNamespace(dotenv_values=lambda _: {})}),patch.object(w.urllib.request,'build_opener',return_value=Opener()):
-   self.assertEqual(w.telegram(types.SimpleNamespace(NoRedirect=object),'123','시험\n쿠팡 미답변 1건','fake-token','card',image=b'png'),'123')
+   self.assertEqual(w.telegram(types.SimpleNamespace(NoRedirect=object),'123','시험\n쿠팡 미답변 1건','fake-token','card',image=b'png',slot='STUDY'),'123')
   self.assertEqual(len(requests),1);self.assertTrue(requests[0].full_url.endswith('/sendPhoto'))
-  self.assertIn(b'name="photo"',requests[0].data);self.assertIn(b'moa:S:card',requests[0].data);self.assertIn(b'moa:D:card',requests[0].data)
+  self.assertIn(b'name="photo"',requests[0].data);self.assertIn(b'moa:S:card',requests[0].data);self.assertIn(b'moa:D:card',requests[0].data);self.assertIn(b'moa:m:pending',requests[0].data)
 if __name__=='__main__':unittest.main()
