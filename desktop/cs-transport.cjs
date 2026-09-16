@@ -8,7 +8,8 @@ function details(d){
  if(!d||!['AVAILABLE','MISSING','UNAVAILABLE'].includes(d.status)||!string(d.title,200)||!string(d.body,2000)||!Array.isArray(d.history)||d.history.length>5||typeof d.truncated!=='boolean'||!date(d.updatedAt))throw Error('Invalid CS detail');
  const history=d.history.map(e=>{if(!e||!string(e.content,1000)||!date(e.occurredAt))throw Error('Invalid history');return {content:e.content,occurredAt:e.occurredAt};});
  if(d.status!=='AVAILABLE'&&(d.title||d.body||history.length))throw Error('Inconsistent detail');
- return {status:d.status,title:d.title,body:d.body,history,truncated:d.truncated,updatedAt:d.updatedAt};
+ const id=v=>v===null||typeof v==='string'&&/^\d{1,20}$/.test(v);let product=null,reply=null;if(d.product){if(!string(d.product.name,200)||!['productId','vendorItemId','sellerProductId'].every(k=>id(d.product[k])))throw Error('Invalid product');product={name:d.product.name,productId:d.product.productId,vendorItemId:d.product.vendorItemId,sellerProductId:d.product.sellerProductId};}if(d.reply){if(typeof d.reply.available!=='boolean'||!date(d.reply.sourceUpdatedAt))throw Error('Invalid reply');reply={available:d.reply.available,sourceUpdatedAt:d.reply.sourceUpdatedAt};}
+ return {...(product?{product}:{}),...(reply?{reply}:{}),status:d.status,title:d.title,body:d.body,history,truncated:d.truncated,updatedAt:d.updatedAt};
 }
 function project(p){
  if(p?.ok!==true||p.status!=='READY'||p.writePolicy!=='READ_ONLY'||typeof p.generatedAt!=='string'||!Number.isFinite(Date.parse(p.generatedAt))||typeof p.truncated!=='boolean'||!Array.isArray(p.items)||p.items.length>200)throw Error('Invalid CS');

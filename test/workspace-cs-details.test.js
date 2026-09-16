@@ -22,3 +22,4 @@ test('Supabase query selects only explicit detail fields, including encrypted th
  assert.equal(calls.length,4);const q=calls.find(u=>u.pathname.endsWith('coupang_inquiries')).searchParams;
  assert.match(q.get('select'),/thread_envelope:raw_data->cs_thread_encrypted/);assert.ok(!q.get('select').split(',').includes('raw_data'));assert.equal(q.get('limit'),'201');
 });
+test('Coupang detail includes verified product context without raw customer payload',()=>{const d=csDetails({inquiry_type:'ONLINE',question_text:'재입고문의해요.',answered:false,product_id:'9492352215',vendor_item_id:'79191530646',seller_product_id:'12918003534',product_name:'작두콩수세미차',updated_at:'2026-09-16T00:00:00Z'});assert.equal(d.product.name,'작두콩수세미차');assert.equal(d.product.productId,'9492352215');assert.equal(d.reply.available,true);});

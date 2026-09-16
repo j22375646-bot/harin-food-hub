@@ -187,6 +187,7 @@ function renderOverview(){
  document.querySelector('#daybook-focus-open').disabled=!live||overviewBusy;
  document.querySelector('#daybook-focus-open>span').textContent=focusScope==='ACTIVE'?'발급 전 확인':'배송 확인';
  const focusCount=document.querySelector('#daybook-focus-count');focusCount.replaceChildren(makeElement('span','',focusValue?.status==='READY'?String(focusValue.total):'—'),makeElement('small','','건'));
+ if(live)window.moaonCs?.syncBadge();
  document.querySelector('#nav-order-count').textContent=['ACTIVE','REGISTER'].every(k=>overviewValues[k]?.status==='READY'&&Number.isSafeInteger(overviewValues[k].total)&&overviewValues[k].total>=0)?String(overviewValues.ACTIVE.total+overviewValues.REGISTER.total):'—';
  document.querySelector('#sidebar-connection').textContent=live?'하린식품 업무 연결됨':'로그인 후 업무를 연결합니다';
  if(live)statusElements.todayTitleMode.textContent=todayGreeting();

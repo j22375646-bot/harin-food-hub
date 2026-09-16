@@ -9,6 +9,8 @@ function validAvatar(v){
 function validInput(v){
  if(!v||typeof v!=='object'||Array.isArray(v))return false;
  const ops=require('./ui/operations-tools.js');
+ if(v.action==='CS_REPLY_STATUS')return ops.keys(v,['action','inquiryId'])&&typeof v.inquiryId==='string'&&/^\d{1,20}$/.test(v.inquiryId);
+ if(v.action==='CS_REPLY_SEND')return ops.keys(v,['action','inquiryId','content','replyBy','sourceUpdatedAt','confirm'])&&validInput({action:'CS_REPLY_STATUS',inquiryId:v.inquiryId})&&v.confirm===true&&str(v.content,1000,2)&&v.content.trim().length>=2&&str(v.replyBy,100,1)&&/^[a-zA-Z0-9@._-]+$/.test(v.replyBy)&&typeof v.sourceUpdatedAt==='string'&&Number.isFinite(Date.parse(v.sourceUpdatedAt));
  if(ops.validCommand(v))return true;
  if(v.action==='EDIT')return ops.keys(v,['action','id','revision','seriesRevision','scope','title','notes','dueDate','assignedTo','checklist'])&&UUID.test(v.id||'')&&Number.isInteger(v.revision)&&v.revision>0&&Number.isInteger(v.seriesRevision)&&v.seriesRevision>=0&&['ONE','FUTURE'].includes(v.scope)&&validInput({action:'CREATE',id:v.id,title:v.title,notes:v.notes,dueDate:v.dueDate,assignedTo:v.assignedTo,checklist:v.checklist});
  if(v.action==='DELETE'&&Object.hasOwn(v,'scope'))return ops.keys(v,['action','id','revision','seriesRevision','scope'])&&UUID.test(v.id||'')&&Number.isInteger(v.revision)&&v.revision>0&&Number.isInteger(v.seriesRevision)&&v.seriesRevision>=0&&['ONE','FUTURE'].includes(v.scope);

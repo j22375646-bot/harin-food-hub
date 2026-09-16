@@ -1,7 +1,7 @@
 'use strict';
 (()=>{
  const $=id=>document.getElementById(id),labels={NAVER:'네이버',COUPANG:'쿠팡',CAFE24:'Cafe24',INQUIRY:'문의',CANCEL:'취소',RETURN:'반품',EXCHANGE:'교환'};
- let value=null,busy=false,generation=0,selected=null,pageIndex=0,failed=false;
+ let value=null,busy=false,generation=0,selected=null,pageIndex=0,failed=false,lastBadgeRead=0;
  const tools=window.MoaonCsTools.create(()=>{pageIndex=0;render();});
  const node=(tag,text)=>{const n=document.createElement(tag);n.textContent=text;return n;};
  const contentLabel=d=>!d?'본문 조회 연결 대기':d.status==='UNAVAILABLE'?'내용 복원 실패':d.status==='MISSING'?'저장 내용 확인 필요':d.truncated?'일부 내용 조회됨':'저장 내용 조회됨';
@@ -19,11 +19,12 @@
  }
  function close(){const previous=selected;selected=null;render();Array.from($('cs-list').querySelectorAll('button')).find(b=>b.dataset.id===previous)?.focus();}
  function render(){
+  const badge=$('nav-cs-count');if(badge){badge.textContent=failed||!value?'—':value.items.length?String(value.items.length)+(value.truncated?'+':''):'';badge.hidden=!!value&&!failed&&!value.items.length;badge.title=value&&!failed?'저장된 미처리 접수 · '+value.items.length+'건'+(value.truncated?' 이상':''):'미처리 건수 확인 필요';}
   document.querySelector('.cs-page').setAttribute('aria-busy',String(busy));
   $('cs-refresh').disabled=busy||displayMode!=='live';
   $('cs-reset').disabled=busy||(['cs-platform','cs-kind','cs-content-filter'].every(id=>$(id).value==='ALL')&&$('cs-sort').value==='NEWEST'&&!$('cs-search').value&&!tools.filtered());
   const term=$('cs-search').value.trim().toLocaleLowerCase('ko-KR');
-  const scoped=(value?.items||[]).filter(r=>($('cs-platform').value==='ALL'||r.platform===$('cs-platform').value)&&($('cs-content-filter').value==='ALL'||contentState(r.details)===$('cs-content-filter').value)&&[r.id,r.details?.title,r.details?.body,...(r.details?.history||[]).map(e=>e.content)].some(s=>typeof s==='string'&&s.toLocaleLowerCase('ko-KR').includes(term)));
+  const scoped=(value?.items||[]).filter(r=>($('cs-platform').value==='ALL'||r.platform===$('cs-platform').value)&&($('cs-content-filter').value==='ALL'||contentState(r.details)===$('cs-content-filter').value)&&[r.id,r.details?.product?.name,r.details?.title,r.details?.body,...(r.details?.history||[]).map(e=>e.content)].some(s=>typeof s==='string'&&s.toLocaleLowerCase('ko-KR').includes(term)));
   tools.render(scoped);const rows=scoped.filter(r=>($('cs-kind').value==='ALL'||r.kind===$('cs-kind').value)&&tools.matches(r));
   $('cs-kind-summary').replaceChildren();
   for(const kind of ['ALL','INQUIRY','CANCEL','RETURN','EXCHANGE']){
@@ -40,7 +41,7 @@
   if(!visible.some(r=>r.id===selected))selected=null;
   $('cs-page-label').textContent=busy?'접수 조회 중':!value?'조회 후 페이지 표시':pages?`${pageIndex+1} / ${pages}쪽 · 25건씩 표시`:'표시할 접수 없음';$('cs-prev').disabled=busy||pageIndex===0;$('cs-next').disabled=busy||pageIndex>=pages-1;
   $('cs-count').textContent=busy?'미처리 건수 조회 중':value?`조회된 미처리 ${value.items.length}건 · 현재 조건 ${rows.length}건${value.truncated?' · 일부 자료만 표시':''}`:'미처리 건수 확인 필요';
-  $('cs-list').replaceChildren(...(visible.length?visible.map(r=>{const b=node('button','');b.type='button';b.dataset.id=r.id;b.className='cs-row';b.setAttribute('aria-expanded',String(r.id===selected));b.setAttribute('aria-controls','cs-detail');b.append(node('strong',`${labels[r.platform]} · ${labels[r.kind]}`),node('span','접수 번호 '+reference(r)),node('span','처리 상태 '+r.status),node('small',r.occurredAt?formatTime(r.occurredAt):'접수 시각 확인 필요'));const contentState=node('span',contentLabel(r.details));contentState.className='cs-content-state';b.append(contentState);const subject=node('span',r.details?.title||'접수 상세 보기');subject.className='cs-row-title';b.append(subject);const due=tools.deadline(r),target=node('span',due.label);target.className='ops-deadline';target.dataset.state=due.state;b.append(target);b.children[0].className='cs-row-channel';b.children[1].className='cs-row-reference';b.children[2].className='cs-row-status';b.children[3].className='cs-row-time';b.onclick=()=>{selected=r.id;render();$('cs-detail').querySelector('button').focus({preventScroll:true});$('cs-detail').scrollIntoView({block:'start'});};return b;}):[emptyState()]));
+  $('cs-list').replaceChildren(...(visible.length?visible.map(r=>{const b=node('button','');b.type='button';b.dataset.id=r.id;b.className='cs-row';b.setAttribute('aria-expanded',String(r.id===selected));b.setAttribute('aria-controls','cs-detail');b.append(node('strong',`${labels[r.platform]} · ${labels[r.kind]}`),node('span','접수 번호 '+reference(r)),node('span','처리 상태 '+r.status),node('small',r.occurredAt?formatTime(r.occurredAt):'접수 시각 확인 필요'));const contentState=node('span',contentLabel(r.details));contentState.className='cs-content-state';b.append(contentState);const subject=node('span',r.details?.product?.name||r.details?.title||'접수 상세 보기');subject.className='cs-row-title';b.append(subject);const due=tools.deadline(r),target=node('span',due.label);target.className='ops-deadline';target.dataset.state=due.state;b.append(target);b.children[0].className='cs-row-channel';b.children[1].className='cs-row-reference';b.children[2].className='cs-row-status';b.children[3].className='cs-row-time';b.onclick=()=>{selected=r.id;render();$('cs-detail').querySelector('button').focus({preventScroll:true});$('cs-detail').scrollIntoView({block:'start'});};return b;}):[emptyState()]));
   const row=rows.find(r=>r.id===selected),panel=$('cs-detail');panel.hidden=!row;panel.parentElement.dataset.detailOpen=String(Boolean(row));panel.replaceChildren();if(!row)return;
 
   const button=node('button','목록으로');button.type='button';button.onclick=close;
@@ -61,10 +62,11 @@
    if(d.truncated)content.append(node('p','긴 내용 또는 이력이 일부만 표시됩니다. 원본 채널에서 전체 내용을 확인해 주세요.'));
   }
   if(d)content.append(node('small',d.updatedAt?'원본 갱신 '+formatTime(d.updatedAt):'원본 갱신 시각 확인 필요'));
+  if(d?.product){const product=node('section','');product.className='cs-product-context';product.append(node('h3','문의 상품'),node('p',d.product.name||'상품명 확인 필요'));for(const [key,label]of [['sellerProductId','등록상품 ID'],['vendorItemId','옵션 ID']])if(d.product[key])product.append(node('small',label+' '+d.product[key]));if(d.product.productId){const open=node('button','쿠팡 상품 보기 ↗');open.type='button';open.onclick=()=>window.moaonHub.openCsLink({kind:'PRODUCT',id:d.product.productId});product.append(open);}const wing=node('button','쿠팡 Wing 열기 ↗');wing.type='button';wing.onclick=()=>window.moaonHub.openCsLink({kind:'WING',id:''});product.append(wing,node('p','문의 번호 '+reference(row)+' · Wing에서 해당 번호를 확인하세요.'));panel.append(product);}
   panel.append(content);tools.detail(row,panel);
 
  }
- function clear(){tools.clear();$('cs-content-filter').value='ALL';pageIndex=0;$('cs-sort').value='NEWEST';generation++;value=null;busy=false;failed=false;selected=null;$('cs-platform').value='ALL';$('cs-kind').value='ALL';$('cs-search').value='';$('cs-status').textContent='실제 사업장 연결 후 조회합니다.';render();}
+ function clear(){lastBadgeRead=0;tools.clear();$('cs-content-filter').value='ALL';pageIndex=0;$('cs-sort').value='NEWEST';generation++;value=null;busy=false;failed=false;selected=null;$('cs-platform').value='ALL';$('cs-kind').value='ALL';$('cs-search').value='';$('cs-status').textContent='실제 사업장 연결 후 조회합니다.';render();}
  async function refresh(){
   if(busy||displayMode!=='live')return;const expected=++generation;busy=true;failed=false;value=null;selected=null;pageIndex=0;render();$('cs-status').textContent='저장된 고객·CS 자료를 조회하고 있습니다…';
   try{const result=await window.moaonHub.readCs();if(expected!==generation)return;if(['LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status)){applyHubResult(result);return;}
@@ -78,5 +80,5 @@
  for(const id of ['cs-platform','cs-kind','cs-sort','cs-content-filter'])$(id).addEventListener('change',filter);$('cs-search').addEventListener('input',filter);$('cs-refresh').onclick=refresh;
  $('cs-detail').addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();close();}});
  // Re-entry preserves the rendered view; data and filter changes render at their source.
- window.moaonCs=Object.freeze({clear,ensure:()=>{if(!value&&!busy)void refresh();}});clear();
+ window.moaonCs=Object.freeze({clear,syncBadge:()=>{if(displayMode==='live'&&document.querySelector('.cs-page').hidden&&!busy&&Date.now()-lastBadgeRead>60000){lastBadgeRead=Date.now();void refresh();}},ensure:()=>{if(!value&&!busy)void refresh();}});clear();
 })();
