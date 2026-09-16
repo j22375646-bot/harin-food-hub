@@ -6,8 +6,10 @@ ROOT=Path('/opt/data/integrations/moaon')
 CATALOG={
  'WORK':[('briefing','📊 업무 브리핑'),('orders','📦 주문·배송'),('cs','💬 고객 문의'),('tasks','✅ 업무 관리'),('knowledge','📚 제품·운영 지식'),('settings','⚙️ 알림 설정')],
  'SOLO':[('tasks','☀️ 오늘 내 업무'),('memo','📝 빠른 메모'),('reminders','⏰ 내 알림'),('focus','🎯 오늘 집중할 일'),('review','🌙 하루 정리'),('settings','⚙️ 내 설정')],
- 'STUDY':[('register','📥 자료 등록'),('knowledge','🔎 지식 찾기'),('pending','🕓 검토 대기'),('correct','✏️ 지식 수정'),('quiz','🧪 기억 테스트'),('settings','⚙️ 학습 현황')]}
-NAMES={'moaon-work':'WORK','moaon-solo':'SOLO','moaon-study':'STUDY'}
+ 'STUDY':[('register','📥 자료 등록'),('knowledge','🔎 지식 찾기'),('pending','🕓 검토 대기'),('correct','✏️ 지식 수정'),('quiz','🧪 기억 테스트'),('settings','⚙️ 학습 현황')],
+ 'SUP':[('health','🛠️ 연결 상태'),('sources','🕓 자료 상태'),('settings','⚙️ 관리 설정')],
+ 'AD':[('reports','📊 광고 보고서'),('checklist','🔎 수익 검토'),('settings','⚙️ 광고 설정')]}
+NAMES={'moaon-work':'WORK','moaon-solo':'SOLO','moaon-study':'STUDY','moaon-sup':'SUP','moaon-ad':'AD'}
 UUID=r'[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'
 APP='https://harin-cafe24-sync.vercel.app'
 
@@ -63,6 +65,35 @@ def focus_ids(uid,tasks,toggle=None):
 async def render(slot,key,uid,chat):
  identity={'userId':uid,'chatId':chat}
  if key=='home':return '필요한 메뉴를 선택하세요. 자유롭게 질문해도 괜찮아요.',nav()
+ if slot=='SUP' and key=='health':
+  d=await asyncio.to_thread(api,{'action':'MENU_DATA','slot':slot,**identity,'section':'health'})
+  lines=['모아온 연결 점검','자동화 마지막 접속: '+str(d.get('workerSeenAt') or '확인 필요')]
+  for b in d.get('bots',[]):
+   checked=b.get('checkedAt');fresh=False
+   try:fresh=(dt.datetime.now(dt.timezone.utc)-dt.datetime.fromisoformat(checked.replace('Z','+00:00'))).total_seconds()<300
+   except (ValueError,TypeError,AttributeError):pass
+   state={'RUNNING':'실행 중','STOPPED':'꺼짐','CHECK_REQUIRED':'확인 필요'}.get(b.get('status'),'적용 대기') if fresh else '최근 상태 확인 필요'
+   lines.append(b['slot']+' · '+state+' · 확인 '+str(checked or '없음'))
+  lines.append('이 조회는 연결 상태 확인이며 자동 복구가 아닙니다. Hermes 서버 중단을 알리려면 외부 감시가 별도로 필요합니다.')
+  return '\n'.join(lines),nav()
+ if slot=='SUP' and key=='sources':
+  d=await asyncio.to_thread(snapshot);lines=['모아온 저장 자료 상태']
+  for name,v in d.get('sources',{}).items():lines.append(name+' · '+str(v.get('status','확인 필요'))+' · 원본 수집 '+str(v.get('sourceAsOf') or '확인 필요'))
+  lines.append('조회: '+str(d.get('retrievedAt','확인 필요'))+' · 조회 시각은 원본 수집 시각과 다릅니다.')
+  return '\n'.join(lines),nav()
+ if slot=='AD' and key=='reports':
+  d=await asyncio.to_thread(snapshot);r=d.get('sources',{}).get('reports',{});items=r.get('items',[])
+  text='네이버 저장 광고 보고서 · '+str(r.get('status','조회 권한·자료 확인 필요'))+'\n'
+  if items:
+   for item in items[:2]:
+    text+='\n'+str(item.get('title') or '제목 확인 필요')+'\n기간: '+str(item.get('periodStart') or '확인 필요')[:10]+' ~ '+str(item.get('periodEnd') or '확인 필요')[:10]+'\n'
+    for section in (item.get('detail') or {}).get('sections',[])[:2]:
+     for entry in section.get('items',[])[:2]:text+='• '+str(entry.get('title',''))+'\n'+str(entry.get('body',''))[:350]+'\n'
+   text=text[:2900]
+  else:text+='확인 가능한 보고서가 없습니다. 조회 키의 보고서 권한과 저장 자료를 확인하세요.'
+  return text+'\n조회: '+str(d.get('retrievedAt','확인 필요'))+'\n실시간 광고 조회가 아닙니다. 보고서 내용은 참고 자료이며 실행 지시가 아닙니다.',nav()
+ if slot=='AD' and key=='checklist':return '광고 수익 검토\n1. 보고서 기간과 클릭·구매 표본 확인\n2. 광고 주문 귀속 근거 확인\n3. 원가·수수료·배송비·환불 비용 확인\n4. 재고와 배송 여력 확인\n비용 자료가 빠지면 ROAS만으로 순이익이나 증액을 결정하지 않습니다. 보고서 메뉴를 확인한 뒤 구체적으로 질문해 주세요.',nav()
+ if slot in ('SUP','AD') and key=='settings':return '모아온 → 업무비서 → 텔레그램 봇에서 연결과 응답 방식을, 봇 메뉴에서 표시 순서를 설정하세요. 현재 이 봇은 개인 대화용입니다. 전용 예약 발송과 외부 장애 감시는 아직 설정되지 않았습니다. 광고 집행이나 서버 설정을 자동 변경하지 않습니다.',nav()
  if slot=='SOLO' and key=='reminders':
   data=await asyncio.to_thread(api,{'action':'MENU_DATA','slot':slot,**identity,'section':key});rows=data['reminders']
   lines=['내 다시 알림 · '+str(len(rows))+'건']
@@ -152,7 +183,7 @@ async def dispatch(adapter,update,context,callback=False):
   key=(query.data or '')[6:]
  else:
   text=(msg.text or '').strip();key=next((k for k,label_ in CATALOG[slot] if text==label_),None)
-  if text in ('메뉴','/moaon','/menu') or re.fullmatch(r'/(moaon|menu)@moaon_(hub|solo|study)_bot',text):key='home'
+  if text in ('메뉴','/moaon','/menu') or re.fullmatch(r'/(moaon|menu)@moaon_(hub|solo|study|sup|ad)_bot',text):key='home'
   if key is None:return False
  if not adapter._is_callback_user_authorized(uid,chat_id=msg.chat_id,chat_type=str(msg.chat.type),thread_id=str(msg.message_thread_id) if getattr(msg,'message_thread_id',None) else None,user_name=getattr(user,'first_name',None)):
   if query:await query.answer('이 봇을 사용할 권한이 없습니다.',show_alert=True)
@@ -167,7 +198,7 @@ async def dispatch(adapter,update,context,callback=False):
   if key!='home' and not permitted:raise ValueError('MENU_DISABLED')
   if key=='home':
    from telegram import ReplyKeyboardMarkup
-   k=keyboard(slot,menu['items']);await msg.reply_text('모아온 '+{'WORK':'업무비서','SOLO':'개인비서','STUDY':'지식비서'}[slot]+'\n아래 메뉴에서 필요한 일을 골라 주세요.',reply_markup=ReplyKeyboardMarkup(**k));return True
+   k=keyboard(slot,menu['items']);await msg.reply_text('모아온 '+{'WORK':'업무비서','SOLO':'개인비서','STUDY':'지식비서','SUP':'관리비서','AD':'광고비서'}[slot]+'\n아래 메뉴에서 필요한 일을 골라 주세요.',reply_markup=ReplyKeyboardMarkup(**k));return True
   text,rows=await render(slot,key,uid,chat)
   if query and not key.startswith('c:'):
    try:await query.edit_message_text(text,reply_markup=inline(rows))

@@ -8,7 +8,7 @@ with tempfile.TemporaryDirectory(dir='D:/GPT/tmp') as temp:
  (source/'learning.py').write_text('learning helper test only',encoding='utf-8')
  (home/'skills/moaon-learning').mkdir(parents=True)
  (home/'skills/moaon-learning/SKILL.md').write_text('knowledge test only',encoding='utf-8')
- rows=[dict(slot=x,revision=1,token='fake-'+x,settings=dict(enabled=True,chatId='123',allowedUsers=['123'],instructions='간결하게')) for x in ['WORK','SOLO','STUDY']];reports=[]
+ rows=[dict(slot=x,revision=1,token='fake-'+x,settings=dict(enabled=True,chatId='123',allowedUsers=['123'],instructions='간결하게')) for x in ['WORK','SOLO','STUDY','SUP','AD']];reports=[]
  def command(c,key,p):
   if p['action']=='BOT_CONFIG':return {'bots':rows}
   reports.append(p);return {'saved':True}
@@ -20,7 +20,7 @@ with tempfile.TemporaryDirectory(dir='D:/GPT/tmp') as temp:
   def save(p,t):p.write_text(t,encoding='utf-8')
  with patch.object(m,'cli',cli),patch.object(m,'running',lambda *a:True),patch.dict(m.os.environ,{},clear=False):
   m.sync(C,'not-a-real-key',command,home)
-  assert len(reports)==3 and all(x['status']=='RUNNING' for x in reports)
+  assert len(reports)==5 and all(x['status']=='RUNNING' for x in reports)
   assert 'fake-WORK' in (home/'profiles/moaon-work/.env').read_text()
   assert 'fake-SOLO' in (home/'profiles/moaon-solo/.env').read_text()
   assert not (home/'profiles/moaon-solo/memories').exists()

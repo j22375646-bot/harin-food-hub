@@ -54,6 +54,11 @@ su - hermes -c 'podman exec --user hermes hermes-agent /opt/hermes/.venv/bin/her
 if su - hermes -c 'podman exec --user hermes hermes-agent test -f /opt/data/profiles/moaon-study/.moaon-managed-profile'; then
   su - hermes -c 'podman exec --user hermes hermes-agent /opt/hermes/.venv/bin/hermes -p moaon-study gateway stop'
 fi
+for profile in moaon-sup moaon-ad; do
+  if su - hermes -c "podman exec --user hermes hermes-agent test -f /opt/data/profiles/$profile/.moaon-managed-profile"; then
+    su - hermes -c "podman exec --user hermes hermes-agent /opt/hermes/.venv/bin/hermes -p $profile gateway stop"
+  fi
+done
 systemctl start moaon-assistant.service
 systemctl is-active moaon-assistant.timer
 printf 'Installed. Recipient and delivery switches are managed in Moaon.\n'
