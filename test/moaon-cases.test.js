@@ -10,10 +10,11 @@ test('tracking is idempotent, missing source holds, explicit resolution and snoo
  await db.exec(`create role anon;create role authenticated;create role service_role;create schema moaon_control;create table moaon_control.tenants(id uuid primary key);insert into moaon_control.tenants values('${T}');create table moaon_assistant_bots(tenant_id uuid,slot text,revision integer,settings jsonb,envelope jsonb);create function moaon_assistant_access_command(uuid,uuid,text,jsonb) returns jsonb language plpgsql as $$begin if $3 is distinct from 'owner' then raise exception 'ASSISTANT_AUTH_REQUIRED';end if;return '{}';end$$;create function moaon_assistant_access_verify(text,boolean) returns jsonb language plpgsql as $$begin if $1 is distinct from 'worker' then raise exception 'ASSISTANT_AUTH_REQUIRED';end if;return '{"scopes":["orders","cs"]}';end$$;`);
  await db.exec(fs.readFileSync('supabase/migrations/20260917010000_moaon_case_tracking.sql','utf8'));
  if(fs.existsSync('supabase/migrations/20260917011000_moaon_case_digest.sql'))await db.exec(fs.readFileSync('supabase/migrations/20260917011000_moaon_case_digest.sql','utf8').replace("extract(hour from now() at time zone 'Asia/Seoul') not between 8 and 19",'false'));
+ await db.exec(fs.readFileSync('supabase/migrations/20260917120000_moaon_new_orders_only.sql','utf8').replace("extract(hour from now() at time zone 'Asia/Seoul') not between 8 and 19",'false'));
  await db.query(`insert into moaon_assistant_bots values($1,'WORK',1,'{"enabled":true,"chatId":"123","allowedUsers":["123"]}','{}')`,[T]);
  const call=async(v,w=false)=>(await db.query('select moaon_assistant_cases(null,null,$1,$2,$3) v',['owner',v,w?'worker':null])).rows[0].v;
  const observe=async rows=>{const l=await call({action:'BEGIN',test:true});return call({action:'APPLY',lease:l.lease,observations:rows,sources:[]});};
- const pending={platform:'NAVER',kind:'ORDER',sourceId:'one',state:'PENDING'};
+ const pending={platform:'NAVER',kind:'ORDER',sourceId:'one',state:'PENDING',orderedAt:new Date(Date.now()+1000).toISOString()};
  await call({action:'CASE_SAVE',revision:0,enabled:true});let r=await observe([pending]);assert.equal(r.cases.length,1);const id=r.cases[0].id;
  r=await observe([pending]);assert.equal(r.events.length,1);
  r=await observe([]);assert.equal(r.cases[0].status,'OPEN');assert.equal(r.cases[0].observed_state,'UNKNOWN');
@@ -28,16 +29,22 @@ test('tracking is idempotent, missing source holds, explicit resolution and snoo
  await db.exec('update moaon_assistant_bots set revision=2');await call({action:'DELIVERY'});assert.ok((await call({action:'CASE_READ'})).events.some(e=>e.delivery==='SKIPPED'));
  await db.exec('delete from moaon_case_events;delete from moaon_cases');
  await observe(['NAVER','CAFE24','COUPANG'].map(platform=>({...pending,platform})).concat([{...pending,platform:'COUPANG',kind:'CS'}]));
- const batch=await call({action:'DELIVERY_BATCH'});assert.ok(batch.batchId);assert.equal(batch.groups.reduce((n,g)=>n+g.count,0),4);assert.equal(batch.groups.length,4);
+ const batch=await call({action:'DELIVERY_BATCH'});assert.ok(batch.batchId);assert.equal(batch.groups.reduce((n,g)=>n+g.count,0),3);assert.equal(batch.groups.length,3);
  assert.deepEqual(await call({action:'DELIVERY_BATCH'}),{});
  await call({action:'RESULT_BATCH',id:batch.batchId,status:'SENT'});
- assert.equal((await call({action:'CASE_READ'})).events.filter(e=>e.delivery==='SENT').length,4);
+ assert.equal((await call({action:'CASE_READ'})).events.filter(e=>e.delivery==='SENT').length,3);
+ // No repeated notification for resolved/reopened/snoozed order or CS; old/unknown dates stay silent.
+ await observe([{...pending,sourceId:'old',orderedAt:'2020-01-01T00:00:00Z'},{...pending,sourceId:'unknown',orderedAt:null},{...pending,state:'RESOLVED'}]);assert.deepEqual(await call({action:'DELIVERY_BATCH'}),{});
+ await observe([pending]);assert.deepEqual(await call({action:'DELIVERY_BATCH'}),{});
+ assert.deepEqual(await call({action:'DELIVERY'}),{});
  assert.equal((await db.query("select has_function_privilege('anon','moaon_assistant_cases(uuid,uuid,text,jsonb,text)','execute') v")).rows[0].v,false);
  }finally{await db.close();}
 });
 test('four updates send one summary and uncertain delivery is recorded once',async()=>{
  const {cipher,TENANT}=require('../lib/integrations/managed-keys.js'),env={MOAON_MANAGED_KEY:Buffer.alloc(32,7).toString('base64')};const bot={revision:1,settings:{chatId:'123'},envelope:cipher(env).seal({tenantId:TENANT,provider:'TELEGRAM_WORK',revision:1},{token:'test-token'})};
  for(const uncertain of [false,true]){const sent=[],results=[];let claimed=false;const db={rpc:async(_,p)=>{const a=p.p_input;if(a.action==='DELIVERY_BATCH'&&!claimed){claimed=true;return {data:{batchId:'test-batch',bot,groups:[{platform:'NAVER',kind:'ORDER',event_kind:'DETECTED',count:3},{platform:'COUPANG',kind:'CS',event_kind:'DETECTED',count:1}]}};}if(a.action==='RESULT_BATCH')results.push(a);return {data:{}};}};
- const args={input:{action:'CASE_TICK'},worker:true,db,env,send:async(_,method,body)=>{sent.push(body);if(uncertain)throw Error('timeout');}};await require('../lib/assistant/cases.js').command(args);await require('../lib/assistant/cases.js').command(args);assert.equal(sent.length,1);assert.match(sent[0].text,/확인할 일 업데이트 4건/);assert.doesNotMatch(sent[0].text,/사건/);assert.equal(sent[0].reply_markup.inline_keyboard[0][0].callback_data,'moa:m:cases');assert.equal(results[0].status,uncertain?'UNKNOWN':'SENT');
+ const args={input:{action:'CASE_TICK'},worker:true,db,env,send:async(_,method,body)=>{sent.push(body);if(uncertain)throw Error('timeout');}};await require('../lib/assistant/cases.js').command(args);await require('../lib/assistant/cases.js').command(args);assert.equal(sent.length,1);assert.match(sent[0].text,/신규 주문 3건/);assert.doesNotMatch(sent[0].text,/쿠팡|사건/);assert.equal(sent[0].reply_markup.inline_keyboard[0][0].callback_data,'moa:m:cases');assert.equal(results[0].status,uncertain?'UNKNOWN':'SENT');
  }
 });
+
+test('new order date uses Korea timezone and never invents an unknown date',()=>{const {orderTime}=require('../lib/assistant/cases-source');assert.equal(orderTime('2026-09-16 10:00:00'),'2026-09-16T01:00:00.000Z');assert.equal(orderTime('2026-09-16T10:00:00+09:00'),'2026-09-16T01:00:00.000Z');assert.equal(orderTime(null),null);assert.equal(orderTime('invalid'),null);});

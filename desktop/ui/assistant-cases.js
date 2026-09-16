@@ -6,10 +6,10 @@
  const tab=button(root.querySelector('.assistant-tabs'),'자동화 센터',()=>{root.querySelectorAll('[data-assistant-tab]').forEach(b=>b.setAttribute('aria-pressed',String(b===tab)));root.querySelectorAll('[data-assistant-view]').forEach(v=>v.hidden=v!==view);run({action:'CASE_READ'});});tab.dataset.assistantTab='cases';tab.setAttribute('aria-pressed','false');
  view.append(el('h2','발견부터 처리 확인까지'),el('p','송장 발급 전 주문과 미답변 문의를 채널별로 추적합니다. 실제 주문·문의 내용을 변경하지 않습니다.','assistant-help'));
  const status=el('p','','assistant-help');status.id='assistant-cases-status';status.setAttribute('role','status');view.append(status);
- const config=el('section','','assistant-card'),label=el('label','자동 추적·업무비서 알림 켜기','assistant-check'),enabled=el('input');enabled.type='checkbox';label.prepend(enabled);config.append(label);view.append(config);
+ const config=el('section','','assistant-card'),label=el('label','신규 주문 알림 켜기','assistant-check'),enabled=el('input');enabled.type='checkbox';label.prepend(enabled);config.append(label);view.append(config);
  let state=null,busy=false,epoch=0;
  button(config,'추적 설정 저장',()=>state&&run({action:'CASE_SAVE',revision:state.revision,enabled:enabled.checked}));button(config,'지금 점검·기록',()=>run({action:'CASE_TEST'}));button(config,'새로고침',()=>run({action:'CASE_READ'}));
- config.append(el('p','자동 추적은 약 10분 간격입니다. 같은 점검에서 생긴 업데이트는 한 메시지로 묶습니다. 알림은 연결된 업무비서 수신처로 08~20시(한국 시간)에 보냅니다. 꺼진 상태의 수동 점검도 확인 항목을 기록하지만 알림은 보내지 않습니다.','assistant-help'));
+ config.append(el('p','약 10분마다 확인해 새 주문만 한 번 알립니다. 같은 점검의 신규 주문은 한 메시지로 묶으며 08~20시(한국 시간)에 보냅니다. 상태 변경·문의·보류 종료는 알리지 않고 오전 9시 이미지 브리핑에서 확인합니다. 켜기 전 주문과 주문 시각을 확인할 수 없는 자료는 알림에서 제외합니다.','assistant-help'));
  const list=el('div');list.id='assistant-cases-list';const history=el('details','','assistant-card');view.append(list,history);
  const names={OPEN:'확인 대기',IN_PROGRESS:'처리 중',SNOOZED:'잠시 보류',RESOLVED:'저장 상태 변경 확인'},events={DETECTED:'발견',REOPENED:'다시 확인 대상',RESOLVED:'추적 종료',REMINDER:'보류 시간 도래',TAKE:'처리 중 표시',SNOOZE:'30분 보류',RESUME:'추적 재개'};
  function render(){enabled.checked=state.enabled;list.replaceChildren();list.append(el('h3','진행 중 '+state.activeCount+'건 · 최근 최대 100건'),el('p','마지막 점검: '+(state.checkedAt?new Date(state.checkedAt).toLocaleString('ko-KR'):'아직 없음'),'assistant-help'));
