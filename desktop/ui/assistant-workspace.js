@@ -1,0 +1,38 @@
+'use strict';
+// Organize existing working views without replacing their save handlers.
+(()=>{
+ const root=document.querySelector('[data-page=assistant]');if(!root)return;
+ const el=(tag,text='',cls='')=>{const n=document.createElement(tag);n.textContent=text;n.className=cls;return n;};
+ const nav=root.querySelector('.assistant-tabs'),layout=el('div','','assistant-workspace'),content=el('div','','assistant-workspace-content');nav.before(layout);layout.append(nav,content);
+ const groups=[['오늘의 업무',['home','cases','proposals']],['비서 설정',['bots','automation','ads','menus']],['지식과 도움말',['learning','knowledge','connections','guide','briefing']]];
+ const titles={home:'비서 한눈에',cases:'확인할 일',proposals:'업무 등록안',bots:'비서 연결·응답',automation:'예약·알림',ads:'광고 자동화',menus:'대화 메뉴',learning:'지식 검토',knowledge:'공유 지식',connections:'조회 권한',guide:'연결 가이드',briefing:'브리핑 미리보기'};
+ const descriptions={home:'각 비서의 연결 상태와 저장한 설정의 적용 여부를 확인하세요.',cases:'주문과 문의를 한곳에서 확인하고, 처리 상태를 정리하세요.',bots:'비서의 수신처와 응답 방식을 설정합니다. 저장 후 서버 적용 상태를 확인하세요.',automation:'실제 예약 발송 시간과 변화 알림을 설정합니다.',briefing:'이 PC에서만 보관하는 초안입니다. 실제 발송은 예약·알림에서 설정하세요.'};
+ const tabs=new Map([...nav.querySelectorAll('[data-assistant-tab]')].map(n=>[n.dataset.assistantTab,n]));
+ for(const [title,ids]of groups){const group=el('div','','assistant-nav-group');group.append(el('span',title,'assistant-nav-label'));for(const id of ids){const b=tabs.get(id);if(!b)continue;b.textContent=titles[id];group.append(b);}nav.append(group);}
+ const heading=el('header','','assistant-context-heading'),headingTitle=el('h2'),headingDescription=el('p');heading.append(headingTitle,headingDescription);content.append(heading);
+ for(const v of [...root.querySelectorAll('[data-assistant-view]')])content.append(v);
+ const notice=root.querySelector('#assistant-automation-status');if(notice)root.querySelector('[data-assistant-view=automation]').prepend(notice);
+ const activate=id=>tabs.get(id)?.click();
+ const updateHeading=()=>{const id=[...tabs].find(([,b])=>b.getAttribute('aria-pressed')==='true')?.[0]||'home';headingTitle.textContent=titles[id];headingDescription.textContent=descriptions[id]||'필요한 항목을 확인하고 변경 내용을 저장하세요.';};
+ new MutationObserver(updateHeading).observe(nav,{attributes:true,subtree:true,attributeFilter:['aria-pressed']});updateHeading();
+ const home=root.querySelector('[data-assistant-view=home]');for(const selector of ['.assistant-hero','.assistant-flow','.guide-entry','.assistant-capabilities','.assistant-roadmap']){for(const n of home.querySelectorAll(selector))n.hidden=true;}
+ // Retain the legacy draft controls and IDs for local preview; never present them as live settings.
+ for(const n of home.querySelectorAll('.assistant-section-title'))n.hidden=true;
+ const overview=el('section','','assistant-overview'),top=el('div','','assistant-overview-top'),intro=el('div');intro.append(el('span','나의 비서팀','assistant-eyebrow'),el('h3','설정은 여기서, 일은 비서가.'),el('p','저장한 설정과 서버 적용 상태를 나란히 확인하세요.'));top.append(intro);
+ const refresh=el('button','상태 새로고침');refresh.type='button';top.append(refresh);overview.append(top);
+ const status=el('p','비서 상태를 확인해 주세요.','assistant-sync-note');status.id='assistant-overview-status';status.setAttribute('role','status');overview.append(status);
+ const team=el('div','','assistant-team');overview.append(team);home.prepend(overview);
+ const roles=[['WORK','업무비서','주문·문의와 오늘의 운영'],['SOLO','개인비서','나의 할 일과 아이디어'],['STUDY','지식비서','자료를 정리하고 지식으로'],['SUP','관리비서','연결과 실행 상태 점검'],['AD','광고비서','네이버 광고 리포트와 변화']];
+ const shortcuts=el('div','','assistant-shortcuts');for(const [id,title,desc]of [['cases','확인할 일','묶음 알림에서 세부 항목까지'],['automation','예약·알림','받는 시간과 내용을 설정'],['guide','연결 가이드','처음부터 차근차근 연결']]){const b=el('button');b.type='button';b.append(el('strong',title+' ↗'),el('span',desc));b.onclick=()=>activate(id);shortcuts.append(b);}overview.append(shortcuts);
+ const schedules=el('p','','assistant-sync-note');overview.append(schedules);
+ const explain=el('details','','assistant-apply-guide');explain.append(el('summary','저장하면 언제 적용되나요?'),el('p','연결·응답 설정: Hermes가 약 2분마다 가져갑니다. 저장됨과 적용됨이 같고 최근 실행 확인이 있어야 적용 완료로 표시합니다.'),el('p','예약·알림: 서버 실행기가 저장된 설정을 확인해 동작합니다. 앱을 닫아도 실행되며, 대화 메뉴는 다음 메뉴 요청부터 반영됩니다.'),el('p','브리핑 미리보기: 이 PC의 초안만 저장합니다. 실제 예약 설정은 바뀌지 않습니다.'));overview.append(explain);
+ let busy=false,generation=0;
+ function render(rows=[]){team.replaceChildren();for(const [slot,name,desc]of roles){const r=rows.find(x=>x.slot===slot),card=el('article','','assistant-team-card');card.dataset.teamSlot=slot;const fresh=r?.checked_at&&Date.now()-Date.parse(r.checked_at)<300000,applied=r&&r.revision===r.applied_revision&&fresh;const ok=applied&&r.runtime_status==='RUNNING'&&r.settings.enabled;card.dataset.state=ok?'ready':'pending';card.append(el('span',name.slice(0,2),'assistant-team-monogram'),el('h3',name),el('p',desc),el('span',!r?'확인 전':ok?'적용 완료 · 실행 중':applied&&r.runtime_status==='STOPPED'&&!r.settings.enabled?'연결 꺼짐':'적용 확인 필요','assistant-team-badge'));if(r){card.append(el('small','저장 v'+r.revision+' / 적용 '+(r.applied_revision==null?'대기':'v'+r.applied_revision)),el('small','확인 '+(r.checked_at?new Date(r.checked_at).toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}):'아직 없음')));}const b=el('button','설정 열기');b.type='button';b.onclick=()=>{activate('bots');const target=root.querySelector('[data-bot-slot='+slot+']');const editor=target?.querySelector('.assistant-bot-editor');if(editor)editor.open=true;target?.scrollIntoView({block:'start',behavior:'instant'});};card.append(b);team.append(card);}}
+ async function load(){if(busy)return;busy=true;const epoch=generation;refresh.disabled=true;status.textContent='서버에 저장된 상태를 확인하고 있어요…';try{const [bots,auto]=await Promise.all([window.moaonHub.assistantAutomation({action:'BOT_LIST'}),window.moaonHub.assistantAutomation({action:'AUTO_READ'})]);if(epoch!==generation)return;if(!bots.ok)throw Error();render(bots.value.bots);status.textContent='방금 조회한 서버 상태 · 적용 확인이 늦으면 새로고침하세요.';schedules.textContent=auto.ok?auto.value.automations.map(a=>(a.slot==='WORK'?'업무비서':'개인비서')+' · '+(a.settings.schedule?a.settings.time+' 예약 켜짐':'예약 꺼짐')).join('  /  '):'예약 상태 확인 필요';}catch{if(epoch===generation){render();status.textContent='연결 상태를 불러오지 못했어요. 로그인·서버 연결을 확인한 뒤 다시 시도하세요.';schedules.textContent='';}}finally{busy=false;refresh.disabled=false;}}
+ refresh.onclick=load;tabs.get('home').addEventListener('click',load);new MutationObserver(()=>{if(!root.hidden)load();}).observe(root,{attributes:true,attributeFilter:['hidden']});render();if(!root.hidden)load();
+ root.querySelectorAll('.assistant-bot-card').forEach(card=>{const form=card.querySelector('form');if(!form)return;const d=el('details','','assistant-bot-editor');d.append(el('summary','연결·응답 방식 설정'));form.before(d);d.append(form);});
+ // Replace obsolete disabled onboarding mock controls with usable routes.
+ const legacy=root.querySelector('.assistant-connection-grid');if(legacy){const replacement=el('section','','assistant-card');replacement.append(el('h2','연결을 관리하는 두 곳'),el('p','비서의 토큰·수신처·응답 방식은 비서 연결·응답에서, 서버 설치 방법은 연결 가이드에서 확인하세요.'));for(const [id,label]of [['bots','비서 연결·응답 열기'],['guide','Hermes 연결 가이드']]){const b=el('button',label);b.type='button';b.onclick=()=>activate(id);replacement.append(b);}legacy.before(replacement);legacy.hidden=true;}
+ const oldNote=root.querySelector('[data-assistant-view=connections] > .assistant-note');if(oldNote)oldNote.textContent='조회 권한을 발급하고 연결된 서버에서 사용할 자료 범위를 관리합니다.';
+ document.querySelectorAll('[data-action=hub-disconnect]').forEach(b=>b.addEventListener('click',()=>{generation++;render();schedules.textContent='';status.textContent='로그인 후 확인하세요.';}));
+})();
