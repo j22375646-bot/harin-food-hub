@@ -18,3 +18,5 @@ Verification:
 - Signed stable desktop 0.162.0 published and installed on the right display. Saved login expired; actual signed-in UI and real Telegram photo test are pending user login. No live test photo has been sent in this phase.
 
 Telegram reference: https://core.telegram.org/bots/api#sendphoto
+
+Follow-up verification in P4-202 after user login: requested one WORK test from the real installed app. Hermes sent a photo with action buttons (Telegram message 17). The delivery is SENT and its briefing card is bound to the same message. No second text notification was sent. Existing schedule was not changed.
