@@ -38,7 +38,8 @@
 
 [data-assistant-view=ads] .assistant-field{display:grid;gap:8px;margin:16px 0;font-size:15px;line-height:1.6}
 [data-assistant-view=ads] .assistant-field:has(input[type=checkbox]){display:flex;align-items:center;gap:12px}
-[data-assistant-view=ads] input[type=date],[data-assistant-view=ads] input[type=time]{box-sizing:border-box;min-height:44px;width:100%;max-width:320px;padding:10px 14px;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line-strong);border-radius:12px}
+[data-assistant-view=ads] input[type=date],[data-assistant-view=ads] input[type=time],[data-assistant-view=ads] input[type=number]{box-sizing:border-box;min-height:44px;width:100%;max-width:320px;padding:10px 14px;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line-strong);border-radius:12px}
 [data-assistant-view=ads] input[type=checkbox]{width:20px;height:20px;flex:0 0 20px}
 [data-assistant-view=ads] details summary{font-size:17px;line-height:1.7;cursor:pointer}
 [data-assistant-view=ads] .assistant-card{margin:20px 0}
+[data-assistant-view=ads] button{margin:6px 8px 6px 0}

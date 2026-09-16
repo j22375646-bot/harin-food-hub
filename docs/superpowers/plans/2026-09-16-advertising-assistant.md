@@ -9,3 +9,6 @@ Approved scope: connect Naver read APIs to Telegram report requests, persistent 
 5. Run unit/SQL/Python and Electron UI checks, verify live Naver access and one report, package/sign/release, install and show on secondary screen, verify production, commit/push.
 
 Later increments from the approved roadmap: campaign selection and statistically guarded change detection, monthly reports and revisions, independent external heartbeat monitoring. Do not present these as active until implemented and verified.
+
+
+Second increment (2026-09-16): monthly previous-month reports on day 2; daily recent-seven versus previous-seven day change monitoring with minimum spend/clicks and comparable campaigns; daily external Hermes pulse check through the existing 07:00 KST Naver cron. This is daily monitoring, not real-time availability monitoring. Preserve existing preferences; new switches start disabled pending live verification. Operational thresholds do not imply statistical significance. Test dedupe, incomplete data, month boundaries and stale/recovery transitions; verify installed desktop and deployed cron authorization.

@@ -113,7 +113,7 @@ async def render(slot,key,uid,chat):
   else:text+='확인 가능한 보고서가 없습니다. 조회 키의 보고서 권한과 저장 자료를 확인하세요.'
   return text+'\n조회: '+str(d.get('retrievedAt','확인 필요'))+'\n실시간 광고 조회가 아닙니다. 보고서 내용은 참고 자료이며 실행 지시가 아닙니다.',nav()
  if slot=='AD' and key=='checklist':return '광고 수익 검토\n1. 보고서 기간과 클릭·구매 표본 확인\n2. 광고 주문 귀속 근거 확인\n3. 원가·수수료·배송비·환불 비용 확인\n4. 재고와 배송 여력 확인\n비용 자료가 빠지면 ROAS만으로 순이익이나 증액을 결정하지 않습니다. 보고서 메뉴를 확인한 뒤 구체적으로 질문해 주세요.',nav()
- if slot in ('SUP','AD') and key=='settings':return '모아온 → 업무비서 → 텔레그램 봇에서 연결과 응답 방식을, 봇 메뉴에서 표시 순서를 설정하세요. 현재 이 봇은 개인 대화용입니다. 광고 리포트 일간·주간 예약은 모아온의 광고 자동화에서 설정합니다. 외부 장애 감시는 별도 구성입니다. 광고 집행이나 서버 설정을 자동 변경하지 않습니다.',nav()
+ if slot in ('SUP','AD') and key=='settings':return '모아온 → 업무비서 → 텔레그램 봇에서 연결과 응답 방식을, 봇 메뉴에서 표시 순서를 설정하세요. 현재 이 봇은 개인 대화용입니다. 광고 자동화에서 매일·매주·매월 2일 리포트, 7일 성과 변화 기준, 매일 오전 7시경 Hermes 외부 점검을 설정합니다. 외부 점검은 실시간 감시가 아닙니다. 광고 집행이나 서버 설정을 자동 변경하지 않습니다.',nav()
  if slot=='SOLO' and key=='reminders':
   data=await asyncio.to_thread(api,{'action':'MENU_DATA','slot':slot,**identity,'section':key});rows=data['reminders']
   lines=['내 다시 알림 · '+str(len(rows))+'건']
