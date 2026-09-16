@@ -10,3 +10,10 @@ test('change job collects two seven-day windows and saves comparison before fini
 test('external watchdog test authenticates owner before invoking monitoring RPC',async()=>{
  let calls=0;await assert.rejects(command({input:{action:'ADS_WATCHDOG'},worker:false,db:{rpc:async()=>{calls++;return {error:{message:'ASSISTANT_AUTH_REQUIRED'}};}}}),/AUTH_REQUIRED/);assert.equal(calls,1);
 });
+
+test('revised report persists comparison from the authorized parent snapshot',async()=>{
+ const report={status:'OBSERVED',period:{start:'2026-09-01',end:'2026-09-01'},campaigns:[{id:'a'}],observedRows:1,expectedRows:1,metrics:{cost:100,clicks:10,conversions:1,revenue:100,roas:100}};
+ let stored;const db={rpc:async(name,v)=>{if(name==='create_report_version'){stored=v.p_summary_json;return {data:{id:'report'}};}return {data:v.p_input.action==='CLAIM'?{id:'child',parent_id:'parent',start_date:'2026-09-01',end_date:'2026-09-01',fresh:true,campaign_ids:['a'],parentSummary:report}:{}};}};
+ await command({input:{action:'ADS_TICK'},worker:true,db,collect:async()=>({...report,metrics:{...report.metrics,cost:120}})});
+ assert.equal(stored.parentJobId,'parent');assert.equal(stored.revisionComparison.status,'CHANGED');assert.equal(stored.revisionComparison.rows[0].delta,20);
+});

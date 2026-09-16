@@ -61,6 +61,10 @@ class Tests(unittest.IsolatedAsyncioTestCase):
   def api(v):calls.append(v);return {}
   with patch.object(m,'api',side_effect=api):
    text,rows=await m.render('AD','revise:'+ID,'123','123');self.assertIn('원본',text);self.assertEqual(calls,[{'action':'ADS_REVISE','userId':'123','chatId':'123','id':ID}]);self.assertLessEqual(len(('moa:m:revise:'+ID).encode()),64)
+ async def test_ad_revision_comparison_text(self):
+  job={'id':ID,'start_date':'2026-09-01','end_date':'2026-09-07','status':'SUCCEEDED','delivery':'SENT','summary':{'status':'OBSERVED','metrics':{'cost':120,'clicks':10,'conversions':1,'revenue':250,'roas':250},'revisionComparison':{'reason':'수치 갱신','caveat':'같은 기간 재조회','rows':[{'label':'ROAS','before':200,'after':250,'delta':50,'unit':'%p','state':'CHANGED'}]}}}
+  with patch.object(m,'api',return_value={'jobs':[job]}):
+   text,rows=await m.render('AD','report:'+ID,'123','123');self.assertIn('+50%p',text);self.assertIn('같은 기간 재조회',text)
  def test_keyboard_and_callbacks_fit(self):
   for slot,entries in m.CATALOG.items():
    k=m.keyboard(slot,[x[0] for x in entries]);self.assertEqual(len(k['keyboard']),(len(entries)+1)//2);self.assertTrue(k['is_persistent'])

@@ -103,6 +103,12 @@ async def render(slot,key,uid,chat):
    text+='\n광고 전환매출은 순이익이 아닙니다. 누락 지표·기간을 확인하세요.'
   if j.get('error_code'):text+='\n확인 코드: '+j['error_code']
   rows=[[('보고서 HTML 다운로드',APP+'/api/reports/'+j['report_id']+'/download')]] if j.get('report_id') else []
+  comparison=j.get('summary',{}).get('revisionComparison') if j.get('summary') else None
+  if comparison:
+   text+='\n\n원본과 재작성 비교: '+comparison['reason']
+   for row in [r for r in comparison.get('rows',[]) if r.get('state')=='CHANGED'][:5]:
+    text+='\n'+row['label']+': '+str(row['before'])+' → '+str(row['after'])+' ('+('+' if row['delta']>0 else '')+str(row['delta'])+row['unit']+')'
+   text+='\n'+comparison['caveat']
   text+='\n집계 범위: '+(str(len(j.get('campaign_ids',[])))+'개 캠페인' if j.get('campaign_ids') else '전체 캠페인')
   if j.get('parent_id'):text+='\n재작성 원본: '+j['parent_id'][:8]
   if j['status']=='SUCCEEDED':rows.append([('같은 범위로 재작성','revise:'+j['id'])])
