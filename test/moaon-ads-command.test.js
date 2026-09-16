@@ -1,5 +1,12 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {command}=require('../lib/assistant/ads.js');
+test('completed advertising report delivers one image with report button and marks sent',async()=>{
+ const {cipher,TENANT}=require('../lib/integrations/managed-keys.js'),env={MOAON_MANAGED_KEY:Buffer.alloc(32,9).toString('base64')};
+ const envelope=cipher(env).seal({tenantId:TENANT,provider:'TELEGRAM_AD',revision:1},{token:'123456789:'+'A'.repeat(35)});let result,calls=0;
+ const db={rpc:async(_,p)=>{const a=p.p_input.action;if(a==='DELIVERED')result=p.p_input;return {data:a==='DELIVERY'?{bot:{slot:'AD',revision:1,envelope,settings:{chatId:'123'}},job:{id:'job',status:'SUCCEEDED',start_date:'2026-09-01',end_date:'2026-09-01',summary:{status:'PARTIAL',metrics:{cost:null,clicks:3,conversions:0,roas:null},sourceAsOf:null}}}:{}};}};
+ await command({input:{action:'ADS_TICK'},worker:true,db,env,renderCard:async(text,slot)=>{assert.equal(slot,'AD');assert.ok(text.includes('광고비 확인 필요'));assert.ok(text.includes('API 조회: 확인 필요'));return Buffer.from('png');},send:async(token,method,p)=>{calls++;assert.equal(method,'sendPhoto');assert.ok(Buffer.isBuffer(p.photo));assert.equal(p.reply_markup.inline_keyboard[0][0].text,'모아온에서 리포트 확인');}});
+ assert.equal(calls,1);assert.equal(result.status,'SENT');
+});
 test('change job collects two seven-day windows and saves comparison before finishing',async()=>{
  const calls=[],periods=[];const db={rpc:async(name,v)=>{calls.push([name,v]);if(name==='create_report_version')return {data:{id:'report'}};return {data:v.p_input.action==='CLAIM'?{id:'job',dedupe:'change:today',start_date:'2026-09-08',end_date:'2026-09-14',fresh:true,changeSettings:{minClicks:30,minCost:10000,changePercent:30}}:{}};}};
  const collect=async({start,end})=>{periods.push([start,end]);return {status:'OBSERVED',period:{start,end},campaigns:[{id:'a'}],metrics:{clicks:100,cost:20000,cpc:200,roas:200}};};

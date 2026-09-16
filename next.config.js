@@ -31,6 +31,7 @@ const securityHeaders = [
 ];
 
 module.exports = {
+  outputFileTracingIncludes:{'/api/moaon/assistant/*':['./lib/assistant/assets/MoaonBriefing-Medium.ttf']},
   webpack(config) {
     if (process.platform !== 'win32') return config;
     const {normalizeWindowsWebpackEntries}=require('./lib/build/windows-webpack-entries.js');

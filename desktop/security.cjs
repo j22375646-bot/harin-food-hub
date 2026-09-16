@@ -72,6 +72,7 @@ const ALLOWED_APP_RESOURCES = new Map([
   ['moaon://app/cs.js', 'cs.js'],
   ['moaon://app/cs.css', 'cs.css'],
   ['moaon://app/fonts/PretendardVariable.ttf', 'fonts/PretendardVariable.ttf'],
+  ['moaon://app/assets/briefing-sample.png', 'assets/briefing-sample.png'],
 ]);
 
 function isAllowedAppUrl(candidate) {

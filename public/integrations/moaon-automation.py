@@ -10,6 +10,7 @@ import sys
 import urllib.request
 import urllib.error
 import uuid
+import base64
 
 HOME=Path(os.environ.get('HERMES_HOME') or Path.home()/'.hermes').resolve()
 DIRECTORY=HOME/'integrations'/'moaon'
@@ -78,18 +79,36 @@ def briefing(data,sections,slot):
         if k in sections and (not data.get('sources',{}).get(k) or k in ('orders','cs') and not data['sources'][k].get('channels')):text+='\n'+label+' 자료 확인 필요'
     return text.replace('모아온 업무 브리핑','모아온 개인비서 브리핑' if slot=='SOLO' else '모아온 업무비서 브리핑',1)
 
-def telegram(c,chat,text,bot_token=None,card_id=None):
+def telegram(c,chat,text,bot_token=None,card_id=None,image=None):
     from dotenv import dotenv_values
     token=bot_token or os.environ.get('TELEGRAM_BOT_TOKEN') or dotenv_values(HOME/'.env').get('TELEGRAM_BOT_TOKEN')
     if not token:raise ValueError('TELEGRAM_NOT_CONFIGURED')
     # Token remains inside this process and is never included in output or exception logs.
     markup={'inline_keyboard':[[{'text':'모아온에서 확인','url':'https://harin-cafe24-sync.vercel.app'}]]}
     if card_id:markup['inline_keyboard'].insert(0,[{'text':'업무 등록안 만들기','callback_data':'moa:D:'+card_id},{'text':'1시간 뒤 다시 알림','callback_data':'moa:S:'+card_id}])
-    req=urllib.request.Request('https://api.telegram.org/bot'+token+'/sendMessage',data=json.dumps({'chat_id':chat,'text':text[:3900],'disable_web_page_preview':True,'reply_markup':markup}).encode(),headers={'Content-Type':'application/json'},method='POST')
+    method='sendMessage';payload=json.dumps({'chat_id':chat,'text':text[:3900],'disable_web_page_preview':True,'reply_markup':markup}).encode();content_type='application/json'
+    if image:
+        boundary='moaon'+uuid.uuid4().hex;parts=[]
+        lines=[s for s in text.splitlines() if s.strip()]
+        caption='\n'.join([lines[0]]+[s for s in lines if s.startswith(('조회:','모아온 저장 자료'))]+['아래 버튼으로 업무 등록안을 만들거나 다시 알림을 예약하세요.'])[:900]
+        for name,value in {'chat_id':chat,'caption':caption,'reply_markup':json.dumps(markup)}.items():
+            parts.append(('--'+boundary+'\r\nContent-Disposition: form-data; name="'+name+'"\r\n\r\n'+str(value)+'\r\n').encode())
+        parts.extend([('--'+boundary+'\r\nContent-Disposition: form-data; name="photo"; filename="moaon-briefing.png"\r\nContent-Type: image/png\r\n\r\n').encode(),image,('\r\n--'+boundary+'--\r\n').encode()])
+        payload=b''.join(parts);content_type='multipart/form-data; boundary='+boundary;method='sendPhoto'
+    req=urllib.request.Request('https://api.telegram.org/bot'+token+'/'+method,data=payload,headers={'Content-Type':content_type},method='POST')
     with urllib.request.build_opener(c.NoRedirect).open(req,timeout=25) as r:
         data=json.loads(r.read(20000))
         if data.get('ok') is not True:raise ValueError('SEND_FAILED')
         return str(data['result']['message_id'])
+
+def card_image(c,key,body,slot):
+    # Rendering has no messaging side effects. Only this pre-send step can fall back.
+    try:
+        value=command(c,key,{'action':'CARD_RENDER','slot':slot,'body':body[:3900]})
+        image=base64.b64decode(value['image'],validate=True)
+        if value.get('mime')!='image/png' or len(image)>2000000 or not image.startswith(b'\x89PNG\r\n\x1a\n'):return None
+        return image
+    except Exception:return None
 
 def deliver(c,key,cfg,event_id,kind,message):
     claim=command(c,key,{'action':'AUTO_CLAIM','slot':cfg['slot'],'id':event_id,'revision':cfg['revision'],'botRevision':cfg['botRevision'],'kind':kind})
@@ -97,7 +116,8 @@ def deliver(c,key,cfg,event_id,kind,message):
     status='UNKNOWN';sent=False
     try:
         card=command(c,key,{'action':'ACT_PREPARE','slot':cfg['slot'],'eventId':event_id,'botRevision':cfg['botRevision'],'body':message[:3900]})
-        mid=telegram(c,claim['chatId'],message,cfg.get('botToken'),card['id'])
+        image=card_image(c,key,message,cfg['slot']) if kind in ('SCHEDULE','TEST') else None
+        mid=telegram(c,claim['chatId'],message,cfg.get('botToken'),card['id'],image=image)
         sent=True
         command(c,key,{'action':'ACT_BIND','id':card['id'],'messageId':mid})
         status='SENT'

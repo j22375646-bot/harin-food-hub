@@ -55,3 +55,7 @@
 @media(max-width:1050px){.assistant-workspace{grid-template-columns:1fr;gap:20px}.assistant-page .assistant-workspace .assistant-tabs{position:static;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0}.assistant-team{grid-template-columns:repeat(2,minmax(0,1fr))}.assistant-workspace-content .assistant-bot-grid{grid-template-columns:1fr}.assistant-overview{padding:20px}.assistant-shortcuts{grid-template-columns:1fr}.assistant-overview-top{align-items:flex-start;flex-direction:column}}
 @media(max-width:640px){.assistant-page .assistant-workspace .assistant-tabs{grid-template-columns:1fr}.assistant-nav-group{display:flex;flex-wrap:wrap}.assistant-nav-label{width:100%;padding-top:10px}.assistant-page .assistant-workspace .assistant-tabs button{width:auto;font-size:14px}.assistant-team{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:no-preference){.assistant-team-card{animation:assistantNoteIn .2s ease-out both}.assistant-workspace button{transition:background .15s,border-color .15s}}
+
+.assistant-briefing-preview{border:1px solid var(--line);border-radius:16px;padding:18px;margin:16px 0;}
+.assistant-briefing-preview summary{cursor:pointer;font-weight:650;padding:8px 0;}
+.assistant-briefing-preview img{display:block;width:min(100%,480px);height:auto;border-radius:16px;margin:16px auto;}

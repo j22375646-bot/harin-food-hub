@@ -2,7 +2,8 @@
 (()=>{
  const root=document.querySelector('[data-page=assistant]'),view=root?.querySelector('[data-assistant-view=automation]');if(!view)return;
  const el=(tag,text='',cls='')=>{const n=document.createElement(tag);n.textContent=text;n.className=cls;return n;};
- const wrap=el('section','','assistant-bot-automations');view.prepend(wrap);wrap.append(el('h2','봇별 자동화'),el('p','앱을 닫아도 서버에서 실행해요. 봇마다 시간·요일·브리핑 내용을 따로 설정하세요.','assistant-help'));
+ const wrap=el('section','','assistant-bot-automations');view.prepend(wrap);wrap.append(el('h2','봇별 자동화'),el('p','앱을 닫아도 서버에서 실행해요. 예약 브리핑은 읽기 좋은 이미지 카드와 행동 버튼으로 보내요.','assistant-help'));
+ const preview=el('details','','assistant-briefing-preview');const label=el('summary','이미지 브리핑 미리보기');const img=el('img');img.src='./assets/briefing-sample.png';img.alt='시험 자료로 만든 업무 브리핑 카드. 채널별 주문과 미답변, 오늘 마감 업무를 표시합니다.';preview.append(label,el('p','아래는 디자인 예시예요. 실제 발송에는 저장한 항목과 조회한 자료가 들어갑니다.','assistant-help'),img,el('p','이미지 아래: 업무 등록안 만들기 · 1시간 뒤 다시 알림 · 모아온에서 확인','assistant-help'));wrap.append(preview,el('p','이미지 생성에 실패하면 텍스트로 보내요. 변화 알림은 간결한 텍스트로 유지합니다. 발송 결과가 불확실한 경우 중복 방지를 위해 자동 재전송하지 않아요.','assistant-help'));
  const notice=el('p','설정을 확인하고 있어요.','assistant-help');notice.id='assistant-bot-auto-status';notice.setAttribute('role','status');wrap.append(notice);
  const grid=el('div','','assistant-bot-grid');wrap.append(grid);const cards={};let data=null,bots=[],busy=false,generation=0;
  const button=(label,fn,parent,cls='')=>{const b=el('button',label,cls);b.type='button';b.onclick=fn;parent.append(b);return b;};

@@ -37,6 +37,7 @@ const CONTENT_TYPES = new Map([
   ['.css', 'text/css; charset=utf-8'],
   ['.js', 'text/javascript; charset=utf-8'],
   ['.ttf', 'font/ttf'],
+  ['.png', 'image/png'],
 ]);
 const CONTENT_SECURITY_POLICY = [
   "default-src 'none'",
