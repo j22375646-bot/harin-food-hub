@@ -1140,6 +1140,7 @@ async function runHubAction(action) {
   }
   if (action === 'nextPage' || action === 'previousPage') clearDisplayedOrders('connecting', action === 'nextPage' ? '다음 주문 페이지를 조회하고 있습니다.' : '이전 주문 페이지를 조회하고 있습니다.');
   if (action === 'disconnect') {
+    document.dispatchEvent(new Event('moaon-session-changed'));
     window.moaonFeedback.orders.reset();window.moaonFeedback.clear();
     historyGeneration++;historyAutoLoaded=false;
     clearCollection();
@@ -1469,6 +1470,7 @@ async function returnToSample() {
   const generation = ++actionGeneration;
   clearDisplayedOrders('connecting', '실제 주문을 비우고 샘플 화면으로 돌아가고 있습니다.');
   try {
+    document.dispatchEvent(new Event('moaon-session-changed'));
     const result = await window.moaonHub?.disconnect?.();
     if (result?.status !== 'DISCONNECTED') {
       if (generation === actionGeneration) applyHubResult(result);

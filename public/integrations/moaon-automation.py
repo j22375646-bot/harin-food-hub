@@ -29,7 +29,7 @@ def secret(c):
 
 def command(c,key,payload):
     req=urllib.request.Request(API,data=json.dumps(payload).encode(),headers={'Authorization':'Bearer '+key,'Content-Type':'application/json'},method='POST')
-    with urllib.request.build_opener(c.NoRedirect).open(req,timeout=180 if payload.get('action') in ('ADS_TICK','CASE_TICK','CASE_TEST') else 30) as r:
+    with urllib.request.build_opener(c.NoRedirect).open(req,timeout=180 if payload.get('action') in ('ADS_TICK','CASE_TICK','CASE_TEST','PREF_TICK') else 30) as r:
         raw=r.read(4194305)
         if len(raw)>4194304:raise ValueError('TOO_LARGE')
         data=json.loads(raw)
@@ -224,6 +224,9 @@ def tick(c,key):
     except Exception:errors.append('CASE_TRACKING')
     try:command(c,key,{'action':'ADS_TICK'})
     except Exception:errors.append('AD_REPORTS')
+    # Reuse any report completed above; private delivery claims remain on the server.
+    try:command(c,key,{'action':'PREF_TICK'})
+    except Exception:errors.append('PERSONAL_BRIEFINGS')
     print(json.dumps({'ok':not errors,'state':'CHECK_REQUIRED' if errors else 'CHECKED','failedSlots':errors}))
     if errors:raise ValueError('BOT_AUTOMATION_CHECK_REQUIRED')
 

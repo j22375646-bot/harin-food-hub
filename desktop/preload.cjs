@@ -16,6 +16,7 @@ const subscribe=(channel,listener)=>{if(typeof listener!=='function')throw Error
 contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   updatePromptVisible:visible=>{if(typeof visible!=='boolean')throw Error('Invalid update visibility');return ipcRenderer.invoke('moaon-hub:update-prompt-visible',visible);},
   openCsLink:v=>ipcRenderer.invoke('moaon-hub:open-cs-link',v),
+  openAssistantBot:slot=>ipcRenderer.invoke('moaon-hub:open-assistant-bot',slot),
   openWebHub:()=>ipcRenderer.invoke('moaon-hub:open-web-hub'),
   testTeamNotification:()=>ipcRenderer.invoke('moaon-hub:test-team-notification'),
   teamCommand:input=>ipcRenderer.invoke('moaon-hub:team-command',input),

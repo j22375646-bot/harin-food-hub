@@ -9,6 +9,7 @@ const ALLOWED_APP_RESOURCES = new Map([
   ['moaon://app/assistant-bots.js','assistant-bots.js'],
   ['moaon://app/assistant-menu.js','assistant-menu.js'],
   ['moaon://app/assistant-workspace.js','assistant-workspace.js'],
+  ['moaon://app/assistant-preferences.js','assistant-preferences.js'],
   ['moaon://app/assistant-cases.js','assistant-cases.js'],
   ['moaon://app/assistant-ads.js','assistant-ads.js'],
   ['moaon://app/assistant-guide.js','assistant-guide.js'],
