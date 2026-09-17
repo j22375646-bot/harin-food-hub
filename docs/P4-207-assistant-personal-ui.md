@@ -7,3 +7,5 @@ The personal view shows the current account, saved schedules, recipient proof st
 Permission-dependent routes are hidden until account identity confirms OWNER; unauthorized accounts retain personal settings/help. No token, schedule, database or server automation was changed by this UI phase.
 
 Verification: source and packaged Electron account A/B, save/link/verify/unlink, stale response, common-navigation reopening,700/1660 light/dark layout checks;5 desktop request/queue regressions. Installed production login remained expired before release: login page visible with password field. Automated tests use labelled sample accounts, not a production login.
+
+Release verified: source commit508899d pushed; signed stable0.167.0 published. Archive/source149 files match. Installed0.167.0 confirmed on right monitor with focused:false. Login remains required, so real-account UI verification is pending; no live settings or test alerts were changed. Existing Hermes timer remains active and last service result success/0.
