@@ -19,3 +19,4 @@ Production verification:
 - Vercel deployment dpl_DMVTfbd68oeuU4hKmdowwkS1oE7h READY; live x-harin-version 1.84.0.
 - Hermes automation.py updated; timer active, service success/0; explicit worker tick CHECKED with failedSlots[].
 - Local0.166.0 archive/source match verified and installed on right monitor. Authenticated account UI verification awaits login: saved session redirected to login. Packaged synthetic multi-account UI passed; this is not reported as authenticated liveUI proof.
+- Signed stable 0.166.0 published successfully; source commit a1f99c3 pushed. Installed window confirmed on secondary display (displayLeft2560); authentication remains pending. No claim of completed live-account UI verification.

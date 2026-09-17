@@ -13,3 +13,9 @@ Architecture: Add account-keyed preferences and personal delivery ledger beside 
 
 Ruling: Initial development isolates preferences/notifications; private AI memory and task-data attribution must not be claimed as completed. Task summaries must resolve recipient actor or omit personal tasks.
 Ruling: Existing shared administrator settings remain available; no automatic broadcasts to new members.
+
+Completion ledger:
+- Account-fenced SQL/API, UI and worker implemented and verified with isolated tests.
+- Existing read-key owner migrated, schedules retained, legacy duplicates suppressed.
+- Production DB/server/Hermes and signed desktop release completed.
+- Remaining user-dependent verification: installed app redirected to login; request sent for user login. Private AI memory/instructions remain explicitly deferred.
