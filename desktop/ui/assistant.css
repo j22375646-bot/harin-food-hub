@@ -105,3 +105,43 @@
 [data-page=assistant] .guide-faq summary{cursor:pointer;line-height:1.6;font-size:16px}
 [data-page=assistant] .guide-faq details p{font-size:15px;line-height:1.85}
 @media(max-width:850px){[data-page=assistant] .assistant-start{padding:22px}[data-page=assistant] .assistant-start h2{font-size:24px}[data-page=assistant] .assistant-start-steps{grid-template-columns:1fr}[data-page=assistant] .assistant-start-steps>div{padding:12px 16px}[data-page=assistant] .assistant-start-steps p{margin:8px 0 0}[data-page=assistant] .guide-heading{padding:22px}[data-page=assistant] .guide-heading h2{font-size:25px}[data-page=assistant] .guide-step{padding:18px}}
+/* P4-209 — full-width assistant studio with horizontal navigation. */
+[data-page=assistant] .assistant-workspace{display:flex;flex-direction:column;gap:24px}
+[data-page=assistant] .assistant-workspace-content{width:100%;min-width:0}
+[data-page=assistant] .assistant-workspace .assistant-tabs{position:static;display:flex;flex-direction:column;gap:10px;width:100%;padding:18px 20px;background:var(--surface);border:1px solid var(--line);border-radius:20px;box-sizing:border-box}
+[data-page=assistant] .assistant-tabs .assistant-nav-group{display:flex;align-items:center;flex-wrap:wrap;gap:6px;border:0;padding:0;min-width:0}
+[data-page=assistant] .assistant-tabs .assistant-nav-label{display:block;flex:0 0 118px;padding:0 10px 0 0;color:var(--muted);font-size:13px;font-weight:650}
+[data-page=assistant] .assistant-workspace .assistant-tabs button{width:auto;min-height:44px;padding:10px 16px;border-radius:12px;font-size:14px;white-space:normal;text-align:center}
+[data-page=assistant] .assistant-workspace .assistant-tabs button[aria-pressed=true]{background:var(--ink);color:var(--surface);border-color:var(--ink);box-shadow:0 4px 12px #00000012}
+[data-page=assistant] .assistant-tab-help{width:100%;box-sizing:border-box;margin:0 0 24px;border:1px solid var(--line);border-radius:16px;background:var(--surface);overflow:hidden}
+[data-page=assistant] .assistant-tab-help>summary{display:flex;align-items:center;gap:14px;list-style:none;cursor:pointer;min-height:60px;padding:14px 20px;box-sizing:border-box}
+[data-page=assistant] .assistant-tab-help>summary::-webkit-details-marker{display:none}
+[data-page=assistant] .assistant-help-kicker{padding:6px 9px;border-radius:8px;color:var(--blue);background:var(--blue-soft);font-size:11px;letter-spacing:1px;font-weight:750}
+[data-page=assistant] .assistant-tab-help summary strong{font-size:16px;line-height:1.5}
+[data-page=assistant] .assistant-help-open{margin-left:auto;font-size:13px;color:var(--muted)}
+[data-page=assistant] .assistant-help-open::after{content:' ＋'}
+[data-page=assistant] .assistant-tab-help[open] .assistant-help-open::after{content:' −'}
+[data-page=assistant] .assistant-tab-help-body{display:grid;grid-template-columns:1fr 1fr;gap:28px;padding:8px 24px 24px}
+[data-page=assistant] .assistant-help-steps{padding:0;list-style:none;counter-reset:step;display:grid;gap:18px;align-content:center}
+[data-page=assistant] .assistant-help-steps li{counter-increment:step;display:grid;grid-template-columns:32px 1fr;gap:12px;font-size:16px;line-height:1.8;color:var(--ink)}
+[data-page=assistant] .assistant-help-steps li::before{content:counter(step);display:grid;place-items:center;width:30px;height:30px;border:1px solid var(--line);border-radius:50%;font-size:13px;font-weight:700;color:var(--blue)}
+[data-page=assistant] .assistant-example{margin:0;padding:22px;border:1px solid var(--line);border-radius:18px;background:var(--blue-soft);min-width:0}
+[data-page=assistant] .assistant-example figcaption{font-size:12px;letter-spacing:.3px;color:var(--muted)}
+[data-page=assistant] .assistant-example h3{font-size:22px;margin:14px 0 20px;letter-spacing:-.5px}
+[data-page=assistant] .assistant-example-row{display:flex;align-items:center;gap:12px;padding:12px 14px;margin:7px 0;border-radius:10px;background:var(--surface);font-size:15px;line-height:1.5}
+[data-page=assistant] .assistant-example-row span{color:var(--blue);font-size:12px}
+[data-page=assistant] .assistant-example p{font-size:13px;line-height:1.8;color:var(--muted);margin:16px 0 0}
+[data-page=assistant] .assistant-start{background:var(--ink);color:var(--surface);border:0;padding:24px 28px;display:grid;grid-template-columns:1fr auto;gap:8px 20px}
+[data-page=assistant] .assistant-start .assistant-pref-eyebrow{color:var(--surface);opacity:.7}
+[data-page=assistant] .assistant-start h2{grid-column:1;font-size:27px;margin:0;color:inherit}
+[data-page=assistant] .assistant-start>p{grid-column:1;color:inherit;opacity:.8;margin:0;font-size:14px}
+[data-page=assistant] .assistant-start .assistant-start-steps{display:none}
+[data-page=assistant] .assistant-start>button{grid-column:2;grid-row:1/4;align-self:center;margin:0;background:var(--surface);color:var(--ink);border:0}
+[data-page=assistant] .assistant-pref-overview{border-radius:18px;padding:24px}
+[data-page=assistant] .assistant-pref-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+[data-page=assistant] .assistant-pref-card{border-radius:20px;padding:24px;box-shadow:0 6px 18px #00000004}
+[data-page=assistant] .assistant-pref-card[data-enabled=true]{border-color:var(--blue);background:var(--surface)}
+[data-page=assistant] .assistant-pref-card .assistant-pref-symbol{border-radius:14px;background:var(--blue-soft)}
+[data-page=assistant] .assistant-tab-help summary:focus-visible{outline:2px solid var(--blue);outline-offset:-3px}
+@media(max-width:1250px){[data-page=assistant] .assistant-pref-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:850px){[data-page=assistant] .assistant-workspace .assistant-tabs{padding:12px;gap:14px}[data-page=assistant] .assistant-tabs .assistant-nav-label{flex-basis:100%;padding:0 4px}[data-page=assistant] .assistant-help-open{font-size:0}[data-page=assistant] .assistant-help-open::after{font-size:20px}[data-page=assistant] .assistant-tab-help-body{grid-template-columns:1fr;padding:0 18px 18px;gap:12px}[data-page=assistant] .assistant-pref-grid{grid-template-columns:1fr}[data-page=assistant] .assistant-start{grid-template-columns:1fr;padding:22px}[data-page=assistant] .assistant-start>button{grid-column:1;grid-row:auto;justify-self:start;margin-top:8px}[data-page=assistant] .assistant-start h2{font-size:23px}}
