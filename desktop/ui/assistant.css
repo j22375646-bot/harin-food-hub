@@ -145,3 +145,56 @@
 [data-page=assistant] .assistant-tab-help summary:focus-visible{outline:2px solid var(--blue);outline-offset:-3px}
 @media(max-width:1250px){[data-page=assistant] .assistant-pref-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:850px){[data-page=assistant] .assistant-workspace .assistant-tabs{padding:12px;gap:14px}[data-page=assistant] .assistant-tabs .assistant-nav-label{flex-basis:100%;padding:0 4px}[data-page=assistant] .assistant-help-open{font-size:0}[data-page=assistant] .assistant-help-open::after{font-size:20px}[data-page=assistant] .assistant-tab-help-body{grid-template-columns:1fr;padding:0 18px 18px;gap:12px}[data-page=assistant] .assistant-pref-grid{grid-template-columns:1fr}[data-page=assistant] .assistant-start{grid-template-columns:1fr;padding:22px}[data-page=assistant] .assistant-start>button{grid-column:1;grid-row:auto;justify-self:start;margin-top:8px}[data-page=assistant] .assistant-start h2{font-size:23px}}
+/* P4-210 — inspected against all thirteen signed-in assistant views. */
+[data-page=assistant] .assistant-workspace-content{font-size:15px;line-height:1.65}
+[data-page=assistant] .assistant-workspace-content h2{font-size:23px;letter-spacing:-.5px;line-height:1.45}
+[data-page=assistant] .assistant-workspace-content h3{font-size:19px;letter-spacing:-.3px;line-height:1.5;margin-top:0}
+[data-page=assistant] .assistant-workspace-content .assistant-help{font-size:15px!important;line-height:1.8}
+[data-page=assistant] .assistant-workspace-content p,[data-page=assistant] .assistant-workspace-content label,[data-page=assistant] .assistant-workspace-content summary{overflow-wrap:anywhere;word-break:normal}
+[data-page=assistant] .assistant-workspace-content button{font-size:14px;line-height:1.5;white-space:normal;min-height:44px}
+[data-page=assistant] .assistant-workspace-content button+button{margin-left:6px}
+[data-page=assistant] .assistant-actions button+button{margin-left:0}
+[data-page=assistant] .assistant-card{border-radius:20px;padding:24px;margin-bottom:18px;box-shadow:0 4px 16px #20253503}
+[data-page=assistant] .assistant-card>h3,[data-page=assistant] .assistant-card>h2{margin-top:0;margin-bottom:14px}
+[data-page=assistant] .assistant-card label{font-size:15px;line-height:1.7}
+[data-page=assistant] .assistant-card input[type=checkbox]{flex-shrink:0;width:20px;height:20px}
+[data-page=assistant] .assistant-card .assistant-check{gap:12px;min-height:46px}
+[data-page=assistant] .assistant-workspace-content .assistant-bot-grid{align-items:start;gap:20px}
+[data-page=assistant] .assistant-bot-card>h2{padding-bottom:14px;border-bottom:1px solid var(--line)}
+[data-page=assistant] .assistant-bot-editor>summary{padding:8px 0;min-height:44px;box-sizing:border-box;font-weight:650}
+[data-page=assistant] .assistant-workspace-content input:not([type=checkbox]),[data-page=assistant] .assistant-workspace-content select,[data-page=assistant] .assistant-workspace-content textarea{font-size:16px;line-height:1.5;min-height:46px}
+[data-page=assistant] .assistant-workspace-content textarea{resize:vertical}
+[data-page=assistant] .assistant-note{border:1px solid var(--line);font-size:14px;line-height:1.8;padding:14px 18px}
+[data-page=assistant] .assistant-report-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px;max-width:960px}
+[data-page=assistant] .assistant-report-form>h3,[data-page=assistant] .assistant-report-form>p,[data-page=assistant] .assistant-report-form>.assistant-field:has(input[type=checkbox]){grid-column:1/-1}
+[data-page=assistant] .assistant-report-form>.assistant-field{margin:0;min-width:0}
+[data-page=assistant] .assistant-report-form input[type=date]{max-width:none;width:100%}
+[data-page=assistant] .assistant-report-form>button{justify-self:start;margin:0}
+[data-page=assistant] .assistant-report-form>p{margin:0}
+[data-page=assistant] .assistant-ad-config{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px}
+[data-page=assistant] .assistant-ad-config>h3,[data-page=assistant] .assistant-ad-config>p{grid-column:1/-1}
+[data-page=assistant] .assistant-ad-config>.assistant-field{margin:0;padding:12px 14px;background:var(--surface-soft);border:1px solid var(--line);border-radius:12px;min-width:0}
+[data-page=assistant] .assistant-ad-config>.assistant-field:has(input[type=checkbox]){flex-direction:row-reverse;justify-content:flex-end}
+[data-page=assistant] .assistant-ad-config>button{justify-self:start;margin:4px 0}
+[data-page=assistant] .assistant-ad-scope .assistant-campaign-choices{margin-top:16px}
+[data-page=assistant] [data-menu-item]{padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-soft)}
+[data-page=assistant] [data-menu-item] button{flex:0 0 40px;min-width:40px;padding:8px}
+[data-page=assistant] [data-menu-preview]{padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--blue-soft)}
+[data-page=assistant] [data-menu-preview] .assistant-card{margin:0;border-radius:10px;font-size:14px;line-height:1.6}
+[data-page=assistant] .assistant-learning>.assistant-actions{padding:8px;border:1px solid var(--line);border-radius:14px;background:var(--surface);margin:20px 0}
+[data-page=assistant] [data-learning-filter][aria-pressed=true]{background:var(--blue-soft);color:var(--blue);border-color:var(--blue)}
+[data-page=assistant] .assistant-learning>.assistant-bot-grid>p:only-child,[data-page=assistant] #assistant-proposal-list>p:only-child{grid-column:1/-1;padding:30px;border:1px dashed var(--line-strong);border-radius:18px;background:var(--surface);text-align:center;box-sizing:border-box;width:100%}
+[data-page=assistant] #assistant-cases-list>details.assistant-card{padding:0 20px;overflow:hidden}
+[data-page=assistant] #assistant-cases-list>details.assistant-card>summary{padding:18px 0;min-height:64px;box-sizing:border-box}
+[data-page=assistant] .assistant-case-summary{display:flex;align-items:center;gap:14px;list-style:none;cursor:pointer}
+[data-page=assistant] .assistant-case-summary::-webkit-details-marker{display:none}
+[data-page=assistant] .assistant-channel-tag{font-size:13px;font-weight:650;background:var(--surface-soft);border:1px solid var(--line);padding:5px 12px;border-radius:8px;min-width:48px;text-align:center}
+[data-page=assistant] .assistant-case-summary strong{font-size:16px;font-weight:600}
+[data-page=assistant] .assistant-case-state{margin-left:auto;color:var(--muted);font-size:13px;text-align:right}
+[data-page=assistant] .assistant-case-summary::after{content:'＋';color:var(--muted)}
+[data-page=assistant] details[open]>.assistant-case-summary::after{content:'−'}
+[data-page=assistant] .assistant-guide{max-width:none}
+[data-page=assistant] .assistant-card-title{flex-wrap:wrap}
+@media(max-width:850px){[data-page=assistant] .assistant-report-form,[data-page=assistant] .assistant-ad-config{grid-template-columns:1fr}[data-page=assistant] .assistant-card{padding:20px}[data-page=assistant] .assistant-case-summary{flex-wrap:wrap;gap:8px 12px}[data-page=assistant] .assistant-case-summary strong{flex:1;min-width:130px}[data-page=assistant] .assistant-case-state{margin-left:0}[data-page=assistant] .assistant-pref-days{flex-wrap:wrap}}
+/* Keep Korean tab names intact; wrap whole controls instead of syllables. */
+[data-page=assistant] .assistant-workspace .assistant-tabs button{flex:0 0 auto;white-space:nowrap}
