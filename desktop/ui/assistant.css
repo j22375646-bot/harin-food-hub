@@ -76,3 +76,32 @@
 @media(max-width:760px){.assistant-pref-heading{flex-direction:column;gap:12px}.assistant-pref-overview{grid-template-columns:1fr;padding:22px;gap:12px}.assistant-pref-overview h3{font-size:23px}.assistant-pref-timeline{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.assistant-pref-timeline>div{display:grid;gap:3px;border:0}.assistant-pref-link-forms{grid-template-columns:1fr}.assistant-pref-connection>summary{padding:18px;gap:12px}.assistant-pref-connection-body{padding:0 18px 20px}.assistant-pref-card{padding:20px}.assistant-pref-savebar{bottom:38px;align-items:stretch;flex-direction:column;gap:10px}.assistant-pref-savebar button{width:100%}}
 @media(prefers-reduced-motion:no-preference){.assistant-pref-toggle input::after{transition:transform .15s ease}.assistant-pref-card{transition:background .15s,border-color .15s}}
 .assistant-pref-savebar:not([data-dirty=true]){position:static;box-shadow:none}
+/* P4-208: beginner entry, shared with the personal settings visual language. */
+[data-page=assistant] .assistant-start{padding:28px 30px;margin:12px 0 22px;border:1px solid var(--line);border-radius:22px;background:var(--surface);position:relative;overflow:hidden}
+[data-page=assistant] .assistant-start h2{font-size:28px;line-height:1.35;letter-spacing:-.8px;margin:10px 0}
+[data-page=assistant] .assistant-start>p{color:var(--muted);font-size:15px;line-height:1.7;margin:0 0 22px}
+[data-page=assistant] .assistant-start>button{margin-top:20px;min-height:44px;border-radius:12px;background:var(--blue-soft);color:var(--blue);font-weight:700;padding:10px 18px}
+[data-page=assistant] .assistant-start-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+[data-page=assistant] .assistant-start-steps>div{padding:16px;border:1px solid var(--line);border-radius:14px;background:var(--surface)}
+[data-page=assistant] .assistant-start-steps span{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;margin-right:10px;background:var(--blue-soft);border-radius:50%;color:var(--blue);font-size:13px;font-weight:700}
+[data-page=assistant] .assistant-start-steps strong{font-size:16px}
+[data-page=assistant] .assistant-start-steps p{font-size:14px;line-height:1.6;color:var(--muted);margin:12px 0 0}
+[data-page=assistant] .assistant-id-help{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:0 16px;margin:12px 0 18px}
+[data-page=assistant] .assistant-id-help summary{min-height:44px;padding:12px 0;cursor:pointer;font-weight:600;color:var(--blue)}
+[data-page=assistant] .assistant-id-help p{font-size:15px;line-height:1.8;color:var(--muted)}
+[data-page=assistant] .guide-heading{padding:28px;border-radius:20px;background:var(--blue-soft);margin-bottom:20px}
+[data-page=assistant] .guide-heading h2{font-size:30px;line-height:1.4;letter-spacing:-.8px}
+[data-page=assistant] .guide-role-tabs{gap:12px;margin-bottom:24px}
+[data-page=assistant] .guide-role-tabs button{border-radius:14px;min-height:82px;text-align:left;padding:18px}
+[data-page=assistant] .guide-step{border:1px solid var(--line);border-radius:18px;padding:24px;background:var(--surface)}
+[data-page=assistant] .guide-step h3{font-size:20px;line-height:1.5;margin:0 0 10px}
+[data-page=assistant] .guide-step p{font-size:16px;line-height:1.85;max-width:74ch}
+[data-page=assistant] .guide-bot-list{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+[data-page=assistant] .guide-bot-list article{padding:18px;border-radius:16px;min-width:0;display:flex;flex-direction:column;gap:10px}
+[data-page=assistant] .guide-bot-list p{color:var(--muted);font-size:14px;margin:0}
+[data-page=assistant] .guide-bot-list code{overflow-wrap:anywhere;font-size:13px}
+[data-page=assistant] .guide-bot-list button{min-height:44px}
+[data-page=assistant] .guide-faq details{border:1px solid var(--line);border-radius:12px;margin:10px 0;padding:14px 18px;background:var(--surface)}
+[data-page=assistant] .guide-faq summary{cursor:pointer;line-height:1.6;font-size:16px}
+[data-page=assistant] .guide-faq details p{font-size:15px;line-height:1.85}
+@media(max-width:850px){[data-page=assistant] .assistant-start{padding:22px}[data-page=assistant] .assistant-start h2{font-size:24px}[data-page=assistant] .assistant-start-steps{grid-template-columns:1fr}[data-page=assistant] .assistant-start-steps>div{padding:12px 16px}[data-page=assistant] .assistant-start-steps p{margin:8px 0 0}[data-page=assistant] .guide-heading{padding:22px}[data-page=assistant] .guide-heading h2{font-size:25px}[data-page=assistant] .guide-step{padding:18px}}
