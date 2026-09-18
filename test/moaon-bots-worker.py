@@ -64,3 +64,11 @@ with tempfile.TemporaryDirectory(dir='D:/GPT/tmp') as temp:
   rows[0]['chatUsers']=[];m.sync(C,'fixture',command,home)
   assert not yaml.safe_load((parent/'config.yaml').read_text())['gateway']['profile_routes']
  print('PASS: member route, separate memory, no duplicate Telegram credential, revocation sync')
+
+with tempfile.TemporaryDirectory(dir='D:/GPT/tmp') as temp:
+ p=Path(temp)/'moaon-work';p.mkdir();(p/'gateway_state.json').write_text('{"pid":777}')
+ with patch.object(m,'cli',return_value=True),patch.object(m,'process_running',side_effect=[True,True,False]),patch.object(m.os,'kill') as kill:
+  m.stop(Path(temp),p);kill.assert_called_once_with(777,m.signal.SIGTERM)
+ with patch.object(m,'cli',return_value=True),patch.object(m,'process_running',return_value=False),patch.object(m.os,'kill') as kill:
+  m.stop(Path(temp),p);kill.assert_not_called()
+ print('PASS: missing PID shutdown only signals verified named process')

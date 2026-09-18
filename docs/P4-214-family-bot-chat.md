@@ -19,7 +19,11 @@
 - Electron 0.175.0 stage 및 설치 ASAR에서 개인 설정 저장·계정 전환·지연 응답 격리·화면 검증 통과. 가이드 3경로/11단계/6레이아웃 통과. 격리 시험 자료 사용, 실제 가족 로그인 조작 아님.
 - 실제 서버: 어머니의 기존 인증 계정만 다섯 chat_slots 활성화. MENU_OPEN 5종, PERSONAL_LIST 성공. 별도 WORK 사용자 프로필의 모델 응답 시험 성공.
 - 어머니의 5개 봇에 persistent 메뉴를 각각 1회 무음 전송: Telegram API 모두 성공. handset 표시 및 실제 inbound AI 응답은 사용자 확인과 구분한다.
-- 서버 1.85.1 READY. 1.85.0의 설치 스크립트 CRLF를 LF로 수정하여 재배포했고 실제 installer/timer 정상 완료.
+- 서버 1.85.2. 1.85.0의 설치 스크립트 CRLF를 LF로 수정하여 재배포했고 실제 installer/timer 정상 완료.
 
 ## 운영 유의
 설정 저장부터 Hermes sync까지 약 2분. 프로필 프로세스 RUNNING만으로 모델 응답이나 Telegram 수신 성공을 단정하지 않는다. 비활성 사용자 프로필의 기록은 삭제하지 않으며 라우트/권한만 해제한다. 관리자는 서버 파일에 접근할 수 있다.
+
+추가 실기동 점검에서 gateway.pid가 없는 프로세스에 CLI stop이 적용되지 않는 문제를 확인했다. profile argv와 /proc start time을 검증한 프로세스에만 SIGTERM을 보내고 종료 후 새 설정으로 기동한다. named multiplex는 기존 default 봇을 중복 실행하지 않고 해당 transport와 명시된 사용자 프로필만 serve하도록 호환성 검사·백업이 있는 설치 패치를 적용한다.
+
+실제 재기동 후 다섯 gateway 모두 running, served_profiles는 해당 역할 transport + 어머니 프로필 2개씩이며 default 봇 제외를 확인했다. 운영 응답 x-harin-version=1.85.2, 서명 검증된 공개 데스크톱 manifest=0.175.0.

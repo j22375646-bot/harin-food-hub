@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Manage only Moaon's named Hermes profiles; never copy chat history or auth."""
-import json,os,subprocess,time,sys,hashlib,re
+import json,os,subprocess,time,sys,hashlib,re,signal
 from pathlib import Path
 
 NAMES={'WORK':'moaon-work','SOLO':'moaon-solo','STUDY':'moaon-study','SUP':'moaon-sup','AD':'moaon-ad'}
@@ -41,6 +41,18 @@ def running(home,p):
     return False
 
 
+def stop(home,p):
+    cli(home,'-p',p.name,'gateway','stop',required=False)
+    # Some Hermes builds omit gateway.pid. Verify both profile argv and process start time.
+    if process_running(p):
+        pid=json.loads((p/'gateway_state.json').read_text())['pid']
+        if process_running(p):os.kill(pid,signal.SIGTERM)
+        for _ in range(30):
+            if not process_running(p):return
+            time.sleep(0.5)
+        raise ValueError('PROFILE_STOP_PENDING')
+
+
 def sync(c,key,command,home):
     import yaml
     rows=command(c,key,{'action':'BOT_CONFIG'})['bots']
@@ -55,11 +67,11 @@ def sync(c,key,command,home):
             s=row['settings'];members=row.get('chatUsers',[])
             for member in members:
                 if not re.fullmatch(r'[a-f0-9-]{36}',member['userId']) or not re.fullmatch(r'[1-9][0-9]{0,15}',member['chatId']):raise ValueError('MEMBER_INVALID')
-            fingerprint=str(row['revision'])+':chat-v1:'+hashlib.sha256(json.dumps(members,sort_keys=True).encode()).hexdigest()
+            fingerprint=str(row['revision'])+':chat-v2:'+hashlib.sha256(json.dumps(members,sort_keys=True).encode()).hexdigest()
             old=revision.read_text().strip() if revision.exists() else ''
             if old!=fingerprint:
                 # Stop this named profile before replacing its credentials, never the default gateway.
-                cli(home,'-p',name,'gateway','stop',required=False)
+                stop(home,p)
                 base=yaml.safe_load((home/'config.yaml').read_text()) or {}
                 existing=yaml.safe_load((p/'config.yaml').read_text()) if (p/'config.yaml').is_file() else {}
                 if isinstance(existing,dict) and isinstance(existing.get('model'),dict):base['model']=existing['model']
@@ -117,7 +129,7 @@ def sync(c,key,command,home):
                         time.sleep(1)
                 status='RUNNING' if running(home,p) else 'CHECK_REQUIRED'
             else:
-                cli(home,'-p',name,'gateway','stop',required=False)
+                stop(home,p)
                 status='CHECK_REQUIRED' if running(home,p) else 'STOPPED'
             command(c,key,{'action':'BOT_REPORT','slot':slot,'revision':row['revision'],'status':status})
         except Exception:
