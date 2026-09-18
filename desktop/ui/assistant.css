@@ -60,7 +60,7 @@
 .assistant-briefing-preview summary{cursor:pointer;font-weight:650;padding:8px 0;}
 .assistant-briefing-preview img{display:block;width:min(100%,480px);height:auto;border-radius:16px;margin:16px auto;}
 /* P4-207: personal settings first, shared administration disclosed on demand. */
-.assistant-workspace-content:has([data-assistant-view=preferences]:not([hidden])) > .assistant-context-heading{display:none}
+
 .assistant-page .assistant-workspace .assistant-nav-group>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;justify-content:space-between;padding:10px 12px;margin:0;font-size:14px;font-weight:650;list-style:none;border-radius:10px}
 .assistant-nav-group>summary::after{content:'+';font-size:18px;font-weight:400}.assistant-nav-group[open]>summary::after{content:'−'}.assistant-nav-group>summary::-webkit-details-marker{display:none}
 .assistant-page .assistant-workspace details.assistant-nav-group{display:block;border-top:1px solid var(--line);padding-top:8px}.assistant-nav-group>summary:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
@@ -198,3 +198,36 @@
 @media(max-width:850px){[data-page=assistant] .assistant-report-form,[data-page=assistant] .assistant-ad-config{grid-template-columns:1fr}[data-page=assistant] .assistant-card{padding:20px}[data-page=assistant] .assistant-case-summary{flex-wrap:wrap;gap:8px 12px}[data-page=assistant] .assistant-case-summary strong{flex:1;min-width:130px}[data-page=assistant] .assistant-case-state{margin-left:0}[data-page=assistant] .assistant-pref-days{flex-wrap:wrap}}
 /* Keep Korean tab names intact; wrap whole controls instead of syllables. */
 [data-page=assistant] .assistant-workspace .assistant-tabs button{flex:0 0 auto;white-space:nowrap}
+/* P4-213: make account scope and setup progress visible across the workspace. */
+[data-page=assistant] .assistant-workspace{gap:20px}
+[data-page=assistant] .assistant-context-heading{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;align-items:center;padding:0 2px;margin:0 0 18px}
+[data-page=assistant] .assistant-context-heading h2{margin:0;font-size:22px}
+[data-page=assistant] .assistant-context-heading p{grid-column:1/-1;font-size:15px;line-height:1.7}
+[data-page=assistant] .assistant-scope-badge{display:inline-flex;align-items:center;width:max-content;max-width:100%;padding:6px 12px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--muted);font-size:13px;font-weight:650;box-sizing:border-box}
+[data-page=assistant] [data-scope=personal] .assistant-scope-badge{color:var(--blue);background:var(--blue-soft);border-color:var(--blue)}
+[data-page=assistant] .assistant-pref-heading{flex-wrap:wrap;gap:10px 16px;margin-top:24px}
+[data-page=assistant] .assistant-pref-heading>div{flex:1;min-width:220px}
+[data-page=assistant] .assistant-pref-heading>button{margin-left:0}
+[data-page=assistant] .assistant-scope-comparison{background:var(--surface);border:1px solid var(--line);border-radius:16px;margin:0 0 20px;padding:0 20px}
+[data-page=assistant] .assistant-scope-comparison>summary{cursor:pointer;padding:16px 0;font-weight:650;font-size:15px;line-height:1.6}
+[data-page=assistant] .assistant-scope-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;padding-bottom:12px}
+[data-page=assistant] .assistant-scope-columns>article{padding:20px;border-radius:14px;background:var(--surface-soft);border:1px solid var(--line)}
+[data-page=assistant] .assistant-scope-columns h3{margin:0 0 4px;font-size:19px}
+[data-page=assistant] .assistant-scope-columns p{margin:0;color:var(--blue);font-size:14px}
+[data-page=assistant] .assistant-scope-columns ul{padding-left:20px;margin:16px 0 0;font-size:15px;line-height:1.85}
+[data-page=assistant] .assistant-scope-footnote{margin:0 0 20px;color:var(--muted);font-size:14px;line-height:1.75}
+[data-page=assistant] .assistant-connection-checklist{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));list-style:none;padding:0;margin:0;gap:12px}
+[data-page=assistant] .assistant-connection-checklist li{display:grid;grid-template-columns:28px 1fr;align-items:center;gap:4px 8px;padding:16px 18px;border:1px solid var(--line);border-radius:14px;background:var(--surface);min-width:0}
+[data-page=assistant] .assistant-connection-checklist li>span{grid-row:1/3;color:var(--muted);font-size:20px}
+[data-page=assistant] .assistant-connection-checklist li[data-complete=true]>span{color:var(--blue)}
+[data-page=assistant] .assistant-connection-checklist strong{font-size:15px;font-weight:600}
+[data-page=assistant] .assistant-connection-checklist small{font-size:13px;color:var(--muted)}
+[data-page=assistant] .assistant-pref-card{border-radius:18px;box-shadow:none}
+[data-page=assistant] .assistant-pref-card[data-enabled=true]{border-color:var(--blue);background:var(--surface)}
+[data-page=assistant] .assistant-card>form{min-width:0}
+[data-page=assistant] .assistant-card .assistant-actions{flex-wrap:wrap}
+[data-page=assistant] .assistant-card .assistant-actions>button{margin-left:0}
+[data-page=assistant] .assistant-workspace .assistant-tabs button[aria-pressed=true]{background:var(--blue-soft);color:var(--blue);border-color:var(--blue);box-shadow:none}
+@media(max-width:850px){[data-page=assistant] .assistant-scope-columns,[data-page=assistant] .assistant-connection-checklist{grid-template-columns:1fr}[data-page=assistant] .assistant-context-heading{grid-template-columns:1fr}[data-page=assistant] .assistant-pref-heading>div{min-width:0;width:100%}[data-page=assistant] .assistant-scope-comparison{padding:0 16px}}
+[data-page=assistant] .assistant-bot-access-note{font-size:14px!important;line-height:1.75;color:var(--muted);padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface-soft)}
+[data-page=assistant] [data-assistant-view=bots]>.assistant-note,[data-page=assistant] [data-assistant-view=bots]>[role=status]{grid-column:1/-1;width:100%;box-sizing:border-box;margin:0}
