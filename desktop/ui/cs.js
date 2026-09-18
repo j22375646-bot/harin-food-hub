@@ -67,10 +67,10 @@
 
  }
  function clear(){lastBadgeRead=0;tools.clear();$('cs-content-filter').value='ALL';pageIndex=0;$('cs-sort').value='NEWEST';generation++;value=null;busy=false;failed=false;selected=null;$('cs-platform').value='ALL';$('cs-kind').value='ALL';$('cs-search').value='';$('cs-status').textContent='실제 사업장 연결 후 조회합니다.';render();}
- async function refresh(){
+ async function refresh(reopenId=null){
   if(busy||displayMode!=='live')return;const expected=++generation;busy=true;failed=false;value=null;selected=null;pageIndex=0;render();$('cs-status').textContent='저장된 고객·CS 자료를 조회하고 있습니다…';
   try{const result=await window.moaonHub.readCs();if(expected!==generation)return;if(['LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status)){applyHubResult(result);return;}
-   if(result?.status!=='READY'){failed=true;$('cs-status').textContent='고객·CS 조회 실패 · 자료를 다시 확인해 주세요.';return;}value=result;$('cs-status').textContent=`조회 시각 ${formatTime(result.generatedAt)} · 실시간 수집 상태는 별도 확인${result.truncated?' · 조회 상한에 도달해 전체 건수가 아닙니다.':''}`;
+   if(result?.status!=='READY'){failed=true;$('cs-status').textContent='고객·CS 조회 실패 · 자료를 다시 확인해 주세요.';return;}value=result;if(typeof reopenId==='string'&&result.items.some(r=>r.id===reopenId))selected=reopenId;$('cs-status').textContent=`조회 시각 ${formatTime(result.generatedAt)} · 실시간 수집 상태는 별도 확인${result.truncated?' · 조회 상한에 도달해 전체 건수가 아닙니다.':''}`;
   }catch{if(expected===generation){failed=true;$('cs-status').textContent='고객·CS 조회 실패 · 다시 시도해 주세요.';}}
   finally{if(expected===generation){busy=false;render();void tools.load();}}
  }
@@ -80,5 +80,5 @@
  for(const id of ['cs-platform','cs-kind','cs-sort','cs-content-filter'])$(id).addEventListener('change',filter);$('cs-search').addEventListener('input',filter);$('cs-refresh').onclick=refresh;
  $('cs-detail').addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();close();}});
  // Re-entry preserves the rendered view; data and filter changes render at their source.
- window.moaonCs=Object.freeze({clear,syncBadge:()=>{if(displayMode==='live'&&document.querySelector('.cs-page').hidden&&!busy&&Date.now()-lastBadgeRead>60000){lastBadgeRead=Date.now();void refresh();}},ensure:()=>{if(!value&&!busy)void refresh();}});clear();
+ window.moaonCs=Object.freeze({clear,refreshInquiry:id=>refresh(id),syncBadge:()=>{if(displayMode==='live'&&document.querySelector('.cs-page').hidden&&!busy&&Date.now()-lastBadgeRead>60000){lastBadgeRead=Date.now();void refresh();}},ensure:()=>{if(!value&&!busy)void refresh();}});clear();
 })();
