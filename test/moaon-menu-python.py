@@ -21,8 +21,8 @@ class Tests(unittest.IsolatedAsyncioTestCase):
   adapter=types.SimpleNamespace(_is_callback_user_authorized=lambda *a,**kw:False,_should_process_message=lambda *a,**kw:True)
   msg=Message('☀️ 오늘 내 업무');update=types.SimpleNamespace(effective_message=msg,callback_query=None)
   with patch.object(m,'scope',return_value=(Path('/unused'),'SOLO')),patch.object(m,'api') as api:
-   self.assertFalse(await m.dispatch(adapter,update,None));api.assert_not_called()
-   adapter._is_callback_user_authorized=lambda *a,**kw:True;msg.text='일반 대화';self.assertFalse(await m.dispatch(adapter,update,None));api.assert_not_called()
+   self.assertTrue(await m.dispatch(adapter,update,None));api.assert_not_called()
+   adapter._is_callback_user_authorized=lambda *a,**kw:True;msg.text='일반 대화';self.assertFalse(await m.dispatch(adapter,update,None));api.assert_called_once_with({'action':'MENU_OPEN','slot':'SOLO','userId':'123','chatId':'123'})
  async def test_task_prepare_does_not_complete_and_confirm_is_scoped(self):
   calls=[]
   def api(v):

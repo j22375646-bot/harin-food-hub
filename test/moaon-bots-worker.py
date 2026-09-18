@@ -47,3 +47,20 @@ with tempfile.TemporaryDirectory(dir='D:/GPT/tmp') as temp:
  fields[-1]='888';(proc/'stat').write_text('123 (hermes gateway) '+' '.join(fields))
  assert not m.process_running(profile,root/'proc')
  print('PASS: missing pid file supported; wrong profile and reused PID rejected')
+
+with tempfile.TemporaryDirectory(dir='D:/GPT/tmp') as temp:
+ home=Path(temp);(home/'config.yaml').write_text('model: {default: example}');src=home/'integrations/moaon';src.mkdir(parents=True)
+ for f in ['read.py','automation.py','read.key']:(src/f).write_text('fixture')
+ rows=[dict(slot='WORK',revision=1,token='fixture',settings=dict(enabled=True,chatId='123',allowedUsers=['123'],instructions=''),chatUsers=[dict(userId='11111111-1111-4111-8111-111111111111',chatId='456',revision=1)])]
+ def command(c,key,p):return {'bots':rows} if p['action']=='BOT_CONFIG' else {}
+ with patch.object(m,'cli',cli),patch.object(m,'running',lambda *a:True):
+  m.sync(C,'fixture',command,home)
+  import yaml
+  parent=home/'profiles/moaon-work';cfg=yaml.safe_load((parent/'config.yaml').read_text())
+  route=cfg['gateway']['profile_routes'][0];child=home/'profiles'/route['profile']
+  assert route['chat_id']=='456' and cfg['gateway']['multiplex_profile_allowlist']==[child.name]
+  assert '456' in (parent/'.env').read_text() and 'fixture' not in (child/'.env').read_text()
+  assert not (child/'auth.json').exists() and not (child/'state.db').exists()
+  rows[0]['chatUsers']=[];m.sync(C,'fixture',command,home)
+  assert not yaml.safe_load((parent/'config.yaml').read_text())['gateway']['profile_routes']
+ print('PASS: member route, separate memory, no duplicate Telegram credential, revocation sync')

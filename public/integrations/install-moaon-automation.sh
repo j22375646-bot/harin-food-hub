@@ -9,6 +9,8 @@ su - hermes -c 'podman exec --user hermes hermes-agent curl -fsS https://harin-c
 su - hermes -c 'podman exec --user hermes hermes-agent /opt/hermes/.venv/bin/python /tmp/moaon-automation.py --install'
 su - hermes -c 'podman exec --user hermes hermes-agent curl -fsS https://harin-cafe24-sync.vercel.app/integrations/moaon-bots.py -o /opt/data/integrations/moaon/bots.py'
 su - hermes -c 'podman exec --user hermes hermes-agent chmod 600 /opt/data/integrations/moaon/bots.py'
+su - hermes -c 'podman exec --user hermes hermes-agent curl -fsS https://harin-cafe24-sync.vercel.app/integrations/moaon-hermes.py -o /opt/data/integrations/moaon/read.py'
+su - hermes -c 'podman exec --user hermes hermes-agent chmod 600 /opt/data/integrations/moaon/read.py'
 su - hermes -c 'podman exec --user hermes hermes-agent curl -fsS https://harin-cafe24-sync.vercel.app/integrations/moaon-learning.py -o /opt/data/integrations/moaon/learning.py'
 su - hermes -c 'podman exec --user hermes hermes-agent mkdir -p /opt/data/skills/moaon-learning'
 su - hermes -c 'podman exec --user hermes hermes-agent curl -fsS https://harin-cafe24-sync.vercel.app/integrations/moaon-learning-skill.md -o /opt/data/skills/moaon-learning/SKILL.md'

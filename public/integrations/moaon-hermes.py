@@ -18,10 +18,13 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
 
-def read(key):
+def read(key, identity=None):
     if not re.fullmatch(r'moaon_ro_[A-Za-z0-9_-]{43}', key):
         raise ValueError('INVALID_KEY')
-    request = urllib.request.Request(URL, headers={'Authorization': 'Bearer ' + key, 'Accept': 'application/json'})
+    headers={'Authorization': 'Bearer ' + key, 'Accept': 'application/json'}
+    if identity:
+        headers.update({'X-Moaon-Bot-Slot':identity['slot'],'X-Moaon-Telegram-User':identity['userId'],'X-Moaon-Telegram-Chat':identity['chatId']})
+    request = urllib.request.Request(URL, headers=headers)
     with urllib.request.build_opener(NoRedirect).open(request, timeout=30) as response:
         raw = response.read(1048577)
         if len(raw) > 1048576:

@@ -32,3 +32,5 @@ test('new orders aggregate by recipient and channel, exclude pre-subscription or
  const memberJob=jobs.find(j=>j.userId===ids[1]);const member=await call(0,{...memberJob,action:'PREF_CLAIM'},true);assert.deepEqual(member.groups.sort((a,b)=>a.platform.localeCompare(b.platform)),[{platform:'CAFE24',count:1},{platform:'NAVER',count:1}]);assert.equal((await call(0,{...memberJob,action:'PREF_CLAIM'},true)).claimed,false);assert.equal((await call(0,{action:'PREF_DUE'},true)).jobs.filter(j=>j.kind==='NEW_ORDER').length,0);
  await call(0,{...memberJob,action:'PREF_RESULT',status:'UNKNOWN'},true);assert.equal((await call(0,{action:'PREF_DUE'},true)).jobs.filter(j=>j.kind==='NEW_ORDER').length,0);
  }finally{await db.close();}});
+
+module.exports={fixture,link,T,ids,sessions};

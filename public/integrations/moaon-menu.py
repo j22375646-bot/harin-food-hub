@@ -23,10 +23,10 @@ def api(payload):
  c=m.connector();key=m.secret(c)
  return m.command(c,key,payload)
 
-def snapshot():
+def snapshot(identity=None):
  home,_=scope();spec=importlib.util.spec_from_file_location('moaon_menu_read',home/'integrations/moaon/read.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
  if m.KEY.is_symlink() or m.KEY.stat().st_mode & 0o077:raise ValueError('KEY_PERMISSIONS')
- return m.read(m.KEY.read_text().strip())
+ return m.read(m.KEY.read_text().strip(),identity)
 
 def keyboard(slot,items):
  labels=dict(CATALOG[slot]);values=[labels[x] for x in items if x in labels]
@@ -77,7 +77,7 @@ async def render(slot,key,uid,chat):
   lines.append('이 조회는 연결 상태 확인이며 자동 복구가 아닙니다. Hermes 서버 중단을 알리려면 외부 감시가 별도로 필요합니다.')
   return '\n'.join(lines),nav()
  if slot=='SUP' and key=='sources':
-  d=await asyncio.to_thread(snapshot);lines=['모아온 저장 자료 상태']
+  d=await asyncio.to_thread(snapshot,{'slot':slot,**identity});lines=['모아온 저장 자료 상태']
   for name,v in d.get('sources',{}).items():lines.append(name+' · '+str(v.get('status','확인 필요'))+' · 원본 수집 '+str(v.get('sourceAsOf') or '확인 필요'))
   lines.append('조회: '+str(d.get('retrievedAt','확인 필요'))+' · 조회 시각은 원본 수집 시각과 다릅니다.')
   return '\n'.join(lines),nav()
@@ -114,7 +114,7 @@ async def render(slot,key,uid,chat):
   if j['status']=='SUCCEEDED':rows.append([('같은 범위로 재작성','revise:'+j['id'])])
   return text,rows+[[('목록 새로고침','archive')]]+nav()
  if slot=='AD' and key=='reports':
-  d=await asyncio.to_thread(snapshot);r=d.get('sources',{}).get('reports',{});items=r.get('items',[])
+  d=await asyncio.to_thread(snapshot,{'slot':slot,**identity});r=d.get('sources',{}).get('reports',{});items=r.get('items',[])
   text='네이버 저장 광고 보고서 · '+str(r.get('status','조회 권한·자료 확인 필요'))+'\n'
   if items:
    for item in items[:2]:
@@ -179,7 +179,7 @@ async def render(slot,key,uid,chat):
    return text,rows+[[('확인 항목 목록','cases')]]+nav()
   return '확인할 일 '+str(data.get('activeCount',0))+'건 · 최근 항목\n모아온 저장 자료 기준. 조회 실패·목록 누락을 완료로 처리하지 않습니다.',[[(c['platform']+' · '+c['source_id'][:30]+' · '+c['status'],'case:'+c['id'])] for c in cases[:15]]+nav()
  if slot=='WORK' and key in ('briefing','orders','cs','tasks'):
-  d=await asyncio.to_thread(snapshot);sources=d.get('sources',{});lines=[]
+  d=await asyncio.to_thread(snapshot,{'slot':slot,**identity});sources=d.get('sources',{});lines=[]
   if key in ('briefing','orders'):
    lines.append('주문·배송 · 채널별 저장 현황')
    channels=sources.get('orders',{}).get('channels',[])
@@ -192,7 +192,7 @@ async def render(slot,key,uid,chat):
    if not channels:lines.append('문의 자료 확인 필요')
    for ch in channels:lines.append(label(ch['platform'])+' · 미답변 '+count(ch.get('unanswered')))
   if key in ('briefing','tasks'):
-   n=sources.get('tasks',{}).get('counts') or {};lines.append('\n조회 키 발급자 업무 · 오늘 마감 '+count(n.get('dueToday'))+' / 기한 초과 '+count(n.get('overdue')))
+   n=sources.get('tasks',{}).get('counts') or {};lines.append('\n내 업무 · 오늘 마감 '+count(n.get('dueToday'))+' / 기한 초과 '+count(n.get('overdue')))
   lines.extend(['\n조회: '+str(d.get('retrievedAt','확인 필요')),'모아온 저장 자료 기준입니다. 현재 채널을 실시간 재수집한 결과가 아니며 원본 수집 시각은 별도 확인이 필요합니다.'])
   return '\n'.join(lines),[[('확인할 일','cases')],[('주문·배송','orders'),('고객 문의','cs')],[('업무 현황','tasks')],*nav()]
  if key in ('knowledge','correct','quiz') and slot in ('WORK','STUDY'):
@@ -227,16 +227,19 @@ async def dispatch(adapter,update,context,callback=False):
   key=(query.data or '')[6:]
  else:
   text=(msg.text or '').strip();key=next((k for k,label_ in CATALOG[slot] if text==label_),None)
-  if text in ('메뉴','/moaon','/menu') or re.fullmatch(r'/(moaon|menu)@moaon_(hub|solo|study|sup|ad)_bot',text):key='home'
-  if key is None:return False
+  if text in ('메뉴','/start','/moaon','/menu') or re.fullmatch(r'/(moaon|menu)@moaon_(hub|solo|study|sup|ad)_bot',text):key='home'
+  # Unknown text still checks current membership before reaching Hermes AI.
+  if key is None:key='__chat__'
  if not adapter._is_callback_user_authorized(uid,chat_id=msg.chat_id,chat_type=str(msg.chat.type),thread_id=str(msg.message_thread_id) if getattr(msg,'message_thread_id',None) else None,user_name=getattr(user,'first_name',None)):
   if query:await query.answer('이 봇을 사용할 권한이 없습니다.',show_alert=True)
-  return bool(query)
+  elif key!='__chat__':await msg.reply_text('모아온 → 업무비서 → 내 알림에서 수신처 인증 후 이 봇의 메뉴·대화 사용을 켜 주세요. 저장 후 서버 반영까지 약 2분이 걸릴 수 있어요.')
+  return True
  # An exact menu selection is an explicit action even in the configured WORK
  # group. Native user authorization + current server chat/allowlist still gate it.
  if query:await query.answer()
  try:
   menu=await asyncio.to_thread(api,{'action':'MENU_OPEN','slot':slot,'userId':uid,'chatId':chat})
+  if key=='__chat__':return False
   base='tasks' if key=='cases' or key.startswith('case:') else ('create' if key.startswith('make:') else 'archive') if key.startswith(('make:','report:','revise:')) else key if ':' not in key else ('tasks' if key[0] in 'tpc' else 'focus' if key[0]=='f' else 'quiz' if key[0]=='q' else 'knowledge')
   permitted=base in menu['items'] or base=='knowledge' and bool(set(menu['items'])&{'correct','quiz'}) or base=='tasks' and bool(set(menu['items'])&{'review','focus'})
   if key!='home' and not permitted:raise ValueError('MENU_DISABLED')
@@ -259,4 +262,4 @@ def register(adapter,app):
  from telegram.ext import MessageHandler,filters,ApplicationHandlerStop
  async def on_message(update,context):
   if await dispatch(adapter,update,context):raise ApplicationHandlerStop
- app.add_handler(MessageHandler(filters.TEXT,on_message),group=-2)
+ app.add_handler(MessageHandler(filters.ALL,on_message),group=-2)
