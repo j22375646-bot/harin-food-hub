@@ -22,3 +22,8 @@
 
 ## 통합 관리방
 별도 assistant-control-room-plan.md 참고. 기획만 진행했으며 방 생성·초대는 하지 않음.
+## 최종 배포 확인
+- 커밋 5cd1a51 원격 푸시 확인. 운영 공개 연동 파일 4종과 로컬 SHA256 일치.
+- 0.176.0 Ed25519 서명 설치파일 GitHub moaon-stable 공개 완료.
+- NSIS 설치 후 실제 설치 경로의 app.asar 버전 0.176.0 확인. 해당 설치 코드로 Electron 화면 시험 PASS (계정 분리, 5역할, 연결 인증, 늦은 응답 격리). 시험 자료를 사용하는 격리 화면 검증이다.
+- Hermes moaon-assistant.timer active, 마지막 실행 Result=success / ExecMainStatus=0. WORK/STUDY gateway 재실행 확인.
