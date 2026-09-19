@@ -58,6 +58,9 @@ with tempfile.TemporaryDirectory(dir='D:/GPT/tmp') as temp:
   import yaml
   parent=home/'profiles/moaon-work';cfg=yaml.safe_load((parent/'config.yaml').read_text())
   route=cfg['gateway']['profile_routes'][0];child=home/'profiles'/route['profile']
+  assert 'moaon-knowledge' in cfg['platform_toolsets']['telegram']
+  assert yaml.safe_load((child/'config.yaml').read_text())['platform_toolsets']['telegram']==['memory','moaon-knowledge']
+  assert 'moaon_company_knowledge' in (child/'SOUL.md').read_text()
   assert route['chat_id']=='456' and cfg['gateway']['multiplex_profile_allowlist']==[child.name]
   assert '456' in (parent/'.env').read_text() and 'fixture' not in (child/'.env').read_text()
   assert not (child/'auth.json').exists() and not (child/'state.db').exists()

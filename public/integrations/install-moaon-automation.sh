@@ -30,6 +30,9 @@ su - hermes -c 'podman exec --user hermes hermes-agent mkdir -p /opt/data/skills
 su - hermes -c 'podman exec --user hermes hermes-agent curl -fsS https://harin-cafe24-sync.vercel.app/integrations/moaon-ads-skill.md -o /opt/data/skills/moaon-ads/SKILL.md'
 su - hermes -c 'podman exec --user hermes hermes-agent curl -fsS https://harin-cafe24-sync.vercel.app/integrations/install-moaon-routing.py -o /tmp/install-moaon-routing.py'
 su - hermes -c 'podman exec --user root hermes-agent /opt/hermes/.venv/bin/python /tmp/install-moaon-routing.py'
+su - hermes -c 'podman exec --user hermes hermes-agent curl -fsS https://harin-cafe24-sync.vercel.app/integrations/moaon-company-knowledge.py -o /tmp/moaon-company-knowledge.py'
+su - hermes -c 'podman exec --user hermes hermes-agent curl -fsS https://harin-cafe24-sync.vercel.app/integrations/install-moaon-knowledge.py -o /tmp/install-moaon-knowledge.py'
+su - hermes -c 'podman exec --user root hermes-agent /opt/hermes/.venv/bin/python /tmp/install-moaon-knowledge.py'
 user_id=$(id -u hermes)
 cat > /etc/systemd/system/moaon-assistant.service <<EOF
 # Moaon managed automation
