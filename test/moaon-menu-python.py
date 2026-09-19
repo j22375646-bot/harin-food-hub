@@ -74,4 +74,18 @@ class Tests(unittest.IsolatedAsyncioTestCase):
   for slot,entries in m.CATALOG.items():
    k=m.keyboard(slot,[x[0] for x in entries]);self.assertEqual(len(k['keyboard']),(len(entries)+1)//2);self.assertTrue(k['is_persistent'])
   self.assertLessEqual(len(('moa:m:p:C:'+ID+':2147483646').encode()),64)
+class KnowledgeMenuTests(unittest.IsolatedAsyncioTestCase):
+ async def test_company_catalog_and_refresh_without_approval(self):
+  doc={'id':'a'*24,'title':'엄마 운영 기준서','body':'최신 원문','metadata':'- 버전: 5.0','source':'기준서.docx'}
+  with patch.object(m,'api',return_value={'items':[]}),patch.object(m,'company_catalog',return_value=([doc],[])):
+   text,rows=await m.render('STUDY','knowledge','123','123')
+   self.assertIn('엄마 Hermes',text);self.assertIn('엄마 운영 기준서',str(rows));self.assertNotIn('승인된 자료가 없',text)
+   text,_=await m.render('STUDY','pending','123','123');self.assertIn('별도 수락·승인은 필요 없',text)
+   text,_=await m.render('STUDY','d:'+'a'*24,'123','123');self.assertIn('최신 원문',text)
+   doc['body']='갱신된 원문';text,_=await m.render('STUDY','d:'+'a'*24,'123','123');self.assertIn('갱신된 원문',text)
+ async def test_permission_failure_prevents_local_read(self):
+  with patch.object(m,'api',side_effect=ValueError('DENIED')),patch.object(m,'company_catalog') as local:
+   with self.assertRaises(ValueError):await m.render('STUDY','knowledge','123','123')
+   local.assert_not_called()
+
 if __name__=='__main__':unittest.main()

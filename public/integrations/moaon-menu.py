@@ -6,7 +6,7 @@ ROOT=Path('/opt/data/integrations/moaon')
 CATALOG={
  'WORK':[('briefing','📊 업무 브리핑'),('orders','📦 주문·배송'),('cs','💬 고객 문의'),('tasks','✅ 업무 관리'),('knowledge','📚 제품·운영 지식'),('settings','⚙️ 알림 설정')],
  'SOLO':[('tasks','☀️ 오늘 내 업무'),('memo','📝 빠른 메모'),('reminders','⏰ 내 알림'),('focus','🎯 오늘 집중할 일'),('review','🌙 하루 정리'),('settings','⚙️ 내 설정')],
- 'STUDY':[('register','📥 자료 등록'),('knowledge','🔎 지식 찾기'),('pending','🕓 검토 대기'),('correct','✏️ 지식 수정'),('quiz','🧪 기억 테스트'),('settings','⚙️ 학습 현황')],
+ 'STUDY':[('register','📥 자료 등록'),('knowledge','🔎 지식 찾기'),('pending','🔄 최신 자료'),('correct','✏️ 지식 수정'),('quiz','🧪 기억 테스트'),('settings','⚙️ 학습 현황')],
  'SUP':[('health','🛠️ 연결 상태'),('sources','🕓 자료 상태'),('settings','⚙️ 관리 설정')],
  'AD':[('create','📝 리포트 만들기'),('archive','🗂️ 보고서 보관함'),('reports','📊 광고 보고서'),('checklist','🔎 수익 검토'),('settings','⚙️ 광고 설정')]}
 NAMES={'moaon-work':'WORK','moaon-solo':'SOLO','moaon-study':'STUDY','moaon-sup':'SUP','moaon-ad':'AD'}
@@ -61,6 +61,21 @@ def focus_ids(uid,tasks,toggle=None):
   fd=os.open(p,os.O_WRONLY|os.O_CREAT|os.O_TRUNC|getattr(os,'O_NOFOLLOW',0),0o600)
   with os.fdopen(fd,'w') as f:os.fchmod(f.fileno(),0o600);json.dump({'day':today,'ids':values},f)
  return values,True
+
+def company_catalog():
+ spec=importlib.util.spec_from_file_location('moaon_company_menu',Path('/opt/hermes/plugins/moaon_company_knowledge/__init__.py'))
+ module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+ docs,errors=module.sources()
+ import hashlib
+ return [{'id':hashlib.sha256(d['source'].encode()).hexdigest()[:24],'title':('업무 참고 · '+Path(d['source']).parent.name if Path(d['source']).stem=='SKILL' else Path(d['source']).stem),'body':'\n'.join(c['text'] for c in d['chunks']),'metadata':d['metadata'],'source':d['source'],'sha256':d['sha256']} for d in docs],errors
+
+async def shared_catalog():
+ # Verify the existing shared-knowledge permission before touching local sources.
+ result=await asyncio.to_thread(api,{'action':'CATALOG'})
+ rows=result.get('items',[]) if isinstance(result,dict) else []
+ try: docs,errors=await asyncio.to_thread(company_catalog)
+ except Exception: docs,errors=[],[{'code':'SOURCE_UNAVAILABLE'}]
+ return rows,docs,errors
 
 async def render(slot,key,uid,chat):
  identity={'userId':uid,'chatId':chat}
@@ -135,11 +150,10 @@ async def render(slot,key,uid,chat):
   lines.append('\n예약 취소·시간 설정은 모아온 → 업무비서 → 예약·알림에서 확인하세요.')
   return '\n'.join(lines),nav()
  if slot=='STUDY' and key in ('pending','settings'):
-  data=await asyncio.to_thread(api,{'action':'MENU_DATA','slot':slot,**identity,'section':key})
-  lines=['승인된 공유 지식: '+str(data['approvedCount'])+'개','최근 검토 대기: '+str(len(data['pending']))+'개 (최대 20개)']
-  for r in data['pending']:lines.append('\n• '+r['title']+'\n출처: '+r['source'][:100])
-  lines.append('\n모아온 → 업무비서 → 학습·지식에서 검토·승인할 수 있어요. 승인한 자료만 다른 비서가 활용합니다.')
-  return '\n'.join(lines)[:3600],nav()
+  rows,docs,errors=await shared_catalog()
+  lines=['공유 자료 현황','엄마 Hermes 회사 자료: '+str(len(docs))+'개','모아온 저장 지식: '+str(len(rows))+'개','원본 최신본을 매번 읽습니다. 별도 수락·승인은 필요 없어요.','엄마 Hermes가 회사 자료와 최신본 목록을 저장하면 다음 조회부터 반영됩니다.']
+  if errors:lines.append('일부 원본을 읽지 못했어요. 최신본 목록과 파일 상태를 확인해 주세요.')
+  return '\n'.join(lines),[[('자료 목록','knowledge')],*nav()]
  if slot=='SOLO' and (key in ('tasks','focus','review') or re.fullmatch(r'[tf]:'+UUID,key)):
   data=await asyncio.to_thread(api,{'action':'PERSONAL_LIST',**identity});tasks=data['tasks']
   if key.startswith('t:'):
@@ -196,20 +210,31 @@ async def render(slot,key,uid,chat):
   lines.extend(['\n조회: '+str(d.get('retrievedAt','확인 필요')),'모아온 저장 자료 기준입니다. 현재 채널을 실시간 재수집한 결과가 아니며 원본 수집 시각은 별도 확인이 필요합니다.'])
   return '\n'.join(lines),[[('확인할 일','cases')],[('주문·배송','orders'),('고객 문의','cs')],[('업무 현황','tasks')],*nav()]
  if key in ('knowledge','correct','quiz') and slot in ('WORK','STUDY'):
-  result=await asyncio.to_thread(api,{'action':'CATALOG'});rows=result.get('items',[]) if isinstance(result,dict) else []
-  text={'knowledge':'승인된 공유 지식','correct':'수정할 지식을 선택하세요. 현재 내용을 확인한 뒤 수정 내용·출처와 함께 새 등록안을 요청하세요.','quiz':'기억 테스트 · 자료를 선택하면 제목을 보고 핵심 내용을 떠올린 뒤 정답 원문을 확인할 수 있어요.'}[key]
-  return text+('\n아직 승인된 자료가 없어요.' if not rows else ''),[[(r['title'][:38],('q:' if key=='quiz' else 'k:')+r['id'])] for r in rows[:20]]+nav()
+  rows,docs,errors=await shared_catalog()
+  text='함께 쓰는 지식 · 엄마 Hermes 최신 회사 자료 + 모아온 저장 자료'
+  if key=='correct':text+='\n수정할 자료를 확인하고 원본을 관리하는 Hermes에 변경 내용을 저장해 주세요.'
+  if not rows and not docs:text+='\n현재 읽을 수 있는 자료가 없어요.'
+  if errors:text+='\n일부 원본 확인 필요 · 읽지 못한 자료는 목록에서 제외했습니다.'
+  buttons=[[(d['title'][:38],'d:'+d['id'])] for d in docs[:12]]+[[(r['title'][:38],('q:' if key=='quiz' else 'k:')+r['id'])] for r in rows[:8]]
+  return text,buttons+nav()
+ if slot in ('WORK','STUDY') and re.fullmatch(r'd:[a-f0-9]{24}',key):
+  _,docs,errors=await shared_catalog();d=next((x for x in docs if x['id']==key[2:]),None)
+  if not d:return '원본이 변경되었거나 현재 읽을 수 없어요. 목록을 새로고침해 주세요.',[[('자료 목록','knowledge')],*nav()]
+  # Preserve source draft/version labels, but never expose paths from its manifest.
+  metadata='\n'.join(x for x in d['metadata'].splitlines() if any(k in x for k in ('버전','상태','승인','초안')) and '경로' not in x)[:350]
+  text=d['title']+'\n'+metadata+'\n\n'+d['body'][:2400]+'\n\n회사 공유 원본에서 방금 읽은 내용 · 문서 일부\n최신 내용을 더 찾으려면 이 자료에 대해 질문하세요.'
+  return text,[[('최신 내용 다시 읽기',key),('자료 목록','knowledge')],*nav()]
  if slot in ('WORK','STUDY') and re.fullmatch(r'[kq]:'+UUID,key):
   r=await asyncio.to_thread(api,{'action':'ARTICLE','id':key[2:]});r=r.get('article',r)
   if not r or not r.get('body'):raise ValueError('ARTICLE_UNAVAILABLE')
   if key.startswith('q:'):return '기억 테스트\n'+r['title']+'\n\n이 자료의 핵심 기준을 떠올려 보세요. 내용을 설명한 뒤 아래 원문과 비교하세요.',[[('정답 원문·출처 확인','k:'+r['id'])],*nav()]
-  return r['title']+'\n\n'+r['body'][:3000]+'\n\n승인된 공유 지식 · 변경 가능한 정보는 최신 확인이 필요합니다.',[[('지식 목록','knowledge')],*nav()]
+  return r['title']+'\n\n'+r['body'][:3000]+'\n\n저장된 공유 지식 · 변경 가능한 정보는 최신 확인이 필요합니다.',[[('지식 목록','knowledge')],*nav()]
  help_text={
   ('SOLO','memo'):'빠른 메모\n기억할 내용을 이 대화에 적어 주세요. 업무로 남기려면 “moaon-operations 스킬로 다음 내용을 업무 등록안으로 만들어 줘”와 기한을 함께 보내세요. 실제 업무 등록은 모아온 승인 후 이루어집니다.',
   ('SOLO','reminders'):'내 알림\n브리핑의 “1시간 뒤 다시 알림”으로 예약할 수 있어요. 현재 예약 시각 확인·취소와 발송 시간 변경은 모아온 → 업무비서 → 예약·알림에서 할 수 있습니다.',
   ('SOLO','settings'):'내 설정\n모아온 → 업무비서 → 텔레그램 봇에서 본인 계정 연결을 확인하세요. 봇 메뉴 탭에서는 표시할 메뉴와 순서를 바꿀 수 있습니다.',
   ('WORK','settings'):'알림 설정\n모아온 → 업무비서 → 예약·알림에서 오전 9시 브리핑, 요일, 수신처, 변화 알림을 설정하고 시험 발송할 수 있습니다. 봇 메뉴 탭에서 메뉴 순서도 바꿀 수 있어요.',
-  ('STUDY','register'):'자료 등록\n제품 설명, 운영 지침, 답변 사례를 텍스트나 파일로 보내 주세요. 출처와 함께 “moaon-learning 스킬로 공유 지식 등록안으로 정리해 줘”라고 요청하세요. 모아온에서 검토·승인한 내용만 다른 비서가 활용합니다.',
+  ('STUDY','register'):'자료 등록\n제품 설명, 운영 지침, 답변 사례를 텍스트나 파일로 보내 주세요. 출처와 함께 공유 지식으로 저장해 달라고 요청하세요. 저장 완료된 자료는 별도 승인 없이 함께 사용합니다. 엄마 Hermes의 회사 자료는 최신본 목록에 저장되면 자동으로 조회됩니다.',
   ('STUDY','pending'):'검토 대기\n모아온 → 업무비서 → 학습·지식 → 검토 대기에서 등록안의 내용·출처를 확인하고 수정·승인·반려할 수 있습니다. 승인 전에는 공유 지식에 반영되지 않아요.',
   ('STUDY','settings'):'학습 현황\n모아온 → 업무비서 → 학습·지식에서 승인된 지식과 검토 이력을 확인하세요. 이 기능은 자료를 저장하고 찾아 쓰는 방식이며 모델 자체를 재훈련하는 것은 아닙니다.'}
  if (slot,key) in help_text:return help_text[(slot,key)],nav()
@@ -226,7 +251,7 @@ async def dispatch(adapter,update,context,callback=False):
  if callback:
   key=(query.data or '')[6:]
  else:
-  text=(msg.text or '').strip();key=next((k for k,label_ in CATALOG[slot] if text==label_),None)
+  text=(msg.text or '').strip();text='🔄 최신 자료' if text=='🕓 검토 대기' else text;key=next((k for k,label_ in CATALOG[slot] if text==label_),None)
   if text in ('메뉴','/start','/moaon','/menu') or re.fullmatch(r'/(moaon|menu)@moaon_(hub|solo|study|sup|ad)_bot',text):key='home'
   # Unknown text still checks current membership before reaching Hermes AI.
   if key is None:key='__chat__'

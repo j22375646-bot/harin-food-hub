@@ -104,12 +104,12 @@ def role_briefing(data,sections,slot):
     else:
         if data.get('knowledgeEnabled') is not True:lines.append('지식 공유 꺼짐 · 모아온에서 연결 설정을 확인하세요.')
         else:
-            lines.extend(['검토 대기 · '+n(data.get('pending')),'공유 지식 · '+n(data.get('published'))])
+            lines.extend(['공유 지식 · '+n(data.get('published')),'엄마 Hermes 최신 자료는 지식 찾기 메뉴에서 확인하세요.'])
             recent=data.get('recent',[])
             lines.append('최근 7일 등록·수정 지식 · 최대 3개')
             for item in recent:lines.append('지식 · '+' '.join(str(item.get('title','제목 확인 필요')).split())[:100])
             if not recent:lines.append('최근 7일 등록·수정 지식이 없어요.')
-        lines.append('승인·저장된 공유 지식 기준 · 개인 대화 기억이나 AI 모델 재학습이 아닙니다.')
+        lines.append('모아온에 저장된 공유 지식 기준 · 개인 대화 기억이나 AI 모델 재학습이 아닙니다.')
     lines.append('조회: '+str(data.get('retrievedAt','확인 필요')))
     return '\n'.join(lines)
 
@@ -121,7 +121,7 @@ def telegram(c,chat,text,bot_token=None,card_id=None,image=None,slot=None):
     markup={'inline_keyboard':[[{'text':'모아온에서 확인','url':'https://harin-cafe24-sync.vercel.app'}]]}
     if card_id:markup['inline_keyboard'].insert(0,[{'text':'업무 등록안 만들기','callback_data':'moa:D:'+card_id},{'text':'1시간 뒤 다시 알림','callback_data':'moa:S:'+card_id}])
     if slot in ('SUP','STUDY'):
-        markup['inline_keyboard'].insert(0,[{'text':'연결 상태 확인' if slot=='SUP' else '검토 대기 확인','callback_data':'moa:m:'+('health' if slot=='SUP' else 'pending')}])
+        markup['inline_keyboard'].insert(0,[{'text':'연결 상태 확인' if slot=='SUP' else '최신 공유 자료','callback_data':'moa:m:'+('health' if slot=='SUP' else 'pending')}])
     method='sendMessage';payload=json.dumps({'chat_id':chat,'text':text[:3900],'disable_web_page_preview':True,'reply_markup':markup}).encode();content_type='application/json'
     if image:
         boundary='moaon'+uuid.uuid4().hex;parts=[]
