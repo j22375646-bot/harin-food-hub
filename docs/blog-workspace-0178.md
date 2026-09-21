@@ -13,3 +13,9 @@ Validation before packaging:
 - Browser inventory showed Cafe24 only. The owner's Naver blog home URL was requested and is still pending; no password or post was submitted.
 
 Screenshots: D:/GPT/tmp/content-studio-*.png and D:/GPT/tmp/blog-editor.png.
+
+Release verification:
+- Commit 286ceda pushed to codex/moaon-print-preview.
+- Ed25519-signed desktop 0.178.0 published to GitHub moaon-stable; local managed installation and desktop shortcut updated.
+- Packaged archive verified against all 153 source files. Packaged and managed installed UI tests passed, including the real public reference-blog probe through Electron IPC. Account ownership and publishing were not tested.
+- Distribution: desktop/dist/distribution-20260921-170612-774; installer SHA256 4DB8932C7B319E65ED030E6D74EE2E3BB406A72AED396EE66E9617707FC372FF.
