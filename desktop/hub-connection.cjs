@@ -64,6 +64,7 @@ const STATUS_MESSAGES = Object.freeze({
   PARTIAL: '일부 채널 자료를 확인하지 못했습니다. 표시된 저장 주문만 확인하세요.',
   LOGIN_REQUIRED: '하린식품 로그인이 필요합니다.',
   FORBIDDEN: '이 계정으로 주문을 조회할 권한이 없습니다.',
+  SERVER_DISABLED: '모아온 서버가 사용 중지되었습니다(HTTP 402). 관리자에게 Vercel 결제·사용량 상태 확인을 요청해 주세요. 저장된 로그인은 유지됩니다.',
   UNAVAILABLE: '주문 조회를 완료하지 못했습니다. 잠시 후 다시 확인하세요.',
   DISCONNECTED: '하린식품 연결을 해제했습니다.',
   LOGIN_OPEN: '하린식품 로그인 창에서 로그인을 완료하세요.',
@@ -997,6 +998,10 @@ function createHubConnection({
         void stopShipments();
         invalidateCursor();
         return safeEmpty('FORBIDDEN');
+      }
+      if (response.status === 402) {
+        invalidateCursor();
+        return safeEmpty('SERVER_DISABLED');
       }
       if (response.status === 409) {
         invalidateCursor();
