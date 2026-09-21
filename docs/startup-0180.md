@@ -19,3 +19,5 @@ Validation:
 Evidence: D:/GPT/tmp/startup-before.json, startup-before-warm.json, startup-after-source.json, startup-after-packaged.json, startup-unit.log.
 
 Server connectivity remains blocked until the Vercel usage restriction is resolved by the account owner. Upgrade/payment is not performed by this work.
+
+Release: commit ecac31b pushed; Ed25519-signed desktop 0.180.0 published to GitHub moaon-stable and local managed shortcut updated. Installer SHA256 5B0827F2519CF88D13899F51A98D44BC0D4C222E3E5D8336029762359376BDED. Managed installed runtime repeat: ready-to-show 1195ms, maximum event-loop lag 564ms, real server still SERVER_DISABLED. No unresponsive event occurred in these isolated runs. The user's running old-version process was not forcibly closed. Evidence: D:/GPT/tmp/startup-after-installed.json. Raw Vercel diagnostic responses were removed after recording only the relevant plan/block reason.
