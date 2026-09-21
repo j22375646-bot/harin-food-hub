@@ -9,10 +9,10 @@ function input(platform,status,invoice='1234567890123'){
  return {...common,coupangOrders:[{shipment_box_id:'TEST',order_id:'TEST',ordered_at:'2026-09-21',status,raw_data:{invoiceNumber:invoice}}],coupangOrderItems:[{shipment_box_id:'TEST',order_id:'TEST',product_name:'TEST',quantity:1}]};
 }
 for(const [platform,statuses] of [['CAFE24',['N22','N30','N40']],['COUPANG',['DELIVERING','FINAL_DELIVERY']],['NAVER',['DELIVERING','DELIVERED']]]){
- for(const status of statuses)for(const code of [null,'NOT_FOUND','ACCEPTED','IN_TRANSIT','DELIVERED'])test(`${platform} ${status}: carrier ${code} owns the delivery tab`,()=>{
+ for(const status of statuses)for(const code of [null,'NOT_FOUND','ACCEPTED','IN_TRANSIT','DELIVERED'])test(`${platform} ${status}: completion stays terminal; carrier ${code} drives open delivery`,()=>{
   const base=input(platform,status),id=u.buildUnifiedOrders(base).orders[0].hubOrderId;
   const center=u.buildUnifiedOrders({...base,trackingStates:code?{[id]:{status:'SUCCESS',statusCode:code,trackingNo:'1234567890123'}}:{}});
-  const expected=code==='DELIVERED'?'DELIVERED':code==='IN_TRANSIT'?'SHIPPING':'WAITING_FOR_CARRIER';
+  const expected=u.stageFor(platform,status)==='DELIVERED'||code==='DELIVERED'?'DELIVERED':code==='IN_TRANSIT'?'SHIPPING':'WAITING_FOR_CARRIER';
   assert.equal(center.orders[0].stage,expected);
   assert.equal(center.orders[0].shippingEligible,false);
   const model=adapter.buildPhase28OrdersModel({unifiedOrders:center});

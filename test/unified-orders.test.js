@@ -241,7 +241,7 @@ test('Cafe24 item status drives the live shipping stage and raw payment amount f
   const done=center.orders.find(item=>item.externalOrderId==='C-DONE');
   assert.equal(ready.stage,'PREPARING');
   assert.equal(ready.amount,27000);
-  assert.equal(done.stage,'WAITING_FOR_CARRIER');
+  assert.equal(done.stage,'DELIVERED');
   assert.equal(done.actionRequired,false);
 });
 
