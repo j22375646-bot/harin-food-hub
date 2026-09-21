@@ -23,7 +23,7 @@ test('missing or malformed detail never becomes cleared cancellation or known sh
 
 test('detail consumes actual server adapter delivery contract', () => {
   const { buildOrderPage } = require('../../lib/ui/phase28-adapters/orders.js');
-  const page = buildOrderPage([{hubOrderId:'H1',externalOrderId:'C1',platform:'CAFE24',stage:'SHIPPING',invoiceNumber:'1234567890123',tracking:{statusCode:'IN_TRANSIT'},items:[{name:'차',option:'1상자',quantity:2}],receiver:{name:'PRIVATE',contact:'PRIVATE',address:'PRIVATE'}}],[],{stage:'IN_TRANSIT'});
+  const page = buildOrderPage([{hubOrderId:'H1',externalOrderId:'C1',platform:'CAFE24',stage:'SHIPPING',invoiceNumber:'1234567890123',tracking:{status:'SUCCESS',statusCode:'IN_TRANSIT'},items:[{name:'차',option:'1상자',quantity:2}],receiver:{name:'PRIVATE',contact:'PRIVATE',address:'PRIVATE'}}],[],{stage:'IN_TRANSIT'});
   const row = projectOrdersPayload({ok:true,...page,partial:false},'2026-09-08T00:00:00Z',{scope:'IN_TRANSIT'}).orders[0];
   assert.equal(row.details.externalOrderId,'C1');
   assert.deepEqual(row.details.invoice,{status:'REGISTERED',number:'1234567890123'});

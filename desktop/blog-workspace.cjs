@@ -26,10 +26,30 @@ async function probe(value,fetcher=fetch){
   return {ok:reached,url,checkedAt:new Date().toISOString(),message:reached?'공개 페이지 응답 확인 · 소유 계정·로그인·글쓰기 권한은 네이버에서 확인해 주세요.':'페이지 확인 필요 · 주소를 확인하거나 블로그 열기로 직접 확인해 주세요.'};
  }catch{return {ok:false,url,checkedAt:new Date().toISOString(),message:'접속 확인에 실패했어요. 네트워크를 확인하고 다시 시도해 주세요.'};}
 }
-function registerBlogWorkspace({ipc,isTrusted,shell,dialog,clipboard,getWindow}){
+function registerBlogWorkspace({ipc,isTrusted,shell,dialog,clipboard,getWindow,imageService,nativeImage}){
  ipc.handle('moaon-hub:blog-workspace',async(event,...args)=>{
   if(!isTrusted(event)||args.length!==1)throw Error('Untrusted blog request');
   const v=args[0];if(!v||typeof v!=='object'||Object.keys(v).sort().join(',')!=='action,value')throw Error('Invalid blog request');
+  if(v.action.startsWith('image-')){
+   try{
+    if(!imageService)return {ok:false,status:'SETUP_REQUIRED'};
+    if(v.action==='image-status'&&v.value===null)return await imageService.status();
+    if(v.action==='image-cancel'&&v.value===null)return imageService.cancel();
+    if(v.action==='image-settings')return await imageService.configure(v.value);
+    if(v.action==='image-generate'){
+     const r=await imageService.generate(v.value),image=nativeImage.createFromDataURL(r.dataUrl),size=image.getSize();
+     if(image.isEmpty()||size.width>2048||size.height>2048)throw Error('INVALID_OUTPUT');
+     return {...r,dataUrl:image.toDataURL()};
+    }
+    if(v.action==='image-save'){
+     if(typeof v.value!=='string'||v.value.length>14000000||!v.value.startsWith('data:image/png;base64,'))throw Error('INVALID_REQUEST');
+     const image=nativeImage.createFromDataURL(v.value),size=image.getSize();if(image.isEmpty()||size.width>2048||size.height>2048)throw Error('INVALID_REQUEST');
+     const out=await dialog.showSaveDialog(getWindow(),{title:'블로그 대표 이미지 저장',defaultPath:'모아온-블로그-대표이미지.png',filters:[{name:'PNG 이미지',extensions:['png']}]});
+     if(out.canceled||!out.filePath)return {ok:false,canceled:true};await fs.writeFile(out.filePath,image.toPNG());return {ok:true};
+    }
+    throw Error('INVALID_REQUEST');
+   }catch(e){return {ok:false,status:['CANCELLED','PENDING','SETUP_REQUIRED','KEY_REQUIRED','QUOTA_BLOCKED','DUPLICATE','TIMEOUT','INVALID_OUTPUT','PROVIDER_LIMIT','PROVIDER_ERROR','INVALID_REQUEST','STORAGE_ERROR'].includes(e.message)?e.message:'STORAGE_ERROR'};}
+  }
   if(v.action==='probe')return probe(v.value);
   if(v.action==='open'){const {url}=blogAddress(v.value);await shell.openExternal(url);return {ok:true};}
   if(v.action==='copy'){const d=draft(v.value);clipboard.writeText(`${d.title}\n\n${d.body}`);return {ok:true};}

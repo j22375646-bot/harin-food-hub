@@ -4,6 +4,7 @@ const path = require('node:path');
 
 const APP_ENTRY_URL = 'moaon://app/index.html';
 const ALLOWED_APP_RESOURCES = new Map([
+  ['moaon://app/blog-image.js','blog-image.js'],
   [APP_ENTRY_URL, 'index.html'],
   ['moaon://app/blog-ai.js','blog-ai.js'],
   ['moaon://app/blog-ai-contract.js','blog-ai-contract.js'],
