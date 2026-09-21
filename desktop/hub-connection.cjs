@@ -1178,7 +1178,7 @@ function createHubConnection({
       return prepare!==null||issued!==null||upload!==null;
     }
     async function freshRecoveryRow(hubOrderId){
-      for(const scope of ['ACTIVE','REGISTER']){
+      for(const scope of ['ACTIVE','REGISTER','IN_TRANSIT','COMPLETED']){
         let offset=0,snapshot=null;
         for(let page=0;page<5;page++){
           if(!alive()||controller.signal.aborted)return null;
@@ -1232,7 +1232,6 @@ function createHubConnection({
       }
       if(!alive())return empty('DISCONNECTED');
       automaticController=controller;
-      deadline=setTimeout(()=>{controller.abort();void stopShipments();},automaticTimeoutMs);
       const active=()=>alive()&&!controller.signal.aborted;
       const pause=()=>new Promise(resolve=>{if(!active())return resolve();const timer=setTimeout(done,automaticPollDelayMs);function done(){clearTimeout(timer);controller.signal.removeEventListener('abort',done);resolve();}controller.signal.addEventListener('abort',done,{once:true});});
       async function jsonRequest(url,method='GET',body){
@@ -1256,6 +1255,14 @@ function createHubConnection({
           if(result.status!=='READY')return null;
           const matches=result.orders.filter(row=>row.hubOrderId===id);if(matches.length)return matches.length===1?matches[0]:null;
           if(response.body.nextOffset===null)return null;offset=response.body.nextOffset;snapshot=response.body.snapshot;
+        }
+        return null;
+      }
+      async function readRegistered(id){
+        for(const scope of ['REGISTER','IN_TRANSIT','COMPLETED']){
+          const row=await readTarget(id,scope);
+          if(row)return row.details.cancelled||row.details.cancellationRequested||row.stage==='CANCELLED'?null:row;
+          if(!active())break;
         }
         return null;
       }
@@ -1298,15 +1305,18 @@ function createHubConnection({
         try{onShippingProgress({hubOrderId,phase,status,...(/^\d{13}$/.test(invoiceNumber||'')?{invoiceNumber}:{})});}catch{}
       }
       for(const [approved] of targets){
+        // The previous order must not consume the next order's time budget.
+        clearTimeout(deadline);
+        if(active())deadline=setTimeout(()=>{controller.abort();void stopShipments();},automaticTimeoutMs);
         const hubOrderId=approved.hubOrderId;let phase=approved.registrationEligible?'REGISTER':approved.stage==='PAID'?'PREPARE':'ISSUE';
         try{
           if(!active()){results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});continue;}
           progress(hubOrderId,'CHECK','RUNNING');
           let row=await readTarget(hubOrderId,'ACTIVE');
-          if(!row&&approved.details.invoice?.status==='REGISTERED')row=await readTarget(hubOrderId,'REGISTER');
+          if(!row&&approved.details.invoice?.status==='REGISTERED')row=await readRegistered(hubOrderId);
           if(row&&same(approved,row)&&row.details.invoice?.status==='REGISTERED'&&await uploadJournal(row).read()!==null){
             const outcome=await action(row,'UPLOAD_INVOICE');
-            const verified=outcome==='SUCCESS'?await readTarget(hubOrderId,'REGISTER'):null;
+            const verified=outcome==='SUCCESS'?await readRegistered(hubOrderId):null;
             const result={hubOrderId,phase:'REGISTER',status:outcome==='SUCCESS'?verified&&same(approved,verified)&&verified.details.invoice?.status==='REGISTERED'&&verified.details.invoice.number===row.details.invoice.number?'REGISTERED':'CHECK_REQUIRED':outcome};
             results.push(result);
             if(result.status==='REGISTERED'){result.invoiceNumber=verified.details.invoice.number;progress(hubOrderId,'TRACKING','RUNNING',result.invoiceNumber);result.trackingStatus=await enqueueRegisteredTracking(verified,row,controller,active);progress(hubOrderId,'REGISTER','REGISTERED',result.invoiceNumber);}
@@ -1356,7 +1366,7 @@ function createHubConnection({
           if(!active())throw Error('Stopped');
           const registered=await action(row,'UPLOAD_INVOICE');
           if(registered!=='SUCCESS'){results.push({hubOrderId,phase,status:registered,invoiceNumber:row.details.invoice.number});continue;}
-          const verified=await readTarget(hubOrderId,'REGISTER');
+          const verified=await readRegistered(hubOrderId);
           const result={hubOrderId,phase,status:verified&&same(approved,verified)&&verified.details.invoice?.status==='REGISTERED'&&verified.details.invoice.number===row.details.invoice.number?'REGISTERED':'CHECK_REQUIRED'};
           results.push(result);
           if(result.status==='REGISTERED'){result.invoiceNumber=verified.details.invoice.number;progress(hubOrderId,'TRACKING','RUNNING',result.invoiceNumber);result.trackingStatus=await enqueueRegisteredTracking(verified,row,controller,active);progress(hubOrderId,'REGISTER','REGISTERED',result.invoiceNumber);}

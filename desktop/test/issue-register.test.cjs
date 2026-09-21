@@ -296,3 +296,68 @@ test('same-connection queued preparation is polled after worker changes stored P
   assert.equal((await env.connection.issueAndRegister([cpId])).status,'COMPLETED');assert.equal(prepares,1);assert.equal(polls,earlierPolls+1);await env.connection.disconnect();
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });
+
+test('registration follows the order into IN_TRANSIT without repeating writes',async()=>{
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-auto-test-'));
+ try{
+  const env=host(directory),original=env.remote.fetch;
+  env.remote.fetch=async(url,options)=>{
+   if(options.method==='GET'&&url.includes('/orders?')){
+    const scope=new URL(url).searchParams.get('stage'),row=env.getOrder();
+    const expected=row.invoice?.status==='REGISTERED'?'IN_TRANSIT':'ACTIVE';
+    const orders=scope===expected?[{...row,stage:expected==='IN_TRANSIT'?'SHIPPING':row.stage}]:[];
+    return Response.json({ok:true,orders,total:orders.length,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});
+   }
+   return original(url,options);
+  };
+  await env.connection.refresh();
+  assert.equal((await env.connection.issueAndRegister([id])).results[0].status,'REGISTERED');
+  const posts=env.calls.filter(x=>x.options.method==='POST'&&x.url.endsWith('/actions')).length;
+  assert.equal((await env.connection.issueAndRegister([id])).results[0].status,'REGISTERED');
+  assert.equal(env.calls.filter(x=>x.options.method==='POST'&&x.url.endsWith('/actions')).length,posts);
+  await env.connection.disconnect();
+ }finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+
+test('each order receives a fresh deadline after a slow preceding order',async(t)=>{
+ const originalTimer=globalThis.setTimeout,second='HR-C24-5678ABCD';let budget;
+ t.mock.method(globalThis,'setTimeout',(callback,delay,...args)=>{
+  if(delay!==1001)return originalTimer(callback,delay,...args);
+  budget={callback,remaining:1001};return {unref(){return this;}};
+ });
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-auto-test-'));
+ try{
+  const initial={...base(),issuedInvoiceNumber:'1234567890123',invoice:{status:'ISSUED',number:'1234567890123'}},env=host(directory,{initial,automaticTimeoutMs:1001});
+  const rows=new Map([[id,initial],[second,{...initial,hubOrderId:second}]]);
+  env.remote.fetch=async(url,options)=>{
+   if(url.endsWith('/api/shipping/tracking'))return Response.json({ok:false},{status:503});
+   if(options.method==='POST'){
+    const target=JSON.parse(options.body).orders[0].hubOrderId;
+    budget.remaining-=700;if(budget.remaining<=0){budget.callback();return new Promise(()=>{});}
+    rows.set(target,{...rows.get(target),invoiceNumber:'1234567890123',invoice:{status:'REGISTERED',number:'1234567890123'}});
+    return Response.json({ok:true,results:[{hubOrderId:target,ok:true,status:'SUCCESS'}]});
+   }
+   const scope=new URL(url).searchParams.get('stage'),orders=[...rows.values()].filter(row=>(row.invoice.status==='REGISTERED'?'REGISTER':'ACTIVE')===scope);
+   return Response.json({ok:true,orders,total:orders.length,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});
+  };
+  await env.connection.refresh();const result=await env.connection.issueAndRegister([id,second]);
+  assert.deepEqual(result.results.map(row=>row.status),['REGISTERED','REGISTERED']);
+  await env.connection.disconnect();
+ }finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+
+test('a cancelled order in COMPLETED is not reported as successful shipping',async()=>{
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-auto-test-'));
+ try{
+  const initial={...base(),issuedInvoiceNumber:'1234567890123',invoice:{status:'ISSUED',number:'1234567890123'}},env=host(directory,{initial}),original=env.remote.fetch;
+  env.remote.fetch=async(url,options)=>{
+   if(options.method==='GET'&&url.includes('/orders?')&&env.getOrder().invoice?.status==='REGISTERED'){
+    const orders=new URL(url).searchParams.get('stage')==='COMPLETED'?[{...env.getOrder(),stage:'CANCELLED',cancelled:true}]:[];
+    return Response.json({ok:true,orders,total:orders.length,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});
+   }
+   return original(url,options);
+  };
+  await env.connection.refresh();assert.equal((await env.connection.issueAndRegister([id])).results[0].status,'CHECK_REQUIRED');
+  await env.connection.disconnect();
+ }finally{await fs.rm(directory,{recursive:true,force:true});}
+});
