@@ -18,4 +18,5 @@ Page counts and scope selection use the normalized stage consistently. Channel-o
 Uses stored tracking results, not continuous carrier push. The existing supported tracking connector is ePost; unsupported/missing tracking does not prove movement. Older channel-completed orders without carrier proof can return to waiting until tracking is available. Rocket Growth remains outside the seller shipping workspaces. No channel status, invoice or delivery data was manually rewritten.
 
 ## Release
-Pending production verification.
+Production deployment READY; HTTP 200 with x-harin-version=1.87.2 verified on 2026-09-21. Deployment: harin-cafe24-sync-gatmtlg8m-j22375646-6156s-projects.vercel.app. Webpack build passed. Installed 0.176.1 isolated UI verification passed again after deployment; authenticated live-session verification was not performed.
+
