@@ -12,3 +12,5 @@ Validation:
 - Production count comparison blocked: Vercel env pull returns masked database settings. Exact remaining live count is not verified. Temporary pulled settings removed.
 
 Scope limitation: nonterminal orders without confirmed tracking still use the existing registration workspace with a check-required tracking badge; this patch does not add a separate unknown-tracking workspace.
+
+Release: source commit eb37fde pushed to codex/moaon-print-preview. Production deployment completed successfully; canonical /login returned HTTP 200 with X-Harin-Version 1.87.3. Existing desktop 0.180.0 consumes the fixed server response without a binary update. Live authenticated remaining order count is still unverified.
