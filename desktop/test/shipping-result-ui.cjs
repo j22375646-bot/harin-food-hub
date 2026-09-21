@@ -12,6 +12,8 @@ const assert=require('node:assert/strict'),path=require('node:path'),fs=require(
   await page.evaluate(async()=>{
    checkVisibleOrderFreshness=async()=>{};refreshOverview=async()=>{};
    applyHubResult({status:'READY',scope:'ACTIVE',channel:'ALL',total:1,offset:0,orders:[{hubOrderId:'HR-C24-00000001',platform:'CAFE24',productName:'자동 검증용 주문 · 실제 발급 없음',stage:'PREPARING',quantity:1,amount:1000,issueAndRegisterEligible:true,registrationEligible:false,preflight:{status:'REVIEW_ONLY',route:'HUB',codes:[]},details:{items:[],cancelled:false,cancellationRequested:false}}]});
+   // Keep the synthetic order fixture separate from unauthenticated background results.
+   applyHubResult=()=>{};
    document.querySelector('#entry-screen').hidden=true;const shell=document.querySelector('.preview-shell');shell.hidden=false;shell.inert=false;showRoute('orders');
    await runAutomaticShipping(['HR-C24-00000001']);
   });
