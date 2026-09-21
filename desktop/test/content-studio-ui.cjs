@@ -18,7 +18,7 @@ const assert=require('node:assert/strict'),path=require('node:path'),fs=require(
   await root.getByRole('tab',{name:/블로그/}).click();
   await page.locator('#blog-title').fill('작두콩차 이야기');await page.locator('#blog-body').fill('직접 확인한 제품 정보\n우리는 방법');
   assert.match(await root.locator('.blog-draft-preview').innerText(),/작두콩차 이야기/);
-  await page.locator('#blog-address').fill('https://evil.test/test');await page.getByRole('button',{name:'공개 페이지 확인',exact:true}).click();await page.waitForTimeout(250);assert.match(await root.locator('.blog-connection .blog-status').innerText(),/처리하지 못했/);
+  await page.locator('#blog-address').fill('https://evil.test/test');await page.getByRole('button',{name:'공개 페이지 확인',exact:true}).click();await page.waitForTimeout(250);assert.match(await root.locator('.blog-connection:not(.blog-ai) .blog-status').innerText(),/처리하지 못했/);
   await page.getByRole('button',{name:'제목·본문 복사',exact:true}).click();await page.waitForTimeout(150);assert.equal(await app.evaluate(({clipboard})=>clipboard.readText()),'작두콩차 이야기\n\n직접 확인한 제품 정보\n우리는 방법');
   await app.evaluate(({dialog})=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:'D:/GPT/tmp/blog-ui-test.json'});dialog.showOpenDialog=async()=>({canceled:false,filePaths:['D:/GPT/tmp/blog-ui-test.json']});});
   await page.getByRole('button',{name:'초안 파일 저장',exact:true}).click();await page.waitForTimeout(200);assert.equal(JSON.parse(fs.readFileSync('D:/GPT/tmp/blog-ui-test.json','utf8')).title,'작두콩차 이야기');

@@ -60,3 +60,8 @@
 .content-platform-panel[data-platform=blog] .content-example-motif{display:none}
 .content-platform-panel[data-platform=blog] .content-example-title{font-size:22px;margin:12px 0}
 @media(max-width:760px){.content-platform-panel[data-platform=blog] .content-workbench{grid-template-columns:1fr;padding:24px}.content-platform-panel[data-platform=blog] .content-preview{display:none}}
+.blog-ai select{width:100%;min-height:48px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit}
+.blog-ai textarea{min-height:135px}
+.blog-ai-result{margin-top:20px;padding:24px;background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.blog-ai-result[hidden]{display:none}.blog-ai-result h4{font-size:20px;line-height:1.6;overflow-wrap:anywhere}
+.blog-ai-result ul{padding-left:22px;line-height:1.8}.blog-ai-result strong{display:block;margin-top:20px}
