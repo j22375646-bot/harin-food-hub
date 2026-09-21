@@ -123,6 +123,27 @@ test('loads only the newest full tracking payload for each invoice',async()=>{
   assert.deepEqual(result.map(row=>row.payload.value),['new-a','new-b']);
 });
 
+test('tracking refresh preserves the last successful observation for the same invoice',async()=>{
+  const queue=require('../lib/coupang/operation-queue');
+  const previous=process.env.SUPABASE_SERVICE_ROLE_KEY;
+  process.env.SUPABASE_SERVICE_ROLE_KEY='tracking-isolated-test';
+  try{
+    for(const status of ['PENDING','FAILED']){
+      const payload=queue.seal({hubOrderIds:['ORDER-A'],trackingNo:'1234567890123'});
+      const rows=[
+        {id:'refresh',operation_type:'EPOST_TRACKING',target_id:'1234567890123',status,payload,error_message:status==='FAILED'?'timeout':'',created_at:'2026-09-21T10:05:00Z'},
+        {id:'observed',operation_type:'EPOST_TRACKING',target_id:'1234567890123',status:'SUCCESS',payload,result_json:queue.seal({epostTracking:{statusCode:'IN_TRANSIT',statusLabel:'배송중',checkedAt:'2026-09-21T10:00:00Z'}}),created_at:'2026-09-21T10:00:00Z'}
+      ];
+      const loaded=await trackingQueue.latestTrackingRows(trackedOperationDb(rows));
+      const state=trackingQueue.trackingStatesFromRows(loaded)['ORDER-A'];
+      assert.equal(state.statusCode,'IN_TRANSIT');
+      assert.equal(state.status,'SUCCESS');
+      assert.equal(state.checkedAt,'2026-09-21T10:00:00Z');
+      assert.equal(state.refreshStatus,status==='PENDING'?'QUEUED':'FAILED');
+    }
+  }finally{if(previous===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=previous;}
+});
+
 test('loads one receiver snapshot and preserves one terminal cancellation per Coupang shipment',async()=>{
   assert.equal(typeof trackingQueue.latestOrderDetailRows,'function','order detail row loader must exist');
   const terminalMessage='order has been cancelled or returned';

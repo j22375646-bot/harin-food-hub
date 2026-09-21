@@ -241,7 +241,7 @@ test('Cafe24 item status drives the live shipping stage and raw payment amount f
   const done=center.orders.find(item=>item.externalOrderId==='C-DONE');
   assert.equal(ready.stage,'PREPARING');
   assert.equal(ready.amount,27000);
-  assert.equal(done.stage,'DELIVERED');
+  assert.equal(done.stage,'WAITING_FOR_CARRIER');
   assert.equal(done.actionRequired,false);
 });
 
@@ -292,6 +292,7 @@ test('hourly order collection is scheduled and the manual button is explicit',()
 
 test('live work window is separated from cumulative stored history',()=>{
   const center=orders.buildUnifiedOrders({
+    trackingStates:{[orders.hubOrderId('CAFE24','OLD')]:{status:'SUCCESS',statusCode:'DELIVERED'}},
     asOf:'2026-08-14T00:00:00Z',
     cafe24Orders:[
       {order_id:'CURRENT',order_date:'2026-08-13T01:00:00Z',raw_data:{payment_amount:'10000'}},
@@ -310,6 +311,7 @@ test('live work window is separated from cumulative stored history',()=>{
 
 test('old active work stays visible while completed deliveries are limited to 30 days',()=>{
   const center=orders.buildUnifiedOrders({
+    trackingStates:Object.fromEntries(['DAY-30-DONE','DAY-31-DONE'].map(id=>[orders.hubOrderId('CAFE24',id),{status:'SUCCESS',statusCode:'DELIVERED'}])),
     asOf:'2026-08-14T00:00:00Z',
     cafe24Orders:[
       {order_id:'OLD-ACTIVE',order_date:'2026-05-15T01:00:00Z'},
