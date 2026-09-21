@@ -13,3 +13,5 @@ Verification:
 - Live Gemini generation under the owner's authenticated account has not been tested in this turn. Fixture tests do not establish current provider/key availability.
 
 Screenshots: D:/GPT/tmp/blog-ai-*.png. Only the right secondary monitor was used.
+
+Release verification: 4ba444e pushed. Desktop 0.179.0 Ed25519 signed release published to moaon-stable; local managed shortcut updated. Packaged archive matched 155 source files. Packaged and installed isolated Gemini UI fixture tests both passed. Installer SHA256: 61ECE987B3E17FBE9F7FEEA035D7B08CBE1AF2B42F740E515DFFD5ED2A4770EC. Distribution: desktop/dist/distribution-20260921-190241-209. These tests do not claim a live provider response.
