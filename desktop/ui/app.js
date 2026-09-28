@@ -850,7 +850,8 @@ function renderSelection(){
   let reason=document.getElementById('selection-block-reason');if(!reason){reason=makeElement('div','selection-block-reason');reason.id='selection-block-reason';reason.setAttribute('role','status');bar.append(reason);}else bar.append(reason);
   const selected=[...selectedOrderIds].map(id=>displayedOrders.find(o=>orderId(o)===id)),blocked=selected.filter(o=>!o?.issueAndRegisterEligible),ready=selected.filter(o=>o?.issueAndRegisterEligible===true);
   const names={DELIVERY_INFO:'받는 분·주소·연락처 확인',HISTORY_UNAVAILABLE:'송장 이력 조회 확인',SHIPMENT_ID:'쿠팡 배송묶음 번호 확인',SERVER_CHECK:'서버 출고 조건 확인',PARTIAL:'누락 채널 재조회',NAVER_ROUTE:'네이버에서 별도 발급',ROCKET_ROUTE:'로켓그로스는 쿠팡에서 처리',INVOICE_EXISTS:'기존 송장 확인',CANCELLED:'취소 주문 제외',CANCEL_REQUEST:'취소 요청 확인',INVOICE_UNKNOWN:'송장 존재 여부 확인',CANCEL_UNKNOWN:'취소 여부 확인',SHIPPED:'이미 배송 진행 중',STAGE_UNKNOWN:'주문 상태 확인',ORDER_ID:'주문번호 확인',QUANTITY:'수량 확인',ROUTE_UNKNOWN:'출고 경로 확인'};
-  reason.hidden=!count||autoEligible||registrationBusy;reason.replaceChildren();
+  reason.hidden=!count||autoEligible||registrationBusy||selectedScope!=='ACTIVE';
+  document.querySelector('#selection-auto-ship').hidden=selectedScope!=='ACTIVE';reason.replaceChildren();
   document.querySelector('#selection-auto-ship').setAttribute('aria-describedby','selection-block-reason');
   if(!reason.hidden){
     const summary=makeElement('strong','',count>20?'한 번에 20건까지 선택하세요.':`선택 ${count}건 중 ${ready.length}건 발급 가능 · ${blocked.length}건 확인 필요`);reason.append(summary);
@@ -1729,3 +1730,5 @@ async function recheckShippingSelection(){
 }
 
 document.getElementById('web-hub-open').addEventListener('click',async()=>{const button=document.getElementById('web-hub-open');button.disabled=true;try{const result=await window.moaonHub.openWebHub();button.title=result?.ok?'웹 허브 · 기본 브라우저에서 열기':'브라우저를 열지 못했습니다 · 다시 눌러주세요';}catch{button.title='브라우저를 열지 못했습니다 · 다시 눌러주세요';}finally{button.disabled=false;}});
+
+ document.querySelector('#moaon-invite').addEventListener('click',async()=>{const button=document.querySelector('#moaon-invite'),status=document.querySelector('#moaon-invite-status');button.disabled=true;try{const result=await window.moaonHub.copyEventText('모아온에 초대합니다!\nWindows 다운로드: https://github.com/j22375646-bot/harin-food-hub/releases/tag/moaon-stable\n페이지의 Assets에서 Moaon-버전-Setup.exe를 내려받아 설치하세요.\n설치 후 본인 모아온 계정으로 로그인하세요. 사업장 접근 권한은 관리자에게 문의해 주세요.');status.textContent=result?.ok?'초대 안내와 다운로드 링크를 복사했어요. 카카오톡·텔레그램에 붙여넣어 보내세요.':'복사하지 못했어요. 다시 시도해 주세요.';}catch{status.textContent='복사하지 못했어요. 다시 시도해 주세요.';}finally{button.disabled=false;}});

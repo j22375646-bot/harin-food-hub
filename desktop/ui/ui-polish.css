@@ -449,3 +449,5 @@ html[data-theme] .orders-page .shipping-timing-badge[data-timing=DELAYED]{backgr
 
 /* Keep Korean product titles inside a full line box without glyph clipping. */
 .orders-page .order-primary>strong{display:block;overflow:visible;-webkit-line-clamp:unset;white-space:normal;line-height:1.6;padding-block:2px;overflow-wrap:anywhere}.orders-page #order-detail .detail-product h2{padding-block:2px;overflow:visible}
+
+.auto-shipping-item{min-width:0;padding:12px 8px;overflow-wrap:anywhere}.auto-shipping-item>span{min-width:0;flex:1 1 260px;white-space:normal}.auto-shipping-item>strong,.auto-shipping-item button{max-width:100%;white-space:normal;overflow-wrap:anywhere}.selection-reason-item small{overflow-wrap:anywhere}#moaon-invite-status{overflow-wrap:anywhere}

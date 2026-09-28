@@ -1,6 +1,6 @@
 (()=>{
  const page=document.querySelector('[data-page="settings"]'),grid=page.querySelector('.settings-grid'),nav=page.querySelector('.settings-jump');
- const groups=[['team-profile-title','프로필'],['theme-title','화면'],['app-update-title','업데이트'],['settings-connection-title','조회 연결'],['business-list-title','사업장'],['api-title','API'],['settings-history-title','출고 기록']];
+ const groups=[['team-profile-title','프로필'],['theme-title','화면'],['app-update-title','업데이트'],['invite-title','초대하기'],['settings-connection-title','조회 연결'],['business-list-title','사업장'],['api-title','API'],['settings-history-title','출고 기록']];
  const cards=[...grid.querySelectorAll('.setting-card')].filter(n=>!n.parentElement.closest('.setting-card'));
  const panels=new Map(groups.map(([id])=>{const n=document.createElement('div');n.id='settings-panel-'+id;n.className='settings-tab-panel';n.setAttribute('role','tabpanel');n.setAttribute('aria-labelledby','settings-tab-'+id);return [id,n];}));
  for(const card of cards){let id=groups.find(([id])=>card.querySelector('#'+id))?.[0];if(!id)id=card.classList.contains('telegram-guide')?'api-title':'team-profile-title';panels.get(id).append(card);}
