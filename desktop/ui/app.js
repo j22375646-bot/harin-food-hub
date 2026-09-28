@@ -1081,7 +1081,11 @@ function applyHubResult(result) {
     gate.hidden=true;shell.hidden=false;shell.inert=false;window.moaonTeam?.start();
   }else if(!gate.hidden||['LOGIN_REQUIRED','LOGIN_OPEN','DISCONNECTED'].includes(result?.status)){
     gate.hidden=false;gate.classList.remove('is-preparing');shell.hidden=true;shell.inert=true;
-    document.querySelector('#entry-status').textContent=result?.status==='LOGIN_REQUIRED'?'로그인이 필요합니다. 다시 연결해 주세요.':result?.status==='LOGIN_OPEN'?'앱의 로그인 화면에서 계속해주세요.':result?.status==='DISCONNECTED'?'로그아웃했습니다. 다시 로그인할 수 있습니다.':result?.message||'연결을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.';
+    const signedOut=result?.status==='DISCONNECTED',needsLogin=['DISCONNECTED','LOGIN_REQUIRED','LOGIN_OPEN'].includes(result?.status);
+    document.querySelector('#entry-title').textContent=signedOut?'잠시 쉬어가도 괜찮아요.':needsLogin?'다시 만나서 반가워요.':'연결을 다시 확인해 주세요.';
+    document.querySelector('.entry-description').textContent=needsLogin?'다시 로그인하면 모아온에서 업무를 이어갈 수 있어요.':'네트워크 상태를 확인한 뒤 다시 시도해 주세요.';
+    document.querySelector('#entry-login').replaceChildren(document.createTextNode(needsLogin?'다시 로그인':'다시 연결하기'),Object.assign(document.createElement('span'),{textContent:'→'}));
+    document.querySelector('#entry-status').textContent=result?.status==='LOGIN_REQUIRED'?'로그인이 필요합니다. 다시 연결해 주세요.':result?.status==='LOGIN_OPEN'?'앱의 로그인 화면에서 계속해주세요.':result?.status==='DISCONNECTED'?'로그아웃되었습니다.':result?.message||'연결을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.';
   }
   if (result?.status === 'READY' || result?.status === 'PARTIAL') {
     if (scopeDetails[result.scope]) selectedScope = result.scope;
@@ -1135,7 +1139,7 @@ async function runHubAction(action) {
     clearDisplayedOrders('connecting', `${selectedScopeDetail().range} 첫 페이지를 조회하고 있습니다.`);
   }
   if (action === 'connect' || action === 'refresh') {
-    if(action==='connect'){document.querySelector('#entry-screen').classList.add('is-preparing');shippingFollowup.clear();historyGeneration++;historyAutoLoaded=false;}
+    if(action==='connect'){document.querySelector('#entry-title').textContent='업무 공간을 열고 있어요.';document.querySelector('#entry-screen').classList.add('is-preparing');shippingFollowup.clear();historyGeneration++;historyAutoLoaded=false;}
     if (action === 'connect') scopeControlsAvailable = false;
     clearDisplayedOrders('connecting', action === 'connect' ? '앱 안에서 로그인하면 저장 주문을 조회합니다.' : `${selectedScopeDetail().range}을 다시 조회하고 있습니다.`);
   }
@@ -1731,4 +1735,4 @@ async function recheckShippingSelection(){
 
 document.getElementById('web-hub-open').addEventListener('click',async()=>{const button=document.getElementById('web-hub-open');button.disabled=true;try{const result=await window.moaonHub.openWebHub();button.title=result?.ok?'웹 허브 · 기본 브라우저에서 열기':'브라우저를 열지 못했습니다 · 다시 눌러주세요';}catch{button.title='브라우저를 열지 못했습니다 · 다시 눌러주세요';}finally{button.disabled=false;}});
 
- document.querySelector('#moaon-invite').addEventListener('click',async()=>{const button=document.querySelector('#moaon-invite'),status=document.querySelector('#moaon-invite-status');button.disabled=true;try{const result=await window.moaonHub.copyEventText('모아온에 초대합니다!\nWindows 다운로드: https://github.com/j22375646-bot/harin-food-hub/releases/tag/moaon-stable\n페이지의 Assets에서 Moaon-버전-Setup.exe를 내려받아 설치하세요.\n설치 후 본인 모아온 계정으로 로그인하세요. 사업장 접근 권한은 관리자에게 문의해 주세요.');status.textContent=result?.ok?'초대 안내와 다운로드 링크를 복사했어요. 카카오톡·텔레그램에 붙여넣어 보내세요.':'복사하지 못했어요. 다시 시도해 주세요.';}catch{status.textContent='복사하지 못했어요. 다시 시도해 주세요.';}finally{button.disabled=false;}});
+ document.querySelector('#moaon-invite').addEventListener('click',async()=>{const button=document.querySelector('#moaon-invite'),status=document.querySelector('#moaon-invite-status');button.disabled=true;try{const info=await window.moaonHub.appInfo();if(!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(info?.version||''))throw Error('Version unavailable');const result=await window.moaonHub.copyEventText('모아온에 초대합니다!\nWindows 다운로드: https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable/Moaon-'+info.version+'-Setup.exe\n링크를 누르면 Windows 설치 파일이 다운로드됩니다. 받은 파일을 실행해 설치하세요.\n설치 후 본인 모아온 계정으로 로그인하세요. 사업장 접근 권한은 관리자에게 문의해 주세요.');status.textContent=result?.ok?'초대 안내와 다운로드 링크를 복사했어요. 카카오톡·텔레그램에 붙여넣어 보내세요.':'복사하지 못했어요. 다시 시도해 주세요.';}catch{status.textContent='복사하지 못했어요. 다시 시도해 주세요.';}finally{button.disabled=false;}});
