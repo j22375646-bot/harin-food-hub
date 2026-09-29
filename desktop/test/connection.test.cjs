@@ -264,6 +264,15 @@ test('Coupang delivery rejects mismatched shipment, malformed job and non-seller
   await connection.refresh();assert.deepEqual(await connection.readDelivery(order.hubOrderId),{status:'CHECK_REQUIRED'});if(mode==='rocket')assert.equal(calls,0);
  }
 });
+test('Coupang delivery keeps returned contact when safeNumber is absent',async()=>{
+ const order={...reviewOrder(),hubOrderId:'HR-CP-1234ABCD',platform:'COUPANG',shipmentId:'123',receiver:null};
+ const {connection}=makeConnection(makeRemoteSession(async url=>{
+  if(url.includes('/orders/detail?'))return Response.json({ok:true,request:{id:'12345678-1234-4123-8123-123456789abc'}},{status:202});
+  if(url.includes('/operations/'))return Response.json({ok:true,order:{shipmentBoxId:'123',receiver:{name:'시험',address:'시험 주소',contact:'05012345678',postCode:'12345'}}});
+  return Response.json(makePagePayload({orders:[order]}));
+ }));
+ await connection.refresh();assert.equal((await connection.readDelivery(order.hubOrderId)).receiver.contact,'05012345678');
+});
 test('Coupang delivery timeout resumes the same job and logout discards late receiver',async()=>{
  const order={...reviewOrder(),hubOrderId:'HR-CP-1234ABCD',platform:'COUPANG',shipmentId:'123',receiver:null};let queue=0,ready=false,release;
  const {connection}=makeConnection(makeRemoteSession(async url=>{

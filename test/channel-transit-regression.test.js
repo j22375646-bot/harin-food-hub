@@ -8,11 +8,12 @@ function input(platform,status,invoice='1234567890123'){
  if(platform==='NAVER')return {...common,naverOrders:[{order_id:'TEST',order_date:'2026-09-21',status,invoice_no:invoice}],naverOrderItems:[{order_id:'TEST',quantity:1}]};
  return {...common,coupangOrders:[{shipment_box_id:'TEST',order_id:'TEST',ordered_at:'2026-09-21',status,raw_data:{invoiceNumber:invoice}}],coupangOrderItems:[{shipment_box_id:'TEST',order_id:'TEST',product_name:'TEST',quantity:1}]};
 }
-for(const [platform,statuses] of [['CAFE24',['N22','N30','N40']],['COUPANG',['DELIVERING','FINAL_DELIVERY']],['NAVER',['DELIVERING','DELIVERED']]]){
- for(const status of statuses)for(const code of [null,'NOT_FOUND','ACCEPTED','IN_TRANSIT','DELIVERED'])test(`${platform} ${status}: completion stays terminal; carrier ${code} drives open delivery`,()=>{
+for(const [platform,statuses] of [['CAFE24',['N22','N30','N40']],['COUPANG',['DEPARTURE','DELIVERING','FINAL_DELIVERY']],['NAVER',['DELIVERING','DELIVERED']]]){
+ for(const status of statuses)for(const code of [null,'NOT_FOUND','ACCEPTED','IN_TRANSIT','DELIVERED'])test(`${platform} ${status}: confirmed channel/carrier movement is preserved with carrier ${code}`,()=>{
   const base=input(platform,status),id=u.buildUnifiedOrders(base).orders[0].hubOrderId;
   const center=u.buildUnifiedOrders({...base,trackingStates:code?{[id]:{status:'SUCCESS',statusCode:code,trackingNo:'1234567890123'}}:{}});
-  const expected=u.stageFor(platform,status)==='DELIVERED'||code==='DELIVERED'?'DELIVERED':code==='IN_TRANSIT'?'SHIPPING':'WAITING_FOR_CARRIER';
+  const channelMovement=['COUPANG','NAVER'].includes(platform)&&status==='DELIVERING';
+  const expected=u.stageFor(platform,status)==='DELIVERED'||code==='DELIVERED'?'DELIVERED':code==='IN_TRANSIT'||channelMovement?'SHIPPING':'WAITING_FOR_CARRIER';
   assert.equal(center.orders[0].stage,expected);
   assert.equal(center.orders[0].shippingEligible,false);
   const model=adapter.buildPhase28OrdersModel({unifiedOrders:center});

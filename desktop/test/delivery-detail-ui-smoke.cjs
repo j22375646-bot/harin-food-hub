@@ -5,9 +5,10 @@ const {launchDesktop}=require('./launch.cjs');
  if(!process.argv.includes('--isolated'))throw Error('Isolated profile required');
  const app=await launchDesktop({root:path.resolve(__dirname,'..'),executablePath:require('electron'),packaged:process.argv.includes('--packaged'),override:-1});
  try{
-  const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');await page.evaluate(()=>runHubAction('disconnect'));
+  const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');await page.evaluate(()=>returnToSample());await page.waitForTimeout(500);
+  await page.evaluate(()=>{const original=applyHubResult;applyHubResult=result=>{if(result?.status==='READY')return original(result);};checkVisibleOrderFreshness=async()=>{};refreshOverview=async()=>{};businessLoaded=true;historyAutoLoaded=true;});
   await page.evaluate(()=>applyHubResult({status:'READY',scope:'ACTIVE',channel:'ALL',total:1,offset:0,hasMore:false,hasPrevious:false,checkedAt:new Date().toISOString(),orders:[{hubOrderId:'HR-C24-00000001',platform:'CAFE24',productName:'배송정보 시험',stage:'PREPARING',amount:30000,quantity:1,issueAndRegisterEligible:true,registrationEligible:false,preflight:{status:'REVIEW_ONLY',route:'HUB',codes:[]},details:{items:[],receiver:{name:'시험 고객',contact:'01000000000',postCode:'12345',address:'가상시 시험로 1',addressDetail:'101호',message:'<img src=x onerror=alert(1)>'}}}]}));
-  await page.getByRole('button',{name:'주문·배송',exact:true}).click();await page.locator('.order-row').first().click();
+  await page.evaluate(()=>showRoute('orders'));await page.locator('.order-row').first().click();
   const delivery=page.getByRole('region',{name:'배송정보',exact:true});
   assert.match(await delivery.innerText(),/시험 고객/);assert.match(await delivery.innerText(),/가상시 시험로 1/);assert.match(await delivery.innerText(),/101호/);assert.match(await delivery.innerText(),/01000000000/);
   assert.equal(await delivery.locator('img').count(),0);
@@ -25,7 +26,9 @@ const {launchDesktop}=require('./launch.cjs');
   await page.evaluate(()=>{displayedOrders=Object.freeze(displayedOrders.map(order=>({...order,platform:'COUPANG',issueAndRegisterEligible:false,preflight:{status:'CHECK_REQUIRED',route:'HUB',codes:['DELIVERY_INFO']},details:{...order.details,receiver:{}}})));closeOrderDetail();renderOrders();});
   await page.locator('.order-row').first().click();
   const retry=page.getByRole('button',{name:'배송정보 다시 확인',exact:true});await retry.waitFor();
-  await retry.click();await page.getByText('쿠팡 시험',{exact:true}).waitFor();
+  // Exercise the explicit fallback after a prior server recheck. The automatic
+  // first recheck is covered by shipping-refresh-ui.cjs.
+  await page.evaluate(()=>showOrderDetail(displayedOrders[0],null,{rechecked:true}));await page.getByText('쿠팡 시험',{exact:true}).waitFor();
   assert.equal(await retry.isVisible(),false);assert.match(await delivery.innerText(),/05012345678/);
   assert.equal(await page.evaluate(()=>displayedOrders[0].issueAndRegisterEligible),false,'display-only detail cannot grant issuance permission');
   const recheck=page.getByRole('button',{name:'발급 조건 다시 확인',exact:true});

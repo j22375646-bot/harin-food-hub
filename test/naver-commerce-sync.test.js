@@ -3,6 +3,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const sync = require('../lib/naver-commerce/sync.js');
+test('Naver sibling delivery block retains tracking number and carrier for tracking',()=>{
+ const delivery={trackingNumber:'1234567890123',deliveryCompany:'EPOST',deliveryStatus:'DELIVERING',sendDate:'2026-09-28T10:00:00+09:00'};
+ const mapped=sync.mapOrderDetail({order:{orderId:'NV1'},productOrder:{productOrderId:'P1',productOrderStatus:'DELIVERING',quantity:1},delivery});
+ assert.equal(mapped.order.invoice_no,'1234567890123');
+ assert.equal(mapped.order.delivery_company,'EPOST');
+ assert.deepEqual(mapped.order.raw_data.delivery,delivery);
+});
 
 test('Naver settlement dates accept Date objects', () => {
   assert.equal(sync.dateOnly(new Date('2026-08-14T06:00:00.000Z')), '2026-08-14');

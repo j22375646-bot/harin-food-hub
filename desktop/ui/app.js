@@ -518,8 +518,10 @@ function showOrderDetail(order, button, options = {}) {
       let busy=false;
       const load=async()=>{
         if(busy||!current())return;busy=true;retry.hidden=true;delivery.setAttribute('aria-busy','true');state.textContent='배송정보 불러오는 중…';
+        let deadline;
+        const notice=setTimeout(()=>{if(current())state.textContent='판매 채널 조회 처리 중 · 최대 50초 안에 결과를 안내합니다.';},5000);
         try{
-          const result=await window.moaonHub.readDelivery(orderId(order));if(!current())return;
+          const result=await Promise.race([window.moaonHub.readDelivery(orderId(order)),new Promise(resolve=>{deadline=setTimeout(()=>resolve({status:'CHECK_REQUIRED'}),50000);})]);if(!current())return;
           if(result?.status!=='READY'){state.textContent=result?.status==='PENDING'?'쿠팡 조회 처리 대기 중 · 잠시 뒤 다시 확인하세요.':'배송정보 조회 확인 필요 · 다시 확인해주세요.';retry.hidden=false;return;}
           const fresh=result.receiver||{},values=[fresh.name,fresh.contact,fresh.postCode,[fresh.address,fresh.addressDetail].filter(Boolean).join(' '),fresh.message||'배송 메모 없음'];
           fields.querySelectorAll('dd').forEach((node,index)=>node.textContent=values[index]||'확인 필요');state.textContent='배송정보 조회 완료';
@@ -528,6 +530,11 @@ function showOrderDetail(order, button, options = {}) {
             retry.hidden=false;return;
           }
           if(!order.issueAndRegisterEligible&&order.preflight?.route==='HUB'){
+            if(!options.rechecked&&!registrationBusy){
+              state.textContent='배송정보 조회 완료 · 최신 발급 조건을 확인합니다.';
+              queueMicrotask(()=>{if(current()&&!registrationBusy)void recheckSelectedOrder();});
+              return;
+            }
             state.textContent='배송정보 조회 완료 · 발급 가능 여부는 서버 주문을 다시 확인해야 합니다.';
             const verify=makeElement('button','secondary-action','발급 조건 다시 확인');verify.type='button';
             verify.addEventListener('click',()=>{
@@ -536,7 +543,7 @@ function showOrderDetail(order, button, options = {}) {
             });delivery.append(verify);
           }
         }catch{if(current()){state.textContent='배송정보 조회 확인 필요';retry.hidden=false;}}
-        finally{busy=false;delivery.removeAttribute('aria-busy');}
+        finally{clearTimeout(deadline);clearTimeout(notice);busy=false;delivery.removeAttribute('aria-busy');}
       };
       retry.addEventListener('click',()=>void load());queueMicrotask(()=>void load());
     }

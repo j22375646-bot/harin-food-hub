@@ -499,13 +499,13 @@ function createHubConnection({
             if(payload?.ok!==true||typeof job!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(job))return {status:'CHECK_REQUIRED'};
             deliveryJobs.set(row,job);
           }
-          for(let attempt=0;attempt<10;attempt++){
+          for(let attempt=0;attempt<45;attempt++){
             const response=await get(`${HARIN_ORIGIN}/api/coupang/operations/${job}`);
             if(response.status===202){await new Promise(resolve=>setTimeout(resolve,1000));continue;}
             if(response.status!==200)return {status:'CHECK_REQUIRED'};
             const payload=await readBoundedJson(response,controller);
             if(payload?.ok!==true||payload.order?.shipmentBoxId!==shipmentId||!payload.order?.receiver)return {status:'CHECK_REQUIRED'};
-            const receiver=projectOrderDetails({receiver:{...payload.order.receiver,contact:payload.order.receiver.safeNumber}}).receiver;
+            const receiver=projectOrderDetails({receiver:{...payload.order.receiver,contact:payload.order.receiver.safeNumber||payload.order.receiver.contact}}).receiver;
             return receiver.name&&receiver.address?{status:'READY',receiver}:{status:'CHECK_REQUIRED'};
           }
           return {status:'PENDING'};
@@ -516,10 +516,10 @@ function createHubConnection({
         if(payload?.ok!==true||!payload.receiver)return {status:'CHECK_REQUIRED'};
         return {status:'READY',receiver:projectOrderDetails({receiver:payload.receiver}).receiver};
       })();
-      const result=await Promise.race([operation,new Promise(resolve=>{timer=setTimeout(()=>{controller.abort();resolve({status:'CHECK_REQUIRED'});},timeoutMs);}),new Promise(resolve=>controller.signal.addEventListener('abort',()=>resolve({status:'CHECK_REQUIRED'}),{once:true}))]);
+      const result=await Promise.race([operation,new Promise(resolve=>{timer=setTimeout(()=>{controller.abort();resolve({status:'CHECK_REQUIRED'});},coupang?Math.min(timeoutMs*3,45000):timeoutMs);}),new Promise(resolve=>controller.signal.addEventListener('abort',()=>resolve({status:'CHECK_REQUIRED'}),{once:true}))]);
       return expected!==generation||!loadedOrders.includes(row)?{status:'DISCONNECTED'}:result;
     }catch{return {status:expected!==generation?'DISCONNECTED':'CHECK_REQUIRED'};}
-    finally{clearTimeout(timer);for(const permit of permits)deliveryPermits.delete(permit);businessReads.delete(controller);}
+    finally{clearTimeout(timer);controller.abort();for(const permit of permits)deliveryPermits.delete(permit);businessReads.delete(controller);}
   }
   let reviewingShipment = false;
   let shipmentRegistry=null;

@@ -454,7 +454,7 @@ html[data-theme] .orders-page .shipping-timing-badge[data-timing=DELAYED]{backgr
 
 /* Entry: quiet lavender identity, consistent contrast across themes. */
 #entry-screen{--entry-bg:#f1eef8;--entry-paper:#fff;--entry-ink:#30293f;--entry-muted:#716780;--entry-line:#e2dcec;--entry-soft:#f6f3fb;background:radial-gradient(ellipse at 12% 22%,#dfd6f2 0,transparent 48%),radial-gradient(ellipse at 95% 85%,#e6e3f3 0,transparent 46%),var(--entry-bg);color:var(--entry-ink);padding:26px clamp(18px,5vw,64px);gap:12px}
-#entry-screen .entry-brand{visibility:visible;color:var(--entry-ink);min-height:38px}#entry-screen .entry-brand small{color:var(--entry-muted);letter-spacing:0;font-size:12px}#entry-screen .entry-brand>.moaon-logo{color:#8570b7;width:32px;height:32px}
+#entry-screen .entry-brand{visibility:hidden;color:var(--entry-ink);min-height:38px}#entry-screen .entry-brand small{color:var(--entry-muted);letter-spacing:0;font-size:12px}#entry-screen .entry-brand>.moaon-logo{color:#8570b7;width:32px;height:32px}
 #entry-screen .entry-card{width:min(100%,470px);max-width:470px;padding:38px 36px 28px;background:var(--entry-paper);border:1px solid var(--entry-line);border-radius:28px;box-shadow:0 24px 64px #4533590c;margin:10px 0}
 #entry-screen .entry-symbol{width:76px;height:76px;margin:0 auto 20px;border-radius:23px;background:var(--entry-soft);color:#8570b7}#entry-screen .entry-symbol svg{width:55px;height:55px}
 #entry-screen .entry-eyebrow{display:block;font-size:11px;letter-spacing:.12em;color:var(--entry-muted);margin:0 0 12px}#entry-screen .entry-card h1{font-size:28px;line-height:1.4;letter-spacing:-.045em;margin:0 0 14px;color:var(--entry-ink)}#entry-screen .entry-description{font-size:15px;line-height:1.8;color:var(--entry-muted);text-wrap:balance}
@@ -464,4 +464,5 @@ html[data-theme] .orders-page .shipping-timing-badge[data-timing=DELAYED]{backgr
 html[data-theme=dark] #entry-screen{--entry-bg:#24212d;--entry-paper:#302b3b;--entry-ink:#f0ebf8;--entry-muted:#c1b6d0;--entry-line:#484054;--entry-soft:#393243;background:radial-gradient(ellipse at 10% 20%,#372e49 0,transparent 50%),var(--entry-bg)}
 @media(max-height:650px){#entry-screen{padding:14px 20px;gap:6px}#entry-screen .entry-card{padding:24px 28px 18px;margin:0}#entry-screen .entry-symbol{width:56px;height:56px;margin-bottom:12px}#entry-screen .entry-card h1{font-size:25px}#entry-screen .entry-status{margin:16px 0 14px}}@media(max-width:420px){#entry-screen .entry-card{padding:26px 20px}#entry-screen .entry-card h1{font-size:24px}}
 
-body:has(.preview-shell[hidden]) .login-window-drag{color:transparent}
+body:has(.preview-shell[hidden]) .login-window-drag{color:var(--ink);gap:9px;line-height:1.2}
+.login-window-drag .moaon-logo{width:24px;height:24px;flex:none;color:#8570b7}
