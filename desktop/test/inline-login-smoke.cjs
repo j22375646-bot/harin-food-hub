@@ -17,6 +17,7 @@ const assert=require('node:assert/strict'),path=require('node:path'),fs=require(
    for(const item of header.items){assert.ok(item.height>0&&item.top>=0&&item.bottom<=48,'brand must fit above the secure login view');}
    const capture=await app.evaluate(async({BrowserWindow})=>(await BrowserWindow.getAllWindows()[0].capturePage()).toPNG().toString('base64'));
    fs.writeFileSync(path.join(os.tmpdir(),`moaon-login-chrome-${theme}.png`),Buffer.from(capture,'base64'));
+   await page.screenshot({path:path.join(os.tmpdir(),`moaon-login-title-${theme}.png`),clip:{x:0,y:0,width:1040,height:48}});
   }
   const png=await app.evaluate(async()=>{globalThis.inlineTestContents.setBackgroundThrottling(false);await globalThis.inlineTestContents.executeJavaScript("document.getAnimations().forEach(a=>a.finish())");const image=await globalThis.inlineTestContents.capturePage();return image.toPNG().toString('base64');});fs.writeFileSync(path.join(os.tmpdir(),'moaon-inline-login.png'),Buffer.from(png,'base64'));
   await app.evaluate(async()=>{await globalThis.inlineTestContents.executeJavaScript("document.querySelector('form').requestSubmit()");});
