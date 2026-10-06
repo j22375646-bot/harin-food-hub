@@ -25,6 +25,7 @@ const {
   syncCustomerServiceRealtime,
 } = require("../lib/coupang/sync.js");
 const operationQueue = require("../lib/coupang/operation-queue.js");
+const {drainOperations} = require("../lib/coupang/operation-pool.js");
 const coupangActions = require("../lib/coupang/actions.js");
 const naverCommerceProbe = require("../lib/naver-commerce/probe.js");
 const naverCommerceSync = require("../lib/naver-commerce/sync.js");
@@ -492,15 +493,12 @@ async function processOperationRequest(db, request) {
 }
 
 async function processPendingOperations(db) {
-  let processed = 0;
   await expirePendingOperations(db);
-  while (true) {
-    const request = await claimNextOperation(db);
-    if (!request) break;
-    await processOperationRequest(db, request);
-    processed += 1;
-  }
-  return processed;
+  return drainOperations({
+    claim: () => claimNextOperation(db),
+    process: request => processOperationRequest(db, request),
+    concurrency: process.env.EPOST_OPERATION_CONCURRENCY || 2,
+  });
 }
 
 async function processAllPending(db) {
