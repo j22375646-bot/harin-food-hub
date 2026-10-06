@@ -1,4 +1,6 @@
 'use strict';
+let deliveryPreparationBusy=false,deliveryPreparationTimer=null;
+const deliveryPreparationAttempts=new Set();
 
 const sampleOrders = Object.freeze([
   Object.freeze({ id: 'MOAON-S001', customer: '김모아', product: '바삭 김부각 선물세트', option: '3상자 · 샘플', amount: '42,000원', channel: '데모 스토어', status: '상품 준비 전', address: '서울시 중구 샘플로 12 · 가상 주소', note: '문 앞에 놓아주세요 · 샘플 메모' }),
@@ -849,8 +851,8 @@ function renderSelection(){
   renderServerFilterControls();
   const count=selectedOrderIds.size;
   const autoEligible=displayMode==='live'&&count>0&&count<=20&&[...selectedOrderIds].every(id=>displayedOrders.some(order=>orderId(order)===id&&order.issueAndRegisterEligible===true));
-  document.querySelector('#selection-auto-ship').disabled=registrationBusy||!autoEligible;
-  for(const button of detailPanel.querySelectorAll('[data-auto-ship]'))button.disabled=registrationBusy||!displayedOrders.some(order=>orderId(order)===button.dataset.autoShip&&order.issueAndRegisterEligible);
+  document.querySelector('#selection-auto-ship').disabled=registrationBusy||deliveryPreparationBusy||!autoEligible;
+  for(const button of detailPanel.querySelectorAll('[data-auto-ship]'))button.disabled=registrationBusy||deliveryPreparationBusy||!displayedOrders.some(order=>orderId(order)===button.dataset.autoShip&&order.issueAndRegisterEligible);
   const bar=document.querySelector('#order-selection');
   if(bar.parentElement!==document.body)document.body.append(bar);
   installFloatingSelection(bar);
@@ -898,7 +900,7 @@ function renderSelection(){
   if(freshnessReload)freshnessReload.disabled=freshnessReloadBusy||registrationBusy||collectionBusy||collectionShipmentLocks.size>0;
 }
 
-const orderToolsBusy=()=>registrationBusy||collectionBusy||collectionShipmentLocks.size>0||freshnessReloadBusy;
+const orderToolsBusy=()=>deliveryPreparationBusy||registrationBusy||collectionBusy||collectionShipmentLocks.size>0||freshnessReloadBusy;
 function renderGlobalSearch(){const locked=orderToolsBusy()||displayMode!=='live';for(const id of ['order-global-query','order-global-start','order-global-end','order-global-apply','order-global-reset','order-global-export'])document.querySelector(`#${id}`).disabled=locked;const labels=[serverFilters.query?`“${serverFilters.query}”`:'',serverFilters.start?`${serverFilters.start}부터`:'',serverFilters.end?`${serverFilters.end}까지`:''].filter(Boolean);document.querySelector('#order-global-applied').textContent=labels.length?`전체 저장 주문 · ${labels.join(' · ')}`:'전체 저장 주문 · 조건 없음';}
 function renderServerFilterControls(){
   const live=displayMode==='live',busy=orderToolsBusy();
@@ -1080,6 +1082,7 @@ function clearDisplayedOrders(mode, message) {
 }
 
 function applyHubResult(result) {
+  if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){clearTimeout(deliveryPreparationTimer);deliveryPreparationAttempts.clear();const prep=document.getElementById('delivery-prep-status');if(prep)prep.textContent='';}
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status))window.moaonFeedback.orders.reset();
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){historyAutoLoaded=false;historyGeneration++;}
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status))shippingFollowup.clear();
@@ -1123,6 +1126,7 @@ function applyHubResult(result) {
     renderOrders();
     updateConnectionChrome(result.message);
     renderShippingFollowup();
+    scheduleDeliveryPreparation();
     renderFreshness(result.status==='PARTIAL'?'UNAVAILABLE':freshnessChanged?'CHANGED':'CURRENT',result.checkedAt);
     if(!historyAutoLoaded&&!registrationBusy){historyAutoLoaded=true;historyAutoStarting=true;document.querySelector('#server-history-load').click();document.querySelector('#shipping-history-load').click();historyAutoStarting=false;}
     return;
@@ -1747,14 +1751,34 @@ document.getElementById('web-hub-open').addEventListener('click',async()=>{const
 
  document.querySelector('#moaon-invite').addEventListener('click',async()=>{const button=document.querySelector('#moaon-invite'),status=document.querySelector('#moaon-invite-status');button.disabled=true;try{const info=await window.moaonHub.appInfo();if(!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(info?.version||''))throw Error('Version unavailable');const result=await window.moaonHub.copyEventText('모아온에 초대합니다!\nWindows 다운로드: https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable/Moaon-'+info.version+'-Setup.exe\n링크를 누르면 Windows 설치 파일이 다운로드됩니다. 받은 파일을 실행해 설치하세요.\n설치 후 본인 모아온 계정으로 로그인하세요. 사업장 접근 권한은 관리자에게 문의해 주세요.');status.textContent=result?.ok?'초대 안내와 다운로드 링크를 복사했어요. 카카오톡·텔레그램에 붙여넣어 보내세요.':'복사하지 못했어요. 다시 시도해 주세요.';}catch{status.textContent='복사하지 못했어요. 다시 시도해 주세요.';}finally{button.disabled=false;}});
 
-async function prepareSelectedDelivery(){
+const receiverReady=r=>Boolean(r?.name&&r?.address&&r?.contact&&/^\d{5}$/.test(r?.postCode||''));
+const deliveryPreparationKey=o=>JSON.stringify([orderId(o),o.orderedAt,o.details?.externalOrderId,o.details?.receiver]);
+function deliveryPreparationStatus(){
+ let node=document.getElementById('delivery-prep-status');
+ if(!node){node=makeElement('p','delivery-prep-status');node.id='delivery-prep-status';node.setAttribute('role','status');orderList.before(node);}
+ return node;
+}
+function scheduleDeliveryPreparation(){
+ const status=document.getElementById('delivery-prep-status');if(status)status.hidden=selectedScope!=='ACTIVE';
+ clearTimeout(deliveryPreparationTimer);const generation=actionGeneration;
+ deliveryPreparationTimer=setTimeout(()=>{
+  if(generation!==actionGeneration||displayMode!=='live'||selectedScope!=='ACTIVE')return;
+  if(orderToolsBusy()){scheduleDeliveryPreparation();return;}
+  void prepareSelectedDelivery(true);
+ },500);
+}
+document.addEventListener('moaon-session-changed',()=>{clearTimeout(deliveryPreparationTimer);deliveryPreparationAttempts.clear();const status=document.getElementById('delivery-prep-status');if(status)status.textContent='';});
+async function prepareSelectedDelivery(automatic=false){
  if(orderToolsBusy()||displayMode!=='live'||selectedScope!=='ACTIVE')return;
- const ids=[...selectedOrderIds].filter(id=>displayedOrders.some(o=>orderId(o)===id&&['CAFE24','COUPANG'].includes(o.platform)));if(!ids.length||ids.length>20)return;
- const generation=actionGeneration;registrationBusy=true;renderSelection();let cursor=0,done=0,ready=0;
- let status=document.getElementById('delivery-prep-status');if(!status){status=makeElement('p','delivery-prep-status');status.id='delivery-prep-status';status.setAttribute('role','status');document.querySelector('#order-selection').append(status);}
- const update=()=>{if(generation===actionGeneration)status.textContent='배송정보 '+done+'/'+ids.length+'건 확인 · 준비 '+ready+'건 · 동시 최대 3건';};update();
- try{await Promise.all(Array.from({length:Math.min(3,ids.length)},async()=>{while(cursor<ids.length&&generation===actionGeneration){const id=ids[cursor++];try{const r=await window.moaonHub.readDelivery(id);if(r?.status==='READY'&&r.receiver?.name&&r.receiver?.address&&r.receiver?.contact&&/^\d{5}$/.test(r.receiver?.postCode||''))ready++;}catch{}done++;update();}}));}
- finally{registrationBusy=false;renderSelection();}
+ const candidates=displayedOrders.filter(o=>['CAFE24','COUPANG'].includes(o.platform)&&(automatic||selectedOrderIds.has(orderId(o))));
+ const rows=candidates.filter(o=>!automatic||!receiverReady(o.details?.receiver)&&!deliveryPreparationAttempts.has(deliveryPreparationKey(o)));
+ const ids=rows.map(orderId);if(!ids.length||!automatic&&ids.length>20)return;
+ const generation=actionGeneration;deliveryPreparationBusy=true;rows.forEach(o=>{deliveryPreparationAttempts.add(deliveryPreparationKey(o));if(deliveryPreparationAttempts.size>500)deliveryPreparationAttempts.delete(deliveryPreparationAttempts.values().next().value);});renderSelection();let cursor=0,done=0,ready=0;
+ const status=deliveryPreparationStatus();const update=()=>{if(generation===actionGeneration)status.textContent='배송정보 자동 준비 '+done+'/'+ids.length+'건 · 준비 완료 '+ready+'건 · 최대 3건씩 조회';};update();
+ try{await Promise.all(Array.from({length:Math.min(3,ids.length)},async()=>{while(cursor<ids.length&&generation===actionGeneration){const id=ids[cursor++];try{const r=await window.moaonHub.readDelivery(id);if(r?.status==='READY'&&receiverReady(r.receiver))ready++;}catch{}done++;update();}}));}
+ finally{deliveryPreparationBusy=false;renderSelection();}
  if(generation!==actionGeneration)return;
- await recheckShippingSelection();status.textContent='배송정보 '+ready+'/'+ids.length+'건 준비 · '+(ids.length-ready)+'건 확인 필요. 최신 발급 조건을 갱신했습니다.';
+ if(ready>0){await recheckShippingSelection();if(actionGeneration!==generation+1)return;}
+ if(displayMode!=='live')return;
+ status.textContent='배송정보 '+ready+'/'+ids.length+'건 준비 · '+(ids.length-ready)+'건 확인 필요.'+(ready?' 최신 발급 조건을 갱신했습니다.':' 확인이 필요한 주문은 선택 후 배송정보 일괄 준비로 다시 확인하세요.');
 }
