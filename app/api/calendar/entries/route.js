@@ -3,6 +3,7 @@ import apiSafety from '../../../../lib/api/safety.js';
 import supabaseModule from '../../../../lib/cafe24/supabase.js';
 import ownerWorkspace from '../../../../lib/owner-workspace.js';
 import calendarCenter from '../../../../lib/calendar/calendar-center.js';
+import calendarPages from '../../../../lib/calendar/paged-read.js';
 import {revalidatePath} from 'next/cache';
 
 export const runtime='nodejs';
@@ -37,11 +38,10 @@ export async function GET(request){
     const db=supabaseModule.getSupabase();
     const years=Array.from({length:Number(to.slice(0,4))-Number(from.slice(0,4))+1},(_,index)=>Number(from.slice(0,4))+index);
     const [result,holidayResult]=await Promise.all([
-      db.from('hub_work_items').select(ENTRY_FIELDS)
+      calendarPages.readCalendarPages((start,end)=>db.from('hub_work_items').select(ENTRY_FIELDS,{count:'exact'})
       .eq('context_href','/calendar').neq('status','ARCHIVED')
-      .gte('due_at',new Date(`${calendarCenter.addDays(from,-366)}T00:00:00+09:00`).toISOString())
       .lt('due_at',new Date(`${calendarCenter.addDays(to,1)}T00:00:00+09:00`).toISOString())
-      .order('due_at',{ascending:true}).limit(500),
+      .order('due_at',{ascending:true}).order('id',{ascending:true}).range(start,end),calendarCenter.decorateEntry,from,to),
       db.from('shipping_reference_snapshots')
         .select('provider,status,reference_year,source_data,fetched_at')
         .eq('provider','HOLIDAY_CALENDAR').eq('status','SUCCESS').in('reference_year',years)
@@ -49,10 +49,14 @@ export async function GET(request){
     ]);
     if(result.error)throw result.error;
     if(holidayResult.error)console.error('[calendar holiday read]',holidayResult.error);
-    const entries=(result.data||[]).map(calendarCenter.decorateEntry)
-      .filter(item=>item.date<=to&&(item.endDate||item.date)>=from);
+    const entries=result.entries;
+    let planningReminders=[],planningRemindersReady=false;
+    if(from===to){try{const tools=(await import('../../../../desktop/ui/event-tools.js')).default;const r=await db.from('hub_work_items').select(ENTRY_FIELDS,{count:'exact'}).eq('context_href','/calendar').eq('status','OPEN').like('context_label','캘린더 이벤트%').gte('due_at',new Date(`${calendarCenter.addDays(from,-366)}T00:00:00+09:00`).toISOString()).order('due_at',{ascending:true}).order('id',{ascending:true}).limit(500);
+      if(!r.error&&Number.isInteger(r.count)&&r.count<=500&&r.data?.length===r.count){planningReminders=r.data.flatMap(raw=>{const row=calendarCenter.decorateEntry(raw);return tools.reminders(row,from).map(v=>({...v,title:row.title}));});planningRemindersReady=true;}
+    }catch{}}
+
     const holidayCalendar=calendarCenter.buildHolidayCalendar({snapshots:holidayResult.error?[]:(holidayResult.data||[]),from,to});
-    return apiSafety.json({ok:true,entries,holidays:holidayCalendar.holidays,holidayReady:holidayCalendar.ready,holidayMissingYears:holidayCalendar.missingYears,range:{from,to},generatedAt:new Date().toISOString()});
+    return apiSafety.json({ok:true,entries,planningReminders,planningRemindersReady,complete:result.complete,holidays:holidayCalendar.holidays,holidayReady:holidayCalendar.ready,holidayMissingYears:holidayCalendar.missingYears,range:{from,to},generatedAt:new Date().toISOString()});
   }catch(error){
     const status=error instanceof calendarCenter.CalendarInputError?error.status:500;
     if(status===500)console.error('[calendar read]',error);
@@ -68,8 +72,9 @@ export async function POST(request){
     const db=supabaseModule.getSupabase();
     let result;
     if(action==='CREATE_ENTRY'||action==='UPDATE_ENTRY'){
-      const entry=calendarCenter.normalizeEntryInput(body);
-      if(action==='UPDATE_ENTRY')await calendarItem(db,body.id);
+      const previous=action==='UPDATE_ENTRY'?calendarCenter.decorateEntry(await calendarItem(db,body.id)):null;
+      // Older clients do not know planning fields; preserve platform scoping on edits.
+      const entry=calendarCenter.normalizeEntryInput({...body,...(previous?.type==='EVENT'&&body.type==='EVENT'?{platforms:body.platforms??previous.platforms,plan:body.plan??previous.plan,campaign:body.campaign??previous.campaign,execution:body.execution??previous.execution}:{})});
       result=await ownerWorkspace.mutateWorkspace(db,{
         action:action==='CREATE_ENTRY'?'CREATE_ITEM':'UPDATE_ITEM',id:body.id,
         itemType:entry.type==='MEMO'?'NOTE':'TASK',title:entry.title,body:entry.type==='EVENT'?calendarCenter.encodeEventBody(entry):entry.body,priority:entry.priority,

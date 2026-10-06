@@ -18,15 +18,15 @@ test('23-8 keeps route loading isolated while login owns its Phase 28 stylesheet
   assert.match(loading,/harin-entry-v8\.css/);
 });
 
-test('16-2 keeps password-only owner login inside the split welcome layout',()=>{
+test('16-2 keeps equal-account login inside the split welcome layout',()=>{
   const login=read('app/login/page.js');
   const form=read('app/login/login-form.js');
   assert.match(login,/className=\{styles\.loginHero\}/);
   assert.match(login,/className=\{styles\.loginAccess\}/);
   assert.match(form,/action="\/api\/dashboard\/login" method="post"/);
-  assert.match(form,/name="password"[\s\S]*type="password"[\s\S]*inputMode="numeric"[\s\S]*pattern="\[0-9\]\{6\}"/);
+  assert.match(form,/name="password"[\s\S]*type="password"[\s\S]*inputMode="numeric"[\s\S]*pattern=\{/);
   assert.match(login,/nextPath\.startsWith\('\/'\)&&!nextPath\.startsWith\('\/\/'\)/);
-  assert.doesNotMatch(`${login}\n${form}`,/name="(?:account|username|email)"/);
+  assert.doesNotMatch(`${login}\n${form}`,/name="(?:username|email)"/);
 });
 
 test('Phase 28 login opens with the Harin Daily Desk operating line and responsive accessible motion',()=>{

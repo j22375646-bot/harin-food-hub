@@ -1,35 +1,70 @@
 'use strict';
+const {createStockTransport,STOCK_URL}=require('./stock-transport.cjs');
 
 const {
   HARIN_ORIGIN,
   LOGIN_URL,
   ORDER_SCOPES,
+  ORDER_CHANNELS,
   READONLY_PARTITION,
   buildOrdersPageUrl,
   buildOrdersScopeUrl,
+  buildOrdersExportUrl,
+  validSearch,
   isAllowedRemoteRequest,
   isTrustedRenderer,
 } = require('./connection-policy.cjs');
 
 const MAX_RESPONSE_BYTES = 5 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 15_000;
+const FRESHNESS_INTERVAL_MS = 60_000;
 const PAGE_SIZE = 20;
 const SNAPSHOT_PATTERN = /^[0-9a-f]{64}$/;
 const EMPTY_ORDERS = Object.freeze([]);
 const {createShipmentRegistry}=require('./shipment-registry.cjs');
 const {createShipmentTransport}=require('./shipment-transport.cjs');
 const {createBusinessTransport}=require('./business-transport.cjs');
+const {createCredentialTransport,validCredentialInput}=require('./credential-transport.cjs');
+const {createFinanceTransport}=require('./finance-transport.cjs');
+const {createSettlementTransport,settlementUrl}=require('./settlement-transport.cjs');
+const {createAssistantTransport,ASSISTANT_URL}=require('./assistant-transport.cjs');
+const {createInsightsTransport,INSIGHTS_URL}=require('./insights-transport.cjs');
+const {createInsightAiTransport,INSIGHT_AI_URL,METHODS:INSIGHT_AI_METHODS}=require('./insight-ai-transport.cjs');
+const {validCommand:validInsightAiCommand,empty:emptyInsightAi}=require('./insight-ai-contract.cjs');
+const {createMarketAiTransport,MARKET_AI_URL,METHODS:MARKET_AI_METHODS}=require('./market-ai-transport.cjs');
+const {createGeneralChatTransport,GENERAL_CHAT_URL,METHODS:GENERAL_CHAT_METHODS}=require('./general-chat-transport.cjs');
+const {validCommand:validGeneralChatCommand,empty:emptyGeneralChat}=require('./general-chat-contract.cjs');
+const {validCommand:validMarketAiCommand,empty:emptyMarketAi}=require('./market-ai-contract.cjs');
+const {createCsTransport,CS_URL}=require('./cs-transport.cjs');
+const {createInventoryTransport,INVENTORY_URL}=require('./inventory-transport.cjs');
+const {createOrderCollection}=require('./order-collection.cjs');
+const {createShippingActionJournal,readShippingHistory}=require('./shipping-action-journal.cjs');
 const {projectVisual}=require('./order-visual.cjs');
 const {createHash}=require('node:crypto');
+const {validDocumentIds,renderSelectedCsv}=require('./selected-documents.cjs');
 // Private identity-bound fingerprint, never included in IPC payloads or logs.
 const shipmentFingerprints=new WeakMap();
 const labelReceivers=new WeakMap();
+const deliveryTargets=new WeakMap();
+const workflowFingerprints=new WeakMap();
+const worklistOrders=new WeakMap();
+const REGISTRATION_URL=`${HARIN_ORIGIN}/api/shipping/actions`;
+function validRegistrationIds(ids){return Array.isArray(ids)&&ids.length>0&&ids.length<=20&&ids.every(id=>typeof id==='string'&&/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id))&&new Set(ids).size===ids.length;}
+function canRegister(order,partial){
+  return partial===false&&['CAFE24','COUPANG'].includes(order?.platform)&&order.fulfillment==='SELLER'
+    &&(order.platform==='CAFE24'?/^HR-C24-[A-F0-9]{8}$/:/^HR-CP-[A-F0-9]{8}$/).test(order.hubOrderId)
+    &&order.shippingEligible===true&&order.shippingHistoryStatus==='READY'&&order.cancelled===false&&order.cancellationRequested===false
+    &&['PAID','PREPARING','READY_TO_SHIP'].includes(order.stage)&&typeof order.externalOrderId==='string'&&order.externalOrderId.length>0
+    &&(order.platform!=='COUPANG'||typeof order.shipmentId==='string'&&order.shipmentId.length>0)
+    &&order.invoice?.status==='ISSUED'&&typeof order.invoice.number==='string'&&/^\d{13}$/.test(order.invoice.number);
+}
 
 const STATUS_MESSAGES = Object.freeze({
   READY: '저장된 주문을 조회했습니다.',
   PARTIAL: '일부 채널 자료를 확인하지 못했습니다. 표시된 저장 주문만 확인하세요.',
   LOGIN_REQUIRED: '하린식품 로그인이 필요합니다.',
   FORBIDDEN: '이 계정으로 주문을 조회할 권한이 없습니다.',
+  SERVER_DISABLED: '모아온 서버가 사용 중지되었습니다(HTTP 402). 관리자에게 Vercel 결제·사용량 상태 확인을 요청해 주세요. 저장된 로그인은 유지됩니다.',
   UNAVAILABLE: '주문 조회를 완료하지 못했습니다. 잠시 후 다시 확인하세요.',
   DISCONNECTED: '하린식품 연결을 해제했습니다.',
   LOGIN_OPEN: '하린식품 로그인 창에서 로그인을 완료하세요.',
@@ -59,11 +94,19 @@ function safeFiniteNumber(value) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function projectReceiver(order){
+ const raw=order?.receiver||{},result=Object.fromEntries(['name','contact','postCode','address','addressDetail','message'].map(key=>[key,safeString(raw[key]).trim()]));
+ result.postCode=['postCode','zipCode','zipcode','zip_code','post_code','postalCode','postal_code'].map(key=>safeString(raw[key]).trim()).find(value=>/^\d{5}$/.test(value))||'';
+ // Naver sync explicitly stores zipCode + baseAddress + detailedAddress in this field.
+ if(order?.platform==='NAVER'&&!result.postCode){const match=result.address.match(/^(\d{5})\s+((?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충청|충북|충남|전라|전북|전남|경상|경북|경남|제주)[\s\S]*)$/);if(match){result.postCode=match[1];result.address=match[2];}}
+ return Object.freeze(result);
+}
 function projectOrderDetails(order) {
   const invoice = order?.invoice;
   const delivery = order?.listDeliveryBadge;
   return Object.freeze({
     externalOrderId: safeString(order?.externalOrderId),
+    receiver: projectReceiver(order),
     items: Object.freeze((Array.isArray(order?.items) ? order.items.slice(0, 8) : []).map(item => Object.freeze({
       name: safeString(item?.name),
       option: safeString(item?.option),
@@ -105,8 +148,9 @@ function projectPreflight(order, partial) {
   if (!safeString(receiver?.name).trim() || !safeString(receiver?.address).trim()
     || !/^\d{5}$/.test(typeof receiver?.postCode === 'string' ? receiver.postCode : '') || !/^\d{9,12}$/.test(contact)) codes.push('DELIVERY_INFO');
   if (!Number.isSafeInteger(order?.quantity) || order.quantity <= 0) codes.push('QUANTITY');
+  if (order?.platform==='COUPANG'&&order?.fulfillment==='SELLER'&&!(typeof order.shipmentId==='string'&&order.shipmentId.trim())) codes.push('SHIPMENT_ID');
   if (partial) codes.push('PARTIAL');
-  return Object.freeze({ status: blocked ? 'BLOCKED' : ['NAVER','COUPANG_ROCKET'].includes(route) ? 'EXTERNAL' : codes.length ? 'CHECK_REQUIRED' : 'REVIEW_ONLY', route, codes:Object.freeze(codes) });
+  return Object.freeze({ status: blocked ? 'BLOCKED' : ['NAVER','COUPANG_ROCKET'].includes(route) ? 'EXTERNAL' : codes.length ? 'CHECK_REQUIRED' : 'REVIEW_ONLY', route, codes:Object.freeze(codes),...(codes.includes('SERVER_CHECK')&&typeof order?.shippingBlockedReason==='string'&&order.shippingBlockedReason.trim()?{serverReason:order.shippingBlockedReason.trim().slice(0,500)}:{}) });
 }
 
 function projectOrdersPayload(payload, checkedAt, options = {}) {
@@ -136,6 +180,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     || typeof payload.partial !== 'boolean'
     || typeof checkedAt !== 'string'
     || !ORDER_SCOPES.includes(scope)
+    || (options.requireSearchContract&&(payload.searchContractVersion !== 1||!validSearch(payload.appliedSearch)||['query','start','end'].some(key=>payload.appliedSearch[key]!==options.expectedSearch?.[key])))
   ) {
     throw new Error('Invalid orders payload');
   }
@@ -151,12 +196,18 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     orderedAt: order?.orderedAt === null ? null : safeString(order?.orderedAt),
     details: projectOrderDetails(order),
     preflight: projectPreflight(order, payload.partial),
+    registrationEligible: canRegister(order,payload.partial),
+    issueAndRegisterEligible: canRegister(order,payload.partial)||(projectPreflight(order,payload.partial).status==='REVIEW_ONLY'&&order?.fulfillment==='SELLER'&&['CAFE24','COUPANG'].includes(order?.platform)&&(order.platform!=='COUPANG'||typeof order.shipmentId==='string'&&order.shipmentId.length>0)),
     ...(projectVisual(order)?{visual:projectVisual(order)}:{}),
     });
     const inputs={};
-    for(const key of ['hubOrderId','platform','fulfillment','externalOrderId','shipmentId','productName','quantity','items','receiver','invoiceNumber','issuedInvoiceNumber','invoice','stage','cancelled','cancellationRequested'])inputs[key]=order?.[key]??null;
+    for(const key of ['hubOrderId','platform','fulfillment','externalOrderId','shipmentId','productName','quantity','amount','items','packagingInstructions','gifts','receiver','invoiceNumber','issuedInvoiceNumber','invoice','stage','cancelled','cancellationRequested'])inputs[key]=order?.[key]??null;
     shipmentFingerprints.set(projected,createHash('sha256').update(JSON.stringify(inputs)).digest('hex'));
+    worklistOrders.set(projected,{hubOrderId:projected.hubOrderId,platform:projected.platform,externalOrderId:safeString(order?.externalOrderId),productName:projected.productName,stage:projected.stage,amount:projected.amount,items:order?.items,packagingInstructions:order?.packagingInstructions,gifts:order?.gifts,receiver:projected.details.receiver,invoice:projected.details.invoice});
+    const stable={};for(const key of ['hubOrderId','platform','fulfillment','externalOrderId','shipmentId','productName','quantity','items','receiver'])stable[key]=order?.[key]??null;
+    workflowFingerprints.set(projected,createHash('sha256').update(JSON.stringify(stable)).digest('hex'));
     labelReceivers.set(projected,Object.freeze({...order?.receiver}));
+    if(order?.platform==='COUPANG'&&order.fulfillment==='SELLER'&&typeof order.shipmentId==='string'&&/^\d{1,30}$/.test(order.shipmentId))deliveryTargets.set(projected,order.shipmentId);
     return projected;
   }));
   const partial = payload.partial;
@@ -172,6 +223,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     partial,
     message: STATUS_MESSAGES[partial ? 'PARTIAL' : 'READY'],
     scope,
+    ...(validSearch(payload.appliedSearch)?{search:Object.freeze({query:payload.appliedSearch.query,start:payload.appliedSearch.start,end:payload.appliedSearch.end})}:{}),
   });
 }
 
@@ -215,9 +267,25 @@ async function readBoundedJson(response, abortController) {
   }
   return JSON.parse(new TextDecoder().decode(body));
 }
+async function readBoundedBytes(response,abortController,limit){
+  const declared=Number(response.headers?.get?.('content-length'));if(Number.isFinite(declared)&&declared>limit){abortController.abort();throw Error('Response exceeds limit');}
+  const reader=response.body?.getReader?.();if(!reader)throw Error('Body');const chunks=[];let size=0;
+  const stopped=new Promise((_,reject)=>abortController.signal.addEventListener('abort',()=>{void reader.cancel().catch(()=>{});reject(Error('Stopped'));},{once:true}));
+  try{while(true){const {done,value}=await Promise.race([reader.read(),stopped]);if(done)break;size+=value.byteLength;if(size>limit){abortController.abort();await reader.cancel().catch(()=>{});throw Error('Response exceeds limit');}chunks.push(value);}}finally{reader.releaseLock?.();}
+  const bytes=Buffer.alloc(size);let offset=0;for(const chunk of chunks){Buffer.from(chunk).copy(bytes,offset);offset+=chunk.byteLength;}return bytes;
+}
+function validXlsxPackage(bytes){
+  if(!Buffer.isBuffer(bytes)||bytes.length<22||bytes.readUInt32LE(0)!==0x04034b50)return false;
+  let eocd=-1;for(let i=bytes.length-22;i>=Math.max(0,bytes.length-65557);i--)if(bytes.readUInt32LE(i)===0x06054b50){eocd=i;break;}if(eocd<0)return false;
+  const count=bytes.readUInt16LE(eocd+10),offset=bytes.readUInt32LE(eocd+16),names=new Set();let cursor=offset;
+  for(let i=0;i<count;i++){if(cursor+46>bytes.length||bytes.readUInt32LE(cursor)!==0x02014b50)return false;const nameLength=bytes.readUInt16LE(cursor+28),extraLength=bytes.readUInt16LE(cursor+30),commentLength=bytes.readUInt16LE(cursor+32);if(cursor+46+nameLength>bytes.length)return false;names.add(bytes.subarray(cursor+46,cursor+46+nameLength).toString('utf8'));cursor+=46+nameLength+extraLength+commentLength;}
+  return names.has('[Content_Types].xml')&&names.has('xl/workbook.xml');
+}
 
 function createHubConnection({
   BrowserWindow,
+  LoginHost=BrowserWindow,
+  onTeamSnapshot=()=>{},
   session,
   getMainWindow,
   now = () => new Date(),
@@ -226,12 +294,19 @@ function createHubConnection({
   finishCleanup = () => {},
   initialCleanupPending = false,
   showShipmentReview = null,
+  onShippingProgress = () => {},
   shipmentDirectory = null,
   labelPreview = null,
+  selectedDocuments = null,
+  worklistPreview = null, stockReceiptPreview = null,
+  saveOrderExport = null,
+  automaticPollDelayMs = 1000,
+  automaticTimeoutMs = 60000,
 }) {
   if (!BrowserWindow || !session || typeof getMainWindow !== 'function') {
     throw new TypeError('Hub connection dependencies are required');
   }
+  if(!Number.isSafeInteger(automaticPollDelayMs)||automaticPollDelayMs<0||automaticPollDelayMs>2000||!Number.isSafeInteger(automaticTimeoutMs)||automaticTimeoutMs<1||automaticTimeoutMs>60000)throw new TypeError('Invalid automatic workflow timing');
 
   let remoteSession = null;
   let policyInstalled = false;
@@ -242,8 +317,210 @@ function createHubConnection({
   let disconnecting = null;
   let cleanupFailed = initialCleanupPending;
   let generation = 0;
+  let credentialPermit=null;
+  function invalidateGeneration(){generation+=1;credentialTransport.cancel();credentialPermit=null;cancelInsightAi();cancelMarketAi();cancelGeneralChat();}
+  const credentialTransport=createCredentialTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options),authorize:options=>listBusinesses(options),permit:value=>{credentialPermit=value;},blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive()),timeoutMs:Math.min(timeoutMs*2,30000)});
+  const readCredentialMetadata=value=>credentialTransport.read(value),saveServerCredential=value=>credentialTransport.save(value);
   let pageCursor = null;
   let currentScope = 'ACTIVE';
+  let currentChannel = 'ALL';
+  let currentFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});
+  let exportPermit=null,exportWork=null;
+  let loadedOrders=EMPTY_ORDERS;
+  let freshnessRead=null;
+  let freshnessLastAt=-Infinity;
+  let freshnessLastIdentity=null;
+  let freshnessLastResult=null;
+  const registrationAttempts=new Set();
+  let registrationController=null;
+  let registrationRequestActive=false;
+  let automaticController=null;
+  const automaticPermits=new Map();let automaticPosts=0;
+  const deliveryPermits=new Set();
+  let serverHistoryRequestActive=false;
+  let trackingController=null;
+  let trackingRequestMethod=null;
+  let automaticTrackingRequests=0;
+  let collectionPermit=null;
+  const collection=createOrderCollection({authorize:verifyShipmentSession,fetch:(url,options)=>getRemoteSession().fetch(url,options),readJson:readBoundedJson,
+    permit:(url,method)=>{collectionPermit=method?{url,method}:null;},timeoutMs:Math.min(timeoutMs*3,45000),
+    blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive()||registrationController||automaticController||reviewingShipment),
+  });
+  let collectionWorkActive=false;
+  async function runCollection(check){if(collectionWorkActive)return {status:'BUSY'};collectionWorkActive=true;try{return await collection[check?'check':'collect']();}finally{collectionWorkActive=false;}}
+  const collectOrders=()=>runCollection(false),checkOrderCollection=()=>runCollection(true);
+  let backgroundCollectionState=null,backgroundCollectionAt=0;
+  const backgroundCollection=createOrderCollection({authorize:verifyShipmentSession,fetch:(url,options)=>getRemoteSession().fetch(url,options),readJson:readBoundedJson,
+    permit:(url,method)=>{collectionPermit=method?{url,method}:null;},timeoutMs:Math.min(timeoutMs*3,45000),
+    blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive()||registrationController||automaticController||reviewingShipment)});
+  async function collectBackgroundOrders(){
+    if(collectionWorkActive)return {status:'BUSY'};collectionWorkActive=true;
+    try{
+      // Collection only reads channel data. An uncertain job is checked for ten minutes
+      // before a fresh read request; never reset the user's manual collection state.
+      if(backgroundCollectionState&&backgroundCollectionState.status!=='BUSY'&&(backgroundCollectionState.canCollect||Date.now()-backgroundCollectionAt>600000))backgroundCollectionState=null;
+      if(!backgroundCollectionState){backgroundCollection.reset();backgroundCollectionAt=Date.now();}
+      backgroundCollectionState=await (backgroundCollectionState?.canCheck?backgroundCollection.check():backgroundCollection.collect());
+      return backgroundCollectionState;
+    }finally{collectionWorkActive=false;}
+  }
+  let backgroundCsActive=false,backgroundCsPermit=false;
+  async function collectBackgroundCs(){
+    if(backgroundCsActive||disconnecting||cleanupFailed||isLoginWindowActive()||registrationController||automaticController||reviewingShipment)return {status:'BUSY'};
+    backgroundCsActive=true;const expected=generation,controller=new AbortController(),timer=setTimeout(()=>controller.abort(),Math.min(timeoutMs*8,120000));businessReads.add(controller);
+    try{
+      const auth=await verifyShipmentSession();if(!['READY','PARTIAL'].includes(auth)||expected!==generation||controller.signal.aborted)return {status:'LOGIN_REQUIRED'};
+      backgroundCsPermit=true;
+      const response=await getRemoteSession().fetch(HARIN_ORIGIN+'/api/customer-service/sync',{method:'POST',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal,headers:{'Content-Type':'application/json',Origin:HARIN_ORIGIN},body:'{}'});
+      const body=await readBoundedJson(response,controller);
+      if(expected!==generation||controller.signal.aborted)return {status:'CANCELLED'};
+      return {status:[200,202].includes(response.status)&&body?.ok===true?'QUEUED':'CHECK_REQUIRED'};
+    }catch{return {status:'CHECK_REQUIRED'};}finally{clearTimeout(timer);businessReads.delete(controller);backgroundCsPermit=false;backgroundCsActive=false;}
+  }
+  async function readBackgroundOrders(){
+    if(disconnecting||cleanupFailed||isLoginWindowActive())return {status:'LOGIN_REQUIRED',items:[]};
+    const expected=generation,controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);businessReads.add(controller);
+    try{const items=[];let offset=0,snapshot=null;
+      for(let page=0;page<5;page++){
+        const url=offset?buildOrdersPageUrl(offset,snapshot,'ACTIVE','ALL'):buildOrdersScopeUrl('ACTIVE','ALL');
+        const response=await getRemoteSession().fetch(url,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
+        if(response.status!==200)return {status:response.status===401?'LOGIN_REQUIRED':'UNAVAILABLE',items:[]};
+        const payload=await readBoundedJson(response,controller),result=projectOrdersPayload(payload,now().toISOString(),{requestedOffset:offset,expectedSnapshot:snapshot});
+        if(expected!==generation||controller.signal.aborted||result.status!=='READY')return {status:'UNAVAILABLE',items:[]};
+        items.push(...result.orders.map(r=>({id:r.hubOrderId,at:r.orderedAt,platform:r.platform})));
+        if(payload.nextOffset===null)return {status:'READY',items};offset=payload.nextOffset;snapshot=payload.snapshot;
+      }
+      return {status:'READY',items,truncated:true};
+    }catch{return {status:'UNAVAILABLE',items:[]};}finally{clearTimeout(timer);businessReads.delete(controller);}
+  }
+  async function enqueueRegisteredTracking(row,approved,controller,alive){
+    const id=row?.hubOrderId;
+    if(!alive()||controller.signal.aborted||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id||'')
+      ||row.platform!==(id.startsWith('HR-C24-')?'CAFE24':'COUPANG')
+      ||row.preflight.route!=='HUB'||row.preflight.codes.some(code=>['PARTIAL','ORDER_ID','ROUTE_UNKNOWN'].includes(code))
+      ||row.details.cancelled!==false||row.details.cancellationRequested!==false||row.stage==='CANCELLED'
+      ||row.details.invoice?.status!=='REGISTERED'||row.details.invoice.number!==approved.details.invoice?.number
+      ||workflowFingerprints.get(row)!==workflowFingerprints.get(approved))return 'CHECK_REQUIRED';
+    const local=new AbortController(),stop=()=>local.abort();let timer;
+    controller.signal.addEventListener('abort',stop,{once:true});
+    automaticTrackingRequests++;
+    try{
+      const stopped=new Promise(resolve=>{local.signal.addEventListener('abort',()=>resolve('CHECK_REQUIRED'),{once:true});timer=setTimeout(stop,timeoutMs);});
+      return await Promise.race([(async()=>{
+        const response=await getRemoteSession().fetch(`${HARIN_ORIGIN}/api/shipping/tracking`,{method:'POST',credentials:'include',cache:'no-store',redirect:'error',signal:local.signal,headers:{'Content-Type':'application/json',Origin:HARIN_ORIGIN},body:JSON.stringify({orderIds:[id],mode:'automatic'})});
+        if(!alive()||local.signal.aborted||![200,202].includes(response.status))return 'CHECK_REQUIRED';
+        const payload=await readBoundedJson(response,local),queued=payload?.queued?.[0];
+        return alive()&&!local.signal.aborted&&payload?.ok===true&&Array.isArray(payload.queued)&&payload.queued.length===1
+          &&queued?.trackingNo===row.details.invoice.number&&Array.isArray(queued.hubOrderIds)&&queued.hubOrderIds.includes(id)
+          &&['PENDING','RUNNING','SUCCESS'].includes(queued.status)?'PENDING':'CHECK_REQUIRED';
+      })(),stopped]);
+    }catch{return 'CHECK_REQUIRED';}
+    finally{clearTimeout(timer);controller.signal.removeEventListener('abort',stop);local.abort();automaticTrackingRequests--;}
+  }
+  function trackingRow(id){
+    if(typeof id!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id)||loadedOrders.length>20)return null;
+    const rows=loadedOrders.filter(row=>row.hubOrderId===id);
+    const row=rows[0];
+    return rows.length===1&&row.preflight.route==='HUB'&&!row.preflight.codes.includes('ROUTE_UNKNOWN')&&!row.preflight.codes.includes('ORDER_ID')
+      &&row.platform===(id.startsWith('HR-C24-')?'CAFE24':'COUPANG')
+      &&row.details.cancelled===false&&row.details.cancellationRequested===false&&row.stage!=='CANCELLED'
+      &&row.details.invoice?.status==='REGISTERED'?row:null;
+  }
+  const trackingUnknown=()=>({status:'READY',state:{status:'CHECK_REQUIRED',checkedAt:null}});
+  function readTracking(id){return performTracking(id,'GET');}
+  async function refreshTracking(id){
+    const result=await performTracking(id,'POST');
+    return result.status==='PENDING'?result:{status:'CHECK_REQUIRED'};
+  }
+  async function performTracking(id,method){
+    const initial=trackingRow(id);
+    if(!initial||trackingController||activeRead||registrationController||automaticController||findingOrder||disconnecting||cleanupFailed||isLoginWindowActive())return trackingUnknown();
+    const expected=generation,controller=new AbortController();let timer;
+    trackingController=controller;businessReads.add(controller);
+    const alive=()=>expected===generation&&!controller.signal.aborted&&!disconnecting&&!cleanupFailed&&!isLoginWindowActive();
+    try{
+      const operation=(async()=>{
+        const auth=await recheckPage();
+        const row=trackingRow(id);
+        if(!alive()||auth.status!=='READY'||!row||row.details.invoice.number!==initial.details.invoice.number||workflowFingerprints.get(row)!==workflowFingerprints.get(initial))return trackingUnknown();
+        trackingRequestMethod=method;
+        const response=await getRemoteSession().fetch(`${HARIN_ORIGIN}/api/shipping/tracking`,{method,credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal,...(method==='POST'?{headers:{'Content-Type':'application/json',Origin:HARIN_ORIGIN},body:JSON.stringify({orderIds:[id],mode:'manual'})}:{})});
+        if(!alive()||!loadedOrders.includes(row)||![200,...(method==='POST'?[202]:[])].includes(response.status))return trackingUnknown();
+        const payload=await readBoundedJson(response,controller);
+        if(method==='POST'){
+          if(!alive()||!loadedOrders.includes(row)||payload?.ok!==true||!Array.isArray(payload.queued)||payload.queued.length!==1)return trackingUnknown();
+          const queued=payload.queued[0];
+          return queued?.trackingNo===row.details.invoice.number&&Array.isArray(queued.hubOrderIds)&&queued.hubOrderIds.includes(id)&&['PENDING','RUNNING','SUCCESS'].includes(queued.status)?{status:'PENDING'}:trackingUnknown();
+        }
+        if(!alive()||!loadedOrders.includes(row)||payload?.ok!==true||!Array.isArray(payload.states)||payload.states.length>1000)return trackingUnknown();
+        const matches=payload.states.filter(state=>state?.hubOrderId===id&&state.trackingNo===row.details.invoice.number);
+        if(matches.length!==1)return trackingUnknown();
+        const state=matches[0];
+        if(['QUEUED','PENDING','RUNNING'].includes(state.status))return {status:'READY',state:{status:'PENDING',checkedAt:null}};
+        const checkedAt=typeof state.checkedAt==='string'&&/^\d{4}-\d\d-\d\dT/.test(state.checkedAt)&&Number.isFinite(Date.parse(state.checkedAt))?new Date(state.checkedAt).toISOString():null;
+        const status={ACCEPTED:'WAITING',NOT_FOUND:'WAITING',WAITING:'WAITING',IN_TRANSIT:'IN_TRANSIT',DELIVERED:'DELIVERED'}[state.statusCode];
+        if(state.status!=='SUCCESS'||!checkedAt||!['WAITING','IN_TRANSIT','DELIVERED'].includes(status))return trackingUnknown();
+        return {status:'READY',state:{status,checkedAt}};
+      })();
+      return await Promise.race([operation,new Promise(resolve=>{timer=setTimeout(()=>{controller.abort();resolve(trackingUnknown());},timeoutMs);}),new Promise(resolve=>controller.signal.addEventListener('abort',()=>resolve(trackingUnknown()),{once:true}))]);
+    }catch{return trackingUnknown();}
+    finally{clearTimeout(timer);trackingRequestMethod=null;businessReads.delete(controller);if(trackingController===controller)trackingController=null;}
+  }
+  const deliveryReads=new Map(),deliveryJobs=new WeakMap();
+  function readDelivery(id){
+    const row=loadedOrders.find(order=>order.hubOrderId===id);
+    if(deliveryReads.has(row))return deliveryReads.get(row);
+    const work=performReadDelivery(id).finally(()=>deliveryReads.delete(row));
+    deliveryReads.set(row,work);return work;
+  }
+  async function performReadDelivery(id){
+    const row=loadedOrders.find(order=>order.hubOrderId===id);
+    if(disconnecting||cleanupFailed||!row)return {status:'UNAVAILABLE'};
+    if(row.details.receiver.name&&row.details.receiver.address&&row.details.receiver.contact&&/^\d{5}$/.test(row.details.receiver.postCode))return {status:'READY',receiver:row.details.receiver};
+    const shipmentId=deliveryTargets.get(row);
+    const coupang=row.platform==='COUPANG'&&/^HR-CP-[A-F0-9]{8}$/.test(id)&&shipmentId;
+    if(!coupang&&(row.platform!=='CAFE24'||!/^HR-C24-[A-F0-9]{8}$/.test(id)||!/^[-A-Za-z0-9_]{1,80}$/.test(row.details.externalOrderId)))return {status:'CHECK_REQUIRED'};
+    const expected=generation,controller=new AbortController();businessReads.add(controller);
+    const url=`${HARIN_ORIGIN}/api/cafe24/orders/delivery-detail?orderId=${encodeURIComponent(row.details.externalOrderId)}`;
+    const permits=new Set();let timer;
+    const get=async target=>{
+      if(controller.signal.aborted||expected!==generation||!loadedOrders.includes(row))throw Error('Stale delivery read');
+      permits.add(target);deliveryPermits.add(target);
+      return getRemoteSession().fetch(target,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
+    };
+    try{
+      const operation=(async()=>{
+        if(coupang){
+          let job=deliveryJobs.get(row);
+          if(!job){
+            const queued=await get(`${HARIN_ORIGIN}/api/coupang/orders/detail?shipmentBoxId=${shipmentId}`);
+            if(![200,202].includes(queued.status))return {status:'CHECK_REQUIRED'};
+            const payload=await readBoundedJson(queued,controller);job=payload?.request?.id;
+            if(payload?.ok!==true||typeof job!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(job))return {status:'CHECK_REQUIRED'};
+            deliveryJobs.set(row,job);
+          }
+          for(let attempt=0;attempt<45;attempt++){
+            const response=await get(`${HARIN_ORIGIN}/api/coupang/operations/${job}`);
+            if(response.status===202){await new Promise(resolve=>setTimeout(resolve,1000));continue;}
+            if(response.status!==200)return {status:'CHECK_REQUIRED'};
+            const payload=await readBoundedJson(response,controller);
+            if(payload?.ok!==true||payload.order?.shipmentBoxId!==shipmentId||!payload.order?.receiver)return {status:'CHECK_REQUIRED'};
+            const receiver=projectOrderDetails({receiver:{...payload.order.receiver,contact:payload.order.receiver.safeNumber||payload.order.receiver.contact}}).receiver;
+            return receiver.name&&receiver.address?{status:'READY',receiver}:{status:'CHECK_REQUIRED'};
+          }
+          return {status:'PENDING'};
+        }
+        const response=await get(url);
+        if(response.status!==200)return {status:'CHECK_REQUIRED'};
+        const payload=await readBoundedJson(response,controller);
+        if(payload?.ok!==true||!payload.receiver)return {status:'CHECK_REQUIRED'};
+        return {status:'READY',receiver:projectOrderDetails({receiver:payload.receiver}).receiver};
+      })();
+      const result=await Promise.race([operation,new Promise(resolve=>{timer=setTimeout(()=>{controller.abort();resolve({status:'CHECK_REQUIRED'});},coupang?Math.min(timeoutMs*3,45000):timeoutMs);}),new Promise(resolve=>controller.signal.addEventListener('abort',()=>resolve({status:'CHECK_REQUIRED'}),{once:true}))]);
+      return expected!==generation||!loadedOrders.includes(row)?{status:'DISCONNECTED'}:result;
+    }catch{return {status:expected!==generation?'DISCONNECTED':'CHECK_REQUIRED'};}
+    finally{clearTimeout(timer);controller.abort();for(const permit of permits)deliveryPermits.delete(permit);businessReads.delete(controller);}
+  }
   let reviewingShipment = false;
   let shipmentRegistry=null;
   let shipmentDrain=Promise.resolve();
@@ -251,11 +528,142 @@ function createHubConnection({
   const shipmentAuthReads=new Set();
   const businessReads=new Set();
   let activeOverview=null;
+  let activeFinance=null,activeFinanceController=null,financePermit=null;
+  let activeSettlement=null,settlementController=null,settlementPermit=null,settlementDays=30;
+  let activeCs=null,csController=null,csPermit=null;
+  let activeInventory=null,inventoryController=null,inventoryPermit=null;
+  let activeAssistant=null,assistantController=null,assistantPermit=null;
+  let activeInsights=null,insightsController=null,insightsPermit=null;
+  let activeInsightAi=null,insightAiController=null,insightAiPermit=null;
+  let activeMarketAi=null,marketAiController=null,marketAiPermit=null;
+  let activeGeneralChat=null,generalChatController=null,generalChatPermit=null;
+  let activeBid=null,bidPermit=null;
+  function keywordBid(input){
+    const adapter=require('./keyword-bids.cjs');
+    if(!adapter.valid(input))return Promise.resolve({ok:false,code:'INVALID_REQUEST'});
+    if(disconnecting||cleanupFailed||isLoginWindowActive())return Promise.resolve({ok:false,code:'AUTH_REQUIRED'});
+    if(activeBid)return Promise.resolve({ok:false,code:'BID_BUSY'});
+    const expected=generation,controller=new AbortController();businessReads.add(controller);bidPermit=adapter.BID_URL;
+    let tracked;tracked=adapter.sendBid((url,options)=>getRemoteSession().fetch(url,options),input,controller.signal).then(result=>expected===generation?result:{ok:false,code:'BID_RESULT_UNKNOWN'}).finally(()=>{businessReads.delete(controller);if(activeBid===tracked){activeBid=null;bidPermit=null;}});
+    activeBid=tracked;return tracked;
+  }
+  let activeCalendar=null,calendarPermit=null;
+  function readTodayCalendar(){
+    if(disconnecting||cleanupFailed||isLoginWindowActive())return Promise.resolve({status:'UNAVAILABLE',date:require('./today-calendar.cjs').calendarDay(now()),entries:[]});
+    if(activeCalendar)return activeCalendar;
+    const expected=generation,controller=new AbortController();businessReads.add(controller);
+    const {calendarDay,projectCalendar}=require('./today-calendar.cjs'),date=calendarDay(now());
+    const empty=status=>({status,date,entries:[]});let timer;
+    const operation=(async()=>{
+      try{return await Promise.race([(async()=>{
+        const authResponse=await getRemoteSession().fetch(buildOrdersScopeUrl('ACTIVE'),{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
+        const auth=[401,403].includes(authResponse.status)?(authResponse.status===401?'LOGIN_REQUIRED':'FORBIDDEN'):authResponse.status===200?projectOrdersPayload(await readBoundedJson(authResponse,controller),now().toISOString()).status:'UNAVAILABLE';
+        if(expected!==generation||controller.signal.aborted)return empty('DISCONNECTED');
+        if(!['READY','PARTIAL'].includes(auth))return empty(auth);
+        const url=`${HARIN_ORIGIN}/api/calendar/entries?from=${date}&to=${date}`;calendarPermit=url;
+        const response=await getRemoteSession().fetch(url,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
+        if(expected!==generation||controller.signal.aborted)return empty('DISCONNECTED');
+        if(response.status!==200)return empty(response.status===401?'LOGIN_REQUIRED':response.status===403?'FORBIDDEN':'UNAVAILABLE');
+        const payload=await readBoundedJson(response,controller);
+        return expected===generation&&!controller.signal.aborted?projectCalendar(payload,date):empty('DISCONNECTED');
+      })(),new Promise(resolve=>{controller.signal.addEventListener('abort',()=>resolve(empty('UNAVAILABLE')),{once:true});timer=setTimeout(()=>controller.abort(),timeoutMs);})]);}
+      catch{return empty('UNAVAILABLE');}
+      finally{clearTimeout(timer);calendarPermit=null;businessReads.delete(controller);}
+    })();
+    activeCalendar=operation.finally(()=>{activeCalendar=null;});return activeCalendar;
+  }
+  let calendarWritePermit=false,calendarWriting=false;const uncertainCalendarWrites=new Set();
+  async function createCalendarEntry(value){
+    const {validCalendarDraft}=require('./today-calendar.cjs');
+    if(!validCalendarDraft(value))return {status:'INVALID'};
+    if(calendarWriting||disconnecting||cleanupFailed||isLoginWindowActive()||typeof showShipmentReview!=='function')return {status:'UNAVAILABLE'};
+    const input={...JSON.parse(JSON.stringify(value)),title:value.title.trim()},key=input.id?'EDIT:'+input.id:JSON.stringify(input),expected=generation;
+    if(uncertainCalendarWrites.has(key))return {status:'RESULT_UNKNOWN'};
+    calendarWriting=true;let controller,timer,dispatched=false;
+    try{
+      const proof=await readCalendarMonth(input.sourceMonth||input.date.slice(0,7));if(proof.status!=='READY'||expected!==generation||input.id&&!proof.entries.some(row=>row.id===input.id))return {status:'UNAVAILABLE'};
+      const answer=await showShipmentReview(getMainWindow(),{type:'question',title:input.id?'모아온 · 일정 수정':'모아온 · 일정 등록',message:input.id?'하린식품 캘린더의 이 일정을 수정할까요?':'하린식품 캘린더에 일정을 등록할까요?',detail:input.date+(input.endDate&&input.endDate!==input.date?' ~ '+input.endDate:'')+' '+(input.time||'종일')+'\n'+input.title+(input.type==='EVENT'?'\n사은품 조건 '+input.giftTiers.length+'개 · 적용 기간 주문에 서버 기준으로 반영됩니다.\n할인·메시지 발송은 기획 기록이며 자동 실행되지 않습니다.':''),buttons:['취소',input.id?'수정 저장':'일정 등록'],defaultId:0,cancelId:0,noLink:true});
+      if(answer?.response!==1)return {status:'CANCELLED'};
+      if(expected!==generation||disconnecting||cleanupFailed||isLoginWindowActive())return {status:'UNAVAILABLE'};
+      controller=new AbortController();businessReads.add(controller);timer=setTimeout(()=>controller.abort(),timeoutMs);
+      const task=async()=>{calendarWritePermit=true;dispatched=true;const response=await getRemoteSession().fetch(HARIN_ORIGIN+'/api/calendar/entries',{method:'POST',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal,headers:{Origin:HARIN_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify({action:input.id?'UPDATE_ENTRY':'CREATE_ENTRY',...Object.fromEntries(Object.entries(input).filter(([key])=>key!=='sourceMonth')),endDate:input.endDate||input.date,priority:input.type==='EVENT'?'HIGH':'NORMAL'})});
+        if(expected!==generation||controller.signal.aborted)throw Error('Stale');
+        if([400,401,403,404,405,413,415,429].includes(response.status))return {status:response.status===401?'LOGIN_REQUIRED':response.status===403?'FORBIDDEN':response.status===429?'RATE_LIMITED':'UNAVAILABLE'};
+        const payload=await readBoundedJson(response,controller);
+        if(expected!==generation||controller.signal.aborted||response.status!==200||payload?.ok!==true||typeof payload.entry?.id!=='string'||!payload.entry.id||payload.entry.id.length>128||payload.entry.title!==input.title||payload.entry.date!==input.date)throw Error('Unconfirmed');
+        if(input.type==='EVENT'&&(input.platforms&&JSON.stringify(payload.entry.platforms)!==JSON.stringify(input.platforms)||input.plan&&JSON.stringify(payload.entry.plan)!==JSON.stringify(input.plan)||input.campaign&&Object.keys(input.campaign).some(k=>payload.entry.campaign?.[k]!==input.campaign[k])))throw Error('Planning not confirmed');
+        if(input.execution&&(payload.entry.execution===undefined||JSON.stringify(require('./ui/event-tools.js').normalize(payload.entry.execution))!==JSON.stringify(require('./ui/event-tools.js').normalize(input.execution))))throw Error('Event execution not confirmed');
+        if(input.id&&payload.entry.id!==input.id)throw Error('Wrong edited entry');
+        if(input.endDate&&payload.entry.endDate!==input.endDate||input.type==='EVENT'&&(payload.entry.type!=='EVENT'||payload.entry.eventConfigInvalid||payload.entry.eventColor!==input.eventColor||JSON.stringify(payload.entry.giftTiers)!==JSON.stringify([...input.giftTiers].sort((a,b)=>a.minimumAmount-b.minimumAmount))))throw Error('Event not confirmed');
+        return {status:'SAVED'};
+      };
+      return await Promise.race([task(),new Promise((_,reject)=>controller.signal.addEventListener('abort',()=>reject(Error('Timeout')),{once:true}))]);
+    }catch{if(dispatched)uncertainCalendarWrites.add(key);return {status:dispatched?'RESULT_UNKNOWN':'UNAVAILABLE'};}
+    finally{clearTimeout(timer);controller?.abort();if(controller)businessReads.delete(controller);calendarWritePermit=false;calendarWriting=false;}
+  }
+  async function deleteCalendarEntry(input){
+    if(!require('./today-calendar.cjs').validCalendarRemoval(input))return {status:'INVALID'};
+    if(calendarWriting||disconnecting||cleanupFailed||isLoginWindowActive())return {status:'UNAVAILABLE'};
+    const expected=generation;calendarWriting=true;let controller,timer,dispatched=false;
+    try{
+      const proof=await readCalendarMonth(input.month),row=proof.entries?.find(r=>r.id===input.id);
+      if(proof.status!=='READY'||!row||expected!==generation)return {status:'UNAVAILABLE'};
+      const answer=await showShipmentReview(getMainWindow(),{type:'question',title:'모아온 · 일정 삭제',message:'이 일정을 삭제할까요?',detail:row.title+'\n'+row.date+(row.type==='EVENT'?'\n이 이벤트의 사은품 조건도 이후 주문 조회에 적용되지 않습니다.':''),buttons:['취소','일정 삭제'],defaultId:0,cancelId:0,noLink:true});
+      if(answer?.response!==1)return {status:'CANCELLED'};
+      if(expected!==generation||disconnecting||isLoginWindowActive())return {status:'UNAVAILABLE'};
+      controller=new AbortController();businessReads.add(controller);timer=setTimeout(()=>controller.abort(),timeoutMs);calendarWritePermit=true;dispatched=true;
+      const response=await getRemoteSession().fetch(HARIN_ORIGIN+'/api/calendar/entries',{method:'POST',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal,headers:{Origin:HARIN_ORIGIN,'Content-Type':'application/json'},body:JSON.stringify({action:'ARCHIVE_ENTRY',id:row.id})});
+      const payload=await readBoundedJson(response,controller);
+      if(expected!==generation||response.status!==200||payload?.ok!==true||payload.entry?.id!==row.id)throw Error('Unconfirmed');
+      const after=await readCalendarMonth(input.month);
+      if(expected!==generation||after.status!=='READY'||after.entries.some(r=>r.id===row.id))throw Error('Unconfirmed removal');
+      return {status:'DELETED'};
+    }catch{return {status:dispatched?'RESULT_UNKNOWN':'UNAVAILABLE'};}
+    finally{clearTimeout(timer);controller?.abort();if(controller)businessReads.delete(controller);calendarWritePermit=false;calendarWriting=false;}
+  }
+  let activeMonth=null,monthPermit=null,activeMonthKey=null;
+  let performancePermit=null,performanceBusy=false;
+  async function readEventPerformance(id){
+    if(!/^[0-9a-f-]{36}$/i.test(id||'')||performanceBusy||disconnecting||cleanupFailed||isLoginWindowActive())return {status:'UNAVAILABLE'};
+    const expected=generation,controller=new AbortController();businessReads.add(controller);performanceBusy=true;let timer;
+    const url=HARIN_ORIGIN+'/api/calendar/performance?id='+id;performancePermit=url;
+    try{return await Promise.race([(async()=>{const response=await getRemoteSession().fetch(url,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});if(response.status!==200)return {status:'UNAVAILABLE'};const p=await readBoundedJson(response,controller);if(expected!==generation||controller.signal.aborted||p.ok!==true||p.status!=='READY'||p.eventId!==id||p.coverage!=='UNCONFIRMED'||p.basis!=='COLLECTED_ORDER_AMOUNTS_BEFORE_CANCELLATIONS'||!Number.isInteger(p.days)||p.days<1||p.days>367||typeof p.generatedAt!=='string'||!Number.isFinite(Date.parse(p.generatedAt))||!Array.isArray(p.channels)||p.channels.length>4)throw Error('Unconfirmed performance');
+      const keys=new Set();for(const c of p.channels){if(!['NAVER','CAFE24','COUPANG','COUPANG_RG'].includes(c.key)||keys.has(c.key)||typeof c.label!=='string'||c.label.length>40||!Array.isArray(c.periods)||c.periods.length!==3)throw Error('Invalid channel');keys.add(c.key);for(const r of c.periods){if(typeof r.label!=='string'||r.label.length>20||!/^\d{4}-\d{2}-\d{2}$/.test(r.from)||!/^\d{4}-\d{2}-\d{2}$/.test(r.to)||!['FUTURE','UNAVAILABLE','OBSERVED','IN_PROGRESS'].includes(r.status)||!(r.orders===null||Number.isInteger(r.orders)&&r.orders>=0&&r.orders<=5000)||!(r.amount===null||typeof r.amount==='number'&&Number.isFinite(r.amount)&&r.amount>=0&&r.amount<=5e15)||['FUTURE','UNAVAILABLE'].includes(r.status)&&(r.orders!==null||r.amount!==null))throw Error('Invalid period');}}
+      return p;})(),new Promise(resolve=>{timer=setTimeout(()=>{controller.abort();resolve({status:'UNAVAILABLE'});},timeoutMs);})]);}catch{return {status:'UNAVAILABLE'};}finally{clearTimeout(timer);controller.abort();businessReads.delete(controller);performancePermit=null;performanceBusy=false;}
+  }
+  function readCalendarMonth(month){
+    const {monthRange,projectMonth}=require('./today-calendar.cjs'),range=monthRange(month);
+    if(!range)return Promise.resolve({status:'UNAVAILABLE',month,entries:[]});
+    if(disconnecting||cleanupFailed||isLoginWindowActive())return Promise.resolve({status:'UNAVAILABLE',month,entries:[]});
+    if(activeMonth)return month===activeMonthKey?activeMonth:Promise.resolve({status:'UNAVAILABLE',month,entries:[]});
+    activeMonthKey=month;
+    const expected=generation,controller=new AbortController();businessReads.add(controller);
+    const {from,to}=range;
+    const empty=status=>({status,month,entries:[]});let timer;
+    const operation=(async()=>{
+      try{return await Promise.race([(async()=>{
+        const authResponse=await getRemoteSession().fetch(buildOrdersScopeUrl('ACTIVE'),{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
+        const auth=[401,403].includes(authResponse.status)?(authResponse.status===401?'LOGIN_REQUIRED':'FORBIDDEN'):authResponse.status===200?projectOrdersPayload(await readBoundedJson(authResponse,controller),now().toISOString()).status:'UNAVAILABLE';
+        if(expected!==generation||controller.signal.aborted)return empty('DISCONNECTED');
+        if(!['READY','PARTIAL'].includes(auth))return empty(auth);
+        const url=`${HARIN_ORIGIN}/api/calendar/entries?from=${from}&to=${to}`;monthPermit=url;
+        const response=await getRemoteSession().fetch(url,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
+        if(expected!==generation||controller.signal.aborted)return empty('DISCONNECTED');
+        if(response.status!==200)return empty(response.status===401?'LOGIN_REQUIRED':response.status===403?'FORBIDDEN':'UNAVAILABLE');
+        const payload=await readBoundedJson(response,controller);
+        return expected===generation&&!controller.signal.aborted?projectMonth(payload,month):empty('DISCONNECTED');
+      })(),new Promise(resolve=>{controller.signal.addEventListener('abort',()=>resolve(empty('UNAVAILABLE')),{once:true});timer=setTimeout(()=>controller.abort(),timeoutMs);})]);}
+      catch{return empty('UNAVAILABLE');}
+      finally{clearTimeout(timer);monthPermit=null;businessReads.delete(controller);}
+    })();
+    activeMonth=operation.finally(()=>{activeMonth=null;});return activeMonth;
+  }
   function readOverview(){
     if(disconnecting||cleanupFailed||isLoginWindowActive())return Promise.resolve({status:'DISCONNECTED',scopes:{}});
     if(activeOverview)return activeOverview;
     const expected=generation,controller=new AbortController();businessReads.add(controller);
     let timer,authStatus=null;
+    const activityScopes={},overviewAt=now().toISOString();
     const empty=status=>({status,scopes:{}});
     const readScope=async scope=>{
       try{
@@ -266,36 +674,180 @@ function createHubConnection({
         const payload=await readBoundedJson(response,controller);
         if(controller.signal.aborted||expected!==generation)throw Error('Cancelled');
         const result=projectOrdersPayload(payload,now().toISOString(),{scope});
-        return [scope,{status:result.status,total:result.total,checkedAt:result.checkedAt}];
+        activityScopes[scope]=result;
+        // The home workbench uses the same bounded projection, without receiver or invoice data.
+        // Do not change loadedOrders, cursors or the user's current order selection here.
+        const preview=(result.orders||[]).slice(0,6).map(order=>({hubOrderId:order.hubOrderId,productName:order.productName,platform:order.platform,quantity:order.quantity,amount:order.amount,stage:order.stage,visual:order.visual}));
+        return [scope,{status:result.status,total:result.total,checkedAt:result.checkedAt,preview}];
       }catch{return [scope,{status:'UNAVAILABLE',total:null}];}
     };
     const operation=(async()=>{
       const result=await Promise.race([
-        Promise.all(ORDER_SCOPES.map(readScope)).then(rows=>({status:'READY',scopes:Object.fromEntries(rows)})),
+        Promise.all(ORDER_SCOPES.map(readScope)).then(rows=>({status:'READY',scopes:Object.fromEntries(rows),activity:require('./order-activity.cjs').projectOrderActivity(activityScopes,overviewAt)})),
         new Promise(resolve=>{timer=setTimeout(()=>{resolve(empty('TIMEOUT'));controller.abort();},timeoutMs);}),
         new Promise(resolve=>controller.signal.addEventListener('abort',()=>resolve(empty('CANCELLED')),{once:true})),
       ]);
       if(expected!==generation)return empty('DISCONNECTED');
-      if(authStatus){generation++;invalidateCursor();activeAbortController?.abort();void stopShipments();return empty(authStatus);}
+      if(authStatus){invalidateGeneration();invalidateCursor();activeAbortController?.abort();void stopShipments();return empty(authStatus);}
       return result;
     })();
     let tracked;tracked=operation.finally(()=>{clearTimeout(timer);businessReads.delete(controller);if(activeOverview===tracked)activeOverview=null;});
     activeOverview=tracked;return tracked;
   }
-  async function listBusinesses(){
+  function readFinance(){
+    const empty=status=>Object.freeze({status,month:null,generatedAt:null,metrics:Object.freeze({sales:Object.freeze({value:null,status:'BLOCKED'}),profit:Object.freeze({value:null,status:'BLOCKED'}),balance:Object.freeze({value:null,status:'BLOCKED'})})});
+    if(disconnecting||cleanupFailed)return Promise.resolve(empty('DISCONNECTED'));
+    if(isLoginWindowActive())return Promise.resolve(empty('LOGIN_REQUIRED'));
+    if(activeFinance)return activeFinance;
+    const expected=generation,controller=new AbortController();activeFinanceController=controller;financePermit=require('./connection-policy.cjs').FINANCE_URL;
+    const read=createFinanceTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options)});
+    let tracked;tracked=read({signal:controller.signal}).then(result=>expected===generation?result:empty('CANCELLED')).finally(()=>{financePermit=null;if(activeFinanceController===controller)activeFinanceController=null;if(activeFinance===tracked)activeFinance=null;});
+    activeFinance=tracked;return tracked;
+  }
+  function readCs(){
+    const empty=status=>({status,items:[],generatedAt:null,truncated:false});
+    if(disconnecting||cleanupFailed)return Promise.resolve(empty('DISCONNECTED'));
+    if(isLoginWindowActive())return Promise.resolve(empty('LOGIN_REQUIRED'));
+    if(activeCs)return activeCs;
+    const expected=generation,controller=new AbortController();csController=controller;csPermit=CS_URL;
+    const read=createCsTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options)});
+    let tracked;tracked=read({signal:controller.signal}).then(result=>expected===generation?result:empty('CANCELLED')).finally(()=>{if(csController===controller){csController=null;csPermit=null;}if(activeCs===tracked)activeCs=null;});
+    activeCs=tracked;return tracked;
+  }
+  let keyBusy=false,keyPermit=null;
+  async function connectionCommand(input){
+    if(keyBusy||disconnecting||cleanupFailed||isLoginWindowActive())return {ok:false,code:'KEYS_AUTH_REQUIRED'};
+    const transport=require('./connections-transport.cjs'),expected=generation,controller=new AbortController();
+    keyBusy=true;keyPermit={url:transport.URL,method:'POST'};businessReads.add(controller);const timer=setTimeout(()=>controller.abort(),30000);
+    try{const result=await transport.command((...args)=>getRemoteSession().fetch(...args),input,controller.signal);return expected===generation?result:{ok:false,code:'KEYS_AUTH_REQUIRED'};}
+    finally{clearTimeout(timer);businessReads.delete(controller);keyBusy=false;keyPermit=null;}
+  }
+  let assistantAccessBusy=false,assistantAccessPermit=null;
+  async function assistantAccess(input){
+    if(assistantAccessBusy||disconnecting||cleanupFailed||isLoginWindowActive())return {ok:false,code:'ASSISTANT_AUTH_REQUIRED'};
+    const transport=require('./assistant-access-transport.cjs'),expected=generation,controller=new AbortController();
+    assistantAccessBusy=true;assistantAccessPermit={url:transport.URL,method:'POST'};businessReads.add(controller);const timer=setTimeout(()=>controller.abort(),30000);
+    try{const result=await transport.command((...args)=>getRemoteSession().fetch(...args),input,controller.signal);return expected===generation?result:{ok:false,code:'ASSISTANT_AUTH_REQUIRED'};}
+    finally{clearTimeout(timer);businessReads.delete(controller);assistantAccessBusy=false;assistantAccessPermit=null;}
+  }
+  let assistantAutomationBusy=false,assistantAutomationPermit=null;
+  const assistantAutomation=require('./assistant-read-queue.cjs').createReadQueue(async function(input){
+    if(assistantAutomationBusy||disconnecting||cleanupFailed||isLoginWindowActive())return {ok:false,code:'ASSISTANT_AUTH_REQUIRED'};
+    const transport=require('./assistant-automation-transport.cjs'),expected=generation,controller=new AbortController();
+    assistantAutomationBusy=true;assistantAutomationPermit={url:transport.URL,method:'POST'};businessReads.add(controller);const timer=setTimeout(()=>controller.abort(),30000);
+    try{const result=await transport.command((...args)=>getRemoteSession().fetch(...args),input,controller.signal);return expected===generation?result:{ok:false,code:'ASSISTANT_AUTH_REQUIRED'};}
+    finally{clearTimeout(timer);businessReads.delete(controller);assistantAutomationBusy=false;assistantAutomationPermit=null;}
+  },()=>generation);
+  let teamBusy=false,teamPermit=null;
+  async function teamCommand(input){
+    if(teamBusy||disconnecting||cleanupFailed||isLoginWindowActive())return {ok:false,code:'TEAM_BUSY'};
+    const {TEAM_URL,teamRequest}=require('./team-transport.cjs'),expected=generation,controller=new AbortController();teamBusy=true;businessReads.add(controller);teamPermit={url:TEAM_URL,method:input?.action==='READ'?'GET':'POST'};const timer=setTimeout(()=>controller.abort(),15000);
+    try{const result=await teamRequest((...args)=>getRemoteSession().fetch(...args),input,controller.signal);if(expected!==generation)return {ok:false,code:'TEAM_AUTH_REQUIRED'};if(input.action==='READ'&&result.ok)onTeamSnapshot(result.value);if(result.code==='TEAM_AUTH_REQUIRED')onTeamSnapshot(null);return result;}finally{clearTimeout(timer);businessReads.delete(controller);teamBusy=false;teamPermit=null;}
+  }
+  let stockBusy=false,stockPermit=null;
+  async function stockRequest(input){if(stockBusy||disconnecting||cleanupFailed||isLoginWindowActive())return {status:'ERROR',message:'연결 상태를 확인하거나 진행 중인 작업을 기다려 주세요.'};const expected=generation;stockBusy=true;stockPermit={url:STOCK_URL,method:input?'POST':'GET'};try{const result=await createStockTransport({fetch:(...args)=>getRemoteSession().fetch(...args)})(input);return expected===generation?result:{status:'ERROR',message:'사업장 연결이 변경되었습니다. 다시 조회하세요.'};}finally{stockBusy=false;stockPermit=null;}}
+  const readStock=()=>stockRequest();const saveStock=input=>{if(!input||typeof input!=='object'||JSON.stringify(input).length>12000)throw Error('Invalid stock input');return stockRequest(input);};
+  async function previewStockReceipts(input){
+    const {validRequest,documentFor}=require('./stock-receipt-preview.cjs');if(!validRequest(input))throw Error('Invalid receipt arguments');
+    const expected=generation;const result=await readStock();if(result.status!=='READY'||expected!==generation)return {status:'DOCUMENT_UNAVAILABLE'};
+    try{const snapshot=documentFor(result.value,input);return await stockReceiptPreview?.open({rows:result.value,input,validate:async()=>{if(expected!==generation)return false;const latest=await readStock();return expected===generation&&latest.status==='READY'&&documentFor(latest.value,input)===snapshot;}})||{status:'DOCUMENT_UNAVAILABLE'};}catch{return {status:'DOCUMENT_UNAVAILABLE'};}
+  }
+  function readInventory(){
+    const empty=status=>({status,items:[],generatedAt:null,truncated:false});
+    if(disconnecting||cleanupFailed)return Promise.resolve(empty('DISCONNECTED'));
+    if(isLoginWindowActive())return Promise.resolve(empty('LOGIN_REQUIRED'));
+    if(activeInventory)return activeInventory;
+    const expected=generation,controller=new AbortController();inventoryController=controller;inventoryPermit=INVENTORY_URL;
+    const read=createInventoryTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options)});
+    let tracked;tracked=read({signal:controller.signal}).then(result=>expected===generation?result:empty('CANCELLED')).finally(()=>{if(inventoryController===controller){inventoryController=null;inventoryPermit=null;}if(activeInventory===tracked)activeInventory=null;});
+    activeInventory=tracked;return tracked;
+  }
+  function cancelInsightAi(){insightAiController?.abort();insightAiController=null;insightAiPermit=null;activeInsightAi=null;return {ok:true,status:'CANCELLED'};}
+  function insightAi(command){
+    if(!validInsightAiCommand(command))return Promise.resolve(emptyInsightAi('INVALID_REQUEST'));
+    if(disconnecting||cleanupFailed)return Promise.resolve(emptyInsightAi('DISCONNECTED'));
+    if(isLoginWindowActive())return Promise.resolve(emptyInsightAi('LOGIN_REQUIRED'));
+    if(activeInsightAi)return Promise.resolve(emptyInsightAi('PENDING'));
+    const expected=generation,controller=new AbortController();insightAiController=controller;
+    insightAiPermit={url:INSIGHT_AI_URL,method:INSIGHT_AI_METHODS[command.operation]};
+    const transport=createInsightAiTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options)});
+    let tracked;tracked=transport(command,{signal:controller.signal}).then(result=>expected===generation&&!controller.signal.aborted?result:emptyInsightAi('CANCELLED')).finally(()=>{if(insightAiController===controller){insightAiController=null;insightAiPermit=null;}if(activeInsightAi===tracked)activeInsightAi=null;});
+    activeInsightAi=tracked;return tracked;
+  }
+  function cancelMarketAi(){marketAiController?.abort();marketAiController=null;marketAiPermit=null;activeMarketAi=null;return {ok:true,status:'CANCELLED'};}
+  function marketAi(command){
+    if(!validMarketAiCommand(command))return Promise.resolve(emptyMarketAi('INVALID_REQUEST'));
+    if(disconnecting||cleanupFailed)return Promise.resolve(emptyMarketAi('DISCONNECTED'));
+    if(isLoginWindowActive())return Promise.resolve(emptyMarketAi('LOGIN_REQUIRED'));
+    if(activeMarketAi)return Promise.resolve(emptyMarketAi('PENDING'));
+    const expected=generation,controller=new AbortController();marketAiController=controller;
+    marketAiPermit={url:MARKET_AI_URL,method:MARKET_AI_METHODS[command.operation]};
+    const transport=createMarketAiTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options)});
+    let tracked;tracked=transport(command,{signal:controller.signal}).then(result=>expected===generation&&!controller.signal.aborted?result:emptyMarketAi('CANCELLED')).finally(()=>{if(marketAiController===controller){marketAiController=null;marketAiPermit=null;}if(activeMarketAi===tracked)activeMarketAi=null;});
+    activeMarketAi=tracked;return tracked;
+  }
+  function cancelGeneralChat(){generalChatController?.abort();generalChatController=null;generalChatPermit=null;activeGeneralChat=null;return {ok:true,status:'CANCELLED'};}
+  function generalChat(command){
+    if(!validGeneralChatCommand(command))return Promise.resolve(emptyGeneralChat('INVALID_REQUEST'));
+    if(disconnecting||cleanupFailed)return Promise.resolve(emptyGeneralChat('DISCONNECTED'));
+    if(isLoginWindowActive())return Promise.resolve(emptyGeneralChat('LOGIN_REQUIRED'));
+    if(activeGeneralChat)return Promise.resolve(emptyGeneralChat('PENDING'));
+    const expected=generation,controller=new AbortController();generalChatController=controller;
+    generalChatPermit={url:GENERAL_CHAT_URL,method:GENERAL_CHAT_METHODS[command.operation]};
+    const transport=createGeneralChatTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options)});
+    let tracked;tracked=transport(command,{signal:controller.signal}).then(result=>expected===generation&&!controller.signal.aborted?result:emptyGeneralChat('CANCELLED')).finally(()=>{if(generalChatController===controller){generalChatController=null;generalChatPermit=null;}if(activeGeneralChat===tracked)activeGeneralChat=null;});
+    activeGeneralChat=tracked;return tracked;
+  }
+  function readAssistant(){
+    const empty=status=>({status,sources:null,retrievedAt:null});
+    if(disconnecting||cleanupFailed)return Promise.resolve(empty('DISCONNECTED'));
+    if(isLoginWindowActive())return Promise.resolve(empty('LOGIN_REQUIRED'));
+    if(activeAssistant)return activeAssistant;
+    const expected=generation,controller=new AbortController();assistantController=controller;assistantPermit=ASSISTANT_URL;
+    const read=createAssistantTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options)});
+    let tracked;tracked=read({signal:controller.signal}).then(result=>expected===generation?result:empty('CANCELLED')).finally(()=>{if(assistantController===controller){assistantController=null;assistantPermit=null;}if(activeAssistant===tracked)activeAssistant=null;});
+    activeAssistant=tracked;return tracked;
+  }
+  function readInsights(){
+    const empty=status=>({status,channel:null,reports:[],caveats:[],generatedAt:null});
+    if(disconnecting||cleanupFailed)return Promise.resolve(empty('DISCONNECTED'));
+    if(isLoginWindowActive())return Promise.resolve(empty('LOGIN_REQUIRED'));
+    if(activeInsights)return activeInsights;
+    const expected=generation,controller=new AbortController();insightsController=controller;insightsPermit=INSIGHTS_URL;
+    const read=createInsightsTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options)});
+    let tracked;tracked=read({signal:controller.signal}).then(result=>expected===generation?result:empty('CANCELLED')).finally(()=>{if(insightsController===controller){insightsController=null;insightsPermit=null;}if(activeInsights===tracked)activeInsights=null;});
+    activeInsights=tracked;return tracked;
+  }
+  function readSettlement(days=30){
+    const empty=status=>({status,summary:null,channels:[],schedules:[],period:null,generatedAt:null});
+    if(![7,30,90].includes(days))return Promise.resolve(empty('UNAVAILABLE'));
+    if(disconnecting||cleanupFailed)return Promise.resolve(empty('DISCONNECTED'));
+    if(isLoginWindowActive())return Promise.resolve(empty('LOGIN_REQUIRED'));
+    if(activeSettlement&&settlementDays===days)return activeSettlement;
+    settlementController?.abort();settlementDays=days;
+    const expected=generation,controller=new AbortController();settlementController=controller;settlementPermit=settlementUrl(days);
+    const read=createSettlementTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options)});
+    let tracked;tracked=read({signal:controller.signal,days}).then(result=>expected===generation&&!controller.signal.aborted?result:empty('CANCELLED')).finally(()=>{if(settlementController===controller){settlementController=null;settlementPermit=null;}if(activeSettlement===tracked)activeSettlement=null;});
+    activeSettlement=tracked;return tracked;
+  }
+  async function listBusinesses({signal}={}){
     const empty=status=>Object.freeze({status,businesses:Object.freeze([])});
     if(disconnecting||cleanupFailed)return empty('DISCONNECTED');
     if(isLoginWindowActive())return empty('LOGIN_REQUIRED');
     const expected=generation,controller=new AbortController();businessReads.add(controller);
+    const stop=()=>controller.abort();signal?.addEventListener('abort',stop,{once:true});if(signal?.aborted)controller.abort();
     try{
       const read=createBusinessTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options)});
       const result=await read({signal:controller.signal});
       return expected===generation?result:empty('DISCONNECTED');
-    }finally{businessReads.delete(controller);}
+    }finally{signal?.removeEventListener('abort',stop);businessReads.delete(controller);}
   }
   function stopShipments() {
+    automaticController?.abort();
+    registrationController?.abort();
     for(const controller of businessReads)controller.abort();
     labelPreview?.close();
+    worklistPreview?.close();stockReceiptPreview?.close();
     for(const controller of shipmentAuthReads)controller.abort();
     const old=shipmentRegistry;shipmentRegistry=null;
     shipmentPermits.clear();
@@ -312,7 +864,7 @@ function createHubConnection({
         shipmentPermits.set(key,(shipmentPermits.get(key)||0)+1);
         try {
           const response=await getRemoteSession().fetch(url,options);
-          if([401,403].includes(response.status)){generation++;invalidateCursor();void stopShipments();}
+          if([401,403].includes(response.status)){invalidateGeneration();invalidateCursor();void stopShipments();}
           return response;
         } finally {
           const remaining=(shipmentPermits.get(key)||0)-1;
@@ -339,6 +891,22 @@ function createHubConnection({
             loginWindowActive: isLoginWindowActive(),
             loginWebContentsId: isLoginWindowActive() ? loginWindow.webContents.id : null,
             shipmentRequestActive: shipmentPermits.has(`${details.method} ${details.url}`),
+            registrationRequestActive,
+            serverHistoryRequestActive,
+            calendarPermit,
+            monthPermit,performancePermit,calendarWritePermit,
+            financePermit,
+            settlementPermit,
+            assistantPermit,insightsPermit,insightAiPermit,marketAiPermit,generalChatPermit,
+            bidPermit,
+            csPermit,inventoryPermit,stockPermit,teamPermit,keyPermit,assistantAccessPermit,assistantAutomationPermit,
+            trackingRequestMethod,
+            automaticTrackingRequestActive:automaticTrackingRequests>0,
+            collectionPermit,backgroundCsPermit,
+            credentialPermit,
+            exportPermit,
+            automaticRequestActive:automaticPermits.has(details.url),
+            deliveryRequestActive:deliveryPermits.has(details.url),
             ...labelPreview?.context(),
           }),
         });
@@ -351,20 +919,75 @@ function createHubConnection({
 
   function invalidateCursor() {
     pageCursor = null;
+    loadedOrders=EMPTY_ORDERS;
+    freshnessLastIdentity=null;
+    freshnessLastResult=null;
+  }
+  const hasExtendedFilters=()=>currentFilters.delayOnly||currentFilters.giftOnly||currentFilters.query||currentFilters.start||currentFilters.end;
+  const ordersScopeUrl=(scope=currentScope,channel=currentChannel)=>hasExtendedFilters()?buildOrdersScopeUrl(scope,channel,currentFilters):buildOrdersScopeUrl(scope,channel);
+  const ordersPageUrl=(offset,snapshot,scope=currentScope,channel=currentChannel)=>hasExtendedFilters()?buildOrdersPageUrl(offset,snapshot,scope,channel,currentFilters):buildOrdersPageUrl(offset,snapshot,scope,channel);
+
+  function freshnessIdentity(){
+    if(!pageCursor||loadedOrders===EMPTY_ORDERS)return null;
+    return JSON.stringify([generation,currentScope,currentChannel,currentFilters,pageCursor.offset,pageCursor.snapshot]);
+  }
+  function freshnessResult(status){return Object.freeze({status,checkedAt:now().toISOString()});}
+  function sameFreshnessPage(candidate){
+    if(candidate.total!==pageCursor.total&&pageCursor.total!==undefined)return false;
+    if(candidate.offset!==pageCursor.offset||candidate.orders.length!==loadedOrders.length)return false;
+    return candidate.orders.every((row,index)=>row.hubOrderId===loadedOrders[index]?.hubOrderId&&shipmentFingerprints.get(row)===shipmentFingerprints.get(loadedOrders[index]));
+  }
+  function checkOrderFreshness(){
+    const identity=freshnessIdentity();
+    if(!identity)return Promise.resolve(freshnessResult('SKIPPED'));
+    const mainWindow=getMainWindow();
+    if(!mainWindow||mainWindow.isDestroyed?.()||mainWindow.isMinimized?.())return Promise.resolve(freshnessResult('SKIPPED'));
+    if(activeRead||registrationController||automaticController||reviewingShipment||collectionWorkActive||trackingController||findingOrder||disconnecting||cleanupFailed||isLoginWindowActive()||serverHistoryRequestActive||businessReads.size)return Promise.resolve(freshnessResult('BUSY'));
+    if(freshnessRead)return freshnessRead;
+    const tick=now().getTime();
+    if(tick-freshnessLastAt<FRESHNESS_INTERVAL_MS)return Promise.resolve(identity===freshnessLastIdentity&&freshnessLastResult?freshnessLastResult:freshnessResult('SKIPPED'));
+    freshnessLastAt=tick;freshnessLastIdentity=identity;
+    const expectedGeneration=generation,cursor=pageCursor,baseline=loadedOrders,controller=new AbortController();let timer,stop;
+    const alive=()=>identity===freshnessIdentity()&&expectedGeneration===generation&&pageCursor===cursor&&loadedOrders===baseline&&!controller.signal.aborted;
+    const stopped=new Promise(resolve=>{stop=()=>resolve(freshnessResult('UNAVAILABLE'));controller.signal.addEventListener('abort',stop,{once:true});timer=setTimeout(()=>controller.abort(),timeoutMs);});
+    const operation=(async()=>{
+      try{
+        const response=await Promise.race([getRemoteSession().fetch(ordersPageUrl(cursor.offset,cursor.snapshot),{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal}),stopped]);
+        if(response?.status==='UNAVAILABLE')return response;
+        if(!alive()||!response||typeof response.status!=='number')return freshnessResult('SKIPPED');
+        if(response.status===409)return freshnessResult('CHANGED');
+        if([401,403].includes(response.status))return freshnessResult('AUTH_REQUIRED');
+        if(response.status!==200)return freshnessResult('UNAVAILABLE');
+        const payload=await Promise.race([readBoundedJson(response,controller),stopped]);
+        if(payload?.status==='UNAVAILABLE')return payload;
+        if(!alive())return freshnessResult('SKIPPED');
+        const candidate=projectOrdersPayload(payload,now().toISOString(),{requestedOffset:cursor.offset,expectedSnapshot:cursor.snapshot,scope:currentScope});
+        if(candidate.partial)return freshnessResult('UNAVAILABLE');
+        return freshnessResult(sameFreshnessPage(candidate)?'CURRENT':'CHANGED');
+      }catch{return freshnessResult(alive()?'UNAVAILABLE':'SKIPPED');}
+      finally{clearTimeout(timer);controller.signal.removeEventListener('abort',stop);controller.abort();}
+    })();
+    let tracked;tracked=operation.then(result=>{if(identity===freshnessIdentity()){freshnessLastResult=result;}return result;}).finally(()=>{if(freshnessRead===tracked)freshnessRead=null;});
+    freshnessRead=tracked;return tracked;
   }
 
   async function performRead(readGeneration, { url, requestedOffset, expectedSnapshot, scope }) {
     const controller = new AbortController();
     activeAbortController = controller;
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    // Abort must settle the host read even when an external transport/body ignores it.
+    let stop;
+    const stopped=new Promise((_,reject)=>{stop=()=>reject(Error('Order read stopped'));controller.signal.addEventListener('abort',stop,{once:true});});
+    const bounded=promise=>Promise.race([promise,stopped]);
     try {
-      const response = await getRemoteSession().fetch(url, {
+      const response = await bounded(getRemoteSession().fetch(url, {
         method: 'GET',
         credentials: 'include',
         cache: 'no-store',
         redirect: 'error',
         signal: controller.signal,
-      });
+      }));
+      if(controller.signal.aborted)throw Error('Order read stopped');
       if (readGeneration !== generation) return safeEmpty('DISCONNECTED');
       if (response.status === 401) {
         void stopShipments();
@@ -376,6 +999,10 @@ function createHubConnection({
         invalidateCursor();
         return safeEmpty('FORBIDDEN');
       }
+      if (response.status === 402) {
+        invalidateCursor();
+        return safeEmpty('SERVER_DISABLED');
+      }
       if (response.status === 409) {
         invalidateCursor();
         return safeEmpty('SNAPSHOT_CHANGED');
@@ -385,16 +1012,22 @@ function createHubConnection({
         return safeEmpty('UNAVAILABLE');
       }
 
-      const payload = await readBoundedJson(response, controller);
+      const payload = await bounded(readBoundedJson(response, controller));
+      if(controller.signal.aborted)throw Error('Order read stopped');
       if (readGeneration !== generation) return safeEmpty('DISCONNECTED');
-      const result = projectOrdersPayload(payload, now().toISOString(), { requestedOffset, expectedSnapshot, scope });
+      const expectedSearch={query:currentFilters.query,start:currentFilters.start,end:currentFilters.end};
+      const result = projectOrdersPayload(payload, now().toISOString(), { requestedOffset, expectedSnapshot, scope,requireSearchContract:/[?&](?:query=[^&]+|start=\d|end=\d)/.test(url),expectedSearch });
       pageCursor = Object.freeze({
         offset: payload.offset,
         nextOffset: payload.nextOffset,
         snapshot: payload.snapshot,
+        total: payload.total,
         scope,
       });
-      return result;
+      loadedOrders=result.orders;
+      freshnessLastIdentity=null;
+      freshnessLastResult=null;
+      return Object.freeze({...result,channel:currentChannel,filters:Object.freeze({...currentFilters})});
     } catch {
       if (readGeneration === generation) invalidateCursor();
       return readGeneration === generation
@@ -402,6 +1035,7 @@ function createHubConnection({
         : safeEmpty('DISCONNECTED');
     } finally {
       clearTimeout(timeout);
+      controller.signal.removeEventListener('abort',stop);
       if (activeAbortController === controller) activeAbortController = null;
     }
   }
@@ -431,7 +1065,7 @@ function createHubConnection({
   function refresh() {
     if (activeRead) return activeRead;
     invalidateCursor();
-    return startRead({ url: buildOrdersScopeUrl(currentScope), requestedOffset: 0, expectedSnapshot: null, scope: currentScope });
+    return startRead({ url: ordersScopeUrl(), requestedOffset: 0, expectedSnapshot: null, scope: currentScope });
   }
 
   function nextPage() {
@@ -441,7 +1075,7 @@ function createHubConnection({
       return Promise.resolve(safeEmpty('UNAVAILABLE', '이동할 다음 주문 페이지가 없습니다. 첫 페이지를 다시 조회하세요.'));
     }
     return startRead({
-      url: buildOrdersPageUrl(cursor.nextOffset, cursor.snapshot, currentScope),
+      url: ordersPageUrl(cursor.nextOffset,cursor.snapshot),
       requestedOffset: cursor.nextOffset,
       expectedSnapshot: cursor.snapshot,
       scope: currentScope,
@@ -456,7 +1090,7 @@ function createHubConnection({
     }
     const previousOffset = cursor.offset - PAGE_SIZE;
     return startRead({
-      url: buildOrdersPageUrl(previousOffset, cursor.snapshot, currentScope),
+      url: ordersPageUrl(previousOffset,cursor.snapshot),
       requestedOffset: previousOffset,
       expectedSnapshot: cursor.snapshot,
       scope: currentScope,
@@ -469,7 +1103,7 @@ function createHubConnection({
     if (activeRead) return Promise.resolve(safeEmpty('UNAVAILABLE', '조회가 진행 중입니다. 완료 후 다시 확인하세요.'));
     const cursor = pageCursor;
     if (!cursor) return Promise.resolve(safeEmpty('UNAVAILABLE', '목록을 먼저 조회하세요.'));
-    return startRead({url:buildOrdersPageUrl(cursor.offset,cursor.snapshot,currentScope),requestedOffset:cursor.offset,expectedSnapshot:cursor.snapshot,scope:currentScope});
+    return startRead({url:ordersPageUrl(cursor.offset,cursor.snapshot),requestedOffset:cursor.offset,expectedSnapshot:cursor.snapshot,scope:currentScope});
   }
 
   // Main-process preparation only, not an IPC method or a shipment permit.
@@ -529,10 +1163,358 @@ function createHubConnection({
   }
 
   const issueShipment=hubOrderId=>confirmShipmentReview(hubOrderId,true);
+  async function issueAndRegister(ids){
+    if(!validRegistrationIds(ids))throw new TypeError('Invalid automatic shipping selection');
+    const empty=status=>({status,results:[]});
+    if(reviewingShipment)return empty('BUSY');
+    if(disconnecting||cleanupFailed||isLoginWindowActive()||!shipmentDirectory||typeof showShipmentReview!=='function')return empty('UNAVAILABLE');
+    const initial=ids.map(id=>loadedOrders.filter(row=>row.hubOrderId===id));
+    if(initial.some(rows=>rows.length!==1||rows[0].issueAndRegisterEligible!==true))return empty('CHECK_REQUIRED');
+    const expected=generation,results=[];
+    const alive=()=>generation===expected&&!disconnecting&&!cleanupFailed&&!isLoginWindowActive()&&getMainWindow()&&!getMainWindow().isDestroyed();
+    const same=(left,right)=>left&&right&&workflowFingerprints.get(left)===workflowFingerprints.get(right);
+    const controller=new AbortController();let deadline;
+    const uploadJournal=row=>createShippingActionJournal({directory:shipmentDirectory,hubOrderId:row.hubOrderId,action:'UPLOAD_INVOICE',fingerprint:createHash('sha256').update(`${workflowFingerprints.get(row)}:${row.details.invoice.number}`).digest('hex')});
+    async function hasCheckpoint(row){
+      const stable=workflowFingerprints.get(row);
+      const prepare=await createShippingActionJournal({directory:shipmentDirectory,hubOrderId:row.hubOrderId,action:'PREPARE',fingerprint:createHash('sha256').update(`${stable}:`).digest('hex')}).read();
+      const issued=await createShippingActionJournal({directory:shipmentDirectory,hubOrderId:row.hubOrderId,action:'ISSUE',fingerprint:stable}).read();
+      const upload=row.details.invoice?await uploadJournal(row).read():null;
+      return prepare!==null||issued!==null||upload!==null;
+    }
+    async function freshRecoveryRow(hubOrderId){
+      for(const scope of ['ACTIVE','REGISTER','IN_TRANSIT','COMPLETED']){
+        let offset=0,snapshot=null;
+        for(let page=0;page<5;page++){
+          if(!alive()||controller.signal.aborted)return null;
+          const local=new AbortController();let timer;
+          const stop=()=>local.abort();controller.signal.addEventListener('abort',stop,{once:true});
+          try{
+            const response=await Promise.race([(async()=>{
+              const value=await getRemoteSession().fetch(snapshot===null?buildOrdersScopeUrl(scope,currentChannel):buildOrdersPageUrl(offset,snapshot,scope,currentChannel),{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:local.signal});
+              if(value.status!==200)throw Error('Recovery read unavailable');
+              return await readBoundedJson(value,local);
+            })(),new Promise((_,reject)=>{local.signal.addEventListener('abort',()=>reject(Error('Recovery stopped')),{once:true});timer=setTimeout(stop,timeoutMs);})]);
+            if(!alive()||controller.signal.aborted)return null;
+            const result=projectOrdersPayload(response,now().toISOString(),{requestedOffset:offset,expectedSnapshot:snapshot,scope});
+            if(result.status!=='READY')return null;
+            const rows=result.orders.filter(row=>row.hubOrderId===hubOrderId);if(rows.length)return rows.length===1?rows[0]:null;
+            if(response.nextOffset===null)break;offset=response.nextOffset;snapshot=response.snapshot;
+          }finally{clearTimeout(timer);controller.signal.removeEventListener('abort',stop);}
+        }
+      }
+      return null;
+    }
+    reviewingShipment=true;
+    automaticController=controller;
+    try{
+      let recovery;
+      try{recovery=await Promise.all(initial.map(([row])=>hasCheckpoint(row)));}catch{return empty('CHECK_REQUIRED');}
+      let targets;
+      if(recovery.some(Boolean)){
+        targets=[];
+        for(const [index,[original]] of initial.entries()){
+          const row=await freshRecoveryRow(original.hubOrderId);
+          if(!row||!same(original,row)||!recovery[index]&&shipmentFingerprints.get(original)!==shipmentFingerprints.get(row))return empty('CHECK_REQUIRED');
+          const completed=row.details.invoice?.status==='REGISTERED'&&await uploadJournal(row).read()!==null;
+          if(!row.issueAndRegisterEligible&&!completed)return empty('CHECK_REQUIRED');
+          targets.push([row]);
+        }
+      }else{
+        const before=await recheckPage();if(!alive())return empty('DISCONNECTED');
+        if(before.status!=='READY')return empty('CHECK_REQUIRED');
+        targets=ids.map(id=>before.orders.filter(row=>row.hubOrderId===id));
+        if(targets.some((rows,i)=>rows.length!==1||!rows[0].issueAndRegisterEligible||shipmentFingerprints.get(rows[0])!==shipmentFingerprints.get(initial[i][0])))return empty('CHECK_REQUIRED');
+      }
+      if(!alive())return empty('DISCONNECTED');
+      const answer=await showShipmentReview(getMainWindow(),{type:'warning',title:'모아온 · 송장 발급·쇼핑몰 등록',message:`선택한 ${ids.length}건의 실제 우체국 송장을 발급하고 쇼핑몰에 등록할까요?`,detail:`하린식품\n${targets.map(([row])=>`${row.platform} · ${row.hubOrderId} · ${row.quantity}개 · ${row.details.invoice?.status==='REGISTERED'?'등록 결과 확인':row.registrationEligible?'기존 발급 번호 등록':'실제 계약소포 발급'}`).join('\n')}\n결제완료 주문은 상품준비중으로 변경합니다. 기존 발급 작업은 재발급하지 않고 상태를 확인합니다. 등록 확인 후 배송 추적 조회를 요청합니다.`,buttons:['취소','실제 발급·쇼핑몰 등록'],defaultId:0,cancelId:0,noLink:true});
+      if(!alive())return empty('DISCONNECTED');if(answer?.response!==1)return empty('REVIEW_CANCELLED');
+      if(recovery.some(Boolean)){
+        for(const [row] of targets){const latest=await freshRecoveryRow(row.hubOrderId);if(!latest||shipmentFingerprints.get(row)!==shipmentFingerprints.get(latest))return empty('CHECK_REQUIRED');}
+      }else{
+        const after=await recheckPage();if(!alive())return empty('DISCONNECTED');
+        if(after.status!=='READY'||targets.some(([row])=>{const matches=after.orders.filter(other=>other.hubOrderId===row.hubOrderId);return matches.length!==1||shipmentFingerprints.get(row)!==shipmentFingerprints.get(matches[0]);}))return empty('CHECK_REQUIRED');
+      }
+      if(!alive())return empty('DISCONNECTED');
+      automaticController=controller;
+      const parent=controller;let nextIndex=0;const nextTarget=()=>targets[nextIndex++];
+      async function runLane(){
+        let controller=new AbortController(),deadline;const results=[];
+        const abort=()=>controller.abort();parent.signal.addEventListener('abort',abort);
+        try{
+      const active=()=>alive()&&!parent.signal.aborted&&!controller.signal.aborted;
+      const pause=()=>new Promise(resolve=>{if(!active())return resolve();const timer=setTimeout(done,automaticPollDelayMs);function done(){clearTimeout(timer);controller.signal.removeEventListener('abort',done);resolve();}controller.signal.addEventListener('abort',done,{once:true});});
+      async function jsonRequest(url,method='GET',body){
+        if(!active())throw Error('Workflow stopped');
+        const local=new AbortController();const stop=()=>local.abort();controller.signal.addEventListener('abort',stop,{once:true});let timer;
+        const aborted=new Promise((_,reject)=>{local.signal.addEventListener('abort',()=>reject(Error('Request stopped')),{once:true});timer=setTimeout(stop,15000);});
+        automaticPermits.set(url,(automaticPermits.get(url)||0)+1);if(method==='POST'){automaticPosts++;registrationRequestActive=true;}
+        try{return await Promise.race([(async()=>{
+          const response=await getRemoteSession().fetch(url,{method,credentials:'include',cache:'no-store',redirect:'error',signal:local.signal,headers:{Accept:'application/json',...(method==='POST'?{'Content-Type':'application/json',Origin:HARIN_ORIGIN}:{})},...(body?{body:JSON.stringify(body)}:{})});
+          if(!active()||local.signal.aborted)throw Error('Request stopped');
+          if([401,403].includes(response.status)){parent.abort();throw Error('Authorization expired');}
+          return {status:response.status,body:await readBoundedJson(response,local)};
+        })(),aborted]);}finally{clearTimeout(timer);controller.signal.removeEventListener('abort',stop);const permits=(automaticPermits.get(url)||0)-1;if(permits>0)automaticPermits.set(url,permits);else automaticPermits.delete(url);if(method==='POST'){automaticPosts--;registrationRequestActive=automaticPosts>0;}}
+      }
+      async function readTarget(id,scope){
+        let offset=0,snapshot=null;
+        for(let page=0;page<5&&active();page++){
+          const response=await jsonRequest(snapshot===null?buildOrdersScopeUrl(scope,currentChannel):buildOrdersPageUrl(offset,snapshot,scope,currentChannel));
+          if(response.status!==200)return null;
+          const result=projectOrdersPayload(response.body,now().toISOString(),{requestedOffset:offset,expectedSnapshot:snapshot,scope});
+          if(result.status!=='READY')return null;
+          const matches=result.orders.filter(row=>row.hubOrderId===id);if(matches.length)return matches.length===1?matches[0]:null;
+          if(response.body.nextOffset===null)return null;offset=response.body.nextOffset;snapshot=response.body.snapshot;
+        }
+        return null;
+      }
+      async function readRegistered(id){
+        for(const scope of ['REGISTER','IN_TRANSIT','COMPLETED']){
+          const row=await readTarget(id,scope);
+          if(row)return row.details.cancelled||row.details.cancellationRequested||row.stage==='CANCELLED'?null:row;
+          if(!active())break;
+        }
+        return null;
+      }
+      async function action(row,kind,pollLimit=30,resumeOnly=false){
+        progress(row.hubOrderId,kind==='PREPARE'?'PREPARE':'REGISTER','RUNNING',row.details.invoice?.number);
+        const fingerprint=createHash('sha256').update(`${workflowFingerprints.get(row)}:${kind==='UPLOAD_INVOICE'?row.details.invoice.number:''}`).digest('hex');
+        const journal=createShippingActionJournal({directory:shipmentDirectory,hubOrderId:row.hubOrderId,action:kind,fingerprint});
+        let record=await journal.read();
+        if(record===null){
+          if(resumeOnly)return 'CHECK_REQUIRED';
+          record=await journal.write({status:'INTENT'});if(!active())return 'CHECK_REQUIRED';
+          const input={hubOrderId:row.hubOrderId,...(kind==='UPLOAD_INVOICE'?{invoiceNumber:row.details.invoice.number,deliveryCompanyCode:row.platform==='CAFE24'?'0012':'EPOST'}:{})};
+          const response=await jsonRequest(REGISTRATION_URL,'POST',{confirm:true,action:kind,orders:[input]});
+          const matches=Array.isArray(response.body?.results)?response.body.results.filter(item=>item?.hubOrderId===row.hubOrderId):[];
+          const item=matches.length===1?matches[0]:null;
+          const status=response.status===200&&response.body?.ok===true&&item?.ok===true&&item.status==='SUCCESS'?'SUCCESS':response.status===409&&response.body?.ok===false&&item?.ok===false?'FAILED':response.status===202&&response.body?.ok===true&&item?.ok===true&&['QUEUED','RUNNING'].includes(item.status)&&row.platform==='COUPANG'&&typeof item.requestId==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.requestId)?'PENDING':'UNKNOWN';
+          record=await journal.write({status,requestId:status==='PENDING'?item.requestId:null});
+        }
+        for(let poll=0;active()&&poll<pollLimit&&['PENDING','RUNNING'].includes(record.status);poll++){
+          progress(row.hubOrderId,kind==='PREPARE'?'PREPARE':'REGISTER',record.status,row.details.invoice?.number);
+          if(poll)await pause();if(!active())break;
+          const response=await jsonRequest(`${HARIN_ORIGIN}/api/coupang/operations/${record.requestId}`);
+          const item=response.body?.request;
+          const status=response.status===202&&response.body?.ok===true&&item?.id===record.requestId&&['PENDING','RUNNING'].includes(item.status)?item.status:response.status===200&&response.body?.ok===true&&item?.id===record.requestId&&item.status==='SUCCESS'?'SUCCESS':response.status===502&&response.body?.ok===false&&response.body.code==='COUPANG_FIXED_IP_OPERATION_FAILED'?'FAILED':'UNKNOWN';
+          record=await journal.write({status,requestId:record.requestId});
+        }
+        return record.status==='SUCCESS'?'SUCCESS':record.status==='FAILED'?'FAILED':['PENDING','RUNNING'].includes(record.status)?'PENDING':'CHECK_REQUIRED';
+      }
+      const registry=await getShipmentRegistry(expected);
+      async function confirmedInvoice(hubOrderId,issued){
+        const transport=createShipmentTransport({hubOrderId,fetch:async(url,options)=>{
+          if(!active())throw Error('Stopped');const key=`${options.method} ${url}`;shipmentPermits.set(key,(shipmentPermits.get(key)||0)+1);
+          try{return await getRemoteSession().fetch(url,options);}finally{const count=(shipmentPermits.get(key)||0)-1;if(count>0)shipmentPermits.set(key,count);else shipmentPermits.delete(key);}
+        }});
+        const proof=await transport.poll(issued.requestId,{signal:controller.signal});
+        const value=proof.body?.result?.trackingNo;
+        return proof.status===200&&proof.body?.ok===true&&proof.body.request?.id===issued.requestId&&proof.body.request?.hubOrderId===hubOrderId&&proof.body.request?.status==='SUCCESS'&&typeof value==='string'&&/^\d{13}$/.test(value)?value:null;
+      }
+      function progress(hubOrderId,phase,status,invoiceNumber){
+        if(!active())return;
+        try{onShippingProgress({hubOrderId,phase,status,...(/^\d{13}$/.test(invoiceNumber||'')?{invoiceNumber}:{})});}catch{}
+      }
+      const pendingRegistrations=[];
+      for(let target;(target=nextTarget());){
+        const [approved]=target;
+        // The previous order must not consume the next order's time budget.
+        clearTimeout(deadline);controller.abort();controller=new AbortController();if(parent.signal.aborted)controller.abort();
+        if(active())deadline=setTimeout(()=>controller.abort(),automaticTimeoutMs);
+        const hubOrderId=approved.hubOrderId;let phase=approved.registrationEligible?'REGISTER':approved.stage==='PAID'?'PREPARE':'ISSUE';
+        try{
+          if(!active()){results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});continue;}
+          progress(hubOrderId,'CHECK','RUNNING');
+          let row=await readTarget(hubOrderId,'ACTIVE');
+          if(!row&&approved.details.invoice?.status==='REGISTERED')row=await readRegistered(hubOrderId);
+          if(row&&same(approved,row)&&row.details.invoice?.status==='REGISTERED'&&await uploadJournal(row).read()!==null){
+            const outcome=await action(row,'UPLOAD_INVOICE');
+            const verified=outcome==='SUCCESS'?await readRegistered(hubOrderId):null;
+            const result={hubOrderId,phase:'REGISTER',status:outcome==='SUCCESS'?verified&&same(approved,verified)&&verified.details.invoice?.status==='REGISTERED'&&verified.details.invoice.number===row.details.invoice.number?'REGISTERED':'CHECK_REQUIRED':outcome};
+            results.push(result);
+            if(result.status==='REGISTERED'){result.invoiceNumber=verified.details.invoice.number;progress(hubOrderId,'TRACKING','RUNNING',result.invoiceNumber);result.trackingStatus=await enqueueRegisteredTracking(verified,row,controller,active);progress(hubOrderId,'REGISTER','REGISTERED',result.invoiceNumber);}
+            continue;
+          }
+          if(!row||!same(approved,row)||!row.issueAndRegisterEligible){results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});continue;}
+          if(row.registrationEligible){
+            // A resumed automatic issue must still be bound to its original
+            // private identity and authoritative tracking number after restart.
+            const identity=await createShippingActionJournal({directory:shipmentDirectory,hubOrderId,action:'ISSUE',fingerprint:workflowFingerprints.get(row)}).read();
+            if(identity!==null){
+              let issued=await registry.snapshot(hubOrderId);
+              for(let poll=0;active()&&poll<30&&['PENDING','RUNNING','SUBMITTING'].includes(issued.status);poll++){if(poll)await pause();if(!active())break;issued=await registry.poll(hubOrderId);}
+              if(issued.status!=='SUCCEEDED'||await confirmedInvoice(hubOrderId,issued)!==row.details.invoice.number){results.push({hubOrderId,phase:'ISSUE',status:['PENDING','RUNNING'].includes(issued.status)?'PENDING':'CHECK_REQUIRED'});continue;}
+            }
+          }
+          const prepareRecord=await createShippingActionJournal({directory:shipmentDirectory,hubOrderId,action:'PREPARE',fingerprint:createHash('sha256').update(`${workflowFingerprints.get(row)}:`).digest('hex')}).read();
+          if(!row.registrationEligible&&row.stage==='PAID'||prepareRecord!==null&&prepareRecord.status!=='SUCCESS'){
+            const prepared=await action(row,'PREPARE');
+            if(prepared!=='SUCCESS'){results.push({hubOrderId,phase:'PREPARE',status:prepared});continue;}
+            row=await readTarget(hubOrderId,'ACTIVE');
+            // PREPARE confirms the provider update, not a local order sync.
+            // /api/epost/issue itself permits PAID as well as prepared stages.
+            if(!row||!same(approved,row)||!row.issueAndRegisterEligible||!['PAID','PREPARING','READY_TO_SHIP'].includes(row.stage)){results.push({hubOrderId,phase:'PREPARE',status:'CHECK_REQUIRED'});continue;}
+          }
+          if(!row.registrationEligible){
+            phase='ISSUE';progress(hubOrderId,'ISSUE','RUNNING');let issued=await registry.snapshot(hubOrderId);
+            const identityJournal=createShippingActionJournal({directory:shipmentDirectory,hubOrderId,action:'ISSUE',fingerprint:workflowFingerprints.get(row)});
+            const identity=await identityJournal.read();
+            if(issued.status==='EMPTY'){
+              if(identity!==null||!active()){results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});continue;}
+              await identityJournal.write({status:'INTENT'});
+              if(!active())throw Error('Stopped');issued=await registry.submit(hubOrderId,{confirm:true});
+            }else if(identity===null){results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});continue;}
+            for(let poll=0;active()&&poll<30&&['PENDING','RUNNING','SUBMITTING'].includes(issued.status);poll++){if(poll)await pause();if(!active())break;issued=await registry.poll(hubOrderId);}
+            if(issued.status!=='SUCCEEDED'){results.push({hubOrderId,phase,status:['PENDING','RUNNING','SUBMITTING'].includes(issued.status)?'PENDING':['FAILED','CANCELLED'].includes(issued.status)?'FAILED':'CHECK_REQUIRED'});continue;}
+            // The durable issuance job intentionally stores no tracking number.
+            // Re-read its authoritative result and require the stored order to
+            // carry exactly that invoice before sending it to the platform.
+            const confirmed=await confirmedInvoice(hubOrderId,issued);
+            if(confirmed===null){results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});continue;}
+            row=await readTarget(hubOrderId,'ACTIVE');
+            if(!row||!same(approved,row)||!row.registrationEligible||row.details.invoice.number!==confirmed){results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});continue;}
+            await identityJournal.write({status:'SUCCESS',requestId:issued.requestId});
+          }
+          phase='REGISTER';
+          if(!active())throw Error('Stopped');
+          const registered=await action(row,'UPLOAD_INVOICE',row.platform==='COUPANG'?1:5);
+          if(registered!=='SUCCESS'){const pending={hubOrderId,phase,status:registered,invoiceNumber:row.details.invoice.number};results.push(pending);if(registered==='PENDING')pendingRegistrations.push({row,approved,result:pending});continue;}
+          const verified=await readRegistered(hubOrderId);
+          const result={hubOrderId,phase,status:verified&&same(approved,verified)&&verified.details.invoice?.status==='REGISTERED'&&verified.details.invoice.number===row.details.invoice.number?'REGISTERED':'CHECK_REQUIRED'};
+          results.push(result);
+          if(result.status==='REGISTERED'){result.invoiceNumber=verified.details.invoice.number;progress(hubOrderId,'TRACKING','RUNNING',result.invoiceNumber);result.trackingStatus=await enqueueRegisteredTracking(verified,row,controller,active);progress(hubOrderId,'REGISTER','REGISTERED',result.invoiceNumber);}
+        }catch{results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});}
+      }
+      clearTimeout(deadline);controller.abort();controller=new AbortController();if(parent.signal.aborted)controller.abort();
+      if(active()&&pendingRegistrations.length){deadline=setTimeout(()=>controller.abort(),automaticTimeoutMs);
+        for(let round=0;round<30&&active()&&pendingRegistrations.some(p=>p.result.status==='PENDING');round++){
+          if(round)await pause();
+          for(const pending of pendingRegistrations){if(!active()||pending.result.status!=='PENDING')continue;
+            try{const outcome=await action(pending.row,'UPLOAD_INVOICE',1,true);
+              if(outcome==='PENDING')continue;
+              if(outcome!=='SUCCESS'){pending.result.status=outcome;continue;}
+              const verified=await readRegistered(pending.row.hubOrderId);
+              pending.result.status=verified&&same(pending.approved,verified)&&verified.details.invoice?.status==='REGISTERED'&&verified.details.invoice.number===pending.row.details.invoice.number?'REGISTERED':'CHECK_REQUIRED';
+              if(pending.result.status==='REGISTERED'){pending.result.trackingStatus=await enqueueRegisteredTracking(verified,pending.row,controller,active);progress(pending.row.hubOrderId,'REGISTER','REGISTERED',pending.result.invoiceNumber);}
+            }catch{pending.result.status='CHECK_REQUIRED';}
+          }
+        }
+      }
+        return results;
+        }finally{clearTimeout(deadline);controller.abort();parent.signal.removeEventListener('abort',abort);}
+      }
+      const lanes=await Promise.allSettled(Array.from({length:Math.min(2,targets.length)},()=>runLane().catch(error=>{parent.abort();throw error;})));
+      for(const lane of lanes)if(lane.status==='fulfilled')results.push(...lane.value);
+      results.sort((a,b)=>ids.indexOf(a.hubOrderId)-ids.indexOf(b.hubOrderId));
+      if(lanes.some(lane=>lane.status==='rejected'))return alive()?{status:'UNAVAILABLE',results}:empty('DISCONNECTED');
+      if(!alive())return empty('DISCONNECTED');
+      return {status:results.every(row=>row.status==='REGISTERED')?'COMPLETED':'PARTIAL',results};
+    }catch{return alive()?{status:'UNAVAILABLE',results}:empty('DISCONNECTED');}
+    finally{clearTimeout(deadline);controller.abort();if(automaticController===controller)automaticController=null;reviewingShipment=false;}
+  }
+  async function registerInvoices(ids){
+    if(!validRegistrationIds(ids))throw new TypeError('Invalid invoice selection');
+    const empty=status=>({status,results:[]});
+    if(reviewingShipment)return empty('BUSY');
+    if(disconnecting||cleanupFailed||isLoginWindowActive()||typeof showShipmentReview!=='function')return empty('UNAVAILABLE');
+    const selected=ids.map(id=>loadedOrders.filter(row=>row.hubOrderId===id));
+    if(selected.some(rows=>rows.length!==1||!rows[0].registrationEligible))return empty('CHECK_REQUIRED');
+    const expected=generation,initial=selected.map(rows=>rows[0]);
+    const alive=()=>expected===generation&&!disconnecting&&!cleanupFailed&&!isLoginWindowActive()&&getMainWindow()&&!getMainWindow().isDestroyed();
+    const same=(left,right)=>left&&right&&left.hubOrderId===right.hubOrderId&&right.registrationEligible&&shipmentFingerprints.get(left)===shipmentFingerprints.get(right);
+    const reread=async baseline=>{
+      const page=await recheckPage();if(!alive()||page.status!=='READY')return null;
+      const rows=ids.map(id=>page.orders.filter(order=>order.hubOrderId===id));
+      return rows.every((row,i)=>row.length===1&&same(baseline[i],row[0]))?rows.map(row=>row[0]):null;
+    };
+    reviewingShipment=true;let sent=false,timer;
+    try{
+      const before=await reread(initial);if(!before)return empty(alive()?'ORDER_CHANGED':'DISCONNECTED');
+      const keys=before.map(row=>`${row.hubOrderId}:${row.details.invoice.number}`);
+      if(keys.some(key=>registrationAttempts.has(key)))return empty('CHECK_REQUIRED');
+      const uploadJournals=[];
+      if(shipmentDirectory)for(const row of before){
+        const fingerprint=createHash('sha256').update(`${workflowFingerprints.get(row)}:${row.details.invoice.number}`).digest('hex');
+        const journal=createShippingActionJournal({directory:shipmentDirectory,hubOrderId:row.hubOrderId,action:'UPLOAD_INVOICE',fingerprint});
+        if(await journal.read()!==null)return empty('CHECK_REQUIRED');
+        uploadJournals.push(journal);
+      }
+      const answer=await showShipmentReview(getMainWindow(),{type:'warning',title:'모아온 · 쇼핑몰 송장 등록',message:`선택한 ${ids.length}건의 발급 송장을 쇼핑몰에 등록할까요?`,detail:`하린식품\n${before.map(row=>`${row.platform} · ${row.hubOrderId} · ${row.details.invoice.number}`).join('\n')}\n쿠팡은 처리 대기 상태로 접수될 수 있습니다. 등록 확인 후 배송 추적 조회를 요청합니다.`,buttons:['취소','송장 등록'],defaultId:0,cancelId:0,noLink:true});
+      if(!alive())return empty('DISCONNECTED');
+      if(answer?.response!==1)return empty('REVIEW_CANCELLED');
+      const approved=await reread(before);if(!approved)return empty(alive()?'ORDER_CHANGED':'DISCONNECTED');
+      // The manual and automatic paths share one durable upload intent. A lost
+      // manual response must never become a fresh automatic registration POST.
+      for(const journal of uploadJournals)await journal.write({status:'INTENT'});
+      if(!alive())return empty('DISCONNECTED');
+      const controller=new AbortController();registrationController=controller;
+      const stopped=new Promise((_,reject)=>{controller.signal.addEventListener('abort',()=>reject(Error('Registration stopped')),{once:true});timer=setTimeout(()=>controller.abort(),timeoutMs);});
+      const request=(async()=>{
+        if(!alive())throw Error('Disconnected');
+        keys.forEach(key=>registrationAttempts.add(key));sent=true;registrationRequestActive=true;
+        try{
+          const response=await getRemoteSession().fetch(REGISTRATION_URL,{method:'POST',credentials:'include',redirect:'error',cache:'no-store',signal:controller.signal,headers:{'Content-Type':'application/json',Origin:HARIN_ORIGIN},body:JSON.stringify({confirm:true,action:'UPLOAD_INVOICE',orders:approved.map(row=>({hubOrderId:row.hubOrderId,invoiceNumber:row.details.invoice.number,deliveryCompanyCode:row.platform==='CAFE24'?'0012':'EPOST'}))})});
+          if(!alive()||controller.signal.aborted)throw Error('Disconnected');
+          if(![200,202,409].includes(response.status))throw Error('Registration unavailable');
+          return {httpStatus:response.status,body:await readBoundedJson(response,controller)};
+        }finally{registrationRequestActive=false;}
+      })();
+      const received=await Promise.race([request,stopped]),payload=received.body;
+      if(!alive())return empty('DISCONNECTED');
+      for(const [index,journal] of uploadJournals.entries()){
+        const rows=Array.isArray(payload?.results)?payload.results.filter(row=>row?.hubOrderId===ids[index]):[];
+        const row=rows.length===1?rows[0]:null;
+        const pending=received.httpStatus===202&&payload?.ok===true&&row?.ok===true&&['QUEUED','RUNNING'].includes(row.status)&&typeof row.requestId==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(row.requestId);
+        await journal.write({status:pending?'PENDING':[200,202].includes(received.httpStatus)&&payload?.ok===true&&row?.ok===true&&row.status==='SUCCESS'?'SUCCESS':row?.ok===false?'FAILED':'UNKNOWN',requestId:pending?row.requestId:null});
+      }
+      // Successful rows move from ACTIVE to REGISTER. Read that fixed workspace
+      // privately without changing the user's displayed scope or page cursor.
+      const verify=async()=>{
+        const found=[];let offset=0,snapshot=null;
+        const successIds=ids.filter(id=>Array.isArray(payload?.results)&&payload.results.some(row=>row?.hubOrderId===id&&row.ok===true&&row.status==='SUCCESS'));
+        if(!successIds.length)return {status:'READY',orders:[]};
+        for(let page=0;page<5;page++){
+          if(!alive()||controller.signal.aborted)throw Error('Verification stopped');
+          const url=snapshot===null?buildOrdersScopeUrl('REGISTER',currentChannel):buildOrdersPageUrl(offset,snapshot,'REGISTER',currentChannel);
+          const response=await getRemoteSession().fetch(url,{method:'GET',credentials:'include',redirect:'error',cache:'no-store',signal:controller.signal});
+          if(response.status!==200)return {status:'UNAVAILABLE',orders:[]};
+          const body=await readBoundedJson(response,controller);
+          if(!alive()||controller.signal.aborted)throw Error('Verification stopped');
+          const result=projectOrdersPayload(body,now().toISOString(),{requestedOffset:offset,expectedSnapshot:snapshot,scope:'REGISTER'});
+          if(result.status!=='READY')return {status:'UNAVAILABLE',orders:[]};
+          found.push(...result.orders);
+          if(successIds.every(id=>found.some(row=>row.hubOrderId===id))||body.nextOffset===null)break;
+          snapshot=body.snapshot;offset=body.nextOffset;
+        }
+        return {status:'READY',orders:found};
+      };
+      const verified=await Promise.race([verify(),stopped]).catch(()=>({status:'UNAVAILABLE',orders:[]}));
+      if(!alive())return empty('DISCONNECTED');
+      const results=ids.map((hubOrderId,index)=>{
+        const outcomes=Array.isArray(payload?.results)?payload.results.filter(row=>row?.hubOrderId===hubOrderId):[];
+        const outcome=outcomes.length===1?outcomes[0]:null;
+        let status='CHECK_REQUIRED';
+        if(outcome?.ok===false)status='FAILED';
+        else if(outcome?.ok===true&&['QUEUED','RUNNING'].includes(outcome.status))status='PENDING';
+        else if(outcome?.ok===true&&outcome.status==='SUCCESS'&&verified.status==='READY'){
+          const rows=verified.orders.filter(row=>row.hubOrderId===hubOrderId);
+          if(rows.length===1&&rows[0].details.invoice?.status==='REGISTERED'&&rows[0].details.invoice.number===approved[index].details.invoice.number&&workflowFingerprints.get(rows[0])===workflowFingerprints.get(approved[index]))status='REGISTERED';
+        }
+        return {hubOrderId,status};
+      });
+      for(const [index,result] of results.entries())if(result.status==='REGISTERED'){const row=verified.orders.find(row=>row.hubOrderId===result.hubOrderId);result.invoiceNumber=row.details.invoice.number;result.trackingStatus=await enqueueRegisteredTracking(row,approved[index],controller,alive);}
+      if(!alive())return empty('DISCONNECTED');
+      return {status:results.every(row=>row.status==='REGISTERED')?'COMPLETED':'PARTIAL',results};
+    }catch{return alive()?{status:sent?'PARTIAL':'UNAVAILABLE',results:sent?ids.map(hubOrderId=>({hubOrderId,status:'CHECK_REQUIRED'})):[]}:empty('DISCONNECTED');}
+    finally{clearTimeout(timer);registrationController=null;registrationRequestActive=false;reviewingShipment=false;}
+  }
   async function previewLabel(hubOrderId){
     if(typeof hubOrderId!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(hubOrderId))throw Error('Invalid label order');
+    if(reviewingShipment||collectionWorkActive||trackingController)return {status:'BUSY'};
     const expected=generation;
+    let opening=true;reviewingShipment=true;
     const readTarget=async()=>{
+      if(collectionWorkActive||trackingController||(!opening&&reviewingShipment))return null;
       const page=await recheckPage();
       if(expected!==generation||page.status!=='READY')return null;
       const rows=page.orders.filter(order=>order.hubOrderId===hubOrderId);
@@ -543,11 +1525,54 @@ function createHubConnection({
     try{
       if(!labelPreview)return {status:'PRINT_UNAVAILABLE'};
       const order=await readTarget();if(!order)return {status:'PRINT_CHECK_REQUIRED'};
-      const result=await labelPreview.open({hubOrderId,trackingNo:order.details.invoice.number,expectedReceiver:labelReceivers.get(order),validate:async()=>{
+      const result=await labelPreview.open({hubOrderId,trackingNo:order.details.invoice.number,expectedReceiver:labelReceivers.get(order),goodsName:order.productName,quantity:order.quantity,businessName:'하린식품',channelLabel:order.platform,validate:async()=>{
         const latest=await readTarget();return !!latest&&shipmentFingerprints.get(latest)===shipmentFingerprints.get(order);
       }});
       return expected===generation?result:{status:'DISCONNECTED'};
     }catch{return {status:'PRINT_UNAVAILABLE'};}
+    finally{opening=false;reviewingShipment=false;}
+  }
+  async function selectedDocument(ids,kind){
+    if(!validDocumentIds(ids)||(kind==='label'&&!validRegistrationIds(ids)))throw Error('Invalid document selection');
+    if(reviewingShipment||registrationController||automaticController||trackingController||collectionWorkActive)return {status:'BUSY'};
+    const expected=generation,scope=currentScope,channel=currentChannel,offset=pageCursor?.offset;
+    const initial=ids.map(id=>loadedOrders.filter(row=>row.hubOrderId===id));
+    if(offset==null||initial.some(rows=>rows.length!==1))return {status:'DOCUMENT_CHANGED'};
+    const baseline=initial.map(rows=>rows[0]);
+    const alive=()=>generation===expected&&currentScope===scope&&currentChannel===channel&&pageCursor?.offset===offset&&!disconnecting&&!cleanupFailed&&!isLoginWindowActive();
+    const fingerprint=row=>shipmentFingerprints.get(row)+'|'+renderSelectedCsv([row]);
+    let opening=true;
+    const read=async()=>{
+      if(!alive()||collectionWorkActive||trackingController||(!opening&&reviewingShipment))return null;
+      const page=await recheckPage();
+      if(!alive()||page.status!=='READY'||page.offset!==offset)return null;
+      const rows=ids.map(id=>page.orders.filter(row=>row.hubOrderId===id));
+      if(rows.some((found,index)=>found.length!==1||fingerprint(found[0])!==fingerprint(baseline[index])))return null;
+      const selected=rows.map(found=>found[0]);
+      if(selected.some(row=>row.platform!==(row.hubOrderId.startsWith('HR-C24-')?'CAFE24':row.hubOrderId.startsWith('HR-CP-')?'COUPANG':'NAVER')))return null;
+      if(kind==='label'&&(selected.some(row=>row.preflight.route!=='HUB'||row.stage==='CANCELLED'||row.details.cancelled!==false||row.details.cancellationRequested!==false||row.details.invoice?.status!=='REGISTERED')||new Set(selected.map(row=>row.details.invoice.number)).size!==selected.length))return null;
+      return selected;
+    };
+    reviewingShipment=true;
+    try{
+      const rows=await read();if(!rows)return {status:'DOCUMENT_CHANGED'};
+      const validate=async()=>!!await read();
+      const result=kind==='csv'?await selectedDocuments?.save({orders:rows,validate}):await labelPreview?.open({labels:rows.map(row=>({hubOrderId:row.hubOrderId,trackingNo:row.details.invoice.number,expectedReceiver:labelReceivers.get(row),goodsName:row.productName,quantity:row.quantity,businessName:'하린식품',channelLabel:row.platform})),validate});
+      return generation===expected?(result||{status:'DOCUMENT_UNAVAILABLE'}):{status:'DISCONNECTED'};
+    }catch{return {status:'DOCUMENT_UNAVAILABLE'};}
+    finally{opening=false;reviewingShipment=false;}
+  }
+  const previewLabels=ids=>selectedDocument(ids,'label');
+  const exportSelectedCsv=ids=>selectedDocument(ids,'csv');
+  async function previewWorklist(ids,type){
+    if(!validDocumentIds(ids)||!['packing','dispatch'].includes(type))throw Error('Invalid worklist selection');
+    if(reviewingShipment||registrationController||automaticController||trackingController||collectionWorkActive)return {status:'BUSY'};
+    const expected=generation,scope=currentScope,channel=currentChannel,offset=pageCursor?.offset;
+    const initial=ids.map(id=>loadedOrders.filter(row=>row.hubOrderId===id));if(offset==null||initial.some(rows=>rows.length!==1))return {status:'DOCUMENT_CHANGED'};
+    const baseline=initial.map(rows=>rows[0]),alive=()=>generation===expected&&currentScope===scope&&currentChannel===channel&&pageCursor?.offset===offset&&!disconnecting&&!cleanupFailed&&!isLoginWindowActive();
+    let opening=true;const read=async()=>{if(!alive()||collectionWorkActive||trackingController||registrationController||automaticController||(!opening&&reviewingShipment))return null;const page=await recheckPage();if(!alive()||page.status!=='READY'||page.offset!==offset)return null;const rows=ids.map(id=>page.orders.filter(row=>row.hubOrderId===id));if(rows.some((found,index)=>found.length!==1||shipmentFingerprints.get(found[0])!==shipmentFingerprints.get(baseline[index])))return null;return rows.map(found=>found[0]);};
+    reviewingShipment=true;
+    try{const rows=await read();if(!rows)return {status:'DOCUMENT_CHANGED'};const hydrate=async values=>{const documents=[];for(const row of values){const doc={...worklistOrders.get(row)};if(['CAFE24','COUPANG'].includes(row.platform)&&(!doc.receiver?.address||!/^\d{5}$/.test(doc.receiver?.postCode||''))){const result=await readDelivery(row.hubOrderId);if(!alive())return null;if(result.status==='READY')doc.receiver=result.receiver;}documents.push(doc);}return documents;};const documents=await hydrate(rows);if(!documents)return {status:'DOCUMENT_CHANGED'};if(documents.some(row=>Array.isArray(row?.items)&&row.items.length===8))return {status:'DOCUMENT_ITEM_LIMIT'};const result=await worklistPreview?.open({type,orders:documents,validate:async()=>{const latest=await read();if(!latest)return false;const fresh=await hydrate(latest);return alive()&&JSON.stringify(fresh)===JSON.stringify(documents);}});return generation===expected?(result||{status:'DOCUMENT_UNAVAILABLE'}):{status:'DISCONNECTED'};}catch{return {status:'DOCUMENT_UNAVAILABLE'};}finally{opening=false;reviewingShipment=false;}
   }
   async function verifyShipmentSession() {
     if(disconnecting||cleanupFailed||isLoginWindowActive())return 'UNAVAILABLE';
@@ -586,13 +1611,55 @@ function createHubConnection({
     const blocked = blockedReadResult();
     if (blocked) return blocked;
     if (scope === currentScope) return refresh();
-    generation += 1;
+    invalidateGeneration();
     void stopShipments();
     currentScope = scope;
     invalidateCursor();
     activeRead = null;
     activeAbortController?.abort();
-    return startRead({ url: buildOrdersScopeUrl(scope), requestedOffset: 0, expectedSnapshot: null, scope });
+    return startRead({ url: ordersScopeUrl(scope), requestedOffset: 0, expectedSnapshot: null, scope });
+  }
+
+  function viewChannel(channel){
+    if(!ORDER_CHANNELS.includes(channel))throw new TypeError('Invalid orders channel');
+    const blocked=blockedReadResult();if(blocked)return blocked;
+    invalidateGeneration();void stopShipments();currentChannel=channel;invalidateCursor();activeRead=null;activeAbortController?.abort();
+    return startRead({url:ordersScopeUrl(),requestedOffset:0,expectedSnapshot:null,scope:currentScope});
+  }
+
+  function setOrderFilters(filters){
+    if(filters&&Object.keys(filters).length===2)filters={...currentFilters,...filters};
+    if(!filters||typeof filters!=='object'||Array.isArray(filters)||Object.keys(filters).length!==5||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean'||!validSearch({query:filters.query,start:filters.start,end:filters.end}))return Promise.resolve(safeEmpty('UNAVAILABLE','올바른 주문 필터를 선택하세요.'));
+    if(registrationController||automaticController||reviewingShipment||collectionWorkActive||trackingController||findingOrder)return Promise.resolve(safeEmpty('UNAVAILABLE','다른 작업이 진행 중입니다. 완료 후 필터를 변경하세요.'));
+    invalidateGeneration();void stopShipments();currentFilters=Object.freeze({...filters});invalidateCursor();activeRead=null;activeAbortController?.abort();
+    return startRead({url:ordersScopeUrl(),requestedOffset:0,expectedSnapshot:null,scope:currentScope});
+  }
+  function applyOrderSearch(search){
+    if(!validSearch(search))return Promise.resolve(safeEmpty('UNAVAILABLE','올바른 검색어와 기간을 입력하세요.'));
+    return setOrderFilters(Object.freeze({...currentFilters,...search}));
+  }
+  function exportOrdersXlsx(){
+    if(exportWork)return exportWork;
+    if(typeof saveOrderExport!=='function'||!pageCursor||activeRead||registrationController||automaticController||reviewingShipment||collectionWorkActive||trackingController||findingOrder)return Promise.resolve({status:'BUSY'});
+    const expected=generation,controller=new AbortController();let timer;businessReads.add(controller);
+    exportWork=(async()=>{try{
+      const auth=await recheckPage();if(expected!==generation||!['READY'].includes(auth.status))return {status:auth.status==='PARTIAL'?'PARTIAL_EXPORT_BLOCKED':'DOCUMENT_CHANGED'};
+      const exportSnapshot=pageCursor?.snapshot;if(!exportSnapshot)return {status:'DOCUMENT_CHANGED'};
+      const url=buildOrdersExportUrl(currentScope,currentChannel,currentFilters);exportPermit=url;
+      const stopped=new Promise((_,reject)=>controller.signal.addEventListener('abort',()=>reject(Error('Stopped')),{once:true}));timer=setTimeout(()=>controller.abort(),timeoutMs);
+      const response=await Promise.race([getRemoteSession().fetch(url,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal}),stopped]);exportPermit=null;
+      if(expected!==generation||[401,403].includes(response.status))return {status:response.status===401?'LOGIN_REQUIRED':response.status===403?'FORBIDDEN':'DOCUMENT_CHANGED'};
+      if(response.status===404)return {status:'NO_ORDERS'};if(response.status===413)return {status:'EXPORT_LIMIT_EXCEEDED'};if(response.status!==200)return {status:'EXPORT_UNAVAILABLE'};
+      const mime=String(response.headers.get('content-type')||'').split(';')[0].toLowerCase();if(mime!=='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')return {status:'EXPORT_UNAVAILABLE'};
+      const count=Number(response.headers.get('x-moaon-export-count')),downloadSnapshot=response.headers.get('x-moaon-export-snapshot');if(response.headers.get('x-moaon-search-contract')!=='1'||!Number.isSafeInteger(count)||count<1||count>5000||downloadSnapshot!==exportSnapshot)return {status:'EXPORT_UNAVAILABLE'};
+      const bytes=await readBoundedBytes(response,controller,10*1024*1024);if(!validXlsxPackage(bytes))return {status:'EXPORT_UNAVAILABLE'};
+      if(expected!==generation||pageCursor?.snapshot!==exportSnapshot)return {status:'DOCUMENT_CHANGED'};return {status:await saveOrderExport(bytes,async()=>{if(expected!==generation||disconnecting||cleanupFailed)return false;const proof=await recheckPage();return expected===generation&&proof.status==='READY'&&pageCursor?.snapshot===exportSnapshot;})};
+    }catch{return {status:'EXPORT_UNAVAILABLE'};}finally{clearTimeout(timer);exportPermit=null;businessReads.delete(controller);controller.abort();exportWork=null;}})();return exportWork;
+  }
+  function resetOrderFilters(){
+    if(registrationController||automaticController||reviewingShipment||collectionWorkActive||trackingController||findingOrder)return Promise.resolve(safeEmpty('UNAVAILABLE','다른 작업이 진행 중입니다. 완료 후 필터를 초기화하세요.'));
+    invalidateGeneration();void stopShipments();currentChannel='ALL';currentFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});invalidateCursor();activeRead=null;activeAbortController?.abort();
+    return startRead({url:ordersScopeUrl(),requestedOffset:0,expectedSnapshot:null,scope:currentScope});
   }
 
   const viewActive = () => viewScope('ACTIVE');
@@ -616,7 +1683,7 @@ function createHubConnection({
     let loginOutcome = 'cancelled';
     let loginSubmissionStarted = false;
 
-    loginWindow = new BrowserWindow({
+    loginWindow = new LoginHost({
       parent,
       modal: true,
       width: 520,
@@ -625,6 +1692,8 @@ function createHubConnection({
       minHeight: 560,
       show: false,
       autoHideMenuBar: true,
+      titleBarStyle: 'hidden',
+      titleBarOverlay: {color:'#f3f3f8',symbolColor:'#6f6d80',height:36},
       backgroundColor: '#f3f6fa',
       webPreferences: {
         partition: READONLY_PARTITION,
@@ -647,25 +1716,8 @@ function createHubConnection({
       try { url = new URL(contents.getURL()); } catch { return; }
       if (url.origin !== HARIN_ORIGIN || url.pathname !== '/login') return;
       // Presentation only: retain the server form, validation and authentication.
-      void contents.insertCSS(`
-        [class*="loginPage"] { --login-canvas:#f3f3f8 !important; --login-surface:#fff !important; --login-soft:#f8f7fc !important; --login-ink:#282836 !important; --login-muted:#6f6d80 !important; --login-line:#e4e2ed !important; --login-blue:#7565b4 !important; --login-blue-soft:#ede9fa !important; --login-mint:#247867 !important; --login-navy:#282836 !important; --login-rose:#b64f5e !important; color:#282836 !important; font-family:'Pretendard Variable',Pretendard,'Malgun Gothic',sans-serif !important; }
-        [class*="loginPage"] input,[class*="loginPage"] button { font-family:inherit !important; }
-        [class*="loginPage"] { padding: 22px !important; min-height: 100vh !important; background:var(--login-canvas,#f3f6fa) !important; }
-        [class*="loginFrame"] { display: flex !important; flex-direction: column !important; min-height: 0 !important; width: 100% !important; background:var(--login-surface,#fff) !important; border:1px solid var(--login-line,#dfe5ee) !important; border-radius:24px !important; box-shadow:0 18px 60px #1720360d !important; animation:moaonLoginArrive .35s ease-out both !important; }
-        [class*="loginHero"], [class*="frameFooter"], [class*="ownerAccess"] { display: none !important; }
-        [class*="loginTopbar"] { min-height: 72px !important; padding: 14px 22px !important; }
-        [class*="loginAccess"] { padding: 24px !important; }
-        [class*="accessHeader"] > span { display: none !important; }
-        [class*="accessHeader"] h2 { margin: 0 !important; font-size: 25px !important; }
-        [class*="accessHeader"] p { margin-top: 8px !important; }
-        [class*="loginForm"] { margin-top: 22px !important; }
-        [class*="sessionNote"] { margin-top: 18px !important; padding-top: 16px !important; }
-        [class*="loginPasswordField"] { border-radius:12px !important; box-shadow:none !important; }
-        [class*="submitButton"] { border-radius:12px !important; min-height:50px !important; background:#7565b4 !important; color:#fff !important; font-weight:600 !important; transition:background .18s ease,transform .18s ease !important; }
-        [class*="submitButton"]:not(:disabled):hover { background:#64549d !important; transform:translateY(-1px); }
-        @keyframes moaonLoginArrive { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-        @media(prefers-reduced-motion:reduce) { [class*="loginFrame"] { animation:none !important; } [class*="submitButton"] { transition:none !important; transform:none !important; } }
-      `).catch(() => { /* A navigation may replace the styled document. */ });
+      const css=require('node:fs').readFileSync(require('node:path').join(__dirname,'ui','login-desktop.css'),'utf8');
+      void contents.insertCSS(css).then(()=>{if(!windowAtOpen.isDestroyed())windowAtOpen.show();}).catch(()=>{if(!windowAtOpen.isDestroyed())windowAtOpen.show();});
     });
     const guardNavigation = (event, targetUrl) => {
       if (targetUrl === `${HARIN_ORIGIN}/` || targetUrl === HARIN_ORIGIN) {
@@ -695,7 +1747,7 @@ function createHubConnection({
         windowAtOpen.destroy();
       }
     });
-    windowAtOpen.once('ready-to-show', () => windowAtOpen.show());
+    // Reveal the embedded form after its presentation has been applied.
 
     loginPromise = new Promise((resolve) => {
       windowAtOpen.once('closed', async () => {
@@ -727,10 +1779,16 @@ function createHubConnection({
   }
 
   function disconnect() {
+    onTeamSnapshot(null);
     if (disconnecting) return disconnecting;
-    generation += 1;
+    collection.reset();backgroundCollection.reset();backgroundCollectionState=null;
+    invalidateGeneration();
+    activeFinanceController?.abort();financePermit=null;
+    settlementController?.abort();settlementPermit=null;assistantController?.abort();assistantPermit=null;insightsController?.abort();insightsPermit=null;csController?.abort();csPermit=null;inventoryController?.abort();inventoryPermit=null;
     const shipmentShutdown=stopShipments();
     currentScope = 'ACTIVE';
+    currentChannel = 'ALL';
+    currentFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});
     invalidateCursor();
     activeRead = null;
     activeAbortController?.abort();
@@ -771,9 +1829,14 @@ function createHubConnection({
   }
 
   function closeChildren() {
-    generation += 1;
+    collection.reset();backgroundCollection.reset();backgroundCollectionState=null;
+    invalidateGeneration();
+    activeFinanceController?.abort();financePermit=null;
+    settlementController?.abort();settlementPermit=null;assistantController?.abort();assistantPermit=null;insightsController?.abort();insightsPermit=null;csController?.abort();csPermit=null;inventoryController?.abort();inventoryPermit=null;
     void stopShipments();
     currentScope = 'ACTIVE';
+    currentChannel = 'ALL';
+    currentFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});
     invalidateCursor();
     activeRead = null;
     activeAbortController?.abort();
@@ -781,11 +1844,135 @@ function createHubConnection({
     loginWindow = null;
   }
 
-  return Object.freeze({ readOverview, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, checkShipment, previewLabel, nextPage, previousPage, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+  let findingOrder=false;
+  async function findOrder(id){
+    if(typeof id!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id))return {status:'CHECK_REQUIRED'};
+    if(findingOrder||activeRead||registrationController||automaticController||disconnecting||cleanupFailed||isLoginWindowActive())return {status:'BUSY'};
+    findingOrder=true;let count=0,last,partial=false;
+    try{
+      currentScope='ACTIVE';currentFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});
+      let pending=viewChannel(id.startsWith('HR-CP-')?'COUPANG':'CAFE24'),expected=generation;
+      for(const scope of ORDER_SCOPES){
+        if(scope!=='ACTIVE'){pending=viewScope(scope);expected=generation;}
+        while(true){
+          last=await pending;
+          if(expected!==generation)return {status:'DISCONNECTED'};
+          if(!['READY','PARTIAL'].includes(last?.status))return {status:'CHECK_REQUIRED',page:last};
+          count++;
+          partial=partial||last.partial;
+          if(last.orders.some(order=>order.hubOrderId===id))return {status:'FOUND',page:last};
+          if(count>=8)return {status:'SEARCH_LIMIT',page:last};
+          if(!last.hasMore)break;
+          pending=nextPage();
+        }
+      }
+      return {status:partial?'CHECK_REQUIRED':'NOT_FOUND',page:last};
+    }finally{findingOrder=false;}
+  }
+  async function readServerShippingHistory(){
+    const empty=()=>({status:'CHECK_REQUIRED',orders:[]});
+    if(serverHistoryRequestActive||disconnecting||cleanupFailed||registrationController||automaticController||findingOrder)return empty();
+    const expected=generation,controller=new AbortController();let timer;
+    serverHistoryRequestActive=true;businessReads.add(controller);
+    try{
+      const operation=(async()=>{
+        const auth=await recheckPage();
+        if(expected!==generation||controller.signal.aborted||!['READY','PARTIAL'].includes(auth.status))return empty();
+        const response=await getRemoteSession().fetch(REGISTRATION_URL,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
+        if(response.status!==200)return empty();
+        const payload=await readBoundedJson(response,controller);
+        if(payload?.ok!==true||!Array.isArray(payload.results)||payload.results.length>300)return empty();
+        const seen=new Set(),orders=[];
+        for(const row of payload.results){
+          if(!row||typeof row.hubOrderId!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(row.hubOrderId)||seen.has(row.hubOrderId))return empty();
+          if(row.platform!==(row.hubOrderId.startsWith('HR-CP-')?'COUPANG':'CAFE24'))return empty();
+          seen.add(row.hubOrderId);orders.push({hubOrderId:row.hubOrderId,status:row.status==='SUCCESS'?'REGISTERED':['QUEUED','PENDING','RUNNING'].includes(row.status)?'PENDING':row.status==='FAILED'?'FAILED':'CHECK_REQUIRED'});
+        }
+        return {status:'READY',orders};
+      })();
+      const result=await Promise.race([operation,new Promise(resolve=>{timer=setTimeout(()=>{controller.abort();resolve(empty());},timeoutMs);}),new Promise(resolve=>controller.signal.addEventListener('abort',()=>resolve(empty()),{once:true}))]);
+      return expected===generation&&!disconnecting?result:empty();
+    }catch{return empty();}
+    finally{clearTimeout(timer);serverHistoryRequestActive=false;businessReads.delete(controller);}
+  }
+  async function restoreShippingHistory(){
+    const expected=generation;
+    if(!shipmentDirectory||disconnecting||cleanupFailed||registrationController||automaticController)return {status:'CHECK_REQUIRED',orders:[]};
+    const auth=await recheckPage();
+    if(expected!==generation||!['READY','PARTIAL'].includes(auth.status))return {status:'CHECK_REQUIRED',orders:[]};
+    const result=await readShippingHistory(shipmentDirectory);
+    return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
+  }
+return Object.freeze({ generalChat,cancelGeneralChat,marketAi,cancelMarketAi,insightAi,cancelInsightAi,readEventPerformance, readBackgroundOrders, collectBackgroundOrders, collectBackgroundCs, assistantAutomation, assistantAccess, connectionCommand, teamCommand, keywordBid, deleteCalendarEntry, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readAssistant, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
-  for(const [channel,method] of [['moaon-hub:preview-label','previewLabel'],['moaon-hub:issue-shipment','issueShipment'],['moaon-hub:check-shipment','checkShipment']]){
+  for(const [channel,method,write] of [['moaon-hub:read-credential-metadata','readCredentialMetadata',false],['moaon-hub:save-server-credential','saveServerCredential',true]]){
+    ipcMain.handle(channel,async(event,...args)=>{
+      if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+      if(args.length!==1||!validCredentialInput(args[0],write))return Object.freeze({status:'INVALID'});
+      return connection[method](args[0]);
+    });
+  }
+  for(const [channel,method] of [['moaon-hub:read-tracking','readTracking'],['moaon-hub:refresh-tracking','refreshTracking']]){
+    ipcMain.handle(channel,async(event,...args)=>{
+      if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+      if(args.length!==1||typeof args[0]!=='string'||!/^HR-(?:C24|CP|NV)-[A-F0-9]{8}$/.test(args[0]))throw Error('Invalid tracking arguments');
+      return connection[method](args[0]);
+    });
+  }
+  ipcMain.handle('moaon-hub:read-delivery',async(event,...args)=>{
+    if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+    if(args.length!==1||typeof args[0]!=='string'||!/^HR-(?:C24|CP|NV)-[A-F0-9]{8}$/.test(args[0]))throw Error('Invalid delivery arguments');
+    return connection.readDelivery(args[0]);
+  });
+  ipcMain.handle('moaon-hub:preview-worklist',async(event,...args)=>{
+    if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+    if(args.length!==2||!validDocumentIds(args[0])||!['packing','dispatch'].includes(args[1]))throw Error('Invalid worklist arguments');
+    return connection.previewWorklist(args[0],args[1]);
+  });
+  for(const [channel,method,valid] of [['moaon-hub:preview-labels','previewLabels',validRegistrationIds],['moaon-hub:export-selected-csv','exportSelectedCsv',validDocumentIds]]){
+    ipcMain.handle(channel,async(event,...args)=>{
+      if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+      if(args.length!==1||!valid(args[0]))throw Error('Invalid document arguments');
+      return connection[method](args[0]);
+    });
+  }
+  ipcMain.handle('moaon-hub:issue-and-register',async(event,...args)=>{
+    if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+    if(args.length!==1||!validRegistrationIds(args[0]))throw Error('Invalid automatic shipping arguments');
+    return connection.issueAndRegister(args[0]);
+  });
+  ipcMain.handle('moaon-hub:view-channel',async(event,...args)=>{
+    if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+    if(args.length!==1||!ORDER_CHANNELS.includes(args[0]))throw Error('Invalid channel arguments');
+    return connection.viewChannel(args[0]);
+  });
+  ipcMain.handle('moaon-hub:set-order-filters',async(event,...args)=>{
+    if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+    const filters=args[0];
+    if(args.length!==1||!filters||typeof filters!=='object'||Array.isArray(filters)||![2,5].includes(Object.keys(filters).length)||typeof filters.delayOnly!=='boolean'||typeof filters.giftOnly!=='boolean'||(Object.keys(filters).length===5&&!validSearch({query:filters.query,start:filters.start,end:filters.end})))throw Error('Invalid filter arguments');
+    return connection.setOrderFilters(filters);
+  });
+  ipcMain.handle('moaon-hub:insight-ai',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!validInsightAiCommand(args[0]))throw Error('Invalid analysis AI request');return connection.insightAi(args[0]);});
+  ipcMain.handle('moaon-hub:market-ai',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!validMarketAiCommand(args[0]))throw Error('Invalid market AI request');return connection.marketAi(args[0]);});
+  ipcMain.handle('moaon-hub:general-chat',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!validGeneralChatCommand(args[0]))throw Error('Invalid general chat request');return connection.generalChat(args[0]);});
+  ipcMain.handle('moaon-hub:assistant-automation',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!require('./assistant-automation-contract.cjs').valid(args[0]))throw Error('Invalid assistant automation request');return connection.assistantAutomation(args[0]);});
+  ipcMain.handle('moaon-hub:assistant-access',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!require('./assistant-access-transport.cjs').validInput(args[0]))throw Error('Invalid assistant access request');return connection.assistantAccess(args[0]);});
+  ipcMain.handle('moaon-hub:connection-command',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!require('./connections-transport.cjs').validInput(args[0]))throw Error('Invalid connection request');return connection.connectionCommand(args[0]);});
+  ipcMain.handle('moaon-hub:team-command',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!require('./team-contract.cjs').validInput(args[0]))throw Error('Invalid team request');return connection.teamCommand(args[0]);});
+  ipcMain.handle('moaon-hub:apply-order-search',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');if(args.length!==1||!validSearch(args[0]))throw Error('Invalid search arguments');return connection.applyOrderSearch(args[0]);});
+  ipcMain.handle('moaon-hub:reset-order-filters',async(event,...args)=>{
+    if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+    if(args.length)throw Error('Arguments are not allowed');
+    return connection.resetOrderFilters();
+  });
+  ipcMain.handle('moaon-hub:register-invoices',async(event,...args)=>{
+    if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
+    if(args.length!==1||!validRegistrationIds(args[0]))throw Error('Invalid registration arguments');
+    return connection.registerInvoices(args[0]);
+  });
+  for(const [channel,method] of [['moaon-hub:find-order','findOrder'],['moaon-hub:preview-label','previewLabel'],['moaon-hub:issue-shipment','issueShipment'],['moaon-hub:check-shipment','checkShipment']]){
     ipcMain.handle(channel,async(event,...args)=>{
       if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');
       if(args.length!==1||typeof args[0]!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(args[0]))throw Error('Invalid shipment arguments');
@@ -798,7 +1985,30 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     return connection.confirmShipmentReview(args[0]);
   });
   const methods = [
+    ['moaon-hub:read-calendar-month', 'readCalendarMonth'],
+    ['moaon-hub:read-event-performance','readEventPerformance'],
+    ['moaon-hub:create-calendar-entry','createCalendarEntry'],
+    ['moaon-hub:delete-calendar-entry','deleteCalendarEntry'],
+    ['moaon-hub:collect-orders', 'collectOrders'],
+    ['moaon-hub:check-order-collection', 'checkOrderCollection'],
+    ['moaon-hub:check-order-freshness', 'checkOrderFreshness'],
+    ['moaon-hub:server-shipping-history', 'readServerShippingHistory'],
+    ['moaon-hub:restore-shipping-history', 'restoreShippingHistory'],
     ['moaon-hub:read-overview', 'readOverview'],
+    ['moaon-hub:read-finance', 'readFinance'],
+    ['moaon-hub:read-settlement', 'readSettlement'],
+    ['moaon-hub:read-insights', 'readInsights'],
+    ['moaon-hub:read-assistant', 'readAssistant'],
+    ['moaon-hub:cancel-insight-ai','cancelInsightAi'],
+    ['moaon-hub:cancel-market-ai','cancelMarketAi'],
+    ['moaon-hub:cancel-general-chat','cancelGeneralChat'],
+    ['moaon-hub:keyword-bid','keywordBid'],
+    ['moaon-hub:preview-stock-receipts', 'previewStockReceipts'],
+    ['moaon-hub:read-stock', 'readStock'],
+    ['moaon-hub:save-stock', 'saveStock'],
+    ['moaon-hub:read-inventory', 'readInventory'],
+    ['moaon-hub:read-cs', 'readCs'],
+    ['moaon-hub:read-today-calendar', 'readTodayCalendar'],
     ['moaon-hub:list-businesses', 'listBusinesses'],
     ['moaon-hub:connect', 'connect'],
     ['moaon-hub:refresh', 'refresh'],
@@ -810,11 +2020,26 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     ['moaon-hub:view-in-transit', 'viewInTransit'],
     ['moaon-hub:view-completed', 'viewCompleted'],
     ['moaon-hub:disconnect', 'disconnect'],
+    ['moaon-hub:export-orders-xlsx', 'exportOrdersXlsx'],
   ];
 
   for (const [channel, method] of methods) {
     ipcMain.handle(channel, async (event, ...args) => {
       if (!isTrustedRenderer(event, getMainWindow())) throw new Error('Untrusted renderer');
+      if(method==='keywordBid'){if(args.length!==1||!require('./keyword-bids.cjs').valid(args[0]))throw Error('Invalid bid arguments');return connection.keywordBid(args[0]);}
+      if(method==='previewStockReceipts'){if(args.length!==1||!require('./stock-receipt-preview.cjs').validRequest(args[0]))throw Error('Invalid receipt arguments');return connection.previewStockReceipts(args[0]);}
+      if(method==='saveStock'){if(args.length!==1)throw Error('Arguments are not allowed');return connection.saveStock(args[0]);}
+      if(method==='deleteCalendarEntry'){if(args.length!==1||!require('./today-calendar.cjs').validCalendarRemoval(args[0]))throw Error('Invalid arguments');return connection.deleteCalendarEntry(args[0]);}
+      if(method==='createCalendarEntry'){if(args.length!==1||!require('./today-calendar.cjs').validCalendarDraft(args[0]))throw Error('Arguments are not allowed');return connection.createCalendarEntry(args[0]);}
+      if(method==='readEventPerformance'){if(args.length!==1||typeof args[0]!=='string'||!/^[0-9a-f-]{36}$/i.test(args[0]))throw Error('Invalid event id');return connection.readEventPerformance(args[0]);}
+      if(method==='readCalendarMonth'){
+        if(args.length!==1||!require('./today-calendar.cjs').monthRange(args[0]))throw Error('Arguments are not allowed');
+        return connection.readCalendarMonth(args[0]);
+      }
+      if(method==='readSettlement'){
+        if(args.length>1||args.length===1&&![7,30,90].includes(args[0]))throw Error('Arguments are not allowed');
+        return connection.readSettlement(args.length?args[0]:30);
+      }
       if (args.length !== 0) throw new Error('Arguments are not allowed');
       return connection[method]();
     });

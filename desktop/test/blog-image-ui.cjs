@@ -1,0 +1,16 @@
+'use strict';
+const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs'),{_electron}=require('playwright');
+(async()=>{const app=await _electron.launch({executablePath:require('electron'),args:[path.join(__dirname,'isolated-bootstrap.cjs')],env:{...process.env,MOAON_TEST_RUNTIME_ROOT:process.env.MOAON_TEST_RUNTIME_ROOT||path.resolve(__dirname,'..'),MOAON_TEST_PROFILE:fs.mkdtempSync('D:/GPT/tmp/blog-image-ui-'),MOAON_TEST_HIDDEN:'0',MOAON_TEST_DISPLAY:'right'}});
+try{const page=await app.firstWindow();await page.waitForLoadState('domcontentloaded');await page.evaluate(()=>{document.querySelector('#entry-screen').hidden=true;const s=document.querySelector('.preview-shell');s.hidden=false;s.inert=false;showRoute('content');});
+await page.getByRole('button',{name:'마케팅 스튜디오',exact:true}).click();
+const data=await page.evaluate(()=>{const c=document.createElement('canvas');c.width=c.height=1024;const x=c.getContext('2d');x.fillStyle='#dce8cd';x.fillRect(0,0,1024,1024);return c.toDataURL();});
+await app.evaluate(({dialog})=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:'D:/GPT/tmp/blog-image-export-test.png'});});
+const saved=await page.evaluate(data=>window.moaonHub.blogWorkspace({action:'image-save',value:data}),data);assert.equal(saved.ok,true);assert.equal(fs.readFileSync('D:/GPT/tmp/blog-image-export-test.png').subarray(0,8).toString('hex'),'89504e470d0a1a0a');
+await app.evaluate(({ipcMain},data)=>{ipcMain.removeHandler('moaon-hub:blog-workspace');globalThis.imageCalls=0;ipcMain.handle('moaon-hub:blog-workspace',async(_,v)=>{if(v.action==='image-generate'){globalThis.imageCalls++;await new Promise(r=>setTimeout(r,200));return {ok:true,dataUrl:data};}return {ok:true,enabled:true,keyPresent:true,month:'2026-09',used:1,remaining:9};});},data);
+await page.locator('#blog-image-prompt').fill('시험 이미지 · 외부 호출 없음');await page.locator('#blog-image-headline').fill('오늘의 차 한 잔');const box=page.getByRole('region',{name:'블로그 대표 이미지'});
+await box.getByRole('button',{name:'AI 이미지 1장 생성',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('.blog-image-preview button').disabled);
+await box.getByRole('button',{name:'글 미리보기에 적용',exact:true}).click();assert.equal(await page.locator('.blog-article-cover').isVisible(),true);assert.equal(await app.evaluate(()=>globalThis.imageCalls),1);
+await box.getByRole('button',{name:'PNG 저장',exact:true}).click();assert.match(await box.getByRole('status').innerText(),/저장했어요/);
+for(const width of [1440,1040,760]){await page.setViewportSize({width,height:1000});await box.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'D:/GPT/tmp/blog-image-'+width+'.png'});}
+await page.evaluate(()=>document.dispatchEvent(new Event('moaon-session-changed')));assert.equal(await page.locator('.blog-article-cover').isVisible(),false);assert.equal(await page.locator('#blog-image-prompt').inputValue(),'');console.log('PASS image fixture: generation, apply, save action, 3 widths, logout clears image. No paid call.');
+}finally{await app.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

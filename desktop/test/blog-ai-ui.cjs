@@ -1,0 +1,23 @@
+'use strict';
+const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs'),{_electron}=require('playwright');
+(async()=>{
+ const app=await _electron.launch({executablePath:require('electron'),args:[path.join(__dirname,'isolated-bootstrap.cjs')],env:{...process.env,MOAON_TEST_RUNTIME_ROOT:process.env.MOAON_TEST_RUNTIME_ROOT||path.resolve(__dirname,'..'),MOAON_TEST_PROFILE:fs.mkdtempSync('D:/GPT/tmp/blog-ai-'),MOAON_TEST_HIDDEN:'0',MOAON_TEST_DISPLAY:'right'}});
+ try{
+  const page=await app.firstWindow();const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.waitForLoadState('domcontentloaded');await page.evaluate(()=>returnToSample());await page.waitForTimeout(700);
+  await app.evaluate(({ipcMain})=>{globalThis.blogAiMode='ok';globalThis.blogAiRequests=[];ipcMain.removeHandler('moaon-hub:general-chat');ipcMain.handle('moaon-hub:general-chat',async(_,cmd)=>{globalThis.blogAiRequests.push(cmd);const mode=globalThis.blogAiMode;if(mode==='slow')await new Promise(r=>setTimeout(r,700));if(mode==='error')return {ok:false,status:'QUOTA_BLOCKED'};if(cmd.operation==='LIST')return {ok:true,configuration:{ready:true,enabled:true}};return {ok:true,turn:{answer:mode==='malformed'?'not json':JSON.stringify({title:'시험용 작두콩차 안내',body:'시험 자료로 작성한 본문입니다.\n[사진: 제품 포장]',checks:['포장 표시 확인']})}};});});
+  await page.evaluate(()=>{document.querySelector('#entry-screen').hidden=true;const s=document.querySelector('.preview-shell');s.hidden=false;s.inert=false;});await page.getByRole('button',{name:'마케팅 스튜디오',exact:true}).click();
+  const box=page.getByRole('region',{name:'Gemini 블로그 초안'}),status=box.getByRole('status');
+  await box.getByRole('button',{name:'Gemini 연결 확인',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.blog-ai .blog-status').textContent.includes('연결 준비 완료'));
+  await box.getByRole('button',{name:'Gemini 초안 만들기',exact:true}).click();assert.match(await status.innerText(),/제품 정보를 입력/);
+  await page.locator('#blog-ai-facts').fill('시험 제품 작두콩차 100g, 실제 외부 호출 없는 시험');await page.locator('#blog-ai-purpose').fill('첫 구매 고객 안내');
+  await box.getByRole('button',{name:'Gemini 초안 만들기',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('.blog-ai-result').hidden);assert.equal(await page.locator('#blog-body').inputValue(),'');
+  await box.getByRole('button',{name:'편집기에 적용',exact:true}).click();assert.match(await page.locator('#blog-body').inputValue(),/시험 자료/);
+  const requests=await app.evaluate(()=>globalThis.blogAiRequests.filter(x=>x.operation==='GENERATE'));assert.equal(requests.length,1);assert.equal(requests[0].input.model,'gemini-3.5-flash-lite');assert.deepEqual(requests[0].input.reportIds,[]);
+  for(const mode of ['error','malformed']){await app.evaluate((_,mode)=>globalThis.blogAiMode=mode,mode);await box.getByRole('button',{name:'Gemini 초안 만들기',exact:true}).click();await page.waitForTimeout(100);assert.match(await status.innerText(),mode==='error'?/사용량 한도/:/응답 형식/);assert.match(await page.locator('#blog-body').inputValue(),/시험 자료/);}
+  await app.evaluate(()=>globalThis.blogAiMode='ok');await box.getByRole('button',{name:'Gemini 초안 만들기',exact:true}).click();await page.waitForFunction(()=>!document.querySelector('.blog-ai-result').hidden);
+  page.once('dialog',d=>d.dismiss());await box.getByRole('button',{name:'편집기에 적용',exact:true}).click();assert.match(await page.locator('#blog-body').inputValue(),/시험 자료/);
+  for(const [width,theme] of [[1440,'light'],[1040,'dark'],[760,'light']]){await page.setViewportSize({width,height:1000});await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);await box.scrollIntoViewIfNeeded();assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:`D:/GPT/tmp/blog-ai-${width}-${theme}.png`});}
+  await app.evaluate(()=>globalThis.blogAiMode='slow');await box.getByRole('button',{name:'Gemini 초안 만들기',exact:true}).click();assert.equal(await box.getByRole('button',{name:'Gemini 초안 만들기',exact:true}).isDisabled(),true);await page.evaluate(()=>document.dispatchEvent(new Event('moaon-session-changed')));await page.waitForTimeout(900);assert.equal(await page.locator('#blog-ai-facts').inputValue(),'');assert.equal(await page.locator('.blog-ai-result').isVisible(),false);assert.equal(await page.locator('#blog-body').inputValue(),'');assert.deepEqual(errors,[]);
+  console.log('PASS: Gemini fixture connection/generation/apply, empty input, error/malformed responses, duplicate lock, late response after logout, responsive UI. Provider response mocked; no live model call.');
+ }finally{await app.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

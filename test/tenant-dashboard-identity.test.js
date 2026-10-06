@@ -12,6 +12,11 @@ const {
 const { createTenantControlStore } = require('../lib/tenancy/control-store.js');
 
 const NOW = Date.parse('2026-09-07T12:00:00.000Z');
+test('optional parent cancellation stops late validation before profile and preserves read-only touch',async()=>{
+ const controller=new AbortController();let finish,reads=0;const blocked=new Promise(r=>finish=r);
+ const verify=createDashboardIdentityVerifier({db:{from(){reads++;throw Error('must not read');}},authAdmin:{getUserById(){throw Error('must not read');}},validateSession:async(value,options)=>{assert.equal(options.touch,false);assert.equal(options.signal,controller.signal);await blocked;return {id:'30000000-0000-4000-8000-000000000001',userId:'20000000-0000-4000-8000-000000000001',expiresAt:'2099-01-01T00:00:00Z'};}});
+ const pending=verify('opaque',{signal:controller.signal,touch:true});controller.abort();finish();await assert.rejects(pending,{code:'IDENTITY_UNAVAILABLE'});assert.equal(reads,0);
+});
 const IDS = Object.freeze({
   session: '30000000-0000-4000-8000-000000000001',
   user: '20000000-0000-4000-8000-000000000001',

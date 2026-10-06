@@ -1,0 +1,62 @@
+'use strict';
+const validDate=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v+'T00:00:00Z'))&&new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;
+function calendarDay(now=new Date()){
+ const parts=new Intl.DateTimeFormat('en',{timeZone:'Asia/Seoul',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now);
+ return ['year','month','day'].map(type=>parts.find(part=>part.type===type).value).join('-');
+}
+function monthRange(month){
+ if(typeof month!=='string'||!/^20\d{2}-(?:0[1-9]|1[0-2])$/.test(month))return null;
+ return {from:month+'-01',to:new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5)),0)).toISOString().slice(0,10)};
+}
+function projectMonth(payload,month){
+ const range=monthRange(month);if(!range)return {status:'UNAVAILABLE',month,entries:[]};
+ const result=projectCalendar(payload,range.from,range.to,true),empty={status:'UNAVAILABLE',month,...range,entries:[],holidays:[],holidayReady:false};
+ if(result.status!=='READY')return empty;
+ const bodies=new Map();
+ for(const row of payload.entries){
+  if(row.body!=null&&(typeof row.body!=='string'||row.body.length>4000))return empty;
+  bodies.set(row.id,row.body??'');
+ }
+ const validHolidays=Array.isArray(payload.holidays)&&payload.holidays.length<=100&&payload.holidays.every(row=>row&&validDate(row.date)&&typeof row.name==='string'&&row.name.trim()&&row.name.length<=80);
+ const holidays=validHolidays?payload.holidays.filter(row=>row.date>=range.from&&row.date<=range.to).map(row=>({date:row.date,name:row.name})):[];
+ const eventById=new Map(payload.entries.filter(row=>row.type==='EVENT').map(row=>[row.id,row]));
+ return {status:'READY',month,...range,complete:typeof payload.complete==='boolean'?payload.complete:null,entries:result.entries.map(row=>({...row,body:bodies.get(row.id),...(row.type==='EVENT'?{...projectEventPlanning(eventById.get(row.id)),eventColor:eventById.get(row.id)?.eventColor||'BLUE',giftTiers:validGiftTiers(eventById.get(row.id)?.giftTiers)?eventById.get(row.id).giftTiers.map(t=>({...t})):[],eventState:eventById.get(row.id)?.eventState||'UNKNOWN',eventConfigInvalid:!validEventPlanning(eventById.get(row.id))||eventById.get(row.id)?.eventConfigInvalid===true||!validGiftTiers(eventById.get(row.id)?.giftTiers)}:{})})),holidays,holidayReady:validHolidays&&payload.holidayReady===true};
+}
+function projectCalendar(payload,date,to=date,allowPartial=false){
+ const empty={status:'UNAVAILABLE',date,entries:[]};
+ if(payload?.complete===false&&!allowPartial)return empty;
+ if(!validDate(date)||!validDate(to)||date>to||payload?.ok!==true||payload.range?.from!==date||payload.range?.to!==to||!Array.isArray(payload.entries)||payload.entries.length>=500)return empty;
+ const seen=new Set(),entries=[];
+ for(const row of payload.entries){
+  if(!row||typeof row.id!=='string'||!row.id||row.id.length>128||seen.has(row.id)||typeof row.title!=='string'||!row.title.trim()||row.title.length>300||!['SCHEDULE','MEMO','EVENT'].includes(row.type)||!['OPEN','DONE'].includes(row.status)||!validDate(row.date)||!validDate(row.endDate||row.date)||(row.endDate||row.date)<row.date||typeof row.time!=='string'||row.time&&!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(row.time))return empty;
+  seen.add(row.id);if(row.date>to||(row.endDate||row.date)<date)continue;
+  entries.push({id:row.id,title:row.title,type:row.type,status:row.status,time:row.time,date:row.date,endDate:row.endDate||row.date});
+ }
+ const reminders=payload.planningRemindersReady===true&&Array.isArray(payload.planningReminders)&&payload.planningReminders.length<=1000&&payload.planningReminders.every(r=>r&&['preparation','message'].includes(r.kind)&&typeof r.key==='string'&&r.key.length<=200&&typeof r.text==='string'&&r.text.length<=500&&typeof r.title==='string'&&r.title.length<=300)?payload.planningReminders.map(r=>({kind:r.kind,key:r.key,text:r.text,title:r.title})):null;
+ return {status:'READY',date,entries,...(payload.planningRemindersReady!==undefined?{planningReminders:reminders||[],planningRemindersReady:reminders!==null}:{})};
+}
+function validGiftTiers(rows){return Array.isArray(rows)&&rows.length<=10&&new Set(rows.map(r=>r?.minimumAmount)).size===rows.length&&rows.every(r=>r&&Object.keys(r).every(k=>['minimumAmount','maximumAmount','giftName','quantity'].includes(k))&&Number.isInteger(r.minimumAmount)&&r.minimumAmount>=1&&r.minimumAmount<=100000000&&(r.maximumAmount==null||Number.isInteger(r.maximumAmount)&&r.maximumAmount>=r.minimumAmount&&r.maximumAmount<=100000000)&&typeof r.giftName==='string'&&r.giftName.trim().length>0&&r.giftName.length<=120&&Number.isInteger(r.quantity)&&r.quantity>=1&&r.quantity<=99);}
+function validEventPlanning(v){
+ if(!validEventCampaign(v.campaign))return false;try{if(v.execution!==undefined)require('./ui/event-tools.js').normalize(v.execution);}catch{return false;}
+ if(v.platforms!==undefined&&(!Array.isArray(v.platforms)||!v.platforms.length||v.platforms.length>3||new Set(v.platforms).size!==v.platforms.length||v.platforms.some(p=>!['NAVER','COUPANG','CAFE24'].includes(p))))return false;
+ if(v.plan!==undefined&&(!v.plan||typeof v.plan!=='object'||Array.isArray(v.plan)||!['DRAFT','READY'].includes(v.plan.stage)||Object.keys(v.plan).some(k=>!['stage','goal','audience','benefit','preparation','review'].includes(k))||['goal','audience','benefit','preparation','review'].some(k=>v.plan[k]!==undefined&&(typeof v.plan[k]!=='string'||v.plan[k].length>300))))return false;
+ return true;
+}
+function validEventCampaign(v){
+ if(v===undefined)return true;
+ if(!v||typeof v!=='object'||Array.isArray(v)||Object.keys(v).some(k=>!['discountType','discountValue','discountConditions','messageStatus','messageChannel','messagePlannedDate','messageSentDate'].includes(k))||!['NONE','PERCENT','AMOUNT'].includes(v.discountType)||!['NOT_PLANNED','PLANNED','SENT'].includes(v.messageStatus))return false;
+ if(!Number.isInteger(v.discountValue)||v.discountValue<0||v.discountValue>(v.discountType==='PERCENT'?100:100000000)||(v.discountType==='NONE'?v.discountValue!==0:v.discountValue===0))return false;
+ if(['discountConditions','messageChannel'].some(k=>v[k]!==undefined&&(typeof v[k]!=='string'||v[k].length>(k==='messageChannel'?100:300))))return false;
+ if(['messagePlannedDate','messageSentDate'].some(k=>v[k]!==undefined&&(typeof v[k]!=='string'||v[k]&&(!validDate(v[k])||!/^20/.test(v[k])))))return false;
+ return !(v.messageStatus==='SENT'&&!v.messageSentDate||v.messageStatus!=='SENT'&&v.messageSentDate);
+}
+function projectEventPlanning(v){return validEventPlanning(v)?{platforms:v.platforms||['NAVER','COUPANG','CAFE24'],plan:{stage:'READY',goal:'',audience:'',benefit:'',preparation:'',review:'',...v.plan},campaign:v.campaign?{...v.campaign}:undefined,execution:v.execution?require('./ui/event-tools.js').normalize(v.execution):undefined}:{platforms:[],plan:{stage:'DRAFT'}};}
+function validCalendarDraft(v){
+ if(!v||Object.getPrototypeOf(v)!==Object.prototype||!['title','body','date','time','type'].every(k=>Object.hasOwn(v,k))||Object.keys(v).some(k=>!['title','body','date','time','type','endDate','eventColor','giftTiers','id','sourceMonth','platforms','plan','campaign','execution'].includes(k)))return false;
+ if(typeof v.title!=='string'||!v.title.trim()||v.title.length>160||typeof v.body!=='string'||v.body.length>(v.type==='EVENT'?2000:4000)||!validDate(v.date)||!/^20/.test(v.date)||typeof v.time!=='string'||v.time&&!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(v.time)||!['SCHEDULE','MEMO','EVENT'].includes(v.type))return false;
+ if(v.id!==undefined&&(typeof v.id!=='string'||!/^[a-zA-Z0-9-]{1,128}$/.test(v.id)||!monthRange(v.sourceMonth))||v.id===undefined&&v.sourceMonth!==undefined)return false;
+ const end=v.endDate||v.date;if(!validDate(end)||end<v.date||!/^20/.test(end)||(Date.parse(end)-Date.parse(v.date))/86400000>366||v.type==='MEMO'&&end!==v.date)return false;
+ return v.type==='EVENT'?['BLUE','CORAL','MINT','VIOLET','AMBER'].includes(v.eventColor)&&validGiftTiers(v.giftTiers)&&validEventPlanning(v):v.eventColor===undefined&&v.giftTiers===undefined&&v.platforms===undefined&&v.plan===undefined&&v.campaign===undefined&&v.execution===undefined;
+}
+function validCalendarRemoval(v){return !!v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).length===2&&typeof v.id==='string'&&/^[0-9a-f-]{36}$/i.test(v.id)&&!!monthRange(v.month);}
+module.exports={validCalendarRemoval,calendarDay,projectCalendar,monthRange,projectMonth,validCalendarDraft,validGiftTiers};

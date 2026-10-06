@@ -2,7 +2,14 @@
 
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { app, BrowserWindow, Menu, ipcMain, protocol, session, dialog } = require('electron');
+const { app, BrowserWindow, WebContentsView, Menu, Tray, ipcMain, protocol, session, dialog, safeStorage, screen, Notification, shell } = require('electron');
+const {defaultWindowBounds,rightDisplayBounds,readRightDisplayPreference,saveRightDisplayPreference,showRightWindow}=require('./window-placement.cjs');
+const {createUpdateGate,guardWorkIpc}=require('./update-gate.cjs');
+const {startAutomaticUpdates,createConfiguredUpdater,createAppUpdates,registerAppUpdates}=require('./app-updates.cjs');
+const {createActionReview}=require('./action-review.cjs');
+const updateGate=createUpdateGate();
+const workIpc=guardWorkIpc(ipcMain,updateGate);
+const {createDraftStore,registerApiDrafts}=require('./api-drafts.cjs');
 const {
   APP_ENTRY_URL,
   isAllowedAppUrl,
@@ -14,7 +21,12 @@ const {
 } = require('./hub-connection.cjs');
 
 const APP_NAME = '모아온 Preview';
+// Windows presentation identity is separate from the signed installer/update ID.
+// The old preview identity was shared with development Electron windows.
+const WINDOWS_APP_ID = 'com.moaon.desktop.main';
 const {createLabelPreview}=require('./label-preview.cjs');
+const {createWorklistPreview}=require('./worklist-preview.cjs');
+const {createSelectedDocuments,createOrderExportSaver}=require('./selected-documents.cjs');
 const {createPrinterInspection,registerPrinterInspection}=require('./printer-inspection.cjs');
 const {isTrustedRenderer}=require('./connection-policy.cjs');
 const {registerAppInfo}=require('./app-info.cjs');
@@ -25,6 +37,7 @@ const CONTENT_TYPES = new Map([
   ['.css', 'text/css; charset=utf-8'],
   ['.js', 'text/javascript; charset=utf-8'],
   ['.ttf', 'font/ttf'],
+  ['.png', 'image/png'],
 ]);
 const CONTENT_SECURITY_POLICY = [
   "default-src 'none'",
@@ -33,7 +46,7 @@ const CONTENT_SECURITY_POLICY = [
   "font-src 'self'",
   "form-action 'none'",
   "frame-ancestors 'none'",
-  "img-src 'self' data: https://*.pstatic.net https://*.coupangcdn.com https://*.cafe24img.com https://ecimg.cafe24.com",
+  "img-src 'self' data: https://*.pstatic.net https://*.coupangcdn.com https://*.cafe24img.com https://ecimg.cafe24.com https://harinfood.com/web/product/",
   "object-src 'none'",
   "script-src 'self'",
   "style-src 'self'",
@@ -68,16 +81,25 @@ if (!hasSingleInstanceLock) {
 } else {
   let mainWindow = null;
   let hubConnection = null;
+  let trayLifecycle=null,backgroundMonitor=null,updates=null;
+  let rightDisplayRequested=false;
+  const displayPreferenceFile=path.join(app.getPath('userData'),'display-preference.json');
 
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event,argv=[]) => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
+    if(rightDisplayRequested||argv.includes('--display-right')){
+      rightDisplayRequested=true;
+      try{saveRightDisplayPreference(displayPreferenceFile);}catch{console.error('DISPLAY_PREFERENCE_UNAVAILABLE');return;}
+      if(!showRightWindow(mainWindow,screen.getAllDisplays(),screen.getPrimaryDisplay()))console.error('RIGHT_DISPLAY_UNAVAILABLE');
+      return;
+    }
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.show();
     mainWindow.focus();
   });
 
   app.whenReady().then(async () => {
-    app.setAppUserModelId('com.moaon.preview');
+    app.setAppUserModelId(WINDOWS_APP_ID);
     Menu.setApplicationMenu(null);
 
     await protocol.handle('moaon', async (request) => {
@@ -116,12 +138,19 @@ if (!hasSingleInstanceLock) {
     });
     appSession.on('will-download', (event) => event.preventDefault());
 
+    try{
+      rightDisplayRequested=process.argv.includes('--display-right')||readRightDisplayPreference(displayPreferenceFile);
+      if(rightDisplayRequested)saveRightDisplayPreference(displayPreferenceFile);
+    }catch{console.error('DISPLAY_PREFERENCE_UNAVAILABLE');app.quit();return;}
+    const rightBounds=rightDisplayRequested?rightDisplayBounds(screen.getAllDisplays(),screen.getPrimaryDisplay()):null;
+    if(rightDisplayRequested&&!rightBounds){console.error('RIGHT_DISPLAY_UNAVAILABLE');app.quit();return;}
+    const initialBounds=rightBounds||defaultWindowBounds(screen.getPrimaryDisplay());
     mainWindow = new BrowserWindow({
       title: APP_NAME,
-      width: 1440,
-      height: 960,
-      minWidth: 1040,
-      minHeight: 720,
+      icon: path.join(UI_ROOT,'brand','moaon.png'),
+      ...initialBounds,
+      minWidth: Math.min(1040,initialBounds.width),
+      minHeight: Math.min(720,initialBounds.height),
       show: false,
       frame: true,
       titleBarStyle: 'hidden',
@@ -140,10 +169,13 @@ if (!hasSingleInstanceLock) {
       },
     });
 
+    if(process.platform==='win32'){const taskbarIcon=path.join(app.getPath('userData'),'moaon-desktop-icon-v1.ico');await fs.writeFile(taskbarIcon,await fs.readFile(path.join(UI_ROOT,'brand','moaon.ico')));mainWindow.setIcon(taskbarIcon);mainWindow.setAppDetails({appId:WINDOWS_APP_ID});if(app.isPackaged&&path.basename(process.execPath).toLowerCase()==='moaonpreview.exe'){mainWindow.once('ready-to-show',()=>{const repairTimer=setTimeout(()=>{if(!mainWindow||mainWindow.isDestroyed())return;require('./windows-shortcuts.cjs').repairShortcuts({shell,fs,appData:app.getPath('appData'),desktop:app.getPath('desktop'),executable:process.execPath,icon:taskbarIcon,appId:WINDOWS_APP_ID}).catch(()=>console.error('MOAON_SHORTCUT_REFRESH_UNAVAILABLE'));},250);repairTimer.unref();});}}
     mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-    registerPrinterInspection({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer,
+    mainWindow.on('show',()=>mainWindow?.setSkipTaskbar(false));
+    registerPrinterInspection({ipcMain:workIpc,getMainWindow:()=>mainWindow,isTrustedRenderer,
       inspect:createPrinterInspection({getMainWindow:()=>mainWindow,dialog})});
-    registerAppInfo({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer,getVersion:()=>app.getVersion()});
+    registerAppInfo({ipcMain:workIpc,getMainWindow:()=>mainWindow,isTrustedRenderer,getVersion:()=>app.getVersion()});
+    registerApiDrafts({ipcMain:workIpc,getMainWindow:()=>mainWindow,isTrustedRenderer,listBusinesses:()=>hubConnection.listBusinesses(),store:createDraftStore({directory:path.join(app.getPath('userData'),'api-drafts'),safeStorage,platform:process.platform})});
     mainWindow.webContents.on('will-attach-webview', (event) => event.preventDefault());
     mainWindow.webContents.on('will-navigate', (event, targetUrl) => {
       if (targetUrl !== APP_ENTRY_URL) event.preventDefault();
@@ -151,29 +183,59 @@ if (!hasSingleInstanceLock) {
     mainWindow.webContents.on('will-redirect', (event, targetUrl) => {
       if (targetUrl !== APP_ENTRY_URL) event.preventDefault();
     });
+    mainWindow.on('restore', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('moaon-hub:window-restored');
+    });
     const cleanupMarker = path.join(app.getPath('userData'), 'session-cleanup-pending');
     let initialCleanupPending = true;
     try { await fs.access(cleanupMarker); } catch (error) {
       if (error.code === 'ENOENT') initialCleanupPending = false;
     }
+    const teamNotifications=require('./team-notifications.cjs').createTeamNotifications({Notification,directory:path.join(app.getPath('userData'),'team-notifications'),getWindow:()=>mainWindow});
+    workIpc.handle('moaon-hub:copy-event-text',async(event,...args)=>{if(!isTrustedRenderer(event,mainWindow)||args.length!==1||typeof args[0]!=='string'||!args[0].trim()||args[0].length>2000)throw Error('Invalid clipboard request');require('electron').clipboard.writeText(args[0]);return {ok:true};});
+    workIpc.handle('moaon-hub:open-cs-link',async(event,...args)=>{const v=args[0];if(!isTrustedRenderer(event,mainWindow)||args.length!==1||!v||Object.keys(v).sort().join(',')!=='id,kind'||!(v.kind==='PRODUCT'&&/^\d{1,20}$/.test(v.id)||v.kind==='WING'&&v.id===''))throw Error('Invalid CS link');await shell.openExternal(v.kind==='PRODUCT'?'https://www.coupang.com/vp/products/'+v.id:'https://wing.coupang.com/');return {ok:true};});
+    workIpc.handle('moaon-hub:open-assistant-bot',async(event,...args)=>{const names={WORK:'moaon_hub_bot',SOLO:'moaon_solo_bot',STUDY:'moaon_study_bot',SUP:'moaon_sup_bot',AD:'moaon_ad_bot'};if(!isTrustedRenderer(event,mainWindow)||args.length!==1||typeof args[0]!=='string'||!Object.hasOwn(names,args[0]))throw Error('Invalid assistant bot');try{await shell.openExternal('https://t.me/'+names[args[0]]);return {ok:true};}catch{return {ok:false};}});
+    require('./blog-workspace.cjs').registerBlogWorkspace({ipc:workIpc,isTrusted:event=>isTrustedRenderer(event,mainWindow),shell,dialog,clipboard:require('electron').clipboard,getWindow:()=>mainWindow,nativeImage:require('electron').nativeImage,imageService:require('./blog-image.cjs').localImageService({directory:app.getPath('userData'),safeStorage:require('electron').safeStorage})});
+    workIpc.handle('moaon-hub:open-web-hub',async(event,...args)=>{if(!isTrustedRenderer(event,mainWindow)||args.length)throw Error('Untrusted web hub request');try{await shell.openExternal('https://harin-cafe24-sync.vercel.app/');return {ok:true};}catch{return {ok:false};}});
+    workIpc.handle('moaon-hub:test-team-notification',async(event,...args)=>{if(!isTrustedRenderer(event,mainWindow)||args.length)throw Error('Untrusted notification test');return teamNotifications.test();});
+    const LoginHost=require('./inline-login.cjs').createInlineLoginHost({WebContentsView});
     hubConnection = createHubConnection({
+      onTeamSnapshot:value=>{teamNotifications.receive(value);backgroundMonitor?.identity(value);},
       labelPreview: createLabelPreview({BrowserWindow,Menu,dialog,getParent:()=>mainWindow}),
+      stockReceiptPreview: require('./stock-receipt-preview.cjs').createStockReceiptPreview({BrowserWindow,Menu,getParent:()=>mainWindow}),
+      worklistPreview: createWorklistPreview({BrowserWindow,Menu,dialog,getParent:()=>mainWindow}),
+      selectedDocuments: createSelectedDocuments({dialog,getParent:()=>mainWindow,writeFile:(...args)=>fs.writeFile(...args)}),
       shipmentDirectory: path.join(app.getPath('userData'),'shipments'),
-      showShipmentReview: (parent, options) => dialog.showMessageBox(parent, options),
+      showShipmentReview: createActionReview({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer}),
+      onShippingProgress: value => {if(mainWindow&&!mainWindow.isDestroyed())mainWindow.webContents.send('moaon-hub:shipping-progress',value);},
       BrowserWindow,
+      LoginHost,
       session,
       getMainWindow: () => mainWindow,
       initialCleanupPending,
       markCleanupPending: () => fs.writeFile(cleanupMarker, 'pending', {mode:0o600}),
       finishCleanup: () => fs.rm(cleanupMarker, {force:true}),
+      saveOrderExport:createOrderExportSaver({dialog,getParent:()=>mainWindow,writeFile:(...args)=>fs.writeFile(...args)}),
     });
     if (initialCleanupPending) await hubConnection.disconnect();
     registerConnectionIpc({
-      ipcMain,
+      ipcMain:workIpc,
       getMainWindow: () => mainWindow,
       connection: hubConnection,
     });
-    mainWindow.once('ready-to-show', () => mainWindow.show());
+    trayLifecycle=require('./tray-lifecycle.cjs').createTrayLifecycle({app,Tray,Menu,window:mainWindow,icon:path.join(UI_ROOT,'brand','moaon.ico'),onStop:()=>backgroundMonitor?.stop(),allowClose:()=>updates?.read().status==='INSTALLING',canHide:()=>!BrowserWindow.getAllWindows().some(w=>w!==mainWindow&&w.isModal?.())});
+    backgroundMonitor=require('./background-monitor.cjs').createBackgroundMonitor({connection:hubConnection,Notification,getWindow:()=>mainWindow,directory:path.join(app.getPath('userData'),'background-notifications'),onStatus:status=>trayLifecycle?.setStatus(status)});
+    backgroundMonitor.start();
+    mainWindow.on('closed',()=>{backgroundMonitor.stop();trayLifecycle.dispose();});
+    updates=createAppUpdates({updater:createConfiguredUpdater({app,config:require('./update-channel.json')}),currentVersion:app.getVersion(),gate:updateGate,isBusy:()=>BrowserWindow.getAllWindows().length>1});
+    registerAppUpdates({ipcMain,getMainWindow:()=>mainWindow,isTrustedRenderer,updates,onPromptVisibility:visible=>LoginHost.setObscured(visible)});
+    // Background preparation never installs on ordinary quit or interrupts work.
+    const stopAutomaticUpdates=startAutomaticUpdates({updates});
+    mainWindow.once('closed',()=>{stopAutomaticUpdates();updates.dispose();});
+    mainWindow.once('ready-to-show', () => {
+      if(rightDisplayRequested){showRightWindow(mainWindow,screen.getAllDisplays(),screen.getPrimaryDisplay());return;}
+      mainWindow.setBounds(initialBounds);mainWindow.show();
+    });
     mainWindow.on('closed', () => {
       hubConnection?.closeChildren();
       hubConnection = null;

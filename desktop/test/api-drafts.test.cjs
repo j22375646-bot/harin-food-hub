@@ -1,0 +1,64 @@
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs/promises');
+const os=require('node:os');
+const path=require('node:path');
+const crypto=require('node:crypto');
+let api={};try{api=require('../api-drafts.cjs');}catch(e){if(e.code!=='MODULE_NOT_FOUND')throw e;}
+const key=crypto.randomBytes(32);
+const safeStorage={isEncryptionAvailable:()=>true,encryptString(text){const iv=crypto.randomBytes(12),cipher=crypto.createCipheriv('aes-256-gcm',key,iv);return Buffer.concat([iv,cipher.update(text,'utf8'),cipher.final(),cipher.getAuthTag()]);},decryptString(data){const decipher=crypto.createDecipheriv('aes-256-gcm',key,data.subarray(0,12));decipher.setAuthTag(data.subarray(-16));return Buffer.concat([decipher.update(data.subarray(12,-16)),decipher.final()]).toString('utf8');}};
+const draft=(business='시험 사업장')=>({business,provider:'NAVER',fields:{clientId:'test-id',clientSecret:'unique-secret-value'}});
+const tenantId='11111111-1111-4111-8111-111111111111';
+const epost=()=>({business:'우체국 시험',provider:'EPOST',fields:{customerId:'customer',apiKey:'test-api',securityKey:'1234567890abcdef',approvalNo:'approval',officeSerial:'office',trackingApiKey:''}});
+test('ePost saves complete contract data without exposing secrets and allows tracking to remain unset',async t=>{
+ const {store,directory}=await fixture(t);const result=await store.save(epost());assert.equal(result.status,'SAVED_UNVERIFIED');
+ assert.doesNotMatch(JSON.stringify(await store.list()),/1234567890abcdef|test-api/);
+ const [file]=await fs.readdir(directory);assert.equal((await fs.readFile(path.join(directory,file))).includes(Buffer.from('1234567890abcdef')),false);
+ await store.save({...epost(),fields:{...epost().fields,trackingApiKey:'tracking-test'}});
+ assert.equal((await store.list()).length,1);
+});
+test('ePost rejects missing contract fields and validates SEED by UTF-8 bytes',async t=>{
+ const {store}=await fixture(t);
+ for(const name of ['securityKey','approvalNo','officeSerial']){const value=epost();delete value.fields[name];await assert.rejects(store.save(value));}
+ for(const securityKey of ['short','가'.repeat(16),'1234567890abcdefg'])await assert.rejects(store.save({...epost(),fields:{...epost().fields,securityKey}}));
+ await store.save({...epost(),fields:{...epost().fields,securityKey:'가나다라1234'}});
+ assert.equal((await store.list()).length,1);
+});
+test('legacy ePost drafts stay readable and removable but need configuration before replacement',async t=>{
+ const {store,directory}=await fixture(t),legacy={business:'old',provider:'EPOST',fields:{customerId:'customer',apiKey:'old-key'}};
+ await fs.writeFile(path.join(directory,'api-drafts.encrypted'),safeStorage.encryptString(JSON.stringify({version:1,records:[legacy]})));
+ assert.equal((await store.list())[0].status,'CONFIGURATION_REQUIRED');
+ await assert.rejects(store.save(legacy));await store.save(draft());assert.equal((await store.list()).length,2);
+ await store.save({...epost(),business:'old'});assert.equal((await store.list())[0].status,'SAVED_UNVERIFIED');
+ await store.remove({business:'old',provider:'EPOST'});assert.equal((await store.list()).length,1);
+});
+test('tenant identity keeps identical names separate and survives rename and restart',async t=>{
+ const {store,directory}=await fixture(t);await store.save(draft());await store.save({...draft(),tenantId});
+ await store.save({...draft('renamed'),tenantId});assert.equal((await store.list()).length,2);
+ const restarted=api.createDraftStore({directory,safeStorage});assert.equal((await restarted.list())[1].tenantId,tenantId);
+ await restarted.remove({business:'renamed',provider:'NAVER',tenantId});assert.deepEqual(await restarted.list(),[{business:'시험 사업장',provider:'NAVER',status:'SAVED_UNVERIFIED'}]);
+});
+test('owned save rechecks server membership and never trusts renderer business or role',async t=>{
+ const {store}=await fixture(t),handlers=new Map();let reads=0,role='OWNER',status='READY';
+ api.registerApiDrafts({ipcMain:{handle:(k,v)=>handlers.set(k,v)},getMainWindow:()=>({}),isTrustedRenderer:e=>e.trusted,store,listBusinesses:async()=>{reads++;return {status,businesses:[{tenantId,displayName:'서버 사업장',role}]};}});
+ const save=handlers.get('moaon-hub:save-owned-api-draft'),input={tenantId,provider:'NAVER',fields:draft().fields};assert.equal(typeof save,'function');
+ await assert.rejects(()=>save({},input));assert.equal(reads,0);
+ const result=await save({trusted:true},input);assert.equal(result.business,'서버 사업장');assert.equal(result.tenantId,tenantId);assert.equal(result.status,'SAVED_UNVERIFIED');
+ for(const denied of ['VIEWER','OPERATOR']){role=denied;await assert.rejects(()=>save({trusted:true},input));}
+ role='OWNER';status='LOGIN_REQUIRED';await assert.rejects(()=>save({trusted:true},input));
+ status='READY';await assert.rejects(()=>save({trusted:true},{...input,business:'spoof',role:'OWNER'}));
+ await assert.rejects(()=>handlers.get('moaon-hub:save-api-draft')({trusted:true},{...draft(),tenantId}));
+ await assert.rejects(()=>save({trusted:true},{...input,tenantId:'22222222-2222-4222-8222-222222222222'}));
+ await assert.rejects(()=>save({trusted:true},{...input,tenantId:'not-a-tenant'}));
+ assert.equal(reads,5);assert.equal((await store.list()).length,1);
+});
+async function fixture(t,options={}){assert.equal(typeof api.createDraftStore,'function');const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-draft-test-'));t.after(()=>fs.rm(directory,{recursive:true,force:true}));return {directory,store:api.createDraftStore({directory,safeStorage,...options})};}
+test('saves encrypted records and returns only unverified metadata after restart',async t=>{const {directory,store}=await fixture(t);assert.deepEqual(await store.list(),[]);assert.deepEqual(await store.save(draft()),{business:'시험 사업장',provider:'NAVER',status:'SAVED_UNVERIFIED'});const files=await fs.readdir(directory);assert.equal(files.length,1);const data=await fs.readFile(path.join(directory,files[0]));assert.equal(data.includes(Buffer.from('unique-secret-value')),false);assert.deepEqual(await api.createDraftStore({directory,safeStorage}).list(),[{business:'시험 사업장',provider:'NAVER',status:'SAVED_UNVERIFIED'}]);});
+test('rejects unavailable OS encryption without creating a file',async t=>{for(const options of [{platform:'linux'},{safeStorage:{isEncryptionAvailable:()=>false}}]){const {directory,store}=await fixture(t,options);await assert.rejects(store.save(draft()),/API_DRAFT_UNAVAILABLE/);await assert.rejects(store.list(),/API_DRAFT_UNAVAILABLE/);assert.deepEqual(await fs.readdir(directory),[]);}});
+test('rejects malformed input and never leaks a supplied secret in errors',async t=>{const {store,directory}=await fixture(t);for(const value of [null,{...draft(),business:''},{...draft(),business:'x'.repeat(81)},{...draft(),provider:'OTHER'},{...draft(),extra:'unique-secret-value'},{...draft(),fields:{clientId:'x',clientSecret:'\nunique-secret-value'}},{...draft(),fields:{clientId:'x',clientSecret:'x'.repeat(2049)}},{...draft(),fields:{clientId:'x'}},{...draft(),fields:{clientId:'x',clientSecret:'y',extra:'z'}}])await assert.rejects(store.save(value),e=>e.message==='API_DRAFT_UNAVAILABLE');assert.deepEqual(await fs.readdir(directory),[]);});
+test('corrupt and oversized files cannot be silently replaced',async t=>{for(const data of [Buffer.from('corrupt'),Buffer.alloc(2*1024*1024)]){const {directory,store}=await fixture(t);await store.save(draft());const [file]=await fs.readdir(directory),target=path.join(directory,file);await fs.writeFile(target,data);await assert.rejects(store.list());await assert.rejects(store.save(draft('other')));assert.deepEqual(await fs.readFile(target),data);}});
+test('serial concurrent saves retain all drafts, replace same key and enforce 50 record limit',async t=>{const {store}=await fixture(t);await Promise.all(Array.from({length:50},(_,i)=>store.save(draft('business '+i))));assert.equal((await store.list()).length,50);await store.save({...draft('business 1'),fields:{clientId:'new',clientSecret:'replacement'}});assert.equal((await store.list()).length,50);await assert.rejects(store.save(draft('overflow')));assert.equal((await store.list()).length,50);});
+test('IPC rejects untrusted callers and extra arguments and sanitizes store failures',async()=>{assert.equal(typeof api.registerApiDrafts,'function');const handlers=new Map(),window={};let calls=0;api.registerApiDrafts({ipcMain:{handle:(name,fn)=>handlers.set(name,fn)},getMainWindow:()=>window,isTrustedRenderer:(event,w)=>event.trusted&&w===window,store:{save:async()=>{calls++;throw Error('unique-secret-value');},list:async()=>{calls++;return [];}}});const save=handlers.get('moaon-hub:save-api-draft'),list=handlers.get('moaon-hub:list-api-drafts');for(const invoke of [()=>save({},draft()),()=>save({trusted:true},draft(),'extra'),()=>list({},),()=>list({trusted:true},'extra')])await assert.rejects(invoke,e=>e.message==='API_DRAFT_UNAVAILABLE');assert.equal(calls,0);assert.deepEqual(await list({trusted:true}),[]);await assert.rejects(()=>save({trusted:true},draft()),e=>e.message==='API_DRAFT_UNAVAILABLE');});
+test('removes only the selected business provider and persists encrypted remaining records',async t=>{const {store,directory}=await fixture(t);await store.save(draft());await store.save(draft('keep'));assert.equal(typeof store.remove,'function');assert.deepEqual(await store.remove({business:'시험 사업장',provider:'NAVER'}),[{business:'keep',provider:'NAVER',status:'SAVED_UNVERIFIED'}]);assert.deepEqual(await api.createDraftStore({directory,safeStorage}).list(),[{business:'keep',provider:'NAVER',status:'SAVED_UNVERIFIED'}]);await assert.rejects(store.remove({business:'keep',provider:'NAVER',extra:true}));});
+test('remove IPC requires a trusted renderer and exactly one payload',async()=>{const handlers=new Map();api.registerApiDrafts({ipcMain:{handle:(name,fn)=>handlers.set(name,fn)},getMainWindow:()=>({}),isTrustedRenderer:e=>e.trusted,store:{remove:async()=>[]}});const remove=handlers.get('moaon-hub:remove-api-draft');assert.equal(typeof remove,'function');await assert.rejects(()=>remove({},{}));await assert.rejects(()=>remove({trusted:true},{},true));assert.deepEqual(await remove({trusted:true},{business:'test',provider:'NAVER'}),[]);});
+test('provider must be a string rather than a coercible array',async t=>{const {store}=await fixture(t);await assert.rejects(store.save({...draft(),provider:['NAVER']}));await assert.rejects(store.remove({business:'test',provider:['NAVER']}));});

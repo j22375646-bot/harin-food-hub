@@ -86,7 +86,7 @@ test('unverified, deleted, banned, mismatched, and invalid-clock identities neve
   const cases=[
     {...user,email_confirmed_at:null},
     {...user,deleted_at:NOW},
-    {...user,banned_until:'2026-09-09T00:00:00.000Z'},
+    {...user,banned_until:new Date(Date.parse(NOW)+86_400_000).toISOString()},
   ];
   for(const invalid of cases){
     const p=provider(fixture({'POST /auth/v1/verify':{body:{...session,user:invalid}}}));

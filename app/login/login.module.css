@@ -401,3 +401,5 @@
 :global(html[data-harin-theme="dark"]) .loginPasswordField input:hover{border-color:#52627e}
 :global(html[data-harin-theme="dark"]) .submitButton{border-color:#6f8de1;background:#6f8de1;color:#0f1728}
 :global(html[data-harin-theme="dark"]) .submitButton:hover:not(:disabled){border-color:#86a2ef;background:#86a2ef}
+
+.loginForm select{width:100%;min-height:48px;padding:10px 14px;margin:8px 0 20px;border:1px solid var(--login-line);border-radius:12px;font:inherit;background:var(--login-surface);color:var(--login-ink)}

@@ -6,6 +6,31 @@ const bcrypt = require('bcryptjs');
 const client = require('../lib/naver-commerce/client.js');
 const probe = require('../lib/naver-commerce/probe.js');
 
+test('different client credentials never reuse another business token',async t=>{
+ client.resetTokenCache();t.after(()=>client.resetTokenCache());let calls=0;
+ t.mock.method(globalThis,'fetch',async()=>({ok:true,json:async()=>({access_token:`token-${++calls}`,expires_in:3600})}));
+ const a={clientId:'business-a',clientSecret:bcrypt.genSaltSync(4),tokenType:'SELF',accountId:''};
+ assert.equal(await client.getAccessToken(a),'token-1');assert.equal(await client.getAccessToken({...a}),'token-1');
+ assert.equal(await client.getAccessToken({...a,clientId:'business-b'}),'token-2');
+ assert.equal(await client.getAccessToken({...a,clientId:'business-b',clientSecret:bcrypt.genSaltSync(4)}),'token-3');
+});
+
+test('cache reset during token fetch prevents a late response restoring cleared cache',async t=>{
+ client.resetTokenCache();t.after(()=>client.resetTokenCache());let release,calls=0;
+ t.mock.method(globalThis,'fetch',async()=>{calls++;if(calls===1)await new Promise(resolve=>release=resolve);return {ok:true,json:async()=>({access_token:calls===1?'old-token':'fresh-token',expires_in:3600})};});
+ const config={clientId:'test',clientSecret:bcrypt.genSaltSync(4),tokenType:'SELF',accountId:''};
+ const pending=client.getAccessToken(config);client.resetTokenCache();release();assert.equal(await pending,'old-token');
+ assert.equal(await client.getAccessToken(config),'fresh-token');
+});
+
+test('failed forced refresh does not leave the old token reusable',async t=>{
+ client.resetTokenCache();t.after(()=>client.resetTokenCache());let calls=0;
+ t.mock.method(globalThis,'fetch',async()=>{calls++;return {ok:calls!==2,status:401,json:async()=>calls===2?{}:{access_token:`token-${calls}`,expires_in:3600}};});
+ const config={clientId:'test',clientSecret:bcrypt.genSaltSync(4),tokenType:'SELF',accountId:''};
+ assert.equal(await client.getAccessToken(config),'token-1');await assert.rejects(client.getAccessToken(config,{force:true}));
+ assert.equal(await client.getAccessToken(config),'token-3');
+});
+
 test('Naver Commerce signature is a base64 encoded bcrypt result', () => {
   const clientId = 'test-client';
   const timestamp = '1786600000000';

@@ -10,7 +10,7 @@ async function launchDesktop({ root, executablePath, packaged, override }) {
   }
   if (override >= 0) throw new Error('Do not combine --isolated with --executable; isolated runs use the development binary');
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'moaon-electron-test-'));
-  const runtimeRoot = packaged ? path.join(root, 'dist', 'win-unpacked', 'resources', 'app.asar') : root;
+  const runtimeRoot = process.env.MOAON_TEST_RUNTIME_ROOT || (packaged ? path.join(root, 'dist', 'win-unpacked', 'resources', 'app.asar') : root);
   const app = await _electron.launch({
     executablePath: require('electron'),
     args: [path.join(__dirname, 'isolated-bootstrap.cjs')],

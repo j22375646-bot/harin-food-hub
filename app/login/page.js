@@ -63,7 +63,7 @@ export default async function LoginPage({ searchParams }) {
         <header className={styles.accessHeader}>
           <span><HarinIcon name="shield"/>OWNER ACCESS</span>
           <h2 id="access-title">운영을 시작할까요?</h2>
-          <p>계정 이름 없이 사장님 비밀번호만 입력해주세요.</p>
+          <p>로그인할 사람을 선택하고 비밀번호를 입력해주세요.</p>
         </header>
         {error && <div className={styles.loginError} role="alert"><HarinIcon name="alerts"/><span>{error}</span></div>}
         <LoginForm nextPath={nextPath.startsWith('/')&&!nextPath.startsWith('//')?nextPath:'/'} />

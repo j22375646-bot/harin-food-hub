@@ -1,0 +1,5 @@
+# P4-177 CLOVA analysis launcher
+
+Desktop 0.147.14. The launcher was moved beside the analysis report section but its CSS still required a chrome-actions ancestor, so it rendered as a native gray button. Apply styles directly to the launcher; add a decorative chat icon, 46px target, theme-aware text/background, focus ring and restrained hover feedback with reduced-motion support. Preserve existing CLOVA report scope and click behavior.
+
+Validation: insight-ai-app-smoke passed including fixture history/generation/cancel and light/dark responsive checks (700, 1040, 1440). Added real computed text contrast >=4.5, target >=44, font >=14 and appearance/icon assertions in both themes. Packaged asar 117 files verified. Installed 0.147.14 tested in the real owner profile on the right monitor: both theme screenshots and panel open/close passed; no real AI generation or operational writes. Screenshots D:/GPT/tmp/p4177-installed-light.png and p4177-installed-dark.png. Distribution distribution-20260916-003425-447.

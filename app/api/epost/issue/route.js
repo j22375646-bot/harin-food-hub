@@ -7,6 +7,7 @@ import operationQueue from '../../../../lib/coupang/operation-queue.js';
 import unifiedOrdersModule from '../../../../lib/orders/unified-orders.js';
 import shippingLabelModule from '../../../../lib/orders/shipping-label.js';
 import mapLimitModule from '../../../../lib/async/map-limit.js';
+import receiverModule from '../../../../lib/cafe24/order-receiver.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,10 +31,7 @@ function publicResult(row) {
   return apiSafety.json({ ok:true, pending:false, result:{ trackingNo:text(result.trackingNo), reused:Boolean(result.reused), requestNo:text(result.requestNo), reservationNo:text(result.reservationNo) }, request:publicRequest(row) });
 }
 
-function receiverFromCafe24(payload = {}) {
-  const receiver = Array.isArray(payload.receivers) ? payload.receivers[0] : payload.receiver || payload.receivers || {};
-  return { name:text(receiver.name), contact:text(receiver.virtual_phone_no || receiver.cellphone || receiver.phone), postCode:text(receiver.zipcode || receiver.post_code), address:text(receiver.address_full || receiver.address1), addressDetail:text(receiver.address2), message:text(receiver.shipping_message) };
-}
+const receiverFromCafe24=receiverModule.normalizeReceiver;
 
 export async function GET(request) {
   if (!apiSafety.isAuthorized(request, authModule)) return apiSafety.unauthorized();
@@ -71,6 +69,7 @@ export async function POST(request) {
         if (order.platform === 'CAFE24') {
           const delivery = await cafe24Client.adminGet(cafe24Config.getConfig(), `/orders/${encodeURIComponent(order.externalOrderId)}/receivers`);
           receiver = receiverFromCafe24(delivery.payload || {});
+          if(!receiver)throw Object.assign(Error('카페24 배송지가 여러 개이거나 확인되지 않아 발급을 중단했습니다.'),{status:409});
         }
         const label=shippingLabelModule.shippingLabelForOrder(order);
         const payload = { live:true, order:{
