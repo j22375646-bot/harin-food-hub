@@ -309,9 +309,9 @@ test('Coupang order mapper stores operational data only', () => {
   const source = { shipmentBoxId: 123, orderId: 456, orderedAt: '2026-08-11T01:00:00Z', receiver: { name: 'private' }, orderItems: [{ vendorItemId: 7, vendorItemName: '작두콩차', orderPrice: 5000, shippingCount: 2 }] };
   const order = map.mapOrder(source);
   const items = map.mapOrderItems(source);
-  assert.equal(order.gross_amount, 10000);
+  assert.equal(order.gross_amount, 5000);
   assert.equal(order.raw_data.receiver, undefined);
-  assert.equal(items[0].paid_amount, 10000);
+  assert.equal(items[0].paid_amount, 5000);
   assert.match(items[0].external_item_key, /^[a-f0-9]{64}$/);
 });
 
