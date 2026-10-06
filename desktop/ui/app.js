@@ -1325,7 +1325,7 @@ async function runAutomaticShipping(explicitIds){
   const previousNodes=[...panel.childNodes],previousRows=[...panel.querySelectorAll('.auto-shipping-item')];
   registrationBusy=true;clearRegistrationResults('auto');renderSelection();
   panel.hidden=false;panel.setAttribute('aria-busy','true');
-  panel.append(makeElement('strong','','자동 출고 처리'),makeElement('p','','준비 확인 → 순차 발급 → 쿠팡 등록 접수 → 대기 요청 자동 확인'),makeElement('p','','확인창에서 승인하면 진행합니다. 쿠팡 등록 대기는 다음 주문과 분리하고, 마지막에 최대 1분간 기존 요청만 자동 확인합니다.'));
+  panel.append(makeElement('strong','','자동 출고 처리'),makeElement('p','','준비 확인 → 최대 2건 동시 발급·등록 → 대기 요청 자동 확인'),makeElement('p','','확인창에서 승인하면 진행합니다. 쿠팡 등록 대기는 다음 주문과 분리하고, 마지막에 최대 1분간 기존 요청만 자동 확인합니다.'));
   const current=()=>generation===actionGeneration&&displayMode==='live';
   const progressRows=new Map(),completedProgress=new Set();
   const progressSummary=makeElement('p','','선택 '+ids.length+'건 · 등록 완료 0건');panel.append(progressSummary);

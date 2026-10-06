@@ -319,11 +319,11 @@ test('registration follows the order into IN_TRANSIT without repeating writes',a
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });
 
-test('each order receives a fresh deadline after a slow preceding order',async(t)=>{
- const originalTimer=globalThis.setTimeout,second='HR-C24-5678ABCD';let budget;
+test('each concurrent order receives its own deadline',async(t)=>{
+ const originalTimer=globalThis.setTimeout,second='HR-C24-5678ABCD';const budgets=[];
  t.mock.method(globalThis,'setTimeout',(callback,delay,...args)=>{
   if(delay!==1001)return originalTimer(callback,delay,...args);
-  budget={callback,remaining:1001};return {unref(){return this;}};
+  budgets.push(callback);return {unref(){return this;}};
  });
  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-auto-test-'));
  try{
@@ -333,7 +333,7 @@ test('each order receives a fresh deadline after a slow preceding order',async(t
    if(url.endsWith('/api/shipping/tracking'))return Response.json({ok:false},{status:503});
    if(options.method==='POST'){
     const target=JSON.parse(options.body).orders[0].hubOrderId;
-    budget.remaining-=700;if(budget.remaining<=0){budget.callback();return new Promise(()=>{});}
+    assert.equal(budgets.length,2,'both active orders have independent deadlines');
     rows.set(target,{...rows.get(target),invoiceNumber:'1234567890123',invoice:{status:'REGISTERED',number:'1234567890123'}});
     return Response.json({ok:true,results:[{hubOrderId:target,ok:true,status:'SUCCESS'}]});
    }
@@ -370,5 +370,90 @@ test('Coupang registration wait does not block the next upload and resumes GET w
  const j=jobs.findIndex(id=>url.endsWith(id));if(j>=0){polls[j]++;if(polls[j]===1)return Response.json({ok:true,request:{id:jobs[j],status:'PENDING'}},{status:202});assert.equal(posts,2,'both uploads must be queued before waiting again');rows[j]={...rows[j],invoiceNumber:rows[j].invoice.number,invoice:{...rows[j].invoice,status:'REGISTERED'}};return Response.json({ok:true,request:{id:jobs[j],status:'SUCCESS'}});}
  const scope=new URL(url).searchParams.get('stage');const orders=rows.filter(r=>(scope==='REGISTER')===(r.invoice.status==='REGISTERED'));return Response.json({ok:true,orders,total:orders.length,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});};
  await env.connection.refresh();const result=await env.connection.issueAndRegister(ids);assert.deepEqual(result.results.map(r=>r.status),['REGISTERED','REGISTERED']);assert.equal(posts,2);await env.connection.disconnect();
+ }finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+
+test('12 invoices overlap at most two orders, retain exact numbers and never repost',async()=>{
+ const directory=await fs.mkdtemp('D:/GPT/tmp/parallel-invoices-');
+ try{
+  const rows=Array.from({length:12},(_,i)=>({...base(),hubOrderId:`HR-C24-${i.toString(16).toUpperCase().padStart(8,'0')}`}));
+  const env=host(directory,{initial:rows[0]}),issued=new Set(),uploaded=new Set();
+  const jobs=new Map();let active=0,peak=0,releaseFirst,secondCompleted;
+  const firstGate=new Promise(r=>releaseFirst=r),secondGate=new Promise(r=>secondCompleted=r);
+  env.remote.fetch=async(url,o)=>{
+   if(url.endsWith('/api/shipping/tracking'))return Response.json({ok:false},{status:503});
+   if(o.method==='POST'){
+    const b=JSON.parse(o.body),id=b.orderIds?.[0]||b.orders[0].hubOrderId,i=rows.findIndex(r=>r.hubOrderId===id);
+    assert.ok(i>=0);
+    if(url.endsWith('/api/epost/issue')){
+     assert.ok(!issued.has(id));issued.add(id);active++;peak=Math.max(peak,active);assert.ok(active<=2);
+     const requestId=`a2345678-1234-4234-8234-${String(i).padStart(12,'0')}`;jobs.set(requestId,i);
+     return Response.json({ok:true,results:[{hubOrderId:id,ok:true,request:{id:requestId,status:'PENDING'}}]},{status:202});
+    }
+    if(b.action==='UPLOAD_INVOICE'){
+     assert.equal(b.orders[0].invoiceNumber,String(1234567890123+i));assert.ok(!uploaded.has(id));uploaded.add(id);active--;
+     rows[i]={...rows[i],invoiceNumber:b.orders[0].invoiceNumber,invoice:{status:'REGISTERED',number:b.orders[0].invoiceNumber}};
+     if(i!==0)secondCompleted();
+    }
+    return Response.json({ok:true,results:[{hubOrderId:id,ok:true,status:'SUCCESS'}]});
+   }
+   if(url.includes('/api/epost/issue?')){
+    const requestId=new URL(url).searchParams.get('requestId'),i=jobs.get(requestId);assert.notEqual(i,undefined);
+    if(i===0)await firstGate;
+    const number=String(1234567890123+i);rows[i]={...rows[i],issuedInvoiceNumber:number,invoice:{status:'ISSUED',number}};
+    return Response.json({ok:true,request:{id:requestId,hubOrderId:rows[i].hubOrderId,status:'SUCCESS'},result:{trackingNo:number}});
+   }
+   const scope=new URL(url).searchParams.get('stage'),orders=rows.filter(r=>(scope==='REGISTER')===(r.invoice?.status==='REGISTERED'));
+   return Response.json({ok:true,orders,total:orders.length,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});
+  };
+  await env.connection.refresh();const work=env.connection.issueAndRegister(rows.map(r=>r.hubOrderId));
+  await secondGate;assert.equal(uploaded.has(rows[0].hubOrderId),false);assert.equal(peak,2);releaseFirst();
+  const result=await work;assert.equal(result.status,'COMPLETED');assert.equal(issued.size,12);assert.equal(uploaded.size,12);
+  assert.deepEqual(result.results.map(r=>r.invoiceNumber),rows.map((_,i)=>String(1234567890123+i)));
+  assert.equal(active,0);await env.connection.disconnect();
+ }finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+
+test('one order timeout does not abort the other lane or subsequent orders',async(t)=>{
+ const original=setTimeout,deadlines=[];
+ t.mock.method(globalThis,'setTimeout',(cb,delay,...args)=>{if(delay!==1001)return original(cb,delay,...args);deadlines.push(cb);return {unref(){return this;}};});
+ const directory=await fs.mkdtemp('D:/GPT/tmp/parallel-timeout-');
+ try{
+  const rows=Array.from({length:4},(_,i)=>({...base(),hubOrderId:`HR-C24-${String(i).padStart(8,'0')}`,issuedInvoiceNumber:String(1234567890123+i),invoice:{status:'ISSUED',number:String(1234567890123+i)}}));
+  const env=host(directory,{initial:rows[0],automaticTimeoutMs:1001}),posts=[];
+  env.remote.fetch=async(url,o)=>{
+   if(url.endsWith('/api/shipping/tracking'))return Response.json({ok:false},{status:503});
+   if(o.method==='POST'){
+    const id=JSON.parse(o.body).orders[0].hubOrderId,i=rows.findIndex(r=>r.hubOrderId===id);posts.push(id);
+    if(i===0){deadlines[0]();return new Promise(()=>{});}
+    rows[i]={...rows[i],invoiceNumber:rows[i].invoice.number,invoice:{...rows[i].invoice,status:'REGISTERED'}};
+    return Response.json({ok:true,results:[{hubOrderId:id,ok:true,status:'SUCCESS'}]});
+   }
+   const scope=new URL(url).searchParams.get('stage'),orders=rows.filter(r=>(scope==='REGISTER')===(r.invoice.status==='REGISTERED'));
+   return Response.json({ok:true,orders,total:orders.length,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});
+  };
+  await env.connection.refresh();const result=await env.connection.issueAndRegister(rows.map(r=>r.hubOrderId));
+  assert.deepEqual(result.results.map(r=>r.status),['CHECK_REQUIRED','REGISTERED','REGISTERED','REGISTERED']);assert.equal(new Set(posts).size,4);assert.equal(posts.length,4);
+  await env.connection.disconnect();
+ }finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+
+test('authorization loss aborts both lanes and prevents later order writes',async()=>{
+ const directory=await fs.mkdtemp('D:/GPT/tmp/parallel-auth-');
+ try{
+  const rows=Array.from({length:4},(_,i)=>({...base(),hubOrderId:`HR-C24-${String(i).padStart(8,'0')}`,issuedInvoiceNumber:String(1234567890123+i),invoice:{status:'ISSUED',number:String(1234567890123+i)}}));
+  const env=host(directory,{initial:rows[0]}),posts=[];let bothStarted;const gate=new Promise(r=>bothStarted=r);
+  env.remote.fetch=async(url,o)=>{
+   if(o.method==='POST'){
+    posts.push(JSON.parse(o.body).orders[0].hubOrderId);if(posts.length===2)bothStarted();await gate;
+    return new Response('',{status:401});
+   }
+   const orders=new URL(url).searchParams.get('stage')==='ACTIVE'?rows:[];
+   return Response.json({ok:true,orders,total:orders.length,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});
+  };
+  await env.connection.refresh();const result=await env.connection.issueAndRegister(rows.map(r=>r.hubOrderId));
+  assert.equal(posts.length,2);assert.equal(result.results.length,4);assert.ok(result.results.every(r=>r.status==='CHECK_REQUIRED'));
+  let permission;env.remote.guard({url:'https://harin-cafe24-sync.vercel.app/api/shipping/actions',method:'POST',webContentsId:0},r=>permission=r);assert.equal(permission.cancel,true);
+  await env.connection.disconnect();
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });

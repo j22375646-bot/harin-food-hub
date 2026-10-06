@@ -335,12 +335,12 @@ function createHubConnection({
   let registrationController=null;
   let registrationRequestActive=false;
   let automaticController=null;
-  const automaticPermits=new Set();
+  const automaticPermits=new Map();let automaticPosts=0;
   const deliveryPermits=new Set();
   let serverHistoryRequestActive=false;
   let trackingController=null;
   let trackingRequestMethod=null;
-  let automaticTrackingRequestActive=false;
+  let automaticTrackingRequests=0;
   let collectionPermit=null;
   const collection=createOrderCollection({authorize:verifyShipmentSession,fetch:(url,options)=>getRemoteSession().fetch(url,options),readJson:readBoundedJson,
     permit:(url,method)=>{collectionPermit=method?{url,method}:null;},timeoutMs:Math.min(timeoutMs*3,45000),
@@ -403,7 +403,7 @@ function createHubConnection({
       ||workflowFingerprints.get(row)!==workflowFingerprints.get(approved))return 'CHECK_REQUIRED';
     const local=new AbortController(),stop=()=>local.abort();let timer;
     controller.signal.addEventListener('abort',stop,{once:true});
-    automaticTrackingRequestActive=true;
+    automaticTrackingRequests++;
     try{
       const stopped=new Promise(resolve=>{local.signal.addEventListener('abort',()=>resolve('CHECK_REQUIRED'),{once:true});timer=setTimeout(stop,timeoutMs);});
       return await Promise.race([(async()=>{
@@ -415,7 +415,7 @@ function createHubConnection({
           &&['PENDING','RUNNING','SUCCESS'].includes(queued.status)?'PENDING':'CHECK_REQUIRED';
       })(),stopped]);
     }catch{return 'CHECK_REQUIRED';}
-    finally{clearTimeout(timer);controller.signal.removeEventListener('abort',stop);local.abort();automaticTrackingRequestActive=false;}
+    finally{clearTimeout(timer);controller.signal.removeEventListener('abort',stop);local.abort();automaticTrackingRequests--;}
   }
   function trackingRow(id){
     if(typeof id!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id)||loadedOrders.length>20)return null;
@@ -901,7 +901,7 @@ function createHubConnection({
             bidPermit,
             csPermit,inventoryPermit,stockPermit,teamPermit,keyPermit,assistantAccessPermit,assistantAutomationPermit,
             trackingRequestMethod,
-            automaticTrackingRequestActive,
+            automaticTrackingRequestActive:automaticTrackingRequests>0,
             collectionPermit,backgroundCsPermit,
             credentialPermit,
             exportPermit,
@@ -1237,19 +1237,24 @@ function createHubConnection({
       }
       if(!alive())return empty('DISCONNECTED');
       automaticController=controller;
-      const active=()=>alive()&&!controller.signal.aborted;
+      const parent=controller;let nextIndex=0;const nextTarget=()=>targets[nextIndex++];
+      async function runLane(){
+        let controller=new AbortController(),deadline;const results=[];
+        const abort=()=>controller.abort();parent.signal.addEventListener('abort',abort);
+        try{
+      const active=()=>alive()&&!parent.signal.aborted&&!controller.signal.aborted;
       const pause=()=>new Promise(resolve=>{if(!active())return resolve();const timer=setTimeout(done,automaticPollDelayMs);function done(){clearTimeout(timer);controller.signal.removeEventListener('abort',done);resolve();}controller.signal.addEventListener('abort',done,{once:true});});
       async function jsonRequest(url,method='GET',body){
         if(!active())throw Error('Workflow stopped');
         const local=new AbortController();const stop=()=>local.abort();controller.signal.addEventListener('abort',stop,{once:true});let timer;
         const aborted=new Promise((_,reject)=>{local.signal.addEventListener('abort',()=>reject(Error('Request stopped')),{once:true});timer=setTimeout(stop,15000);});
-        automaticPermits.add(url);if(method==='POST')registrationRequestActive=true;
+        automaticPermits.set(url,(automaticPermits.get(url)||0)+1);if(method==='POST'){automaticPosts++;registrationRequestActive=true;}
         try{return await Promise.race([(async()=>{
           const response=await getRemoteSession().fetch(url,{method,credentials:'include',cache:'no-store',redirect:'error',signal:local.signal,headers:{Accept:'application/json',...(method==='POST'?{'Content-Type':'application/json',Origin:HARIN_ORIGIN}:{})},...(body?{body:JSON.stringify(body)}:{})});
           if(!active()||local.signal.aborted)throw Error('Request stopped');
-          if([401,403].includes(response.status)){controller.abort();throw Error('Authorization expired');}
+          if([401,403].includes(response.status)){parent.abort();throw Error('Authorization expired');}
           return {status:response.status,body:await readBoundedJson(response,local)};
-        })(),aborted]);}finally{clearTimeout(timer);controller.signal.removeEventListener('abort',stop);automaticPermits.delete(url);if(method==='POST')registrationRequestActive=false;}
+        })(),aborted]);}finally{clearTimeout(timer);controller.signal.removeEventListener('abort',stop);const permits=(automaticPermits.get(url)||0)-1;if(permits>0)automaticPermits.set(url,permits);else automaticPermits.delete(url);if(method==='POST'){automaticPosts--;registrationRequestActive=automaticPosts>0;}}
       }
       async function readTarget(id,scope){
         let offset=0,snapshot=null;
@@ -1271,7 +1276,7 @@ function createHubConnection({
         }
         return null;
       }
-      async function action(row,kind,pollLimit=5,resumeOnly=false){
+      async function action(row,kind,pollLimit=30,resumeOnly=false){
         progress(row.hubOrderId,kind==='PREPARE'?'PREPARE':'REGISTER','RUNNING',row.details.invoice?.number);
         const fingerprint=createHash('sha256').update(`${workflowFingerprints.get(row)}:${kind==='UPLOAD_INVOICE'?row.details.invoice.number:''}`).digest('hex');
         const journal=createShippingActionJournal({directory:shipmentDirectory,hubOrderId:row.hubOrderId,action:kind,fingerprint});
@@ -1311,10 +1316,11 @@ function createHubConnection({
         try{onShippingProgress({hubOrderId,phase,status,...(/^\d{13}$/.test(invoiceNumber||'')?{invoiceNumber}:{})});}catch{}
       }
       const pendingRegistrations=[];
-      for(const [approved] of targets){
+      for(let target;(target=nextTarget());){
+        const [approved]=target;
         // The previous order must not consume the next order's time budget.
-        clearTimeout(deadline);
-        if(active())deadline=setTimeout(()=>{controller.abort();void stopShipments();},automaticTimeoutMs);
+        clearTimeout(deadline);controller.abort();controller=new AbortController();if(parent.signal.aborted)controller.abort();
+        if(active())deadline=setTimeout(()=>controller.abort(),automaticTimeoutMs);
         const hubOrderId=approved.hubOrderId;let phase=approved.registrationEligible?'REGISTER':approved.stage==='PAID'?'PREPARE':'ISSUE';
         try{
           if(!active()){results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});continue;}
@@ -1336,7 +1342,7 @@ function createHubConnection({
             const identity=await createShippingActionJournal({directory:shipmentDirectory,hubOrderId,action:'ISSUE',fingerprint:workflowFingerprints.get(row)}).read();
             if(identity!==null){
               let issued=await registry.snapshot(hubOrderId);
-              for(let poll=0;active()&&poll<5&&['PENDING','RUNNING','SUBMITTING'].includes(issued.status);poll++){if(poll)await pause();if(!active())break;issued=await registry.poll(hubOrderId);}
+              for(let poll=0;active()&&poll<30&&['PENDING','RUNNING','SUBMITTING'].includes(issued.status);poll++){if(poll)await pause();if(!active())break;issued=await registry.poll(hubOrderId);}
               if(issued.status!=='SUCCEEDED'||await confirmedInvoice(hubOrderId,issued)!==row.details.invoice.number){results.push({hubOrderId,phase:'ISSUE',status:['PENDING','RUNNING'].includes(issued.status)?'PENDING':'CHECK_REQUIRED'});continue;}
             }
           }
@@ -1358,7 +1364,7 @@ function createHubConnection({
               await identityJournal.write({status:'INTENT'});
               if(!active())throw Error('Stopped');issued=await registry.submit(hubOrderId,{confirm:true});
             }else if(identity===null){results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});continue;}
-            for(let poll=0;active()&&poll<5&&['PENDING','RUNNING','SUBMITTING'].includes(issued.status);poll++){if(poll)await pause();if(!active())break;issued=await registry.poll(hubOrderId);}
+            for(let poll=0;active()&&poll<30&&['PENDING','RUNNING','SUBMITTING'].includes(issued.status);poll++){if(poll)await pause();if(!active())break;issued=await registry.poll(hubOrderId);}
             if(issued.status!=='SUCCEEDED'){results.push({hubOrderId,phase,status:['PENDING','RUNNING','SUBMITTING'].includes(issued.status)?'PENDING':['FAILED','CANCELLED'].includes(issued.status)?'FAILED':'CHECK_REQUIRED'});continue;}
             // The durable issuance job intentionally stores no tracking number.
             // Re-read its authoritative result and require the stored order to
@@ -1379,7 +1385,7 @@ function createHubConnection({
           if(result.status==='REGISTERED'){result.invoiceNumber=verified.details.invoice.number;progress(hubOrderId,'TRACKING','RUNNING',result.invoiceNumber);result.trackingStatus=await enqueueRegisteredTracking(verified,row,controller,active);progress(hubOrderId,'REGISTER','REGISTERED',result.invoiceNumber);}
         }catch{results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});}
       }
-      clearTimeout(deadline);
+      clearTimeout(deadline);controller.abort();controller=new AbortController();if(parent.signal.aborted)controller.abort();
       if(active()&&pendingRegistrations.length){deadline=setTimeout(()=>controller.abort(),automaticTimeoutMs);
         for(let round=0;round<30&&active()&&pendingRegistrations.some(p=>p.result.status==='PENDING');round++){
           if(round)await pause();
@@ -1394,6 +1400,13 @@ function createHubConnection({
           }
         }
       }
+        return results;
+        }finally{clearTimeout(deadline);controller.abort();parent.signal.removeEventListener('abort',abort);}
+      }
+      const lanes=await Promise.allSettled(Array.from({length:Math.min(2,targets.length)},()=>runLane().catch(error=>{parent.abort();throw error;})));
+      for(const lane of lanes)if(lane.status==='fulfilled')results.push(...lane.value);
+      results.sort((a,b)=>ids.indexOf(a.hubOrderId)-ids.indexOf(b.hubOrderId));
+      if(lanes.some(lane=>lane.status==='rejected'))return alive()?{status:'UNAVAILABLE',results}:empty('DISCONNECTED');
       if(!alive())return empty('DISCONNECTED');
       return {status:results.every(row=>row.status==='REGISTERED')?'COMPLETED':'PARTIAL',results};
     }catch{return alive()?{status:'UNAVAILABLE',results}:empty('DISCONNECTED');}
