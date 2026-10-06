@@ -213,7 +213,7 @@ html[data-theme="dark"]{--canvas:#151923;--surface:#1e2432;--surface-soft:#262e3
 #order-selection .selection-block-reason[hidden]{display:none}
 #order-selection .selection-reason-content{width:320px;padding:16px;gap:12px;font-size:15px;line-height:1.6;overflow-wrap:anywhere}
 #order-selection .selection-reason-content button{border:1px solid var(--line);background:var(--surface-soft)}
-body:has(#order-selection:not([hidden])) #main-content{padding-bottom:110px}
+body:has(#order-selection:not([hidden])) #main-content{padding-bottom:var(--selection-dock-space,110px);scroll-padding-bottom:var(--selection-dock-space,110px)}
 .orders-page .detail-header{background:var(--surface);padding:14px 20px}
 .orders-page .detail-product{padding:20px 0 16px}
 .orders-page .detail-product h2{font-size:19px;line-height:1.5;margin:0 0 6px}

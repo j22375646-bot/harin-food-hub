@@ -846,6 +846,7 @@ function createOrderRow(order) {
   return row;
 }
 
+let dismissedSelectionReason=null;
 function renderSelection(){
   renderCollection();
   renderServerFilterControls();
@@ -860,11 +861,15 @@ function renderSelection(){
   const selected=[...selectedOrderIds].map(id=>displayedOrders.find(o=>orderId(o)===id)),blocked=selected.filter(o=>!o?.issueAndRegisterEligible),ready=selected.filter(o=>o?.issueAndRegisterEligible===true);
   let prepare=document.getElementById('selection-prepare-delivery');if(!prepare){prepare=makeElement('button','secondary-action','배송정보 일괄 준비');prepare.id='selection-prepare-delivery';prepare.type='button';prepare.onclick=()=>void prepareSelectedDelivery();bar.prepend(prepare);}prepare.hidden=selectedScope!=='ACTIVE';prepare.disabled=orderToolsBusy()||displayMode!=='live'||count<1||count>20||!selected.some(o=>o&&['CAFE24','COUPANG'].includes(o.platform));
   const names={DELIVERY_INFO:'받는 분·주소·연락처 확인',HISTORY_UNAVAILABLE:'송장 이력 조회 확인',SHIPMENT_ID:'쿠팡 배송묶음 번호 확인',SERVER_CHECK:'서버 출고 조건 확인',PARTIAL:'누락 채널 재조회',NAVER_ROUTE:'네이버에서 별도 발급',ROCKET_ROUTE:'로켓그로스는 쿠팡에서 처리',INVOICE_EXISTS:'기존 송장 확인',CANCELLED:'취소 주문 제외',CANCEL_REQUEST:'취소 요청 확인',INVOICE_UNKNOWN:'송장 존재 여부 확인',CANCEL_UNKNOWN:'취소 여부 확인',SHIPPED:'이미 배송 진행 중',STAGE_UNKNOWN:'주문 상태 확인',ORDER_ID:'주문번호 확인',QUANTITY:'수량 확인',ROUTE_UNKNOWN:'출고 경로 확인'};
-  reason.hidden=!count||autoEligible||registrationBusy||selectedScope!=='ACTIVE';
+  const reasonKey=JSON.stringify([selectedScope,[...selectedOrderIds].sort()]);
+  if(!count||dismissedSelectionReason!==reasonKey)dismissedSelectionReason=null;
+  const hasReason=count>0&&!autoEligible&&!registrationBusy&&selectedScope==='ACTIVE';
+  reason.hidden=!hasReason||dismissedSelectionReason===reasonKey;
+  let reopen=document.getElementById('selection-reason-reopen');if(!reopen){reopen=makeElement('button','secondary-action','안내 다시 보기');reopen.id='selection-reason-reopen';reopen.type='button';reopen.setAttribute('aria-controls',reason.id);reopen.onclick=()=>{dismissedSelectionReason=null;renderSelection();document.getElementById('selection-reason-close')?.focus();};bar.append(reopen);}reopen.hidden=!hasReason||dismissedSelectionReason!==reasonKey;
   document.querySelector('#selection-auto-ship').hidden=selectedScope!=='ACTIVE';reason.replaceChildren();
   document.querySelector('#selection-auto-ship').setAttribute('aria-describedby','selection-block-reason');
   if(!reason.hidden){
-    const summary=makeElement('strong','',count>20?'한 번에 20건까지 선택하세요.':`선택 ${count}건 중 ${ready.length}건 발급 가능 · ${blocked.length}건 확인 필요`);reason.append(summary);
+    const header=makeElement('div','selection-reason-header'),summary=makeElement('strong','',count>20?'한 번에 20건까지 선택하세요.':`선택 ${count}건 중 ${ready.length}건 발급 가능 · ${blocked.length}건 확인 필요`),close=makeElement('button','selection-reason-close','×');close.id='selection-reason-close';close.type='button';close.setAttribute('aria-label','선택 주문 안내 닫기');close.onclick=()=>{dismissedSelectionReason=reasonKey;renderSelection();document.getElementById('selection-reason-reopen')?.focus();};header.append(summary,close);reason.append(header);
     const list=makeElement('div','selection-reasons');
     for(const order of blocked){const item=makeElement('div','selection-reason-item'),label=order?(({CAFE24:'Cafe24',COUPANG:'쿠팡',NAVER:'네이버'})[order.platform]||'채널 확인')+' · '+order.productName:'목록에서 사라진 주문';const message=order?.preflight?.serverReason||order?.preflight?.codes?.map(c=>names[c]||'출고 정보 확인').join(' · ')||'최신 발급 조건 확인 필요';item.append(makeElement('span','',label),makeElement('small','',message));list.append(item);}reason.append(list);
     const actions=makeElement('div','selection-reason-actions'),check=makeElement('button','','선택 주문 조건 다시 확인');check.type='button';check.onclick=()=>void recheckShippingSelection();actions.append(check);
@@ -1718,10 +1723,13 @@ function syncFloatingSelection(){
  bar.style.setProperty('--dock-center',(area.left+area.width/2)+'px');
  bar.style.setProperty('--dock-width',Math.max(280,area.width-32)+'px');
  if(bar.hidden)bar.querySelectorAll('details[open]').forEach(d=>d.open=false);
+ const space=bar.hidden?0:Math.ceil(bar.getBoundingClientRect().height+44+16);
+ document.documentElement.style.setProperty('--selection-dock-space',space+'px');
 }
 function installFloatingSelection(bar){
  syncFloatingSelection();if(bar.dataset.floating)return;bar.dataset.floating='true';
  window.addEventListener('resize',syncFloatingSelection);
+ new ResizeObserver(syncFloatingSelection).observe(bar);
  bar.addEventListener('toggle',event=>{if(event.target.open)bar.querySelectorAll('details[open]').forEach(d=>{if(d!==event.target&&!d.contains(event.target))d.open=false;});},true);
  document.addEventListener('pointerdown',event=>{if(!bar.contains(event.target))bar.querySelectorAll('details[open]').forEach(d=>d.open=false);});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'){const open=bar.querySelector('details[open]');if(open){open.open=false;open.querySelector('summary').focus();event.preventDefault();}}});
