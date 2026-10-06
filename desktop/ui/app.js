@@ -856,6 +856,7 @@ function renderSelection(){
   installFloatingSelection(bar);
   let reason=document.getElementById('selection-block-reason');if(!reason){reason=makeElement('div','selection-block-reason');reason.id='selection-block-reason';reason.setAttribute('role','status');bar.append(reason);}else bar.append(reason);
   const selected=[...selectedOrderIds].map(id=>displayedOrders.find(o=>orderId(o)===id)),blocked=selected.filter(o=>!o?.issueAndRegisterEligible),ready=selected.filter(o=>o?.issueAndRegisterEligible===true);
+  let prepare=document.getElementById('selection-prepare-delivery');if(!prepare){prepare=makeElement('button','secondary-action','배송정보 일괄 준비');prepare.id='selection-prepare-delivery';prepare.type='button';prepare.onclick=()=>void prepareSelectedDelivery();bar.prepend(prepare);}prepare.hidden=selectedScope!=='ACTIVE';prepare.disabled=orderToolsBusy()||displayMode!=='live'||count<1||count>20||!selected.some(o=>o&&['CAFE24','COUPANG'].includes(o.platform));
   const names={DELIVERY_INFO:'받는 분·주소·연락처 확인',HISTORY_UNAVAILABLE:'송장 이력 조회 확인',SHIPMENT_ID:'쿠팡 배송묶음 번호 확인',SERVER_CHECK:'서버 출고 조건 확인',PARTIAL:'누락 채널 재조회',NAVER_ROUTE:'네이버에서 별도 발급',ROCKET_ROUTE:'로켓그로스는 쿠팡에서 처리',INVOICE_EXISTS:'기존 송장 확인',CANCELLED:'취소 주문 제외',CANCEL_REQUEST:'취소 요청 확인',INVOICE_UNKNOWN:'송장 존재 여부 확인',CANCEL_UNKNOWN:'취소 여부 확인',SHIPPED:'이미 배송 진행 중',STAGE_UNKNOWN:'주문 상태 확인',ORDER_ID:'주문번호 확인',QUANTITY:'수량 확인',ROUTE_UNKNOWN:'출고 경로 확인'};
   reason.hidden=!count||autoEligible||registrationBusy||selectedScope!=='ACTIVE';
   document.querySelector('#selection-auto-ship').hidden=selectedScope!=='ACTIVE';reason.replaceChildren();
@@ -1320,14 +1321,16 @@ async function runAutomaticShipping(explicitIds){
   const previousNodes=[...panel.childNodes],previousRows=[...panel.querySelectorAll('.auto-shipping-item')];
   registrationBusy=true;clearRegistrationResults('auto');renderSelection();
   panel.hidden=false;panel.setAttribute('aria-busy','true');
-  panel.append(makeElement('strong','','자동 출고 처리'),makeElement('p','','준비 확인 → 우체국 발급 → 플랫폼 등록'),makeElement('p','','확인창에서 승인하면 진행합니다. 대기 작업은 완료 확인 전까지 성공으로 표시하지 않습니다.'));
+  panel.append(makeElement('strong','','자동 출고 처리'),makeElement('p','','준비 확인 → 순차 발급 → 쿠팡 등록 접수 → 대기 요청 자동 확인'),makeElement('p','','확인창에서 승인하면 진행합니다. 쿠팡 등록 대기는 다음 주문과 분리하고, 마지막에 최대 1분간 기존 요청만 자동 확인합니다.'));
   const current=()=>generation===actionGeneration&&displayMode==='live';
-  const progressRows=new Map();
+  const progressRows=new Map(),completedProgress=new Set();
+  const progressSummary=makeElement('p','','선택 '+ids.length+'건 · 등록 완료 0건');panel.append(progressSummary);
   const live=makeElement('div','shipment-live');live.setAttribute('role','status');panel.append(live);
   const unsubscribe=window.moaonHub.onShippingProgress?.(value=>{
     if(!current()||!ids.includes(value?.hubOrderId))return;
     const phases={CHECK:'주문 변경 확인',PREPARE:'상품 준비 처리',ISSUE:'우체국 송장 발급 중',REGISTER:'쇼핑몰 송장 등록 중',TRACKING:'등록 완료 · 배송 조회 중'};
     if(!phases[value.phase])return;
+    if(value.status==='REGISTERED')completedProgress.add(value.hubOrderId);progressSummary.textContent='선택 '+ids.length+'건 · 등록 완료 '+completedProgress.size+'건 · '+(value.status==='PENDING'?'기존 요청 처리 대기·자동 확인 중':phases[value.phase]);
     let row=progressRows.get(value.hubOrderId);if(!row){row=makeElement('div','shipment-live-row');progressRows.set(value.hubOrderId,row);live.append(row);if(document.querySelector('#orders-page')?.classList.contains('is-visible'))row.scrollIntoView({block:'nearest'});}
     row.dataset.active=value.status==='REGISTERED'?'false':'true';row.replaceChildren(makeElement('strong','',value.status==='REGISTERED'?'송장 등록 완료':value.status==='PENDING'?phases[value.phase].replace(' 중','')+' · 서버 처리 대기':phases[value.phase]),makeElement('span','',value.hubOrderId));
     if(/^\d{13}$/.test(value.invoiceNumber||''))row.append(makeElement('code','',value.invoiceNumber));
@@ -1743,3 +1746,15 @@ async function recheckShippingSelection(){
 document.getElementById('web-hub-open').addEventListener('click',async()=>{const button=document.getElementById('web-hub-open');button.disabled=true;try{const result=await window.moaonHub.openWebHub();button.title=result?.ok?'웹 허브 · 기본 브라우저에서 열기':'브라우저를 열지 못했습니다 · 다시 눌러주세요';}catch{button.title='브라우저를 열지 못했습니다 · 다시 눌러주세요';}finally{button.disabled=false;}});
 
  document.querySelector('#moaon-invite').addEventListener('click',async()=>{const button=document.querySelector('#moaon-invite'),status=document.querySelector('#moaon-invite-status');button.disabled=true;try{const info=await window.moaonHub.appInfo();if(!/^\d{1,4}\.\d{1,4}\.\d{1,4}$/.test(info?.version||''))throw Error('Version unavailable');const result=await window.moaonHub.copyEventText('모아온에 초대합니다!\nWindows 다운로드: https://github.com/j22375646-bot/harin-food-hub/releases/download/moaon-stable/Moaon-'+info.version+'-Setup.exe\n링크를 누르면 Windows 설치 파일이 다운로드됩니다. 받은 파일을 실행해 설치하세요.\n설치 후 본인 모아온 계정으로 로그인하세요. 사업장 접근 권한은 관리자에게 문의해 주세요.');status.textContent=result?.ok?'초대 안내와 다운로드 링크를 복사했어요. 카카오톡·텔레그램에 붙여넣어 보내세요.':'복사하지 못했어요. 다시 시도해 주세요.';}catch{status.textContent='복사하지 못했어요. 다시 시도해 주세요.';}finally{button.disabled=false;}});
+
+async function prepareSelectedDelivery(){
+ if(orderToolsBusy()||displayMode!=='live'||selectedScope!=='ACTIVE')return;
+ const ids=[...selectedOrderIds].filter(id=>displayedOrders.some(o=>orderId(o)===id&&['CAFE24','COUPANG'].includes(o.platform)));if(!ids.length||ids.length>20)return;
+ const generation=actionGeneration;registrationBusy=true;renderSelection();let cursor=0,done=0,ready=0;
+ let status=document.getElementById('delivery-prep-status');if(!status){status=makeElement('p','delivery-prep-status');status.id='delivery-prep-status';status.setAttribute('role','status');document.querySelector('#order-selection').append(status);}
+ const update=()=>{if(generation===actionGeneration)status.textContent='배송정보 '+done+'/'+ids.length+'건 확인 · 준비 '+ready+'건 · 동시 최대 3건';};update();
+ try{await Promise.all(Array.from({length:Math.min(3,ids.length)},async()=>{while(cursor<ids.length&&generation===actionGeneration){const id=ids[cursor++];try{const r=await window.moaonHub.readDelivery(id);if(r?.status==='READY'&&r.receiver?.name&&r.receiver?.address&&r.receiver?.contact&&/^\d{5}$/.test(r.receiver?.postCode||''))ready++;}catch{}done++;update();}}));}
+ finally{registrationBusy=false;renderSelection();}
+ if(generation!==actionGeneration)return;
+ await recheckShippingSelection();status.textContent='배송정보 '+ready+'/'+ids.length+'건 준비 · '+(ids.length-ready)+'건 확인 필요. 최신 발급 조건을 갱신했습니다.';
+}

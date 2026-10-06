@@ -1271,12 +1271,13 @@ function createHubConnection({
         }
         return null;
       }
-      async function action(row,kind){
+      async function action(row,kind,pollLimit=5,resumeOnly=false){
         progress(row.hubOrderId,kind==='PREPARE'?'PREPARE':'REGISTER','RUNNING',row.details.invoice?.number);
         const fingerprint=createHash('sha256').update(`${workflowFingerprints.get(row)}:${kind==='UPLOAD_INVOICE'?row.details.invoice.number:''}`).digest('hex');
         const journal=createShippingActionJournal({directory:shipmentDirectory,hubOrderId:row.hubOrderId,action:kind,fingerprint});
         let record=await journal.read();
         if(record===null){
+          if(resumeOnly)return 'CHECK_REQUIRED';
           record=await journal.write({status:'INTENT'});if(!active())return 'CHECK_REQUIRED';
           const input={hubOrderId:row.hubOrderId,...(kind==='UPLOAD_INVOICE'?{invoiceNumber:row.details.invoice.number,deliveryCompanyCode:row.platform==='CAFE24'?'0012':'EPOST'}:{})};
           const response=await jsonRequest(REGISTRATION_URL,'POST',{confirm:true,action:kind,orders:[input]});
@@ -1285,7 +1286,7 @@ function createHubConnection({
           const status=response.status===200&&response.body?.ok===true&&item?.ok===true&&item.status==='SUCCESS'?'SUCCESS':response.status===409&&response.body?.ok===false&&item?.ok===false?'FAILED':response.status===202&&response.body?.ok===true&&item?.ok===true&&['QUEUED','RUNNING'].includes(item.status)&&row.platform==='COUPANG'&&typeof item.requestId==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.requestId)?'PENDING':'UNKNOWN';
           record=await journal.write({status,requestId:status==='PENDING'?item.requestId:null});
         }
-        for(let poll=0;active()&&poll<5&&['PENDING','RUNNING'].includes(record.status);poll++){
+        for(let poll=0;active()&&poll<pollLimit&&['PENDING','RUNNING'].includes(record.status);poll++){
           progress(row.hubOrderId,kind==='PREPARE'?'PREPARE':'REGISTER',record.status,row.details.invoice?.number);
           if(poll)await pause();if(!active())break;
           const response=await jsonRequest(`${HARIN_ORIGIN}/api/coupang/operations/${record.requestId}`);
@@ -1309,6 +1310,7 @@ function createHubConnection({
         if(!active())return;
         try{onShippingProgress({hubOrderId,phase,status,...(/^\d{13}$/.test(invoiceNumber||'')?{invoiceNumber}:{})});}catch{}
       }
+      const pendingRegistrations=[];
       for(const [approved] of targets){
         // The previous order must not consume the next order's time budget.
         clearTimeout(deadline);
@@ -1369,13 +1371,28 @@ function createHubConnection({
           }
           phase='REGISTER';
           if(!active())throw Error('Stopped');
-          const registered=await action(row,'UPLOAD_INVOICE');
-          if(registered!=='SUCCESS'){results.push({hubOrderId,phase,status:registered,invoiceNumber:row.details.invoice.number});continue;}
+          const registered=await action(row,'UPLOAD_INVOICE',row.platform==='COUPANG'?1:5);
+          if(registered!=='SUCCESS'){const pending={hubOrderId,phase,status:registered,invoiceNumber:row.details.invoice.number};results.push(pending);if(registered==='PENDING')pendingRegistrations.push({row,approved,result:pending});continue;}
           const verified=await readRegistered(hubOrderId);
           const result={hubOrderId,phase,status:verified&&same(approved,verified)&&verified.details.invoice?.status==='REGISTERED'&&verified.details.invoice.number===row.details.invoice.number?'REGISTERED':'CHECK_REQUIRED'};
           results.push(result);
           if(result.status==='REGISTERED'){result.invoiceNumber=verified.details.invoice.number;progress(hubOrderId,'TRACKING','RUNNING',result.invoiceNumber);result.trackingStatus=await enqueueRegisteredTracking(verified,row,controller,active);progress(hubOrderId,'REGISTER','REGISTERED',result.invoiceNumber);}
         }catch{results.push({hubOrderId,phase,status:'CHECK_REQUIRED'});}
+      }
+      clearTimeout(deadline);
+      if(active()&&pendingRegistrations.length){deadline=setTimeout(()=>controller.abort(),automaticTimeoutMs);
+        for(let round=0;round<30&&active()&&pendingRegistrations.some(p=>p.result.status==='PENDING');round++){
+          if(round)await pause();
+          for(const pending of pendingRegistrations){if(!active()||pending.result.status!=='PENDING')continue;
+            try{const outcome=await action(pending.row,'UPLOAD_INVOICE',1,true);
+              if(outcome==='PENDING')continue;
+              if(outcome!=='SUCCESS'){pending.result.status=outcome;continue;}
+              const verified=await readRegistered(pending.row.hubOrderId);
+              pending.result.status=verified&&same(pending.approved,verified)&&verified.details.invoice?.status==='REGISTERED'&&verified.details.invoice.number===pending.row.details.invoice.number?'REGISTERED':'CHECK_REQUIRED';
+              if(pending.result.status==='REGISTERED'){pending.result.trackingStatus=await enqueueRegisteredTracking(verified,pending.row,controller,active);progress(pending.row.hubOrderId,'REGISTER','REGISTERED',pending.result.invoiceNumber);}
+            }catch{pending.result.status='CHECK_REQUIRED';}
+          }
+        }
       }
       if(!alive())return empty('DISCONNECTED');
       return {status:results.every(row=>row.status==='REGISTERED')?'COMPLETED':'PARTIAL',results};

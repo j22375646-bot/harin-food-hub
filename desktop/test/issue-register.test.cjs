@@ -361,3 +361,14 @@ test('a cancelled order in COMPLETED is not reported as successful shipping',asy
   await env.connection.disconnect();
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });
+
+test('Coupang registration wait does not block the next upload and resumes GET without reposting',async()=>{
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-auto-pipeline-'));
+ try{const ids=['HR-CP-1234ABCD','HR-CP-1234ABCE'],rows=ids.map((id,i)=>({...base(),hubOrderId:id,platform:'COUPANG',shipmentId:String(123+i),stage:'PREPARING',issuedInvoiceNumber:String(1234567890123+i),invoice:{status:'ISSUED',number:String(1234567890123+i)}}));
+ const env=host(directory,{initial:rows[0]});let posts=0;const polls=[0,0],jobs=['a2345678-1234-4234-8234-123456789012','a2345678-1234-4234-8234-123456789013'];
+ env.remote.fetch=async(url,o)=>{if(o.method==='POST'){const b=JSON.parse(o.body);if(b.action!=='UPLOAD_INVOICE')return Response.json({ok:false},{status:409});const i=ids.indexOf(b.orders[0].hubOrderId);posts++;assert.ok(posts<=2);return Response.json({ok:true,results:[{hubOrderId:ids[i],ok:true,status:'QUEUED',requestId:jobs[i]}]},{status:202});}
+ const j=jobs.findIndex(id=>url.endsWith(id));if(j>=0){polls[j]++;if(polls[j]===1)return Response.json({ok:true,request:{id:jobs[j],status:'PENDING'}},{status:202});assert.equal(posts,2,'both uploads must be queued before waiting again');rows[j]={...rows[j],invoiceNumber:rows[j].invoice.number,invoice:{...rows[j].invoice,status:'REGISTERED'}};return Response.json({ok:true,request:{id:jobs[j],status:'SUCCESS'}});}
+ const scope=new URL(url).searchParams.get('stage');const orders=rows.filter(r=>(scope==='REGISTER')===(r.invoice.status==='REGISTERED'));return Response.json({ok:true,orders,total:orders.length,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});};
+ await env.connection.refresh();const result=await env.connection.issueAndRegister(ids);assert.deepEqual(result.results.map(r=>r.status),['REGISTERED','REGISTERED']);assert.equal(posts,2);await env.connection.disconnect();
+ }finally{await fs.rm(directory,{recursive:true,force:true});}
+});
