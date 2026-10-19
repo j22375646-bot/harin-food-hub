@@ -59,6 +59,20 @@ test('collection is authenticated all-channel POST then original-ID GET with pri
  assert.equal(JSON.stringify(last).includes(id),false);assert.equal(JSON.stringify(last).includes('PRIVATE'),false);
  assert.deepEqual(calls,[[base,'POST'],[base+'?naverRequestId='+id,'GET']]);
 });
+test('opening tracking does not recheck or invalidate the order page when its snapshot changes',async()=>{
+ const order={...reviewOrder(),invoiceNumber:'1234567890123',invoice:{status:'REGISTERED',number:'1234567890123'}};
+ let pages=0;
+ const {connection}=makeConnection(makeRemoteSession(async(url,options)=>{
+  assert.equal(options.method,'GET');
+  if(url.endsWith('/api/shipping/tracking'))return Response.json({ok:true,states:[{hubOrderId:order.hubOrderId,trackingNo:order.invoiceNumber,status:'SUCCESS',statusCode:'WAITING',checkedAt:'2026-09-09T00:00:00Z'}]});
+  pages++;return pages===1?Response.json(makePagePayload({orders:[order]})):new Response('',{status:409});
+ }));
+ await connection.viewRegistered();
+ assert.equal((await connection.readTracking(order.hubOrderId)).state.status,'WAITING');
+ assert.equal((await connection.readTracking(order.hubOrderId)).state.status,'WAITING');
+ assert.equal(pages,1);
+});
+
 test('tracking refresh refuses incoherent platform IDs and missing external identity before POST',async()=>{
  for(const changes of [{platform:'COUPANG'},{externalOrderId:''}]){
   const order={...reviewOrder(),invoiceNumber:'1234567890123',invoice:{status:'REGISTERED',number:'1234567890123'},...changes};let posts=0;
@@ -90,12 +104,13 @@ test('tracking refuses missing current evidence, rocket, auth failures and faile
   const order={...reviewOrder(),fulfillment:mode==='rocket'?'ROCKET_GROWTH':'SELLER',invoiceNumber:'1234567890123',invoice:{status:mode==='issued'?'ISSUED':'REGISTERED',number:'1234567890123'}};
   let initial=true,calls=0;
   const {connection}=makeConnection(makeRemoteSession(async url=>{
-   if(url.endsWith('/api/shipping/tracking')){calls++;return Response.json({ok:true,states:mode==='missing'?[]:[{hubOrderId:order.hubOrderId,trackingNo:order.invoiceNumber,status:mode==='failed'?'FAILED':'SUCCESS',statusCode:'DELIVERED',checkedAt:mode==='date'?'bad':'2026-09-09T00:00:00Z'}]});}
+   if(url.endsWith('/api/shipping/tracking')){calls++;if(mode==='auth')return new Response('',{status:401});return Response.json({ok:true,states:mode==='missing'?[]:[{hubOrderId:order.hubOrderId,trackingNo:order.invoiceNumber,status:mode==='failed'?'FAILED':'SUCCESS',statusCode:'DELIVERED',checkedAt:mode==='date'?'bad':'2026-09-09T00:00:00Z'}]});}
    return !initial&&mode==='auth'?new Response('',{status:401}):Response.json(makePagePayload({orders:[order]}));
   }));
   await connection.refresh();initial=false;
   assert.deepEqual(await connection.readTracking(order.hubOrderId),{status:'READY',state:{status:'CHECK_REQUIRED',checkedAt:null}});
-  if(['rocket','issued','auth'].includes(mode))assert.equal(calls,0);
+  if(['rocket','issued'].includes(mode))assert.equal(calls,0);
+  if(mode==='auth')assert.equal(calls,1);
  }
 });
 test('tracking refresh dispatches only selected current invoice after recheck and returns pending',async()=>{

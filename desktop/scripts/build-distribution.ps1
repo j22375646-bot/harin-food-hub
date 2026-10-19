@@ -4,7 +4,7 @@ $ErrorActionPreference='Stop'
 $desktopRoot=Split-Path $PSScriptRoot -Parent
 if(-not $ChannelConfig){$candidate=Join-Path $desktopRoot 'update-channel.json';if((Get-Content $candidate -Raw|ConvertFrom-Json).enabled){$ChannelConfig=$candidate}}
 $taskStamp=Get-Date -Format 'yyyyMMdd-HHmmss-fff'
-$stage=Join-Path 'D:\GPT\tmp' ('moaon-distribution-'+$taskStamp)
+$stage=Join-Path 'D:\GPT\Temp' ('moaon-distribution-'+$taskStamp)
 $output=Join-Path $desktopRoot ('dist\distribution-'+$taskStamp)
 $prepareArgs=@((Join-Path $PSScriptRoot 'prepare-distribution.cjs'),$stage)
 if($ChannelConfig){$prepareArgs+=(Resolve-Path -LiteralPath $ChannelConfig).Path}

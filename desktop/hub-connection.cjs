@@ -440,7 +440,11 @@ function createHubConnection({
     const alive=()=>expected===generation&&!controller.signal.aborted&&!disconnecting&&!cleanupFailed&&!isLoginWindowActive();
     try{
       const operation=(async()=>{
-        const auth=await recheckPage();
+        // A detail GET authenticates at the tracking endpoint and binds its result
+        // to this loaded invoice. Rechecking the paginated list here invalidates
+        // the cursor on an unrelated snapshot change, and races receiver reads.
+        // Manual tracking writes still require the full fresh-order check.
+        const auth=method==='POST'?await recheckPage():{status:'READY'};
         const row=trackingRow(id);
         if(!alive()||auth.status!=='READY'||!row||row.details.invoice.number!==initial.details.invoice.number||workflowFingerprints.get(row)!==workflowFingerprints.get(initial))return trackingUnknown();
         trackingRequestMethod=method;

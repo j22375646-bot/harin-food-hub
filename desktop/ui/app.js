@@ -531,7 +531,7 @@ function showOrderDetail(order, button, options = {}) {
             state.textContent='필수 배송정보가 아직 누락되어 있습니다. 다시 조회하거나 판매 채널의 원본 정보를 확인하세요.';
             retry.hidden=false;return;
           }
-          if(!order.issueAndRegisterEligible&&order.preflight?.route==='HUB'){
+          if(selectedScope==='ACTIVE'&&['PAID','PREPARING','READY_TO_SHIP'].includes(order.stage)&&!['ISSUED','REGISTERED'].includes(order.details?.invoice?.status)&&!order.issueAndRegisterEligible&&order.preflight?.route==='HUB'){
             if(!options.rechecked&&!registrationBusy){
               state.textContent='배송정보 조회 완료 · 최신 발급 조건을 확인합니다.';
               queueMicrotask(()=>{if(current()&&!registrationBusy)void recheckSelectedOrder();});
