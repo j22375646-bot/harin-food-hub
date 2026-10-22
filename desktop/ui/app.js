@@ -358,25 +358,21 @@ async function checkVisibleOrderFreshness(){
     if(expectedAction!==actionGeneration||expectedFreshness!==freshnessGeneration||!ordersAreVisible())return;
     if(result?.status==='CHANGED')freshnessChanged=true;
     if(['CURRENT','CHANGED','UNAVAILABLE','AUTH_REQUIRED'].includes(result?.status))renderFreshness(result.status,result.checkedAt);
-    if(freshnessChanged&&['CURRENT','CHANGED'].includes(result?.status)&&canAutoRefreshOrders())await reloadChangedOrders();
+    // Background probes only announce changes; never replace a list being read.
   }catch{if(expectedAction===actionGeneration&&expectedFreshness===freshnessGeneration&&ordersAreVisible())renderFreshness('UNAVAILABLE');}
-}
-function canAutoRefreshOrders(){
-  return !orderToolsBusy()&&!selectedOrderIds.size&&!selectedOrderId&&connectionResult?.offset===0
-    &&!document.querySelector('dialog[open]')&&!document.activeElement?.matches('input,textarea,select,[contenteditable="true"]');
 }
 async function reloadChangedOrders(){
   if(freshnessReloadBusy||orderToolsBusy()||!freshnessChanged||!ordersAreVisible())return;
-  const scrollX=window.scrollX,scrollY=window.scrollY,localQuery=orderSearch.value;
-  freshnessReloadBusy=true;freshnessReload.disabled=true;selectedOrderIds.clear();closeOrderDetail();renderOrders();renderCollection();
+  const scroller=document.getElementById('main-content'),scrollTop=scroller.scrollTop;
+  freshnessReloadBusy=true;freshnessReload.disabled=true;renderSelection();renderCollection();
   const expected=++actionGeneration;++freshnessGeneration;
   try{
     const result=await window.moaonHub.refresh();
     if(expected!==actionGeneration)return;
-    if(result?.status==='READY'){freshnessChanged=false;applyHubResult(result);renderFreshness('CURRENT',result.checkedAt);}
+    if(result?.status==='READY'){freshnessChanged=false;applyHubResult(result,{preserveView:true});renderFreshness('CURRENT',result.checkedAt);}
     else renderFreshness(result?.status==='LOGIN_REQUIRED'||result?.status==='FORBIDDEN'?'AUTH_REQUIRED':'UNAVAILABLE');
   }catch{if(expected===actionGeneration)renderFreshness('UNAVAILABLE');}
-  finally{freshnessReloadBusy=false;if(expected===actionGeneration){orderSearch.value=localQuery;renderOrders();renderCollection();window.scrollTo(scrollX,scrollY);}}
+  finally{freshnessReloadBusy=false;if(expected===actionGeneration){renderOrders();renderCollection();scroller.scrollTop=scrollTop;}}
 }
 freshnessReload.addEventListener('click',()=>void reloadChangedOrders());
 setInterval(()=>void checkVisibleOrderFreshness(),60_000);
@@ -707,7 +703,7 @@ function showOrderDetail(order, button, options = {}) {
     detailPanel.append(actions);
   }
   renderDetailNavigation();
-  closeButton.focus({preventScroll:true});
+  if(!options.preserveFocus)closeButton.focus({preventScroll:true});
   mainScroller.scrollTop=listScroll;
 }
 
@@ -1086,7 +1082,8 @@ function clearDisplayedOrders(mode, message) {
   renderFreshness();
 }
 
-function applyHubResult(result) {
+function applyHubResult(result,options={}) {
+  const retained=options.preserveView&&displayMode==='live'?{query:orderSearch.value,ids:[...selectedOrderIds],detail:selectedOrderId,scroll:document.getElementById('main-content').scrollTop}:null;
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){clearTimeout(deliveryPreparationTimer);deliveryPreparationAttempts.clear();const prep=document.getElementById('delivery-prep-status');if(prep)prep.textContent='';}
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status))window.moaonFeedback.orders.reset();
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){historyAutoLoaded=false;historyGeneration++;}
@@ -1125,10 +1122,12 @@ function applyHubResult(result) {
       registrationEligible: order.registrationEligible === true,
       issueAndRegisterEligible: order.issueAndRegisterEligible === true,
     })));
-    orderSearch.value = '';
+    orderSearch.value = retained?.query||'';
     closeOrderDetail();
+    if(retained){selectedOrderIds.clear();for(const id of retained.ids)if(displayedOrders.some(o=>orderId(o)===id))selectedOrderIds.add(id);}
     window.moaonFeedback.orders.accept(JSON.stringify([selectedScope,selectedChannel,serverFilters,result.offset||0]),displayedOrders,result.status==='READY');
     renderOrders();
+    if(retained){const order=displayedOrders.find(o=>orderId(o)===retained.detail);const button=[...orderList.querySelectorAll('.order-row')].find(b=>b.dataset.orderId===retained.detail);if(order&&button)showOrderDetail(order,button,{preserveFocus:true});document.getElementById('main-content').scrollTop=retained.scroll;}
     updateConnectionChrome(result.message);
     renderShippingFollowup();
     scheduleDeliveryPreparation();
@@ -1750,9 +1749,11 @@ function shippingStatusView(order,detail=false){
 }
 async function recheckShippingSelection(){
  if(orderToolsBusy()||displayMode!=='live')return;const ids=[...selectedOrderIds],generation=++actionGeneration;
- clearDisplayedOrders('connecting','선택 주문의 최신 발급 조건을 확인하고 있습니다.');
- try{const result=await window.moaonHub.recheckPage();if(generation!==actionGeneration)return;applyHubResult(result);if(displayMode==='live'&&['READY','PARTIAL'].includes(result.status)){const remaining=new Set(displayedOrders.map(o=>orderId(o)));ids.filter(id=>remaining.has(id)).forEach(id=>selectedOrderIds.add(id));renderOrders();}}
+ freshnessReloadBusy=true;renderSelection();renderCollection();
+ // Keep the current list visible until a complete replacement is available.
+ try{const result=await window.moaonHub.recheckPage();if(generation!==actionGeneration)return;applyHubResult(result,{preserveView:true});if(displayMode==='live'&&['READY','PARTIAL'].includes(result.status)){const remaining=new Set(displayedOrders.map(o=>orderId(o)));ids.filter(id=>remaining.has(id)).forEach(id=>selectedOrderIds.add(id));renderOrders();}}
  catch{if(generation===actionGeneration)clearDisplayedOrders('error','발급 조건을 확인하지 못했습니다. 다시 조회하세요.');}
+ finally{freshnessReloadBusy=false;if(generation===actionGeneration){renderSelection();renderCollection();}}
 }
 
 document.getElementById('web-hub-open').addEventListener('click',async()=>{const button=document.getElementById('web-hub-open');button.disabled=true;try{const result=await window.moaonHub.openWebHub();button.title=result?.ok?'웹 허브 · 기본 브라우저에서 열기':'브라우저를 열지 못했습니다 · 다시 눌러주세요';}catch{button.title='브라우저를 열지 못했습니다 · 다시 눌러주세요';}finally{button.disabled=false;}});
