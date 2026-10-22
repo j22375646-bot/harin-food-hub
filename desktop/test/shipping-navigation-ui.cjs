@@ -48,7 +48,23 @@ const { _electron }=require('playwright'),fs=require('node:fs');
   await page.locator('#shipping-job-notice').getByRole('button',{name:'발급 진행 보기'}).click();
   assert.equal(await page.locator('#auto-shipping-results .auto-shipping-item').count(),2);
   assert.match(await page.locator('#auto-shipping-results').textContent(),/처리 대기/);
-  await page.screenshot({path:'D:/GPT/Temp/shipping-navigation-result.png'});
+  await page.evaluate(()=>{
+   selectedOrderIds.clear();
+   applyHubResult({status:'READY',scope:'ACTIVE',channel:'ALL',total:12,offset:0,checkedAt:new Date().toISOString(),orders:Array.from({length:12},(_,i)=>({hubOrderId:`HR-NV-${String(i+1).padStart(8,'0')}`,platform:'NAVER',productName:`네이버 안내 시험 상품 ${i+1} · 긴 상품명과 옵션 확인`,stage:'PREPARING',quantity:1,amount:1000,issueAndRegisterEligible:false,preflight:{codes:['NAVER_ROUTE']}}))});
+   displayedOrders.forEach(o=>selectedOrderIds.add(o.hubOrderId));renderSelection();
+  });
+  assert.equal(await page.locator('#selection-reason-detail').isVisible(),false);
+  assert.ok((await page.locator('#selection-block-reason').boundingBox()).height<90);
+  await page.locator('#selection-reason-toggle').click();
+  assert.equal(await page.locator('.selection-reason-item').count(),1);
+  assert.ok((await page.locator('#selection-reason-detail').boundingBox()).height<=221);
+  await page.screenshot({path:'D:/GPT/Temp/selection-notice-expanded.png'});
+  await page.locator('#selection-reason-toggle').click();
+  await page.screenshot({path:'D:/GPT/Temp/selection-notice-compact.png'});
+  await page.locator('#selection-reason-close').click();
+  assert.equal(await page.locator('#selection-block-reason').isVisible(),false);
+  await page.locator('#selection-reason-reopen').click();
+  assert.equal(await page.locator('#selection-block-reason').isVisible(),true);
   console.log(JSON.stringify({status:'PASS',navigationDuringJob:true,resultRetained:true,duplicateCalls:false,realWrites:false}));
  }finally{await app.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

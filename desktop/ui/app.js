@@ -849,6 +849,7 @@ function createOrderRow(order) {
 }
 
 let dismissedSelectionReason=null;
+let expandedSelectionReason=null;
 function renderSelection(){
   renderCollection();
   renderServerFilterControls();
@@ -865,17 +866,41 @@ function renderSelection(){
   const names={DELIVERY_INFO:'받는 분·주소·연락처 확인',HISTORY_UNAVAILABLE:'송장 이력 조회 확인',SHIPMENT_ID:'쿠팡 배송묶음 번호 확인',SERVER_CHECK:'서버 출고 조건 확인',PARTIAL:'누락 채널 재조회',NAVER_ROUTE:'네이버에서 별도 발급',ROCKET_ROUTE:'로켓그로스는 쿠팡에서 처리',INVOICE_EXISTS:'기존 송장 확인',CANCELLED:'취소 주문 제외',CANCEL_REQUEST:'취소 요청 확인',INVOICE_UNKNOWN:'송장 존재 여부 확인',CANCEL_UNKNOWN:'취소 여부 확인',SHIPPED:'이미 배송 진행 중',STAGE_UNKNOWN:'주문 상태 확인',ORDER_ID:'주문번호 확인',QUANTITY:'수량 확인',ROUTE_UNKNOWN:'출고 경로 확인'};
   const reasonKey=JSON.stringify([selectedScope,[...selectedOrderIds].sort()]);
   if(!count||dismissedSelectionReason!==reasonKey)dismissedSelectionReason=null;
+  if(!count||expandedSelectionReason!==reasonKey)expandedSelectionReason=null;
   const hasReason=count>0&&!autoEligible&&!registrationBusy&&selectedScope==='ACTIVE';
   reason.hidden=!hasReason||dismissedSelectionReason===reasonKey;
   let reopen=document.getElementById('selection-reason-reopen');if(!reopen){reopen=makeElement('button','secondary-action','안내 다시 보기');reopen.id='selection-reason-reopen';reopen.type='button';reopen.setAttribute('aria-controls',reason.id);reopen.onclick=()=>{dismissedSelectionReason=null;renderSelection();document.getElementById('selection-reason-close')?.focus();};bar.append(reopen);}reopen.hidden=!hasReason||dismissedSelectionReason!==reasonKey;
   document.querySelector('#selection-auto-ship').hidden=selectedScope!=='ACTIVE';reason.replaceChildren();
   document.querySelector('#selection-auto-ship').setAttribute('aria-describedby','selection-block-reason');
   if(!reason.hidden){
-    const header=makeElement('div','selection-reason-header'),summary=makeElement('strong','',count>20?'한 번에 20건까지 선택하세요.':`선택 ${count}건 중 ${ready.length}건 발급 가능 · ${blocked.length}건 확인 필요`),close=makeElement('button','selection-reason-close','×');close.id='selection-reason-close';close.type='button';close.setAttribute('aria-label','선택 주문 안내 닫기');close.onclick=()=>{dismissedSelectionReason=reasonKey;renderSelection();document.getElementById('selection-reason-reopen')?.focus();};header.append(summary,close);reason.append(header);
+    const groups=new Map();
+    for(const order of blocked){
+      const codes=order?.preflight?.codes||[];
+      const naverOnly=order?.platform==='NAVER'&&codes.includes('NAVER_ROUTE')&&codes.every(code=>code==='NAVER_ROUTE');
+      const message=naverOnly?'네이버에서 송장을 발급하세요.':order?.preflight?.serverReason||codes.map(c=>names[c]||'출고 정보 확인').join(' · ')||'최신 발급 조건 확인 필요';
+      if(!groups.has(message))groups.set(message,{orders:[],informational:naverOnly});
+      groups.get(message).orders.push(order);
+    }
+    const informational=count<=20&&groups.size>0&&[...groups.values()].every(group=>group.informational);
+    reason.classList.toggle('is-informational',informational);
+    const header=makeElement('div','selection-reason-header');
+    const summary=makeElement('strong','',`${count}건 선택 · 자동발급 ${ready.length}건`);
+    const hint=makeElement('span','selection-reason-hint',count>20?'한 번에 20건까지 선택하세요.':informational?`네이버 별도 발급 ${blocked.length}건`:`확인 필요 ${blocked.length}건`);
+    const toggle=makeElement('button','selection-reason-toggle','');toggle.type='button';toggle.id='selection-reason-toggle';toggle.setAttribute('aria-controls','selection-reason-detail');
+    const close=makeElement('button','selection-reason-close','×');close.id='selection-reason-close';close.type='button';close.setAttribute('aria-label','선택 주문 안내 닫기');close.onclick=()=>{dismissedSelectionReason=reasonKey;renderSelection();document.getElementById('selection-reason-reopen')?.focus();};
+    header.append(summary,hint,toggle,close);reason.append(header);
+    const detail=makeElement('div','selection-reason-detail');detail.id='selection-reason-detail';
+    const updateExpanded=()=>{const open=expandedSelectionReason===reasonKey;detail.hidden=!open;toggle.textContent=open?'접기 ▴':'자세히 ▾';toggle.setAttribute('aria-expanded',String(open));};
+    toggle.onclick=()=>{expandedSelectionReason=expandedSelectionReason===reasonKey?null:reasonKey;updateExpanded();};updateExpanded();
     const list=makeElement('div','selection-reasons');
-    for(const order of blocked){const item=makeElement('div','selection-reason-item'),label=order?(({CAFE24:'Cafe24',COUPANG:'쿠팡',NAVER:'네이버'})[order.platform]||'채널 확인')+' · '+order.productName:'목록에서 사라진 주문';const message=order?.preflight?.serverReason||order?.preflight?.codes?.map(c=>names[c]||'출고 정보 확인').join(' · ')||'최신 발급 조건 확인 필요';item.append(makeElement('span','',label),makeElement('small','',message));list.append(item);}reason.append(list);
+    for(const [message,group] of groups){
+      const item=makeElement('div','selection-reason-item');item.append(makeElement('strong','',`${message} · ${group.orders.length}건`));
+      for(const order of group.orders){const label=order?(({CAFE24:'Cafe24',COUPANG:'쿠팡',NAVER:'네이버'})[order.platform]||'채널 확인')+' · '+order.productName:'목록에서 사라진 주문';item.append(makeElement('span','',label));}
+      list.append(item);
+    }
+    detail.append(list);
     const actions=makeElement('div','selection-reason-actions'),check=makeElement('button','','선택 주문 조건 다시 확인');check.type='button';check.onclick=()=>void recheckShippingSelection();actions.append(check);
-    if(ready.length&&ready.length<=20&&blocked.length){const choose=makeElement('button','',`발급 가능한 ${ready.length}건만 선택`);choose.type='button';choose.onclick=()=>{selectedOrderIds.clear();ready.forEach(o=>selectedOrderIds.add(orderId(o)));renderOrders();};actions.append(choose);}reason.append(actions);
+    if(ready.length&&ready.length<=20&&blocked.length){const choose=makeElement('button','',`발급 가능한 ${ready.length}건만 선택`);choose.type='button';choose.onclick=()=>{selectedOrderIds.clear();ready.forEach(o=>selectedOrderIds.add(orderId(o)));renderOrders();};actions.append(choose);}detail.append(actions);reason.append(detail);
   }
   bar.hidden=count===0||document.querySelector('[data-page=orders]').hidden;
   if(!count)bar.querySelector('details')?.removeAttribute('open');
