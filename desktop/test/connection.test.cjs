@@ -404,11 +404,11 @@ test('cancel, changed order, expired login and disconnect refuse native issue wi
         if(kind==='shipment')order={...order,shipmentId:'CHANGED SHIPMENT'};
         if(kind==='expired')expired=true;
         if(kind==='disconnect')await connection.disconnect();
-        if(kind==='scope')await connection.viewCompleted();
+        if(kind==='scope')assert.equal((await connection.viewCompleted()).status,'UNAVAILABLE');
         return {response:kind==='cancel'?0:1};
       }});
       await connection.refresh();const result=await connection.issueShipment(order.hubOrderId);
-      assert.notEqual(result.status,'PENDING',kind);assert.equal(posts,0,kind);
+      assert.notEqual(result.status,'PENDING',kind);assert.equal(posts,kind==='scope'?1:0,kind); // Blocked navigation preserves the explicitly approved operation.
       await connection.disconnect();
     }finally{await fs.rm(directory,{recursive:true,force:true});}
   }

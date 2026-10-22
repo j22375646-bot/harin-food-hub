@@ -1146,6 +1146,7 @@ function applyHubResult(result,options={}) {
 
 async function runHubAction(action) {
   if(freshnessReloadBusy)return;
+  if(registrationBusy&&action!=='disconnect'){setShippingJobNotice('발급·등록 작업이 진행 중입니다. 다른 메뉴는 이용할 수 있으며, 주문 목록 변경은 완료 후 가능합니다.');return;}
   selectedOrderIds.clear();
   const generation = ++actionGeneration;
   const requestedScope = scopeByAction[action];
@@ -1320,6 +1321,23 @@ function appendShipmentRecovery(parent,id,generation){
   parent.append(button);
 }
 
+// This job indicator belongs to the app shell, not the currently visible page.
+let shippingJobNotice=null;
+function setShippingJobNotice(text,finished=false){
+ if(!shippingJobNotice){
+  shippingJobNotice=makeElement('section','shipping-job-notice');shippingJobNotice.id='shipping-job-notice';
+  const status=makeElement('span');status.setAttribute('role','status');
+  const open=makeElement('button','secondary-action','발급 진행 보기');open.type='button';
+  open.onclick=()=>{showRoute('orders');document.querySelector('#auto-shipping-results:not([hidden]),#registration-results:not([hidden])')?.scrollIntoView({block:'nearest'});};
+  const close=makeElement('button','secondary-action','닫기');close.type='button';close.onclick=()=>shippingJobNotice.hidden=true;
+  shippingJobNotice.append(status,open,close);document.getElementById('main-content').prepend(shippingJobNotice);
+ }
+ shippingJobNotice.hidden=false;shippingJobNotice.dataset.finished=String(finished);
+ shippingJobNotice.firstChild.textContent=text;
+ shippingJobNotice.lastChild.hidden=!finished;
+}
+document.addEventListener('moaon-session-changed',()=>{if(shippingJobNotice)shippingJobNotice.hidden=true;});
+
 async function runAutomaticShipping(explicitIds){
   if(orderToolsBusy()||displayMode!=='live')return;
   const ids=explicitIds||[...selectedOrderIds];
@@ -1328,6 +1346,7 @@ async function runAutomaticShipping(explicitIds){
   const panel=document.querySelector('#auto-shipping-results');
   const previousNodes=[...panel.childNodes],previousRows=[...panel.querySelectorAll('.auto-shipping-item')];
   registrationBusy=true;clearRegistrationResults('auto');renderSelection();
+  setShippingJobNotice('선택 '+ids.length+'건 · 발급·등록 확인 중 · 다른 메뉴를 이용해도 계속 진행합니다.');
   panel.hidden=false;panel.setAttribute('aria-busy','true');
   panel.append(makeElement('strong','','자동 출고 처리'),makeElement('p','','준비 확인 → 최대 2건 동시 발급·등록 → 대기 요청 자동 확인'),makeElement('p','','확인창에서 승인하면 진행합니다. 쿠팡 등록 대기는 다음 주문과 분리하고, 마지막에 최대 1분간 기존 요청만 자동 확인합니다.'));
   const current=()=>generation===actionGeneration&&displayMode==='live';
@@ -1339,6 +1358,7 @@ async function runAutomaticShipping(explicitIds){
     const phases={CHECK:'주문 변경 확인',PREPARE:'상품 준비 처리',ISSUE:'우체국 송장 발급 중',REGISTER:'쇼핑몰 송장 등록 중',TRACKING:'등록 완료 · 배송 조회 중'};
     if(!phases[value.phase])return;
     if(value.status==='REGISTERED')completedProgress.add(value.hubOrderId);progressSummary.textContent='선택 '+ids.length+'건 · 등록 완료 '+completedProgress.size+'건 · '+(value.status==='PENDING'?'기존 요청 처리 대기·자동 확인 중':phases[value.phase]);
+    setShippingJobNotice(progressSummary.textContent+' · 다른 메뉴에서도 계속 진행 중');
     let row=progressRows.get(value.hubOrderId);if(!row){row=makeElement('div','shipment-live-row');progressRows.set(value.hubOrderId,row);live.append(row);if(document.querySelector('#orders-page')?.classList.contains('is-visible'))row.scrollIntoView({block:'nearest'});}
     row.dataset.active=value.status==='REGISTERED'?'false':'true';row.replaceChildren(makeElement('strong','',value.status==='REGISTERED'?'송장 등록 완료':value.status==='PENDING'?phases[value.phase].replace(' 중','')+' · 서버 처리 대기':phases[value.phase]),makeElement('span','',value.hubOrderId));
     if(/^\d{13}$/.test(value.invoiceNumber||''))row.append(makeElement('code','',value.invoiceNumber));
@@ -1388,7 +1408,7 @@ async function runAutomaticShipping(explicitIds){
       }else panel.append(makeElement('p','',messages[result?.status]||messages.CHECK_REQUIRED));
     }
   }catch{if(current()){for(const id of ids)shippingFollowup.set(id,{status:'CHECK_REQUIRED'});panel.replaceChildren(...previousNodes,makeElement('strong','','결과 확인 필요'),makeElement('p','','통신을 확인하지 못했습니다. 새로 발급하지 말고 기존 작업 상태를 확인하세요.'));}}
-  finally{unsubscribe?.();registrationBusy=false;panel.removeAttribute('aria-busy');renderOrders();renderSelection();renderShippingFollowup();}
+  finally{unsubscribe?.();registrationBusy=false;if(current())setShippingJobNotice('발급·등록 처리 종료 · 완료·대기·확인 필요 결과를 확인하세요.',true);panel.removeAttribute('aria-busy');renderOrders();renderSelection();renderShippingFollowup();}
 }
 
 async function runSelectedDocument(kind){
@@ -1434,6 +1454,7 @@ async function registerSelectedInvoices(){
   if(!ids.length||ids.length>20||ids.some(id=>!displayedOrders.some(order=>orderId(order)===id&&order.registrationEligible===true)))return;
   const generation=actionGeneration;
   registrationBusy=true;clearRegistrationResults('manual');renderSelection();
+  setShippingJobNotice('선택 '+ids.length+'건 · 송장 등록 진행 중 · 다른 메뉴를 이용해도 계속 진행합니다.');
   const panel=document.querySelector('#registration-results'),status=document.querySelector('#registration-status'),items=document.querySelector('#registration-items');
   panel.hidden=false;status.textContent='선택한 발급 송장의 등록 내용을 확인하고 있습니다.';
   const current=()=>generation===actionGeneration&&displayMode==='live';
@@ -1482,7 +1503,7 @@ async function registerSelectedInvoices(){
     appendManualHistoryRefresh(panel,generation);
     disableAttempted();
   }}
-  finally{registrationBusy=false;renderSelection();renderShippingFollowup();}
+  finally{registrationBusy=false;if(current())setShippingJobNotice('송장 등록 처리 종료 · 결과를 확인하세요.',true);renderSelection();renderShippingFollowup();}
 }
 
 async function returnToSample() {

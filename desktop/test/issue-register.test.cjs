@@ -43,6 +43,22 @@ test('one native approval prepares, journals issue, rereads invoice and register
   await env.connection.disconnect();
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });
+test('order navigation cannot cancel an approved batch while other pages remain readable',async()=>{
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-auto-navigation-'));
+ try{
+  let approve,entered;const reviewing=new Promise(r=>entered=r);
+  const env=host(directory,{dialog:()=>{entered();return new Promise(r=>approve=r);}});
+  await env.connection.refresh();const work=env.connection.issueAndRegister([id]);await reviewing;
+  const before=env.calls.length;
+  for(const action of ['viewRegistered','viewInTransit','viewCompleted','refresh','nextPage','previousPage'])assert.equal((await env.connection[action]()).status,'UNAVAILABLE');
+  assert.equal(env.calls.length,before,'Blocked order navigation must not mutate the job cursor');
+  assert.equal((await env.connection.readOverview()).status,'READY');
+  approve({response:1});assert.equal((await work).status,'COMPLETED');
+  assert.equal(env.calls.filter(c=>c.options.method==='POST'&&c.url.endsWith('/api/epost/issue')).length,1);
+  assert.equal((await env.connection.viewRegistered()).status,'READY');
+  await env.connection.disconnect();
+ }finally{await fs.rm(directory,{recursive:true,force:true});}
+});
 // Advance only the workflow deadline once the mocked remote stage is reached.
 // Real durable journal I/O remains real; disk speed cannot select the wrong stage.
 function workflowDeadline(t, milliseconds) {

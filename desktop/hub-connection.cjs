@@ -1067,12 +1067,14 @@ function createHubConnection({
   }
 
   function refresh() {
+    if(registrationController||automaticController||reviewingShipment)return Promise.resolve(safeEmpty('UNAVAILABLE','발급·등록 작업 중에는 주문 목록을 변경할 수 없습니다. 다른 메뉴는 이용할 수 있습니다.'));
     if (activeRead) return activeRead;
     invalidateCursor();
     return startRead({ url: ordersScopeUrl(), requestedOffset: 0, expectedSnapshot: null, scope: currentScope });
   }
 
   function nextPage() {
+    if(registrationController||automaticController||reviewingShipment)return Promise.resolve(safeEmpty('UNAVAILABLE','발급·등록 작업 중에는 주문 목록을 변경할 수 없습니다. 다른 메뉴는 이용할 수 있습니다.'));
     if (activeRead) return activeRead;
     const cursor = pageCursor;
     if (!cursor || cursor.nextOffset === null) {
@@ -1087,6 +1089,7 @@ function createHubConnection({
   }
 
   function previousPage() {
+    if(registrationController||automaticController||reviewingShipment)return Promise.resolve(safeEmpty('UNAVAILABLE','발급·등록 작업 중에는 주문 목록을 변경할 수 없습니다. 다른 메뉴는 이용할 수 있습니다.'));
     if (activeRead) return activeRead;
     const cursor = pageCursor;
     if (!cursor || cursor.offset === 0) {
@@ -1612,6 +1615,7 @@ function createHubConnection({
   }
 
   function viewScope(scope) {
+    if(registrationController||automaticController||reviewingShipment)return Promise.resolve(safeEmpty('UNAVAILABLE','발급·등록 작업 중에는 주문 목록을 변경할 수 없습니다. 다른 메뉴는 이용할 수 있습니다.'));
     const blocked = blockedReadResult();
     if (blocked) return blocked;
     if (scope === currentScope) return refresh();
