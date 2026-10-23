@@ -80,9 +80,35 @@ const { _electron }=require('playwright'),fs=require('node:fs');
   await page.evaluate(()=>checkVisibleOrderFreshness());
   await page.waitForFunction(()=>displayedOrders.length===2);
   assert.equal(await page.evaluate(()=>freshnessChanged),false);
+  await app.evaluate(({ipcMain})=>{ipcMain.removeHandler('moaon-hub:refresh');ipcMain.handle('moaon-hub:refresh',()=>new Promise(resolve=>{globalThis.finishRefresh=resolve;}));});
+  const beforeRefresh=await page.evaluate(()=>{selectedOrderIds.add('HR-C24-AAAAAAAA');orderSearch.value='복원';orderSort.value='DEFAULT';renderOrders();return displayedOrders.map(o=>o.hubOrderId);});
+  await page.evaluate(()=>{void runHubAction('refresh');});
+  await page.waitForFunction(()=>scopeTransitionBusy);
+  assert.deepEqual(await page.evaluate(()=>displayedOrders.map(o=>o.hubOrderId)),beforeRefresh);
+  await app.evaluate(()=>globalThis.finishRefresh({status:'UNAVAILABLE'}));
+  await page.waitForFunction(()=>!scopeTransitionBusy);
+  assert.deepEqual(await page.evaluate(()=>displayedOrders.map(o=>o.hubOrderId)),beforeRefresh);
+  assert.equal(await page.evaluate(()=>selectedOrderIds.has('HR-C24-AAAAAAAA')),true);
+  assert.equal(await page.evaluate(()=>orderSearch.value),'복원');
+  assert.equal(await page.locator('#selection-auto-ship').isDisabled(),true);
+  assert.equal(await page.evaluate(()=>orderReadUnverified),true);
+  await app.evaluate(({ipcMain})=>{ipcMain.removeHandler('moaon-hub:refresh');ipcMain.handle('moaon-hub:refresh',()=>({status:'READY',scope:'ACTIVE',channel:'ALL',offset:0,total:1,orders:[{hubOrderId:'HR-C24-AAAAAAAA',platform:'CAFE24',productName:'복원 주문',stage:'PREPARING',quantity:1,amount:2000}],checkedAt:new Date().toISOString()}));});
+  await page.evaluate(()=>runHubAction('refresh'));
+  assert.equal(await page.evaluate(()=>orderReadUnverified),false);
+  assert.equal(await page.evaluate(()=>selectedOrderIds.has('HR-C24-AAAAAAAA')),true);
+  assert.equal(await page.evaluate(()=>orderSearch.value),'복원');
+  for(const theme of ['light','dark']){
+   await page.evaluate(theme=>{document.documentElement.dataset.theme=theme;orderSearch.value='';renderOrders();},theme);
+   const style=await page.locator('#shipping-job-notice button').first().evaluate(el=>{const s=getComputedStyle(el);return {radius:s.borderRadius,border:s.borderStyle,font:s.fontSize};});
+   assert.equal(style.radius,'11px');assert.equal(style.border,'solid');assert.equal(style.font,'14px');
+   await page.screenshot({path:`D:/GPT/Temp/order-buttons-${theme}.png`});
+  }
   await page.evaluate(()=>clearDisplayedOrders('connecting','주문을 불러오고 있어요.'));
   assert.equal(await page.locator('#order-empty').getAttribute('aria-busy'),'true');
   await page.screenshot({path:'D:/GPT/Temp/order-loading-animated.png'});
+  await app.evaluate(({ipcMain})=>{ipcMain.removeHandler('moaon-hub:refresh');ipcMain.handle('moaon-hub:refresh',()=>({status:'LOGIN_REQUIRED'}));});
+  await page.evaluate(()=>runHubAction('refresh'));
+  assert.equal(await page.evaluate(()=>displayedOrders.length),0);
   console.log(JSON.stringify({status:'PASS',navigationDuringJob:true,resultRetained:true,duplicateCalls:false,realWrites:false}));
  }finally{await app.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -484,3 +484,12 @@ body:has(.preview-shell[hidden]) .login-window-drag{color:var(--ink);gap:9px;lin
 @keyframes order-loading-spin{to{transform:rotate(360deg)}}
 @keyframes order-loading-glow{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
 @media(prefers-reduced-motion:reduce){#order-empty.is-loading,#order-empty.is-loading::before{animation:none}}
+
+/* Shared order actions also cover shell notices and application dialogs. */
+:where(dialog) button,#order-selection button,.shipping-job-notice button{box-sizing:border-box;appearance:none;font:inherit;font-size:14px;line-height:1.5;min-height:40px;padding:8px 12px;border:1px solid var(--line-strong);border-radius:var(--control-radius);background:var(--surface);color:var(--ink);cursor:pointer;transition:background-color .14s,border-color .14s}
+:where(dialog) button:hover:not(:disabled),#order-selection button:hover:not(:disabled),.shipping-job-notice button:hover:not(:disabled){background:var(--blue-soft);border-color:var(--blue)}
+:where(dialog) button:focus-visible,#order-selection button:focus-visible,.shipping-job-notice button:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+:where(dialog) button:disabled,.shipping-job-notice button:disabled{opacity:.55;cursor:default}
+.shipping-job-notice .shipping-notice-close{flex:0 0 40px;width:40px;padding:0;font-size:24px;line-height:1}
+#order-selection .selection-reason-toggle{min-height:32px;padding:4px 10px}
+@media(prefers-reduced-motion:reduce){:where(dialog) button,#order-selection button,.shipping-job-notice button{transition:none}}

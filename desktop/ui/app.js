@@ -57,6 +57,7 @@ let selectedOrderId = null;
 const selectedOrderIds = new Set();
 let registrationBusy = false;
 let scopeTransitionBusy=false;
+let orderReadUnverified=false;
 let selectedChannel = 'ALL';
 let serverFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});
 let selectedOrderButton = null;
@@ -348,7 +349,7 @@ function renderFreshness(status='IDLE',checkedAt=null){
   if(freshnessRow.hidden)return;
   const effective=freshnessChanged&&!['UNAVAILABLE','AUTH_REQUIRED'].includes(status)?'CHANGED':status;
   freshnessRow.dataset.status=effective;
-  freshnessStatus.textContent=effective==='CHANGED'?'주문 또는 사은품 기준이 변경됐어요':effective==='CURRENT'?'새 변경 없음':effective==='AUTH_REQUIRED'?'로그인 상태 확인 필요':effective==='UNAVAILABLE'?'변경 여부 확인 필요':'최신 주문 확인 중…';
+  freshnessStatus.textContent=effective==='CHANGED'?'주문 또는 사은품 기준이 변경됐어요':effective==='CURRENT'?'새 변경 없음':effective==='AUTH_REQUIRED'?'로그인 상태 확인 필요':effective==='UNAVAILABLE'?(orderReadUnverified?'최신 주문 확인 필요 · 다시 조회한 뒤 발급하세요':'변경 여부 확인 필요'):'최신 주문 확인 중…';
   freshnessCheckedAt.textContent=checkedAt?`${formatTime(checkedAt)} 확인`:'';
   freshnessCheckedAt.dateTime=checkedAt||'';
   freshnessReload.hidden=!freshnessChanged;freshnessReload.disabled=freshnessReloadBusy||orderToolsBusy();
@@ -378,8 +379,9 @@ async function reloadChangedOrders(){
     const result=await window.moaonHub.refresh();
     if(expected!==actionGeneration)return;
     if(result?.status==='READY'){freshnessChanged=false;applyHubResult(result,{preserveView:true});renderFreshness('CURRENT',result.checkedAt);}
-    else renderFreshness(result?.status==='LOGIN_REQUIRED'||result?.status==='FORBIDDEN'?'AUTH_REQUIRED':'UNAVAILABLE');
-  }catch{if(expected===actionGeneration)renderFreshness('UNAVAILABLE');}
+    else if(['LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status))applyHubResult(result);
+    else{orderReadUnverified=true;renderFreshness('UNAVAILABLE');}
+  }catch{if(expected===actionGeneration){orderReadUnverified=true;renderFreshness('UNAVAILABLE');}}
   finally{freshnessReloadBusy=false;if(expected===actionGeneration){renderOrders();renderCollection();scroller.scrollTop=scrollTop;}}
 }
 freshnessReload.addEventListener('click',()=>void reloadChangedOrders());
@@ -863,8 +865,8 @@ function renderSelection(){
   renderServerFilterControls();
   const count=selectedOrderIds.size;
   const autoEligible=displayMode==='live'&&count>0&&count<=20&&[...selectedOrderIds].every(id=>displayedOrders.some(order=>orderId(order)===id&&order.issueAndRegisterEligible===true));
-  document.querySelector('#selection-auto-ship').disabled=registrationBusy||deliveryPreparationBusy||!autoEligible;
-  for(const button of detailPanel.querySelectorAll('[data-auto-ship]'))button.disabled=registrationBusy||deliveryPreparationBusy||!displayedOrders.some(order=>orderId(order)===button.dataset.autoShip&&order.issueAndRegisterEligible);
+  document.querySelector('#selection-auto-ship').disabled=orderReadUnverified||scopeTransitionBusy||registrationBusy||deliveryPreparationBusy||!autoEligible;
+  for(const button of detailPanel.querySelectorAll('[data-auto-ship]'))button.disabled=orderReadUnverified||scopeTransitionBusy||registrationBusy||deliveryPreparationBusy||!displayedOrders.some(order=>orderId(order)===button.dataset.autoShip&&order.issueAndRegisterEligible);
   const bar=document.querySelector('#order-selection');
   if(bar.parentElement!==document.body)document.body.append(bar);
   installFloatingSelection(bar);
@@ -916,12 +918,12 @@ function renderSelection(){
   document.querySelector('#selection-review').disabled=registrationBusy||(!selectedOrderId&&count===0);
   document.querySelector('#selection-review').textContent=count>1?'첫 선택 내용 확인':'내용 확인';
   const eligible=displayMode==='live'&&count>0&&count<=20&&[...selectedOrderIds].every(id=>displayedOrders.some(order=>orderId(order)===id&&order.registrationEligible===true));
-  document.querySelector('#selection-register').disabled=registrationBusy||!eligible;
+  document.querySelector('#selection-register').disabled=orderReadUnverified||scopeTransitionBusy||registrationBusy||!eligible;
   const documentRows=[...selectedOrderIds].map(id=>displayedOrders.find(order=>orderId(order)===id));
   const csvEligible=displayMode==='live'&&count>0&&count<=20&&documentRows.every(row=>row&&/^HR-(?:C24|CP|NV)-[A-F0-9]{8}$/.test(row.hubOrderId));
   const labelRows=documentRows.filter(row=>row&&/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(row.hubOrderId)&&row.preflight?.route==='HUB'&&row.stage!=='CANCELLED'&&row.details?.cancelled===false&&row.details?.cancellationRequested===false&&row.details?.invoice?.status==='REGISTERED'&&row.details.receiver?.name&&row.details.receiver?.address&&/^\d{5}$/.test(row.details.receiver?.postCode)&&/^\d{9,12}$/.test((row.details.receiver?.contact||'').replace(/[\s-]/g,''))&&Number.isSafeInteger(row.quantity)&&row.quantity>0&&row.productName);
   const duplicate=labelRows.length!==new Set(labelRows.map(row=>row.details.invoice.number)).size;
-  const documentLocked=registrationBusy||collectionBusy||collectionShipmentLocks.size>0;
+  const documentLocked=orderReadUnverified||scopeTransitionBusy||registrationBusy||collectionBusy||collectionShipmentLocks.size>0;
   document.querySelector('#selection-labels').disabled=documentLocked||!csvEligible||labelRows.length!==count||duplicate;
   document.querySelector('#selection-csv').disabled=documentLocked||!csvEligible;
   document.querySelector('#selection-dispatch').disabled=documentLocked||!csvEligible;
@@ -932,7 +934,7 @@ function renderSelection(){
     const id=box.closest('.order-item')?.querySelector('.order-row')?.dataset.orderId;
     box.checked=selectedOrderIds.has(id);box.disabled=orderToolsBusy();
   }
-  for(const button of detailPanel.querySelectorAll('[data-invoice-registration]'))button.disabled=registrationBusy||!displayedOrders.some(order=>orderId(order)===button.dataset.invoiceRegistration&&order.registrationEligible===true);
+  for(const button of detailPanel.querySelectorAll('[data-invoice-registration]'))button.disabled=orderReadUnverified||scopeTransitionBusy||registrationBusy||!displayedOrders.some(order=>orderId(order)===button.dataset.invoiceRegistration&&order.registrationEligible===true);
   const pageSelect=document.querySelector('#order-select-page');pageSelect.disabled=orderToolsBusy()||!boxes.length;pageSelect.textContent=boxes.length&&count===boxes.length?'현재 페이지 선택 해제':'현재 페이지 전체선택';document.querySelector('#order-selected-summary').textContent=count+' / '+boxes.length+'건 선택';
   const all=document.querySelector('#order-select-all');
   const selectable=boxes.filter(box=>!box.disabled);
@@ -1148,6 +1150,7 @@ function applyHubResult(result,options={}) {
     scopeControlsAvailable = true;
     displayMode = 'live';
     if(!businessLoaded){businessLoaded=true;void refreshBusinesses();}
+    orderReadUnverified=false;
     connectionResult = result;
     if(selectedChannel==='ALL'&&!serverFilters.delayOnly&&!serverFilters.giftOnly&&!serverFilters.query&&!serverFilters.start&&!serverFilters.end)overviewValues[result.scope]={status:result.status,total:result.total,checkedAt:result.checkedAt,preview:result.orders.slice(0,6).map(({hubOrderId,productName,platform,quantity,amount,stage,visual})=>({hubOrderId,productName,platform,quantity,amount,stage,visual}))};
     displayedOrders = Object.freeze(result.orders.map((order) => Object.freeze({
@@ -1190,9 +1193,10 @@ async function runHubAction(action) {
   if(registrationBusy&&action!=='disconnect'){setShippingJobNotice('발급·등록 작업이 진행 중입니다. 다른 메뉴는 이용할 수 있으며, 주문 목록 변경은 완료 후 가능합니다.');return;}
   const requestedScope = scopeByAction[action];
   if(requestedScope&&displayMode==='live')orderScopeViews.set(orderScopeViewKey(),{scroll:document.getElementById('main-content').scrollTop,query:orderSearch.value,sort:orderSort.value,result:connectionResult,at:Date.now()});
-  selectedOrderIds.clear();
+  const refreshing=action==='refresh'&&displayMode==='live';
+  if(!refreshing)selectedOrderIds.clear();
   const generation = ++actionGeneration;
-  let restoredView=null;
+  let restoredView=refreshing?{result:connectionResult}:null;
   if (requestedScope) {
     freshnessChanged=false;
     selectedScope = requestedScope;
@@ -1205,7 +1209,8 @@ async function runHubAction(action) {
   if (action === 'connect' || action === 'refresh') {
     if(action==='connect'){document.querySelector('#entry-title').textContent='업무 공간을 열고 있어요.';document.querySelector('#entry-screen').classList.add('is-preparing');shippingFollowup.clear();historyGeneration++;historyAutoLoaded=false;}
     if (action === 'connect') scopeControlsAvailable = false;
-    clearDisplayedOrders('connecting', action === 'connect' ? '앱 안에서 로그인하면 저장 주문을 조회합니다.' : `${selectedScopeDetail().range}을 다시 조회하고 있습니다.`);
+    if(refreshing){scopeTransitionBusy=true;renderSelection();renderFreshness('CHECKING',connectionResult?.checkedAt);}
+    else clearDisplayedOrders('connecting', action === 'connect' ? '앱 안에서 로그인하면 저장 주문을 조회합니다.' : `${selectedScopeDetail().range}을 다시 조회하고 있습니다.`);
   }
   if (action === 'nextPage' || action === 'previousPage') clearDisplayedOrders('connecting', action === 'nextPage' ? '다음 주문 페이지를 조회하고 있습니다.' : '이전 주문 페이지를 조회하고 있습니다.');
   if (action === 'disconnect') {
@@ -1233,8 +1238,8 @@ async function runHubAction(action) {
     } else result = await bridge[action]();
     if (generation === actionGeneration) {
       scopeTransitionBusy=false;
-      if(restoredView&&['UNAVAILABLE','SNAPSHOT_CHANGED','SERVER_DISABLED'].includes(result?.status)){renderFreshness('UNAVAILABLE');renderSelection();return;}
-      applyHubResult(result);
+      if(restoredView&&['UNAVAILABLE','SNAPSHOT_CHANGED','SERVER_DISABLED'].includes(result?.status)){orderReadUnverified=true;renderFreshness('UNAVAILABLE');renderSelection();return;}
+      applyHubResult(result,{preserveView:refreshing});
       const view=requestedScope&&result.cached&&orderScopeViews.get(orderScopeViewKey());
       if(view){orderSearch.value=view.query;orderSort.value=view.sort;renderOrders();document.getElementById('main-content').scrollTop=view.scroll;}
       ensureTodayOverview();
@@ -1243,7 +1248,7 @@ async function runHubAction(action) {
   } catch {
     if (generation === actionGeneration) {
       scopeTransitionBusy=false;
-      if(restoredView){renderFreshness('UNAVAILABLE');renderSelection();return;}
+      if(restoredView){orderReadUnverified=true;renderFreshness('UNAVAILABLE');renderSelection();return;}
       clearDisplayedOrders('error', '하린식품 연결 요청을 완료하지 못했습니다.');
       document.querySelector('#entry-screen').classList.remove('is-preparing');if(!document.querySelector('#entry-screen').hidden)document.querySelector('#entry-status').textContent='연결을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.';
     }
@@ -1387,7 +1392,7 @@ function setShippingJobNotice(text,finished=false){
   const status=makeElement('span');status.setAttribute('role','status');
   const open=makeElement('button','secondary-action','발급 진행 보기');open.type='button';
   open.onclick=()=>{showRoute('orders');document.querySelector('#auto-shipping-results:not([hidden]),#registration-results:not([hidden])')?.scrollIntoView({block:'nearest'});};
-  const close=makeElement('button','secondary-action','닫기');close.type='button';close.onclick=()=>shippingJobNotice.hidden=true;
+  const close=makeElement('button','secondary-action shipping-notice-close','×');close.type='button';close.setAttribute('aria-label','발급 진행 안내 닫기');close.title='발급 진행 안내 닫기';close.onclick=()=>shippingJobNotice.hidden=true;
   shippingJobNotice.append(status,open,close);document.getElementById('main-content').prepend(shippingJobNotice);
  }
  shippingJobNotice.hidden=false;shippingJobNotice.dataset.finished=String(finished);
@@ -1397,7 +1402,7 @@ function setShippingJobNotice(text,finished=false){
 document.addEventListener('moaon-session-changed',()=>{if(shippingJobNotice)shippingJobNotice.hidden=true;});
 
 async function runAutomaticShipping(explicitIds){
-  if(orderToolsBusy()||displayMode!=='live')return;
+  if(orderReadUnverified||orderToolsBusy()||displayMode!=='live')return;
   const ids=explicitIds||[...selectedOrderIds];
   if(!ids.length||ids.length>20||ids.some(id=>!displayedOrders.some(order=>orderId(order)===id&&order.issueAndRegisterEligible)))return;
   const generation=actionGeneration;
@@ -1507,6 +1512,7 @@ async function changeServerFilters(next){
 }
 
 async function registerSelectedInvoices(){
+  if(orderReadUnverified)return;
   if(registrationBusy||displayMode!=='live')return;
   const ids=[...selectedOrderIds];
   if(!ids.length||ids.length>20||ids.some(id=>!displayedOrders.some(order=>orderId(order)===id&&order.registrationEligible===true)))return;
