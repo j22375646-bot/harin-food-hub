@@ -52,6 +52,7 @@ function buildOrdersExportUrl(scope='ACTIVE',channel='ALL',filters=EMPTY_FILTERS
 
 function parseOrdersPageUrl(value) {
   if (typeof value !== 'string') return null;
+  if(value.includes('&known=')){const parts=value.split('&known=');if(parts.length!==2)return null;try{const known=decodeURIComponent(parts[1]);require('./order-page-delta.cjs').parseKnown(known);if(encodeURIComponent(known)!==parts[1])return null;}catch{return null;}const base=parseOrdersPageUrl(parts[0]);return base&&base.snapshot===null?base:null;}
   const escapedPath = ORDERS_PATH.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const match = value.match(new RegExp(`^${escapedPath}(ACTIVE|REGISTER|IN_TRANSIT|COMPLETED)&platform=(?:ALL|CAFE24|NAVER|COUPANG)(?:&delayOnly=(true|false)&giftOnly=(true|false)(?:&query=([^&]*)&start=(\\d{4}-\\d{2}-\\d{2}|)&end=(\\d{4}-\\d{2}-\\d{2}|))?)?(?:&offset=([0-9]+)&snapshot=([0-9a-f]{64}))?$`));
   if (!match) return null;

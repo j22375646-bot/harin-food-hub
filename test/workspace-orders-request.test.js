@@ -41,3 +41,16 @@ test('deadline before auth finishes cannot start an orders read later',async()=>
  const handle=create({timeoutMs:5,resolveContext:()=>new Promise(resolve=>{release=resolve;}),readOrders:async()=>{reads++;return Response.json({ok:true});}});
  assert.equal((await handle(request())).status,504);release(await context());await new Promise(resolve=>setTimeout(resolve,10));assert.equal(reads,0);
 });
+
+test('delta read remains identity-bound and strips baseline before calling legacy reader',async()=>{
+ const delta=require('../desktop/order-page-delta.cjs'),rows=[{hubOrderId:'HR-C24-AAAAAAAA',amount:100}],body={ok:true,partial:false,offset:0,total:1,nextOffset:null,snapshot:'a'.repeat(64),orders:rows};let checks=0;
+ const handle=factory()({resolveContext:async()=>{checks++;return context();},readOrders:async req=>{assert.equal(new URL(req.url).searchParams.has('known'),false);return Response.json(body);}});
+ const response=await handle(request(A,'?stage=ACTIVE&platform=ALL&known='+encodeURIComponent(delta.knownRows(rows))));
+ assert.equal(response.status,200);assert.equal(checks,2);const result=await response.json();assert.equal(result.deltaContract,1);assert.deepEqual(result.orders,[]);assert.deepEqual(delta.mergePage(result,rows),body);
+ for(const suffix of ['&offset=0','&snapshot='+'a'.repeat(64),'&format=xlsx'])assert.equal((await handle(request(A,'?stage=ACTIVE&known=-'+suffix))).status,400);
+});
+
+test('revoked membership after delta read discards reconstructed data',async()=>{
+ let checks=0;const handle=factory()({resolveContext:()=>context(A,'OWNER',++checks),readOrders:async()=>Response.json({ok:true,partial:false,offset:0,total:0,nextOffset:null,snapshot:'a'.repeat(64),orders:[]})});
+ const response=await handle(request(A,'?stage=ACTIVE&platform=ALL&known=-'));assert.equal(response.status,409);assert.equal((await response.json()).orders,undefined);
+});

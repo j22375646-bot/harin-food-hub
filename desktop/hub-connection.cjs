@@ -43,6 +43,8 @@ const {projectVisual}=require('./order-visual.cjs');
 const {createHash}=require('node:crypto');
 const {validDocumentIds,renderSelectedCsv}=require('./selected-documents.cjs');
 // Private identity-bound fingerprint, never included in IPC payloads or logs.
+const rawOrderRows=new WeakMap();
+const orderDelta=require('./order-page-delta.cjs');
 const shipmentFingerprints=new WeakMap();
 const labelReceivers=new WeakMap();
 const deliveryTargets=new WeakMap();
@@ -153,6 +155,10 @@ function projectPreflight(order, partial) {
   return Object.freeze({ status: blocked ? 'BLOCKED' : ['NAVER','COUPANG_ROCKET'].includes(route) ? 'EXTERNAL' : codes.length ? 'CHECK_REQUIRED' : 'REVIEW_ONLY', route, codes:Object.freeze(codes),...(codes.includes('SERVER_CHECK')&&typeof order?.shippingBlockedReason==='string'&&order.shippingBlockedReason.trim()?{serverReason:order.shippingBlockedReason.trim().slice(0,500)}:{}) });
 }
 
+function scopeTotals(payload){
+ if(payload?.partial!==false||!Array.isArray(payload.workspaces))return null;
+ const totals={};for(const scope of ORDER_SCOPES){const rows=payload.workspaces.filter(row=>row?.id===scope);if(rows.length!==1||rows[0].status!=='READY'||!Number.isSafeInteger(rows[0].count)||rows[0].count<0)return null;totals[scope]=rows[0].count;}return Object.freeze(totals);
+}
 function projectOrdersPayload(payload, checkedAt, options = {}) {
   const requestedOffset = options.requestedOffset ?? 0;
   const expectedSnapshot = options.expectedSnapshot ?? null;
@@ -202,6 +208,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     });
     const inputs={};
     for(const key of ['hubOrderId','platform','fulfillment','externalOrderId','shipmentId','productName','quantity','amount','items','packagingInstructions','gifts','receiver','invoiceNumber','issuedInvoiceNumber','invoice','stage','cancelled','cancellationRequested'])inputs[key]=order?.[key]??null;
+    rawOrderRows.set(projected,order);
     shipmentFingerprints.set(projected,createHash('sha256').update(JSON.stringify(inputs)).digest('hex'));
     worklistOrders.set(projected,{hubOrderId:projected.hubOrderId,platform:projected.platform,externalOrderId:safeString(order?.externalOrderId),productName:projected.productName,stage:projected.stage,amount:projected.amount,items:order?.items,packagingInstructions:order?.packagingInstructions,gifts:order?.gifts,receiver:projected.details.receiver,invoice:projected.details.invoice});
     const stable={};for(const key of ['hubOrderId','platform','fulfillment','externalOrderId','shipmentId','productName','quantity','items','receiver'])stable[key]=order?.[key]??null;
@@ -222,6 +229,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     checkedAt,
     partial,
     message: STATUS_MESSAGES[partial ? 'PARTIAL' : 'READY'],
+    ...(scopeTotals(payload)?{scopeTotals:scopeTotals(payload)}:{}),
     scope,
     ...(validSearch(payload.appliedSearch)?{search:Object.freeze({query:payload.appliedSearch.query,start:payload.appliedSearch.start,end:payload.appliedSearch.end})}:{}),
   });
@@ -323,6 +331,8 @@ function createHubConnection({
   const readCredentialMetadata=value=>credentialTransport.read(value),saveServerCredential=value=>credentialTransport.save(value);
   let pageCursor = null;
   const scopePages=new Map();
+  let pendingOrderDelta=null;
+  let currentScopeTotals=null;
   const scopeCacheKey=(scope=currentScope)=>JSON.stringify([scope,currentChannel,currentFilters]);
   let currentScope = 'ACTIVE';
   let currentChannel = 'ALL';
@@ -479,6 +489,25 @@ function createHubConnection({
     const work=performReadDelivery(id).finally(()=>deliveryReads.delete(row));
     deliveryReads.set(row,work);return work;
   }
+  function acceptOrderPage(payload,{url,requestedOffset,expectedSnapshot,scope}){
+    pendingOrderDelta=null;
+      const expectedSearch={query:currentFilters.query,start:currentFilters.start,end:currentFilters.end};
+      const result = projectOrdersPayload(payload, now().toISOString(), { requestedOffset, expectedSnapshot, scope,requireSearchContract:/[?&](?:query=[^&]+|start=\d|end=\d)/.test(url),expectedSearch });
+      pageCursor = Object.freeze({
+        offset: payload.offset,
+        nextOffset: payload.nextOffset,
+        snapshot: payload.snapshot,
+        total: payload.total,
+        scope,
+      });
+      loadedOrders=result.orders;currentScopeTotals=result.scopeTotals||null;
+      freshnessLastIdentity=null;
+      freshnessLastResult=null;
+      const projected=Object.freeze({...result,channel:currentChannel,filters:Object.freeze({...currentFilters})});
+      if(!result.partial){scopePages.set(scopeCacheKey(scope),{result:projected,cursor:pageCursor,at:now().getTime()});if(scopePages.size>16)scopePages.delete(scopePages.keys().next().value);}
+      return projected;
+  }
+
   async function performReadDelivery(id){
     const row=loadedOrders.find(order=>order.hubOrderId===id);
     if(disconnecting||cleanupFailed||!row)return {status:'UNAVAILABLE'};
@@ -924,6 +953,7 @@ function createHubConnection({
   }
 
   function invalidateCursor() {
+    pendingOrderDelta=null;currentScopeTotals=null;
     pageCursor = null;
     loadedOrders=EMPTY_ORDERS;
     freshnessLastIdentity=null;
@@ -958,18 +988,28 @@ function createHubConnection({
     const stopped=new Promise(resolve=>{stop=()=>resolve(freshnessResult('UNAVAILABLE'));controller.signal.addEventListener('abort',stop,{once:true});timer=setTimeout(()=>controller.abort(),timeoutMs);});
     const operation=(async()=>{
       try{
-        const response=await Promise.race([getRemoteSession().fetch(ordersPageUrl(cursor.offset,cursor.snapshot),{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal}),stopped]);
+        const originalUrl=ordersPageUrl(cursor.offset,cursor.snapshot);
+        let known=null;try{if(cursor.offset===0)known=orderDelta.knownRows(baseline.map(row=>rawOrderRows.get(row)));}catch{}
+        const url=known===null?originalUrl:ordersScopeUrl()+'&known='+encodeURIComponent(known);
+        const fetchPage=target=>Promise.race([getRemoteSession().fetch(target,{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal}),stopped]);
+        let response=await fetchPage(url);
+        if(known!==null&&[400,404].includes(response?.status))response=await fetchPage(originalUrl);
         if(response?.status==='UNAVAILABLE')return response;
         if(!alive()||!response||typeof response.status!=='number')return freshnessResult('SKIPPED');
         if(response.status===409)return freshnessResult('CHANGED');
         if([401,403].includes(response.status)){scopePages.clear();return freshnessResult('AUTH_REQUIRED');}
         if(response.status!==200)return freshnessResult('UNAVAILABLE');
-        const payload=await Promise.race([readBoundedJson(response,controller),stopped]);
+        let payload=await Promise.race([readBoundedJson(response,controller),stopped]);
+        const delta=payload?.deltaContract===1,deltaRowsChanged=delta&&payload.orders?.length>0;
+        if(delta)payload=orderDelta.mergePage(payload,baseline.map(row=>rawOrderRows.get(row)));
         if(payload?.status==='UNAVAILABLE')return payload;
         if(!alive())return freshnessResult('SKIPPED');
-        const candidate=projectOrdersPayload(payload,now().toISOString(),{requestedOffset:cursor.offset,expectedSnapshot:cursor.snapshot,scope:currentScope});
+        const candidate=projectOrdersPayload(payload,now().toISOString(),{requestedOffset:cursor.offset,expectedSnapshot:delta?null:cursor.snapshot,scope:currentScope});
         if(candidate.partial)return freshnessResult('UNAVAILABLE');
-        return freshnessResult(sameFreshnessPage(candidate)?'CURRENT':'CHANGED');
+        const totals=scopeTotals(payload);
+        const changed=deltaRowsChanged||!sameFreshnessPage(candidate)||payload.snapshot!==cursor.snapshot||Boolean(totals&&currentScopeTotals&&JSON.stringify(totals)!==JSON.stringify(currentScopeTotals));
+        if(delta&&changed){pendingOrderDelta={identity,payload,baseline,cursor,at:now().getTime()};scopePages.clear();}
+        return Object.freeze({...freshnessResult(changed?'CHANGED':'CURRENT'),...(scopeTotals(payload)?{scopeTotals:scopeTotals(payload)}:{})});
       }catch{return freshnessResult(alive()?'UNAVAILABLE':'SKIPPED');}
       finally{clearTimeout(timer);controller.signal.removeEventListener('abort',stop);controller.abort();}
     })();
@@ -1023,21 +1063,7 @@ function createHubConnection({
       const payload = await bounded(readBoundedJson(response, controller));
       if(controller.signal.aborted)throw Error('Order read stopped');
       if (readGeneration !== generation) return safeEmpty('DISCONNECTED');
-      const expectedSearch={query:currentFilters.query,start:currentFilters.start,end:currentFilters.end};
-      const result = projectOrdersPayload(payload, now().toISOString(), { requestedOffset, expectedSnapshot, scope,requireSearchContract:/[?&](?:query=[^&]+|start=\d|end=\d)/.test(url),expectedSearch });
-      pageCursor = Object.freeze({
-        offset: payload.offset,
-        nextOffset: payload.nextOffset,
-        snapshot: payload.snapshot,
-        total: payload.total,
-        scope,
-      });
-      loadedOrders=result.orders;
-      freshnessLastIdentity=null;
-      freshnessLastResult=null;
-      const projected=Object.freeze({...result,channel:currentChannel,filters:Object.freeze({...currentFilters})});
-      if(!result.partial){scopePages.set(scopeCacheKey(scope),{result:projected,cursor:pageCursor,at:now().getTime()});if(scopePages.size>16)scopePages.delete(scopePages.keys().next().value);}
-      return projected;
+      return acceptOrderPage(payload,{url,requestedOffset,expectedSnapshot,scope});
     } catch {
       if (readGeneration === generation) invalidateCursor();
       return readGeneration === generation
@@ -1075,6 +1101,11 @@ function createHubConnection({
   function refresh() {
     if(registrationController||automaticController||reviewingShipment)return Promise.resolve(safeEmpty('UNAVAILABLE','발급·등록 작업 중에는 주문 목록을 변경할 수 없습니다. 다른 메뉴는 이용할 수 있습니다.'));
     if (activeRead) return activeRead;
+    const pending=pendingOrderDelta;
+    if(pending&&pending.identity===freshnessIdentity()&&pending.baseline===loadedOrders&&pending.cursor===pageCursor&&now().getTime()-pending.at<30_000){
+      invalidateCursor();scopePages.clear();
+      return Promise.resolve(acceptOrderPage(pending.payload,{url:ordersScopeUrl(),requestedOffset:0,expectedSnapshot:null,scope:currentScope}));
+    }
     invalidateCursor();
     return startRead({ url: ordersScopeUrl(), requestedOffset: 0, expectedSnapshot: null, scope: currentScope });
   }
@@ -1633,7 +1664,7 @@ function createHubConnection({
     activeRead = null;
     activeAbortController?.abort();
     if(cached&&now().getTime()-cached.at<5*60_000){
-      pageCursor=cached.cursor;loadedOrders=cached.result.orders;freshnessLastAt=0;
+      pageCursor=cached.cursor;loadedOrders=cached.result.orders;currentScopeTotals=cached.result.scopeTotals||null;freshnessLastAt=0;
       return Promise.resolve(Object.freeze({...cached.result,cached:true}));
     }
     return startRead({ url: ordersScopeUrl(scope), requestedOffset: 0, expectedSnapshot: null, scope });

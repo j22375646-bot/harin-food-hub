@@ -71,6 +71,8 @@ let freshnessGeneration = 0;
 let freshnessChanged = false;
 let freshnessReloadBusy = false;
 const orderScopeViews=new Map();
+let orderScopeTotals=null;
+function acceptScopeTotals(totals){if(totals&&Object.keys(scopeDetails).every(scope=>Number.isSafeInteger(totals[scope])&&totals[scope]>=0)){orderScopeTotals=Object.freeze({...totals});renderScopeCounts();}}
 const orderScopeViewKey=()=>JSON.stringify([selectedScope,selectedChannel,serverFilters]);
 let selectedScope = 'ACTIVE';
 let scopeControlsAvailable = false;
@@ -360,6 +362,7 @@ async function checkVisibleOrderFreshness(){
   try{
     const result=await window.moaonHub.checkOrderFreshness();
     if(expectedAction!==actionGeneration||expectedFreshness!==freshnessGeneration||!ordersAreVisible())return;
+    acceptScopeTotals(result?.scopeTotals);
     if(result?.status==='CHANGED'){
       freshnessChanged=true;
       const idle=selectedOrderIds.size===0&&!selectedOrderId&&!orderSearch.value&&document.getElementById('main-content').scrollTop<80&&!orderToolsBusy();
@@ -1127,7 +1130,7 @@ function clearDisplayedOrders(mode, message) {
 
 function applyHubResult(result,options={}) {
   const retained=options.preserveView&&displayMode==='live'?{query:orderSearch.value,ids:[...selectedOrderIds],detail:selectedOrderId,scroll:document.getElementById('main-content').scrollTop}:null;
-  if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){orderScopeViews.clear();clearTimeout(deliveryPreparationTimer);deliveryPreparationAttempts.clear();const prep=document.getElementById('delivery-prep-status');if(prep)prep.textContent='';}
+  if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){orderScopeViews.clear();orderScopeTotals=null;clearTimeout(deliveryPreparationTimer);deliveryPreparationAttempts.clear();const prep=document.getElementById('delivery-prep-status');if(prep)prep.textContent='';}
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status))window.moaonFeedback.orders.reset();
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){historyAutoLoaded=false;historyGeneration++;}
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status))shippingFollowup.clear();
@@ -1151,6 +1154,7 @@ function applyHubResult(result,options={}) {
     displayMode = 'live';
     if(!businessLoaded){businessLoaded=true;void refreshBusinesses();}
     orderReadUnverified=false;
+    acceptScopeTotals(result.scopeTotals);
     connectionResult = result;
     if(selectedChannel==='ALL'&&!serverFilters.delayOnly&&!serverFilters.giftOnly&&!serverFilters.query&&!serverFilters.start&&!serverFilters.end)overviewValues[result.scope]={status:result.status,total:result.total,checkedAt:result.checkedAt,preview:result.orders.slice(0,6).map(({hubOrderId,productName,platform,quantity,amount,stage,visual})=>({hubOrderId,productName,platform,quantity,amount,stage,visual}))};
     displayedOrders = Object.freeze(result.orders.map((order) => Object.freeze({
@@ -1214,7 +1218,7 @@ async function runHubAction(action) {
   }
   if (action === 'nextPage' || action === 'previousPage') clearDisplayedOrders('connecting', action === 'nextPage' ? '다음 주문 페이지를 조회하고 있습니다.' : '이전 주문 페이지를 조회하고 있습니다.');
   if (action === 'disconnect') {
-    orderScopeViews.clear();scopeTransitionBusy=false;
+    orderScopeViews.clear();orderScopeTotals=null;scopeTransitionBusy=false;
     document.dispatchEvent(new Event('moaon-session-changed'));
     window.moaonFeedback.orders.reset();window.moaonFeedback.clear();
     historyGeneration++;historyAutoLoaded=false;
@@ -1792,7 +1796,7 @@ async function refreshAfterShipping(results,panel,generation){
 function renderScopeCounts(){
  for(const [scope,detail] of Object.entries(scopeDetails)){
  const button=document.querySelector('.order-scope-actions [data-action="hub-'+detail.action+'"]');if(!button)continue;
- const value=overviewValues[scope],known=['READY','PARTIAL'].includes(value?.status)&&Number.isSafeInteger(value?.total);
+ const value=orderScopeTotals?{status:'READY',total:orderScopeTotals[scope]}:overviewValues[scope],known=['READY','PARTIAL'].includes(value?.status)&&Number.isSafeInteger(value?.total);
  button.replaceChildren(makeElement('span','',detail.label),makeElement('strong','scope-count',known?value.total.toLocaleString('ko-KR')+'건'+(value.status==='PARTIAL'?' · 일부':''):overviewBusy?'조회 중':'확인 필요'));
  button.title='전체 채널 저장 주문 · '+(value?.status==='PARTIAL'?'일부 확인 · ':'')+(value?.checkedAt?formatTime(value.checkedAt):'조회 필요');
  }

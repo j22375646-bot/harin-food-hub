@@ -55,3 +55,23 @@ test('freshness maps partial, bad JSON, auth and timeout to explicit safe status
  }
  let n=0;const {connection}=fixture(async()=>++n===1?Response.json(payload()):new Promise(()=>{}),{timeoutMs:5});await connection.refresh();assert.equal((await connection.checkOrderFreshness()).status,'UNAVAILABLE');
 });
+
+test('freshness delta is merged privately and refresh consumes it without a third request',async()=>{
+ const delta=require('../order-page-delta.cjs');let calls=0;
+ const original=payload(),next=payload([order({amount:24000})],{snapshot:'b'.repeat(64),workspaces:['ACTIVE','REGISTER','IN_TRANSIT','COMPLETED'].map(id=>({id,status:'READY',count:id==='ACTIVE'?1:0}))});
+ const {connection}=fixture(async url=>{calls++;if(calls===1)return Response.json(original);const known=new URL(url).searchParams.get('known');assert.ok(known);return Response.json(delta.deltaPage(next,known));});
+ await connection.refresh();const changed=await connection.checkOrderFreshness();assert.equal(changed.status,'CHANGED');assert.equal(changed.scopeTotals.ACTIVE,1);
+ const refreshed=await connection.refresh();assert.equal(refreshed.orders[0].amount,24000);assert.equal(refreshed.scopeTotals.REGISTER,0);assert.equal(calls,2);
+ assert.equal(JSON.stringify(changed).includes('홍길동'),false);
+});
+test('old server rejects the new query and freshness falls back to the trusted page read',async()=>{
+ let calls=0;const {connection}=fixture(async url=>{calls++;return new URL(url).searchParams.has('known')?Response.json({ok:false},{status:400}):Response.json(payload());});
+ await connection.refresh();assert.equal((await connection.checkOrderFreshness()).status,'CURRENT');assert.equal(calls,3);
+});
+
+test('a later authoritative reread invalidates a pending delta even with identical page identity',async()=>{
+ const delta=require('../order-page-delta.cjs');let calls=0;
+ const {connection}=fixture(async url=>{calls++;if(new URL(url).searchParams.has('known'))return Response.json(delta.deltaPage(payload([order({amount:24000})]),new URL(url).searchParams.get('known')));return Response.json(payload([order({amount:calls>=3?36000:12000})]));});
+ await connection.refresh();assert.equal((await connection.checkOrderFreshness()).status,'CHANGED');
+ await connection.recheckPage();assert.equal((await connection.refresh()).orders[0].amount,36000);assert.equal(calls,4);
+});

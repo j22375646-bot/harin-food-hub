@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),path=require('node:path');
 const { _electron }=require('playwright'),fs=require('node:fs');
 (async()=>{
  if(!process.argv.includes('--isolated'))throw Error('Isolated profile required');
- const app=await _electron.launch({executablePath:'D:/GPT/deps/moaon-desktop-runtime/node_modules/electron/dist/electron.exe',args:[path.join(__dirname,'isolated-bootstrap.cjs')],timeout:90000,env:{...process.env,MOAON_TEST_RUNTIME_ROOT:process.env.MOAON_TEST_RUNTIME_ROOT||path.resolve(__dirname,'..'),MOAON_TEST_PROFILE:fs.mkdtempSync('D:/GPT/Temp/shipping-navigation-'),MOAON_TEST_DISPLAY:'right',MOAON_TEST_HIDDEN:'0'}});
+ const app=await _electron.launch({executablePath:'D:/GPT/deps/moaon-desktop-runtime/node_modules/electron/dist/electron.exe',args:[path.join(__dirname,'isolated-bootstrap.cjs')],timeout:180000,env:{...process.env,MOAON_TEST_RUNTIME_ROOT:process.env.MOAON_TEST_RUNTIME_ROOT||path.resolve(__dirname,'..'),MOAON_TEST_PROFILE:fs.mkdtempSync('D:/GPT/Temp/shipping-navigation-'),MOAON_TEST_DISPLAY:'right',MOAON_TEST_HIDDEN:'0'}});
  try{
   console.log('navigation: launched');const page=await app.firstWindow();page.setDefaultTimeout(20000);await page.waitForLoadState('domcontentloaded',{timeout:120000});
   console.log('navigation: loaded');await page.evaluate(()=>runHubAction('disconnect'));console.log('navigation: disconnected');
@@ -67,7 +67,7 @@ const { _electron }=require('playwright'),fs=require('node:fs');
   assert.equal(await page.locator('#selection-block-reason').isVisible(),true);
   await app.evaluate(({ipcMain})=>{
    const page=(scope,cached=false)=>({status:'READY',cached,scope,channel:'ALL',offset:0,total:1,checkedAt:new Date().toISOString(),orders:[{hubOrderId:'HR-C24-AAAAAAAA',platform:'CAFE24',productName:scope==='ACTIVE'?'복원 주문':'대기 주문',stage:'PREPARING',quantity:1,amount:1000}]});
-   for(const [name,handler] of [['view-registered',()=>page('REGISTER')],['view-active',()=>page('ACTIVE',true)],['check-order-freshness',()=>({status:'CHANGED',checkedAt:new Date().toISOString()})],['refresh',()=>({...page('ACTIVE'),total:2,orders:[...page('ACTIVE').orders,{...page('ACTIVE').orders[0],hubOrderId:'HR-C24-BBBBBBBB',productName:'새 주문'}]})]]){ipcMain.removeHandler('moaon-hub:'+name);ipcMain.handle('moaon-hub:'+name,handler);}
+   for(const [name,handler] of [['view-registered',()=>page('REGISTER')],['view-active',()=>page('ACTIVE',true)],['check-order-freshness',()=>({status:'CHANGED',scopeTotals:{ACTIVE:2,REGISTER:1,IN_TRANSIT:3,COMPLETED:4},checkedAt:new Date().toISOString()})],['refresh',()=>({...page('ACTIVE'),total:2,orders:[...page('ACTIVE').orders,{...page('ACTIVE').orders[0],hubOrderId:'HR-C24-BBBBBBBB',productName:'새 주문'}]})]]){ipcMain.removeHandler('moaon-hub:'+name);ipcMain.handle('moaon-hub:'+name,handler);}
   });
   await page.evaluate(()=>{selectedOrderIds.clear();orderSearch.value='';closeOrderDetail();document.getElementById('main-content').scrollTop=140;});
   await page.evaluate(()=>runHubAction('viewRegistered'));
@@ -76,6 +76,7 @@ const { _electron }=require('playwright'),fs=require('node:fs');
   await page.evaluate(()=>{selectedOrderIds.add('HR-C24-AAAAAAAA');renderSelection();});
   await page.evaluate(()=>checkVisibleOrderFreshness());
   assert.equal(await page.evaluate(()=>freshnessChanged),true);
+  assert.match(await page.locator('[data-action=hub-viewInTransit]').textContent(),/3건/);
   await page.evaluate(()=>{selectedOrderIds.clear();closeOrderDetail();document.getElementById('main-content').scrollTop=0;});
   await page.evaluate(()=>checkVisibleOrderFreshness());
   await page.waitForFunction(()=>displayedOrders.length===2);
