@@ -56,6 +56,7 @@ const sampleOnlySections = [...document.querySelectorAll('[data-sample-only]')];
 let selectedOrderId = null;
 const selectedOrderIds = new Set();
 let registrationBusy = false;
+let scopeTransitionBusy=false;
 let selectedChannel = 'ALL';
 let serverFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});
 let selectedOrderButton = null;
@@ -68,6 +69,8 @@ let actionGeneration = 0;
 let freshnessGeneration = 0;
 let freshnessChanged = false;
 let freshnessReloadBusy = false;
+const orderScopeViews=new Map();
+const orderScopeViewKey=()=>JSON.stringify([selectedScope,selectedChannel,serverFilters]);
 let selectedScope = 'ACTIVE';
 let scopeControlsAvailable = false;
 let businessGeneration=0,businessLoaded=false,businessBusy=false;
@@ -345,7 +348,7 @@ function renderFreshness(status='IDLE',checkedAt=null){
   if(freshnessRow.hidden)return;
   const effective=freshnessChanged&&!['UNAVAILABLE','AUTH_REQUIRED'].includes(status)?'CHANGED':status;
   freshnessRow.dataset.status=effective;
-  freshnessStatus.textContent=effective==='CHANGED'?'주문 또는 사은품 기준이 변경됐어요':effective==='CURRENT'?'새 변경 없음':effective==='AUTH_REQUIRED'?'로그인 상태 확인 필요':effective==='UNAVAILABLE'?'변경 여부 확인 필요':'새 주문 변경을 확인합니다.';
+  freshnessStatus.textContent=effective==='CHANGED'?'주문 또는 사은품 기준이 변경됐어요':effective==='CURRENT'?'새 변경 없음':effective==='AUTH_REQUIRED'?'로그인 상태 확인 필요':effective==='UNAVAILABLE'?'변경 여부 확인 필요':'최신 주문 확인 중…';
   freshnessCheckedAt.textContent=checkedAt?`${formatTime(checkedAt)} 확인`:'';
   freshnessCheckedAt.dateTime=checkedAt||'';
   freshnessReload.hidden=!freshnessChanged;freshnessReload.disabled=freshnessReloadBusy||orderToolsBusy();
@@ -356,9 +359,14 @@ async function checkVisibleOrderFreshness(){
   try{
     const result=await window.moaonHub.checkOrderFreshness();
     if(expectedAction!==actionGeneration||expectedFreshness!==freshnessGeneration||!ordersAreVisible())return;
-    if(result?.status==='CHANGED')freshnessChanged=true;
+    if(result?.status==='CHANGED'){
+      freshnessChanged=true;
+      const idle=selectedOrderIds.size===0&&!selectedOrderId&&!orderSearch.value&&document.getElementById('main-content').scrollTop<80&&!orderToolsBusy();
+      if(idle&&connectionResult?.offset===0){await reloadChangedOrders();return;}
+    }
+    if(result?.status==='AUTH_REQUIRED'){orderScopeViews.clear();applyHubResult({status:'LOGIN_REQUIRED'});return;}
     if(['CURRENT','CHANGED','UNAVAILABLE','AUTH_REQUIRED'].includes(result?.status))renderFreshness(result.status,result.checkedAt);
-    // Background probes only announce changes; never replace a list being read.
+    // Keep selections and a page being read stable until the user accepts changes.
   }catch{if(expectedAction===actionGeneration&&expectedFreshness===freshnessGeneration&&ordersAreVisible())renderFreshness('UNAVAILABLE');}
 }
 async function reloadChangedOrders(){
@@ -375,7 +383,7 @@ async function reloadChangedOrders(){
   finally{freshnessReloadBusy=false;if(expected===actionGeneration){renderOrders();renderCollection();scroller.scrollTop=scrollTop;}}
 }
 freshnessReload.addEventListener('click',()=>void reloadChangedOrders());
-setInterval(()=>void checkVisibleOrderFreshness(),60_000);
+setInterval(()=>void checkVisibleOrderFreshness(),30_000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)void checkVisibleOrderFreshness();});
 window.addEventListener('focus',()=>void checkVisibleOrderFreshness());
 window.moaonHub?.onWindowRestored?.(()=>void checkVisibleOrderFreshness());
@@ -932,7 +940,7 @@ function renderSelection(){
   if(freshnessReload)freshnessReload.disabled=freshnessReloadBusy||registrationBusy||collectionBusy||collectionShipmentLocks.size>0;
 }
 
-const orderToolsBusy=()=>deliveryPreparationBusy||registrationBusy||collectionBusy||collectionShipmentLocks.size>0||freshnessReloadBusy;
+const orderToolsBusy=()=>scopeTransitionBusy||deliveryPreparationBusy||registrationBusy||collectionBusy||collectionShipmentLocks.size>0||freshnessReloadBusy;
 function renderGlobalSearch(){const locked=orderToolsBusy()||displayMode!=='live';for(const id of ['order-global-query','order-global-start','order-global-end','order-global-apply','order-global-reset','order-global-export'])document.querySelector(`#${id}`).disabled=locked;const labels=[serverFilters.query?`“${serverFilters.query}”`:'',serverFilters.start?`${serverFilters.start}부터`:'',serverFilters.end?`${serverFilters.end}까지`:''].filter(Boolean);document.querySelector('#order-global-applied').textContent=labels.length?`전체 저장 주문 · ${labels.join(' · ')}`:'전체 저장 주문 · 조건 없음';}
 function renderServerFilterControls(){
   const live=displayMode==='live',busy=orderToolsBusy();
@@ -978,6 +986,8 @@ function renderOrders() {
   orderList.replaceChildren(...visibleOrders.map(createOrderRow));
   orderList.hidden = visibleOrders.length === 0;
   orderEmpty.hidden = visibleOrders.length !== 0;
+  orderEmpty.classList.toggle('is-loading',displayMode==='connecting');
+  orderEmpty.setAttribute('aria-busy',String(displayMode==='connecting'));
   if (isSampleMode()) {
     resultCount.textContent = query ? `검색 결과 · 샘플 ${visibleOrders.length}건` : `샘플 ${visibleOrders.length}건 표시`;
     orderEmpty.textContent = '검색 결과가 없습니다. 다른 주문번호, 고객명 또는 상품명을 입력하세요.';
@@ -1115,7 +1125,7 @@ function clearDisplayedOrders(mode, message) {
 
 function applyHubResult(result,options={}) {
   const retained=options.preserveView&&displayMode==='live'?{query:orderSearch.value,ids:[...selectedOrderIds],detail:selectedOrderId,scroll:document.getElementById('main-content').scrollTop}:null;
-  if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){clearTimeout(deliveryPreparationTimer);deliveryPreparationAttempts.clear();const prep=document.getElementById('delivery-prep-status');if(prep)prep.textContent='';}
+  if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){orderScopeViews.clear();clearTimeout(deliveryPreparationTimer);deliveryPreparationAttempts.clear();const prep=document.getElementById('delivery-prep-status');if(prep)prep.textContent='';}
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status))window.moaonFeedback.orders.reset();
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){historyAutoLoaded=false;historyGeneration++;}
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status))shippingFollowup.clear();
@@ -1178,13 +1188,19 @@ function applyHubResult(result,options={}) {
 async function runHubAction(action) {
   if(freshnessReloadBusy)return;
   if(registrationBusy&&action!=='disconnect'){setShippingJobNotice('발급·등록 작업이 진행 중입니다. 다른 메뉴는 이용할 수 있으며, 주문 목록 변경은 완료 후 가능합니다.');return;}
+  const requestedScope = scopeByAction[action];
+  if(requestedScope&&displayMode==='live')orderScopeViews.set(orderScopeViewKey(),{scroll:document.getElementById('main-content').scrollTop,query:orderSearch.value,sort:orderSort.value,result:connectionResult,at:Date.now()});
   selectedOrderIds.clear();
   const generation = ++actionGeneration;
-  const requestedScope = scopeByAction[action];
+  let restoredView=null;
   if (requestedScope) {
+    freshnessChanged=false;
     selectedScope = requestedScope;
     scopeControlsAvailable = true;
-    clearDisplayedOrders('connecting', `${selectedScopeDetail().range} 첫 페이지를 조회하고 있습니다.`);
+    scopeTransitionBusy=true;
+    const saved=orderScopeViews.get(orderScopeViewKey());
+    if(saved?.result?.status==='READY'&&Date.now()-saved.at<5*60_000){restoredView=saved;applyHubResult(saved.result);orderSearch.value=saved.query;orderSort.value=saved.sort;renderOrders();document.getElementById('main-content').scrollTop=saved.scroll;renderFreshness('CHECKING',saved.result.checkedAt);}
+    else clearDisplayedOrders('connecting', `${selectedScopeDetail().range} 첫 페이지를 조회하고 있습니다.`);
   }
   if (action === 'connect' || action === 'refresh') {
     if(action==='connect'){document.querySelector('#entry-title').textContent='업무 공간을 열고 있어요.';document.querySelector('#entry-screen').classList.add('is-preparing');shippingFollowup.clear();historyGeneration++;historyAutoLoaded=false;}
@@ -1193,6 +1209,7 @@ async function runHubAction(action) {
   }
   if (action === 'nextPage' || action === 'previousPage') clearDisplayedOrders('connecting', action === 'nextPage' ? '다음 주문 페이지를 조회하고 있습니다.' : '이전 주문 페이지를 조회하고 있습니다.');
   if (action === 'disconnect') {
+    orderScopeViews.clear();scopeTransitionBusy=false;
     document.dispatchEvent(new Event('moaon-session-changed'));
     window.moaonFeedback.orders.reset();window.moaonFeedback.clear();
     historyGeneration++;historyAutoLoaded=false;
@@ -1214,9 +1231,19 @@ async function runHubAction(action) {
       if (generation !== actionGeneration) return;
       if (result.status === 'LOGIN_REQUIRED') result = await bridge.connect();
     } else result = await bridge[action]();
-    if (generation === actionGeneration) {applyHubResult(result);ensureTodayOverview();}
+    if (generation === actionGeneration) {
+      scopeTransitionBusy=false;
+      if(restoredView&&['UNAVAILABLE','SNAPSHOT_CHANGED','SERVER_DISABLED'].includes(result?.status)){renderFreshness('UNAVAILABLE');renderSelection();return;}
+      applyHubResult(result);
+      const view=requestedScope&&result.cached&&orderScopeViews.get(orderScopeViewKey());
+      if(view){orderSearch.value=view.query;orderSort.value=view.sort;renderOrders();document.getElementById('main-content').scrollTop=view.scroll;}
+      ensureTodayOverview();
+      if(result.cached){renderFreshness('CHECKING',result.checkedAt);void checkVisibleOrderFreshness();}
+    }
   } catch {
     if (generation === actionGeneration) {
+      scopeTransitionBusy=false;
+      if(restoredView){renderFreshness('UNAVAILABLE');renderSelection();return;}
       clearDisplayedOrders('error', '하린식품 연결 요청을 완료하지 못했습니다.');
       document.querySelector('#entry-screen').classList.remove('is-preparing');if(!document.querySelector('#entry-screen').hidden)document.querySelector('#entry-status').textContent='연결을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요.';
     }

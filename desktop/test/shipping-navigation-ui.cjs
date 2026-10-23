@@ -65,6 +65,24 @@ const { _electron }=require('playwright'),fs=require('node:fs');
   assert.equal(await page.locator('#selection-block-reason').isVisible(),false);
   await page.locator('#selection-reason-reopen').click();
   assert.equal(await page.locator('#selection-block-reason').isVisible(),true);
+  await app.evaluate(({ipcMain})=>{
+   const page=(scope,cached=false)=>({status:'READY',cached,scope,channel:'ALL',offset:0,total:1,checkedAt:new Date().toISOString(),orders:[{hubOrderId:'HR-C24-AAAAAAAA',platform:'CAFE24',productName:scope==='ACTIVE'?'복원 주문':'대기 주문',stage:'PREPARING',quantity:1,amount:1000}]});
+   for(const [name,handler] of [['view-registered',()=>page('REGISTER')],['view-active',()=>page('ACTIVE',true)],['check-order-freshness',()=>({status:'CHANGED',checkedAt:new Date().toISOString()})],['refresh',()=>({...page('ACTIVE'),total:2,orders:[...page('ACTIVE').orders,{...page('ACTIVE').orders[0],hubOrderId:'HR-C24-BBBBBBBB',productName:'새 주문'}]})]]){ipcMain.removeHandler('moaon-hub:'+name);ipcMain.handle('moaon-hub:'+name,handler);}
+  });
+  await page.evaluate(()=>{selectedOrderIds.clear();orderSearch.value='';closeOrderDetail();document.getElementById('main-content').scrollTop=140;});
+  await page.evaluate(()=>runHubAction('viewRegistered'));
+  await page.evaluate(()=>runHubAction('viewActive'));
+  assert.match(await page.locator('#order-list').textContent(),/복원 주문/);
+  await page.evaluate(()=>{selectedOrderIds.add('HR-C24-AAAAAAAA');renderSelection();});
+  await page.evaluate(()=>checkVisibleOrderFreshness());
+  assert.equal(await page.evaluate(()=>freshnessChanged),true);
+  await page.evaluate(()=>{selectedOrderIds.clear();closeOrderDetail();document.getElementById('main-content').scrollTop=0;});
+  await page.evaluate(()=>checkVisibleOrderFreshness());
+  await page.waitForFunction(()=>displayedOrders.length===2);
+  assert.equal(await page.evaluate(()=>freshnessChanged),false);
+  await page.evaluate(()=>clearDisplayedOrders('connecting','주문을 불러오고 있어요.'));
+  assert.equal(await page.locator('#order-empty').getAttribute('aria-busy'),'true');
+  await page.screenshot({path:'D:/GPT/Temp/order-loading-animated.png'});
   console.log(JSON.stringify({status:'PASS',navigationDuringJob:true,resultRetained:true,duplicateCalls:false,realWrites:false}));
  }finally{await app.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

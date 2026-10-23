@@ -322,6 +322,8 @@ function createHubConnection({
   const credentialTransport=createCredentialTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options),authorize:options=>listBusinesses(options),permit:value=>{credentialPermit=value;},blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive()),timeoutMs:Math.min(timeoutMs*2,30000)});
   const readCredentialMetadata=value=>credentialTransport.read(value),saveServerCredential=value=>credentialTransport.save(value);
   let pageCursor = null;
+  const scopePages=new Map();
+  const scopeCacheKey=(scope=currentScope)=>JSON.stringify([scope,currentChannel,currentFilters]);
   let currentScope = 'ACTIVE';
   let currentChannel = 'ALL';
   let currentFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});
@@ -960,7 +962,7 @@ function createHubConnection({
         if(response?.status==='UNAVAILABLE')return response;
         if(!alive()||!response||typeof response.status!=='number')return freshnessResult('SKIPPED');
         if(response.status===409)return freshnessResult('CHANGED');
-        if([401,403].includes(response.status))return freshnessResult('AUTH_REQUIRED');
+        if([401,403].includes(response.status)){scopePages.clear();return freshnessResult('AUTH_REQUIRED');}
         if(response.status!==200)return freshnessResult('UNAVAILABLE');
         const payload=await Promise.race([readBoundedJson(response,controller),stopped]);
         if(payload?.status==='UNAVAILABLE')return payload;
@@ -994,11 +996,13 @@ function createHubConnection({
       if(controller.signal.aborted)throw Error('Order read stopped');
       if (readGeneration !== generation) return safeEmpty('DISCONNECTED');
       if (response.status === 401) {
+        scopePages.clear();
         void stopShipments();
         invalidateCursor();
         return safeEmpty('LOGIN_REQUIRED');
       }
       if (response.status === 403) {
+        scopePages.clear();
         void stopShipments();
         invalidateCursor();
         return safeEmpty('FORBIDDEN');
@@ -1031,7 +1035,9 @@ function createHubConnection({
       loadedOrders=result.orders;
       freshnessLastIdentity=null;
       freshnessLastResult=null;
-      return Object.freeze({...result,channel:currentChannel,filters:Object.freeze({...currentFilters})});
+      const projected=Object.freeze({...result,channel:currentChannel,filters:Object.freeze({...currentFilters})});
+      if(!result.partial){scopePages.set(scopeCacheKey(scope),{result:projected,cursor:pageCursor,at:now().getTime()});if(scopePages.size>16)scopePages.delete(scopePages.keys().next().value);}
+      return projected;
     } catch {
       if (readGeneration === generation) invalidateCursor();
       return readGeneration === generation
@@ -1618,6 +1624,7 @@ function createHubConnection({
     if(registrationController||automaticController||reviewingShipment)return Promise.resolve(safeEmpty('UNAVAILABLE','발급·등록 작업 중에는 주문 목록을 변경할 수 없습니다. 다른 메뉴는 이용할 수 있습니다.'));
     const blocked = blockedReadResult();
     if (blocked) return blocked;
+    const cached=scopePages.get(scopeCacheKey(scope));
     if (scope === currentScope) return refresh();
     invalidateGeneration();
     void stopShipments();
@@ -1625,6 +1632,10 @@ function createHubConnection({
     invalidateCursor();
     activeRead = null;
     activeAbortController?.abort();
+    if(cached&&now().getTime()-cached.at<5*60_000){
+      pageCursor=cached.cursor;loadedOrders=cached.result.orders;freshnessLastAt=0;
+      return Promise.resolve(Object.freeze({...cached.result,cached:true}));
+    }
     return startRead({ url: ordersScopeUrl(scope), requestedOffset: 0, expectedSnapshot: null, scope });
   }
 
@@ -1787,6 +1798,7 @@ function createHubConnection({
   }
 
   function disconnect() {
+    scopePages.clear();
     onTeamSnapshot(null);
     if (disconnecting) return disconnecting;
     collection.reset();backgroundCollection.reset();backgroundCollectionState=null;

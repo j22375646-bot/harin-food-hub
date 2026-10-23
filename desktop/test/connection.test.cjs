@@ -1899,3 +1899,15 @@ test('closing child windows cancels market AI and removes its permit',async()=>{
  const pending=connection.marketAi({operation:'CONFIG'});connection.closeChildren();assert.equal((await pending).status,'CANCELLED');
  let blocked;remote.beforeRequestHandler({url:endpoint,method:'GET',webContentsId:0},result=>blocked=result.cancel);assert.equal(blocked,true);
 });
+
+test('scope revisit restores its page without another request; logout discards cached pages',async()=>{
+ const urls=[];
+ const remote=makeRemoteSession(async url=>{urls.push(url);const offset=Number(new URL(url).searchParams.get('offset')||0);return Response.json(makePagePayload({orders:Array.from({length:20},(_,i)=>({hubOrderId:`C-${offset+i}`})),total:45,offset,nextOffset:offset<40?offset+20:null}));});
+ const {connection}=makeConnection(remote);
+ await connection.viewActive();await connection.nextPage();await connection.viewRegistered();
+ const before=urls.length,restored=await connection.viewActive();
+ assert.equal(restored.cached,true);assert.equal(restored.offset,20);assert.equal(urls.length,before);
+ await connection.nextPage();assert.equal(new URL(urls.at(-1)).searchParams.get('offset'),'40');
+ await connection.disconnect();
+ const fresh=await connection.viewRegistered();assert.notEqual(fresh.cached,true);assert.equal(urls.length,before+2);
+});

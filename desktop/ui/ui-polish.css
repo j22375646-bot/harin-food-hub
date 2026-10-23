@@ -476,3 +476,11 @@ html[data-theme=dark] #entry-screen{--entry-bg:#24212d;--entry-paper:#302b3b;--e
 
 body:has(.preview-shell[hidden]) .login-window-drag{color:var(--ink);gap:9px;line-height:1.2}
 .login-window-drag .moaon-logo{width:24px;height:24px;flex:none;color:#8570b7}
+
+#order-empty.is-loading{display:flex;align-items:center;justify-content:center;gap:12px;min-height:180px;background:linear-gradient(110deg,var(--surface-soft),var(--surface),var(--surface-soft));background-size:200% 100%;animation:order-loading-glow 2.4s ease-in-out infinite}
+#order-empty.is-loading::before{content:"";width:20px;height:20px;flex:none;border:2px solid var(--line-strong);border-top-color:var(--blue);border-radius:50%;animation:order-loading-spin .9s linear infinite}
+#order-empty.is-loading[hidden]{display:none}
+#order-freshness[data-status="CHECKING"]{opacity:.8}
+@keyframes order-loading-spin{to{transform:rotate(360deg)}}
+@keyframes order-loading-glow{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+@media(prefers-reduced-motion:reduce){#order-empty.is-loading,#order-empty.is-loading::before{animation:none}}
