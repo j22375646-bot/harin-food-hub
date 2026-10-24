@@ -94,3 +94,14 @@ test('중단되어 오래된 Cafe24 전송은 새 우체국 접수 없이 같은
     if(previous===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=previous;
   }
 });
+
+test('두 PC의 실패 또는 만료 전송 재시도는 한 번만 실행권을 얻는다',async()=>{
+ const previous=process.env.SUPABASE_SERVICE_ROLE_KEY;process.env.SUPABASE_SERVICE_ROLE_KEY=secret;
+ try{for(const status of ['FAILED','EXECUTING']){
+  let stored={id:'audit',status,attempt_count:1,started_at:new Date(Date.now()-transfer.DIRECT_TRANSFER_TIMEOUT_MS-1000).toISOString()},winners=0;
+  const db={from(){let kind='read',values,filters=[];const q={select(){return q;},eq(k,v){filters.push(r=>r[k]===v);return q;},in(k,v){filters.push(r=>v.includes(r[k]));return q;},is(k,v){filters.push(r=>r[k]===v);return q;},update(v){kind='update';values=v;return q;},insert(){kind='insert';return q;},async maybeSingle(){if(kind==='update'){if(!filters.every(f=>f(stored)))return {data:null,error:null};stored={...stored,...values};winners++;}return {data:{...stored},error:null};},async single(){return {data:null,error:{code:'23505'}};}};return q;}};
+  const input={hubOrderId:'HR-C24-ABCDEF12',externalOrderId:'20260814-000001',invoiceNumber:'1234567890123',deliveryCompanyCode:'0012'};
+  const results=await Promise.all([transfer.beginCafe24Transfer(db,input),transfer.beginCafe24Transfer(db,input)]);
+  assert.equal(winners,1,status+' must use compare-and-set');assert.equal(results.filter(r=>r.retried).length,1);assert.equal(results.filter(r=>r.pending).length,1);
+ }}finally{if(previous===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=previous;}
+});
