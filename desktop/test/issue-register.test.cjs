@@ -5,9 +5,10 @@ const {isAllowedRemoteRequest}=require('../connection-policy.cjs');
 const id='HR-C24-1234ABCD',requestId='a2345678-1234-4234-8234-123456789012';
 const base=()=>({hubOrderId:id,externalOrderId:'WEB-1',platform:'CAFE24',fulfillment:'SELLER',stage:'PAID',productName:'차',quantity:1,shippingEligible:true,selectionEligible:true,shippingHistoryStatus:'READY',cancelled:false,cancellationRequested:false,invoiceNumber:'',issuedInvoiceNumber:'',receiver:{name:'TEST',address:'TEST',postCode:'12345',contact:'01012345678'}});
 function host(directory,{dialog=async()=>({response:1}),initial=base(),automaticTimeoutMs=60000}={}){
- let current=initial;const calls=[],progress=[];
+ let current=initial,serverProgress=null;const calls=[],progress=[];
  const remote={setPermissionCheckHandler(){},setPermissionRequestHandler(){},on(){},webRequest:{onBeforeRequest(_filter,fn){remote.guard=fn;}},async clearStorageData(){},async clearCache(){},async clearAuthCache(){},async fetch(url,options){
   calls.push({url,options});
+  if(url.includes('/shipping-progress?')){const p=serverProgress||{phase:'QUEUE',status:'UNKNOWN',requestId:null,createdAt:null,updatedAt:null,nextAttemptAt:null};return Response.json({ok:true,contract:1,tenantId:'a3452bca-e259-40ed-a93d-b8bcc5c1b9e0',scopeKey:'a'.repeat(64),checkedAt:new Date().toISOString(),partial:false,items:[{hubOrderId:current.hubOrderId,platform:current.platform,...p}]});}
   if(options.method==='POST'){
    const body=JSON.parse(options.body);
    if(url.endsWith('/api/shipping/actions')){
@@ -23,8 +24,44 @@ function host(directory,{dialog=async()=>({response:1}),initial=base(),automatic
   return Response.json({ok:true,orders,total:orders.length,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});
  }};
  const connection=createHubConnection({BrowserWindow:class{},session:{fromPartition:()=>remote},getMainWindow:()=>({isDestroyed:()=>false}),showShipmentReview:dialog,onShippingProgress:value=>progress.push(value),shipmentDirectory:directory,automaticPollDelayMs:0,automaticTimeoutMs});
- return {connection,calls,progress,remote,setOrder:value=>{current=value;},getOrder:()=>current};
+ return {connection,calls,progress,remote,setOrder:value=>{current=value;},getOrder:()=>current,setProgress:value=>{serverProgress=value;}};
 }
+
+test('continuation never prepares or issues a new invoice when no prior job exists',async()=>{
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-continue-'));try{let approvals=0;const env=host(directory,{dialog:async()=>{approvals++;return {response:1};}});await env.connection.refresh();assert.equal((await env.connection.continueShipping(id)).status,'CHECK_REQUIRED');assert.equal(approvals,0);assert.equal(env.calls.some(c=>c.options.method==='POST'),false);await env.connection.disconnect();}finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+
+test('continuation registers the authoritative existing invoice with one explicit review',async()=>{
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-continue-'));try{let approvals=0;const initial={...base(),stage:'PREPARING',issuedInvoiceNumber:'1234567890123',invoice:{status:'ISSUED',number:'1234567890123'}};const env=host(directory,{initial,dialog:async(_w,options)=>{approvals++;assert.match(options.message,/기존.*송장/);assert.match(options.detail,/새 송장.*발급하지/);return {response:1};}});await env.connection.refresh();assert.equal((await env.connection.continueShipping(id)).status,'COMPLETED');assert.equal(approvals,1);const posts=env.calls.filter(c=>c.options.method==='POST');assert.equal(posts.some(c=>c.url.endsWith('/api/epost/issue')),false);assert.deepEqual(posts.filter(c=>c.url.endsWith('/actions')).map(c=>JSON.parse(c.options.body).action),['UPLOAD_INVOICE']);await env.connection.disconnect();}finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+
+test('continuation returns already registered verification without a new write or review',async()=>{
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-continue-'));try{let approvals=0;const initial={...base(),invoiceNumber:'1234567890123',issuedInvoiceNumber:'1234567890123',invoice:{status:'REGISTERED',number:'1234567890123'}};const env=host(directory,{initial,dialog:async()=>{approvals++;return {response:1};}});await env.connection.viewRegistered();assert.equal((await env.connection.continueShipping(id)).results[0].status,'REGISTERED');assert.equal(approvals,0);assert.equal(env.calls.some(c=>c.options.method==='POST'),false);await env.connection.disconnect();}finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+
+test('continuation observes another client pending registration and cannot repost it',async()=>{
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-continue-'));try{const initial={...base(),issuedInvoiceNumber:'1234567890123',invoice:{status:'ISSUED',number:'1234567890123'}};const env=host(directory);env.setOrder(initial);env.setProgress({phase:'REGISTER',status:'PENDING',requestId,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),nextAttemptAt:null});await env.connection.refresh();assert.equal((await env.connection.continueShipping(id)).results[0].status,'PENDING');assert.equal(env.calls.some(c=>c.options.method==='POST'),false);await env.connection.disconnect();}finally{await fs.rm(directory,{recursive:true,force:true});}
+});
+
+test('continuation retries only a confirmed failed registration and never an ambiguous intent',async()=>{
+ for(const ambiguous of [false,true]){const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-continue-'));try{const initial={...base(),issuedInvoiceNumber:'1234567890123',invoice:{status:'ISSUED',number:'1234567890123'}};const env=host(directory,{initial}),original=env.remote.fetch;let uploads=0;env.remote.fetch=async(url,options)=>{if(options.method==='POST'&&url.endsWith('/actions')){uploads++;if(uploads===1){if(ambiguous)throw Error('Lost response');return Response.json({ok:false,results:[{hubOrderId:id,ok:false,status:'FAILED'}]},{status:409});}}return original(url,options);};await env.connection.refresh();await env.connection.continueShipping(id);env.setProgress({phase:'REGISTER',status:'FAILED',requestId,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),nextAttemptAt:null});const result=await env.connection.continueShipping(id);assert.equal(uploads,ambiguous?1:2);assert.equal(result.status,ambiguous?'PARTIAL':'COMPLETED');assert.equal(env.calls.some(c=>c.options.method==='POST'&&c.url.endsWith('/api/epost/issue')),false);await env.connection.disconnect();}finally{await fs.rm(directory,{recursive:true,force:true});}}
+});
+
+test('continuation cancellation identity change logout and newly running server request prevent writes',async()=>{
+ for(const mode of ['cancel','changed','logout','pending']){const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-continue-'));try{const initial={...base(),issuedInvoiceNumber:'1234567890123',invoice:{status:'ISSUED',number:'1234567890123'}};let env;env=host(directory,{initial,dialog:async()=>{if(mode==='changed')env.setOrder({...initial,receiver:{...initial.receiver,address:'changed'}});if(mode==='logout')await env.connection.disconnect();if(mode==='pending')env.setProgress({phase:'REGISTER',status:'RUNNING',requestId,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),nextAttemptAt:null});return {response:mode==='cancel'?0:1};}});await env.connection.refresh();assert.notEqual((await env.connection.continueShipping(id)).status,'COMPLETED');assert.equal(env.calls.some(c=>c.options.method==='POST'),false);await env.connection.disconnect();}finally{await fs.rm(directory,{recursive:true,force:true});}}
+});
+
+test('continuation IPC accepts only one opaque id from the trusted main renderer',async()=>{
+ const handlers=new Map(),frame={url:'moaon://app/index.html'},webContents={id:91,mainFrame:frame,getURL:()=>frame.url},main={webContents,isDestroyed:()=>false};let called=0;
+ registerConnectionIpc({ipcMain:{handle:(name,fn)=>handlers.set(name,fn)},getMainWindow:()=>main,connection:{continueShipping:async value=>{called++;return value;}}});
+ const event={sender:webContents,senderFrame:frame};const fn=handlers.get('moaon-hub:continue-shipping');
+ for(const args of [[],[[id]],[id,true],['https://example.com'],['HR-NV-1234ABCD']])await assert.rejects(()=>fn(event,...args));
+ await assert.rejects(()=>fn({...event,sender:{id:92}},id));assert.equal(called,0);assert.equal(await fn(event,id),id);assert.equal(called,1);
+});
+
+test('continuation cannot upload an invoice changed after the final approved read',async()=>{
+ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-continue-'));try{const initial={...base(),issuedInvoiceNumber:'1234567890123',invoice:{status:'ISSUED',number:'1234567890123'}};let approved=false,reads=0;const env=host(directory,{initial,dialog:async()=>{approved=true;return {response:1};}}),original=env.remote.fetch;env.remote.fetch=async(url,options)=>{if(approved&&options.method==='GET'&&new URL(url).searchParams.get('stage')==='ACTIVE'&&++reads===2)env.setOrder({...initial,issuedInvoiceNumber:'9876543210123',invoice:{status:'ISSUED',number:'9876543210123'}});return original(url,options);};await env.connection.refresh();await env.connection.continueShipping(id);assert.equal(env.calls.some(c=>c.options.method==='POST'),false,'Changed invoice must not be submitted');await env.connection.disconnect();}finally{await fs.rm(directory,{recursive:true,force:true});}
+});
 test('one native approval prepares, journals issue, rereads invoice and registers it',async()=>{
  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-auto-test-'));
  try{
@@ -126,7 +163,7 @@ test('lost PREPARE, ISSUE or UPLOAD_INVOICE response is never POSTed again after
   }finally{await fs.rm(directory,{recursive:true,force:true});}
  }
 });
-test('pending issue resumes its durable request after restart without another issuance POST',async()=>{
+test('continuation pending issue resumes its durable request after restart without another issuance POST',async()=>{
  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-auto-test-'));
  try{
   const env=host(directory),original=env.remote.fetch;
@@ -134,7 +171,7 @@ test('pending issue resumes its durable request after restart without another is
   await env.connection.refresh();const first=await env.connection.issueAndRegister([id]);assert.deepEqual(first.results,[{hubOrderId:id,phase:'ISSUE',status:'PENDING'}]);
   const current=env.getOrder();await env.connection.disconnect();
   const resumed=host(directory,{initial:current});await resumed.connection.refresh();
-  const result=await resumed.connection.issueAndRegister([id]);assert.equal(result.status,'COMPLETED');
+  const result=await resumed.connection.continueShipping(id);assert.equal(result.status,'COMPLETED');
   assert.deepEqual(resumed.calls.filter(call=>call.options.method==='POST'&&call.url.endsWith('/actions')).map(call=>JSON.parse(call.options.body).action),['UPLOAD_INVOICE']);
   await resumed.connection.disconnect();
  }finally{await fs.rm(directory,{recursive:true,force:true});}
@@ -241,7 +278,7 @@ test('a missing second preparation outcome cannot hide behind another completed 
   assert.deepEqual(issuedIds,[id]);await env.connection.disconnect();
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });
-test('pending platform registration resumes only GET after restart and never reissues',async()=>{
+test('continuation pending platform registration resumes only GET after restart and never reissues',async()=>{
  const directory=await fs.mkdtemp(path.join(os.tmpdir(),'moaon-auto-test-')),cpId='HR-CP-1234ABCD';
  try{
   const initial={...base(),hubOrderId:cpId,platform:'COUPANG',shipmentId:'123',stage:'PREPARING',issuedInvoiceNumber:'1234567890123',invoice:{status:'ISSUED',number:'1234567890123'}};
@@ -258,7 +295,7 @@ test('pending platform registration resumes only GET after restart and never rei
    if(url.includes('/api/coupang/operations/')){resumed.setOrder({...initial,invoiceNumber:'1234567890123',invoice:{status:'REGISTERED',number:'1234567890123'}});return Response.json({ok:true,request:{id:requestId,status:'SUCCESS'}});}
    return next(url,options);
   };
-  await resumed.connection.refresh();assert.equal((await resumed.connection.issueAndRegister([cpId])).status,'COMPLETED');await resumed.connection.disconnect();
+  await resumed.connection.refresh();assert.equal((await resumed.connection.continueShipping(cpId)).status,'COMPLETED');await resumed.connection.disconnect();
  }finally{await fs.rm(directory,{recursive:true,force:true});}
 });
 test('same-connection pending issue resumes after server invoice changes before the next confirmation',async()=>{

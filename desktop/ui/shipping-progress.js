@@ -32,7 +32,7 @@
   if(row.status==='RUNNING')return 'active';
   return 'waiting';
  }
- function mount(order,container,onOpen){
+ function mount(order,container,onOpen,onContinue){
   const details=el('details','order-shipping-progress');details.dataset.orderId=order.hubOrderId;
   details.dataset.storedInvoice=/^\d{13}$/.test(order.details?.invoice?.number||'')?'yes':'unknown';
   const heading=el('summary','shipping-progress-badge');
@@ -45,7 +45,9 @@
   for(const [key,title] of [['phase','마지막 단계'],['changed','마지막 변경'],['checked','서버 확인'],['retry','자동 재시도'],['invoice','기존 송장']]){facts.append(el('dt','',title),el('dd','shipping-progress-'+key));}
   const check=el('button','secondary-action','상태 다시 확인');check.type='button';
   check.addEventListener('click',async event=>{event.stopPropagation();if(check.disabled)return;check.disabled=true;check.textContent='상태 확인 중…';try{await recheck(order.hubOrderId);}finally{check.disabled=false;check.textContent='상태 다시 확인';}});
-  const actions=el('div','shipping-progress-actions');actions.append(check,open);
+  const resume=el('button','secondary-action shipping-progress-continue','기존 작업 확인·이어가기');resume.type='button';resume.hidden=typeof onContinue!=='function';resume.title='기존 요청을 확인합니다. 새 송장은 발급하지 않습니다.';
+  resume.addEventListener('click',event=>{event.stopPropagation();if(!resume.disabled&&typeof onContinue==='function')onContinue();});
+  const actions=el('div','shipping-progress-actions');actions.append(check,open,resume);
   body.append(el('p','shipping-progress-reason'),el('small','shipping-progress-time'),facts,el('p','shipping-progress-next'),actions);
   details.append(heading,body);container.append(details);paint(details);return details;
  }
@@ -56,6 +58,7 @@
   details.querySelector('.shipping-progress-label').textContent=label(row);
   details.querySelector('summary').setAttribute('aria-label',label(row)+' · 진행 상세');
   details.querySelector('.shipping-progress-reason').textContent=reason(row);
+  const resume=details.querySelector('.shipping-progress-continue');if(resume){resume.disabled=active&&batchIds.has(row.id);resume.textContent=row.status==='REGISTERED'?'등록 결과 확인':'기존 작업 확인·이어가기';}
   writeTime(details,row);
  }
  function reason(row){

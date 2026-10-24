@@ -3,7 +3,8 @@ const fs=require('node:fs/promises'),path=require('node:path');
 const {createHash,randomUUID}=require('node:crypto');
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 // Main-owned Harin storage. Intent is durable before any action POST. There is
-// deliberately no reset/retry operation for unknown or failed transmissions.
+// no reset for unknown transmissions. Only Main's explicit continuation can
+// reopen a confirmed FAILED registration after fresh server and invoice checks.
 function createShippingActionJournal({directory,hubOrderId,action,fingerprint}){
  if(typeof directory!=='string'||!path.isAbsolute(directory)||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(hubOrderId)||!['PREPARE','ISSUE','UPLOAD_INVOICE'].includes(action)||typeof fingerprint!=='string'||!/^[a-f0-9]{64}$/.test(fingerprint))throw Error('Invalid action journal');
  const folder=path.join(directory,'automatic-actions');

@@ -83,6 +83,7 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   exportSelectedCsv: (ids) => ipcRenderer.invoke('moaon-hub:export-selected-csv',ids),
   issueShipment: (id) => ipcRenderer.invoke('moaon-hub:issue-shipment',id),
   issueAndRegister: (ids) => ipcRenderer.invoke('moaon-hub:issue-and-register',ids),
+  continueShipping:id=>{if(typeof id!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id))throw Error('Invalid continuation order');return ipcRenderer.invoke('moaon-hub:continue-shipping',id);},
   checkShipment: (id) => ipcRenderer.invoke('moaon-hub:check-shipment',id),
   confirmShipmentReview: (id) => ipcRenderer.invoke('moaon-hub:confirm-shipment-review',id),
   connect: () => ipcRenderer.invoke('moaon-hub:connect'),
