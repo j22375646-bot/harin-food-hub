@@ -9,7 +9,7 @@ const secret='channel-transfer-test-secret';
 
 function query(terminal,calls){
   const chain={};
-  for(const method of ['select','eq','in','order','limit'])chain[method]=(...args)=>{calls.push([method,...args]);return chain;};
+  for(const method of ['select','eq','in','is','order','limit'])chain[method]=(...args)=>{calls.push([method,...args]);return chain;};
   chain.insert=value=>{calls.push(['insert',value]);return chain;};
   chain.update=value=>{calls.push(['update',value]);return chain;};
   chain.maybeSingle=async()=>terminal;
@@ -104,4 +104,12 @@ test('두 PC의 실패 또는 만료 전송 재시도는 한 번만 실행권을
   const results=await Promise.all([transfer.beginCafe24Transfer(db,input),transfer.beginCafe24Transfer(db,input)]);
   assert.equal(winners,1,status+' must use compare-and-set');assert.equal(results.filter(r=>r.retried).length,1);assert.equal(results.filter(r=>r.pending).length,1);
  }}finally{if(previous===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=previous;}
+});
+
+test('재시도 실행권을 잃은 요청은 승자가 다시 실패해도 전송하지 못한다',async()=>{
+ const previous=process.env.SUPABASE_SERVICE_ROLE_KEY;process.env.SUPABASE_SERVICE_ROLE_KEY=secret;
+ try{let count=0;const calls=[],responses=[{data:{id:'audit',status:'FAILED',attempt_count:1},error:null},{data:null,error:null},{data:null,error:{code:'23505'}},{data:{id:'audit',status:'FAILED',attempt_count:2},error:null}];const db={from:()=>query(responses[count++],calls)};
+ await assert.rejects(()=>transfer.beginCafe24Transfer(db,{hubOrderId:'HR-C24-ABCDEF12',externalOrderId:'20260814-000001',invoiceNumber:'1234567890123',deliveryCompanyCode:'0012'}),e=>e.status===409);
+ assert.ok(calls.some(c=>c[0]==='eq'&&c[1]==='attempt_count'&&c[2]===1));
+ }finally{if(previous===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=previous;}
 });
