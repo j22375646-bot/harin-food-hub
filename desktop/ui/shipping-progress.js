@@ -3,15 +3,46 @@
 (()=>{
  const phases={QUEUE:'요청 확인',CONFIRM:'최종 승인',CHECK:'주문 재확인',PREPARE:'상품 준비',ISSUE:'송장 발급',REGISTER:'쇼핑몰 등록',TRACKING:'배송 조회'};
  const states={WAITING:'순서 대기',WAIT_USER:'확인창 승인 대기',RUNNING:'처리 중',SUCCESS:'이 단계 확인 완료',PENDING:'기존 요청 처리 대기',REGISTERED:'등록 완료',FAILED:'실패 · 확인 필요',CHECK_REQUIRED:'결과 확인 필요',CANCELLED:'요청 취소',NOT_STARTED:'시작하지 않음'};
- let board,heading,list,rows=new Map(),timer,active=false,notify,lastSummary='';
+ let rows=new Map(),timer,active=false,notify,lastSummary='';
  const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
  const duration=ms=>{const seconds=Math.max(0,Math.floor(ms/1000));return seconds<60?seconds+'초':Math.floor(seconds/60)+'분 '+seconds%60+'초';};
- function ensure(){
-  if(board)return;
-  board=el('details','shipping-progress-board');board.id='shipping-progress-board';
-  heading=el('summary');heading.setAttribute('aria-label','주문별 발급 진행 상세');
-  list=el('div','shipping-progress-list');list.setAttribute('aria-label','이번 선택 주문의 처리 상태');
-  board.append(heading,list);document.getElementById('auto-shipping-results').before(board);
+ function label(row){
+  const channel={CAFE24:'Cafe24',COUPANG:'쿠팡',NAVER:'네이버'}[row.platform]||'쇼핑몰';
+  const phase=row.phase==='ISSUE'?'우체국 송장 발급':row.phase==='REGISTER'?channel+' 송장 등록':phases[row.phase];
+  if(row.status==='REGISTERED')return channel+' 송장 등록 완료';
+  if(row.stalled)return phase+' · 응답 확인 필요';
+  if(row.status==='RUNNING')return phase+' 중';
+  if(row.status==='PENDING')return phase+' · 처리 대기';
+  if(row.status==='FAILED')return phase+' 실패';
+  if(row.status==='CHECK_REQUIRED')return phase+' · 결과 확인 필요';
+  return states[row.status];
+ }
+ function tone(row){
+  if(row.stalled||row.status==='CHECK_REQUIRED')return 'attention';
+  if(row.status==='FAILED')return 'error';
+  if(row.status==='REGISTERED')return 'complete';
+  if(row.status==='RUNNING')return 'active';
+  return 'waiting';
+ }
+ function mount(order,container,onOpen){
+  const details=el('details','order-shipping-progress');details.dataset.orderId=order.hubOrderId;
+  const heading=el('summary','shipping-progress-badge');
+  const dot=el('i');dot.setAttribute('aria-hidden','true');
+  heading.append(dot,el('span','shipping-progress-label'),el('span','shipping-progress-chevron','⌄'));
+  const body=el('div','shipping-progress-detail');
+  const open=el('button','secondary-action','주문 상세 확인');open.type='button';
+  open.addEventListener('click',event=>{event.stopPropagation();onOpen();});
+  body.append(el('p','shipping-progress-reason'),el('small','shipping-progress-time'),open);
+  details.append(heading,body);container.append(details);paint(details);return details;
+ }
+ function paint(details){
+  const row=rows.get(details.dataset.orderId);details.hidden=!row;
+  if(!row){details.open=false;return;}
+  details.dataset.state=row.status;details.dataset.tone=tone(row);
+  details.querySelector('.shipping-progress-label').textContent=label(row);
+  details.querySelector('summary').setAttribute('aria-label',label(row)+' · 진행 상세');
+  details.querySelector('.shipping-progress-reason').textContent=reason(row);
+  writeTime(details,row);
  }
  function reason(row){
   if(row.status==='REGISTERED')return '쇼핑몰 송장 등록이 확인됐습니다. 배송 완료를 뜻하지 않습니다.';
@@ -31,26 +62,15 @@
   return `선택 ${all.length}건 · 등록 완료 ${complete}건 · 진행 ${count(['RUNNING','SUCCESS'])}건 · 대기 ${waiting}건${check?' · 확인 필요 '+check+'건':''}${cancelled?' · 취소 '+cancelled+'건':''}${notStarted?' · 미시작 '+notStarted+'건':''}${phaseText?' · '+phaseText:''}${stalled?' · 응답 확인 중 '+stalled+'건':''}${active?'':' · 이번 확인 종료'}`;
  }
  function render(){
-  if(!board)return;
-  const text=summary();heading.textContent='이번 발급·등록 진행 · '+text+' · 자세히';
-  list.replaceChildren();
-  for(const row of rows.values()){
-   const card=el('article','shipping-progress-card');card.dataset.orderId=row.id;card.dataset.state=row.status;
-   const header=el('div','shipping-progress-card-head');header.append(el('strong','',row.name),el('span','shipping-progress-badge',states[row.status]));
-   const steps=el('div','shipping-progress-steps');
-   for(const [phase,label] of Object.entries(phases)){if(phase==='QUEUE')continue;const step=el('span','',label);step.dataset.state=row.phase===phase?'current':row.seen.has(phase)?'seen':'unknown';if(row.phase===phase)step.setAttribute('aria-current','step');steps.append(step);}
-   const time=el('small','shipping-progress-time');time.dataset.timer=row.id;
-   card.append(header,el('code','shipping-progress-id',row.id),steps,el('p','shipping-progress-reason',reason(row)),time);list.append(card);
-  }
-  writeTimes();
+  const text=summary();document.querySelectorAll('.order-shipping-progress').forEach(paint);
   if(text!==lastSummary){lastSummary=text;notify?.(text,!active);}
  }
  function writeTimes(){
-  const now=Date.now();
-  for(const row of rows.values()){
-   const time=list?.querySelector(`[data-timer="${row.id}"]`);
-   if(time)time.textContent=active?`${phases[row.phase]} 단계 확인 후 ${duration(now-row.phaseAt)} 경과 · 마지막 변경 ${new Date(row.changedAt).toLocaleTimeString('ko-KR',{hour12:false})}`:`이번 확인 ${duration(row.endedAt-row.startedAt)} · 마지막 단계 ${phases[row.phase]} · ${new Date(row.changedAt).toLocaleTimeString('ko-KR',{hour12:false})} 확인`;
-  }
+  for(const details of document.querySelectorAll('.order-shipping-progress')){const row=rows.get(details.dataset.orderId);if(row)writeTime(details,row);}
+ }
+ function writeTime(details,row){
+  const time=details.querySelector('.shipping-progress-time');
+  time.textContent=active?`${phases[row.phase]} 단계 확인 후 ${duration(Date.now()-row.phaseAt)} 경과 · 마지막 변경 ${new Date(row.changedAt).toLocaleTimeString('ko-KR',{hour12:false})}`:`이번 확인 ${duration(row.endedAt-row.startedAt)} · 마지막 단계 ${phases[row.phase]} · ${new Date(row.changedAt).toLocaleTimeString('ko-KR',{hour12:false})} 확인`;
  }
  function tick(){
   const now=Date.now();let changed=false;
@@ -61,9 +81,9 @@
   if(changed)render();else writeTimes();
  }
  function start(orders,onSummary){
-  reset();ensure();notify=onSummary;active=true;const now=Date.now();
-  for(const order of orders.slice(0,20))rows.set(order.id,{id:order.id,name:order.name||order.id,phase:'QUEUE',status:'WAITING',seen:new Set(),startedAt:now,phaseAt:now,changedAt:now,stalled:false});
-  board.hidden=false;board.open=false;render();timer=setInterval(tick,1000);
+  reset();notify=onSummary;active=true;const now=Date.now();
+  for(const order of orders.slice(0,20))rows.set(order.id,{id:order.id,platform:order.platform,phase:'QUEUE',status:'WAITING',seen:new Set(),startedAt:now,phaseAt:now,changedAt:now,stalled:false});
+  render();timer=setInterval(tick,1000);
  }
  function update(value){
   if(!active||!Object.hasOwn(phases,value?.phase)||!rows.has(value.hubOrderId))return;
@@ -85,8 +105,8 @@
   }
   render();
  }
- function reset(){clearInterval(timer);timer=null;active=false;rows.clear();notify=null;lastSummary='';if(board){board.hidden=true;board.open=false;list.replaceChildren();}}
- function open(){if(!board||board.hidden)return false;board.open=true;board.scrollIntoView({block:'nearest'});return true;}
+ function reset(){clearInterval(timer);timer=null;active=false;rows.clear();notify=null;lastSummary='';document.querySelectorAll('.order-shipping-progress').forEach(paint);}
+ function open(){const details=document.querySelector('.order-shipping-progress:not([hidden])');if(!details)return false;details.open=true;details.scrollIntoView({block:'nearest'});details.querySelector('summary').focus({preventScroll:true});return true;}
  document.addEventListener('moaon-session-changed',reset);
- window.moaonShippingProgress=Object.freeze({start,update,finish,reset,open});
+ window.moaonShippingProgress=Object.freeze({start,update,finish,reset,open,mount});
 })();

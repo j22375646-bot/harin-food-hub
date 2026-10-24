@@ -858,6 +858,7 @@ function createOrderRow(order) {
   checkbox.setAttribute('aria-label',`주문 선택 ${id}`);
   checkbox.addEventListener('change',()=>{if(checkbox.checked)selectedOrderIds.add(id);else selectedOrderIds.delete(id);renderSelection();});
   row.append(checkbox,button);
+  if(!isSampleMode())window.moaonShippingProgress?.mount(order,row,()=>showOrderDetail(order,button,{preserveFocus:true}));
   return row;
 }
 
@@ -1418,7 +1419,8 @@ async function runAutomaticShipping(explicitIds){
   panel.append(makeElement('strong','','자동 출고 처리'),makeElement('p','','준비 확인 → 최대 2건 동시 발급·등록 → 대기 요청 자동 확인'),makeElement('p','','확인창에서 승인하면 진행합니다. 쿠팡 등록 대기는 다음 주문과 분리하고, 마지막에 최대 1분간 기존 요청만 자동 확인합니다.'));
   const current=()=>generation===actionGeneration&&displayMode==='live';
   const progressSummary=makeElement('p','','선택 주문 확인 중');panel.append(progressSummary);
-  window.moaonShippingProgress?.start(ids.map(id=>({id,name:displayedOrders.find(order=>orderId(order)===id)?.productName})),(text,finished)=>{progressSummary.textContent=text;setShippingJobNotice(text,finished);});
+  window.moaonShippingProgress?.start(ids.map(id=>({id,platform:displayedOrders.find(order=>orderId(order)===id)?.platform})),(text,finished)=>{progressSummary.textContent=text;setShippingJobNotice(text,finished);});
+  if(window.moaonShippingProgress)panel.hidden=true;
   const unsubscribe=window.moaonHub.onShippingProgress?.(value=>{if(current()&&ids.includes(value?.hubOrderId))window.moaonShippingProgress?.update(value);});
   let finalOutcome;
 
@@ -1518,7 +1520,8 @@ async function registerSelectedInvoices(){
   const panel=document.querySelector('#registration-results'),status=document.querySelector('#registration-status'),items=document.querySelector('#registration-items');
   panel.hidden=false;status.textContent='선택한 발급 송장의 등록 내용을 확인하고 있습니다.';
   const current=()=>generation===actionGeneration&&displayMode==='live';
-  window.moaonShippingProgress?.start(ids.map(id=>({id,name:displayedOrders.find(order=>orderId(order)===id)?.productName})),(text,finished)=>setShippingJobNotice(text,finished));
+  window.moaonShippingProgress?.start(ids.map(id=>({id,platform:displayedOrders.find(order=>orderId(order)===id)?.platform})),(text,finished)=>setShippingJobNotice(text,finished));
+  if(window.moaonShippingProgress)panel.hidden=true;
   const unsubscribe=window.moaonHub.onShippingProgress?.(value=>{if(current()&&ids.includes(value?.hubOrderId))window.moaonShippingProgress?.update(value);});
   let finalOutcome;
   const disableAttempted=()=>{
