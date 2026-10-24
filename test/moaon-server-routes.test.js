@@ -6,6 +6,6 @@ test('orders-only server build cannot be shipped to the installed Moaon app',()=
 });
 test('complete emitted routes pass, missing CS blocks deployment',()=>{
  const manifest=Object.fromEntries(required.map(route=>[route+'/route','compiled.js']));
- assert.equal(check(manifest),20);
+ assert.equal(check(manifest),21);
  delete manifest['/api/moaon/businesses/[tenantId]/cs/route'];assert.throws(()=>check(manifest),/cs/);
 });

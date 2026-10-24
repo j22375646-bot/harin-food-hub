@@ -4,7 +4,7 @@
 const fs=require('node:fs'),path=require('node:path');
 const required=[
  '/api/moaon/businesses','/api/moaon/connections','/api/moaon/credentials','/api/moaon/team',
- ...['orders','cs','inventory','finance','settlement','stock','assistant','insights','insights/ai','keyword-bids','market-ai','general-chat'].map(name=>'/api/moaon/businesses/[tenantId]/'+name),
+ ...['orders','shipping-progress','cs','inventory','finance','settlement','stock','assistant','insights','insights/ai','keyword-bids','market-ai','general-chat'].map(name=>'/api/moaon/businesses/[tenantId]/'+name),
  ...['access','automation','read','worker'].map(name=>'/api/moaon/assistant/'+name),
 ];
 function check(manifest){
