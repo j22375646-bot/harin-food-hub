@@ -39,6 +39,8 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   onActionReview: listener=>subscribe('moaon-hub:action-review',listener),
   answerReview: (token,response)=>ipcRenderer.invoke('moaon-hub:answer-review',token,response),
   onShippingProgress: listener=>subscribe('moaon-hub:shipping-progress',listener),
+  cancelShippingProgress:()=>ipcRenderer.invoke('moaon-hub:shipping-progress-cancel'),
+  readShippingProgress:ids=>{if(!Array.isArray(ids)||ids.length<1||ids.length>20||new Set(ids).size!==ids.length||ids.some(id=>typeof id!=='string'||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id)))throw Error('Invalid progress ids');return ipcRenderer.invoke('moaon-hub:shipping-progress-read',ids);},
   readTracking: (id) => ipcRenderer.invoke('moaon-hub:read-tracking',id),
   refreshTracking: (id) => ipcRenderer.invoke('moaon-hub:refresh-tracking',id),
   readServerShippingHistory: () => ipcRenderer.invoke('moaon-hub:server-shipping-history'),

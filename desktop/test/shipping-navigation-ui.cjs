@@ -10,6 +10,7 @@ const { _electron }=require('playwright'),fs=require('node:fs');
   await app.evaluate(({ipcMain,session})=>{
    session.fromPartition('persist:moaon-harin-readonly').fetch=async()=>Response.json({ok:true,orders:[],total:0,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false});
    globalThis.jobCalls=0;
+   ipcMain.removeHandler('moaon-hub:shipping-progress-read');ipcMain.handle('moaon-hub:shipping-progress-read',(_event,ids)=>({status:'READY',value:{scopeKey:'a'.repeat(64),checkedAt:new Date().toISOString(),items:ids.map(hubOrderId=>({hubOrderId,platform:'CAFE24',phase:'QUEUE',status:'UNKNOWN',requestId:null,createdAt:null,updatedAt:null,nextAttemptAt:null}))}}));
    ipcMain.removeHandler('moaon-hub:read-overview');ipcMain.handle('moaon-hub:read-overview',()=>({status:'READY',scopes:{}}));
    ipcMain.removeHandler('moaon-hub:issue-and-register');
    ipcMain.handle('moaon-hub:issue-and-register',(_e,ids)=>{globalThis.jobCalls++;return new Promise(resolve=>{globalThis.finishJob=()=>resolve({status:'PARTIAL',results:ids.map(hubOrderId=>({hubOrderId,phase:'REGISTER',status:'PENDING'}))});});});
@@ -75,7 +76,9 @@ const { _electron }=require('playwright'),fs=require('node:fs');
   assert.equal(await page.locator('.order-shipping-progress[data-progress-state=REGISTERED]').count(),0);
   await page.locator('#shipping-job-notice').getByRole('button',{name:'발급 진행 보기'}).click();
   assert.equal(await page.locator('#auto-shipping-results').isVisible(),false);
-  assert.match(await page.locator('.order-shipping-progress').first().textContent(),/처리 대기/);
+  await page.evaluate(()=>window.moaonShippingProgress.poll());
+  assert.match(await page.locator('.order-shipping-progress').first().textContent(),/상태 조회 확인 필요/);
+  assert.equal(await page.locator('.order-shipping-progress[data-progress-state=PENDING]').count(),2,'Unknown server records retain the last local phase');
   assert.match(await page.locator('.order-shipping-progress').first().locator('summary').textContent(),/Cafe24/);
   await page.evaluate(()=>renderOrders());
   assert.equal(await page.locator('.order-shipping-progress[data-progress-state=PENDING]').count(),2,'Row reconstruction retains progress');
@@ -91,6 +94,8 @@ const { _electron }=require('playwright'),fs=require('node:fs');
    await page.screenshot({path:`D:/GPT/Temp/inline-shipping-${theme}.png`});
   }
   await page.evaluate(()=>document.documentElement.dataset.theme='light');
+  // The following assertions isolate Main event colours from the missing-record fixture above.
+  await app.evaluate(({ipcMain})=>{ipcMain.removeHandler('moaon-hub:shipping-progress-read');ipcMain.handle('moaon-hub:shipping-progress-read',()=>({status:'BUSY'}));});
   await page.evaluate(()=>{
    window.moaonShippingProgress.start(displayedOrders.map(order=>({id:order.hubOrderId,platform:order.platform})),text=>setShippingJobNotice(text,true));
    window.moaonShippingProgress.update({hubOrderId:'HR-C24-00000001',phase:'REGISTER',status:'RUNNING'});

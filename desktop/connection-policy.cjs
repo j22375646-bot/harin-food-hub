@@ -92,6 +92,9 @@ function isMainProcessRequest(webContentsId) {
 }
 
 function isAllowedRemoteRequest(details = {}, context = {}) {
+  if(details.method==='GET'&&context.progressPermit===details.url&&isMainProcessRequest(details.webContentsId)){
+    try{const contract=require('./shipping-progress-contract.cjs'),url=new URL(details.url);if(url.origin+url.pathname===contract.BASE&&!url.hash&&[...url.searchParams.keys()].join(',')==='targets'){contract.parseTargets(url.searchParams.get('targets'));return true;}}catch{}
+  }
   if (typeof details.url !== 'string' || typeof details.method !== 'string') return false;
 
   let url;

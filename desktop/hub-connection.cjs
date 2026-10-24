@@ -25,6 +25,7 @@ const {createShipmentRegistry}=require('./shipment-registry.cjs');
 const {createShipmentTransport}=require('./shipment-transport.cjs');
 const {createBusinessTransport}=require('./business-transport.cjs');
 const {createCredentialTransport,validCredentialInput}=require('./credential-transport.cjs');
+const {createProgressTransport}=require('./shipping-progress-transport.cjs');
 const {createFinanceTransport}=require('./finance-transport.cjs');
 const {createSettlementTransport,settlementUrl}=require('./settlement-transport.cjs');
 const {createAssistantTransport,ASSISTANT_URL}=require('./assistant-transport.cjs');
@@ -326,9 +327,25 @@ function createHubConnection({
   let cleanupFailed = initialCleanupPending;
   let generation = 0;
   let credentialPermit=null;
-  function invalidateGeneration(){generation+=1;credentialTransport.cancel();credentialPermit=null;cancelInsightAi();cancelMarketAi();cancelGeneralChat();}
+  let progressPermit=null,progressScopeKey=null,progressLastAt=-Infinity;
+  function invalidateGeneration(){generation+=1;credentialTransport.cancel();progressTransport.cancel();progressPermit=null;progressLastAt=-Infinity;credentialPermit=null;cancelInsightAi();cancelMarketAi();cancelGeneralChat();}
   const credentialTransport=createCredentialTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options),authorize:options=>listBusinesses(options),permit:value=>{credentialPermit=value;},blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive()),timeoutMs:Math.min(timeoutMs*2,30000)});
   const readCredentialMetadata=value=>credentialTransport.read(value),saveServerCredential=value=>credentialTransport.save(value);
+  const progressTransport=createProgressTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options),permit:url=>{progressPermit=url;},blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive())});
+  async function readShippingProgress(ids){
+    if(!validRegistrationIds(ids))throw TypeError('Invalid progress selection');
+    if(disconnecting||cleanupFailed||isLoginWindowActive())return {status:'DISCONNECTED'};
+    const expected=generation,baseline=loadedOrders,targets=[];
+    for(const id of ids){const matches=loadedOrders.filter(o=>o.hubOrderId===id);if(matches.length!==1)return {status:'CANCELLED'};const row=matches[0],raw=rawOrderRows.get(row);if(!['CAFE24','COUPANG'].includes(row.platform))return {status:'UNAVAILABLE'};const target={hubOrderId:id};if(row.platform==='COUPANG'){if(typeof raw?.shipmentId!=='string'||!/^\d{1,30}$/.test(raw.shipmentId))return {status:'UNAVAILABLE'};target.shipmentId=raw.shipmentId;}targets.push(target);}
+    if(Date.now()-progressLastAt<2000)return {status:'BUSY'};progressLastAt=Date.now();
+    const result=await progressTransport.read(targets);
+    if(expected!==generation||baseline!==loadedOrders)return {status:'CANCELLED'};
+    if(result.status==='READY'){
+      if(progressScopeKey&&progressScopeKey!==result.value.scopeKey){progressScopeKey=null;invalidateGeneration();void stopShipments();return {status:'WORKSPACE_CHANGED'};}
+      progressScopeKey=result.value.scopeKey;
+    }else if(['LOGIN_REQUIRED','FORBIDDEN','WORKSPACE_CHANGED'].includes(result.status)){progressScopeKey=null;invalidateGeneration();void stopShipments();}
+    return result;
+  }
   let pageCursor = null;
   const scopePages=new Map();
   let pendingOrderDelta=null;
@@ -939,6 +956,7 @@ function createHubConnection({
             automaticTrackingRequestActive:automaticTrackingRequests>0,
             collectionPermit,backgroundCsPermit,
             credentialPermit,
+            progressPermit,
             exportPermit,
             automaticRequestActive:automaticPermits.has(details.url),
             deliveryRequestActive:deliveryPermits.has(details.url),
@@ -1962,10 +1980,12 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-return Object.freeze({ generalChat,cancelGeneralChat,marketAi,cancelMarketAi,insightAi,cancelInsightAi,readEventPerformance, readBackgroundOrders, collectBackgroundOrders, collectBackgroundCs, assistantAutomation, assistantAccess, connectionCommand, teamCommand, keywordBid, deleteCalendarEntry, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readAssistant, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+return Object.freeze({ cancelShippingProgress:()=>progressTransport.cancel(), readShippingProgress, generalChat,cancelGeneralChat,marketAi,cancelMarketAi,insightAi,cancelInsightAi,readEventPerformance, readBackgroundOrders, collectBackgroundOrders, collectBackgroundCs, assistantAutomation, assistantAccess, connectionCommand, teamCommand, keywordBid, deleteCalendarEntry, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readAssistant, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
+  ipcMain.handle('moaon-hub:shipping-progress-cancel',(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length)throw Error('Invalid progress cancel');connection.cancelShippingProgress();});
+  ipcMain.handle('moaon-hub:shipping-progress-read',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!validRegistrationIds(args[0]))throw Error('Invalid progress request');return connection.readShippingProgress(args[0]);});
   for(const [channel,method,write] of [['moaon-hub:read-credential-metadata','readCredentialMetadata',false],['moaon-hub:save-server-credential','saveServerCredential',true]]){
     ipcMain.handle(channel,async(event,...args)=>{
       if(!isTrustedRenderer(event,getMainWindow()))throw Error('Untrusted renderer');

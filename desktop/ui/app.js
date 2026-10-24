@@ -990,6 +990,7 @@ function renderOrders() {
   }
   for(const id of selectedOrderIds)if(!visibleOrders.some(order=>orderId(order)===id))selectedOrderIds.delete(id);
   orderList.replaceChildren(...visibleOrders.map(createOrderRow));
+  window.moaonShippingProgress?.watch(displayMode==='live'?visibleOrders:[]);
   orderList.hidden = visibleOrders.length === 0;
   orderEmpty.hidden = visibleOrders.length !== 0;
   orderEmpty.classList.toggle('is-loading',displayMode==='connecting');
@@ -1261,6 +1262,7 @@ async function runHubAction(action) {
 }
 
 const shippingFollowup=new Map();
+document.addEventListener('moaon-shipping-access-lost',event=>applyHubResult({status:event.detail==='LOGIN_REQUIRED'?'LOGIN_REQUIRED':'FORBIDDEN'}));
 let historyAutoLoaded=false;
 let historyAutoStarting=false;
 let historyGeneration=0;

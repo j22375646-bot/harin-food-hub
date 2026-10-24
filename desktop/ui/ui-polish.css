@@ -520,6 +520,7 @@ body:has(.preview-shell[hidden]) .login-window-drag{color:var(--ink);gap:9px;lin
 .shipping-progress-detail .shipping-progress-reason{margin:0 0 6px;line-height:1.6;font-size:13px}
 .shipping-progress-detail .shipping-progress-time{display:block;font-size:12px;line-height:1.6;color:var(--muted);font-variant-numeric:tabular-nums}
 .shipping-progress-detail button{margin-top:10px;min-height:34px;padding:5px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--blue);font:inherit;font-size:13px;cursor:pointer}
+.shipping-progress-sync{font-size:12px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere}
 @keyframes shipping-state-pulse{0%,100%{opacity:.42;transform:scale(.86)}50%{opacity:1;transform:scale(1)}}
 @media(prefers-reduced-motion:reduce){.order-shipping-progress[data-tone=active]>summary>i{animation:none}.order-shipping-progress .shipping-progress-chevron{transition:none}}
 @media(max-width:850px){.orders-page .order-shipping-progress{margin-left:86px;max-width:calc(100% - 102px)}}
