@@ -516,10 +516,16 @@ body:has(.preview-shell[hidden]) .login-window-drag{color:var(--ink);gap:9px;lin
 .orders-page .order-shipping-progress[data-tone=error]>summary{background:var(--rose-soft);border-color:color-mix(in srgb,var(--rose) 45%,var(--line))}
 .orders-page .order-shipping-progress[data-tone=complete]{color:var(--mint)}
 .orders-page .order-shipping-progress[data-tone=complete]>summary{background:var(--mint-soft);border-color:color-mix(in srgb,var(--mint) 45%,var(--line))}
-.shipping-progress-detail{max-width:520px;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-soft);color:var(--ink);overflow-wrap:anywhere}
+.shipping-progress-detail{max-width:520px;max-height:340px;overflow:auto;overscroll-behavior:contain;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-soft);color:var(--ink);overflow-wrap:anywhere;scrollbar-gutter:stable}
 .shipping-progress-detail .shipping-progress-reason{margin:0 0 6px;line-height:1.6;font-size:13px}
 .shipping-progress-detail .shipping-progress-time{display:block;font-size:12px;line-height:1.6;color:var(--muted);font-variant-numeric:tabular-nums}
 .shipping-progress-detail button{margin-top:10px;min-height:34px;padding:5px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--blue);font:inherit;font-size:13px;cursor:pointer}
+.shipping-progress-facts{display:grid;grid-template-columns:76px minmax(0,1fr);gap:6px 12px;margin:10px 0;padding:10px 0;border-block:1px solid var(--line);font-size:12px;line-height:1.6}
+.shipping-progress-facts dt{color:var(--muted)}
+.shipping-progress-facts dd{margin:0;min-width:0;font-variant-numeric:tabular-nums}
+.shipping-progress-next{margin:8px 0 0;font-size:12px;line-height:1.6;color:var(--ink)}
+.shipping-progress-actions{display:flex;flex-wrap:wrap;gap:8px}
+.shipping-progress-actions button:disabled{opacity:.6;cursor:wait}
 .shipping-progress-sync{font-size:12px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere}
 @keyframes shipping-state-pulse{0%,100%{opacity:.42;transform:scale(.86)}50%{opacity:1;transform:scale(1)}}
 @media(prefers-reduced-motion:reduce){.order-shipping-progress[data-tone=active]>summary>i{animation:none}.order-shipping-progress .shipping-progress-chevron{transition:none}}

@@ -7,11 +7,15 @@
  let wanted=[],watchKey='',watchSeq=0,pollTimer,pollWork=null,scopeKey=null,failures=0;
  const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
  const duration=ms=>{const seconds=Math.max(0,Math.floor(ms/1000));return seconds<60?seconds+'초':Math.floor(seconds/60)+'분 '+seconds%60+'초';};
+ const stamp=value=>Number.isFinite(Date.parse(value))?new Date(value).toLocaleString('ko-KR',{hour12:false}):'확인 필요';
+ const retryAt=row=>row.status==='PENDING'&&Number.isFinite(Date.parse(row.nextAttemptAt))?Date.parse(row.nextAttemptAt):null;
+ const overdue=row=>retryAt(row)!==null&&Date.now()>=retryAt(row);
  function label(row){
   const channel={CAFE24:'Cafe24',COUPANG:'쿠팡',NAVER:'네이버'}[row.platform]||'쇼핑몰';
   const phase=row.phase==='ISSUE'?'우체국 송장 발급':row.phase==='REGISTER'?channel+' 송장 등록':phases[row.phase];
   if(row.syncError)return phase+' · 상태 조회 확인 필요';
   if(row.status==='REGISTERED')return channel+' 송장 등록 완료';
+  if(retryAt(row)!==null)return phase+(overdue(row)?' · 재시도 실행 확인 필요':' · 자동 재시도 대기');
   if(row.stalled)return phase+' · 응답 확인 필요';
   if(row.status==='RUNNING')return phase+' 중';
   if(row.status==='PENDING')return phase+' · 처리 대기';
@@ -22,7 +26,7 @@
  }
  function tone(row){
   if(row.syncError)return 'attention';
-  if(row.stalled||row.status==='CHECK_REQUIRED')return 'attention';
+  if(row.stalled||overdue(row)||row.status==='CHECK_REQUIRED')return 'attention';
   if(row.status==='FAILED')return 'error';
   if(row.status==='REGISTERED')return 'complete';
   if(row.status==='RUNNING')return 'active';
@@ -30,13 +34,19 @@
  }
  function mount(order,container,onOpen){
   const details=el('details','order-shipping-progress');details.dataset.orderId=order.hubOrderId;
+  details.dataset.storedInvoice=/^\d{13}$/.test(order.details?.invoice?.number||'')?'yes':'unknown';
   const heading=el('summary','shipping-progress-badge');
   const dot=el('i');dot.setAttribute('aria-hidden','true');
   heading.append(dot,el('span','shipping-progress-label'),el('span','shipping-progress-chevron','⌄'));
   const body=el('div','shipping-progress-detail');
   const open=el('button','secondary-action','주문 상세 확인');open.type='button';
   open.addEventListener('click',event=>{event.stopPropagation();onOpen();});
-  body.append(el('p','shipping-progress-reason'),el('small','shipping-progress-time'),open);
+  const facts=el('dl','shipping-progress-facts');
+  for(const [key,title] of [['phase','마지막 단계'],['changed','마지막 변경'],['checked','서버 확인'],['retry','자동 재시도'],['invoice','기존 송장']]){facts.append(el('dt','',title),el('dd','shipping-progress-'+key));}
+  const check=el('button','secondary-action','상태 다시 확인');check.type='button';
+  check.addEventListener('click',async event=>{event.stopPropagation();if(check.disabled)return;check.disabled=true;check.textContent='상태 확인 중…';try{await recheck(order.hubOrderId);}finally{check.disabled=false;check.textContent='상태 다시 확인';}});
+  const actions=el('div','shipping-progress-actions');actions.append(check,open);
+  body.append(el('p','shipping-progress-reason'),el('small','shipping-progress-time'),facts,el('p','shipping-progress-next'),actions);
   details.append(heading,body);container.append(details);paint(details);return details;
  }
  function paint(details){
@@ -49,18 +59,24 @@
   writeTime(details,row);
  }
  function reason(row){
-  if(row.syncError)return '서버 상태를 다시 확인하지 못했습니다. 마지막 확인 상태를 유지하고 있으며 새 발급을 실행하지 않습니다.';
+  if(row.syncError){const why={TIMEOUT:'조회 응답 시간이 초과됐습니다.',RATE_LIMITED:'서버가 조회 횟수를 제한했습니다.',SETUP_REQUIRED:'서버 상태 조회 연결을 확인해야 합니다.',MISSING_RECORD:'이번 조회에서 기존 작업 기록을 찾지 못했습니다.'}[row.syncCode]||'서버 상태를 다시 확인하지 못했습니다.';return why+' 마지막 확인 단계는 유지합니다. 발급 실패로 확정된 것이 아닙니다.';}
   if(row.source==='SERVER'&&row.status==='REGISTERED')return '서버의 쇼핑몰 등록 성공 기록입니다. 현재 배송상태 또는 배송 완료를 뜻하지 않습니다.';
   if(row.source==='SERVER'&&row.status==='SUCCESS')return '이 단계의 서버 성공 기록입니다. 다음 단계의 실행 또는 완료는 별도 확인이 필요합니다.';
   if(row.status==='REGISTERED')return '쇼핑몰 송장 등록이 확인됐습니다. 배송 완료를 뜻하지 않습니다.';
-  if(row.status==='PENDING')return '서버가 기존 요청을 처리하고 있습니다. 완료 전이므로 재발급하지 마세요.';
-  if(row.status==='FAILED'||row.status==='CHECK_REQUIRED')return '기존 주문·발급 상태를 확인하세요. 이 화면에서 자동 재발급하지 않습니다.';
+  if(retryAt(row)!==null)return overdue(row)?'서버의 재시도 예정 시각이 지났습니다. 실제 재시작 여부는 아직 확인되지 않았습니다.':'서버가 자동 재시도 시각을 예약했습니다. 예정된 대기이며 현재 실행 중이라는 뜻은 아닙니다.';
+  if(row.status==='FAILED')return phases[row.phase]+' 단계의 실패 기록이 확인됐습니다. 세부 원인은 확인 필요하며 기존 송장·등록 상태를 먼저 확인하세요.';
+  if(row.status==='CHECK_REQUIRED')return '요청의 완료 여부가 확인되지 않았습니다. 기존 송장·등록 상태를 먼저 확인하세요.';
   if(row.status==='WAIT_USER')return '최종 확인창에서 승인하거나 취소해 주세요.';
   if(row.status==='NOT_STARTED')return '이번 요청은 시작하지 않았습니다. 기존 요청 상태는 별도로 확인하세요.';
   if(row.status==='CANCELLED')return '이번 요청을 취소했습니다. 기존에 접수한 작업이 취소된다는 뜻은 아닙니다.';
-  if(row.stalled)return '새 상태 응답을 기다리고 있습니다. 마지막 확인 단계이며 완료 여부는 미확인입니다.';
+  if(row.stalled)return '45초 이상 단계 변화가 확인되지 않았습니다. 실패로 확정된 것은 아니며 마지막 단계와 경과 시간을 유지합니다.';
+  if(row.status==='PENDING')return '기존 요청이 대기 상태입니다. 실행 여부와 다음 재시도 시각은 아직 확인되지 않았습니다.';
   if(row.status==='WAITING')return '앞선 작업 또는 최초 확인 응답을 기다리고 있습니다.';
   return row.phase==='TRACKING'?'등록 후 배송 조회를 확인하고 있습니다.':'다른 메뉴를 이용해도 진행 상황을 확인할 수 있습니다.';
+ }
+ function presentation(row){
+  const next=row.status==='REGISTERED'?'배송 진행은 주문 상세에서 별도로 확인하세요.':row.status==='WAIT_USER'?'열린 최종 확인창에서 승인하거나 취소해 주세요.':row.syncError||row.stalled||overdue(row)||['FAILED','CHECK_REQUIRED','SUCCESS'].includes(row.status)?'상태 다시 확인 후 주문 상세에서 기존 송장·등록 상태를 확인하세요.':retryAt(row)!==null?'예정 시각 이후 상태를 다시 확인하세요. 별도 재발급은 하지 마세요.':'다른 메뉴를 이용해도 됩니다. 상태 확인은 발급·등록을 새로 실행하지 않습니다.';
+  return {label:label(row),tone:tone(row),reason:reason(row),next,invoice:row.invoicePresent?'확인된 송장 있음 · 최신 상태는 주문 상세 확인':'기존 송장 유무 확인 필요',retry:retryAt(row)===null?'예정된 자동 재시도 확인 안 됨':stamp(row.nextAttemptAt)+(overdue(row)?' · 예정 시각 경과 · 실행 미확인':' · '+duration(retryAt(row)-Date.now())+' 후')};
  }
  function summary(){
   const all=[...batchIds].map(id=>rows.get(id)).filter(Boolean),count=status=>all.filter(row=>status.includes(row.status)).length;
@@ -77,16 +93,20 @@
  }
  function writeTime(details,row){
   const time=details.querySelector('.shipping-progress-time');
+  const p=presentation(row);
+  const values={phase:phases[row.phase],changed:stamp(new Date(row.changedAt).toISOString()),checked:row.serverCheckedAt?stamp(row.serverCheckedAt):'이번 앱의 진행 응답 기준',retry:p.retry,invoice:row.invoicePresent?p.invoice:details.dataset.storedInvoice==='yes'?'저장된 송장 있음 · 최신 상태는 주문 상세 확인':p.invoice};
+  for(const [key,value] of Object.entries(values)){const node=details.querySelector('.shipping-progress-'+key);if(node)node.textContent=value;}
+  const next=details.querySelector('.shipping-progress-next');if(next)next.textContent=p.next;
   if(row.source==='SERVER'){time.textContent=`마지막 단계 기록 ${new Date(row.changedAt).toLocaleTimeString('ko-KR',{hour12:false})} · ${duration(Date.now()-row.changedAt)} 경과 · 최근 서버 조회 ${new Date(row.serverCheckedAt).toLocaleTimeString('ko-KR',{hour12:false})}`;return;}
   time.textContent=active?`${phases[row.phase]} 단계 확인 후 ${duration(Date.now()-row.phaseAt)} 경과 · 마지막 변경 ${new Date(row.changedAt).toLocaleTimeString('ko-KR',{hour12:false})}`:`이번 확인 ${duration(row.endedAt-row.startedAt)} · 마지막 단계 ${phases[row.phase]} · ${new Date(row.changedAt).toLocaleTimeString('ko-KR',{hour12:false})} 확인`;
  }
  function tick(){
   const now=Date.now();let changed=false;
   for(const row of rows.values()){
-   const stale=(row.source==='SERVER'?row.status==='RUNNING':active&&batchIds.has(row.id)&&['RUNNING','SUCCESS'].includes(row.status))&&now-row.changedAt>=45_000;
+   const stale=retryAt(row)===null&&(row.status==='PENDING'||(row.source==='SERVER'?row.status==='RUNNING':active&&batchIds.has(row.id)&&['RUNNING','SUCCESS'].includes(row.status)))&&now-row.changedAt>=45_000;
    if(stale!==row.stalled){row.stalled=stale;changed=true;}
   }
-  if(changed)render();else writeTimes();
+  if(changed||[...rows.values()].some(row=>retryAt(row)!==null))render();else writeTimes();
  }
  function start(orders,onSummary){
   epoch++;batchIds=new Set(orders.map(order=>order.id));notify=onSummary;lastSummary='';active=true;const now=Date.now();
@@ -97,6 +117,7 @@
   if(!active||!batchIds.has(value?.hubOrderId)||!Object.hasOwn(phases,value?.phase)||!rows.has(value.hubOrderId))return;
   const status=Object.hasOwn(states,value.status)?value.status:value.status==='UNKNOWN'?'CHECK_REQUIRED':null;if(!status)return;
   const row=rows.get(value.hubOrderId),now=Date.now();
+  if(/^\d{13}$/.test(value.invoiceNumber||''))row.invoicePresent=true;
   if(row.phase!==value.phase){row.seen.add(row.phase);row.phaseAt=now;}
   if(row.phase!==value.phase||row.status!==status){row.changedAt=now;row.stalled=false;}
   row.phase=value.phase;row.status=status;row.version=++revision;render();
@@ -106,6 +127,7 @@
   for(const row of [...batchIds].map(id=>rows.get(id)).filter(Boolean)){
    const matches=Array.isArray(result?.results)?result.results.filter(item=>item?.hubOrderId===row.id):[];
    const value=matches.length===1?matches[0]:null;
+   if(/^\d{13}$/.test(value?.invoiceNumber||''))row.invoicePresent=true;
    row.status=result?.status==='REVIEW_CANCELLED'?'CANCELLED':['BUSY','ORDER_CHANGED'].includes(result?.status)?'NOT_STARTED':value&&['REGISTERED','PENDING','FAILED','CHECK_REQUIRED'].includes(value.status)?value.status:'CHECK_REQUIRED';
    if(value?.phase&&Object.hasOwn(phases,value.phase))row.phase=value.phase;
    if(row.status==='REGISTERED')row.phase='REGISTER';
@@ -113,7 +135,7 @@
   }
   render();clock();schedule(0);
  }
- function clock(){const needs=active||[...rows.values()].some(row=>row.source==='SERVER'&&['RUNNING','PENDING'].includes(row.status));if(needs&&!timer)timer=setInterval(tick,1000);else if(!needs&&timer){clearInterval(timer);timer=null;}}
+ function clock(){const needs=active||[...rows.values()].some(row=>row.status==='PENDING'||row.source==='SERVER'&&row.status==='RUNNING');if(needs&&!timer)timer=setInterval(tick,1000);else if(!needs&&timer){clearInterval(timer);timer=null;}}
  function syncStatus(text){const note=document.getElementById('shipping-progress-sync');if(note){note.hidden=!text;note.textContent=text;}}
  function capture(){return {epoch,versions:new Map(wanted.map(id=>[id,rows.get(id)?.version||0]))};}
  function merge(feed,ticket){
@@ -124,11 +146,11 @@
    if(!wanted.includes(item.hubOrderId)||!Object.hasOwn(phases,item.phase)||!Object.hasOwn(states,item.status)&&item.status!=='UNKNOWN')continue;
    const old=rows.get(item.hubOrderId);
    if((old?.version||0)!==ticket.versions.get(item.hubOrderId)||active&&batchIds.has(item.hubOrderId))continue;
-   if(item.status==='UNKNOWN'){if(old){old.syncError=true;old.version=++revision;}continue;}
+   if(item.status==='UNKNOWN'){if(old){old.syncError=true;old.syncCode='MISSING_RECORD';old.version=++revision;}continue;}
    if(old?.source==='LOCAL'&&old.status==='REGISTERED'){old.syncError=false;continue;}
    if(old?.source==='SERVER'&&(item.requestId===old.requestId?Date.parse(item.updatedAt)<old.changedAt:Date.parse(item.createdAt)<Date.parse(old.createdAt)))continue;
    const changed=!old||old.phase!==item.phase||old.status!==item.status||old.requestId!==item.requestId||old.changedAt!==Date.parse(item.updatedAt);
-   rows.set(item.hubOrderId,{id:item.hubOrderId,platform:item.platform,phase:item.phase,status:item.status,requestId:item.requestId,createdAt:item.createdAt,source:'SERVER',serverCheckedAt:feed.checkedAt,changedAt:Date.parse(item.updatedAt),phaseAt:Date.parse(item.updatedAt),startedAt:Date.parse(item.createdAt),endedAt:Date.parse(item.updatedAt),version:changed?++revision:old.version,stalled:item.status==='RUNNING'&&Date.now()-Date.parse(item.updatedAt)>=45_000,syncError:false,seen:new Set()});
+   rows.set(item.hubOrderId,{id:item.hubOrderId,platform:item.platform,phase:item.phase,status:item.status,requestId:item.requestId,createdAt:item.createdAt,nextAttemptAt:item.nextAttemptAt,invoicePresent:old?.invoicePresent===true,source:'SERVER',serverCheckedAt:feed.checkedAt,changedAt:Date.parse(item.updatedAt),phaseAt:Date.parse(item.updatedAt),startedAt:Date.parse(item.createdAt),endedAt:Date.parse(item.updatedAt),version:changed?++revision:old.version,stalled:['RUNNING','PENDING'].includes(item.status)&&!(item.status==='PENDING'&&Number.isFinite(Date.parse(item.nextAttemptAt)))&&Date.now()-Date.parse(item.updatedAt)>=45_000,syncError:false,seen:new Set()});
   }
   // Cache only a small number of previously visited rows; no local disk persistence.
   if(rows.size>200)for(const [id] of rows){if(!wanted.includes(id)&&!batchIds.has(id))rows.delete(id);if(rows.size<=200)break;}
@@ -147,7 +169,7 @@
   clearTimeout(pollTimer);if(!wanted.length||typeof window.moaonHub?.readShippingProgress!=='function')return Promise.resolve();
   let done;const work=new Promise(resolve=>{done=resolve;});pollWork=work;
   const ids=[...wanted],seq=watchSeq,ticket=capture();let delay=60000;
-  void(async()=>{try{
+  let syncCode='UNAVAILABLE';void(async()=>{try{
    if(document.hidden&&!active)return;
    const result=await window.moaonHub.readShippingProgress(ids);
    if(seq!==watchSeq)return;
@@ -163,13 +185,21 @@
     reset();syncStatus('송장 상태 접근 확인 필요 · 다시 연결해 주세요.');
     if(typeof document.dispatchEvent==='function')document.dispatchEvent(new CustomEvent('moaon-shipping-access-lost',{detail:result.status}));
    }else if(['BUSY','CANCELLED'].includes(result?.status)){delay=2000;}
-   else throw Error('Read unavailable');
+   else {syncCode=result?.status;throw Error('Read unavailable');}
   }catch{
-   if(seq===watchSeq){failures++;for(const id of ids){const row=rows.get(id);if(row&&!(active&&batchIds.has(id))){row.syncError=true;row.version=++revision;}}render();syncStatus('송장 상태 확인 필요 · 기존 표시 유지');delay=Math.min(60000,5000*2**Math.min(failures-1,4));}
+   if(seq===watchSeq){failures++;for(const id of ids){const row=rows.get(id);if(row&&!(active&&batchIds.has(id))){row.syncError=true;row.syncCode=syncCode;row.version=++revision;}}render();syncStatus('송장 상태 확인 필요 · 기존 표시 유지');delay=Math.min(60000,5000*2**Math.min(failures-1,4));}
   }finally{if(pollWork===work)pollWork=null;done();schedule(seq===watchSeq?delay:0);}})();return work;
+ }
+ async function recheck(id){
+  if(!wanted.length||!/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id))return;
+  if(!wanted.includes(id)){
+   wanted=[id,...wanted].slice(0,20);watchSeq++;clearTimeout(pollTimer);window.moaonHub?.cancelShippingProgress?.();
+   const seq=watchSeq;if(pollWork)await pollWork;if(seq!==watchSeq)return;
+  }
+  return poll();
  }
  function reset(){epoch++;watchSeq++;watchKey='';wanted=[];scopeKey=null;batchIds.clear();clearTimeout(pollTimer);clearInterval(timer);timer=null;active=false;rows.clear();notify=null;lastSummary='';window.moaonHub?.cancelShippingProgress?.();syncStatus('');document.querySelectorAll('.order-shipping-progress').forEach(paint);}
  function open(){const details=document.querySelector('.order-shipping-progress:not([hidden])');if(!details)return false;details.open=true;details.scrollIntoView({block:'nearest'});details.querySelector('summary').focus({preventScroll:true});return true;}
  document.addEventListener('moaon-session-changed',reset);
- window.moaonShippingProgress=Object.freeze({start,update,finish,reset,open,mount,watch,poll,snapshot:()=>[...rows.values()].map(row=>({...row}))});
+ window.moaonShippingProgress=Object.freeze({start,update,finish,reset,open,mount,watch,poll,recheck,snapshot:()=>[...rows.values()].map(row=>({...row,presentation:presentation(row)}))});
 })();
