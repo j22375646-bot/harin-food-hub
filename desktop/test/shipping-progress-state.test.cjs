@@ -67,3 +67,28 @@ test('per-order recheck prioritizes a row beyond the automatic twenty without ov
  assert.equal(calls.at(-1)[0],last);assert.equal(calls.at(-1).length,20);assert.equal(new Set(calls.at(-1)).size,20);
  assert.ok(h.api.snapshot().some(row=>row.id===last));const before=calls.length;await h.api.recheck('invalid');assert.equal(calls.length,before);
 });
+
+test('cancelled or blocked continuation retains the previously verified operation state',async()=>{
+ for(const status of ['REVIEW_CANCELLED','BUSY','ORDER_CHANGED','CHECK_REQUIRED','UNAVAILABLE']){
+  const h=host(async()=>feed([item('REGISTERED')]));h.api.watch([{hubOrderId:id,platform:'CAFE24'}]);await h.api.poll();const before=h.api.snapshot()[0];
+  h.api.start([{id,platform:'CAFE24'}],()=>{},true);h.api.update({hubOrderId:id,phase:'CONFIRM',status:'WAIT_USER'});h.advance(3000);h.api.finish({status,results:[]});
+  const after=h.api.snapshot()[0];assert.equal(after.status,'REGISTERED',status);assert.equal(after.phase,'REGISTER');assert.equal(after.changedAt,before.changedAt);
+  assert.equal(after.syncError,!['REVIEW_CANCELLED','BUSY'].includes(status));
+ }
+});
+
+test('logout clears a continuation baseline and a late finish cannot restore it',async()=>{
+ const h=host(async()=>feed([item('PENDING')]));h.api.watch([{hubOrderId:id,platform:'CAFE24'}]);await h.api.poll();h.api.start([{id,platform:'CAFE24'}],()=>{},true);h.api.reset();h.api.finish({status:'REVIEW_CANCELLED',results:[]});assert.equal(h.api.snapshot().length,0);
+});
+
+test('a rejected or malformed continuation response cannot erase the verified baseline',async()=>{
+ for(const result of [undefined,{}, {status:'PARTIAL',results:[]},{status:'COMPLETED',results:[]},{status:'PARTIAL',results:[item('PENDING'),item('PENDING')]}]){
+  const h=host(async()=>feed([item('REGISTERED')]));h.api.watch([{hubOrderId:id,platform:'CAFE24'}]);await h.api.poll();const before=h.api.snapshot()[0];h.api.start([{id,platform:'CAFE24'}],()=>{},true);h.api.finish(result);const after=h.api.snapshot()[0];assert.equal(after.status,'REGISTERED');assert.equal(after.phase,'REGISTER');assert.equal(after.changedAt,before.changedAt);assert.equal(after.syncError,true);
+ }
+});
+
+test('mixed twenty local results stay bound to each order and a duplicate cannot borrow success',()=>{
+ const h=host(async()=>feed()),orders=Array.from({length:20},(_,i)=>({id:'HR-'+(i%2?'CP':'C24')+'-'+(i+1).toString(16).toUpperCase().padStart(8,'0'),platform:i%2?'COUPANG':'CAFE24'}));let summary='';h.api.start(orders,text=>summary=text);
+ const results=orders.map((o,i)=>({hubOrderId:o.id,phase:i%2?'ISSUE':'REGISTER',status:['REGISTERED','PENDING','FAILED','CHECK_REQUIRED'][i%4]}));for(const row of results)h.api.update({...row,status:'RUNNING'});h.api.finish({status:'PARTIAL',results:[...results,results[0]]});
+ assert.equal(h.api.snapshot().length,20);for(const [i,row] of h.api.snapshot().entries())assert.equal(row.status,i===0?'CHECK_REQUIRED':results[i].status);assert.match(summary,/등록 완료 4건/);assert.match(summary,/대기 5건/);h.api.reset();assert.equal(h.api.snapshot().length,0);
+});

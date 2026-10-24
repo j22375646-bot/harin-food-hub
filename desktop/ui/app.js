@@ -1421,7 +1421,7 @@ async function runAutomaticShipping(explicitIds,continueExisting=false){
   panel.append(makeElement('strong','',continueExisting?'기존 작업 확인·이어가기':'자동 출고 처리'),makeElement('p','',continueExisting?'기존 요청·송장 확인 → 같은 번호로 등록 이어가기':'준비 확인 → 최대 2건 동시 발급·등록 → 대기 요청 자동 확인'),makeElement('p','',continueExisting?'새 송장은 발급하지 않습니다. 결과 불명 요청은 다시 전송하지 않고, 등록에 필요한 경우 최종 확인창을 표시합니다.':'확인창에서 승인하면 진행합니다. 쿠팡 등록 대기는 다음 주문과 분리하고, 마지막에 최대 1분간 기존 요청만 자동 확인합니다.'));
   const current=()=>generation===actionGeneration&&displayMode==='live';
   const progressSummary=makeElement('p','','선택 주문 확인 중');panel.append(progressSummary);
-  window.moaonShippingProgress?.start(ids.map(id=>({id,platform:displayedOrders.find(order=>orderId(order)===id)?.platform})),(text,finished)=>{progressSummary.textContent=text;setShippingJobNotice(text,finished);});
+  window.moaonShippingProgress?.start(ids.map(id=>({id,platform:displayedOrders.find(order=>orderId(order)===id)?.platform})),(text,finished)=>{progressSummary.textContent=text;setShippingJobNotice(text,finished);},continueExisting);
   if(window.moaonShippingProgress)panel.hidden=true;
   const unsubscribe=window.moaonHub.onShippingProgress?.(value=>{if(current()&&ids.includes(value?.hubOrderId))window.moaonShippingProgress?.update(value);});
   let finalOutcome;
