@@ -1207,6 +1207,9 @@ function createHubConnection({
   }
 
   const issueShipment=hubOrderId=>confirmShipmentReview(hubOrderId,true);
+  function reportShippingProgress(ids,phase,status){
+    for(const hubOrderId of ids)try{onShippingProgress({hubOrderId,phase,status});}catch{}
+  }
   async function issueAndRegister(ids){
     if(!validRegistrationIds(ids))throw new TypeError('Invalid automatic shipping selection');
     const empty=status=>({status,results:[]});
@@ -1271,6 +1274,7 @@ function createHubConnection({
         if(targets.some((rows,i)=>rows.length!==1||!rows[0].issueAndRegisterEligible||shipmentFingerprints.get(rows[0])!==shipmentFingerprints.get(initial[i][0])))return empty('CHECK_REQUIRED');
       }
       if(!alive())return empty('DISCONNECTED');
+      reportShippingProgress(ids,'CONFIRM','WAIT_USER');
       const answer=await showShipmentReview(getMainWindow(),{type:'warning',title:'모아온 · 송장 발급·쇼핑몰 등록',message:`선택한 ${ids.length}건의 실제 우체국 송장을 발급하고 쇼핑몰에 등록할까요?`,detail:`하린식품\n${targets.map(([row])=>`${row.platform} · ${row.hubOrderId} · ${row.quantity}개 · ${row.details.invoice?.status==='REGISTERED'?'등록 결과 확인':row.registrationEligible?'기존 발급 번호 등록':'실제 계약소포 발급'}`).join('\n')}\n결제완료 주문은 상품준비중으로 변경합니다. 기존 발급 작업은 재발급하지 않고 상태를 확인합니다. 등록 확인 후 배송 추적 조회를 요청합니다.`,buttons:['취소','실제 발급·쇼핑몰 등록'],defaultId:0,cancelId:0,noLink:true});
       if(!alive())return empty('DISCONNECTED');if(answer?.response!==1)return empty('REVIEW_CANCELLED');
       if(recovery.some(Boolean)){
@@ -1473,6 +1477,7 @@ function createHubConnection({
     };
     reviewingShipment=true;let sent=false,timer;
     try{
+      reportShippingProgress(ids,'CHECK','RUNNING');
       const before=await reread(initial);if(!before)return empty(alive()?'ORDER_CHANGED':'DISCONNECTED');
       const keys=before.map(row=>`${row.hubOrderId}:${row.details.invoice.number}`);
       if(keys.some(key=>registrationAttempts.has(key)))return empty('CHECK_REQUIRED');
@@ -1483,6 +1488,7 @@ function createHubConnection({
         if(await journal.read()!==null)return empty('CHECK_REQUIRED');
         uploadJournals.push(journal);
       }
+      reportShippingProgress(ids,'CONFIRM','WAIT_USER');
       const answer=await showShipmentReview(getMainWindow(),{type:'warning',title:'모아온 · 쇼핑몰 송장 등록',message:`선택한 ${ids.length}건의 발급 송장을 쇼핑몰에 등록할까요?`,detail:`하린식품\n${before.map(row=>`${row.platform} · ${row.hubOrderId} · ${row.details.invoice.number}`).join('\n')}\n쿠팡은 처리 대기 상태로 접수될 수 있습니다. 등록 확인 후 배송 추적 조회를 요청합니다.`,buttons:['취소','송장 등록'],defaultId:0,cancelId:0,noLink:true});
       if(!alive())return empty('DISCONNECTED');
       if(answer?.response!==1)return empty('REVIEW_CANCELLED');
@@ -1493,6 +1499,7 @@ function createHubConnection({
       if(!alive())return empty('DISCONNECTED');
       const controller=new AbortController();registrationController=controller;
       const stopped=new Promise((_,reject)=>{controller.signal.addEventListener('abort',()=>reject(Error('Registration stopped')),{once:true});timer=setTimeout(()=>controller.abort(),timeoutMs);});
+      reportShippingProgress(ids,'REGISTER','RUNNING');
       const request=(async()=>{
         if(!alive())throw Error('Disconnected');
         keys.forEach(key=>registrationAttempts.add(key));sent=true;registrationRequestActive=true;
@@ -1546,8 +1553,9 @@ function createHubConnection({
         }
         return {hubOrderId,status};
       });
-      for(const [index,result] of results.entries())if(result.status==='REGISTERED'){const row=verified.orders.find(row=>row.hubOrderId===result.hubOrderId);result.invoiceNumber=row.details.invoice.number;result.trackingStatus=await enqueueRegisteredTracking(row,approved[index],controller,alive);}
+      for(const [index,result] of results.entries())if(result.status==='REGISTERED'){if(alive())reportShippingProgress([result.hubOrderId],'TRACKING','RUNNING');const row=verified.orders.find(row=>row.hubOrderId===result.hubOrderId);result.invoiceNumber=row.details.invoice.number;result.trackingStatus=await enqueueRegisteredTracking(row,approved[index],controller,alive);}
       if(!alive())return empty('DISCONNECTED');
+      for(const result of results)reportShippingProgress([result.hubOrderId],'REGISTER',result.status);
       return {status:results.every(row=>row.status==='REGISTERED')?'COMPLETED':'PARTIAL',results};
     }catch{return alive()?{status:sent?'PARTIAL':'UNAVAILABLE',results:sent?ids.map(hubOrderId=>({hubOrderId,status:'CHECK_REQUIRED'})):[]}:empty('DISCONNECTED');}
     finally{clearTimeout(timer);registrationController=null;registrationRequestActive=false;reviewingShipment=false;}

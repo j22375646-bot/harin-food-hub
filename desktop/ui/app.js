@@ -1130,7 +1130,7 @@ function clearDisplayedOrders(mode, message) {
 
 function applyHubResult(result,options={}) {
   const retained=options.preserveView&&displayMode==='live'?{query:orderSearch.value,ids:[...selectedOrderIds],detail:selectedOrderId,scroll:document.getElementById('main-content').scrollTop}:null;
-  if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){orderScopeViews.clear();orderScopeTotals=null;clearTimeout(deliveryPreparationTimer);deliveryPreparationAttempts.clear();const prep=document.getElementById('delivery-prep-status');if(prep)prep.textContent='';}
+  if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){window.moaonShippingProgress?.reset();document.getElementById('shipping-job-notice')?.setAttribute('hidden','');orderScopeViews.clear();orderScopeTotals=null;clearTimeout(deliveryPreparationTimer);deliveryPreparationAttempts.clear();const prep=document.getElementById('delivery-prep-status');if(prep)prep.textContent='';}
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status))window.moaonFeedback.orders.reset();
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){historyAutoLoaded=false;historyGeneration++;}
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status))shippingFollowup.clear();
@@ -1395,7 +1395,7 @@ function setShippingJobNotice(text,finished=false){
   shippingJobNotice=makeElement('section','shipping-job-notice');shippingJobNotice.id='shipping-job-notice';
   const status=makeElement('span');status.setAttribute('role','status');
   const open=makeElement('button','secondary-action','발급 진행 보기');open.type='button';
-  open.onclick=()=>{showRoute('orders');document.querySelector('#auto-shipping-results:not([hidden]),#registration-results:not([hidden])')?.scrollIntoView({block:'nearest'});};
+  open.onclick=()=>{showRoute('orders');if(window.moaonShippingProgress?.open())return;document.querySelector('#auto-shipping-results:not([hidden]),#registration-results:not([hidden])')?.scrollIntoView({block:'nearest'});};
   const close=makeElement('button','secondary-action shipping-notice-close','×');close.type='button';close.setAttribute('aria-label','발급 진행 안내 닫기');close.title='발급 진행 안내 닫기';close.onclick=()=>shippingJobNotice.hidden=true;
   shippingJobNotice.append(status,open,close);document.getElementById('main-content').prepend(shippingJobNotice);
  }
@@ -1417,21 +1417,13 @@ async function runAutomaticShipping(explicitIds){
   panel.hidden=false;panel.setAttribute('aria-busy','true');
   panel.append(makeElement('strong','','자동 출고 처리'),makeElement('p','','준비 확인 → 최대 2건 동시 발급·등록 → 대기 요청 자동 확인'),makeElement('p','','확인창에서 승인하면 진행합니다. 쿠팡 등록 대기는 다음 주문과 분리하고, 마지막에 최대 1분간 기존 요청만 자동 확인합니다.'));
   const current=()=>generation===actionGeneration&&displayMode==='live';
-  const progressRows=new Map(),completedProgress=new Set();
-  const progressSummary=makeElement('p','','선택 '+ids.length+'건 · 등록 완료 0건');panel.append(progressSummary);
-  const live=makeElement('div','shipment-live');live.setAttribute('role','status');panel.append(live);
-  const unsubscribe=window.moaonHub.onShippingProgress?.(value=>{
-    if(!current()||!ids.includes(value?.hubOrderId))return;
-    const phases={CHECK:'주문 변경 확인',PREPARE:'상품 준비 처리',ISSUE:'우체국 송장 발급 중',REGISTER:'쇼핑몰 송장 등록 중',TRACKING:'등록 완료 · 배송 조회 중'};
-    if(!phases[value.phase])return;
-    if(value.status==='REGISTERED')completedProgress.add(value.hubOrderId);progressSummary.textContent='선택 '+ids.length+'건 · 등록 완료 '+completedProgress.size+'건 · '+(value.status==='PENDING'?'기존 요청 처리 대기·자동 확인 중':phases[value.phase]);
-    setShippingJobNotice(progressSummary.textContent+' · 다른 메뉴에서도 계속 진행 중');
-    let row=progressRows.get(value.hubOrderId);if(!row){row=makeElement('div','shipment-live-row');progressRows.set(value.hubOrderId,row);live.append(row);if(document.querySelector('#orders-page')?.classList.contains('is-visible'))row.scrollIntoView({block:'nearest'});}
-    row.dataset.active=value.status==='REGISTERED'?'false':'true';row.replaceChildren(makeElement('strong','',value.status==='REGISTERED'?'송장 등록 완료':value.status==='PENDING'?phases[value.phase].replace(' 중','')+' · 서버 처리 대기':phases[value.phase]),makeElement('span','',value.hubOrderId));
-    if(/^\d{13}$/.test(value.invoiceNumber||''))row.append(makeElement('code','',value.invoiceNumber));
-  });
+  const progressSummary=makeElement('p','','선택 주문 확인 중');panel.append(progressSummary);
+  window.moaonShippingProgress?.start(ids.map(id=>({id,name:displayedOrders.find(order=>orderId(order)===id)?.productName})),(text,finished)=>{progressSummary.textContent=text;setShippingJobNotice(text,finished);});
+  const unsubscribe=window.moaonHub.onShippingProgress?.(value=>{if(current()&&ids.includes(value?.hubOrderId))window.moaonShippingProgress?.update(value);});
+  let finalOutcome;
+
   try{
-    const result=await window.moaonHub.issueAndRegister(ids);
+    const result=finalOutcome=await window.moaonHub.issueAndRegister(ids);
     if(!current())return;
     panel.replaceChildren(makeElement('strong','','자동 발급·등록 결과'));
     if(['COMPLETED','PARTIAL'].includes(result?.status)){
@@ -1475,7 +1467,7 @@ async function runAutomaticShipping(explicitIds){
       }else panel.append(makeElement('p','',messages[result?.status]||messages.CHECK_REQUIRED));
     }
   }catch{if(current()){for(const id of ids)shippingFollowup.set(id,{status:'CHECK_REQUIRED'});panel.replaceChildren(...previousNodes,makeElement('strong','','결과 확인 필요'),makeElement('p','','통신을 확인하지 못했습니다. 새로 발급하지 말고 기존 작업 상태를 확인하세요.'));}}
-  finally{unsubscribe?.();registrationBusy=false;if(current())setShippingJobNotice('발급·등록 처리 종료 · 완료·대기·확인 필요 결과를 확인하세요.',true);panel.removeAttribute('aria-busy');renderOrders();renderSelection();renderShippingFollowup();}
+  finally{unsubscribe?.();registrationBusy=false;if(current()){window.moaonShippingProgress?.finish(finalOutcome);if(!window.moaonShippingProgress)setShippingJobNotice('발급·등록 처리 종료 · 결과를 확인하세요.',true);}panel.removeAttribute('aria-busy');renderOrders();renderSelection();renderShippingFollowup();}
 }
 
 async function runSelectedDocument(kind){
@@ -1526,13 +1518,16 @@ async function registerSelectedInvoices(){
   const panel=document.querySelector('#registration-results'),status=document.querySelector('#registration-status'),items=document.querySelector('#registration-items');
   panel.hidden=false;status.textContent='선택한 발급 송장의 등록 내용을 확인하고 있습니다.';
   const current=()=>generation===actionGeneration&&displayMode==='live';
+  window.moaonShippingProgress?.start(ids.map(id=>({id,name:displayedOrders.find(order=>orderId(order)===id)?.productName})),(text,finished)=>setShippingJobNotice(text,finished));
+  const unsubscribe=window.moaonHub.onShippingProgress?.(value=>{if(current()&&ids.includes(value?.hubOrderId))window.moaonShippingProgress?.update(value);});
+  let finalOutcome;
   const disableAttempted=()=>{
     const attempted=new Set(ids);
     displayedOrders=Object.freeze(displayedOrders.map(order=>attempted.has(orderId(order))?Object.freeze({...order,registrationEligible:false}):order));
     selectedOrderIds.clear();
   };
   try{
-    const result=await window.moaonHub.registerInvoices(ids);
+    const result=finalOutcome=await window.moaonHub.registerInvoices(ids);
     if(!current())return;
     const messages={REGISTERED:'쇼핑몰 등록 완료',PENDING:'처리 대기 · 등록 완료 아님',FAILED:'등록 실패 · 주문·발급 상태를 확인하세요',CHECK_REQUIRED:'등록 여부 확인 필요 · 재전송하지 마세요'};
     if(['COMPLETED','PARTIAL'].includes(result?.status)){
@@ -1571,7 +1566,7 @@ async function registerSelectedInvoices(){
     appendManualHistoryRefresh(panel,generation);
     disableAttempted();
   }}
-  finally{registrationBusy=false;if(current())setShippingJobNotice('송장 등록 처리 종료 · 결과를 확인하세요.',true);renderSelection();renderShippingFollowup();}
+  finally{unsubscribe?.();registrationBusy=false;if(current()){window.moaonShippingProgress?.finish(finalOutcome);if(!window.moaonShippingProgress)setShippingJobNotice('송장 등록 처리 종료 · 결과를 확인하세요.',true);}renderSelection();renderShippingFollowup();}
 }
 
 async function returnToSample() {

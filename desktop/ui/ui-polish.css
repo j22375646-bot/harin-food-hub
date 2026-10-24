@@ -493,3 +493,22 @@ body:has(.preview-shell[hidden]) .login-window-drag{color:var(--ink);gap:9px;lin
 .shipping-job-notice .shipping-notice-close{flex:0 0 40px;width:40px;padding:0;font-size:24px;line-height:1}
 #order-selection .selection-reason-toggle{min-height:32px;padding:4px 10px}
 @media(prefers-reduced-motion:reduce){:where(dialog) button,#order-selection button,.shipping-job-notice button{transition:none}}
+
+.shipping-progress-board{margin:12px 0;padding:12px 14px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface);color:var(--ink)}
+.shipping-progress-board[hidden]{display:none}
+.shipping-progress-board>summary{cursor:pointer;font-size:14px;font-weight:650;line-height:1.6;overflow-wrap:anywhere}
+.shipping-progress-board>summary:focus-visible{outline:2px solid var(--blue);outline-offset:4px;border-radius:6px}
+.shipping-progress-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-height:min(340px,42vh);overflow:auto;overscroll-behavior:contain;margin-top:12px;padding:2px}
+.shipping-progress-card{min-width:0;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-soft);overflow-wrap:anywhere}
+.shipping-progress-card-head{display:flex;gap:8px;justify-content:space-between;align-items:flex-start}.shipping-progress-card-head strong{font-size:14px;line-height:1.5;min-width:0}
+.shipping-progress-badge{flex:none;border-radius:6px;padding:3px 6px;font-size:12px;background:var(--blue-soft);color:var(--blue)}
+.shipping-progress-id{display:block;margin:5px 0 9px;font-size:12px;color:var(--muted)}
+.shipping-progress-steps{display:flex;flex-wrap:wrap;gap:4px}.shipping-progress-steps span{border:1px solid var(--line);border-radius:6px;padding:3px 6px;font-size:12px;color:var(--muted)}
+.shipping-progress-steps [data-state=current]{border-color:var(--blue);background:var(--blue-soft);color:var(--blue);font-weight:650}.shipping-progress-steps [data-state=seen]{color:var(--ink)}
+.shipping-progress-reason{margin:9px 0 6px;font-size:13px;line-height:1.6;color:var(--ink)}.shipping-progress-time{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.shipping-progress-card[data-state=REGISTERED]{border-color:var(--mint)}.shipping-progress-card:is([data-state=PENDING],[data-state=FAILED],[data-state=CHECK_REQUIRED]) .shipping-progress-badge{background:var(--amber-soft);color:var(--amber)}
+@media(max-width:850px){.shipping-progress-list{grid-template-columns:minmax(0,1fr)}}
+
+.shipping-progress-card[data-state=RUNNING] .shipping-progress-badge::before{content:"";display:inline-block;width:6px;height:6px;margin-right:5px;border-radius:50%;background:currentColor;animation:shipping-state-pulse 1.4s ease-in-out infinite}
+@keyframes shipping-state-pulse{50%{opacity:.3}}
+@media(prefers-reduced-motion:reduce){.shipping-progress-card[data-state=RUNNING] .shipping-progress-badge::before{animation:none}}

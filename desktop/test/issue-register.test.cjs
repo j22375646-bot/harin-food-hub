@@ -33,7 +33,7 @@ test('one native approval prepares, journals issue, rereads invoice and register
   const result=await env.connection.issueAndRegister([id]);
   assert.deepEqual(result,{status:'COMPLETED',results:[{hubOrderId:id,phase:'REGISTER',status:'REGISTERED',invoiceNumber:'1234567890123',trackingStatus:'CHECK_REQUIRED'}]});
   assert.equal(confirmations,1);
-  assert.deepEqual(env.progress.map(v=>v.phase),['CHECK','PREPARE','ISSUE','REGISTER','TRACKING','REGISTER']);
+  assert.deepEqual(env.progress.map(v=>v.phase),['CONFIRM','CHECK','PREPARE','ISSUE','REGISTER','TRACKING','REGISTER']);
   assert.equal(env.progress.at(-1).invoiceNumber,'1234567890123');
   const posts=env.calls.filter(call=>call.options.method==='POST');
   assert.ok(posts.every(call=>call.options.headers.Origin==='https://harin-cafe24-sync.vercel.app'));
