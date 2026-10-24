@@ -21,6 +21,7 @@ test('timeout discards late identity and never reads after deadline',async()=>{
 function db(operations,identities=[]){const calls=[];return {calls,from(table){const call={table};calls.push(call);const q={select(s){call.select=s;return q;},in(k,v){call[k]=v;return q;},order(){return q;},limit(n){call.limit=n;return q;},abortSignal(){return q;},then(resolve){return Promise.resolve({data:table==='coupang_orders'?identities:operations,error:null}).then(resolve);}};return q;}};}
 test('reader queries only bounded targets, keeps issued success distinct from registration',async()=>{
  const d=db([{id:req,operation_type:'EPOST_LIVE_ISSUE',target_type:'HUB_ORDER',target_id:id,status:'SUCCESS',created_at:at,executed_at:at}]);const read=createShippingProgressReader({db:d});const r=await read([{hubOrderId:id}],{});assert.equal(r[0].phase,'ISSUE');assert.equal(r[0].status,'SUCCESS');assert.deepEqual(d.calls[0].target_id,[id]);assert.doesNotMatch(d.calls[0].select,/payload|result_json|error_message/);
+ assert.deepEqual(d.calls[0].target_type,['HUB_ORDER','ORDER']);
  const empty=await createShippingProgressReader({db:db([])})([{hubOrderId:id}],{});assert.equal(empty[0].status,'UNKNOWN');
 });
 test('Coupang shipment identities must match canonical order before reading operations',async()=>{
