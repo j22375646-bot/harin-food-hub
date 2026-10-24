@@ -38,7 +38,7 @@
  function paint(details){
   const row=rows.get(details.dataset.orderId);details.hidden=!row;
   if(!row){details.open=false;return;}
-  details.dataset.state=row.status;details.dataset.tone=tone(row);
+  details.dataset.progressState=row.status;details.dataset.tone=tone(row);
   details.querySelector('.shipping-progress-label').textContent=label(row);
   details.querySelector('summary').setAttribute('aria-label',label(row)+' · 진행 상세');
   details.querySelector('.shipping-progress-reason').textContent=reason(row);
