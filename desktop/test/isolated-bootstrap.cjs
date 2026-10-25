@@ -52,4 +52,7 @@ if (process.env.MOAON_TEST_HIDDEN !== '1' && ['right','main'].includes(process.e
     win.setBounds({x:area.x+10,y:area.y+30,width,height});
   });
 }
+// The production ready-to-show handler also sets bounds. Keep that later
+// handler on the requested secondary display, not just the constructor hook.
+if(process.env.MOAON_TEST_DISPLAY==='right'&&!process.argv.includes('--display-right'))process.argv.push('--display-right');
 require(path.join(runtimeRoot, 'main.cjs'));

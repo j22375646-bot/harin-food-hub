@@ -1,9 +1,10 @@
 'use strict';
 const {app,Tray,session,Notification}=require('electron');
+app.on('browser-window-created',(_event,window)=>window.once('ready-to-show',()=>{globalThis.trayFirstFrameAt=Date.now();}));
 const notify=Notification.prototype.show;
 Notification.prototype.show=function(){this.once('show',()=>globalThis.nativeNotice='SHOWN');this.once('failed',()=>globalThis.nativeNotice='FAILED');return notify.call(this);};
 const set=Tray.prototype.setContextMenu;
-Tray.prototype.setContextMenu=function(menu){globalThis.testTray={tray:this,menu};return set.call(this,menu);};
+Tray.prototype.setContextMenu=function(menu){globalThis.testTray={tray:this,menu};globalThis.trayCreatedAt??=Date.now();return set.call(this,menu);};
 app.on('ready',()=>{
  globalThis.testCalls={team:0,orders:0,cs:0};
  const id='10000000-0000-4000-8000-000000000001';

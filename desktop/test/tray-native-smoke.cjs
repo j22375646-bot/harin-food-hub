@@ -2,11 +2,13 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{_electron}=require('playwright');
 (async()=>{
  const runtime=process.env.MOAON_TRAY_RUNTIME||path.resolve(__dirname,'..');
- let closed=false;const app=await _electron.launch({executablePath:require('electron'),args:[path.join(__dirname,'tray-bootstrap.cjs')],env:{...process.env,MOAON_TEST_RUNTIME_ROOT:runtime,MOAON_TEST_PROFILE:fs.mkdtempSync('D:/GPT/tmp/tray-native-'),MOAON_TEST_HIDDEN:'0',MOAON_TEST_DISPLAY:'main'}});
+ let closed=false;const app=await _electron.launch({executablePath:'D:/GPT/deps/moaon-desktop-runtime/node_modules/electron/dist/electron.exe',args:[path.join(__dirname,'tray-bootstrap.cjs')],env:{...process.env,MOAON_TEST_RUNTIME_ROOT:runtime,MOAON_TEST_PROFILE:fs.mkdtempSync('D:/GPT/tmp/tray-native-'),MOAON_TEST_HIDDEN:'0',MOAON_TEST_DISPLAY:'right'}});
  try{
   const page=await app.firstWindow(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.waitForLoadState('domcontentloaded');
   await page.waitForFunction(()=>!!window.moaonHub);
+  for(let i=0;i<100&&!await app.evaluate(()=>!!globalThis.testTray);i++)await new Promise(resolve=>setTimeout(resolve,100));
   assert.equal(await app.evaluate(()=>!!globalThis.testTray),true);
+  assert.equal(await app.evaluate(()=>Number.isFinite(globalThis.trayFirstFrameAt)&&globalThis.trayCreatedAt>=globalThis.trayFirstFrameAt),true,'native tray must follow the first frame');
   await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows()[0].close());
   assert.deepEqual(await app.evaluate(({BrowserWindow})=>{const w=BrowserWindow.getAllWindows()[0];return {alive:!w.isDestroyed(),visible:w.isVisible()};}),{alive:true,visible:false});
   if(process.env.MOAON_TEST_NATIVE_NOTICE==='1')await app.evaluate(()=>globalThis.testAssignment=true);

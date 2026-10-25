@@ -223,7 +223,8 @@ if (!hasSingleInstanceLock) {
       getMainWindow: () => mainWindow,
       connection: hubConnection,
     });
-    trayLifecycle=require('./tray-lifecycle.cjs').createTrayLifecycle({app,Tray,Menu,window:mainWindow,icon:path.join(UI_ROOT,'brand','moaon.ico'),onStop:()=>backgroundMonitor?.stop(),allowClose:()=>updates?.read().status==='INSTALLING',canHide:()=>!BrowserWindow.getAllWindows().some(w=>w!==mainWindow&&w.isModal?.())});
+    const trayOptions={app,Tray,Menu,window:mainWindow,icon:path.join(UI_ROOT,'brand','moaon.ico'),onStop:()=>backgroundMonitor?.stop(),allowClose:()=>updates?.read().status==='INSTALLING',canHide:()=>!BrowserWindow.getAllWindows().some(w=>w!==mainWindow&&w.isModal?.())};
+    trayLifecycle=require('./deferred-tray.cjs').createDeferredTrayLifecycle({...trayOptions,create:()=>require('./tray-lifecycle.cjs').createTrayLifecycle(trayOptions)});
     backgroundMonitor=require('./background-monitor.cjs').createBackgroundMonitor({connection:hubConnection,Notification,getWindow:()=>mainWindow,directory:path.join(app.getPath('userData'),'background-notifications'),onStatus:status=>trayLifecycle?.setStatus(status)});
     backgroundMonitor.start();
     mainWindow.on('closed',()=>{backgroundMonitor.stop();trayLifecycle.dispose();});

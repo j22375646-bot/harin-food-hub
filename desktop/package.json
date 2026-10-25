@@ -1,6 +1,6 @@
 {
   "name": "moaon-desktop-preview",
-  "version": "0.202.0",
+  "version": "0.203.0",
   "private": true,
   "description": "Moaon Windows preview - private Harin orders and confirmed shipment",
   "author": "Moaon",
@@ -104,7 +104,8 @@
       "ui/**/*",
       "order-activity.cjs",
       "marketing-contract.cjs",
-      "assistant-preferences-contract.cjs"
+      "assistant-preferences-contract.cjs",
+      "deferred-tray.cjs"
     ],
     "win": {
       "target": "nsis",
