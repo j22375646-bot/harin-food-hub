@@ -6,6 +6,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
  try{
   const page=await app.firstWindow();page.setDefaultTimeout(15000);await page.waitForLoadState('domcontentloaded',{timeout:120000});await page.evaluate(()=>window.moaonHub.refresh());await page.emulateMedia({reducedMotion:'reduce'});
   const card=page.locator('#order-empty');
+  await page.evaluate(()=>{const note=document.createElement('p');note.className='ops-note';note.textContent='자동 검증 · 격리 시험 자료 · 실제 주문이 아닙니다';document.querySelector('.orders-page').prepend(note);});
   for(const theme of ['light','dark'])for(const [scope,label] of [['ACTIVE','송장 발급 전'],['REGISTER','배송대기중'],['IN_TRANSIT','배송중'],['COMPLETED','완료·취소']]){
    await page.evaluate(({scope,theme})=>{document.documentElement.dataset.theme=theme;applyHubResult({status:'READY',scope,channel:'ALL',total:0,offset:0,checkedAt:new Date().toISOString(),orders:[]});showRoute('orders');},{scope,theme});
    assert.equal(await card.isVisible(),true);assert.equal(await card.getAttribute('data-empty-state'),'empty');assert.match(await card.locator('.order-empty-scope').textContent(),new RegExp(label));assert.equal(await card.locator('svg').count(),1);assert.equal(await card.evaluate(n=>n.scrollWidth<=n.clientWidth+1),true);
