@@ -495,28 +495,33 @@ body:has(.preview-shell[hidden]) .login-window-drag{color:var(--ink);gap:9px;lin
 @media(prefers-reduced-motion:reduce){:where(dialog) button,#order-selection button,.shipping-job-notice button{transition:none}}
 
 /* The disclosure is a sibling of the order-selection button: no nested controls. */
-.orders-page .order-item:has(>.order-shipping-progress:not([hidden])){position:relative;isolation:isolate}
-.orders-page .order-item:has(>.order-shipping-progress:not([hidden])):has(>.order-row[aria-pressed=true])::before{content:"";position:absolute;inset:0 0 8px 52px;z-index:-1;border:1px solid var(--blue);border-radius:10px;box-shadow:inset 0 0 0 1px var(--blue);background:var(--blue-soft);pointer-events:none}
-.orders-page .order-item:has(>.order-shipping-progress:not([hidden]))>.order-row[aria-pressed=true]{background:transparent;border-color:transparent;box-shadow:none}
-.orders-page .order-shipping-progress{grid-column:2;min-width:0;margin:-6px 16px 12px 90px;justify-self:start;max-width:calc(100% - 106px);font-size:13px;color:var(--blue)}
+.orders-page .order-item:has(.order-shipping-progress:not([hidden])){position:relative;isolation:isolate}
+.orders-page .order-item:has(.order-shipping-progress:not([hidden])):has(>.order-row[aria-pressed=true])::before{content:"";position:absolute;inset:0 0 8px 52px;z-index:-1;border:1px solid var(--blue);border-radius:10px;box-shadow:inset 0 0 0 1px var(--blue);background:var(--blue-soft);pointer-events:none}
+.orders-page .order-item:has(.order-shipping-progress:not([hidden]))>.order-row[aria-pressed=true]{background:transparent;border-color:transparent;box-shadow:none}
+.orders-page .order-status-rail{grid-column:2;display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:-6px 16px 12px 90px;min-width:0}
+.orders-page .order-status-rail:not(:has(.shipping-timing-badge)):not(:has(.order-shipping-progress:not([hidden]))){display:none}
+.orders-page .order-status-rail .shipping-timing-badge{margin:0}
+.orders-page .order-shipping-progress{min-width:0;max-width:100%;font-size:13px;color:var(--blue)}
 .orders-page .order-shipping-progress[hidden]{display:none}
-.orders-page .order-shipping-progress>summary{display:inline-flex;align-items:center;gap:8px;max-width:100%;box-sizing:border-box;min-height:30px;padding:5px 9px;border:1px solid color-mix(in srgb,var(--blue) 32%,var(--line));border-radius:8px;background:var(--blue-soft);color:inherit;cursor:pointer;list-style:none;line-height:1.45;font-size:13px;font-weight:650;overflow-wrap:anywhere}
-.order-shipping-progress>summary::-webkit-details-marker{display:none}
-.order-shipping-progress>summary:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
-.order-shipping-progress>summary>i{flex:none;width:7px;height:7px;border-radius:50%;background:currentColor}
+.orders-page .order-shipping-progress>.shipping-progress-badge{display:inline-flex;align-items:center;gap:8px;max-width:100%;box-sizing:border-box;min-height:30px;padding:5px 9px;border:1px solid color-mix(in srgb,var(--blue) 32%,var(--line));border-radius:8px;background:var(--blue-soft);color:inherit;cursor:pointer;list-style:none;line-height:1.45;font-size:13px;font-weight:650;overflow-wrap:anywhere}
+.order-shipping-progress>.shipping-progress-badge::-webkit-details-marker{display:none}
+.order-shipping-progress>.shipping-progress-badge:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+.order-shipping-progress>.shipping-progress-badge>i{flex:none;width:7px;height:7px;border-radius:50%;background:currentColor}
 .order-shipping-progress .shipping-progress-label{min-width:0}
-.order-shipping-progress .shipping-progress-chevron{flex:none;font-size:15px;transition:transform .15s}
-.order-shipping-progress[open] .shipping-progress-chevron{transform:rotate(180deg)}
-.order-shipping-progress[data-tone=active]>summary>i{animation:shipping-state-pulse 1.25s ease-in-out infinite;box-shadow:0 0 0 4px color-mix(in srgb,var(--blue) 13%,transparent)}
+.order-shipping-progress .shipping-progress-chevron{display:grid;place-items:center;flex:none;width:12px;height:12px;line-height:1;transition:transform .15s}
+.shipping-progress-chevron::before{content:"";width:5px;height:5px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-1.5px) rotate(45deg)}
+.shipping-progress-badge[aria-expanded=true] .shipping-progress-chevron{transform:rotate(180deg)}
+.order-shipping-progress[data-tone=active]>.shipping-progress-badge>i{animation:shipping-state-pulse 1.25s ease-in-out infinite;box-shadow:0 0 0 4px color-mix(in srgb,var(--blue) 13%,transparent)}
 .orders-page .order-shipping-progress[data-tone=waiting]{color:var(--muted)}
-.orders-page .order-shipping-progress[data-tone=waiting]>summary{background:var(--surface-soft);border-color:var(--line)}
+.orders-page .order-shipping-progress[data-tone=waiting]>.shipping-progress-badge{background:var(--surface-soft);border-color:var(--line)}
 .orders-page .order-shipping-progress[data-tone=attention]{color:var(--amber)}
-.orders-page .order-shipping-progress[data-tone=attention]>summary{background:var(--amber-soft);border-color:color-mix(in srgb,var(--amber) 45%,var(--line))}
+.orders-page .order-shipping-progress[data-tone=attention]>.shipping-progress-badge{background:var(--amber-soft);border-color:color-mix(in srgb,var(--amber) 45%,var(--line))}
 .orders-page .order-shipping-progress[data-tone=error]{color:var(--rose)}
-.orders-page .order-shipping-progress[data-tone=error]>summary{background:var(--rose-soft);border-color:color-mix(in srgb,var(--rose) 45%,var(--line))}
+.orders-page .order-shipping-progress[data-tone=error]>.shipping-progress-badge{background:var(--rose-soft);border-color:color-mix(in srgb,var(--rose) 45%,var(--line))}
 .orders-page .order-shipping-progress[data-tone=complete]{color:var(--mint)}
-.orders-page .order-shipping-progress[data-tone=complete]>summary{background:var(--mint-soft);border-color:color-mix(in srgb,var(--mint) 45%,var(--line))}
-.shipping-progress-detail{max-width:520px;max-height:340px;overflow:auto;overscroll-behavior:contain;box-sizing:border-box;margin-top:8px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-soft);color:var(--ink);overflow-wrap:anywhere;scrollbar-gutter:stable}
+.orders-page .order-shipping-progress[data-tone=complete]>.shipping-progress-badge{background:var(--mint-soft);border-color:color-mix(in srgb,var(--mint) 45%,var(--line))}
+.shipping-progress-detail{position:fixed;inset:auto;margin:0;max-width:calc(100vw - 24px);max-height:min(340px,calc(100vh - 24px));overflow:auto;overscroll-behavior:contain;box-sizing:border-box;padding:14px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface-soft);color:var(--ink);overflow-wrap:anywhere;box-shadow:0 12px 40px #0004;scrollbar-gutter:stable}
+.shipping-progress-detail::backdrop{background:transparent}
 .shipping-progress-detail .shipping-progress-reason{margin:0 0 6px;line-height:1.6;font-size:13px}
 .shipping-progress-detail .shipping-progress-time{display:block;font-size:12px;line-height:1.6;color:var(--muted);font-variant-numeric:tabular-nums}
 .shipping-progress-detail button{margin-top:10px;min-height:34px;padding:5px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--blue);font:inherit;font-size:13px;cursor:pointer}
@@ -528,5 +533,5 @@ body:has(.preview-shell[hidden]) .login-window-drag{color:var(--ink);gap:9px;lin
 .shipping-progress-actions button:disabled{opacity:.6;cursor:wait}
 .shipping-progress-sync{font-size:12px;line-height:1.5;color:var(--muted);overflow-wrap:anywhere}
 @keyframes shipping-state-pulse{0%,100%{opacity:.42;transform:scale(.86)}50%{opacity:1;transform:scale(1)}}
-@media(prefers-reduced-motion:reduce){.order-shipping-progress[data-tone=active]>summary>i{animation:none}.order-shipping-progress .shipping-progress-chevron{transition:none}}
-@media(max-width:850px){.orders-page .order-shipping-progress{margin-left:86px;max-width:calc(100% - 102px)}}
+@media(prefers-reduced-motion:reduce){.order-shipping-progress[data-tone=active] .shipping-progress-badge>i{animation:none}.order-shipping-progress .shipping-progress-chevron{transition:none}}
+@media(max-width:850px){.orders-page .order-status-rail{margin-left:86px}}

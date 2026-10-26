@@ -858,7 +858,12 @@ function createOrderRow(order) {
   checkbox.setAttribute('aria-label',`주문 선택 ${id}`);
   checkbox.addEventListener('change',()=>{if(checkbox.checked)selectedOrderIds.add(id);else selectedOrderIds.delete(id);renderSelection();});
   row.append(checkbox,button);
-  if(!isSampleMode())window.moaonShippingProgress?.mount(order,row,()=>showOrderDetail(order,button,{preserveFocus:true}),()=>void runAutomaticShipping([orderId(order)],true));
+  if(!isSampleMode()){
+    const rail=makeElement('div','order-status-rail');
+    const timing=primary.querySelector('.shipping-timing-badge');if(timing)rail.append(timing);
+    window.moaonShippingProgress?.mount(order,rail,()=>showOrderDetail(order,button,{preserveFocus:true}),()=>void runAutomaticShipping([orderId(order)],true));
+    row.append(rail);
+  }
   return row;
 }
 

@@ -328,7 +328,7 @@ function createHubConnection({
   let generation = 0;
   let credentialPermit=null;
   let progressPermit=null,progressScopeKey=null,progressLastAt=-Infinity;
-  function invalidateGeneration(){generation+=1;credentialTransport.cancel();progressTransport.cancel();progressPermit=null;progressLastAt=-Infinity;credentialPermit=null;cancelInsightAi();cancelMarketAi();cancelGeneralChat();}
+  function invalidateGeneration(){generation+=1;teamReads.reset();credentialTransport.cancel();progressTransport.cancel();progressPermit=null;progressLastAt=-Infinity;credentialPermit=null;cancelInsightAi();cancelMarketAi();cancelGeneralChat();}
   const credentialTransport=createCredentialTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options),authorize:options=>listBusinesses(options),permit:value=>{credentialPermit=value;},blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive()),timeoutMs:Math.min(timeoutMs*2,30000)});
   const readCredentialMetadata=value=>credentialTransport.read(value),saveServerCredential=value=>credentialTransport.save(value);
   const progressTransport=createProgressTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options),permit:url=>{progressPermit=url;},blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive())});
@@ -791,10 +791,22 @@ function createHubConnection({
     finally{clearTimeout(timer);businessReads.delete(controller);assistantAutomationBusy=false;assistantAutomationPermit=null;}
   },()=>generation);
   let teamBusy=false,teamPermit=null;
-  async function teamCommand(input){
+  const teamReads=require('./read-scheduler.cjs').createReadScheduler({now:()=>now().getTime(),scope:()=>generation,unavailable:()=>({ok:false,code:'TEAM_UNAVAILABLE'}),stale:scopeChanged=>({ok:false,code:scopeChanged?'TEAM_AUTH_REQUIRED':'TEAM_BUSY'}),success:r=>r?.ok===true,retry:r=>r?.code==='TEAM_UNAVAILABLE'});
+  function teamCommand(input){
+    if(!require('./team-contract.cjs').validInput(input))return Promise.resolve({ok:false,code:'TEAM_INVALID'});
+    if(input.action==='READ'){
+      if(disconnecting||cleanupFailed||isLoginWindowActive())return Promise.resolve({ok:false,code:'TEAM_BUSY'});
+      return teamReads.read('team',()=>performTeamCommand(input));
+    }
+    // An explicit write keeps its own validation/review path and never joins a read.
+    if(teamBusy)return Promise.resolve({ok:false,code:'TEAM_BUSY'});
+    teamReads.reset();return performTeamCommand(input).finally(()=>teamReads.reset());
+  }
+  async function performTeamCommand(input){
     if(teamBusy||disconnecting||cleanupFailed||isLoginWindowActive())return {ok:false,code:'TEAM_BUSY'};
-    const {TEAM_URL,teamRequest}=require('./team-transport.cjs'),expected=generation,controller=new AbortController();teamBusy=true;businessReads.add(controller);teamPermit={url:TEAM_URL,method:input?.action==='READ'?'GET':'POST'};const timer=setTimeout(()=>controller.abort(),15000);
-    try{const result=await teamRequest((...args)=>getRemoteSession().fetch(...args),input,controller.signal);if(expected!==generation)return {ok:false,code:'TEAM_AUTH_REQUIRED'};if(input.action==='READ'&&result.ok)onTeamSnapshot(result.value);if(result.code==='TEAM_AUTH_REQUIRED')onTeamSnapshot(null);return result;}finally{clearTimeout(timer);businessReads.delete(controller);teamBusy=false;teamPermit=null;}
+    const {TEAM_URL,teamRequest}=require('./team-transport.cjs'),expected=generation,controller=new AbortController();teamBusy=true;businessReads.add(controller);teamPermit={url:TEAM_URL,method:input?.action==='READ'?'GET':'POST'};const timer=setTimeout(()=>controller.abort(),input.action==='READ'?Math.min(timeoutMs,15000):15000);
+    let onAbort;const aborted=input.action==='READ'?new Promise(resolve=>{onAbort=()=>resolve({ok:false,code:'TEAM_UNAVAILABLE'});controller.signal.addEventListener('abort',onAbort,{once:true});}):null;
+    try{const request=teamRequest((...args)=>getRemoteSession().fetch(...args),input,controller.signal);const result=await (aborted?Promise.race([request,aborted]):request);if(expected!==generation)return {ok:false,code:'TEAM_AUTH_REQUIRED'};if(input.action==='READ'&&result.ok)onTeamSnapshot(result.value);if(result.code==='TEAM_AUTH_REQUIRED')onTeamSnapshot(null);return result;}finally{clearTimeout(timer);if(onAbort)controller.signal.removeEventListener('abort',onAbort);businessReads.delete(controller);teamBusy=false;teamPermit=null;}
   }
   let stockBusy=false,stockPermit=null;
   async function stockRequest(input){if(stockBusy||disconnecting||cleanupFailed||isLoginWindowActive())return {status:'ERROR',message:'연결 상태를 확인하거나 진행 중인 작업을 기다려 주세요.'};const expected=generation;stockBusy=true;stockPermit={url:STOCK_URL,method:input?'POST':'GET'};try{const result=await createStockTransport({fetch:(...args)=>getRemoteSession().fetch(...args)})(input);return expected===generation?result:{status:'ERROR',message:'사업장 연결이 변경되었습니다. 다시 조회하세요.'};}finally{stockBusy=false;stockPermit=null;}}

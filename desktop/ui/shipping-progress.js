@@ -33,12 +33,17 @@
   return 'waiting';
  }
  function mount(order,container,onOpen,onContinue){
-  const details=el('details','order-shipping-progress');details.dataset.orderId=order.hubOrderId;
+  const details=el('div','order-shipping-progress');details.dataset.orderId=order.hubOrderId;
   details.dataset.storedInvoice=/^\d{13}$/.test(order.details?.invoice?.number||'')?'yes':'unknown';
-  const heading=el('summary','shipping-progress-badge');
+  const heading=el('button','shipping-progress-badge');heading.type='button';heading.setAttribute('aria-expanded','false');
   const dot=el('i');dot.setAttribute('aria-hidden','true');
-  heading.append(dot,el('span','shipping-progress-label'),el('span','shipping-progress-chevron','⌄'));
-  const body=el('div','shipping-progress-detail');
+  heading.append(dot,el('span','shipping-progress-label'),el('span','shipping-progress-chevron'));
+  const body=el('div','shipping-progress-detail');body.popover='auto';body.setAttribute('role','region');body.setAttribute('aria-label','송장 진행 상세');
+  body.id='shipping-popover-'+order.hubOrderId;heading.setAttribute('aria-controls',body.id);
+  function position(){const r=heading.getBoundingClientRect(),gap=8,pad=12;body.dataset.anchorTop=String(r.top);body.dataset.anchorLeft=String(r.left);body.style.width=Math.min(460,innerWidth-pad*2)+'px';const h=body.getBoundingClientRect().height;body.style.left=Math.max(pad,Math.min(r.left,innerWidth-body.offsetWidth-pad))+'px';body.style.top=Math.max(pad,r.bottom+gap+h<=innerHeight-pad?r.bottom+gap:r.top-h-gap)+'px';}
+  heading.addEventListener('click',event=>{event.stopPropagation();if(body.matches(':popover-open'))body.hidePopover();else{body.showPopover();position();}});
+  body.addEventListener('toggle',()=>heading.setAttribute('aria-expanded',String(body.matches(':popover-open'))));
+  body.addEventListener('click',event=>event.stopPropagation());
   const open=el('button','secondary-action','주문 상세 확인');open.type='button';
   open.addEventListener('click',event=>{event.stopPropagation();onOpen();});
   const facts=el('dl','shipping-progress-facts');
@@ -53,10 +58,10 @@
  }
  function paint(details){
   const row=rows.get(details.dataset.orderId);details.hidden=!row;
-  if(!row){details.open=false;return;}
+  if(!row){const panel=details.querySelector('.shipping-progress-detail');if(panel?.matches(':popover-open'))panel.hidePopover();return;}
   details.dataset.progressState=row.status;details.dataset.tone=tone(row);
   details.querySelector('.shipping-progress-label').textContent=label(row);
-  details.querySelector('summary').setAttribute('aria-label',label(row)+' · 진행 상세');
+  details.querySelector('.shipping-progress-badge').setAttribute('aria-label',label(row)+' · 진행 상세');
   details.querySelector('.shipping-progress-reason').textContent=reason(row);
   const resume=details.querySelector('.shipping-progress-continue');if(resume){resume.disabled=active&&batchIds.has(row.id);resume.textContent=row.status==='REGISTERED'?'등록 결과 확인':'기존 작업 확인·이어가기';}
   writeTime(details,row);
@@ -206,8 +211,10 @@
   }
   return poll();
  }
- function reset(){epoch++;watchSeq++;watchKey='';wanted=[];scopeKey=null;batchIds.clear();resumeBaseline.clear();clearTimeout(pollTimer);clearInterval(timer);timer=null;active=false;rows.clear();notify=null;lastSummary='';window.moaonHub?.cancelShippingProgress?.();syncStatus('');document.querySelectorAll('.order-shipping-progress').forEach(paint);}
- function open(){const details=document.querySelector('.order-shipping-progress:not([hidden])');if(!details)return false;details.open=true;details.scrollIntoView({block:'nearest'});details.querySelector('summary').focus({preventScroll:true});return true;}
+ function closePopovers(){document.querySelectorAll('.shipping-progress-detail:popover-open').forEach(n=>n.hidePopover());}
+ window.addEventListener('resize',closePopovers);document.addEventListener('scroll',event=>{if(event.target?.closest?.('.shipping-progress-detail'))return;document.querySelectorAll('.shipping-progress-detail:popover-open').forEach(n=>{const r=n.parentElement.querySelector('.shipping-progress-badge').getBoundingClientRect();if(Math.abs(r.top-Number(n.dataset.anchorTop))>1||Math.abs(r.left-Number(n.dataset.anchorLeft))>1)n.hidePopover();});},true);
+ function reset(){closePopovers();epoch++;watchSeq++;watchKey='';wanted=[];scopeKey=null;batchIds.clear();resumeBaseline.clear();clearTimeout(pollTimer);clearInterval(timer);timer=null;active=false;rows.clear();notify=null;lastSummary='';window.moaonHub?.cancelShippingProgress?.();syncStatus('');document.querySelectorAll('.order-shipping-progress').forEach(paint);}
+ function open(){const details=document.querySelector('.order-shipping-progress:not([hidden])');if(!details)return false;details.scrollIntoView({block:'nearest'});const trigger=details.querySelector('.shipping-progress-badge');if(trigger.getAttribute('aria-expanded')!=='true')trigger.click();trigger.focus({preventScroll:true});return true;}
  document.addEventListener('moaon-session-changed',reset);
  window.moaonShippingProgress=Object.freeze({start,update,finish,reset,open,mount,watch,poll,recheck,snapshot:()=>[...rows.values()].map(row=>({...row,presentation:presentation(row)}))});
 })();

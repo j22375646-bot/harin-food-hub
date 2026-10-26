@@ -39,17 +39,17 @@ const profile=fs.mkdtempSync('D:/GPT/Temp/shipping-final-integration-');
    for(const width of [1060,1440]){
     await page.setViewportSize({width,height:980});
     for(const theme of ['light','dark']){
-     await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);const last=badges.last();await last.locator('summary').click();await last.locator('.shipping-progress-detail').scrollIntoViewIfNeeded();
+     await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);const last=badges.last();await last.locator('.shipping-progress-badge').click();await last.locator('.shipping-progress-detail').scrollIntoViewIfNeeded();
      assert.equal(await last.locator('.shipping-progress-detail').evaluate(n=>n.scrollWidth<=n.clientWidth+1),true);
-     assert.equal(await last.locator('summary').evaluate(n=>n.getBoundingClientRect().right<=innerWidth+1),true);
-     await page.screenshot({path:`D:/GPT/Temp/shipping-final-${pass}-${width}-${theme}.png`});await last.locator('summary').click();
+     assert.equal(await last.locator('.shipping-progress-badge').evaluate(n=>n.getBoundingClientRect().right<=innerWidth+1),true);
+     await page.screenshot({path:`D:/GPT/Temp/shipping-final-${pass}-${width}-${theme}.png`});await last.locator('.shipping-progress-badge').click();
     }
    }
    if(!pass){
     for(const mode of ['cancel','reject']){
      const before=await page.evaluate(()=>window.moaonShippingProgress.snapshot()[1]);
      await app.evaluate(({ipcMain},mode)=>{ipcMain.removeHandler('moaon-hub:continue-shipping');ipcMain.handle('moaon-hub:continue-shipping',()=>{if(mode==='reject')throw Error('Isolated reply failure');return {status:'REVIEW_CANCELLED',results:[]};});},mode);
-     await badges.nth(1).locator('summary').click();await badges.nth(1).getByRole('button',{name:'기존 작업 확인·이어가기'}).click();await page.waitForFunction(()=>!registrationBusy);
+     await badges.nth(1).locator('.shipping-progress-badge').click();await badges.nth(1).getByRole('button',{name:'기존 작업 확인·이어가기'}).click();await page.waitForFunction(()=>!registrationBusy);
      const after=await page.evaluate(()=>window.moaonShippingProgress.snapshot().find(r=>r.id===displayedOrders[1].hubOrderId));assert.equal(after.status,before.status);assert.equal(after.phase,before.phase);assert.equal(after.changedAt,before.changedAt);
     }
     const before=await page.evaluate(()=>window.moaonShippingProgress.snapshot().map(r=>[r.id,r.status,r.changedAt]));

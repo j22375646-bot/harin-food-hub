@@ -2,16 +2,19 @@
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {calendarDay}=require('./today-calendar.cjs');
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
-function createBackgroundMonitor({connection,Notification,getWindow,directory,onStatus=()=>{},now=()=>Date.now(),setTimer=setTimeout,clearTimer=clearTimeout}){
+function createBackgroundMonitor({connection,Notification,getWindow,directory,onStatus=()=>{},now=()=>Date.now(),setTimer=setTimeout,clearTimer=clearTimeout,random=Math.random}){
  let stopped=false,busy=false,started=false,timer,user=null,enabled=true,epoch=0,lastRead=-Infinity,lastCollection=-Infinity,lastCs=-Infinity,collection=null,collecting=false;
  let seen=new Set(),pending=new Set(),initialized={},since=now(),readFailed=false,collectionFailed=false,csFailed=false;
  const notices=new Set();
- const save=()=>{if(!user)return;seen=new Set([...seen].slice(-5000));try{fs.mkdirSync(directory,{recursive:true});fs.writeFileSync(path.join(directory,hash(user)+'.json'),JSON.stringify({since,seen:[...seen],initialized}),{mode:0o600});}catch{}};
- function reset(){epoch++;user=null;seen.clear();pending.clear();initialized={};since=now();lastRead=lastCollection=lastCs=-Infinity;collection=null;readFailed=collectionFailed=csFailed=false;for(const n of notices)n.close();notices.clear();}
+ let lastTeamAt=-Infinity,lastSaved=null,teamFailures=0,nextTeamAt=0;
+ const readBudgets=new Map();
+ const save=()=>{if(!user)return;seen=new Set([...seen].slice(-5000));try{const content=JSON.stringify({since,seen:[...seen],initialized});if(content===lastSaved)return;fs.mkdirSync(directory,{recursive:true});fs.writeFileSync(path.join(directory,hash(user)+'.json'),content,{mode:0o600});lastSaved=content;}catch{}};
+ function reset(){epoch++;user=null;seen.clear();pending.clear();initialized={};since=now();lastRead=lastCollection=lastCs=lastTeamAt=-Infinity;lastSaved=null;teamFailures=0;nextTeamAt=0;readBudgets.clear();collection=null;readFailed=collectionFailed=csFailed=false;for(const n of notices)n.close();notices.clear();}
  function identity(snapshot){
   if(stopped)return;
   if(!snapshot){reset();onStatus('로그인 필요 · 알림 대기');return;}
   if(user!==snapshot.me){reset();user=snapshot.me;try{const v=JSON.parse(fs.readFileSync(path.join(directory,hash(user)+'.json'),'utf8'));if(Number.isFinite(v.since)&&Array.isArray(v.seen)&&v.seen.length<=5000){since=Math.max(v.since,now()-86400000);seen=new Set(v.seen.filter(x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x)));initialized=v.initialized||{};}}catch{}}
+  lastTeamAt=now();teamFailures=0;nextTeamAt=0;
   enabled=snapshot.members.find(m=>m.id===user)?.notifications!==false;
   const today=calendarDay(new Date(now()));
   if(now()>=Date.parse(today+'T09:00:00+09:00')){
@@ -55,17 +58,33 @@ function createBackgroundMonitor({connection,Notification,getWindow,directory,on
    if(now()-lastCs>=300000){lastCs=now();const result=await connection.collectBackgroundCs();if(stopped||token!==epoch)return;csFailed=!['QUEUED','BUSY'].includes(result.status);}
   }catch{if(token===epoch)collectionFailed=true;}finally{collecting=false;}
  }
+ async function readSource(key,run,token){
+  let budget=readBudgets.get(key);if(!budget){budget={failures:0,nextAt:0};readBudgets.set(key,budget);}
+  if(now()<budget.nextAt)return {status:'DEFERRED'};
+  let result;try{result=await run();}catch{result={status:'UNAVAILABLE'};}
+  if(stopped||token!==epoch)return {status:'CANCELLED'};
+  if(result?.status==='READY'){budget.failures=0;budget.nextAt=0;}
+  else if(!['BUSY','CANCELLED','DISCONNECTED','LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status)){budget.failures++;budget.nextAt=now()+Math.min(240000,60000*2**Math.min(budget.failures-1,2))*(.9+.2*random());}
+  return result||{status:'UNAVAILABLE'};
+ }
  async function tick(){
   if(stopped||busy)return;busy=true;
   try{
-   const team=await connection.teamCommand({action:'READ'});if(stopped)return;
-   if(!team.ok){if(team.code==='TEAM_AUTH_REQUIRED')identity(null);else if(team.code!=='TEAM_BUSY')onStatus('연결 재시도 중');return;}
-   identity(team.value);const token=epoch;
+   if(now()-lastTeamAt>=15000){
+    if(now()<nextTeamAt){onStatus('연결 재시도 대기');return;}
+    const requestedEpoch=epoch,requestedUser=user,team=await connection.teamCommand({action:'READ'});
+    // Main delivers the first authenticated identity before its READ resolves.
+    // Accept that one initialization, but reject resets/account replacements.
+    if(stopped||requestedEpoch!==epoch&&!(requestedUser===null&&epoch===requestedEpoch+1&&team.ok&&user===team.value.me))return;
+    if(!team.ok){if(team.code==='TEAM_AUTH_REQUIRED')identity(null);else if(team.code!=='TEAM_BUSY'){teamFailures++;nextTeamAt=now()+Math.min(120000,15000*2**Math.min(teamFailures-1,3))*(.9+.2*random());onStatus('연결 재시도 중');}return;}
+    identity(team.value);
+   }
+   const token=epoch;
    if(now()-lastRead>=60000){
     lastRead=now();
-    const orders=await connection.readBackgroundOrders();if(stopped||token!==epoch)return;
-    const cs=await connection.readCs();if(stopped||token!==epoch)return;
-    const calendar=await connection.readTodayCalendar();if(stopped||token!==epoch)return;
+    const orders=await readSource('orders',()=>connection.readBackgroundOrders(),token);if(stopped||token!==epoch)return;
+    const cs=await readSource('cs',()=>connection.readCs(),token);if(stopped||token!==epoch)return;
+    const calendar=await readSource('calendar',()=>connection.readTodayCalendar(),token);if(stopped||token!==epoch)return;
     if(orders.status==='READY')rows('order',orders.items);
     if(cs.status==='READY')rows('cs',cs.items.filter(r=>r.kind==='INQUIRY').map(r=>({id:r.id,at:r.occurredAt})));
     if(calendar.status==='READY')for(const e of calendar.entries){if(e.status!=='OPEN'||e.type==='MEMO')continue;const at=Date.parse(calendar.date+'T'+(e.time||'09:00')+':00+09:00');if(now()>=at-10*60000&&now()<=at+60*60000)notify('calendar:'+e.id+':'+calendar.date+':'+e.time,e.time?'일정이 곧 시작돼요':'오늘의 일정',e.title,'calendar');}
@@ -77,7 +96,7 @@ function createBackgroundMonitor({connection,Notification,getWindow,directory,on
    onStatus(readFailed||collectionFailed||csFailed?'일부 연결 확인 필요':enabled?'백그라운드 확인 중':'알림 꺼짐 · 수집 중');
   }catch{onStatus('연결 재시도 중');}finally{busy=false;}
  }
- function plan(){timer=setTimer(async()=>{await tick();if(!stopped)plan();},15000);timer?.unref?.();}
+ function plan(){const deadline=nextTeamAt>now()?nextTeamAt:lastTeamAt+15000;const delay=Math.max(1000,Math.min(15000,deadline-now()));timer=setTimer(async()=>{await tick();if(!stopped)plan();},delay);timer?.unref?.();}
  return {identity,tick,start(){if(started||stopped)return;started=true;plan();},stop(){stopped=true;clearTimer(timer);reset();},reset,notify};
 }
 module.exports={createBackgroundMonitor};

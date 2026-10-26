@@ -26,7 +26,7 @@ const profile=fs.mkdtempSync('D:/GPT/Temp/shipping-feed-ui-'),id='HR-C24-AAAAAAA
    assert.equal(await page.evaluate(()=>window.moaonShippingProgress.snapshot()[0].source),'SERVER');
    await page.evaluate(id=>{selectedOrderIds.add(id);orderSearch.value='복원';renderOrders();renderSelection();},id);
    const before=await page.evaluate(()=>({ids:[...selectedOrderIds],query:orderSearch.value,changed:window.moaonShippingProgress.snapshot()[0].changedAt}));
-   await badge.locator('summary').click();assert.match(await badge.textContent(),pass?/서버의 쇼핑몰 등록 성공 기록/:/최근 서버 조회/);
+   await badge.locator('.shipping-progress-badge').click();assert.match(await badge.textContent(),pass?/서버의 쇼핑몰 등록 성공 기록/:/최근 서버 조회/);
    if(!pass){
     await app.evaluate(()=>globalThis.feedMode='TIMEOUT');await page.evaluate(()=>window.moaonShippingProgress.poll());
     assert.equal(await badge.getAttribute('data-progress-state'),'RUNNING');assert.equal(await badge.getAttribute('data-tone'),'attention');
