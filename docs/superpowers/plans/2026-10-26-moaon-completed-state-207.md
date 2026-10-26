@@ -65,7 +65,11 @@ request, API-key change or notification was performed for this check.
 - Installer114463577 bytes; SHA256
   77f61579501e6e1fb558238429858ffa6418217116949d23794c68c889887cb6.
   Windows Authenticode remains NotSigned; pinned Ed25519 updates remain required.
-- Public release/download verification is recorded after publication.
+- Published moaon-stable0.207.0 and fully re-downloaded the public installer.
+  public-receipt.json confirms the pinned Ed25519 manifest, metadata, byte count
+  and installer SHA512 all passed. No existing user's running app was forcibly
+  terminated; it was still0.206.0 at the final process check and needs update/
+  complete tray quit and relaunch for the presentation fix.
 
 Overall performance roadmap remains3/6 complete with3 stages remaining. This
 targeted correction does not complete stage4 changed-row rendering/view retention.
