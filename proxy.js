@@ -36,6 +36,22 @@ function apiDenied(status, error, code) {
   });
 }
 
+async function checkedSession(token, options = {}) {
+  const controller = new AbortController();
+  let timer;
+  try {
+    return await Promise.race([
+      authModule.validateSession(token, { ...options, signal: controller.signal }),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new Error('SESSION_CHECK_UNAVAILABLE'));
+        }, 8000);
+      }),
+    ]);
+  } finally { clearTimeout(timer); }
+}
+
 export async function proxy(request) {
   const pathname = request.nextUrl.pathname;
   const token = request.cookies.get(authModule.COOKIE_NAME)?.value;
@@ -43,7 +59,7 @@ export async function proxy(request) {
 
   if (isPublic(pathname)) {
     if (pathname === '/login' && (token || developmentBypass)) {
-      const session = await authModule.validateSession(token).catch(()=>null);
+      const session = await checkedSession(token).catch(()=>null);
       if (session) return NextResponse.redirect(new URL('/', request.url));
     }
     return NextResponse.next();
@@ -51,7 +67,7 @@ export async function proxy(request) {
 
   let session=null;
   if(token||developmentBypass){
-    try{session=await authModule.validateSession(token,{touch:true});}
+    try{session=await checkedSession(token,{touch:true});}
     catch{
       // Storage availability is not an authentication decision. Do not clear
       // the cookie, redirect to login, or forward protected identity on failure.

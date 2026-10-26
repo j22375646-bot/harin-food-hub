@@ -1,10 +1,18 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {NextRequest,NextResponse}=require('next/server');
-function handler(validateSession){
+function handler(validateSession, timers={setTimeout,clearTimeout}){
  const source=fs.readFileSync(path.join(__dirname,'../proxy.js'),'utf8').replace(/^import .*;\r?\n/gm,'').replace('export async function proxy','async function proxy').replace('export const config','const config');
- return new Function('NextResponse','authModule','hubRoutesModule',source+'\nreturn proxy;')(NextResponse,{COOKIE_NAME:'harin_dashboard_session',developmentAuthBypassEnabled:()=>false,validateSession},{canonicalLegacyHubHref:()=>null});
+ return new Function('NextResponse','authModule','hubRoutesModule','setTimeout','clearTimeout',source+'\nreturn proxy;')(NextResponse,{COOKIE_NAME:'harin_dashboard_session',developmentAuthBypassEnabled:()=>false,validateSession},{canonicalLegacyHubHref:()=>null},timers.setTimeout,timers.clearTimeout);
 }
+
+test('a stalled provider is aborted at eight seconds without accepting a late identity',async()=>{
+ let signal,finish,deadline,cleared=false;
+ const proxy=handler(async(_token,options)=>{signal=options.signal;return new Promise(resolve=>{finish=resolve;});},{setTimeout:(callback,ms)=>{deadline=ms;queueMicrotask(callback);return 1;},clearTimeout:()=>{cleared=true;}});
+ const response=await proxy(new NextRequest('https://hub.example/api/moaon/team',{headers:{cookie:'harin_dashboard_session=opaque-test-session'}}));
+ assert.equal(deadline,8000);assert.equal(signal.aborted,true);assert.equal(cleared,true);assert.equal(response.status,503);assert.equal(response.headers.get('set-cookie'),null);assert.equal(response.headers.get('x-middleware-next'),null);
+ finish({userId:'late-identity',role:'OWNER'});await Promise.resolve();assert.equal(response.status,503);
+});
 test('session storage failure returns unavailable, never a false logout or forwarded identity',async()=>{
  const proxy=handler(async()=>{throw Object.assign(Error('private-provider-detail'),{code:'PGRST002'});});
  for(const url of ['https://hub.example/api/moaon/team','https://hub.example/orders']){
