@@ -961,6 +961,19 @@ function renderServerFilterControls(){
   document.querySelector('#order-tools-reset').disabled=busy||!(live||isSampleMode());
 }
 
+function decorateOrderEmpty(filtered){
+ if(orderEmpty.hidden||displayMode==='connecting')return;
+ const unavailable=!isSampleMode()&&(displayMode!=='live'||orderReadUnverified);
+ const scope=({ACTIVE:'송장 발급 전',REGISTER:'배송대기중',IN_TRANSIT:'배송중',COMPLETED:'완료·취소'})[selectedScope]||'주문';
+ orderEmpty.dataset.emptyState=unavailable?'unavailable':filtered?'filtered':'empty';
+ const art=makeElement('span','order-empty-art');art.setAttribute('aria-hidden','true');
+ const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','1.5');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');
+ const path=document.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('d',unavailable?'M12 8v5m0 3h.01M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18':filtered?'M21 21l-5-5M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14':'M4 8l8-4 8 4v9l-8 4-8-4V8Zm0 0 8 4 8-4M12 12v9M8 6l8 4');svg.append(path);art.append(svg);
+ const heading=makeElement('h3','',unavailable?'주문 정보를 확인해 주세요':filtered?'조건에 맞는 주문이 없어요':'현재 페이지에 표시할 주문이 없어요');
+ const copy=makeElement('p','',unavailable?'연결 상태를 확인한 뒤 주문 목록을 다시 조회해 주세요.':filtered?'검색어나 필터를 바꾸면 다른 주문을 확인할 수 있어요.':'새 주문을 불러오거나 다른 주문 탭을 확인해 보세요.');
+ orderEmpty.replaceChildren(art,makeElement('span','order-empty-scope',scope+' · 현재 페이지'),heading,copy);
+ if(filtered&&!unavailable){const reset=makeElement('button','secondary-action','검색·필터 초기화');reset.type='button';reset.addEventListener('click',()=>document.querySelector('#order-tools-reset').click());orderEmpty.append(reset);}
+}
 function renderOrders() {
   renderGlobalSearch();
   const query = orderSearch.value.trim().toLocaleLowerCase('ko-KR');
@@ -1014,6 +1027,7 @@ function renderOrders() {
     resultCount.textContent = displayMode === 'connecting' ? '연결 확인 중 · 주문 목록 비움' : '표시 중인 실제 주문 없음';
     orderEmpty.textContent = displayMode === 'connecting' ? '하린식품 연결 상태를 확인하고 있습니다.' : '연결 상태를 확인하거나 샘플 화면으로 돌아가세요.';
   }
+  decorateOrderEmpty(Boolean(query||reviewFilter!=='ALL'||channel!=='ALL'||serverFilters.query||serverFilters.start||serverFilters.end||serverFilters.delayOnly||serverFilters.giftOnly));
   if (selectedOrderId && !visibleOrders.some((order) => orderId(order) === selectedOrderId)) closeOrderDetail();
   else if (selectedOrderId) {
     selectedOrderButton = [...orderList.querySelectorAll('.order-row')].find((button) => button.dataset.orderId === selectedOrderId) || null;

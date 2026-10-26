@@ -484,6 +484,15 @@ body:has(.preview-shell[hidden]) .login-window-drag{color:var(--ink);gap:9px;lin
 #order-empty.is-loading{display:flex;align-items:center;justify-content:center;gap:12px;min-height:180px;background:linear-gradient(110deg,var(--surface-soft),var(--surface),var(--surface-soft));background-size:200% 100%;animation:order-loading-glow 2.4s ease-in-out infinite}
 #order-empty.is-loading::before{content:"";width:20px;height:20px;flex:none;border:2px solid var(--line-strong);border-top-color:var(--blue);border-radius:50%;animation:order-loading-spin .9s linear infinite}
 #order-empty.is-loading[hidden]{display:none}
+#order-empty:not(.is-loading){display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:220px;box-sizing:border-box;margin:16px 18px;padding:28px 20px;border:1px dashed var(--line-strong);border-radius:16px;background:color-mix(in srgb,var(--blue) 3%,var(--surface));text-align:center}
+#order-empty[hidden]{display:none}
+#order-empty .order-empty-art{display:grid;place-items:center;width:64px;height:64px;margin-bottom:2px;border-radius:20px;background:var(--blue-soft);color:var(--blue)}
+#order-empty .order-empty-art svg{width:34px;height:34px}
+#order-empty .order-empty-scope{font-size:11px;font-weight:600;color:var(--blue);letter-spacing:.02em}
+#order-empty h3{margin:0;color:var(--ink);font-size:17px;line-height:1.5;font-weight:650}
+#order-empty p{max-width:360px;margin:0;color:var(--muted);font-size:13px;line-height:1.65;overflow-wrap:anywhere}
+#order-empty button{margin-top:6px;min-height:36px;padding:7px 12px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--blue);font:inherit;font-size:12px;cursor:pointer}
+#order-empty[data-empty-state=unavailable] .order-empty-art{background:var(--amber-soft);color:var(--amber)}
 #order-freshness[data-status="CHECKING"]{opacity:.8}
 @keyframes order-loading-spin{to{transform:rotate(360deg)}}
 @keyframes order-loading-glow{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
