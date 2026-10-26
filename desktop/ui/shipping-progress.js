@@ -41,9 +41,12 @@
   heading.append(dot,el('span','shipping-progress-label'),el('span','shipping-progress-chevron'));
   const body=el('div','shipping-progress-detail');body.popover='auto';body.setAttribute('role','region');body.setAttribute('aria-label','송장 진행 상세');
   body.id='shipping-popover-'+order.hubOrderId;heading.setAttribute('aria-controls',body.id);
+  heading.popoverTargetElement=body;heading.popoverTargetAction='toggle';
   function position(){const r=heading.getBoundingClientRect(),gap=8,pad=12;body.dataset.anchorTop=String(r.top);body.dataset.anchorLeft=String(r.left);body.style.width=Math.min(460,innerWidth-pad*2)+'px';const h=body.getBoundingClientRect().height;body.style.left=Math.max(pad,Math.min(r.left,innerWidth-body.offsetWidth-pad))+'px';body.style.top=Math.max(pad,r.bottom+gap+h<=innerHeight-pad?r.bottom+gap:r.top-h-gap)+'px';}
-  heading.addEventListener('click',event=>{event.stopPropagation();if(body.matches(':popover-open'))body.hidePopover();else{body.showPopover();position();}});
-  body.addEventListener('toggle',()=>heading.setAttribute('aria-expanded',String(body.matches(':popover-open'))));
+  // A native invoker keeps light-dismiss from closing on pointerdown and our
+  // click reopening it. Mouse and keyboard now use the same browser toggle.
+  heading.addEventListener('click',event=>event.stopPropagation());
+  body.addEventListener('toggle',()=>{const opened=body.matches(':popover-open');heading.setAttribute('aria-expanded',String(opened));if(opened)position();});
   body.addEventListener('click',event=>event.stopPropagation());
   const open=el('button','secondary-action','주문 상세 확인');open.type='button';
   open.addEventListener('click',event=>{event.stopPropagation();onOpen();});
