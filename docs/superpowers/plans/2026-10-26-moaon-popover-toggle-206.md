@@ -19,7 +19,19 @@ Verification:
 - Relevant progress state/transport/contract/connection tests:22 passed.
 - Build and release evidence: D:\GPT\Temp\moaon-popover-toggle-206.
 - Build directory: desktop/dist/distribution-20261026-183452-904.
-- Installed-payload and public-download acceptance are recorded after completion.
+- Installed0.206.0 payload on the right secondary monitor passed the same complete
+  toggle regression with synthetic replies:three close/reopen rounds, keyboard,
+  switching badge, outside/Escape dismissal, six states and two themes. Package
+  comparison passed165 files; SHA256
+  5d6b0568dc15454900a818290033eab7f3635eb6ee73625c1c2cd5d571dc6577.
+- Mixed20-order/two-process integration passed, including partial data retention,
+  session expiry clearing and late-response discard at1060/1440 widths/both themes.
+- Public moaon-stable0.206.0 was published and the114462861-byte installer fully
+  downloaded again. Pinned Ed25519 manifest, metadata and installer digest passed.
+  Installer SHA25603e76dec2c45464c7d2e5b443cf1c721a469875cefdf67afc153a4db49435dbf.
+  Windows Authenticode remains NotSigned, independently of update verification.
+- The running user's app was not forcibly terminated. Complete tray quit/relaunch
+  or applying the update is required for an older running process.
 
 Overall performance roadmap is unchanged:3/6 completed,3 stages remain. This is
 a focused UI correction; stage4 changed-row rendering and preserved view is next.
