@@ -504,6 +504,13 @@ body:has(.preview-shell[hidden]) .login-window-drag{color:var(--ink);gap:9px;lin
 :where(dialog) button:focus-visible,#order-selection button:focus-visible,.shipping-job-notice button:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
 :where(dialog) button:disabled,.shipping-job-notice button:disabled{opacity:.55;cursor:default}
 .shipping-job-notice .shipping-notice-close{flex:0 0 40px;width:40px;padding:0;font-size:24px;line-height:1}
+#registration-results.document-notice #document-notice-close{display:grid;place-items:center;position:absolute;top:50%;right:10px;transform:translateY(-50%);width:32px;height:32px;min-width:32px;min-height:32px;margin:0;padding:0;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--muted);font-size:0;line-height:1;box-shadow:none;transition:background-color .14s,color .14s}
+#registration-results.document-notice #document-notice-close::before,#registration-results.document-notice #document-notice-close::after{content:'';position:absolute;left:50%;top:50%;width:13px;height:1.5px;border-radius:2px;background:currentColor;pointer-events:none}
+#registration-results.document-notice #document-notice-close::before{transform:translate(-50%,-50%) rotate(45deg)}
+#registration-results.document-notice #document-notice-close::after{transform:translate(-50%,-50%) rotate(-45deg)}
+#registration-results.document-notice #document-notice-close:hover:not(:disabled){background:var(--blue-soft);color:var(--ink);border-color:transparent;box-shadow:none}
+#registration-results.document-notice #document-notice-close:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+#registration-results.document-notice #document-notice-close:disabled{opacity:.4;cursor:default}
 #order-selection .selection-reason-toggle{min-height:32px;padding:4px 10px}
 @media(prefers-reduced-motion:reduce){:where(dialog) button,#order-selection button,.shipping-job-notice button{transition:none}}
 
