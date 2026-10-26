@@ -32,7 +32,14 @@
   if(row.status==='RUNNING')return 'active';
   return 'waiting';
  }
- function mount(order,container,onOpen,onContinue){
+ function recovery(row,hasInvoice,canIssue){
+  if(!row||row.status==='REGISTERED'||row.syncError||row.registrationUnbound||['WAITING','WAIT_USER'].includes(row.status)||row.status==='RUNNING'&&!row.stalled)return null;
+  if(hasInvoice&&row.phase==='REGISTER')return {mode:'CONTINUE',text:row.status==='FAILED'?'등록 다시 시도':'등록 이어가기',title:'기존 송장번호와 서버 요청을 다시 확인하고 같은 번호로 등록을 이어갑니다.'};
+  if(!hasInvoice&&canIssue&&['NOT_STARTED','CANCELLED'].includes(row.status))return {mode:'ISSUE',text:'발급 다시 시도',title:'최신 주문과 기존 발급 요청을 확인한 뒤 최종 승인창을 표시합니다. 기존 요청은 중복 발급하지 않습니다.'};
+  if(['ISSUE','PREPARE','CHECK','CONFIRM','QUEUE'].includes(row.phase))return {mode:'CONTINUE',text:'발급 결과 확인·이어가기',title:'기존 발급 요청만 확인합니다. 결과 불명 또는 이미 발급된 송장을 새로 발급하지 않습니다.'};
+  return null;
+ }
+ function mount(order,container,onOpen,onContinue,onIssue){
   const invoice=order.details?.invoice,number=/^\d{13}$/.test(invoice?.number||'')?invoice.number:null;
   const observedInvoice=invoiceKeys.get(order.hubOrderId);
   let previous=rows.get(order.hubOrderId);
@@ -44,6 +51,7 @@
   }
   const details=el('div','order-shipping-progress');details.dataset.orderId=order.hubOrderId;if(['CAFE24','COUPANG'].includes(order.platform)&&!lookups.has(order.hubOrderId))lookups.set(order.hubOrderId,'LOADING');
   details.dataset.canContinue=String(typeof onContinue==='function');
+  details.dataset.canIssue=String(typeof onIssue==='function'&&order.issueAndRegisterEligible===true&&!number);
   details.dataset.storedInvoice=/^\d{13}$/.test(order.details?.invoice?.number||'')?'yes':'unknown';
   const heading=el('button','shipping-progress-badge');heading.type='button';heading.setAttribute('aria-expanded','false');
   const dot=el('i');dot.setAttribute('aria-hidden','true');
@@ -65,7 +73,16 @@
   check.addEventListener('click',async event=>{event.stopPropagation();if(check.disabled)return;check.disabled=true;check.textContent='상태 확인 중…';try{await recheck(order.hubOrderId);}finally{check.disabled=false;check.textContent='상태 다시 확인';}});
   const resume=el('button','secondary-action shipping-progress-continue','기존 작업 확인·이어가기');resume.type='button';resume.hidden=typeof onContinue!=='function';resume.title='기존 요청을 확인합니다. 새 송장은 발급하지 않습니다.';
   resume.addEventListener('click',event=>{event.stopPropagation();if(!resume.disabled&&typeof onContinue==='function')onContinue();});
-  const actions=el('div','shipping-progress-actions');actions.append(check,open,resume);
+  const retry=el('button','secondary-action shipping-progress-retry-action');retry.type='button';retry.hidden=true;
+  retry.addEventListener('click',async event=>{
+   event.stopPropagation();if(retry.disabled||retry.hidden)return;
+   const action=recovery(rows.get(order.hubOrderId),invoiceKeys.has(order.hubOrderId)||rows.get(order.hubOrderId)?.invoicePresent===true,details.dataset.canIssue==='true');
+   if(!action||active&&batchIds.has(order.hubOrderId))return;
+   const run=action.mode==='ISSUE'?onIssue:onContinue;if(typeof run!=='function')return;
+   details.dataset.recoveryBusy='true';retry.disabled=true;retry.textContent='기존 요청 확인 중…';
+   try{await run();}finally{delete details.dataset.recoveryBusy;paint(details);}
+  });
+  const actions=el('div','shipping-progress-actions');actions.append(check,open,resume,retry);
   const recheckNote=el('p','shipping-progress-recheck-note');recheckNote.hidden=true;
   body.append(el('p','shipping-progress-reason'),recheckNote,el('small','shipping-progress-time'),facts,el('p','shipping-progress-next'),actions);
   details.append(heading,body);container.append(details);paint(details);return details;
@@ -78,7 +95,7 @@
    const heading=details.querySelector('.shipping-progress-badge'),label=loading?'송장 상태 확인 중…':'송장 진행 기록 확인 필요';heading.disabled=loading;heading.setAttribute('aria-label',label);details.querySelector('.shipping-progress-label').textContent=label;
    details.querySelector('.shipping-progress-reason').textContent=loading?'서버의 송장 진행 기록을 조회하고 있습니다.':'진행 기록을 확인하지 못했습니다. 저장된 송장번호와 주문 상태를 유지하며 다시 확인하세요.';
    details.querySelector('.shipping-progress-recheck-note').hidden=true;
-   details.querySelector('.shipping-progress-time').textContent='';details.querySelectorAll('.shipping-progress-facts dd').forEach(n=>n.textContent='확인 필요');details.querySelector('.shipping-progress-next').textContent='새 송장을 발급하지 않고 기존 기록만 다시 조회합니다.';details.querySelector('.shipping-progress-continue').hidden=true;
+   details.querySelector('.shipping-progress-time').textContent='';details.querySelectorAll('.shipping-progress-facts dd').forEach(n=>n.textContent='확인 필요');details.querySelector('.shipping-progress-next').textContent='새 송장을 발급하지 않고 기존 기록만 다시 조회합니다.';details.querySelector('.shipping-progress-continue').hidden=true;details.querySelector('.shipping-progress-retry-action').hidden=true;
    return;
   }
   details.setAttribute('aria-busy','false');details.querySelector('.shipping-progress-badge').disabled=false;details.querySelector('.shipping-progress-continue').hidden=details.dataset.canContinue!=='true';
@@ -88,6 +105,9 @@
   details.querySelector('.shipping-progress-reason').textContent=reason(row);
   const recheckNote=details.querySelector('.shipping-progress-recheck-note');recheckNote.hidden=!(row.status==='REGISTERED'&&row.syncError);recheckNote.textContent=row.syncCode==='TIMEOUT'?'최신 상태 조회 시간이 초과됐습니다. 등록 완료 기록은 유지합니다.':'최신 진행 기록을 다시 확인하지 못했습니다. 등록 완료 기록은 유지합니다.';
   const resume=details.querySelector('.shipping-progress-continue');if(resume){resume.disabled=active&&batchIds.has(row.id);resume.textContent=row.status==='REGISTERED'?'등록 결과 확인':'기존 작업 확인·이어가기';}
+  const retry=details.querySelector('.shipping-progress-retry-action'),action=recovery(row,invoiceKeys.has(row.id)||row.invoicePresent===true,details.dataset.canIssue==='true');
+  retry.hidden=!action||details.dataset.canContinue!=='true';retry.disabled=!!details.dataset.recoveryBusy||active&&batchIds.has(row.id);
+  if(action){retry.textContent=details.dataset.recoveryBusy?'기존 요청 확인 중…':action.text;retry.title=action.title;}
   writeTime(details,row);
  }
  function reason(row){

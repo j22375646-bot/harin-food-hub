@@ -861,7 +861,7 @@ function createOrderRow(order) {
   if(!isSampleMode()){
     const rail=makeElement('div','order-status-rail');
     const timing=primary.querySelector('.shipping-timing-badge');if(timing)rail.append(timing);
-    window.moaonShippingProgress?.mount(order,rail,()=>showOrderDetail(order,button,{preserveFocus:true}),()=>void runAutomaticShipping([orderId(order)],true));
+    window.moaonShippingProgress?.mount(order,rail,()=>showOrderDetail(order,button,{preserveFocus:true}),()=>runAutomaticShipping([orderId(order)],true),()=>runAutomaticShipping([orderId(order)]));
     row.append(rail);
   }
   return row;
