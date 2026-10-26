@@ -32,11 +32,13 @@ export const runtime='nodejs';
 export const dynamic='force-dynamic';
 export async function GET(request){
   if(!apiSafety.isAuthorized(request,authModule))return apiSafety.unauthorized();
+  const started=Date.now();
   try{
     const params=new URL(request.url).searchParams;
     const options=readOptions(params);
     const db=supabaseModule.getSupabase();
     const {center,eventResult}=await orderReadModel.loadOrderReadModel(db);
+    const dataMs=Date.now()-started;
     if(eventResult.error)throw eventResult.error;
     const failedChannels=(center.channels||[]).filter(channel=>channel.status==='FAILED');
     // Stored-row access is not evidence of upstream authentication/readiness.
@@ -53,7 +55,8 @@ export async function GET(request){
     const page=await cafe24Receiver.hydratePage(adapter.buildOrderPage(center.orders,events,options));
     const summary=adapter.buildPhase28OrdersModel({unifiedOrders:center,calendarEntries:eventResult.data,generatedAt:new Date().toISOString()});
     const overviewPages=Object.fromEntries(['ACTIVE','REGISTER','IN_TRANSIT','COMPLETED'].map(stage=>[stage,{ok:true,...adapter.buildOrderPage(center.orders,events,{stage,platform:'ALL'}),partial:failedChannels.length>0}]));
-    return apiSafety.json({ok:true,...page,overviewPages,searchContractVersion:1,appliedSearch:{query:options.query,start:options.start,end:options.end},orderReadStates,partial:failedChannels.length>0,warning:failedChannels.length?`${failedChannels.map(channel=>channel.platform).join(', ')} 주문 불러오기 실패 · 정상 채널의 주문은 계속 확인할 수 있습니다.`:null,workspaces:summary.workspaces,hero:summary.hero},{headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+    console.info('MOAON_ORDER_PAGE_READ '+JSON.stringify({dataMs,totalMs:Date.now()-started,scope:page.stage||options.stage,rows:page.orders.length,total:page.total,partial:failedChannels.length>0}));
+    return apiSafety.json({ok:true,...page,overviewPages,searchContractVersion:1,appliedSearch:{query:options.query,start:options.start,end:options.end},orderReadStates,partial:failedChannels.length>0,warning:failedChannels.length?`${failedChannels.map(channel=>channel.platform).join(', ')} 주문 불러오기 실패 · 정상 채널의 주문은 계속 확인할 수 있습니다.`:null,workspaces:summary.workspaces,hero:summary.hero},{headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff','Server-Timing':`order-data;dur=${dataMs}, order-page;dur=${Date.now()-started}`}});
   }catch(error){
     return apiSafety.json({ok:false,code:error.code,error:error.status===409?error.message:'주문 목록을 불러오지 못했습니다.'},{status:error.status||502,headers:{'Cache-Control':'no-store'}});
   }
