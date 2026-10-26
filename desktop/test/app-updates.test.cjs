@@ -17,13 +17,39 @@ test('work already in flight and child dialogs prevent restart; queued new work 
  const f=fixture();await f.updates.check();await f.updates.download();let release;
  const handlers=new Map(),work=guardWorkIpc({handle:(name,fn)=>handlers.set(name,fn)},f.gate);
  work.handle('credential-save',()=>new Promise(resolve=>release=resolve));const pending=handlers.get('credential-save')();
- assert.equal(f.updates.restart().blocked,true);assert.equal(f.counts().installs,0);release();await pending;
- f.setBusy(true);assert.equal(f.updates.restart().blocked,true);f.setBusy(false);assert.equal(f.updates.restart().status,'INSTALLING');
+ assert.equal(f.updates.restart().status,'WAITING');assert.equal(f.counts().installs,0);
+ await assert.rejects(handlers.get('credential-save')(),/UPDATE_RESTART_PENDING/);
+ f.setBusy(true);release();await pending;await Promise.resolve();assert.equal(f.updates.read().blocker,'WINDOW');
+ f.setBusy(false);assert.equal(f.updates.restart().status,'INSTALLING');
  await assert.rejects(handlers.get('credential-save')(),/UPDATE_RESTART_PENDING/);
 });
 test('same or older release is current, malformed release and wrong downloaded version never install',async()=>{
  for(const version of ['0.52.1','0.52.0','garbage']){const f=fixture();f.backend.checkForUpdates=async()=>({updateInfo:{version}});assert.equal((await f.updates.check()).status,version==='garbage'?'ERROR':'CURRENT');assert.notEqual(f.updates.restart().status,'INSTALLING');}
  const f=fixture();await f.updates.check();f.backend.downloadUpdate=async()=>f.backend.emit('update-downloaded',{version:'0.54.0'});assert.equal((await f.updates.download()).status,'ERROR');assert.equal(f.counts().installs,0);
+});
+
+test('one restart click drains existing work, rejects new polling and installs exactly once',async()=>{
+ const f=fixture();await f.updates.check();await f.updates.download();let release;
+ const pending=f.gate.run(()=>new Promise(resolve=>release=resolve));
+ assert.equal(f.updates.restart().status,'WAITING');assert.equal(f.updates.restart().status,'WAITING');
+ await assert.rejects(f.gate.run(()=>{}),/UPDATE_RESTART_PENDING/);
+ release();await pending;await Promise.resolve();assert.equal(f.updates.read().status,'INSTALLING');
+ f.install();assert.equal(f.counts().installs,1);
+});
+
+test('drain timeout preserves active work, resumes the gate and cannot install a late completion',async()=>{
+ const backend=new EventEmitter();backend.checkForUpdates=async()=>({updateInfo:{version:'0.53.0'}});backend.downloadUpdate=async()=>{backend.emit('update-downloaded',{version:'0.53.0'});};let installs=0,timeout;
+ backend.quitAndInstall=()=>installs++;const gate=createUpdateGate();
+ const updates=createAppUpdates({updater:backend,currentVersion:'0.52.1',gate,setTimer:fn=>{timeout=fn;return 1;},clearTimer:()=>{},schedule:fn=>fn()});
+ await updates.check();await updates.download();let release;const pending=gate.run(()=>new Promise(resolve=>release=resolve));updates.restart();timeout();
+ assert.equal(updates.read().status,'READY');assert.equal(updates.read().blocker,'WORK_TIMEOUT');await gate.run(()=>{});
+ release();await pending;await Promise.resolve();assert.equal(installs,0);updates.dispose();
+});
+
+test('disposing while waiting does not run a late installer',async()=>{
+ const f=fixture();await f.updates.check();await f.updates.download();let release;const pending=f.gate.run(()=>new Promise(resolve=>release=resolve));
+ f.updates.restart();f.updates.dispose();release();await pending;await Promise.resolve();assert.equal(f.counts().installs,0);
+ await f.gate.run(()=>{});
 });
 test('duplicate requests, private failures, late events and failed installer never enable unsafe restart',async()=>{
  const f=fixture();let release;f.backend.checkForUpdates=()=>new Promise(resolve=>release=resolve);const check=f.updates.check();await f.updates.check();release({updateInfo:{version:'0.53.0'}});await check;

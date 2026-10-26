@@ -22,17 +22,23 @@ function createConfiguredUpdater({app,config,resourcesPath=process.resourcesPath
   return updater;
  }catch{return null;}
 }
-function createAppUpdates({updater=null,currentVersion,gate,isBusy=()=>false,schedule=setImmediate}={}){
+function createAppUpdates({updater=null,currentVersion,gate,isBusy=()=>false,schedule=setImmediate,setTimer=setTimeout,clearTimer=clearTimeout,drainTimeout=60000}={}){
  let state={status:updater?'IDLE':'SETUP_REQUIRED',version:null,percent:null,blocked:false},disposed=false;
  const read=()=>Object.freeze({...state});
- const set=(status,fields={})=>{state={...state,status,blocked:false,...fields};return read();};
- const fail=()=>{gate.resume();return set('ERROR',{version:null,percent:null});};
+ const set=(status,fields={})=>{state={...state,status,blocked:false,blocker:null,...fields};return read();};
+ let drainTimer,restartEpoch=0;
+ const fail=()=>{restartEpoch++;clearTimer(drainTimer);gate.resume();return set('ERROR',{version:null,percent:null});};
  const onError=()=>{if(!disposed)fail();};
  const onProgress=info=>{if(!disposed&&state.status==='DOWNLOADING'&&Number.isFinite(info?.percent))state.percent=Math.max(0,Math.min(100,Math.floor(info.percent)));};
  const onDownloaded=info=>{if(!disposed&&state.status==='DOWNLOADING'){if(info?.version!==state.version)fail();else set('READY',{percent:100});}};
  if(updater){updater.autoDownload=false;updater.autoInstallOnAppQuit=false;updater.allowDowngrade=false;updater.allowPrerelease=false;updater.on('error',onError);updater.on('download-progress',onProgress);updater.on('update-downloaded',onDownloaded);}
  let operation=null;
  function perform(work){if(operation)return operation;operation=work().finally(()=>{operation=null;});return operation;}
+ function install(){
+  set('INSTALLING');
+  schedule(()=>{if(disposed||state.status!=='INSTALLING'){gate.resume();return;}try{updater.quitAndInstall(true,true);}catch{fail();}});
+  return read();
+ }
  return Object.freeze({
   read,
   check(){
@@ -45,12 +51,22 @@ function createAppUpdates({updater=null,currentVersion,gate,isBusy=()=>false,sch
   },
   restart(){
    if(disposed||!updater||state.status!=='READY')return read();
-   try{if(isBusy()||!gate.pause()){state.blocked=true;return read();}}catch{state.blocked=true;return read();}
-   set('INSTALLING');
-   schedule(()=>{if(disposed||state.status!=='INSTALLING'){gate.resume();return;}try{updater.quitAndInstall(true,true);}catch{fail();}});
-   return read();
+   try{
+    if(isBusy())return set('READY',{blocked:true,blocker:'WINDOW'});
+    if(gate.pause())return install();
+    set('WAITING',{blocked:true,blocker:'WORK'});
+    const ticket=++restartEpoch;
+    const timer=setTimer(()=>{if(ticket===restartEpoch&&state.status==='WAITING'){gate.resume();set('READY',{blocked:true,blocker:'WORK_TIMEOUT'});}},drainTimeout);drainTimer=timer;
+    Promise.resolve(gate.pauseWhenIdle()).then(ready=>{
+     if(disposed||ticket!==restartEpoch||state.status!=='WAITING')return;clearTimer(timer);
+     if(!ready){gate.resume();set('READY',{blocked:true,blocker:'WORK_TIMEOUT'});return;}
+     if(isBusy()){gate.resume();set('READY',{blocked:true,blocker:'WINDOW'});return;}
+     install();
+    }).catch(()=>{if(!disposed&&ticket===restartEpoch){clearTimer(timer);fail();}});
+    return read();
+   }catch{gate.resume();return set('READY',{blocked:true,blocker:'WORK'});}
   },
-  dispose(){disposed=true;for(const [event,fn] of [['download-progress',onProgress],['update-downloaded',onDownloaded]])updater?.removeListener(event,fn);gate.resume();},
+  dispose(){disposed=true;restartEpoch++;clearTimer(drainTimer);for(const [event,fn] of [['download-progress',onProgress],['update-downloaded',onDownloaded]])updater?.removeListener(event,fn);gate.resume();},
  });
 }
 function startAutomaticUpdates({updates,setTimer=setTimeout,clearTimer=clearTimeout,initialDelay=3000,interval=6*60*60*1000,retryDelay=60000}){
@@ -59,7 +75,7 @@ function startAutomaticUpdates({updates,setTimer=setTimeout,clearTimer=clearTime
  plan(initialDelay);return ()=>{stopped=true;clearTimer(timer);};
 }
 function registerAppUpdates({ipcMain,getMainWindow,isTrustedRenderer,updates,onPromptVisibility=()=>{}}){
- ipcMain.handle('moaon-hub:update-prompt-visible',(event,...args)=>{if(args.length!==1||typeof args[0]!=='boolean'||!isTrustedRenderer(event,getMainWindow()))throw Error('INVALID_UPDATE_REQUEST');const visible=args[0]&&['AVAILABLE','DOWNLOADING','READY','ERROR'].includes(updates.read().status);onPromptVisibility(visible);return visible;});
+ ipcMain.handle('moaon-hub:update-prompt-visible',(event,...args)=>{if(args.length!==1||typeof args[0]!=='boolean'||!isTrustedRenderer(event,getMainWindow()))throw Error('INVALID_UPDATE_REQUEST');const visible=args[0]&&['AVAILABLE','DOWNLOADING','READY','WAITING','ERROR'].includes(updates.read().status);onPromptVisibility(visible);return visible;});
  for(const [channel,method] of [['update-state','read'],['update-check','check'],['update-download','download'],['update-restart','restart']]){
   ipcMain.handle(`moaon-hub:${channel}`,(event,...args)=>{if(args.length||!isTrustedRenderer(event,getMainWindow()))throw Error('INVALID_UPDATE_REQUEST');return updates[method]();});
  }
