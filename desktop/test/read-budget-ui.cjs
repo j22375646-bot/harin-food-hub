@@ -8,4 +8,3 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
   await app.evaluate(({BrowserWindow})=>{budgetFixture.members[0].name='복원 조회 검증';BrowserWindow.getAllWindows()[0].showInactive();});await page.evaluate(()=>moaonTeam.refresh());await page.waitForFunction(()=>document.querySelector('#team-today').textContent.includes('복원 조회 검증'));await page.screenshot({path:path.join(output,'restored.jpg')});const receipt={status:'PASS',scope:'isolated installed/source payload; all operating responses mocked; no real account or writes',concurrentReads:3,concurrentNetworkGets:1,steadyNetworkGets:hiddenAfter.team-hiddenBefore,collection:hiddenAfter,restored:true};fs.writeFileSync(path.join(output,'receipt.json'),JSON.stringify(receipt,null,2));console.log(JSON.stringify(receipt));
  }finally{clearTimeout(watchdog);await app.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
-
