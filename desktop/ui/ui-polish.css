@@ -406,6 +406,10 @@ html[data-theme] .orders-page :is([data-state=CANCELLED],[data-state=RETURNED],[
 
 /* P4-157: hover edges, channel contrast and collapsed navigation geometry. */
 .orders-page .order-row:hover{border:1px solid var(--blue);border-radius:10px;box-shadow:inset 0 0 0 1px var(--blue);transform:none}
+/* Reserve the same border width at rest and hover: no one-pixel row reflow. */
+.orders-page .order-item>.order-row{box-sizing:border-box;border:1px solid transparent;border-radius:10px;transform:none;transition:background-color 140ms}
+.orders-page .order-item>.order-row:hover{border:1px solid transparent;box-shadow:none;transform:none}
+.orders-page .order-item>.order-row[aria-pressed=true]{border-color:var(--blue)}
 html[data-theme] .channel-badge[data-channel=CAFE24]{background:#e8f0f7;color:#315872;border:1px solid #a8bdcc;border-radius:7px;padding:4px 8px}
 html[data-theme=dark] .channel-badge[data-channel=CAFE24]{background:#293e4f;color:#c0dcec;border-color:#617f93}
 .preview-shell.is-sidebar-collapsed .primary-nav .nav-button{display:grid!important;grid-template-columns:1fr;place-items:center!important;position:relative;padding:0!important;gap:0!important;min-height:48px}
@@ -496,7 +500,7 @@ body:has(.preview-shell[hidden]) .login-window-drag{color:var(--ink);gap:9px;lin
 
 /* The disclosure is a sibling of the order-selection button: no nested controls. */
 .orders-page .order-item:has(>.order-status-rail){position:relative;isolation:isolate}
-.orders-page .order-item:has(>.order-status-rail):hover::before{content:"";position:absolute;inset:1px 1px 1px 52px;z-index:-1;border:1px solid var(--line-strong);border-radius:10px;background:var(--surface-soft);pointer-events:none}
+.orders-page .order-item:has(>.order-status-rail):hover::before{content:"";position:absolute;inset:1px 1px 1px 52px;z-index:-1;border:1px solid transparent;border-radius:10px;background:var(--surface-soft);pointer-events:none}
 .orders-page .order-item:has(>.order-status-rail):hover>.order-row{background:transparent;border-color:transparent;box-shadow:none}
 .orders-page .order-item:has(>.order-status-rail):has(>.order-row[aria-pressed=true])::before{content:"";position:absolute;inset:1px 1px 1px 52px;z-index:-1;border:1px solid var(--blue);border-radius:10px;box-shadow:inset 0 0 0 1px var(--blue);background:var(--blue-soft);pointer-events:none}
 .orders-page .order-item:has(>.order-status-rail)>.order-row[aria-pressed=true]{background:transparent;border-color:transparent;box-shadow:none}
