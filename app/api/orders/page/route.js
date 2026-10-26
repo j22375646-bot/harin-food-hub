@@ -6,6 +6,7 @@ import adapter from '../../../../lib/ui/phase28-adapters/orders.js';
 import calendar from '../../../../lib/calendar/calendar-center.js';
 import orderEvents from '../../../../lib/calendar/order-events.js';
 import cafe24Receiver from '../../../../lib/cafe24/order-receiver.js';
+import orderReadModel from '../../../../lib/orders/order-read-model.js';
 
 const ALLOWED=new Set(['stage','platform','offset','snapshot','delayOnly','giftOnly','query','start','end','format']);
 const XLSX_MIME='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -35,7 +36,7 @@ export async function GET(request){
     const params=new URL(request.url).searchParams;
     const options=readOptions(params);
     const db=supabaseModule.getSupabase();
-    const [center,eventResult]=await Promise.all([unified.loadUnifiedOrders({db}),orderEvents.loadOrderEvents(db)]);
+    const {center,eventResult}=await orderReadModel.loadOrderReadModel(db);
     if(eventResult.error)throw eventResult.error;
     const failedChannels=(center.channels||[]).filter(channel=>channel.status==='FAILED');
     // Stored-row access is not evidence of upstream authentication/readiness.
@@ -51,7 +52,8 @@ export async function GET(request){
     if(options.format==='xlsx'){const proof=adapter.buildOrderPage(center.orders,events,{...options,offset:0,snapshot:null});return xlsxResponse(candidates,events,proof.snapshot);}
     const page=await cafe24Receiver.hydratePage(adapter.buildOrderPage(center.orders,events,options));
     const summary=adapter.buildPhase28OrdersModel({unifiedOrders:center,calendarEntries:eventResult.data,generatedAt:new Date().toISOString()});
-    return apiSafety.json({ok:true,...page,searchContractVersion:1,appliedSearch:{query:options.query,start:options.start,end:options.end},orderReadStates,partial:failedChannels.length>0,warning:failedChannels.length?`${failedChannels.map(channel=>channel.platform).join(', ')} 주문 불러오기 실패 · 정상 채널의 주문은 계속 확인할 수 있습니다.`:null,workspaces:summary.workspaces,hero:summary.hero},{headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
+    const overviewPages=Object.fromEntries(['ACTIVE','REGISTER','IN_TRANSIT','COMPLETED'].map(stage=>[stage,{ok:true,...adapter.buildOrderPage(center.orders,events,{stage,platform:'ALL'}),partial:failedChannels.length>0}]));
+    return apiSafety.json({ok:true,...page,overviewPages,searchContractVersion:1,appliedSearch:{query:options.query,start:options.start,end:options.end},orderReadStates,partial:failedChannels.length>0,warning:failedChannels.length?`${failedChannels.map(channel=>channel.platform).join(', ')} 주문 불러오기 실패 · 정상 채널의 주문은 계속 확인할 수 있습니다.`:null,workspaces:summary.workspaces,hero:summary.hero},{headers:{'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
   }catch(error){
     return apiSafety.json({ok:false,code:error.code,error:error.status===409?error.message:'주문 목록을 불러오지 못했습니다.'},{status:error.status||502,headers:{'Cache-Control':'no-store'}});
   }
