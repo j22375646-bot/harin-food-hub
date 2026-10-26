@@ -832,7 +832,7 @@ function createOrderRow(order) {
     status.classList.add('order-state');
     button.append(status);
     const invoice=order.details?.invoice;
-    if(invoice&&/^\d{13}$/.test(invoice.number||'')){const tag=makeElement('span','order-invoice',invoice.status==='REGISTERED'?'송장 등록 완료':'발급 완료 · 등록 필요');tag.append(makeElement('code','',invoice.number));primary.append(tag);}
+    if(invoice&&/^\d{13}$/.test(invoice.number||'')){const tag=makeElement('span','order-invoice',invoice.status==='REGISTERED'?'송장 등록 완료':'발급 완료 · 등록 필요');tag.dataset.state=invoice.status==='REGISTERED'?'REGISTERED':'ISSUED';tag.append(makeElement('code','',invoice.number));primary.append(tag);}
     const option=items[0]?.option;
 
     if(items.length>1){

@@ -88,7 +88,7 @@
   details.append(heading,body);container.append(details);paint(details);return details;
  }
  function paint(details){
-  const row=rows.get(details.dataset.orderId);details.hidden=!row;
+  const row=rows.get(details.dataset.orderId);details.hidden=!row;details.dataset.phase=row?.phase||'QUEUE';
   if(!row){
    const state=lookups.get(details.dataset.orderId),loading=state==='LOADING';details.hidden=!state||(state==='UNKNOWN'&&details.dataset.storedInvoice!=='yes');
    details.dataset.progressState=state||'';details.dataset.tone=loading?'waiting':'attention';details.setAttribute('aria-busy',String(loading));
