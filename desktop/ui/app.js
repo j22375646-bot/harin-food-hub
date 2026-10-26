@@ -1858,8 +1858,17 @@ const receiverReady=r=>Boolean(r?.name&&r?.address&&r?.contact&&/^\d{5}$/.test(r
 const deliveryPreparationKey=o=>JSON.stringify([orderId(o),o.orderedAt,o.details?.externalOrderId,o.details?.receiver]);
 function deliveryPreparationStatus(){
  let node=document.getElementById('delivery-prep-status');
- if(!node){node=makeElement('p','delivery-prep-status');node.id='delivery-prep-status';node.setAttribute('role','status');orderList.before(node);}
+ if(!node){node=makeElement('div','delivery-prep-status');node.id='delivery-prep-status';node.setAttribute('role','status');node.setAttribute('aria-live','polite');node.hidden=true;orderList.before(node);}
  return node;
+}
+function paintDeliveryPreparation(node,done,total,ready,finished=false){
+ const needs=finished?total-ready:0;node.hidden=selectedScope!=='ACTIVE';node.dataset.state=finished?(needs?'attention':'complete'):'loading';node.setAttribute('aria-busy',String(!finished));
+ const icon=makeElement('span','delivery-prep-icon',finished?(needs?'!':'✓'):'');icon.setAttribute('aria-hidden','true');
+ const copy=makeElement('span','delivery-prep-copy');copy.append(makeElement('strong','',finished?(needs?'배송정보 확인 필요':'배송정보 준비 완료'):'배송정보 준비 중'),makeElement('span','delivery-prep-caption',finished?(needs?'확인이 필요한 주문은 배송정보를 다시 준비해 주세요.':'송장 발급에 필요한 배송정보를 준비했어요.'):'주문을 확인하며 배송정보를 준비하고 있어요.'));
+ const metrics=makeElement('span','delivery-prep-metrics');metrics.append(makeElement('span','delivery-prep-count',finished?ready+' / '+total+'건':done+' / '+total+'건'));
+ if(needs)metrics.append(makeElement('span','delivery-prep-attention','확인 필요 '+needs+'건'));
+ const progress=makeElement('progress','delivery-prep-progress');progress.max=total;progress.value=done;progress.setAttribute('aria-label','배송정보 조회 진행률');
+ node.replaceChildren(icon,copy,metrics,progress);
 }
 function scheduleDeliveryPreparation(){
  const status=document.getElementById('delivery-prep-status');if(status)status.hidden=selectedScope!=='ACTIVE';
@@ -1870,18 +1879,18 @@ function scheduleDeliveryPreparation(){
   void prepareSelectedDelivery(true);
  },500);
 }
-document.addEventListener('moaon-session-changed',()=>{clearTimeout(deliveryPreparationTimer);deliveryPreparationAttempts.clear();const status=document.getElementById('delivery-prep-status');if(status)status.textContent='';});
+document.addEventListener('moaon-session-changed',()=>{clearTimeout(deliveryPreparationTimer);deliveryPreparationAttempts.clear();const status=document.getElementById('delivery-prep-status');if(status){status.replaceChildren();status.hidden=true;}});
 async function prepareSelectedDelivery(automatic=false){
  if(orderToolsBusy()||displayMode!=='live'||selectedScope!=='ACTIVE')return;
  const candidates=displayedOrders.filter(o=>['CAFE24','COUPANG'].includes(o.platform)&&(automatic||selectedOrderIds.has(orderId(o))));
  const rows=candidates.filter(o=>!automatic||!receiverReady(o.details?.receiver)&&!deliveryPreparationAttempts.has(deliveryPreparationKey(o)));
  const ids=rows.map(orderId);if(!ids.length||!automatic&&ids.length>20)return;
  const generation=actionGeneration;deliveryPreparationBusy=true;rows.forEach(o=>{deliveryPreparationAttempts.add(deliveryPreparationKey(o));if(deliveryPreparationAttempts.size>500)deliveryPreparationAttempts.delete(deliveryPreparationAttempts.values().next().value);});renderSelection();let cursor=0,done=0,ready=0;
- const status=deliveryPreparationStatus();const update=()=>{if(generation===actionGeneration)status.textContent='배송정보 자동 준비 '+done+'/'+ids.length+'건 · 준비 완료 '+ready+'건 · 최대 3건씩 조회';};update();
+ const status=deliveryPreparationStatus();const update=()=>{if(generation===actionGeneration)paintDeliveryPreparation(status,done,ids.length,ready);};update();
  try{await Promise.all(Array.from({length:Math.min(3,ids.length)},async()=>{while(cursor<ids.length&&generation===actionGeneration){const id=ids[cursor++];try{const r=await window.moaonHub.readDelivery(id);if(r?.status==='READY'&&receiverReady(r.receiver))ready++;}catch{}done++;update();}}));}
  finally{deliveryPreparationBusy=false;renderSelection();}
  if(generation!==actionGeneration)return;
  if(ready>0){await recheckShippingSelection();if(actionGeneration!==generation+1)return;}
  if(displayMode!=='live')return;
- status.textContent='배송정보 '+ready+'/'+ids.length+'건 준비 · '+(ids.length-ready)+'건 확인 필요.'+(ready?' 최신 발급 조건을 갱신했습니다.':' 확인이 필요한 주문은 선택 후 배송정보 일괄 준비로 다시 확인하세요.');
+ paintDeliveryPreparation(status,done,ids.length,ready,true);
 }
