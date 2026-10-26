@@ -49,9 +49,17 @@ export async function proxy(request) {
     return NextResponse.next();
   }
 
-  const session = token || developmentBypass
-    ? await authModule.validateSession(token, { touch:true }).catch(()=>null)
-    : null;
+  let session=null;
+  if(token||developmentBypass){
+    try{session=await authModule.validateSession(token,{touch:true});}
+    catch{
+      // Storage availability is not an authentication decision. Do not clear
+      // the cookie, redirect to login, or forward protected identity on failure.
+      const response=apiDenied(503,'로그인 상태를 확인할 서버가 일시적으로 응답하지 않습니다. 기존 로그인은 유지됩니다.','SESSION_CHECK_UNAVAILABLE');
+      response.headers.set('Retry-After','15');
+      return response;
+    }
+  }
   if (!session) {
     if (pathname.startsWith('/api/')) return apiDenied(401, '로그인이 필요합니다.', 'UNAUTHENTICATED');
     const login = new URL('/login', request.url);
