@@ -225,6 +225,20 @@ test('overview returns bounded safe workbench rows and preserves selected order 
  assert.equal(result.scopes.ACTIVE.preview[0].productName,'시험 상품');assert.equal(result.scopes.ACTIVE.preview[0].hubOrderId,'HR-C24-00000001');assert.equal('details' in result.scopes.ACTIVE.preview[0],false);assert.equal(JSON.stringify(result).includes('private-'),false);
  assert.equal((await connection.refresh()).scope,'REGISTER');
 });
+test('overview uses one bundled read for four scopes without exposing private fields',async()=>{
+ let calls=0;const pages=Object.fromEntries(['ACTIVE','REGISTER','IN_TRANSIT','COMPLETED'].map(scope=>[scope,makePagePayload({orders:[{hubOrderId:'HR-C24-00000001',productName:scope,receiver:{name:'private-value'}}]})]));
+ const {connection}=makeConnection(makeRemoteSession(async()=>{calls++;return Response.json({...pages.ACTIVE,overviewPages:pages});}));
+ const result=await connection.readOverview();assert.equal(calls,1);for(const scope of Object.keys(pages)){assert.equal(result.scopes[scope].total,1);assert.equal(result.scopes[scope].preview[0].productName,scope);}assert.equal(JSON.stringify(result).includes('private-value'),false);
+});
+
+test('slow stored order reads survive the old deadline in page, background and freshness paths',async()=>{
+ for(const method of ['refresh','readBackgroundOrders','checkOrderFreshness']){
+  let delay=method!=='checkOrderFreshness';const {connection}=makeConnection(makeRemoteSession(async()=>{if(delay)await new Promise(r=>setTimeout(r,22));return Response.json(makePagePayload());}),{timeoutMs:10});
+  if(method==='checkOrderFreshness'){await connection.refresh();delay=true;}
+  const result=await connection[method]();assert.equal(result.status,method==='checkOrderFreshness'?'CURRENT':'READY',method);
+ }
+});
+
 test('overview deadline and logout settle even when fetch ignores abort',async()=>{
  const {connection}=makeConnection(makeRemoteSession(()=>new Promise(()=>{})),{timeoutMs:10});
  assert.deepEqual(await connection.readOverview(),{status:'TIMEOUT',scopes:{}});
@@ -235,7 +249,7 @@ test('overview authentication failure discards all counts and duplicate requests
  let calls=0;
  const {connection}=makeConnection(makeRemoteSession(async()=>{calls++;return new Response('',{status:403});}));
  const [a,b]=await Promise.all([connection.readOverview(),connection.readOverview()]);
- assert.deepEqual(a,{status:'FORBIDDEN',scopes:{}});assert.deepEqual(b,a);assert.equal(calls,4);
+ assert.deepEqual(a,{status:'FORBIDDEN',scopes:{}});assert.deepEqual(b,a);assert.equal(calls,1);
 });
 
 test('business list uses the private session and disconnect discards an in-flight response',async()=>{

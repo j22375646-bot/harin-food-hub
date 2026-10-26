@@ -317,6 +317,7 @@ function createHubConnection({
   }
   if(!Number.isSafeInteger(automaticPollDelayMs)||automaticPollDelayMs<0||automaticPollDelayMs>2000||!Number.isSafeInteger(automaticTimeoutMs)||automaticTimeoutMs<1||automaticTimeoutMs>60000)throw new TypeError('Invalid automatic workflow timing');
 
+  const orderReadTimeoutMs=Math.min(timeoutMs*3,45000);
   let remoteSession = null;
   let policyInstalled = false;
   let loginWindow = null;
@@ -408,7 +409,7 @@ function createHubConnection({
   }
   async function readBackgroundOrders(){
     if(disconnecting||cleanupFailed||isLoginWindowActive())return {status:'LOGIN_REQUIRED',items:[]};
-    const expected=generation,controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeoutMs);businessReads.add(controller);
+    const expected=generation,controller=new AbortController(),timer=setTimeout(()=>controller.abort(),orderReadTimeoutMs);businessReads.add(controller);
     try{const items=[];let offset=0,snapshot=null;
       for(let page=0;page<5;page++){
         const url=offset?buildOrdersPageUrl(offset,snapshot,'ACTIVE','ALL'):buildOrdersScopeUrl('ACTIVE','ALL');
@@ -715,15 +716,23 @@ function createHubConnection({
     if(activeOverview)return activeOverview;
     const expected=generation,controller=new AbortController();businessReads.add(controller);
     let timer,authStatus=null;
-    const activityScopes={},overviewAt=now().toISOString();
+    const activityScopes={},overviewAt=now().toISOString();let overviewPages=null;
     const empty=status=>({status,scopes:{}});
     const readScope=async scope=>{
       try{
-        const response=await getRemoteSession().fetch(buildOrdersScopeUrl(scope),{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
-        if(controller.signal.aborted||expected!==generation)return [scope,{status:'UNAVAILABLE',total:null}];
-        if([401,403].includes(response.status)){authStatus=response.status===401?'LOGIN_REQUIRED':'FORBIDDEN';controller.abort();return [scope,{status:authStatus,total:null}];}
-        if(response.status!==200)throw Error('Unavailable');
-        const payload=await readBoundedJson(response,controller);
+        let payload;
+        if(scope!=='ACTIVE'&&overviewPages!==null){payload=overviewPages[scope];}
+        else{
+          const response=await getRemoteSession().fetch(buildOrdersScopeUrl(scope),{method:'GET',credentials:'include',cache:'no-store',redirect:'error',signal:controller.signal});
+          if(controller.signal.aborted||expected!==generation)return [scope,{status:'UNAVAILABLE',total:null}];
+          if([401,403].includes(response.status)){authStatus=response.status===401?'LOGIN_REQUIRED':'FORBIDDEN';controller.abort();return [scope,{status:authStatus,total:null}];}
+          if(response.status!==200)throw Error('Unavailable');
+          payload=await readBoundedJson(response,controller);
+          if(scope==='ACTIVE'&&payload?.overviewPages!==undefined){
+            if(!payload.overviewPages||typeof payload.overviewPages!=='object'||Object.keys(payload.overviewPages).length!==4||!ORDER_SCOPES.every(k=>Object.hasOwn(payload.overviewPages,k)))throw Error('Invalid overview');
+            overviewPages=payload.overviewPages;
+          }
+        }
         if(controller.signal.aborted||expected!==generation)throw Error('Cancelled');
         const result=projectOrdersPayload(payload,now().toISOString(),{scope});
         activityScopes[scope]=result;
@@ -735,8 +744,8 @@ function createHubConnection({
     };
     const operation=(async()=>{
       const result=await Promise.race([
-        Promise.all(ORDER_SCOPES.map(readScope)).then(rows=>({status:'READY',scopes:Object.fromEntries(rows),activity:require('./order-activity.cjs').projectOrderActivity(activityScopes,overviewAt)})),
-        new Promise(resolve=>{timer=setTimeout(()=>{resolve(empty('TIMEOUT'));controller.abort();},timeoutMs);}),
+        (async()=>{const first=await readScope('ACTIVE');if(authStatus)return empty(authStatus);const rest=await Promise.all(ORDER_SCOPES.slice(1).map(readScope));return {status:'READY',scopes:Object.fromEntries([first,...rest]),activity:require('./order-activity.cjs').projectOrderActivity(activityScopes,overviewAt)};})(),
+        new Promise(resolve=>{timer=setTimeout(()=>{resolve(empty('TIMEOUT'));controller.abort();},orderReadTimeoutMs);}),
         new Promise(resolve=>controller.signal.addEventListener('abort',()=>resolve(empty('CANCELLED')),{once:true})),
       ]);
       if(expected!==generation)return empty('DISCONNECTED');
@@ -1015,7 +1024,7 @@ function createHubConnection({
     freshnessLastAt=tick;freshnessLastIdentity=identity;
     const expectedGeneration=generation,cursor=pageCursor,baseline=loadedOrders,controller=new AbortController();let timer,stop;
     const alive=()=>identity===freshnessIdentity()&&expectedGeneration===generation&&pageCursor===cursor&&loadedOrders===baseline&&!controller.signal.aborted;
-    const stopped=new Promise(resolve=>{stop=()=>resolve(freshnessResult('UNAVAILABLE'));controller.signal.addEventListener('abort',stop,{once:true});timer=setTimeout(()=>controller.abort(),timeoutMs);});
+    const stopped=new Promise(resolve=>{stop=()=>resolve(freshnessResult('UNAVAILABLE'));controller.signal.addEventListener('abort',stop,{once:true});timer=setTimeout(()=>controller.abort(),orderReadTimeoutMs);});
     const operation=(async()=>{
       try{
         const originalUrl=ordersPageUrl(cursor.offset,cursor.snapshot);
@@ -1050,7 +1059,7 @@ function createHubConnection({
   async function performRead(readGeneration, { url, requestedOffset, expectedSnapshot, scope }) {
     const controller = new AbortController();
     activeAbortController = controller;
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const timeout = setTimeout(() => controller.abort(), orderReadTimeoutMs);
     // Abort must settle the host read even when an external transport/body ignores it.
     let stop;
     const stopped=new Promise((_,reject)=>{stop=()=>reject(Error('Order read stopped'));controller.signal.addEventListener('abort',stop,{once:true});});
@@ -1087,7 +1096,7 @@ function createHubConnection({
       }
       if (response.status !== 200) {
         invalidateCursor();
-        return safeEmpty('UNAVAILABLE');
+        return safeEmpty('UNAVAILABLE',response.status===504?'서버에서 주문을 준비하는 시간이 초과됐습니다. 잠시 후 다시 조회해 주세요.':response.status===503?'주문 서버의 연결 또는 권한 확인을 완료하지 못했습니다. 잠시 후 다시 확인해 주세요.':'주문 서버가 정상 응답하지 않았습니다. 잠시 후 다시 조회해 주세요.');
       }
 
       const payload = await bounded(readBoundedJson(response, controller));

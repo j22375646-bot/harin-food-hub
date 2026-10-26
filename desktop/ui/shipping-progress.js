@@ -3,7 +3,7 @@
 (()=>{
  const phases={QUEUE:'요청 확인',CONFIRM:'최종 승인',CHECK:'주문 재확인',PREPARE:'상품 준비',ISSUE:'송장 발급',REGISTER:'쇼핑몰 등록',TRACKING:'배송 조회'};
  const states={WAITING:'순서 대기',WAIT_USER:'확인창 승인 대기',RUNNING:'처리 중',SUCCESS:'이 단계 확인 완료',PENDING:'기존 요청 처리 대기',REGISTERED:'등록 완료',FAILED:'실패 · 확인 필요',CHECK_REQUIRED:'결과 확인 필요',CANCELLED:'요청 취소',NOT_STARTED:'시작하지 않음'};
- let rows=new Map(),timer,active=false,notify,lastSummary='',batchIds=new Set(),resumeBaseline=new Map(),epoch=0,revision=0;
+ let lookups=new Map(),rows=new Map(),timer,active=false,notify,lastSummary='',batchIds=new Set(),resumeBaseline=new Map(),epoch=0,revision=0;
  let wanted=[],watchKey='',watchSeq=0,pollTimer,pollWork=null,scopeKey=null,failures=0;
  const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
  const duration=ms=>{const seconds=Math.max(0,Math.floor(ms/1000));return seconds<60?seconds+'초':Math.floor(seconds/60)+'분 '+seconds%60+'초';};
@@ -33,7 +33,8 @@
   return 'waiting';
  }
  function mount(order,container,onOpen,onContinue){
-  const details=el('div','order-shipping-progress');details.dataset.orderId=order.hubOrderId;
+  const details=el('div','order-shipping-progress');details.dataset.orderId=order.hubOrderId;if(['CAFE24','COUPANG'].includes(order.platform)&&!lookups.has(order.hubOrderId))lookups.set(order.hubOrderId,'LOADING');
+  details.dataset.canContinue=String(typeof onContinue==='function');
   details.dataset.storedInvoice=/^\d{13}$/.test(order.details?.invoice?.number||'')?'yes':'unknown';
   const heading=el('button','shipping-progress-badge');heading.type='button';heading.setAttribute('aria-expanded','false');
   const dot=el('i');dot.setAttribute('aria-hidden','true');
@@ -58,7 +59,15 @@
  }
  function paint(details){
   const row=rows.get(details.dataset.orderId);details.hidden=!row;
-  if(!row){const panel=details.querySelector('.shipping-progress-detail');if(panel?.matches(':popover-open'))panel.hidePopover();return;}
+  if(!row){
+   const state=lookups.get(details.dataset.orderId),loading=state==='LOADING';details.hidden=!state||(state==='UNKNOWN'&&details.dataset.storedInvoice!=='yes');
+   details.dataset.progressState=state||'';details.dataset.tone=loading?'waiting':'attention';details.setAttribute('aria-busy',String(loading));
+   const heading=details.querySelector('.shipping-progress-badge'),label=loading?'송장 상태 확인 중…':'송장 진행 기록 확인 필요';heading.disabled=loading;heading.setAttribute('aria-label',label);details.querySelector('.shipping-progress-label').textContent=label;
+   details.querySelector('.shipping-progress-reason').textContent=loading?'서버의 송장 진행 기록을 조회하고 있습니다.':'진행 기록을 확인하지 못했습니다. 저장된 송장번호와 주문 상태를 유지하며 다시 확인하세요.';
+   details.querySelector('.shipping-progress-time').textContent='';details.querySelectorAll('.shipping-progress-facts dd').forEach(n=>n.textContent='확인 필요');details.querySelector('.shipping-progress-next').textContent='새 송장을 발급하지 않고 기존 기록만 다시 조회합니다.';details.querySelector('.shipping-progress-continue').hidden=true;
+   return;
+  }
+  details.setAttribute('aria-busy','false');details.querySelector('.shipping-progress-badge').disabled=false;details.querySelector('.shipping-progress-continue').hidden=details.dataset.canContinue!=='true';
   details.dataset.progressState=row.status;details.dataset.tone=tone(row);
   details.querySelector('.shipping-progress-label').textContent=label(row);
   details.querySelector('.shipping-progress-badge').setAttribute('aria-label',label(row)+' · 진행 상세');
@@ -159,12 +168,14 @@
    if(!wanted.includes(item.hubOrderId)||!Object.hasOwn(phases,item.phase)||!Object.hasOwn(states,item.status)&&item.status!=='UNKNOWN')continue;
    const old=rows.get(item.hubOrderId);
    if((old?.version||0)!==ticket.versions.get(item.hubOrderId)||active&&batchIds.has(item.hubOrderId))continue;
+   lookups.set(item.hubOrderId,item.status==='UNKNOWN'?'UNKNOWN':'READY');
    if(item.status==='UNKNOWN'){if(old){old.syncError=true;old.syncCode='MISSING_RECORD';old.version=++revision;}continue;}
    if(old?.source==='LOCAL'&&old.status==='REGISTERED'){old.syncError=false;continue;}
    if(old?.source==='SERVER'&&(item.requestId===old.requestId?Date.parse(item.updatedAt)<old.changedAt:Date.parse(item.createdAt)<Date.parse(old.createdAt)))continue;
    const changed=!old||old.phase!==item.phase||old.status!==item.status||old.requestId!==item.requestId||old.changedAt!==Date.parse(item.updatedAt);
    rows.set(item.hubOrderId,{id:item.hubOrderId,platform:item.platform,phase:item.phase,status:item.status,requestId:item.requestId,createdAt:item.createdAt,nextAttemptAt:item.nextAttemptAt,invoicePresent:old?.invoicePresent===true,source:'SERVER',serverCheckedAt:feed.checkedAt,changedAt:Date.parse(item.updatedAt),phaseAt:Date.parse(item.updatedAt),startedAt:Date.parse(item.createdAt),endedAt:Date.parse(item.updatedAt),version:changed?++revision:old.version,stalled:['RUNNING','PENDING'].includes(item.status)&&!(item.status==='PENDING'&&Number.isFinite(Date.parse(item.nextAttemptAt)))&&Date.now()-Date.parse(item.updatedAt)>=45_000,syncError:false,seen:new Set()});
   }
+  for(const id of wanted)if(!rows.has(id)&&lookups.get(id)==='LOADING')lookups.set(id,'UNKNOWN');
   // Cache only a small number of previously visited rows; no local disk persistence.
   if(rows.size>200)for(const [id] of rows){if(!wanted.includes(id)&&!batchIds.has(id))rows.delete(id);if(rows.size<=200)break;}
   render();clock();
@@ -173,7 +184,8 @@
  function watch(orders){
   const ids=orders.filter(order=>['CAFE24','COUPANG'].includes(order.platform)&&/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(order.hubOrderId)).slice(0,20).map(order=>order.hubOrderId),key=ids.join(',');
   if(key===watchKey)return;
-  watchKey=key;wanted=ids;watchSeq++;failures=0;clearTimeout(pollTimer);window.moaonHub?.cancelShippingProgress?.();
+  for(const id of lookups.keys())if(!ids.includes(id)&&!rows.has(id))lookups.delete(id);
+  watchKey=key;wanted=ids;watchSeq++;failures=0;for(const id of ids)if(!rows.has(id))lookups.set(id,'LOADING');render();clearTimeout(pollTimer);window.moaonHub?.cancelShippingProgress?.();
   if(!ids.length){syncStatus('');return;}
   schedule(0);
  }
@@ -200,7 +212,7 @@
    }else if(['BUSY','CANCELLED'].includes(result?.status)){delay=2000;}
    else {syncCode=result?.status;throw Error('Read unavailable');}
   }catch{
-   if(seq===watchSeq){failures++;for(const id of ids){const row=rows.get(id);if(row&&!(active&&batchIds.has(id))){row.syncError=true;row.syncCode=syncCode;row.version=++revision;}}render();syncStatus('송장 상태 확인 필요 · 기존 표시 유지');delay=Math.min(60000,5000*2**Math.min(failures-1,4));}
+   if(seq===watchSeq){failures++;for(const id of ids){if(!rows.has(id))lookups.set(id,'ERROR');const row=rows.get(id);if(row&&!(active&&batchIds.has(id))){row.syncError=true;row.syncCode=syncCode;row.version=++revision;}}render();syncStatus('송장 상태 확인 필요 · 기존 표시 유지');delay=Math.min(60000,5000*2**Math.min(failures-1,4));}
   }finally{if(pollWork===work)pollWork=null;done();schedule(seq===watchSeq?delay:0);}})();return work;
  }
  async function recheck(id){
@@ -213,7 +225,7 @@
  }
  function closePopovers(){document.querySelectorAll('.shipping-progress-detail:popover-open').forEach(n=>n.hidePopover());}
  window.addEventListener('resize',closePopovers);document.addEventListener('scroll',event=>{if(event.target?.closest?.('.shipping-progress-detail'))return;document.querySelectorAll('.shipping-progress-detail:popover-open').forEach(n=>{const r=n.parentElement.querySelector('.shipping-progress-badge').getBoundingClientRect();if(Math.abs(r.top-Number(n.dataset.anchorTop))>1||Math.abs(r.left-Number(n.dataset.anchorLeft))>1)n.hidePopover();});},true);
- function reset(){closePopovers();epoch++;watchSeq++;watchKey='';wanted=[];scopeKey=null;batchIds.clear();resumeBaseline.clear();clearTimeout(pollTimer);clearInterval(timer);timer=null;active=false;rows.clear();notify=null;lastSummary='';window.moaonHub?.cancelShippingProgress?.();syncStatus('');document.querySelectorAll('.order-shipping-progress').forEach(paint);}
+ function reset(){closePopovers();epoch++;watchSeq++;watchKey='';wanted=[];scopeKey=null;lookups.clear();batchIds.clear();resumeBaseline.clear();clearTimeout(pollTimer);clearInterval(timer);timer=null;active=false;rows.clear();notify=null;lastSummary='';window.moaonHub?.cancelShippingProgress?.();syncStatus('');document.querySelectorAll('.order-shipping-progress').forEach(paint);}
  function open(){const details=document.querySelector('.order-shipping-progress:not([hidden])');if(!details)return false;details.scrollIntoView({block:'nearest'});const trigger=details.querySelector('.shipping-progress-badge');if(trigger.getAttribute('aria-expanded')!=='true')trigger.click();trigger.focus({preventScroll:true});return true;}
  document.addEventListener('moaon-session-changed',reset);
  window.moaonShippingProgress=Object.freeze({start,update,finish,reset,open,mount,watch,poll,recheck,snapshot:()=>[...rows.values()].map(row=>({...row,presentation:presentation(row)}))});
