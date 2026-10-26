@@ -20,6 +20,23 @@ test('polls never overlap and timeout/error keeps prior state with a warning',as
  let calls=0,release;const h=host(()=>{calls++;return new Promise(r=>release=r);});h.api.watch([{hubOrderId:id,platform:'CAFE24'}]);const p=h.api.poll(),q=h.api.poll();assert.equal(calls,1);release(feed());await Promise.all([p,q]);
  const bad=h.api.poll();release({status:'TIMEOUT'});await bad;assert.equal(h.api.snapshot()[0].status,'RUNNING');assert.equal(h.api.snapshot()[0].syncError,true);assert.match(h.note.textContent,/확인 필요/);
 });
+
+test('registered history stays complete after route changes and a timed-out recheck',async()=>{
+ let response=feed([item('REGISTERED')]);const h=host(async()=>response);
+ h.api.watch([{hubOrderId:id,platform:'CAFE24'}]);await h.api.poll();const before=h.api.snapshot()[0];
+ h.api.watch([]);h.api.watch([{hubOrderId:id,platform:'CAFE24'}]);response={status:'TIMEOUT'};await h.api.poll();
+ const row=h.api.snapshot()[0];assert.equal(row.status,'REGISTERED');assert.equal(row.changedAt,before.changedAt);assert.equal(row.syncError,true);assert.equal(row.presentation.tone,'complete');assert.match(row.presentation.label,/등록 완료/);
+});
+
+test('the same registered request cannot regress to a pending or missing result',async()=>{
+ let response=feed([item('REGISTERED')]);const h=host(async()=>response);h.api.watch([{hubOrderId:id,platform:'CAFE24'}]);await h.api.poll();
+ for(const status of ['PENDING','UNKNOWN']){response=feed([{...item(status),updatedAt:'2026-10-24T06:01:00.000Z'}]);await h.api.poll();const row=h.api.snapshot()[0];assert.equal(row.status,'REGISTERED');assert.equal(row.presentation.tone,'complete');}
+});
+
+test('local registration preserves the invoice identity used for completion',()=>{
+ const h=host(async()=>feed());h.api.start([{id,platform:'CAFE24'}],()=>{});h.api.finish({results:[{hubOrderId:id,phase:'REGISTER',status:'REGISTERED',invoiceNumber:'6890176974040'}]});
+ assert.equal(h.api.snapshot()[0].registeredInvoice,'6890176974040');
+});
 test('logout and changed scope discard cached badges and late data',async()=>{
  let response=feed();const h=host(async()=>response);h.api.watch([{hubOrderId:id,platform:'CAFE24'}]);await h.api.poll();response=feed([item()],'b'.repeat(64));await h.api.poll();assert.equal(h.api.snapshot().length,0);
  h.api.watch([{hubOrderId:id,platform:'CAFE24'}]);await h.api.poll();h.api.reset();assert.equal(h.api.snapshot().length,0);

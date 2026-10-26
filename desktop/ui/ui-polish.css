@@ -533,6 +533,7 @@ body:has(.preview-shell[hidden]) .login-window-drag{color:var(--ink);gap:9px;lin
 .shipping-progress-detail{position:fixed;inset:auto;margin:0;max-width:calc(100vw - 24px);max-height:min(340px,calc(100vh - 24px));overflow:auto;overscroll-behavior:contain;box-sizing:border-box;padding:14px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface-soft);color:var(--ink);overflow-wrap:anywhere;box-shadow:0 12px 40px #0004;scrollbar-gutter:stable}
 .shipping-progress-detail::backdrop{background:transparent}
 .shipping-progress-detail .shipping-progress-reason{margin:0 0 6px;line-height:1.6;font-size:13px}
+.shipping-progress-detail .shipping-progress-recheck-note{margin:6px 0;font-size:12px;line-height:1.6;color:var(--amber)}
 .shipping-progress-detail .shipping-progress-time{display:block;font-size:12px;line-height:1.6;color:var(--muted);font-variant-numeric:tabular-nums}
 .shipping-progress-detail button{margin-top:10px;min-height:34px;padding:5px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--blue);font:inherit;font-size:13px;cursor:pointer}
 .shipping-progress-facts{display:grid;grid-template-columns:76px minmax(0,1fr);gap:6px 12px;margin:10px 0;padding:10px 0;border-block:1px solid var(--line);font-size:12px;line-height:1.6}

@@ -27,6 +27,7 @@ const assert=require('node:assert/strict'),path=require('node:path'),fs=require(
   for(let i=0;i<3;i++){
    await badges.first().locator('.shipping-progress-badge').click();
    assert.equal(await badges.first().locator('.shipping-progress-detail').evaluate(n=>n.matches(':popover-open')),false,'same trigger click must close, not reopen after light-dismiss');
+   await page.waitForFunction(()=>document.querySelector('.shipping-progress-badge').getAttribute('aria-expanded')==='false');
    assert.equal(await badges.first().locator('.shipping-progress-badge').getAttribute('aria-expanded'),'false');
    await badges.first().locator('.shipping-progress-badge').click();
    assert.equal(await badges.first().locator('.shipping-progress-detail').evaluate(n=>n.matches(':popover-open')),true);
