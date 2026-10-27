@@ -16,3 +16,11 @@ test('failed progress check preserves last platform success but never reports fu
 test('terminal failures allow an explicit retry and are not a full success',async()=>{
  const c=setup(()=>Response.json({...success,requests:{naver:{id,status:'SUCCESS'},coupang:{id,status:'FAILED'}}}));const r=await c.collect();assert.equal(r.phase,'FINISHED');assert.equal(r.status,'CHECK_REQUIRED');assert.equal(r.canCollect,true);assert.equal(r.verifiedTerminal,true);c.reset();assert.equal(c.read().phase,'IDLE');
 });
+test('confirmed Cafe24 failure does not latch after both workers complete',async()=>{
+ const c=setup(()=>Response.json({...success,cafe24:null,cafe24Error:'failed',channelDiagnostics:{cafe24:{status:'FAILED',code:'RATE_LIMITED',httpStatus:429,observedAt:'2026-10-27T06:00:00Z'}},requests:{naver:{id,status:'SUCCESS'},coupang:{id,status:'SUCCESS'}}}));
+ const r=await c.collect();assert.equal(r.channels.cafe24.status,'FAILED');assert.equal(r.channels.cafe24.code,'RATE_LIMITED');assert.equal(r.channels.cafe24.httpStatus,429);assert.equal(r.canCollect,true);assert.equal(r.verifiedTerminal,true);
+});
+test('a structured all-failed response remains retryable and raw provider fields never escape',async()=>{
+ const c=setup(()=>Response.json({ok:false,worker:{ready:false},channelDiagnostics:{cafe24:{status:'FAILED',code:'DATABASE_ERROR',observedAt:'2026-10-27T06:00:00Z',message:'PRIVATE',token:'SECRET'},naver:{status:'FAILED',code:'WORKER_OFFLINE'},coupang:{status:'FAILED',code:'WORKER_OFFLINE'}}},{status:503}));
+ const r=await c.collect();assert.equal(r.channels.cafe24.code,'DATABASE_ERROR');assert.equal(r.canCollect,true);assert.doesNotMatch(JSON.stringify(r),/PRIVATE|SECRET/);
+});

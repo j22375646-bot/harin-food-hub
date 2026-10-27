@@ -686,3 +686,4 @@ html[data-theme] .orders-page .order-item:has(>.order-row[aria-pressed=true]) .o
 .orders-page .freshness-meta{display:inline-flex;align-items:baseline;justify-content:flex-end;flex-wrap:wrap;gap:4px 14px;margin-left:auto;min-width:0;font-size:11px;line-height:20px;color:var(--muted);font-variant-numeric:tabular-nums}
 .orders-page .freshness-summary .freshness-meta time,.orders-page .freshness-meta .shipping-progress-sync{margin:0;font:inherit;color:inherit;line-height:20px}
 .orders-page #order-freshness{border:0;border-radius:0;box-shadow:none;background:transparent}
+.orders-page .collection-chip .collection-error-code{display:inline-block;margin:0 0 0 3px;padding:1px 4px;border-radius:4px;background:color-mix(in srgb,currentColor 7%,transparent);font-size:9px;line-height:14px;letter-spacing:.02em;color:inherit;overflow-wrap:anywhere}

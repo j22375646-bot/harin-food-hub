@@ -84,9 +84,9 @@ test('collection is authenticated all-channel POST then original-ID GET with pri
   return Response.json(options.method==='POST'?{ok:true,partial:true,cafe24Error:'failed',requests:{naver:{id,status:'PENDING'}}}:{ok:true,partial:false,requests:{naver:{id,status:'SUCCESS',executed_at:'2026-09-09T01:00:00Z'}},center:{customer:'PRIVATE'}});
  });
  const {connection}=makeConnection(remote);
- const first=await connection.collectOrders();assert.equal(first.status,'PENDING');assert.equal(first.channels.cafe24.status,'CHECK_REQUIRED');
+ const first=await connection.collectOrders();assert.equal(first.status,'PENDING');assert.equal(first.channels.cafe24.status,'FAILED');
  assert.deepEqual(await connection.collectOrders(),first);
- const last=await connection.checkOrderCollection();assert.equal(last.status,'CHECK_REQUIRED');assert.equal(last.channels.naver.status,'SUCCESS');assert.equal(last.channels.cafe24.status,'CHECK_REQUIRED');
+ const last=await connection.checkOrderCollection();assert.equal(last.status,'CHECK_REQUIRED');assert.equal(last.channels.naver.status,'SUCCESS');assert.equal(last.channels.cafe24.status,'FAILED');
  assert.equal(JSON.stringify(last).includes(id),false);assert.equal(JSON.stringify(last).includes('PRIVATE'),false);
  assert.deepEqual(calls,[[base,'POST'],[base+'?naverRequestId='+id,'GET']]);
 });

@@ -1078,7 +1078,8 @@ function renderCollection(){
  const reasons={AUTH_REQUIRED:'로그인 확인 필요',WORKER_OFFLINE:'네이버·쿠팡 수집 서버 연결 확인 필요',TIMEOUT:'응답 지연 · 기존 주문 유지',UNAVAILABLE:'수집 상태 확인 필요 · 기존 주문 유지'};
  const stages={IDLE:'자동 수집 대기',AUTHORIZING:'연결 확인 중',REQUESTING:'Cafe24 조회 · 네이버·쿠팡 수집 요청 중',CHECKING:'플랫폼별 진행 확인 중',WAITING:'플랫폼 수집 진행 중',FINISHED:collectionState?.status==='SUCCESS'?'3개 플랫폼 수집 완료':'수집 종료 · 일부 확인 필요',ATTENTION:'수집 확인 필요'};
  const flowLabels={CHECKING:'변경 확인·목록 반영 중',DEFERRED:'작업 후 목록 자동 반영',PAGE_WAIT:'첫 페이지에서 목록 자동 반영',APPLIED:'목록 자동 반영 완료',ERROR:'목록 반영 확인 필요'};
- document.querySelector('#collection-message').textContent=(reasons[collectionState?.reason]||stages[phase]||'수집 상태 확인 필요')+(!['AUTHORIZING','REQUESTING'].includes(phase)&&collectionFlow!=='IDLE'?` · ${flowLabels[collectionFlow]||''}`:'');
+ const transportMessage=window.moaonCollectionDiagnostics?.valid(collectionState?.code)?window.moaonCollectionDiagnostics.describe(collectionState.code).label:null;
+ document.querySelector('#collection-message').textContent=(transportMessage||reasons[collectionState?.reason]||stages[phase]||'수집 상태 확인 필요')+(!['AUTHORIZING','REQUESTING'].includes(phase)&&collectionFlow!=='IDLE'?` · ${flowLabels[collectionFlow]||''}`:'');
  const time=document.querySelector('#collection-checked-at');time.textContent=collectionState?.checkedAt?formatTime(collectionState.checkedAt)+' 확인':'';time.dateTime=collectionState?.checkedAt||'';
  const collect=document.querySelector('#collect-orders');collect.textContent=phase==='IDLE'?'지금 수집':'다시 수집';
  collect.title=deliveryPreparationBusy?'배송정보 준비 후 사용할 수 있어요':registrationBusy?'송장 작업 완료 후 사용할 수 있어요':collectionState?.canCollect===false?'진행 확인으로 기존 수집 결과를 확인하세요':'Cafe24·네이버·쿠팡 전체 채널 수집';
@@ -1086,9 +1087,11 @@ function renderCollection(){
  const labels={SUCCESS:'완료',PARTIAL:'일부 수집 · 확인 필요',PENDING:'대기 · 완료 아님',RUNNING:'수집 중',FAILED:'실패',CHECK_REQUIRED:'확인 필요'};
  for(const [key,name] of [['cafe24','Cafe24'],['naver','네이버'],['coupang','쿠팡']]){
   if(!collectionState||phase==='IDLE')break;const row=collectionState.channels?.[key];
-  const chip=makeElement('span','collection-chip',`${name} · ${labels[row?.status]||'확인 필요'}`);chip.dataset.status=row?.status||'CHECK_REQUIRED';
+  const descriptor=window.moaonCollectionDiagnostics?.valid(row?.code)?window.moaonCollectionDiagnostics.describe(row.code):null;
+  const chip=makeElement('span','collection-chip',`${name} · ${descriptor?.label||labels[row?.status]||'확인 필요'}`);chip.dataset.status=row?.status||'CHECK_REQUIRED';
+  if(row?.code&&descriptor&&!['SUCCESS','QUEUED','RUNNING','NOT_CHECKED'].includes(row.code))chip.append(makeElement('small','collection-error-code',row.code));
   const date=typeof row?.observedAt==='string'?new Date(row.observedAt):null;
-  chip.title=date&&Number.isFinite(date.getTime())?`마지막 상태 기록 ${date.toLocaleString('ko-KR')}`:'아직 완료 기록이 없습니다';chips.append(chip);
+  chip.title=[descriptor?.detail,descriptor?.action,row?.code?`코드 ${row.code}${row.httpStatus?` · HTTP ${row.httpStatus}`:''}`:'',date&&Number.isFinite(date.getTime())?`확인 시각 ${date.toLocaleString('ko-KR')}`:'아직 완료 기록이 없습니다'].filter(Boolean).join('\n');chips.append(chip);
  }
 }
 async function runCollection(check){
