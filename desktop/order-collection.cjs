@@ -44,7 +44,7 @@ function createOrderCollection({authorize,fetch,readJson,permit,blocked,timeoutM
      if(check&&!ids[key])continue;
      if(!row||typeof row.id!=='string'||!UUID.test(row.id)||check&&row.id!==ids[key]){const knownFailure=!check&&projectedDiagnostic(body.channelDiagnostics?.[key]);channels[key]=knownFailure?.status==='FAILED'?knownFailure:!check&&body.worker?.ready===false?{status:'FAILED',code:'WORKER_OFFLINE',observedAt:new Date().toISOString()}:empty('RESULT_MISSING');continue;}
      if(!check)ids[key]=row.id;
-     const status=['PENDING','RUNNING','SUCCESS','FAILED'].includes(row.status)?row.status:'CHECK_REQUIRED';
+     const status=row.status==='CANCELLED'?'FAILED':['PENDING','RUNNING','SUCCESS','FAILED'].includes(row.status)?row.status:'CHECK_REQUIRED';
      const detail=projectedDiagnostic(body.channelDiagnostics?.[key]);
      channels[key]={status,code:detail?.code||(status==='SUCCESS'?'SUCCESS':status==='FAILED'?'REQUEST_FAILED':status==='RUNNING'?'RUNNING':status==='PENDING'?'QUEUED':'RESULT_MISSING'),observedAt:stamp(status==='SUCCESS'||status==='FAILED'?row.finished_at||row.executed_at:row.started_at||row.requested_at||row.created_at),...(detail?.httpStatus?{httpStatus:detail.httpStatus}:{})};
     }

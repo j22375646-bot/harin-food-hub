@@ -24,3 +24,7 @@ test('a structured all-failed response remains retryable and raw provider fields
  const c=setup(()=>Response.json({ok:false,worker:{ready:false},channelDiagnostics:{cafe24:{status:'FAILED',code:'DATABASE_ERROR',observedAt:'2026-10-27T06:00:00Z',message:'PRIVATE',token:'SECRET'},naver:{status:'FAILED',code:'WORKER_OFFLINE'},coupang:{status:'FAILED',code:'WORKER_OFFLINE'}}},{status:503}));
  const r=await c.collect();assert.equal(r.channels.cafe24.code,'DATABASE_ERROR');assert.equal(r.canCollect,true);assert.doesNotMatch(JSON.stringify(r),/PRIVATE|SECRET/);
 });
+for(const platform of ['naver','coupang'])for(const [status,code] of [['FAILED','RATE_LIMITED'],['FAILED','REQUEST_EXPIRED'],['CANCELLED','REQUEST_CANCELLED'],['RUNNING','DELAYED']])test(platform+' preserves channel-specific '+code+' on progress reads',async()=>{
+ let calls=0;const c=setup(()=>Response.json(++calls===1?success:{ok:true,worker:{ready:true},requests:{naver:{id,status:'SUCCESS'},coupang:{id,status:'SUCCESS'},[platform]:{id,status}},channelDiagnostics:{[platform]:{status:status==='CANCELLED'?'FAILED':status,code}}}));
+ await c.collect();const r=await c.check();assert.equal(r.channels[platform].code,code);assert.equal(r.channels[platform].status,status==='CANCELLED'?'FAILED':status);assert.equal(r.canCollect,status!=='RUNNING');assert.equal(r.channels.cafe24.status,'SUCCESS');
+});

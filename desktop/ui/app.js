@@ -1089,9 +1089,8 @@ function renderCollection(){
   if(!collectionState||phase==='IDLE')break;const row=collectionState.channels?.[key];
   const descriptor=window.moaonCollectionDiagnostics?.valid(row?.code)?window.moaonCollectionDiagnostics.describe(row.code):null;
   const chip=makeElement('span','collection-chip',`${name} · ${descriptor?.label||labels[row?.status]||'확인 필요'}`);chip.dataset.status=row?.status||'CHECK_REQUIRED';
-  if(row?.code&&descriptor&&!['SUCCESS','QUEUED','RUNNING','NOT_CHECKED'].includes(row.code))chip.append(makeElement('small','collection-error-code',row.code));
   const date=typeof row?.observedAt==='string'?new Date(row.observedAt):null;
-  chip.title=[descriptor?.detail,descriptor?.action,row?.code?`코드 ${row.code}${row.httpStatus?` · HTTP ${row.httpStatus}`:''}`:'',date&&Number.isFinite(date.getTime())?`확인 시각 ${date.toLocaleString('ko-KR')}`:'아직 완료 기록이 없습니다'].filter(Boolean).join('\n');chips.append(chip);
+  chip.title=[descriptor?.detail,descriptor?.action,date&&Number.isFinite(date.getTime())?`확인 시각 ${date.toLocaleString('ko-KR')}`:'아직 완료 기록이 없습니다'].filter(Boolean).join('\n');chips.append(chip);
  }
 }
 async function runCollection(check){
