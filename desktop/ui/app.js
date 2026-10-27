@@ -330,6 +330,7 @@ function showRoute(route, options = {}) {
     page.hidden = !active;
     page.classList.toggle('is-visible', active);
   }
+  document.dispatchEvent(new Event('moaon-route-changed'));
   syncFloatingSelection();
   if(previous!==route)scroller.scrollTop=routeScroll.get(route)||0;
   if (options.focusHeading) selectedPage.querySelector('h1')?.focus();

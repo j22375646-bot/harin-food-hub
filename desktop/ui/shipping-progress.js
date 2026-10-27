@@ -5,6 +5,15 @@
  const states={WAITING:'순서 대기',WAIT_USER:'확인창 승인 대기',RUNNING:'처리 중',SUCCESS:'이 단계 확인 완료',PENDING:'기존 요청 처리 대기',REGISTERED:'등록 완료',FAILED:'실패 · 확인 필요',CHECK_REQUIRED:'결과 확인 필요',CANCELLED:'요청 취소',NOT_STARTED:'시작하지 않음'};
  let invoiceKeys=new Map(),lookups=new Map(),rows=new Map(),timer,active=false,notify,lastSummary='',batchIds=new Set(),resumeBaseline=new Map(),epoch=0,revision=0;
  let wanted=[],watchKey='',watchSeq=0,pollTimer,pollWork=null,scopeKey=null,failures=0;
+ const viewVisible=()=>!document.hidden&&document.querySelector('[data-page="orders"]')?.hidden!==true;
+ const pendingVisible=()=>wanted.some(id=>['PENDING','RUNNING'].includes(rows.get(id)?.status));
+ const needsPolling=()=>viewVisible()||active||pendingVisible();
+ let wasVisible=viewVisible();
+ function prune(){
+  const keep=new Set([...wanted,...batchIds]);
+  if(rows.size>200)for(const [id] of rows){if(!keep.has(id))rows.delete(id);if(rows.size<=200)break;}
+  for(const map of [lookups,invoiceKeys])for(const id of map.keys())if(!rows.has(id)&&!keep.has(id))map.delete(id);
+ }
  const el=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
  const duration=ms=>{const seconds=Math.max(0,Math.floor(ms/1000));return seconds<60?seconds+'초':Math.floor(seconds/60)+'분 '+seconds%60+'초';};
  const stamp=value=>Number.isFinite(Date.parse(value))?new Date(value).toLocaleString('ko-KR',{hour12:false}):'확인 필요';
@@ -193,7 +202,7 @@
   }
   resumeBaseline.clear();render();clock();schedule(0);
  }
- function clock(){const needs=active||[...rows.values()].some(row=>row.status==='PENDING'||row.source==='SERVER'&&row.status==='RUNNING');if(needs&&!timer)timer=setInterval(tick,1000);else if(!needs&&timer){clearInterval(timer);timer=null;}}
+ function clock(){const needs=viewVisible()&&(active||pendingVisible());if(needs&&!timer)timer=setInterval(tick,1000);else if(!needs&&timer){clearInterval(timer);timer=null;}}
  function syncStatus(text){const note=document.getElementById('shipping-progress-sync');if(note){note.hidden=!text;note.textContent=text;}}
  function capture(){return {epoch,versions:new Map(wanted.map(id=>[id,rows.get(id)?.version||0]))};}
  function merge(feed,ticket){
@@ -219,12 +228,13 @@
   }
   for(const id of wanted)if(!rows.has(id)&&lookups.get(id)==='LOADING')lookups.set(id,'UNKNOWN');
   // Cache only a small number of previously visited rows; no local disk persistence.
-  if(rows.size>200)for(const [id] of rows){if(!wanted.includes(id)&&!batchIds.has(id))rows.delete(id);if(rows.size<=200)break;}
+  prune();
   render();clock();
  }
- function schedule(delay){clearTimeout(pollTimer);if(wanted.length)pollTimer=setTimeout(()=>void poll(),delay);}
+ function schedule(delay){clearTimeout(pollTimer);pollTimer=null;if(wanted.length&&needsPolling())pollTimer=setTimeout(()=>{pollTimer=null;void poll();},viewVisible()?delay:Math.max(delay,15000));}
  function watch(orders){
   const ids=orders.filter(order=>['CAFE24','COUPANG'].includes(order.platform)&&/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(order.hubOrderId)).slice(0,20).map(order=>order.hubOrderId),key=ids.join(',');
+  wanted=ids;prune();clock();
   if(key===watchKey)return;
   for(const id of lookups.keys())if(!ids.includes(id)&&!rows.has(id)){lookups.delete(id);invoiceKeys.delete(id);}
   watchKey=key;wanted=ids;watchSeq++;failures=0;for(const id of ids)if(!rows.has(id))lookups.set(id,'LOADING');render();clearTimeout(pollTimer);window.moaonHub?.cancelShippingProgress?.();
@@ -233,11 +243,11 @@
  }
  function poll(){
   if(pollWork)return pollWork;
-  clearTimeout(pollTimer);if(!wanted.length||typeof window.moaonHub?.readShippingProgress!=='function')return Promise.resolve();
+  clearTimeout(pollTimer);pollTimer=null;if(!wanted.length||!needsPolling()||typeof window.moaonHub?.readShippingProgress!=='function')return Promise.resolve();
   let done;const work=new Promise(resolve=>{done=resolve;});pollWork=work;
   const ids=[...wanted],seq=watchSeq,ticket=capture();let delay=60000;
   let syncCode='UNAVAILABLE';void(async()=>{try{
-   if(document.hidden&&!active)return;
+   if(!needsPolling())return;
    const result=await window.moaonHub.readShippingProgress(ids);
    if(seq!==watchSeq)return;
    if(result?.status==='READY'){
@@ -269,6 +279,9 @@
  window.addEventListener('resize',closePopovers);document.addEventListener('scroll',event=>{if(event.target?.closest?.('.shipping-progress-detail'))return;document.querySelectorAll('.shipping-progress-detail:popover-open').forEach(n=>{const r=n.parentElement.querySelector('.shipping-progress-badge').getBoundingClientRect();if(Math.abs(r.top-Number(n.dataset.anchorTop))>1||Math.abs(r.left-Number(n.dataset.anchorLeft))>1)n.hidePopover();});},true);
  function reset(){closePopovers();epoch++;watchSeq++;watchKey='';wanted=[];scopeKey=null;invoiceKeys.clear();lookups.clear();batchIds.clear();resumeBaseline.clear();clearTimeout(pollTimer);clearInterval(timer);timer=null;active=false;rows.clear();notify=null;lastSummary='';window.moaonHub?.cancelShippingProgress?.();syncStatus('');document.querySelectorAll('.order-shipping-progress').forEach(paint);}
  function open(){const details=document.querySelector('.order-shipping-progress:not([hidden])');if(!details)return false;details.scrollIntoView({block:'nearest'});const trigger=details.querySelector('.shipping-progress-badge');if(trigger.getAttribute('aria-expanded')!=='true')trigger.click();trigger.focus({preventScroll:true});return true;}
+ function visibilityChanged(){const visible=viewVisible();clock();if(visible===wasVisible)return;wasVisible=visible;schedule(0);}
+ document.addEventListener('visibilitychange',visibilityChanged);
+ document.addEventListener('moaon-route-changed',visibilityChanged);
  document.addEventListener('moaon-session-changed',reset);
- window.moaonShippingProgress=Object.freeze({start,update,finish,reset,open,mount,watch,poll,recheck,snapshot:()=>[...rows.values()].map(row=>({...row,presentation:presentation(row)}))});
+ window.moaonShippingProgress=Object.freeze({start,update,finish,reset,open,mount,watch,poll,recheck,resourceUsage:()=>({cachedRows:rows.size,lookupEntries:lookups.size,invoiceEntries:invoiceKeys.size,watchedOrders:wanted.length,clockActive:!!timer,active}),snapshot:()=>[...rows.values()].map(row=>({...row,presentation:presentation(row)}))});
 })();
