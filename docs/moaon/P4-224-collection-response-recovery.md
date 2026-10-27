@@ -28,3 +28,13 @@ The app waits for a bounded response. If the initial POST exceeded that deadline
 
 ## Limits and progress
 This follow-up has three stages: diagnose, implement/test server+Main+UI, installed release verification. Earlier six-stage performance work remains complete. Durable recovery applies to requests made with the new protocol; old client requests had no receipt UUID. An existing running app must restart after active shipment work to load the new release. Unknown results stay guarded rather than being declared successful just because time passed.
+
+## Final installed and public release evidence
+- Final release 0.223.0: desktop/dist/distribution-20261028-041827-956. Earlier build candidates were not published.
+- Package verification PASS: 166 exact source files; app.asar SHA256 973bbc6f612515be3ac34c56cdb0278385ebfc2c4b5f93bf7451f86c6266648a.
+- Local installed release/current.json/shortcuts point to D:\GPT\Apps\Moaon\releases\0.223.0; existing user app processes preserved. Restart after active shipment work completes.
+- Installed real Main transport module + preload + UI in a visible right-monitor isolated fixture: automatic timer recovery PASS, one initial lost-response POST and two GETs, zero additional POSTs, existing row retained, completed result with worker offline stays complete, retry unlocked, new list automatically applied. Recovery layout widths 1440/1040/900 no overflow; old applied-list suffix suppressed. No real order writes.
+- Installed standard collection/list application regression PASS, including selection and issuance deferral, existing-list retention, error retry, themes and three widths.
+- Installed three-channel diagnostics regression PASS: 11 existing scenarios across three channels, light/dark and three widths; no technical error codes exposed, equal chip heights and no overflow.
+- Public GitHub moaon-stable published; Ed25519 feed signature verified, installer HTTP 200 and GitHub digest matches. Bytes 114473160; installer SHA256 747d67157563ae7faae3e49faa754db8c9127666e32a3af403966d97b32d2a26. Authenticode remains NotSigned.
+- All three stages of this recovery follow-up complete. The prior six-stage performance roadmap remains complete. Live authenticated use of the new receipt protocol begins after the user restarts into the new app; the simulated response-loss UI test is not represented as a production-user operation.
