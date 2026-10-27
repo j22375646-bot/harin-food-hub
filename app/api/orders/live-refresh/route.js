@@ -8,6 +8,7 @@ import operationQueue from '../../../../lib/coupang/operation-queue.js';
 import reliabilityCenter from '../../../../lib/operations/reliability-center.js';
 import unifiedOrdersModule from '../../../../lib/orders/unified-orders.js';
 import diagnostics from '../../../../lib/orders/collection-diagnostics.js';
+import recovery from '../../../../lib/orders/collection-recovery.js';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -49,7 +50,11 @@ async function settledValue(task) {
 export async function POST(request) {
   if(!apiSafety.isAuthorized(request,authModule))return apiSafety.unauthorized();
   try {
+    const body=request.headers.get('content-type')?.includes('application/json')?await apiSafety.readJson(request,{maxBytes:2048}):{};
+    const collectionId=body.collectionId;
+    if(collectionId!==undefined&&!recovery.UUID.test(collectionId))return apiSafety.json({ok:false,error:'수집 요청을 확인하세요.'},{status:400});
     const db=supabaseModule.getSupabase();
+    if(collectionId){const claimed=await recovery.claim(db,collectionId);if(!claimed.created){const readiness=await reliabilityCenter.loadLiveRefreshWorkerReadiness(db,{now:new Date()});const result=await recovery.response(db,claimed.record,publicWorker(readiness));return apiSafety.json(result,{status:result.pending?202:200});}}
     const now=new Date();
     const [readinessResult,cafe24Result]=await Promise.all([
       settledValue(()=>reliabilityCenter.loadLiveRefreshWorkerReadiness(db,{now})),
@@ -95,8 +100,9 @@ export async function POST(request) {
       if(naverResult.error)failures.push('네이버 주문 수집 요청 실패');
     }
     const refreshedAt=cafe24?.finishedAt || new Date().toISOString();
-    const center=await currentCenter(db,refreshedAt);
     const requests={coupang:coupang?.request||null,naver:naver?.request||null};
+    if(collectionId){const record=await recovery.settle(db,collectionId,channelDiagnostics,requests);const result=await recovery.response(db,record,publicWorker(readiness));return apiSafety.json(result,{status:result.pending?202:200});}
+    const center=await currentCenter(db,refreshedAt);
     const ok=Boolean(cafe24)||Boolean(requests.coupang)||Boolean(requests.naver);
     const pending=Boolean(requests.coupang||requests.naver);
     const status=!ok?503:pending?202:failures.length?207:200;
@@ -106,6 +112,7 @@ export async function POST(request) {
       coupang,naver,requests,worker:publicWorker(readiness),center,refreshedAt
     },{status});
   } catch(error) {
+    const invalid=apiSafety.inputErrorResponse(error);if(invalid)return invalid;
     console.error('[orders live refresh]',{code:diagnostics.classify(error)});
     return apiSafety.json({ok:false,error:'실시간 주문 상태를 확인하지 못했습니다.',errorCode:diagnostics.classify(error)},{status:502});
   }
@@ -115,6 +122,15 @@ export async function GET(request) {
   if(!apiSafety.isAuthorized(request,authModule))return apiSafety.unauthorized();
   try {
     const searchParams=new URL(request.url).searchParams;
+    const collectionId=searchParams.get('collectionId');
+    if(collectionId){
+      if(!recovery.UUID.test(collectionId))return apiSafety.json({ok:false,error:'수집 요청을 확인하세요.'},{status:400});
+      const db=supabaseModule.getSupabase(),record=await recovery.load(db,collectionId);
+      if(!record)return apiSafety.json({ok:false,collection:{id:collectionId,status:'NOT_FOUND'}},{status:404});
+      const readinessResult=await settledValue(()=>reliabilityCenter.loadLiveRefreshWorkerReadiness(db,{now:new Date()}));
+      const result=await recovery.response(db,record,publicWorker(readinessResult.value||failedReadiness()));
+      return apiSafety.json(result,{status:result.pending?202:200});
+    }
     const coupangRequestId=searchParams.get('coupangRequestId')||searchParams.get('requestId')||'';
     const naverRequestId=searchParams.get('naverRequestId')||'';
     if(!coupangRequestId&&!naverRequestId)return apiSafety.json({ok:false,error:'수집 요청번호를 확인하세요.'},{status:400});
