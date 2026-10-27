@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('moaonHub', Object.freeze({
   listApiDrafts: () => ipcRenderer.invoke('moaon-hub:list-api-drafts'),
   removeApiDraft: value => ipcRenderer.invoke('moaon-hub:remove-api-draft',value),
   collectOrders: () => ipcRenderer.invoke('moaon-hub:collect-orders'),
+  readOrderCollection: () => ipcRenderer.invoke('moaon-hub:read-order-collection'),
   checkOrderCollection: () => ipcRenderer.invoke('moaon-hub:check-order-collection'),
   checkOrderFreshness: () => ipcRenderer.invoke('moaon-hub:check-order-freshness'),
   onWindowRestored,

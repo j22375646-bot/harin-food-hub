@@ -611,3 +611,38 @@ html[data-theme] .orders-page .order-item:has(>.order-row[aria-pressed=true]) .o
 @keyframes shipping-state-pulse{0%,100%{opacity:.42;transform:scale(.86)}50%{opacity:1;transform:scale(1)}}
 @media(prefers-reduced-motion:reduce){.order-shipping-progress[data-tone=active] .shipping-progress-badge>i{animation:none}.order-shipping-progress .shipping-progress-chevron{transition:none}}
 @container(max-width:700px){.orders-page .order-status-rail{margin-left:88px}}
+
+/* One compact operation strip: collection, freshness and delivery preparation. */
+.orders-page #order-freshness{display:flex;flex-direction:column;align-items:stretch;gap:8px;padding:12px 16px;opacity:1}
+.orders-page #order-collection{--collect-color:var(--muted);padding:0;border:0;background:transparent;min-width:0;width:100%;align-self:stretch;grid-column:auto;grid-row:auto}
+.orders-page #order-collection[data-phase=AUTHORIZING],.orders-page #order-collection[data-phase=CHECKING]{--collect-color:#85b8e9}
+.orders-page #order-collection[data-phase=REQUESTING],.orders-page #order-collection[data-phase=WAITING]{--collect-color:var(--lavender,#bca6e8)}
+.orders-page #order-collection[data-state=SUCCESS]{--collect-color:var(--mint,#83bcae)}
+.orders-page #order-collection[data-phase=ATTENTION],.orders-page #order-collection[data-state=CHECK_REQUIRED]{--collect-color:var(--amber,#d6ae72)}
+.orders-page .collection-controls{gap:8px;min-height:30px;color:var(--collect-color);flex-wrap:wrap;justify-content:flex-start}
+.orders-page .collection-controls strong{display:block;font-size:12px;font-weight:650;line-height:1.5;margin-right:0;flex:1;min-width:180px;overflow-wrap:anywhere;text-align:left}
+.orders-page #collection-message{color:var(--collect-color);font-size:12px;margin:0;line-height:1.5;text-align:left}
+.orders-page #collection-checked-at{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.orders-page .collection-controls button{min-height:30px;padding:4px 9px;font-size:11px;border-radius:8px;background:var(--surface);color:var(--ink)}
+.orders-page .collection-motion{width:10px;height:10px;flex:0 0 10px;border-radius:50%;background:var(--collect-color);box-shadow:0 0 0 4px color-mix(in srgb,var(--collect-color) 10%,transparent)}
+.orders-page #order-collection[aria-busy=true] .collection-motion{background:transparent;border:2px solid color-mix(in srgb,var(--collect-color) 25%,transparent);border-top-color:var(--collect-color);animation:delivery-prep-turn 1s linear infinite}
+.orders-page .collection-channels{gap:6px;flex-wrap:wrap;overflow:visible;margin-top:6px;padding-left:18px}
+.orders-page .collection-chip{display:inline-flex;align-items:center;gap:6px;min-width:0;flex:0 1 auto;padding:4px 8px;border:1px solid color-mix(in srgb,var(--muted) 22%,transparent);border-radius:7px;font-size:11px;line-height:1.4;color:var(--muted);background:var(--surface)}
+.orders-page .collection-chip[data-status=SUCCESS]{color:var(--mint,#83bcae);background:color-mix(in srgb,var(--mint,#83bcae) 10%,var(--surface));border-color:color-mix(in srgb,var(--mint,#83bcae) 35%,transparent)}
+.orders-page .collection-chip[data-status=RUNNING],.orders-page .collection-chip[data-status=PENDING]{color:var(--lavender,#bca6e8);border-color:color-mix(in srgb,var(--lavender,#bca6e8) 35%,transparent)}
+.orders-page .collection-chip[data-status=RUNNING]::before{content:'';width:5px;height:5px;background:currentColor;border-radius:50%;animation:shipping-state-pulse 1.4s ease-in-out infinite}
+.orders-page .collection-chip[data-status=FAILED],.orders-page .collection-chip[data-status=PARTIAL],.orders-page .collection-chip[data-status=CHECK_REQUIRED]{color:var(--amber,#d6ae72)}
+:root[data-theme=light] .orders-page #order-collection[data-phase=AUTHORIZING],:root[data-theme=light] .orders-page #order-collection[data-phase=CHECKING]{--collect-color:#326b9e}
+:root[data-theme=light] .orders-page #order-collection[data-phase=REQUESTING],:root[data-theme=light] .orders-page #order-collection[data-phase=WAITING]{--collect-color:#7760a8}
+:root[data-theme=light] .orders-page #order-collection[data-state=SUCCESS]{--collect-color:#2f7866}
+:root[data-theme=light] .orders-page #order-collection[data-phase=ATTENTION],:root[data-theme=light] .orders-page #order-collection[data-state=CHECK_REQUIRED]{--collect-color:#906015}
+:root[data-theme=light] .orders-page .collection-chip[data-status=SUCCESS]{color:#2f7866}
+:root[data-theme=light] .orders-page .collection-chip[data-status=RUNNING],:root[data-theme=light] .orders-page .collection-chip[data-status=PENDING]{color:#7760a8}
+.orders-page .freshness-summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;font-size:11px;color:var(--muted)}
+.orders-page .freshness-summary time{margin-left:auto;font-variant-numeric:tabular-nums}
+.orders-page #order-freshness .delivery-prep-status{margin:0;padding:7px 9px;min-height:0;gap:8px;box-shadow:none;border-radius:8px}
+.orders-page #order-freshness .delivery-prep-icon{width:20px;height:20px;flex-basis:20px}
+.orders-page #order-freshness .delivery-prep-copy strong{font-size:11px}
+.orders-page #order-freshness .delivery-prep-caption{display:none}
+.orders-page #order-freshness .delivery-prep-progress{height:2px}
+@media(prefers-reduced-motion:reduce){.orders-page #order-collection .collection-motion,.orders-page .collection-chip::before{animation:none!important}}

@@ -377,20 +377,20 @@ function createHubConnection({
     blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive()||registrationController||automaticController||reviewingShipment),
   });
   let collectionWorkActive=false;
-  async function runCollection(check){if(collectionWorkActive)return {status:'BUSY'};collectionWorkActive=true;try{return await collection[check?'check':'collect']();}finally{collectionWorkActive=false;}}
+  async function runCollection(check){if(collectionWorkActive)return {...collection.read(),status:'BUSY',busy:true};collectionWorkActive=true;try{if(!check)backgroundCollectionAt=Date.now();return await collection[check?'check':'collect']();}finally{collectionWorkActive=false;}}
   const collectOrders=()=>runCollection(false),checkOrderCollection=()=>runCollection(true);
+  const readOrderCollection=()=>({...collection.read(),busy:collectionWorkActive});
   let backgroundCollectionState=null,backgroundCollectionAt=0;
-  const backgroundCollection=createOrderCollection({authorize:verifyShipmentSession,fetch:(url,options)=>getRemoteSession().fetch(url,options),readJson:readBoundedJson,
-    permit:(url,method)=>{collectionPermit=method?{url,method}:null;},timeoutMs:Math.min(timeoutMs*3,45000),
-    blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive()||registrationController||automaticController||reviewingShipment)});
+  const backgroundCollection=collection;
   async function collectBackgroundOrders(){
-    if(collectionWorkActive)return {status:'BUSY'};collectionWorkActive=true;
+    if(collectionWorkActive)return {...collection.read(),status:'BUSY'};collectionWorkActive=true;
     try{
-      // Collection only reads channel data. An uncertain job is checked for ten minutes
-      // before a fresh read request; never reset the user's manual collection state.
-      if(backgroundCollectionState&&backgroundCollectionState.status!=='BUSY'&&(backgroundCollectionState.canCollect||Date.now()-backgroundCollectionAt>600000))backgroundCollectionState=null;
-      if(!backgroundCollectionState){backgroundCollection.reset();backgroundCollectionAt=Date.now();}
-      backgroundCollectionState=await (backgroundCollectionState?.canCheck?backgroundCollection.check():backgroundCollection.collect());
+      // Manual and scheduled collection share one identity and one progress record.
+      // Unknown outcomes are never reset into a second POST merely due to elapsed time.
+      const state=collection.read();
+      if(state.canCollect&&state.phase!=='IDLE'&&Date.now()-backgroundCollectionAt<120000)return state;
+      backgroundCollectionState=await (state.canCheck&&!state.canCollect?collection.check():collection.collect());
+      if(state.canCollect)backgroundCollectionAt=Date.now();
       return backgroundCollectionState;
     }finally{collectionWorkActive=false;}
   }
@@ -2025,7 +2025,7 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-return Object.freeze({ cancelShippingProgress:()=>progressTransport.cancel(), readShippingProgress, generalChat,cancelGeneralChat,marketAi,cancelMarketAi,insightAi,cancelInsightAi,readEventPerformance, readBackgroundOrders, collectBackgroundOrders, collectBackgroundCs, assistantAutomation, assistantAccess, connectionCommand, teamCommand, keywordBid, deleteCalendarEntry, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readAssistant, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, continueShipping, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+return Object.freeze({ cancelShippingProgress:()=>progressTransport.cancel(), readShippingProgress, generalChat,cancelGeneralChat,marketAi,cancelMarketAi,insightAi,cancelInsightAi,readEventPerformance, readBackgroundOrders, collectBackgroundOrders, collectBackgroundCs, assistantAutomation, assistantAccess, connectionCommand, teamCommand, keywordBid, deleteCalendarEntry, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readAssistant, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, readOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, continueShipping, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
@@ -2119,6 +2119,7 @@ function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
     ['moaon-hub:delete-calendar-entry','deleteCalendarEntry'],
     ['moaon-hub:collect-orders', 'collectOrders'],
     ['moaon-hub:check-order-collection', 'checkOrderCollection'],
+    ['moaon-hub:read-order-collection', 'readOrderCollection'],
     ['moaon-hub:check-order-freshness', 'checkOrderFreshness'],
     ['moaon-hub:server-shipping-history', 'readServerShippingHistory'],
     ['moaon-hub:restore-shipping-history', 'restoreShippingHistory'],

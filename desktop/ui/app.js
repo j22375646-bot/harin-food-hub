@@ -62,7 +62,7 @@ let selectedChannel = 'ALL';
 let serverFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'',end:''});
 let selectedOrderButton = null;
 let displayMode = 'sample';
-let collectionState=null,collectionBusy=false,collectionGeneration=0;
+let collectionState=null,collectionBusy=false,collectionGeneration=0,collectionPollBusy=false,collectionCheckAt=0,collectionOperation='AUTHORIZING';
 const collectionShipmentLocks=new Set();
 let displayedOrders = sampleOrders;
 let connectionResult = null;
@@ -354,7 +354,8 @@ function renderFreshness(status='IDLE',checkedAt=null){
   freshnessStatus.textContent=effective==='CHANGED'?'주문 또는 사은품 기준이 변경됐어요':effective==='CURRENT'?'새 변경 없음':effective==='AUTH_REQUIRED'?'로그인 상태 확인 필요':effective==='UNAVAILABLE'?(orderReadUnverified?'최신 주문 확인 필요 · 다시 조회한 뒤 발급하세요':'변경 여부 확인 필요'):'최신 주문 확인 중…';
   freshnessCheckedAt.textContent=checkedAt?`${formatTime(checkedAt)} 확인`:'';
   freshnessCheckedAt.dateTime=checkedAt||'';
-  freshnessReload.hidden=!freshnessChanged;freshnessReload.disabled=freshnessReloadBusy||orderToolsBusy();
+  freshnessReload.hidden=!freshnessChanged&&!orderReadUnverified;freshnessReload.disabled=freshnessReloadBusy||orderToolsBusy();
+  freshnessReload.textContent=orderReadUnverified?'다시 조회':selectedOrderIds.size?'선택 유지하고 목록 반영':'새 목록 반영';
 }
 async function checkVisibleOrderFreshness(){
   if(!ordersAreVisible()||freshnessReloadBusy||typeof window.moaonHub?.checkOrderFreshness!=='function')return;
@@ -374,7 +375,7 @@ async function checkVisibleOrderFreshness(){
   }catch{if(expectedAction===actionGeneration&&expectedFreshness===freshnessGeneration&&ordersAreVisible())renderFreshness('UNAVAILABLE');}
 }
 async function reloadChangedOrders(){
-  if(freshnessReloadBusy||orderToolsBusy()||!freshnessChanged||!ordersAreVisible())return;
+  if(freshnessReloadBusy||orderToolsBusy()||(!freshnessChanged&&!orderReadUnverified)||!ordersAreVisible())return;
   const scroller=document.getElementById('main-content'),scrollTop=scroller.scrollTop;
   freshnessReloadBusy=true;freshnessReload.disabled=true;renderSelection();renderCollection();
   const expected=++actionGeneration;++freshnessGeneration;
@@ -874,8 +875,8 @@ function renderSelection(){
   renderServerFilterControls();
   const count=selectedOrderIds.size;
   const autoEligible=displayMode==='live'&&count>0&&count<=20&&[...selectedOrderIds].every(id=>displayedOrders.some(order=>orderId(order)===id&&order.issueAndRegisterEligible===true));
-  document.querySelector('#selection-auto-ship').disabled=orderReadUnverified||scopeTransitionBusy||registrationBusy||deliveryPreparationBusy||!autoEligible;
-  for(const button of detailPanel.querySelectorAll('[data-auto-ship]'))button.disabled=orderReadUnverified||scopeTransitionBusy||registrationBusy||deliveryPreparationBusy||!displayedOrders.some(order=>orderId(order)===button.dataset.autoShip&&order.issueAndRegisterEligible);
+  document.querySelector('#selection-auto-ship').disabled=orderReadUnverified||orderToolsBusy()||!autoEligible;
+  for(const button of detailPanel.querySelectorAll('[data-auto-ship]'))button.disabled=orderReadUnverified||orderToolsBusy()||!displayedOrders.some(order=>orderId(order)===button.dataset.autoShip&&order.issueAndRegisterEligible);
   const bar=document.querySelector('#order-selection');
   if(bar.parentElement!==document.body)document.body.append(bar);
   installFloatingSelection(bar);
@@ -932,7 +933,7 @@ function renderSelection(){
   const csvEligible=displayMode==='live'&&count>0&&count<=20&&documentRows.every(row=>row&&/^HR-(?:C24|CP|NV)-[A-F0-9]{8}$/.test(row.hubOrderId));
   const labelRows=documentRows.filter(row=>row&&/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(row.hubOrderId)&&row.preflight?.route==='HUB'&&row.stage!=='CANCELLED'&&row.details?.cancelled===false&&row.details?.cancellationRequested===false&&row.details?.invoice?.status==='REGISTERED'&&row.details.receiver?.name&&row.details.receiver?.address&&/^\d{5}$/.test(row.details.receiver?.postCode)&&/^\d{9,12}$/.test((row.details.receiver?.contact||'').replace(/[\s-]/g,''))&&Number.isSafeInteger(row.quantity)&&row.quantity>0&&row.productName);
   const duplicate=labelRows.length!==new Set(labelRows.map(row=>row.details.invoice.number)).size;
-  const documentLocked=orderReadUnverified||scopeTransitionBusy||registrationBusy||collectionBusy||collectionShipmentLocks.size>0;
+  const documentLocked=orderReadUnverified||orderToolsBusy();
   document.querySelector('#selection-labels').disabled=documentLocked||!csvEligible||labelRows.length!==count||duplicate;
   document.querySelector('#selection-csv').disabled=documentLocked||!csvEligible;
   document.querySelector('#selection-dispatch').disabled=documentLocked||!csvEligible;
@@ -951,7 +952,7 @@ function renderSelection(){
   if(freshnessReload)freshnessReload.disabled=freshnessReloadBusy||registrationBusy||collectionBusy||collectionShipmentLocks.size>0;
 }
 
-const orderToolsBusy=()=>scopeTransitionBusy||deliveryPreparationBusy||registrationBusy||collectionBusy||collectionShipmentLocks.size>0||freshnessReloadBusy;
+const orderToolsBusy=()=>scopeTransitionBusy||deliveryPreparationBusy||registrationBusy||collectionBusy||collectionState?.busy===true||collectionShipmentLocks.size>0||freshnessReloadBusy;
 function renderGlobalSearch(){const locked=orderToolsBusy()||displayMode!=='live';for(const id of ['order-global-query','order-global-start','order-global-end','order-global-apply','order-global-reset','order-global-export'])document.querySelector(`#${id}`).disabled=locked;const labels=[serverFilters.query?`“${serverFilters.query}”`:'',serverFilters.start?`${serverFilters.start}부터`:'',serverFilters.end?`${serverFilters.end}까지`:''].filter(Boolean);document.querySelector('#order-global-applied').textContent=labels.length?`전체 저장 주문 · ${labels.join(' · ')}`:'전체 저장 주문 · 조건 없음';}
 function renderServerFilterControls(){
   const live=displayMode==='live',busy=orderToolsBusy();
@@ -1039,31 +1040,48 @@ function renderOrders() {
 function clearCollection(){collectionGeneration++;collectionState=null;collectionBusy=false;collectionShipmentLocks.clear();renderCollection();}
 function renderCollection(){
  const panel=document.querySelector('#order-collection');panel.hidden=displayMode!=='live';
- const locked=orderToolsBusy()||displayMode!=='live';
+ const locked=orderToolsBusy()||collectionState?.busy||displayMode!=='live';
  document.querySelector('#collect-orders').disabled=locked||collectionState?.canCollect===false;
- const check=document.querySelector('#check-order-collection');check.hidden=collectionState?.canCheck!==true;check.disabled=locked;
+ const check=document.querySelector('#check-order-collection'),unknown=collectionState?.canCollect===false&&!collectionState?.canCheck&&!collectionState?.busy&&!collectionBusy;check.hidden=collectionState?.canCheck!==true&&!unknown;check.disabled=locked;check.textContent=unknown?'웹 허브에서 확인':'진행 확인';
  const reload=document.querySelector('#collection-reload');reload.hidden=collectionState?.verifiedTerminal!==true;reload.disabled=locked;
- panel.setAttribute('aria-busy',String(collectionBusy));
- document.querySelector('#collection-message').textContent=collectionBusy?'전체 채널 수집 상태 확인 중…':!collectionState?'Cafe24·네이버·쿠팡 전체 수집 · 아래 채널 필터와 무관합니다.':collectionState.status==='PENDING'?'요청 접수 · 완료 아님. 수집 결과 확인으로 진행 상태를 조회하세요.':collectionState.status==='SUCCESS'?'전체 채널 수집 완료 · 저장 목록을 다시 조회하면 선택한 주문은 해제됩니다.':collectionState.status==='BUSY'?'다른 작업을 마친 뒤 다시 확인하세요.':collectionState.canCollect===false&&!collectionState.canCheck?'수집 결과 확인 필요 · 중복 수집 방지를 위해 재요청이 잠겼습니다. 저장 목록과 웹 허브 수집 상태를 확인하세요.':'일부 채널 확인 필요 · 완료된 채널과 확인이 필요한 채널을 구분해 확인하세요.';
+ const phase=collectionBusy&&!collectionState?.busy?collectionOperation:collectionState?.phase||(collectionState?.status==='PENDING'?'WAITING':collectionState?.status==='SUCCESS'?'FINISHED':collectionState?'ATTENTION':'IDLE');
+ panel.dataset.phase=phase;panel.dataset.state=collectionState?.status||'IDLE';panel.setAttribute('aria-busy',String(collectionBusy||collectionState?.busy||collectionState?.status==='PENDING'));
+ const reasons={AUTH_REQUIRED:'로그인 확인 필요',WORKER_OFFLINE:'네이버·쿠팡 수집 서버 연결 확인 필요',TIMEOUT:'응답 지연 · 기존 주문 유지',UNAVAILABLE:'수집 상태 확인 필요 · 기존 주문 유지'};
+ const stages={IDLE:'자동 수집 대기',AUTHORIZING:'연결 확인 중',REQUESTING:'Cafe24 조회 · 네이버·쿠팡 수집 요청 중',CHECKING:'플랫폼별 진행 확인 중',WAITING:'플랫폼 수집 진행 중',FINISHED:collectionState?.status==='SUCCESS'?'3개 플랫폼 수집 완료':'수집 종료 · 일부 확인 필요',ATTENTION:'수집 확인 필요'};
+ document.querySelector('#collection-message').textContent=reasons[collectionState?.reason]||stages[phase]||'수집 상태 확인 필요';
+ const time=document.querySelector('#collection-checked-at');time.textContent=collectionState?.checkedAt?formatTime(collectionState.checkedAt)+' 확인':'';time.dateTime=collectionState?.checkedAt||'';
+ const collect=document.querySelector('#collect-orders');collect.textContent=phase==='IDLE'?'지금 수집':'다시 수집';
+ collect.title=deliveryPreparationBusy?'배송정보 준비 후 사용할 수 있어요':registrationBusy?'송장 작업 완료 후 사용할 수 있어요':collectionState?.canCollect===false?'진행 확인으로 기존 수집 결과를 확인하세요':'Cafe24·네이버·쿠팡 전체 채널 수집';
  const chips=document.querySelector('#collection-channels');chips.replaceChildren();
  const labels={SUCCESS:'완료',PARTIAL:'일부 수집 · 확인 필요',PENDING:'대기 · 완료 아님',RUNNING:'수집 중',FAILED:'실패',CHECK_REQUIRED:'확인 필요'};
  for(const [key,name] of [['cafe24','Cafe24'],['naver','네이버'],['coupang','쿠팡']]){
-  if(!collectionState)break;const row=collectionState.channels?.[key];
-  const chip=makeElement('span','collection-chip',`${name} · ${labels[row?.status]||'확인 필요'}`);
+  if(!collectionState||phase==='IDLE')break;const row=collectionState.channels?.[key];
+  const chip=makeElement('span','collection-chip',`${name} · ${labels[row?.status]||'확인 필요'}`);chip.dataset.status=row?.status||'CHECK_REQUIRED';
   const date=typeof row?.observedAt==='string'?new Date(row.observedAt):null;
-  chip.append(makeElement('small','',date&&Number.isFinite(date.getTime())?`기록 시각 ${date.toLocaleString('ko-KR')}`:'기록 시각 없음'));chips.append(chip);
+  chip.title=date&&Number.isFinite(date.getTime())?`마지막 상태 기록 ${date.toLocaleString('ko-KR')}`:'아직 완료 기록이 없습니다';chips.append(chip);
  }
 }
 async function runCollection(check){
  if(orderToolsBusy()||displayMode!=='live'||(!check&&collectionState?.canCollect===false))return;
- const expected=collectionGeneration;collectionBusy=true;renderCollection();
- try{const result=await window.moaonHub[check?'checkOrderCollection':'collectOrders']();if(expected===collectionGeneration)collectionState=result;}
+ const expected=collectionGeneration;collectionOperation=check?'CHECKING':'AUTHORIZING';collectionBusy=true;renderCollection();
+ try{const result=await window.moaonHub[check?'checkOrderCollection':'collectOrders']();if(expected===collectionGeneration){collectionState=result;collectionCheckAt=Date.now();}}
  catch{if(expected===collectionGeneration)collectionState={...collectionState,status:'CHECK_REQUIRED',canCollect:false};}
  finally{if(expected===collectionGeneration){collectionBusy=false;renderCollection();}}
 }
 document.querySelector('#collect-orders').addEventListener('click',()=>void runCollection(false));
-document.querySelector('#check-order-collection').addEventListener('click',()=>void runCollection(true));
-document.querySelector('#collection-reload').addEventListener('click',()=>{if(!collectionBusy&&!registrationBusy&&collectionState?.verifiedTerminal)void runHubAction('refresh');});
+document.querySelector('#check-order-collection').addEventListener('click',()=>{if(collectionState?.canCheck)void runCollection(true);else if(!orderToolsBusy())void window.moaonHub.openWebHub();});
+document.querySelector('#collection-reload').addEventListener('click',()=>{if(!orderToolsBusy()&&collectionState?.verifiedTerminal)void runHubAction('refresh');});
+
+// Local Main snapshot joins scheduled and manual collection without extra POSTs.
+// Poll remote progress only while the orders page is visible and the job is pending.
+async function pollCollection(){
+ if(!ordersAreVisible()||collectionPollBusy||typeof window.moaonHub?.readOrderCollection!=='function')return;
+ const expected=collectionGeneration;collectionPollBusy=true;
+ try{const state=await window.moaonHub.readOrderCollection();if(expected!==collectionGeneration||displayMode!=='live')return;const previousBusy=collectionState?.busy;collectionState=state;renderCollection();if(previousBusy!==state?.busy)renderSelection();
+  if(state?.canCheck&&!state.busy&&state.status==='PENDING'&&Date.now()-collectionCheckAt>=10000&&!orderToolsBusy()){collectionCheckAt=Date.now();await runCollection(true);}
+ }catch{}finally{collectionPollBusy=false;}
+}
+setInterval(()=>void pollCollection(),3000);
 
 function setButtons(mode) {
   renderCollection();
@@ -1151,6 +1169,9 @@ function clearDisplayedOrders(mode, message) {
 
 function applyHubResult(result,options={}) {
   const retained=options.preserveView&&displayMode==='live'?{query:orderSearch.value,ids:[...selectedOrderIds],detail:selectedOrderId,scroll:document.getElementById('main-content').scrollTop}:null;
+  if(retained&&['UNAVAILABLE','SNAPSHOT_CHANGED','SERVER_DISABLED','BUSY'].includes(result?.status)){
+    orderReadUnverified=true;renderFreshness('UNAVAILABLE');renderSelection();return;
+  }
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){window.moaonShippingProgress?.reset();document.getElementById('shipping-job-notice')?.setAttribute('hidden','');orderScopeViews.clear();orderScopeTotals=null;clearTimeout(deliveryPreparationTimer);deliveryPreparationAttempts.clear();const prep=document.getElementById('delivery-prep-status');if(prep)prep.textContent='';}
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status))window.moaonFeedback.orders.reset();
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){historyAutoLoaded=false;historyGeneration++;}
@@ -1859,8 +1880,8 @@ async function recheckShippingSelection(){
  if(orderToolsBusy()||displayMode!=='live')return;const ids=[...selectedOrderIds],generation=++actionGeneration;
  freshnessReloadBusy=true;renderSelection();renderCollection();
  // Keep the current list visible until a complete replacement is available.
- try{const result=await window.moaonHub.recheckPage();if(generation!==actionGeneration)return;applyHubResult(result,{preserveView:true});if(displayMode==='live'&&['READY','PARTIAL'].includes(result.status)){const remaining=new Set(displayedOrders.map(o=>orderId(o)));ids.filter(id=>remaining.has(id)).forEach(id=>selectedOrderIds.add(id));renderOrders();}}
- catch{if(generation===actionGeneration)clearDisplayedOrders('error','발급 조건을 확인하지 못했습니다. 다시 조회하세요.');}
+ try{let result=await window.moaonHub.recheckPage();if(generation!==actionGeneration)return;if(result?.status==='SNAPSHOT_CHANGED'){result=await window.moaonHub.refresh();if(generation!==actionGeneration)return;}applyHubResult(result,{preserveView:true});if(displayMode==='live'&&['READY','PARTIAL'].includes(result.status)){const remaining=new Set(displayedOrders.map(o=>orderId(o)));ids.filter(id=>remaining.has(id)).forEach(id=>selectedOrderIds.add(id));renderOrders();}}
+ catch{if(generation===actionGeneration){orderReadUnverified=true;renderFreshness('UNAVAILABLE');renderSelection();}}
  finally{freshnessReloadBusy=false;if(generation===actionGeneration){renderSelection();renderCollection();}}
 }
 
@@ -1872,7 +1893,7 @@ const receiverReady=r=>Boolean(r?.name&&r?.address&&r?.contact&&/^\d{5}$/.test(r
 const deliveryPreparationKey=o=>JSON.stringify([orderId(o),o.orderedAt,o.details?.externalOrderId,o.details?.receiver]);
 function deliveryPreparationStatus(){
  let node=document.getElementById('delivery-prep-status');
- if(!node){node=makeElement('div','delivery-prep-status');node.id='delivery-prep-status';node.setAttribute('role','status');node.setAttribute('aria-live','polite');node.hidden=true;orderList.before(node);}
+ if(!node){node=makeElement('div','delivery-prep-status');node.id='delivery-prep-status';node.setAttribute('role','status');node.setAttribute('aria-live','polite');node.hidden=true;freshnessRow.append(node);}
  return node;
 }
 function paintDeliveryPreparation(node,done,total,ready,finished=false){
