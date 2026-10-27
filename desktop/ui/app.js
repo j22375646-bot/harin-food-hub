@@ -896,21 +896,48 @@ function createOrderRow(order) {
   return row;
 }
 
+// Retain only the visible page. Reuse unchanged rows so focus, images and
+// shipment popovers survive a refresh; changed data gets fresh bound handlers.
+let renderedOrderRows=new Map();
+document.addEventListener('moaon-session-changed',()=>renderedOrderRows.clear());
+function reconcileOrderRows(orders){
+  const ids=orders.map(orderId),unique=new Set(ids);
+  if(unique.size!==ids.length||ids.some(id=>!id)){
+    renderedOrderRows.clear();orderList.replaceChildren(...orders.map(createOrderRow));return;
+  }
+  const next=new Map(),day=new Date().toLocaleDateString('ko-KR');
+  let cursor=orderList.firstElementChild;
+  for(const order of orders){
+    const id=orderId(order),signature=JSON.stringify([displayMode,day,window.moaonFeedback.orders.has(id),order]);
+    const previous=renderedOrderRows.get(id);
+    const node=previous?.signature===signature?previous.node:createOrderRow(order);
+    node.querySelector('.order-row').setAttribute('aria-pressed',String(id===selectedOrderId));
+    next.set(id,{signature,node});
+    if(node!==cursor)orderList.insertBefore(node,cursor);
+    cursor=node.nextElementSibling;
+  }
+  const retained=new Set([...next.values()].map(entry=>entry.node));
+  for(const node of [...orderList.children])if(!retained.has(node))node.remove();
+  renderedOrderRows=next;
+}
+
 let dismissedSelectionReason=null;
 let expandedSelectionReason=null;
 function renderSelection(){
   renderCollection();
   renderServerFilterControls();
   renderGlobalSearch();
+  const indexedOrders=new Map(displayedOrders.map(order=>[orderId(order),order]));
+  const selected=[...selectedOrderIds].map(id=>indexedOrders.get(id));
   const count=selectedOrderIds.size;
-  const autoEligible=displayMode==='live'&&count>0&&count<=20&&[...selectedOrderIds].every(id=>displayedOrders.some(order=>orderId(order)===id&&order.issueAndRegisterEligible===true));
+  const autoEligible=displayMode==='live'&&count>0&&count<=20&&selected.every(order=>order?.issueAndRegisterEligible===true);
   document.querySelector('#selection-auto-ship').disabled=orderReadUnverified||orderToolsBusy()||!autoEligible;
   for(const button of detailPanel.querySelectorAll('[data-auto-ship]'))button.disabled=orderReadUnverified||orderToolsBusy()||!displayedOrders.some(order=>orderId(order)===button.dataset.autoShip&&order.issueAndRegisterEligible);
   const bar=document.querySelector('#order-selection');
   if(bar.parentElement!==document.body)document.body.append(bar);
   installFloatingSelection(bar);
   let reason=document.getElementById('selection-block-reason');if(!reason){reason=makeElement('div','selection-block-reason');reason.id='selection-block-reason';reason.setAttribute('role','status');bar.append(reason);}else bar.append(reason);
-  const selected=[...selectedOrderIds].map(id=>displayedOrders.find(o=>orderId(o)===id)),blocked=selected.filter(o=>!o?.issueAndRegisterEligible),ready=selected.filter(o=>o?.issueAndRegisterEligible===true);
+  const blocked=selected.filter(o=>!o?.issueAndRegisterEligible),ready=selected.filter(o=>o?.issueAndRegisterEligible===true);
   let prepare=document.getElementById('selection-prepare-delivery');if(!prepare){prepare=makeElement('button','secondary-action','배송정보 일괄 준비');prepare.id='selection-prepare-delivery';prepare.type='button';prepare.onclick=()=>void prepareSelectedDelivery();bar.prepend(prepare);}prepare.hidden=selectedScope!=='ACTIVE';prepare.disabled=orderToolsBusy()||displayMode!=='live'||count<1||count>20||!selected.some(o=>o&&['CAFE24','COUPANG'].includes(o.platform));
   const names={DELIVERY_INFO:'받는 분·주소·연락처 확인',HISTORY_UNAVAILABLE:'송장 이력 조회 확인',SHIPMENT_ID:'쿠팡 배송묶음 번호 확인',SERVER_CHECK:'서버 출고 조건 확인',PARTIAL:'누락 채널 재조회',NAVER_ROUTE:'네이버에서 별도 발급',ROCKET_ROUTE:'로켓그로스는 쿠팡에서 처리',INVOICE_EXISTS:'기존 송장 확인',CANCELLED:'취소 주문 제외',CANCEL_REQUEST:'취소 요청 확인',INVOICE_UNKNOWN:'송장 존재 여부 확인',CANCEL_UNKNOWN:'취소 여부 확인',SHIPPED:'이미 배송 진행 중',STAGE_UNKNOWN:'주문 상태 확인',ORDER_ID:'주문번호 확인',QUANTITY:'수량 확인',ROUTE_UNKNOWN:'출고 경로 확인'};
   const reasonKey=JSON.stringify([selectedScope,[...selectedOrderIds].sort()]);
@@ -956,9 +983,9 @@ function renderSelection(){
   document.querySelector('#selection-count').textContent=count?`${count}건 선택`:'상세 보기';
   document.querySelector('#selection-review').disabled=registrationBusy||(!selectedOrderId&&count===0);
   document.querySelector('#selection-review').textContent=count>1?'첫 선택 내용 확인':'내용 확인';
-  const eligible=displayMode==='live'&&count>0&&count<=20&&[...selectedOrderIds].every(id=>displayedOrders.some(order=>orderId(order)===id&&order.registrationEligible===true));
+  const eligible=displayMode==='live'&&count>0&&count<=20&&selected.every(order=>order?.registrationEligible===true);
   document.querySelector('#selection-register').disabled=orderReadUnverified||scopeTransitionBusy||registrationBusy||!eligible;
-  const documentRows=[...selectedOrderIds].map(id=>displayedOrders.find(order=>orderId(order)===id));
+  const documentRows=selected;
   const csvEligible=displayMode==='live'&&count>0&&count<=20&&documentRows.every(row=>row&&/^HR-(?:C24|CP|NV)-[A-F0-9]{8}$/.test(row.hubOrderId));
   const labelRows=documentRows.filter(row=>row&&/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(row.hubOrderId)&&row.preflight?.route==='HUB'&&row.stage!=='CANCELLED'&&row.details?.cancelled===false&&row.details?.cancellationRequested===false&&row.details?.invoice?.status==='REGISTERED'&&row.details.receiver?.name&&row.details.receiver?.address&&/^\d{5}$/.test(row.details.receiver?.postCode)&&/^\d{9,12}$/.test((row.details.receiver?.contact||'').replace(/[\s-]/g,''))&&Number.isSafeInteger(row.quantity)&&row.quantity>0&&row.productName);
   const duplicate=labelRows.length!==new Set(labelRows.map(row=>row.details.invoice.number)).size;
@@ -1009,7 +1036,7 @@ function renderOrders() {
   const query = orderSearch.value.trim().toLocaleLowerCase('ko-KR');
   const channelOf = order => isSampleMode() ? order.channel : order.platform;
   const channel = selectedChannel;
-  orderChannel.replaceChildren(...[['ALL','모든 채널'],['CAFE24','Cafe24'],['NAVER','네이버'],['COUPANG','쿠팡 판매자배송']].map(([value,label])=>{
+  if(orderChannel.options.length!==4)orderChannel.replaceChildren(...[['ALL','모든 채널'],['CAFE24','Cafe24'],['NAVER','네이버'],['COUPANG','쿠팡 판매자배송']].map(([value,label])=>{
     const option=makeElement('option','',label);option.value=value;return option;
   }));
   orderChannel.value=channel;
@@ -1036,8 +1063,9 @@ function renderOrders() {
       return orderSort.value==='AMOUNT_ASC'?left-right:right-left;
     });
   }
-  for(const id of selectedOrderIds)if(!visibleOrders.some(order=>orderId(order)===id))selectedOrderIds.delete(id);
-  orderList.replaceChildren(...visibleOrders.map(createOrderRow));
+  const visibleIds=new Set(visibleOrders.map(orderId));
+  for(const id of selectedOrderIds)if(!visibleIds.has(id))selectedOrderIds.delete(id);
+  reconcileOrderRows(visibleOrders);
   window.moaonShippingProgress?.watch(displayMode==='live'?visibleOrders:[]);
   orderList.hidden = visibleOrders.length === 0;
   orderEmpty.hidden = visibleOrders.length !== 0;
