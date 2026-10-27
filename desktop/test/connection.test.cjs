@@ -22,6 +22,13 @@ test('a newly collected platform invalidates the freshness cooldown once and dis
  await connection.disconnect();assert.equal(connection.readOrderCollection().changeVersion,0);
 });
 
+test('collection can populate a previously empty first page without reconnecting',async()=>{
+ let hasNewOrder=false;
+ const {connection}=makeConnection(makeRemoteSession(async url=>url.includes('/live-refresh')?Response.json({ok:true,cafe24:{status:'SUCCESS',finishedAt:'2026-10-27T06:00:00Z'},requests:{}}):Response.json(makePagePayload({orders:hasNewOrder?[reviewOrder()]:[],total:hasNewOrder?1:0,nextOffset:null}))));
+ assert.equal((await connection.viewActive()).orders.length,0);assert.equal((await connection.checkOrderFreshness()).status,'CURRENT');
+ hasNewOrder=true;assert.ok((await connection.collectOrders()).changeVersion>0);assert.equal((await connection.checkOrderFreshness()).status,'CHANGED');assert.equal((await connection.refresh()).orders.length,1);
+});
+
 test('manual and background collection share request identities and expose only projected progress',async()=>{
  const id='12345678-1234-4123-8123-123456789abc';let posts=0,gets=0;
  const {connection}=makeConnection(makeRemoteSession(async(url,o)=>{
