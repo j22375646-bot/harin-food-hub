@@ -1957,7 +1957,8 @@ function deliveryPreparationStatus(){
 }
 function paintDeliveryPreparation(node,done,total,ready,finished=false){
  const needs=finished?total-ready:0;node.hidden=selectedScope!=='ACTIVE';node.dataset.state=finished?(needs?'attention':'complete'):'loading';node.setAttribute('aria-busy',String(!finished));
- const icon=makeElement('span','delivery-prep-icon',finished?(needs?'!':'✓'):'');icon.setAttribute('aria-hidden','true');
+ const icon=makeElement('span','delivery-prep-icon',finished&&needs?'!':'');icon.setAttribute('aria-hidden','true');
+ if(finished&&!needs){const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d','M6 12l4 4 8-8');svg.append(path);icon.append(svg);}
  const copy=makeElement('span','delivery-prep-copy');copy.append(makeElement('strong','',finished?(needs?'배송정보 확인 필요':'배송정보 준비 완료'):'배송정보 준비 중'),makeElement('span','delivery-prep-caption',finished?(needs?'확인이 필요한 주문은 배송정보를 다시 준비해 주세요.':'송장 발급에 필요한 배송정보를 준비했어요.'):'주문을 확인하며 배송정보를 준비하고 있어요.'));
  const metrics=makeElement('span','delivery-prep-metrics');metrics.append(makeElement('span','delivery-prep-count',finished?ready+' / '+total+'건':done+' / '+total+'건'));
  if(needs)metrics.append(makeElement('span','delivery-prep-attention','확인 필요 '+needs+'건'));
