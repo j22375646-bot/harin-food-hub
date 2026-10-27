@@ -6,3 +6,5 @@ for(const [error,expected] of [
 test('queued jobs become delayed without fabricating terminal failure',()=>{const row={status:'RUNNING',started_at:'2026-10-27T06:00:00Z'};assert.equal(d.worker(row,true,null,'2026-10-27T06:03:00Z').code,'DELAYED');assert.equal(d.worker(row,false).code,'WORKER_OFFLINE');assert.equal(d.worker(row,false).status,'RUNNING');assert.equal(d.worker(null,false).status,'FAILED');assert.equal(d.valid('__proto__'),false);});
 
 test('cancelled worker is a retryable terminal failure',()=>{assert.deepEqual(d.worker({status:'CANCELLED'},true,null,'2026-10-27T08:00:00Z'),{status:'FAILED',code:'REQUEST_CANCELLED',observedAt:'2026-10-27T08:00:00Z'});});
+
+test('ordinary description errors do not imply an IP restriction',()=>{assert.equal(d.classify({status:403,message:'description not allowed'}),'PERMISSION_DENIED');});
