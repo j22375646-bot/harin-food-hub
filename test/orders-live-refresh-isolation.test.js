@@ -87,3 +87,18 @@ test('고정 IP 워커가 멈춰도 Cafe24 주문 수집은 성공하고 다른 
     unifiedOrders.loadUnifiedOrders=originals.loadUnifiedOrders;
   }
 });
+
+test('Cafe24 실패 코드를 전달하고 워커 실패의 원문은 응답에서 제외한다',async()=>{
+ const patches=[[apiSafety,'isAuthorized',()=>true],[supabase,'getSupabase',()=>({})],[cafe24Config,'getConfig',()=>({})],[reliability,'loadLiveRefreshWorkerReadiness',async()=>({ready:false})],[cafe24Sync,'syncOrdersRealtime',async()=>{throw Object.assign(Error('PRIVATE SECRET (429)'),{status:429});}],[unifiedOrders,'loadUnifiedOrders',async()=>({summary:{},orders:[]})]];
+ const saved=patches.map(([obj,key])=>obj[key]);
+ try{
+  patches.forEach(([obj,key,value])=>obj[key]=value);
+  const route=await import(`${routeUrl}?diagnostics=${Date.now()}`);
+  const res=await route.POST(new Request('https://example.com/api/orders/live-refresh',{method:'POST'}));const body=await res.json();
+  assert.equal(res.status,503);assert.equal(body.channelDiagnostics.cafe24.status,'FAILED');assert.equal(body.channelDiagnostics.cafe24.code,'RATE_LIMITED');assert.equal(body.channelDiagnostics.cafe24.httpStatus,429);assert.doesNotMatch(JSON.stringify(body),/PRIVATE|SECRET/);
+  reliability.loadLiveRefreshWorkerReadiness=async()=>({ready:true});
+  supabase.getSupabase=()=>({from(){return {select(){return this;},eq(){return this;},single:async()=>({data:{id:'11111111-1111-4111-8111-111111111111',status:'FAILED',error_message:'PRIVATE SECRET (403)'},error:null})};}});
+  const status=await route.GET(new Request('https://example.com/api/orders/live-refresh?naverRequestId=11111111-1111-4111-8111-111111111111'));const result=await status.json();
+  assert.equal(result.channelDiagnostics.naver.code,'PERMISSION_DENIED');assert.doesNotMatch(JSON.stringify(result),/PRIVATE|SECRET|error_message/);
+ }finally{patches.forEach(([obj,key],i)=>obj[key]=saved[i]);}
+});

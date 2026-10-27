@@ -7,6 +7,7 @@ import requestQueue from '../../../../lib/coupang/request-queue.js';
 import operationQueue from '../../../../lib/coupang/operation-queue.js';
 import reliabilityCenter from '../../../../lib/operations/reliability-center.js';
 import unifiedOrdersModule from '../../../../lib/orders/unified-orders.js';
+import diagnostics from '../../../../lib/orders/collection-diagnostics.js';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -42,7 +43,7 @@ function failedReadiness() {
 
 async function settledValue(task) {
   try{return {value:await task(),error:null};}
-  catch(error){return {value:null,error:error?.message||'작업 실패'};}
+  catch(error){return {value:null,error:error?.message||'작업 실패',diagnostic:diagnostics.failure(error)};}
 }
 
 export async function POST(request) {
@@ -77,6 +78,12 @@ export async function POST(request) {
     const coupang=coupangResult.value;
     const naver=naverResult.value;
     const cafe24Error=cafe24Result.error;
+    const channelDiagnostics={
+      cafe24:cafe24Error?cafe24Result.diagnostic:{status:cafe24?.status||'CHECK_REQUIRED',code:cafe24?.status==='PARTIAL'?'CS_PARTIAL':cafe24?.status==='SUCCESS'?'SUCCESS':'RESULT_MISSING',observedAt:cafe24?.finishedAt||null},
+      naver:diagnostics.worker(naver?.request,readiness.ready,naverResult.error?{message:naverResult.error}:null),
+      coupang:diagnostics.worker(coupang?.request,readiness.ready,coupangResult.error?{message:coupangResult.error}:null)
+    };
+    if(cafe24Error)console.warn('[ORDER_COLLECTION_CHANNEL]',{platform:'CAFE24',code:channelDiagnostics.cafe24?.code,httpStatus:channelDiagnostics.cafe24?.httpStatus});
     const failures=[];
     const unavailablePlatforms=[];
     if(cafe24Error)failures.push('Cafe24 주문 최신 조회 실패');
@@ -95,12 +102,12 @@ export async function POST(request) {
     const status=!ok?503:pending?202:failures.length?207:200;
     return apiSafety.json({
       ok,partial:failures.length>0,pending,failures,unavailablePlatforms,
-      cafe24,cafe24Error:cafe24Error?'Cafe24 주문 최신 조회 실패':null,
+      cafe24,cafe24Error:cafe24Error?'Cafe24 주문 최신 조회 실패':null,channelDiagnostics,
       coupang,naver,requests,worker:publicWorker(readiness),center,refreshedAt
     },{status});
   } catch(error) {
-    console.error('[orders live refresh]',{message:error.message});
-    return apiSafety.json({ok:false,error:'실시간 주문 상태를 확인하지 못했습니다.'},{status:502});
+    console.error('[orders live refresh]',{code:diagnostics.classify(error)});
+    return apiSafety.json({ok:false,error:'실시간 주문 상태를 확인하지 못했습니다.',errorCode:diagnostics.classify(error)},{status:502});
   }
 }
 
@@ -122,21 +129,22 @@ export async function GET(request) {
     if(coupangResult.error)throw coupangResult.error;
     if(naverResult.error)throw naverResult.error;
     const requests={coupang:publicRequest(coupangResult.data),naver:publicRequest(naverResult.data)};
+    const channelDiagnostics={naver:diagnostics.worker(naverResult.data,readiness.ready),coupang:diagnostics.worker(coupangResult.data,readiness.ready)};
     const rows=[coupangResult.data,naverResult.data].filter(Boolean);
     const failures=[];
     const waiting=rows.some(row=>['PENDING','RUNNING'].includes(row.status));
-    if(waiting&&readiness.ready)return apiSafety.json({ok:true,pending:true,partial:false,failures,requests,worker:publicWorker(readiness)},{status:202});
+    if(waiting&&readiness.ready)return apiSafety.json({ok:true,pending:true,partial:false,failures,requests,channelDiagnostics,worker:publicWorker(readiness)},{status:202});
     if(waiting&&!readiness.ready)failures.push('고정 IP 주문 서버 연결 확인 필요 · 네이버·쿠팡 이전 정상값 유지');
     if(!waiting&&coupangResult.data&&coupangResult.data.status!=='SUCCESS')failures.push('쿠팡 판매자배송 최신 조회 실패');
     if(!waiting&&naverResult.data&&naverResult.data.status!=='SUCCESS')failures.push('네이버 주문 최신 조회 실패');
     const refreshedAt=[coupangResult.data?.finished_at,naverResult.data?.executed_at].filter(Boolean).sort().at(-1)||new Date().toISOString();
     return apiSafety.json({
-      ok:true,pending:false,partial:failures.length>0,failures,requests,
+      ok:true,pending:false,partial:failures.length>0,failures,requests,channelDiagnostics,
       worker:publicWorker(readiness),unavailablePlatforms:waiting&&!readiness.ready?['NAVER','COUPANG']:[],
       center:await currentCenter(db,refreshedAt),refreshedAt
     },{status:failures.length?207:200});
   } catch(error) {
-    console.error('[orders live refresh status]',{message:error.message});
-    return apiSafety.json({ok:false,error:'주문·배송 실시간 수집 상태를 확인하지 못했습니다.'},{status:502});
+    console.error('[orders live refresh status]',{code:diagnostics.classify(error)});
+    return apiSafety.json({ok:false,error:'주문·배송 실시간 수집 상태를 확인하지 못했습니다.',errorCode:diagnostics.classify(error)},{status:502});
   }
 }
