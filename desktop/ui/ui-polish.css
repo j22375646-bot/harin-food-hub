@@ -574,7 +574,7 @@ html[data-theme] .orders-page .order-shipping-progress[data-tone=attention]{--sh
 html[data-theme] .orders-page .order-shipping-progress[data-tone=error]{--shipping-color:var(--rose)}
 html[data-theme] .orders-page .order-shipping-progress[data-tone=complete]{--shipping-color:var(--mint)}
 html[data-theme] .orders-page .order-shipping-progress[data-phase]>.shipping-progress-badge{color:var(--shipping-color);background:color-mix(in srgb,var(--shipping-color) 14%,var(--surface));border-color:color-mix(in srgb,var(--shipping-color) 58%,var(--line))}
-.order-shipping-progress .shipping-progress-detail{border-color:color-mix(in srgb,var(--shipping-color) 52%,var(--line));background:color-mix(in srgb,var(--shipping-color) 7%,var(--surface));box-shadow:inset 0 3px var(--shipping-color),0 12px 40px #0004}
+.order-shipping-progress .shipping-progress-detail{border-color:color-mix(in srgb,var(--shipping-color) 52%,var(--line));background:color-mix(in srgb,var(--shipping-color) 7%,var(--surface));box-shadow:0 12px 40px #0004}
 html[data-theme] #order-detail .detail-status-badge[data-state=REGISTERED],html[data-theme] .orders-workspace .order-primary>.order-invoice[data-state=REGISTERED]{background:var(--mint-soft);color:var(--mint);border:1px solid color-mix(in srgb,var(--mint) 65%,var(--line))}
 html[data-theme] .orders-workspace .order-primary>.order-invoice[data-state=ISSUED]{background:var(--amber-soft);color:var(--amber);border-color:color-mix(in srgb,var(--amber) 65%,var(--line))}
 html[data-theme] .orders-workspace .order-primary>.order-invoice[data-state] code{color:inherit}
@@ -662,3 +662,7 @@ html[data-theme] .orders-page .order-item:has(>.order-row[aria-pressed=true]) .o
 .orders-page .freshness-summary{min-height:24px;gap:8px;font-size:11px}
 .orders-page #order-freshness .delivery-prep-status{box-sizing:border-box;min-height:32px;padding:6px 10px;border-radius:8px}
 @media(max-width:720px){.orders-page .collection-controls strong{flex-basis:calc(100% - 24px)}.orders-page .collection-controls button{flex:1;min-width:88px}.orders-page .collection-chip{font-size:11px;padding:6px}.orders-page .freshness-summary time{margin-left:0}}
+
+.orders-page .order-state-cell{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-width:0;min-height:54px;justify-self:stretch}
+.orders-page .order-state-cell>.order-change-badge{position:static;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-height:24px;margin:0;padding:3px 7px;font-size:11px;line-height:16px;white-space:nowrap;max-width:100%}
+@container(max-width:700px){.orders-page .order-row>.order-state-cell{grid-column:2;grid-row:3;justify-self:start;align-items:flex-start}}

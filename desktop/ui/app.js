@@ -801,9 +801,10 @@ function createOrderRow(order) {
   const button = makeElement('button', 'order-row');
   button.type = 'button';
   button.dataset.orderId = id;
+  let changeBadge=null;
   if(displayMode==='live'&&window.moaonFeedback.orders.has(id)){
     const badge=makeElement('span','order-change-badge','변경 확인');
-    button.append(badge);
+    changeBadge=badge;
     requestAnimationFrame(()=>{if(button.isConnected&&window.moaonFeedback.orders.take(id))button.classList.add('order-confirmed-change');});
     setTimeout(()=>{badge.remove();button.classList.remove('order-confirmed-change');},window.moaonFeedback.orders.remaining());
   }
@@ -844,7 +845,9 @@ function createOrderRow(order) {
     amount.append(makeElement('strong', '', formatNumber(order.amount, '원')));
   }
   const state=button.querySelector('.order-state')||makeElement('span','order-state delivery-badge',order.status||'확인 필요');
-  const ordered=makeElement('time','order-date',isSampleMode()?'—':formatOrderTime(order.orderedAt));ordered.setAttribute('aria-label','주문시각');button.append(productThumbnail(order),primary,secondary,ordered,amount,state);
+  const stateCell=changeBadge?makeElement('span','order-state-cell'):state;
+  if(changeBadge)stateCell.append(state,changeBadge);
+  const ordered=makeElement('time','order-date',isSampleMode()?'—':formatOrderTime(order.orderedAt));ordered.setAttribute('aria-label','주문시각');button.append(productThumbnail(order),primary,secondary,ordered,amount,stateCell);
   button.addEventListener('click', () => {
     if(displayMode==='live'&&!orderToolsBusy()){
       if(selectedOrderIds.has(id))selectedOrderIds.delete(id);
@@ -1431,20 +1434,14 @@ function appendShipmentRecovery(parent,id,generation){
   parent.append(button);
 }
 
-// This job indicator belongs to the app shell, not the currently visible page.
+// Per-order badges own the visible progress UI. Keep only an accessible announcement.
 let shippingJobNotice=null;
 function setShippingJobNotice(text,finished=false){
  if(!shippingJobNotice){
-  shippingJobNotice=makeElement('section','shipping-job-notice');shippingJobNotice.id='shipping-job-notice';
-  const status=makeElement('span');status.setAttribute('role','status');
-  const open=makeElement('button','secondary-action','발급 진행 보기');open.type='button';
-  open.onclick=()=>{showRoute('orders');if(window.moaonShippingProgress?.open())return;document.querySelector('#auto-shipping-results:not([hidden]),#registration-results:not([hidden])')?.scrollIntoView({block:'nearest'});};
-  const close=makeElement('button','secondary-action shipping-notice-close','×');close.type='button';close.setAttribute('aria-label','발급 진행 안내 닫기');close.title='발급 진행 안내 닫기';close.onclick=()=>shippingJobNotice.hidden=true;
-  shippingJobNotice.append(status,open,close);document.getElementById('main-content').prepend(shippingJobNotice);
+  shippingJobNotice=makeElement('span','visually-hidden');shippingJobNotice.id='shipping-job-notice';shippingJobNotice.setAttribute('role','status');document.getElementById('main-content').prepend(shippingJobNotice);
  }
  shippingJobNotice.hidden=false;shippingJobNotice.dataset.finished=String(finished);
- shippingJobNotice.firstChild.textContent=text;
- shippingJobNotice.lastChild.hidden=!finished;
+ shippingJobNotice.textContent=text;
 }
 document.addEventListener('moaon-session-changed',()=>{if(shippingJobNotice)shippingJobNotice.hidden=true;});
 

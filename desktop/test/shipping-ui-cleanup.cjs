@@ -1,0 +1,25 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{_electron}=require('playwright');
+(async()=>{
+ const output='D:/GPT/Temp/moaon-shipping-cleanup-216';fs.mkdirSync(output,{recursive:true});
+ const app=await _electron.launch({executablePath:'D:/GPT/deps/moaon-desktop-runtime/node_modules/electron/dist/electron.exe',args:[path.join(__dirname,'read-budget-bootstrap.cjs')],timeout:180000,env:{...process.env,MOAON_TEST_RUNTIME_ROOT:process.env.MOAON_TEST_RUNTIME_ROOT||path.resolve(__dirname,'..'),MOAON_TEST_PROFILE:fs.mkdtempSync(path.join(output,'profile-')),MOAON_TEST_DISPLAY:'right',MOAON_TEST_HIDDEN:'0'}});
+ try{
+  const page=await app.firstWindow();page.setDefaultTimeout(20000);await page.waitForLoadState('domcontentloaded');await page.emulateMedia({reducedMotion:'reduce'});
+  await page.evaluate(()=>runHubAction('disconnect'));
+  await app.evaluate(({ipcMain})=>{ipcMain.removeHandler('moaon-hub:shipping-progress-read');ipcMain.handle('moaon-hub:shipping-progress-read',(_e,ids)=>({status:'READY',value:{scopeKey:'a'.repeat(64),checkedAt:new Date().toISOString(),items:ids.map((hubOrderId,i)=>({hubOrderId,platform:'CAFE24',phase:'REGISTER',status:i?'REGISTERED':'RUNNING',requestId:'12345678-1234-4234-8234-12345678901'+i,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),nextAttemptAt:null}))}}));});
+  await page.evaluate(()=>{applyHubResult({status:'READY',scope:'ACTIVE',channel:'ALL',total:2,offset:0,checkedAt:new Date().toISOString(),orders:Array.from({length:2},(_,i)=>({hubOrderId:'HR-C24-'+String(i+1).padStart(8,'0'),platform:'CAFE24',productName:'격리 UI 확인 · 실제 주문 아님 '+(i+1),stage:'PREPARING',quantity:1,amount:1000,details:{receiver:{name:'검증',address:'시험 주소',contact:'01000000000',postCode:'12345'}}}))});showRoute('orders');clearTimeout(deliveryPreparationTimer);window.moaonFeedback.orders.reset();window.moaonFeedback.orders.accept('alignment',displayedOrders.map(o=>({...o,amount:900})),true);window.moaonFeedback.orders.accept('alignment',displayedOrders,true,Date.now()+60000);renderOrders();});
+  await page.evaluate(()=>window.moaonShippingProgress.poll());
+  const notice=await page.evaluate(()=>{const main=document.getElementById('main-content'),before=main.scrollHeight;setShippingJobNotice('선택 2건 · 진행 2건 · 송장 발급');const n=document.getElementById('shipping-job-notice'),r=n.getBoundingClientRect();return {before,after:main.scrollHeight,width:r.width,height:r.height,buttons:n.querySelectorAll('button').length};});assert.equal(notice.before,notice.after);assert.equal(notice.buttons,0);assert.ok(notice.width<=1&&notice.height<=1);
+  const badge=page.locator('.order-shipping-progress').first().locator('.shipping-progress-badge');await badge.click();
+  const popup=page.locator('.shipping-progress-detail:popover-open');assert.equal(await popup.count(),1);assert.doesNotMatch(await popup.evaluate(n=>getComputedStyle(n).boxShadow),/inset/);assert.equal(await popup.evaluate(n=>getComputedStyle(n).borderTopWidth),'1px');await badge.click();assert.equal(await page.locator('.shipping-progress-detail:popover-open').count(),0);
+  for(const theme of ['light','dark'])for(const width of [1040,900]){
+   await app.evaluate(({BrowserWindow},width)=>{const w=BrowserWindow.getAllWindows()[0];w.setMinimumSize(800,720);w.setSize(width,850);},width);await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+   const cells=await page.locator('.order-state-cell').evaluateAll(nodes=>nodes.map(n=>{const cell=n.getBoundingClientRect(),state=n.querySelector('.order-state').getBoundingClientRect(),change=n.querySelector('.order-change-badge').getBoundingClientRect();return {inside:change.left>=cell.left-1&&change.right<=cell.right+1,overlap:change.top<state.bottom-1,center:Math.abs(change.x+change.width/2-state.x-state.width/2),position:getComputedStyle(n.querySelector('.order-change-badge')).position};}));
+   assert.equal(cells.length,2);assert.ok(cells.every(c=>c.inside&&!c.overlap&&c.position==='static'),JSON.stringify(cells));
+   if(width===1040)assert.ok(cells.every(c=>c.center<=1),JSON.stringify(cells));
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.locator('#order-list').screenshot({path:path.join(output,theme+'-'+width+'.png')});
+  }
+  await page.evaluate(()=>window.moaonShippingProgress.start(displayedOrders.map(o=>({id:o.hubOrderId,platform:o.platform})),setShippingJobNotice));assert.equal(await page.locator('.shipping-job-notice').count(),0);assert.equal(await page.locator('.order-shipping-progress:not([hidden])').count(),2);
+  console.log(JSON.stringify({status:'PASS',summaryBoxRemoved:true,perOrderProgressRetained:true,noPopupTopAccent:true,changeBadgesAligned:true,themes:2,widths:[1040,900],realOrderWrites:0,output}));
+ }finally{const killer=setTimeout(()=>app.process().kill(),10000);try{await app.close();}finally{clearTimeout(killer);}}
+})().catch(e=>{console.error(e);process.exitCode=1;});
