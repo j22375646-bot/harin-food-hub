@@ -26,3 +26,12 @@ Performance roadmap stage 4 of 6: renderer/selection/scroll. Completion requires
 - Added a specific assertion that a second order's popup remains open when only the first order's DTO changes.
 - Final source retention test PASS; 80-row render medians: reused 15.8ms vs full rebuild 69.2ms in the same runtime (seven samples each).
 - Shipping progress toggle regression PASS: repeated toggle, keyboard, outside click, another badge, six states, phase retained through timeout and successful recheck, two themes; real writes/order reloads zero.
+
+## Final release verification
+- Version 0.220.0; final artifact folder desktop/dist/distribution-20261027-171540-390. Earlier candidate was not published.
+- Payload: PASS, 166 exact source files; app.asar SHA256 b64749b256b9373ede58c2243dffd503d28cdb53b8fd1c743f87a5c7d23e09fc.
+- Installed release/current.json/shortcuts: D:\GPT\Apps\Moaon\releases\0.220.0. User's existing running processes preserved; restart required to use new release.
+- Installed app.asar visible right-monitor isolated retention test: PASS, zero unchanged-row creation, one changed-row creation, popover/selection/scroll retained, filter eviction and logout clear, no real order writes. Installed median render 23ms vs full-rebuild comparison 123.6ms (same 80-order fixture; device load affects absolute times).
+- Installed app.asar automatic collection application regression: PASS, includes issuance/selection deferral, existing rows retained on slow/failing reads, retry, themes and three widths.
+- Public moaon-stable release: published; Ed25519 signature verified; installer HTTP 200, GitHub digest matches, bytes 114471694; installer SHA256 ef9ec87be173e1f20537bb1130bb3390e6bf95f6784a04d85bb7812337337cca. Authenticode remains NotSigned.
+- Performance roadmap: stage four complete, four of six complete, two remaining. Next is stage five long-running memory/background resource checks. API/schema/provider-issued shipment behavior untouched by this stage.
