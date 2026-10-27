@@ -36,6 +36,7 @@ for (const [label,error,expected] of [
   ['quota message without SDK status',quotaError,'restricted'],
   ['provider HTTP 402',{status:402,message:'Payment Required'},'restricted'],
   ['database outage',{code:'PGRST000',message:'database connection unavailable'},'unavailable'],
+  ['schema initialization outage',{code:'PGRST002',message:'private-schema-detail'},'initializing'],
   ['unknown exception',new Error('internal configuration failure'),'unavailable'],
   ['real password rejection',{code:'INVALID_CREDENTIALS'},'invalid'],
   ['password attempt limit',{code:'LOGIN_RATE_LIMITED'},'blocked'],
@@ -55,7 +56,7 @@ for (const [label,error,expected] of [
     assert.equal(location.searchParams.get('next'),'/orders');
     assert.equal(response.headers.get('set-cookie'),null);
     assert.equal(location.searchParams.has('message'),false);
-    assert.deepEqual(logs,['restricted','unavailable','delayed'].includes(expected)
+    assert.deepEqual(logs,['restricted','unavailable','delayed','initializing'].includes(expected)
       ?[['[DASHBOARD_LOGIN_FAILURE]',{reason:expected}]]:[]);
   });
 }

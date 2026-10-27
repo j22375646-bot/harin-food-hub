@@ -23,6 +23,12 @@ test('session storage failure returns unavailable, never a false logout or forwa
 test('a confirmed expired session still requires authentication',async()=>{
  const response=await handler(async()=>null)(new NextRequest('https://hub.example/api/moaon/team',{headers:{cookie:'harin_dashboard_session=opaque-test-session'}}));assert.equal(response.status,401);
 });
+
+test('valid sessions redirect at the bounded proxy while the public form performs no second session query',async()=>{
+ const response=await handler(async()=>({userId:'test-user',role:'OWNER'}))(new NextRequest('https://hub.example/login',{headers:{cookie:'harin_dashboard_session=opaque-test-session'}}));
+ assert.equal(response.headers.get('location'),'https://hub.example/');
+ const page=fs.readFileSync(path.join(__dirname,'../app/login/page.js'),'utf8');assert.doesNotMatch(page,/authModule\.validateSession|await cookies\(/);
+});
 test('an outage on the public login form does not cause a redirect loop',async()=>{
  const response=await handler(async()=>{throw Error('outage');})(new NextRequest('https://hub.example/login',{headers:{cookie:'harin_dashboard_session=opaque-test-session'}}));assert.equal(response.headers.get('location'),null);assert.equal(response.headers.get('x-middleware-next'),'1');
 });

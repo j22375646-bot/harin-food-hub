@@ -39,7 +39,7 @@ export async function POST(request) {
   } catch (error) {
     const login = new URL('/login', request.url);
     const errorType = loginRequestModule.loginErrorType(error);
-    if (['restricted','unavailable','delayed'].includes(errorType)) {
+    if (['restricted','unavailable','delayed','initializing'].includes(errorType)) {
       // Only the allowlisted category is logged; never credentials or provider payloads.
       console.error('[DASHBOARD_LOGIN_FAILURE]', { reason:errorType });
     }

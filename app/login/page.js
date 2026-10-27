@@ -1,6 +1,3 @@
-import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
-import authModule from '../../lib/dashboard-auth.js';
 import brand from '../../lib/brand.js';
 import { HarinIcon } from '../_design-system/harin-icon.js';
 import { LoginForm } from './login-form.js';
@@ -9,14 +6,15 @@ import styles from './login.module.css';
 export const dynamic = 'force-dynamic';
 
 export default async function LoginPage({ searchParams }) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get(authModule.COOKIE_NAME)?.value;
-  if (token && await authModule.validateSession(token).catch(()=>null)) redirect('/');
+  // Proxy already performs the bounded session check and redirects valid users.
+  // A second unbounded DB check here could keep the public form from opening.
   const params = await searchParams;
   const error = params?.error === 'blocked'
     ? '로그인 시도가 잠시 차단되었습니다. 15분 뒤 다시 시도해주세요.'
     : params?.error === 'restricted'
       ? '비밀번호 오류가 아닙니다. 데이터 서버(Supabase)의 사용량·결제 제한으로 로그인이 중단됐습니다. Supabase 관리화면에서 제한 해제가 필요합니다.'
+    : params?.error === 'initializing'
+      ? '데이터 서버가 자료 목록을 준비하지 못해 로그인이 지연되고 있습니다. 비밀번호 오류가 아닙니다. 잠시 후 다시 연결해 주세요.'
     : params?.error === 'unavailable'
       ? '비밀번호 오류가 아닌 로그인 서버 연결·처리 문제가 발생했습니다. 잠시 후 다시 시도해주세요.'
     : params?.error === 'delayed'
