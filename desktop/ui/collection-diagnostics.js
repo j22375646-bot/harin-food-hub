@@ -22,6 +22,9 @@ const messages=Object.freeze({
  RESPONSE_INVALID:{label:'응답 형식 오류',detail:'수집 서버의 응답 형식을 확인하지 못했습니다.',action:'기존 주문을 유지합니다. 잠시 후 진행을 다시 확인해 주세요.'},
  SESSION_REQUIRED:{label:'모아온 로그인 필요',detail:'모아온의 로그인 상태를 확인해 주세요.',action:'다시 로그인한 후 수집해 주세요.'},
  NOT_CHECKED:{label:'확인 필요',detail:'아직 이번 수집의 결과를 확인하지 않았습니다.',action:'자동 수집 또는 지금 수집으로 확인할 수 있습니다.'},
+ PREPARING:{label:'수집 준비 중',detail:'수집 요청이 접수되어 플랫폼별 작업을 준비하고 있습니다.',action:'기존 요청의 진행을 자동으로 확인합니다.'},
+ RECOVERING:{label:'수집 결과 확인 중',detail:'응답을 제시간에 받지 못해 서버에 접수된 기존 작업을 확인하고 있습니다.',action:'새 수집 요청을 중복 실행하지 않고 완료 여부를 자동으로 확인합니다.'},
+ REQUEST_NOT_RECEIVED:{label:'수집 접수 확인 필요',detail:'서버에서 이 수집 요청의 접수 기록을 찾지 못했습니다.',action:'다시 수집하면 같은 요청을 안전하게 접수 확인합니다.'},
  QUEUED:{label:'수집 대기',detail:'요청이 접수되어 수집 서버의 처리를 기다리고 있습니다.',action:'자동으로 진행을 확인합니다.'},
  RUNNING:{label:'수집 중',detail:'수집 서버가 주문을 조회하고 있습니다.',action:'자동으로 진행을 확인합니다.'},
  DELAYED:{label:'수집 지연',detail:'수집 서버의 처리가 평소보다 오래 걸리고 있습니다.',action:'진행 확인으로 기존 요청을 확인해 주세요. 새 요청을 중복 실행하지 않습니다.'}

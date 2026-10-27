@@ -1105,12 +1105,13 @@ function renderCollection(){
  const check=document.querySelector('#check-order-collection'),unknown=collectionState?.canCollect===false&&!collectionState?.canCheck&&!collectionState?.busy&&!collectionBusy;check.hidden=collectionState?.canCheck!==true&&!unknown;check.disabled=locked;check.textContent=unknown?'웹 허브에서 확인':'진행 확인';
  const reload=document.querySelector('#collection-reload');reload.hidden=collectionState?.verifiedTerminal!==true;reload.disabled=locked;
  const phase=collectionBusy&&!collectionState?.busy?collectionOperation:collectionState?.phase||(collectionState?.status==='PENDING'?'WAITING':collectionState?.status==='SUCCESS'?'FINISHED':collectionState?'ATTENTION':'IDLE');
- panel.dataset.phase=phase;panel.dataset.state=collectionState?.status||'IDLE';panel.setAttribute('aria-busy',String(collectionBusy||collectionState?.busy||collectionState?.status==='PENDING'));
+ panel.dataset.phase=phase;panel.dataset.state=collectionState?.status||'IDLE';panel.setAttribute('aria-busy',String(collectionBusy||collectionState?.busy||collectionState?.status==='PENDING'||collectionState?.recovering===true));
  const reasons={AUTH_REQUIRED:'로그인 확인 필요',WORKER_OFFLINE:'네이버·쿠팡 수집 서버 연결 확인 필요',TIMEOUT:'응답 지연 · 기존 주문 유지',UNAVAILABLE:'수집 상태 확인 필요 · 기존 주문 유지'};
  const stages={IDLE:'자동 수집 대기',AUTHORIZING:'연결 확인 중',REQUESTING:'Cafe24 조회 · 네이버·쿠팡 수집 요청 중',CHECKING:'플랫폼별 진행 확인 중',WAITING:'플랫폼 수집 진행 중',FINISHED:collectionState?.status==='SUCCESS'?'3개 플랫폼 수집 완료':'수집 종료 · 일부 확인 필요',ATTENTION:'수집 확인 필요'};
  const flowLabels={CHECKING:'변경 확인·목록 반영 중',DEFERRED:'작업 후 목록 자동 반영',PAGE_WAIT:'첫 페이지에서 목록 자동 반영',APPLIED:'목록 자동 반영 완료',ERROR:'목록 반영 확인 필요'};
+ const currentFlowVisible=collectionFlow!=='IDLE'&&!(collectionFlow==='APPLIED'&&(collectionBusy||collectionState?.busy||collectionState?.recovering||collectionState?.status==='PENDING'||collectionPendingVersion>collectionAppliedVersion));
  const transportMessage=window.moaonCollectionDiagnostics?.valid(collectionState?.code)?window.moaonCollectionDiagnostics.describe(collectionState.code).label:null;
- document.querySelector('#collection-message').textContent=(transportMessage||reasons[collectionState?.reason]||stages[phase]||'수집 상태 확인 필요')+(!['AUTHORIZING','REQUESTING'].includes(phase)&&collectionFlow!=='IDLE'?` · ${flowLabels[collectionFlow]||''}`:'');
+ document.querySelector('#collection-message').textContent=(transportMessage||reasons[collectionState?.reason]||stages[phase]||'수집 상태 확인 필요')+(!['AUTHORIZING','REQUESTING'].includes(phase)&&currentFlowVisible?` · ${flowLabels[collectionFlow]||''}`:'');
  const time=document.querySelector('#collection-checked-at');time.textContent=collectionState?.checkedAt?formatTime(collectionState.checkedAt)+' 확인':'';time.dateTime=collectionState?.checkedAt||'';
  const collect=document.querySelector('#collect-orders');collect.textContent=phase==='IDLE'?'지금 수집':'다시 수집';
  collect.title=deliveryPreparationBusy?'배송정보 준비 후 사용할 수 있어요':registrationBusy?'송장 작업 완료 후 사용할 수 있어요':collectionState?.canCollect===false?'진행 확인으로 기존 수집 결과를 확인하세요':'Cafe24·네이버·쿠팡 전체 채널 수집';
@@ -1141,7 +1142,7 @@ async function pollCollection(){
  if(!ordersAreVisible()||collectionPollBusy||typeof window.moaonHub?.readOrderCollection!=='function')return;
  const expected=collectionGeneration;collectionPollBusy=true;
  try{const state=await window.moaonHub.readOrderCollection();if(expected!==collectionGeneration||displayMode!=='live')return;const previousBusy=collectionState?.busy;collectionState=state;acceptCollectionVersion(state);renderCollection();if(previousBusy!==state?.busy)renderSelection();
-  if(state?.canCheck&&!state.busy&&state.status==='PENDING'&&Date.now()-collectionCheckAt>=10000&&!orderToolsBusy()){collectionCheckAt=Date.now();await runCollection(true);}
+  if(state?.canCheck&&!state.busy&&(state.status==='PENDING'||state.recovering)&&Date.now()-collectionCheckAt>=10000&&!orderToolsBusy()){collectionCheckAt=Date.now();await runCollection(true);}
   await syncCollectedOrders();
  }catch{}finally{collectionPollBusy=false;}
 }

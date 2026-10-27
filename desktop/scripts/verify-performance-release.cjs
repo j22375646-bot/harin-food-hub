@@ -2,7 +2,7 @@
 // Read-only installed-payload regression gate. UI tests use isolated fixtures on
 // the secondary display; no production credentials or invoice writes are used.
 const fs=require('node:fs'),path=require('node:path'),{spawn}=require('node:child_process'),{verifyPackage}=require('./verify-package.cjs');
-const suites=[['login','inline-login-smoke.cjs'],['slow-read','slow-order-read-ui.cjs'],['collection','collection-auto-sync-ui.cjs'],['diagnostics','collection-diagnostics-ui.cjs'],['render','order-render-retention-ui.cjs'],['resources','shipping-resource-lifecycle-ui.cjs'],['shipping-popup','shipping-progress-toggle-ui.cjs','--isolated'],['restart-drain','update-restart-drain-ui.cjs'],['read-budget','read-budget-ui.cjs']];
+const suites=[['login','inline-login-smoke.cjs'],['slow-read','slow-order-read-ui.cjs'],['collection','collection-auto-sync-ui.cjs'],['collection-recovery','collection-recovery-ui.cjs'],['diagnostics','collection-diagnostics-ui.cjs'],['render','order-render-retention-ui.cjs'],['resources','shipping-resource-lifecycle-ui.cjs'],['shipping-popup','shipping-progress-toggle-ui.cjs','--isolated'],['restart-drain','update-restart-drain-ui.cjs'],['read-budget','read-budget-ui.cjs']];
 async function main(){
  const args=process.argv.slice(2),option=name=>{const i=args.indexOf(name);return i<0?null:args[i+1];};
  const archive=option('--archive'),directory=option('--output');
