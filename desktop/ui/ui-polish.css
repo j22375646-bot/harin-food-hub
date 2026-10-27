@@ -646,3 +646,19 @@ html[data-theme] .orders-page .order-item:has(>.order-row[aria-pressed=true]) .o
 .orders-page #order-freshness .delivery-prep-caption{display:none}
 .orders-page #order-freshness .delivery-prep-progress{height:2px}
 @media(prefers-reduced-motion:reduce){.orders-page #order-collection .collection-motion,.orders-page .collection-chip::before{animation:none!important}}
+
+/* Shared dimensions keep the collection strip steady as stages change. */
+.orders-page #order-freshness{gap:10px;padding:12px 16px}
+.orders-page .collection-controls{min-height:32px;column-gap:10px;row-gap:8px}
+.orders-page #collection-message{font-weight:650;min-height:20px;display:flex;align-items:center}
+.orders-page #collection-checked-at:empty{display:none}
+.orders-page #order-collection .collection-controls button,.orders-page #order-freshness-reload{box-sizing:border-box;height:32px;min-height:32px;min-width:88px;padding:0 12px;border-radius:8px;font:inherit;font-size:12px;line-height:1;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;flex-shrink:0;box-shadow:none}
+.orders-page .collection-controls button{width:120px}
+.orders-page .collection-controls button[hidden],.orders-page #order-freshness-reload[hidden]{display:none}
+.orders-page .collection-controls button:focus-visible,.orders-page #order-freshness-reload:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.orders-page .collection-channels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0;margin-top:8px}
+.orders-page .collection-channels:empty{display:none}
+.orders-page .collection-chip{box-sizing:border-box;min-height:32px;padding:6px 10px;justify-content:center;border-radius:8px;font-size:12px;text-align:center;overflow-wrap:anywhere}
+.orders-page .freshness-summary{min-height:24px;gap:8px;font-size:11px}
+.orders-page #order-freshness .delivery-prep-status{box-sizing:border-box;min-height:32px;padding:6px 10px;border-radius:8px}
+@media(max-width:720px){.orders-page .collection-controls strong{flex-basis:calc(100% - 24px)}.orders-page .collection-controls button{flex:1;min-width:88px}.orders-page .collection-chip{font-size:11px;padding:6px}.orders-page .freshness-summary time{margin-left:0}}

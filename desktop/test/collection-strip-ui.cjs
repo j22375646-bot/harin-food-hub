@@ -33,6 +33,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
   assert.equal(await page.locator('#order-collection').evaluate(n=>n.closest('#order-freshness')!==null),true);
   assert.equal(await page.locator('#collection-message').isVisible(),true,'Existing header CSS must not hide the stage label');assert.ok((await page.locator('#collection-message').boundingBox()).width>=180);
   assert.equal(await page.locator('#collection-message').evaluate(n=>getComputedStyle(n).textAlign),'left');
+  const chipSizes=await page.locator('.collection-chip').evaluateAll(nodes=>nodes.map(n=>({w:n.getBoundingClientRect().width,h:n.getBoundingClientRect().height})));assert.equal(chipSizes.length,3);assert.ok(Math.max(...chipSizes.map(n=>n.w))-Math.min(...chipSizes.map(n=>n.w))<=1);assert.ok(chipSizes.every(n=>n.h===chipSizes[0].h&&n.h>=32));
+  const buttonSizes=await page.locator('.collection-controls button:visible').evaluateAll(nodes=>nodes.map(n=>({w:n.getBoundingClientRect().width,h:n.getBoundingClientRect().height,minHeight:getComputedStyle(n).minHeight})));console.log(JSON.stringify({buttonSizes}));assert.ok(buttonSizes.every(n=>Math.abs(n.w-120)<1&&Math.abs(n.h-32)<1),JSON.stringify(buttonSizes));
   const colors=[];
   for(const [phase,status] of [['AUTHORIZING','PENDING'],['REQUESTING','PENDING'],['WAITING','PENDING'],['FINISHED','SUCCESS'],['ATTENTION','CHECK_REQUIRED']]){
    await page.evaluate(({phase,status})=>{collectionState={...collectionState,phase,status,reason:phase==='ATTENTION'?'TIMEOUT':null};renderCollection();},{phase,status});colors.push(await page.locator('#collection-message').evaluate(n=>getComputedStyle(n).color));
