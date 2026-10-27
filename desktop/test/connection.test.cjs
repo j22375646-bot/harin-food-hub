@@ -12,6 +12,16 @@ test('server 402 is reported without logging out or parsing an HTML error as ord
  const result=await connection.viewActive();assert.equal(result.status,'SERVER_DISABLED');assert.match(result.message,/HTTP 402/);assert.match(result.message,/로그인은 유지/);assert.deepEqual(result.orders,[]);
 });
 
+test('a newly collected platform invalidates the freshness cooldown once and discards stale deltas',async()=>{
+ const id='12345678-1234-4123-8123-123456789abc';let changed=false;
+ const {connection}=makeConnection(makeRemoteSession(async url=>url.includes('/live-refresh')?Response.json({ok:true,cafe24:{status:'SUCCESS',finishedAt:'2026-10-27T06:00:00Z'},requests:{naver:{id,status:'SUCCESS'},coupang:{id,status:'SUCCESS'}}}):Response.json(makePagePayload({orders:[{...reviewOrder(),productName:changed?'새 수집 상품':'기존 상품'}]}))));
+ await connection.viewActive();assert.equal((await connection.checkOrderFreshness()).status,'CURRENT');changed=true;
+ const collected=await connection.collectOrders();assert.ok(collected.changeVersion>0);assert.equal(connection.readOrderCollection().changeVersion,collected.changeVersion);
+ assert.equal((await connection.checkOrderFreshness()).status,'CHANGED','Collection completion must not wait for the prior 30s cooldown');
+ assert.equal((await connection.checkOrderCollection()).changeVersion,collected.changeVersion,'Repeated completion records do not create new revisions');
+ await connection.disconnect();assert.equal(connection.readOrderCollection().changeVersion,0);
+});
+
 test('manual and background collection share request identities and expose only projected progress',async()=>{
  const id='12345678-1234-4123-8123-123456789abc';let posts=0,gets=0;
  const {connection}=makeConnection(makeRemoteSession(async(url,o)=>{

@@ -377,9 +377,17 @@ function createHubConnection({
     blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive()||registrationController||automaticController||reviewingShipment),
   });
   let collectionWorkActive=false;
-  async function runCollection(check){if(collectionWorkActive)return {...collection.read(),status:'BUSY',busy:true};collectionWorkActive=true;try{if(!check)backgroundCollectionAt=Date.now();return await collection[check?'check':'collect']();}finally{collectionWorkActive=false;}}
+  let collectionChangeVersion=0,collectionSuccessKey='';
+  function acceptCollectionChanges(result){
+    if(['BUSY','DISCONNECTED'].includes(result.status))return {...result,changeVersion:collectionChangeVersion};
+    const complete=Object.entries(result.channels||{}).filter(([,row])=>['SUCCESS','PARTIAL'].includes(row.status)).map(([key,row])=>[key,row.status,row.observedAt]);
+    const key=JSON.stringify(complete);
+    if(complete.length&&key!==collectionSuccessKey){collectionChangeVersion++;pendingOrderDelta=null;freshnessLastAt=-Infinity;freshnessLastIdentity=null;freshnessLastResult=null;}
+    collectionSuccessKey=key;return {...result,changeVersion:collectionChangeVersion};
+  }
+  async function runCollection(check){if(collectionWorkActive)return {...collection.read(),status:'BUSY',busy:true,changeVersion:collectionChangeVersion};collectionWorkActive=true;try{if(!check){backgroundCollectionAt=Date.now();if(collection.read().canCollect)collectionSuccessKey='';}return acceptCollectionChanges(await collection[check?'check':'collect']());}finally{collectionWorkActive=false;}}
   const collectOrders=()=>runCollection(false),checkOrderCollection=()=>runCollection(true);
-  const readOrderCollection=()=>({...collection.read(),busy:collectionWorkActive});
+  const readOrderCollection=()=>({...collection.read(),busy:collectionWorkActive,changeVersion:collectionChangeVersion});
   let backgroundCollectionState=null,backgroundCollectionAt=0;
   const backgroundCollection=collection;
   async function collectBackgroundOrders(){
@@ -388,8 +396,9 @@ function createHubConnection({
       // Manual and scheduled collection share one identity and one progress record.
       // Unknown outcomes are never reset into a second POST merely due to elapsed time.
       const state=collection.read();
-      if(state.canCollect&&state.phase!=='IDLE'&&Date.now()-backgroundCollectionAt<120000)return state;
-      backgroundCollectionState=await (state.canCheck&&!state.canCollect?collection.check():collection.collect());
+      if(state.canCollect&&state.phase!=='IDLE'&&Date.now()-backgroundCollectionAt<120000)return {...state,changeVersion:collectionChangeVersion};
+      if(state.canCollect)collectionSuccessKey='';
+      backgroundCollectionState=acceptCollectionChanges(await (state.canCheck&&!state.canCollect?collection.check():collection.collect()));
       if(state.canCollect)backgroundCollectionAt=Date.now();
       return backgroundCollectionState;
     }finally{collectionWorkActive=false;}
@@ -1903,7 +1912,7 @@ function createHubConnection({
     scopePages.clear();
     onTeamSnapshot(null);
     if (disconnecting) return disconnecting;
-    collection.reset();backgroundCollection.reset();backgroundCollectionState=null;
+    collection.reset();backgroundCollection.reset();backgroundCollectionState=null;collectionSuccessKey='';collectionChangeVersion=0;
     invalidateGeneration();
     activeFinanceController?.abort();financePermit=null;
     settlementController?.abort();settlementPermit=null;assistantController?.abort();assistantPermit=null;insightsController?.abort();insightsPermit=null;csController?.abort();csPermit=null;inventoryController?.abort();inventoryPermit=null;
@@ -1951,7 +1960,7 @@ function createHubConnection({
   }
 
   function closeChildren() {
-    collection.reset();backgroundCollection.reset();backgroundCollectionState=null;
+    collection.reset();backgroundCollection.reset();backgroundCollectionState=null;collectionSuccessKey='';collectionChangeVersion=0;
     invalidateGeneration();
     activeFinanceController?.abort();financePermit=null;
     settlementController?.abort();settlementPermit=null;assistantController?.abort();assistantPermit=null;insightsController?.abort();insightsPermit=null;csController?.abort();csPermit=null;inventoryController?.abort();inventoryPermit=null;

@@ -63,6 +63,8 @@ let serverFilters=Object.freeze({delayOnly:false,giftOnly:false,query:'',start:'
 let selectedOrderButton = null;
 let displayMode = 'sample';
 let collectionState=null,collectionBusy=false,collectionGeneration=0,collectionPollBusy=false,collectionCheckAt=0,collectionOperation='AUTHORIZING';
+let collectionPendingVersion=0,collectionAppliedVersion=0,collectionSyncBusy=false;
+let collectionFlow='IDLE',collectionAppliedSummary='';
 const collectionShipmentLocks=new Set();
 let displayedOrders = sampleOrders;
 let connectionResult = null;
@@ -351,7 +353,7 @@ function renderFreshness(status='IDLE',checkedAt=null){
   if(freshnessRow.hidden)return;
   const effective=freshnessChanged&&!['UNAVAILABLE','AUTH_REQUIRED'].includes(status)?'CHANGED':status;
   freshnessRow.dataset.status=effective;
-  freshnessStatus.textContent=effective==='CHANGED'?'주문 또는 사은품 기준이 변경됐어요':effective==='CURRENT'?'새 변경 없음':effective==='AUTH_REQUIRED'?'로그인 상태 확인 필요':effective==='UNAVAILABLE'?(orderReadUnverified?'최신 주문 확인 필요 · 다시 조회한 뒤 발급하세요':'변경 여부 확인 필요'):'최신 주문 확인 중…';
+  freshnessStatus.textContent=effective==='CHANGED'?'주문 변경 확인 · 작업을 마치면 자동 반영':effective==='CURRENT'?(collectionAppliedSummary||'새 변경 없음'):effective==='AUTH_REQUIRED'?'로그인 상태 확인 필요':effective==='UNAVAILABLE'?(orderReadUnverified?'최신 주문 확인 필요 · 다시 조회한 뒤 발급하세요':'변경 여부 확인 필요'):'최신 주문 확인 중…';
   freshnessCheckedAt.textContent=checkedAt?`${formatTime(checkedAt)} 확인`:'';
   freshnessCheckedAt.dateTime=checkedAt||'';
   freshnessReload.hidden=!freshnessChanged&&!orderReadUnverified;freshnessReload.disabled=freshnessReloadBusy||orderToolsBusy();
@@ -362,31 +364,54 @@ async function checkVisibleOrderFreshness(){
   const expectedAction=actionGeneration,expectedFreshness=++freshnessGeneration;
   try{
     const result=await window.moaonHub.checkOrderFreshness();
-    if(expectedAction!==actionGeneration||expectedFreshness!==freshnessGeneration||!ordersAreVisible())return;
+    if(expectedAction!==actionGeneration||expectedFreshness!==freshnessGeneration||!ordersAreVisible())return {status:'SKIPPED'};
     acceptScopeTotals(result?.scopeTotals);
     if(result?.status==='CHANGED'){
       freshnessChanged=true;
-      const idle=selectedOrderIds.size===0&&!selectedOrderId&&!orderSearch.value&&document.getElementById('main-content').scrollTop<80&&!orderToolsBusy();
-      if(idle&&connectionResult?.offset===0){await reloadChangedOrders();return;}
+      const idle=canAutoApplyOrders();
+      if(idle&&connectionResult?.offset===0){await reloadChangedOrders();return {status:orderReadUnverified?'UNAVAILABLE':freshnessChanged?'CHANGED':'APPLIED'};}
     }
     if(result?.status==='AUTH_REQUIRED'){orderScopeViews.clear();applyHubResult({status:'LOGIN_REQUIRED'});return;}
     if(['CURRENT','CHANGED','UNAVAILABLE','AUTH_REQUIRED'].includes(result?.status))renderFreshness(result.status,result.checkedAt);
-    // Keep selections and a page being read stable until the user accepts changes.
-  }catch{if(expectedAction===actionGeneration&&expectedFreshness===freshnessGeneration&&ordersAreVisible())renderFreshness('UNAVAILABLE');}
+    // An active selection/edit/issuance defers automatic application, never cancels it.
+    return result;
+  }catch{if(expectedAction===actionGeneration&&expectedFreshness===freshnessGeneration&&ordersAreVisible())renderFreshness('UNAVAILABLE');return {status:'UNAVAILABLE'};}
 }
 async function reloadChangedOrders(){
   if(freshnessReloadBusy||orderToolsBusy()||(!freshnessChanged&&!orderReadUnverified)||!ordersAreVisible())return;
   const scroller=document.getElementById('main-content'),scrollTop=scroller.scrollTop;
+  const listScrollTop=orderList.scrollTop,listScrollable=orderList.scrollHeight>orderList.clientHeight+1;
+  const visibleTop=Math.max(scroller.getBoundingClientRect().top,orderList.getBoundingClientRect().top);
+  const anchor=[...orderList.querySelectorAll('.order-row')].find(node=>node.getBoundingClientRect().bottom>visibleTop);
+  const anchorId=anchor?.dataset.orderId,anchorTop=anchor?.getBoundingClientRect().top;
   freshnessReloadBusy=true;freshnessReload.disabled=true;renderSelection();renderCollection();
   const expected=++actionGeneration;++freshnessGeneration;
   try{
     const result=await window.moaonHub.refresh();
     if(expected!==actionGeneration)return;
-    if(result?.status==='READY'){freshnessChanged=false;applyHubResult(result,{preserveView:true});renderFreshness('CURRENT',result.checkedAt);}
+    if(result?.status==='READY'){
+      const before=new Map(displayedOrders.map(o=>[orderId(o),JSON.stringify(o)]));
+      freshnessChanged=false;applyHubResult(result,{preserveView:true});
+      const added=displayedOrders.filter(o=>!before.has(orderId(o))).length;
+      const changed=displayedOrders.filter(o=>before.has(orderId(o))&&before.get(orderId(o))!==JSON.stringify(o)).length;
+      collectionAppliedSummary=added?`새 주문 ${added}건 자동 반영${changed?` · 변경 ${changed}건`:''}`:changed?`주문 변경 ${changed}건 반영`:'최신 목록 반영 완료';
+      renderFreshness('CURRENT',result.checkedAt);
+    }
     else if(['LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status))applyHubResult(result);
     else{orderReadUnverified=true;renderFreshness('UNAVAILABLE');}
   }catch{if(expected===actionGeneration){orderReadUnverified=true;renderFreshness('UNAVAILABLE');}}
-  finally{freshnessReloadBusy=false;if(expected===actionGeneration){renderOrders();renderCollection();scroller.scrollTop=scrollTop;}}
+  finally{freshnessReloadBusy=false;if(expected===actionGeneration){renderOrders();renderCollection();scroller.scrollTop=scrollTop;orderList.scrollTop=listScrollTop;const retained=[...orderList.querySelectorAll('.order-row')].find(node=>node.dataset.orderId===anchorId);if(retained&&Number.isFinite(anchorTop))(listScrollable?orderList:scroller).scrollTop+=retained.getBoundingClientRect().top-anchorTop;}}
+}
+function canAutoApplyOrders(){return !selectedOrderIds.size&&!selectedOrderId&&!orderToolsBusy()&&!document.querySelector('dialog[open],.shipping-progress-detail:popover-open')&&!document.activeElement?.matches('input:not([type=checkbox]),select,textarea');}
+function acceptCollectionVersion(state){if(Number.isSafeInteger(state?.changeVersion)&&state.changeVersion>collectionAppliedVersion)collectionPendingVersion=Math.max(collectionPendingVersion,state.changeVersion);}
+async function syncCollectedOrders(){
+ if(!ordersAreVisible()||collectionSyncBusy||collectionPendingVersion<=collectionAppliedVersion)return;
+ if(connectionResult?.offset!==0||!canAutoApplyOrders()){collectionFlow=connectionResult?.offset!==0?'PAGE_WAIT':'DEFERRED';renderCollection();return;}
+ const expected=collectionGeneration,version=collectionPendingVersion;collectionSyncBusy=true;collectionFlow='CHECKING';renderCollection();
+ try{let probe;if(orderReadUnverified){await reloadChangedOrders();probe={status:orderReadUnverified?'UNAVAILABLE':'APPLIED'};}else probe=await checkVisibleOrderFreshness();if(expected!==collectionGeneration||displayMode!=='live')return;
+  if(['CURRENT','APPLIED'].includes(probe?.status)&&!freshnessChanged&&!orderReadUnverified&&freshnessRow.dataset.status==='CURRENT'){collectionAppliedVersion=version;collectionFlow='APPLIED';}
+  else collectionFlow=orderReadUnverified?'ERROR':'DEFERRED';
+ }finally{collectionSyncBusy=false;if(expected===collectionGeneration)renderCollection();}
 }
 freshnessReload.addEventListener('click',()=>void reloadChangedOrders());
 setInterval(()=>void checkVisibleOrderFreshness(),30_000);
@@ -876,6 +901,7 @@ let expandedSelectionReason=null;
 function renderSelection(){
   renderCollection();
   renderServerFilterControls();
+  renderGlobalSearch();
   const count=selectedOrderIds.size;
   const autoEligible=displayMode==='live'&&count>0&&count<=20&&[...selectedOrderIds].every(id=>displayedOrders.some(order=>orderId(order)===id&&order.issueAndRegisterEligible===true));
   document.querySelector('#selection-auto-ship').disabled=orderReadUnverified||orderToolsBusy()||!autoEligible;
@@ -1040,7 +1066,7 @@ function renderOrders() {
   renderSelection();
 }
 
-function clearCollection(){collectionGeneration++;collectionState=null;collectionBusy=false;collectionShipmentLocks.clear();renderCollection();}
+function clearCollection(){collectionGeneration++;collectionState=null;collectionBusy=false;collectionPendingVersion=collectionAppliedVersion=0;collectionFlow='IDLE';collectionAppliedSummary='';collectionShipmentLocks.clear();renderCollection();}
 function renderCollection(){
  const panel=document.querySelector('#order-collection');panel.hidden=displayMode!=='live';
  const locked=orderToolsBusy()||collectionState?.busy||displayMode!=='live';
@@ -1051,7 +1077,8 @@ function renderCollection(){
  panel.dataset.phase=phase;panel.dataset.state=collectionState?.status||'IDLE';panel.setAttribute('aria-busy',String(collectionBusy||collectionState?.busy||collectionState?.status==='PENDING'));
  const reasons={AUTH_REQUIRED:'로그인 확인 필요',WORKER_OFFLINE:'네이버·쿠팡 수집 서버 연결 확인 필요',TIMEOUT:'응답 지연 · 기존 주문 유지',UNAVAILABLE:'수집 상태 확인 필요 · 기존 주문 유지'};
  const stages={IDLE:'자동 수집 대기',AUTHORIZING:'연결 확인 중',REQUESTING:'Cafe24 조회 · 네이버·쿠팡 수집 요청 중',CHECKING:'플랫폼별 진행 확인 중',WAITING:'플랫폼 수집 진행 중',FINISHED:collectionState?.status==='SUCCESS'?'3개 플랫폼 수집 완료':'수집 종료 · 일부 확인 필요',ATTENTION:'수집 확인 필요'};
- document.querySelector('#collection-message').textContent=reasons[collectionState?.reason]||stages[phase]||'수집 상태 확인 필요';
+ const flowLabels={CHECKING:'변경 확인·목록 반영 중',DEFERRED:'작업 후 목록 자동 반영',PAGE_WAIT:'첫 페이지에서 목록 자동 반영',APPLIED:'목록 자동 반영 완료',ERROR:'목록 반영 확인 필요'};
+ document.querySelector('#collection-message').textContent=(reasons[collectionState?.reason]||stages[phase]||'수집 상태 확인 필요')+(!['AUTHORIZING','REQUESTING'].includes(phase)&&collectionFlow!=='IDLE'?` · ${flowLabels[collectionFlow]||''}`:'');
  const time=document.querySelector('#collection-checked-at');time.textContent=collectionState?.checkedAt?formatTime(collectionState.checkedAt)+' 확인':'';time.dateTime=collectionState?.checkedAt||'';
  const collect=document.querySelector('#collect-orders');collect.textContent=phase==='IDLE'?'지금 수집':'다시 수집';
  collect.title=deliveryPreparationBusy?'배송정보 준비 후 사용할 수 있어요':registrationBusy?'송장 작업 완료 후 사용할 수 있어요':collectionState?.canCollect===false?'진행 확인으로 기존 수집 결과를 확인하세요':'Cafe24·네이버·쿠팡 전체 채널 수집';
@@ -1067,9 +1094,9 @@ function renderCollection(){
 async function runCollection(check){
  if(orderToolsBusy()||displayMode!=='live'||(!check&&collectionState?.canCollect===false))return;
  const expected=collectionGeneration;collectionOperation=check?'CHECKING':'AUTHORIZING';collectionBusy=true;renderCollection();
- try{const result=await window.moaonHub[check?'checkOrderCollection':'collectOrders']();if(expected===collectionGeneration){collectionState=result;collectionCheckAt=Date.now();}}
+ try{const result=await window.moaonHub[check?'checkOrderCollection':'collectOrders']();if(expected===collectionGeneration){collectionState=result;acceptCollectionVersion(result);collectionCheckAt=Date.now();}}
  catch{if(expected===collectionGeneration)collectionState={...collectionState,status:'CHECK_REQUIRED',canCollect:false};}
- finally{if(expected===collectionGeneration){collectionBusy=false;renderCollection();}}
+ finally{if(expected===collectionGeneration){collectionBusy=false;renderCollection();void syncCollectedOrders();}}
 }
 document.querySelector('#collect-orders').addEventListener('click',()=>void runCollection(false));
 document.querySelector('#check-order-collection').addEventListener('click',()=>{if(collectionState?.canCheck)void runCollection(true);else if(!orderToolsBusy())void window.moaonHub.openWebHub();});
@@ -1080,8 +1107,9 @@ document.querySelector('#collection-reload').addEventListener('click',()=>{if(!o
 async function pollCollection(){
  if(!ordersAreVisible()||collectionPollBusy||typeof window.moaonHub?.readOrderCollection!=='function')return;
  const expected=collectionGeneration;collectionPollBusy=true;
- try{const state=await window.moaonHub.readOrderCollection();if(expected!==collectionGeneration||displayMode!=='live')return;const previousBusy=collectionState?.busy;collectionState=state;renderCollection();if(previousBusy!==state?.busy)renderSelection();
+ try{const state=await window.moaonHub.readOrderCollection();if(expected!==collectionGeneration||displayMode!=='live')return;const previousBusy=collectionState?.busy;collectionState=state;acceptCollectionVersion(state);renderCollection();if(previousBusy!==state?.busy)renderSelection();
   if(state?.canCheck&&!state.busy&&state.status==='PENDING'&&Date.now()-collectionCheckAt>=10000&&!orderToolsBusy()){collectionCheckAt=Date.now();await runCollection(true);}
+  await syncCollectedOrders();
  }catch{}finally{collectionPollBusy=false;}
 }
 setInterval(()=>void pollCollection(),3000);
@@ -1175,7 +1203,7 @@ function applyHubResult(result,options={}) {
   if(retained&&['UNAVAILABLE','SNAPSHOT_CHANGED','SERVER_DISABLED','BUSY'].includes(result?.status)){
     orderReadUnverified=true;renderFreshness('UNAVAILABLE');renderSelection();return;
   }
-  if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){window.moaonShippingProgress?.reset();document.getElementById('shipping-job-notice')?.setAttribute('hidden','');orderScopeViews.clear();orderScopeTotals=null;clearTimeout(deliveryPreparationTimer);deliveryPreparationAttempts.clear();const prep=document.getElementById('delivery-prep-status');if(prep)prep.textContent='';}
+  if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){clearCollection();window.moaonShippingProgress?.reset();document.getElementById('shipping-job-notice')?.setAttribute('hidden','');orderScopeViews.clear();orderScopeTotals=null;clearTimeout(deliveryPreparationTimer);deliveryPreparationAttempts.clear();const prep=document.getElementById('delivery-prep-status');if(prep)prep.textContent='';}
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status))window.moaonFeedback.orders.reset();
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status)){historyAutoLoaded=false;historyGeneration++;}
   if(['LOGIN_REQUIRED','FORBIDDEN','LOGIN_OPEN','DISCONNECTED','SESSION_CLEAR_FAILED'].includes(result?.status))shippingFollowup.clear();
@@ -1247,6 +1275,7 @@ async function runHubAction(action) {
   const generation = ++actionGeneration;
   let restoredView=refreshing?{result:connectionResult}:null;
   if (requestedScope) {
+    collectionAppliedSummary='';
     freshnessChanged=false;
     selectedScope = requestedScope;
     scopeControlsAvailable = true;
