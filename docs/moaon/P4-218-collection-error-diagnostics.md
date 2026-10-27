@@ -21,3 +21,13 @@ The collection strip kept Cafe24 at an undifferentiated confirmation-required st
 
 ## Scope and progress
 This repair has three steps: diagnosis, implementation, release verification. The separate six-stage performance roadmap remains three completed / three remaining; next is stage four rendering, selection and scrolling. The actual authenticated user's Cafe24 recovery must be observed after restarting the new app; fixture results are not production-provider success.
+
+## Release completion
+- Installer built: Moaon-0.218.0-Setup.exe, 114470450 bytes, SHA256 b67d3f09aca41a774507cb99db9b53b674a7140b0b4e64fe28b83fe1948bd46c.
+- Package payload: PASS, all 166 files match source; app.asar SHA256 04f169e53cc3568474a156ced3f7d7e08d0822351baf095573685afad9d0adb9.
+- Local installed release: D:\GPT\Apps\Moaon\releases\0.218.0; current.json and shortcuts updated. Existing running 0.217.0 process preserved; user restart is required for that session to load the new version.
+- Installed app.asar + real Main/preload/UI in isolated visible right-monitor fixture: PASS, same 8 codes / 2 themes / 3 widths, retry enabled and equal chip sizing; no real order writes.
+- Existing collected -> change check -> automatic list application regression: PASS, including issuance/selection deferral, old list retention during loading, and failure retry.
+- GitHub moaon-stable published; public feed Ed25519 signature verified, installer HTTP 200, GitHub SHA256 digest matches.
+- Windows Authenticode remains NotSigned; Ed25519 verification is the update trust check.
+- This repair: all three stages complete. Live Cafe24 provider success after the new authenticated session restarts remains unverified; last production order sync observed before restart was 16:00:33 KST. No first-failure cause invented.
