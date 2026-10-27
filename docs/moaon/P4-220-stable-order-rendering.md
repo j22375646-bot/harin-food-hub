@@ -20,3 +20,9 @@ App renderer only. Preserve 0.219.0 collection wording, all three channel diagno
 
 ## Plan
 Performance roadmap stage 4 of 6: renderer/selection/scroll. Completion requires installed-code verification and signed public update feed verification. Following work: stage 5 long-running memory/resource checks, then final integrated performance/regression verification. Earlier 0.218/0.219 follow-up repairs remain complete.
+
+## Additional regression and final reconciliation
+- Remove obsolete/replaced nodes before arranging retained nodes. Replacing one order does not move unaffected following rows and does not dismiss their popovers.
+- Added a specific assertion that a second order's popup remains open when only the first order's DTO changes.
+- Final source retention test PASS; 80-row render medians: reused 15.8ms vs full rebuild 69.2ms in the same runtime (seven samples each).
+- Shipping progress toggle regression PASS: repeated toggle, keyboard, outside click, another badge, six states, phase retained through timeout and successful recheck, two themes; real writes/order reloads zero.

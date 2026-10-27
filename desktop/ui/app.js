@@ -906,18 +906,20 @@ function reconcileOrderRows(orders){
     renderedOrderRows.clear();orderList.replaceChildren(...orders.map(createOrderRow));return;
   }
   const next=new Map(),day=new Date().toLocaleDateString('ko-KR');
-  let cursor=orderList.firstElementChild;
   for(const order of orders){
     const id=orderId(order),signature=JSON.stringify([displayMode,day,window.moaonFeedback.orders.has(id),order]);
     const previous=renderedOrderRows.get(id);
     const node=previous?.signature===signature?previous.node:createOrderRow(order);
     node.querySelector('.order-row').setAttribute('aria-pressed',String(id===selectedOrderId));
     next.set(id,{signature,node});
-    if(node!==cursor)orderList.insertBefore(node,cursor);
-    cursor=node.nextElementSibling;
   }
   const retained=new Set([...next.values()].map(entry=>entry.node));
   for(const node of [...orderList.children])if(!retained.has(node))node.remove();
+  let cursor=orderList.firstElementChild;
+  for(const {node} of next.values()){
+    if(node!==cursor)orderList.insertBefore(node,cursor);
+    cursor=node.nextElementSibling;
+  }
   renderedOrderRows=next;
 }
 
