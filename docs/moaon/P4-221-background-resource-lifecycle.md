@@ -23,3 +23,14 @@
 
 ## Progress
 Performance roadmap stage 5 of 6. After installed payload and signed public release verification, five stages are complete and one remains. Stage 6 is integrated performance/regression verification including longer operating observations; no claim of hours-long authenticated production operation is made by this accelerated fixture.
+
+## Installed and public release evidence
+- Version 0.221.0, final distribution desktop/dist/distribution-20261027-173151-989.
+- Exact payload PASS: 166 files, app.asar SHA256 4337365a5de5af2ef966b41f9141b5b525c13e4424c6c5ea551655155782b4b2.
+- Installed release/current.json/shortcuts updated to D:\GPT\Apps\Moaon\releases\0.221.0; existing user processes preserved. Restart after any current shipment work completes.
+- Installed app.asar visible right-monitor lifecycle test PASS: 80 pages / 1600 fixture orders, all three shipment caches 200, current DOM/render cache 20, hidden idle reads zero, local UI job progress and completion retained through another tab, reset cleared resources.
+- Installed renderer JS heap after explicit GC: 3,051,404 bytes at 40 pages and 3,300,068 at 80 pages; delta 248,664 bytes. No total-process-memory or hours-long production claim.
+- Installed collection -> freshness -> automatic list application regression PASS, including selection/issuance deferral, slow-read list retention and failed-read retry.
+- Independent read-budget fixture PASS: concurrent three team reads coalesced to one network GET; automatic orders/CS collection each observed once and restored team read worked.
+- GitHub moaon-stable published; Ed25519 signature verified, installer HTTP 200 and GitHub digest match, bytes 114471827, installer SHA256 6079d5fcac80b2db5b50c0e3b8c2bd8a10839835fc5cbc9700968e9f5c0ab925. Authenticode remains NotSigned.
+- Stage five complete; performance roadmap five of six complete, one remaining. Next is integrated regression and final performance verification.
