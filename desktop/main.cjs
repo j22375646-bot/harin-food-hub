@@ -169,7 +169,33 @@ if (!hasSingleInstanceLock) {
       },
     });
 
-    if(process.platform==='win32'){const taskbarIcon=path.join(app.getPath('userData'),'moaon-desktop-icon-v1.ico');await fs.writeFile(taskbarIcon,await fs.readFile(path.join(UI_ROOT,'brand','moaon.ico')));mainWindow.setIcon(taskbarIcon);mainWindow.setAppDetails({appId:WINDOWS_APP_ID});if(app.isPackaged&&path.basename(process.execPath).toLowerCase()==='moaonpreview.exe'){mainWindow.once('ready-to-show',()=>{const repairTimer=setTimeout(()=>{if(!mainWindow||mainWindow.isDestroyed())return;require('./windows-shortcuts.cjs').repairShortcuts({shell,fs,appData:app.getPath('appData'),desktop:app.getPath('desktop'),executable:process.execPath,icon:taskbarIcon,appId:WINDOWS_APP_ID}).catch(()=>console.error('MOAON_SHORTCUT_REFRESH_UNAVAILABLE'));},250);repairTimer.unref();});}}
+    if(process.platform==='win32'){
+      const window=mainWindow;
+      window.setAppDetails({appId:WINDOWS_APP_ID});
+      // The window already has its bundled icon. Disk writes for Explorer's
+      // icon and shortcuts must not hold up the first page navigation.
+      window.once('ready-to-show',()=>{
+        const repairTimer=setTimeout(async()=>{
+          if(window.isDestroyed())return;
+          const taskbarIcon=path.join(app.getPath('userData'),'moaon-desktop-icon-v1.ico');
+          try{
+            const icon=await fs.readFile(path.join(UI_ROOT,'brand','moaon.ico'));
+            await fs.writeFile(taskbarIcon,icon);
+            if(window.isDestroyed())return;
+            window.setIcon(taskbarIcon);
+            if(app.isPackaged&&path.basename(process.execPath).toLowerCase()==='moaonpreview.exe'){
+              await require('./windows-shortcuts.cjs').repairShortcuts({
+                shell,fs,appData:app.getPath('appData'),desktop:app.getPath('desktop'),
+                executable:process.execPath,icon:taskbarIcon,appId:WINDOWS_APP_ID,
+              });
+            }
+          }catch{
+            console.error('MOAON_SHORTCUT_REFRESH_UNAVAILABLE');
+          }
+        },250);
+        repairTimer.unref();
+      });
+    }
     mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     mainWindow.on('show',()=>mainWindow?.setSkipTaskbar(false));
     registerPrinterInspection({ipcMain:workIpc,getMainWindow:()=>mainWindow,isTrustedRenderer,
