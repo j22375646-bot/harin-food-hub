@@ -541,7 +541,7 @@ function createHubConnection({
     if(row.details.receiver.name&&row.details.receiver.address&&row.details.receiver.contact&&/^\d{5}$/.test(row.details.receiver.postCode))return {status:'READY',receiver:row.details.receiver};
     const shipmentId=deliveryTargets.get(row);
     const coupang=row.platform==='COUPANG'&&/^HR-CP-[A-F0-9]{8}$/.test(id)&&shipmentId;
-    if(!coupang&&(row.platform!=='CAFE24'||!/^HR-C24-[A-F0-9]{8}$/.test(id)||!/^[-A-Za-z0-9_]{1,80}$/.test(row.details.externalOrderId)))return {status:'CHECK_REQUIRED'};
+    if(!coupang&&(row.platform!=='CAFE24'||!/^HR-C24-[A-F0-9]{8}$/.test(id)||!/^[-A-Za-z0-9_]{1,80}$/.test(row.details.externalOrderId)))return {status:'CHECK_REQUIRED',reason:'ORDER_REFERENCE_MISSING'};
     const expected=generation,controller=new AbortController();businessReads.add(controller);
     const url=`${HARIN_ORIGIN}/api/cafe24/orders/delivery-detail?orderId=${encodeURIComponent(row.details.externalOrderId)}`;
     const permits=new Set();let timer;
@@ -556,31 +556,34 @@ function createHubConnection({
           let job=deliveryJobs.get(row);
           if(!job){
             const queued=await get(`${HARIN_ORIGIN}/api/coupang/orders/detail?shipmentBoxId=${shipmentId}`);
-            if(![200,202].includes(queued.status))return {status:'CHECK_REQUIRED'};
+            if(![200,202].includes(queued.status))return {status:'CHECK_REQUIRED',reason:'LOOKUP_FAILED'};
             const payload=await readBoundedJson(queued,controller);job=payload?.request?.id;
-            if(payload?.ok!==true||typeof job!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(job))return {status:'CHECK_REQUIRED'};
+            if(payload?.ok!==true||typeof job!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(job))return {status:'CHECK_REQUIRED',reason:'LOOKUP_FAILED'};
             deliveryJobs.set(row,job);
           }
           for(let attempt=0;attempt<45;attempt++){
             const response=await get(`${HARIN_ORIGIN}/api/coupang/operations/${job}`);
             if(response.status===202){await new Promise(resolve=>setTimeout(resolve,1000));continue;}
-            if(response.status!==200)return {status:'CHECK_REQUIRED'};
+            if([200,404,502].includes(response.status))deliveryJobs.delete(row);
+            if(response.status!==200)return {status:'CHECK_REQUIRED',reason:'LOOKUP_FAILED'};
             const payload=await readBoundedJson(response,controller);
-            if(payload?.ok!==true||payload.order?.shipmentBoxId!==shipmentId||!payload.order?.receiver)return {status:'CHECK_REQUIRED'};
+            if(payload?.ok!==true||payload.order?.shipmentBoxId!==shipmentId)return {status:'CHECK_REQUIRED',reason:'LOOKUP_FAILED'};
+            if(!payload.order.receiver)return {status:'CHECK_REQUIRED',reason:'RECEIVER_INCOMPLETE'};
             const receiver=projectOrderDetails({receiver:{...payload.order.receiver,contact:payload.order.receiver.safeNumber||payload.order.receiver.contact}}).receiver;
-            return receiver.name&&receiver.address?{status:'READY',receiver}:{status:'CHECK_REQUIRED'};
+            return receiver.name&&receiver.address?{status:'READY',receiver}:{status:'CHECK_REQUIRED',reason:'RECEIVER_INCOMPLETE'};
           }
           return {status:'PENDING'};
         }
         const response=await get(url);
-        if(response.status!==200)return {status:'CHECK_REQUIRED'};
+        if(response.status!==200)return {status:'CHECK_REQUIRED',reason:'LOOKUP_FAILED'};
         const payload=await readBoundedJson(response,controller);
-        if(payload?.ok!==true||!payload.receiver)return {status:'CHECK_REQUIRED'};
+        if(payload?.ok!==true)return {status:'CHECK_REQUIRED',reason:'LOOKUP_FAILED'};
+        if(!payload.receiver)return {status:'CHECK_REQUIRED',reason:'RECEIVER_INCOMPLETE'};
         return {status:'READY',receiver:projectOrderDetails({receiver:payload.receiver}).receiver};
       })();
-      const result=await Promise.race([operation,new Promise(resolve=>{timer=setTimeout(()=>{controller.abort();resolve({status:'CHECK_REQUIRED'});},coupang?Math.min(timeoutMs*3,45000):timeoutMs);}),new Promise(resolve=>controller.signal.addEventListener('abort',()=>resolve({status:'CHECK_REQUIRED'}),{once:true}))]);
+      const result=await Promise.race([operation,new Promise(resolve=>{timer=setTimeout(()=>{resolve({status:'CHECK_REQUIRED',reason:'LOOKUP_DELAYED'});controller.abort();},coupang?Math.min(timeoutMs*3,45000):timeoutMs);}),new Promise(resolve=>controller.signal.addEventListener('abort',()=>resolve({status:'CHECK_REQUIRED',reason:'LOOKUP_FAILED'}),{once:true}))]);
       return expected!==generation||!loadedOrders.includes(row)?{status:'DISCONNECTED'}:result;
-    }catch{return {status:expected!==generation?'DISCONNECTED':'CHECK_REQUIRED'};}
+    }catch{return expected!==generation?{status:'DISCONNECTED'}:{status:'CHECK_REQUIRED',reason:'LOOKUP_FAILED'};}
     finally{clearTimeout(timer);controller.abort();for(const permit of permits)deliveryPermits.delete(permit);businessReads.delete(controller);}
   }
   let reviewingShipment = false;

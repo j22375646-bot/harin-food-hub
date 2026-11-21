@@ -321,7 +321,11 @@ test('Coupang delivery rejects mismatched shipment, malformed job and non-seller
    if(url.includes('/operations/'))return Response.json({ok:true,order:{shipmentBoxId:'999',receiver:{name:'WRONG',address:'WRONG'}}});
    return Response.json(makePagePayload({orders:[order]}));
   }));
-  await connection.refresh();assert.deepEqual(await connection.readDelivery(order.hubOrderId),{status:'CHECK_REQUIRED'});if(mode==='rocket')assert.equal(calls,0);
+  await connection.refresh();
+  assert.deepEqual(await connection.readDelivery(order.hubOrderId),{
+   status:'CHECK_REQUIRED',reason:mode==='rocket'?'ORDER_REFERENCE_MISSING':'LOOKUP_FAILED',
+  });
+  if(mode==='rocket')assert.equal(calls,0);
  }
 });
 test('Coupang delivery keeps returned contact when safeNumber is absent',async()=>{
@@ -333,6 +337,25 @@ test('Coupang delivery keeps returned contact when safeNumber is absent',async()
  }));
  await connection.refresh();assert.equal((await connection.readDelivery(order.hubOrderId)).receiver.contact,'05012345678');
 });
+test('Coupang delivery retry starts a new lookup after the previous job fails',async()=>{
+ const order={...reviewOrder(),hubOrderId:'HR-CP-1234ABCD',platform:'COUPANG',shipmentId:'123',receiver:null};
+ const failed='12345678-1234-4123-8123-123456789abc',next='22345678-1234-4123-8123-123456789abc';
+ let queue=0;
+ const remote=makeRemoteSession(async url=>{
+  if(url.includes('/orders/detail?')){
+   queue++;
+   return Response.json({ok:true,request:{id:queue===1?failed:next}},{status:202});
+  }
+  if(url.endsWith(failed))return Response.json({ok:false},{status:502});
+  if(url.endsWith(next))return Response.json({ok:true,order:{shipmentBoxId:'123',receiver:{name:'시험',address:'시험 주소',contact:'05012345678',postCode:'12345'}}});
+  return Response.json(makePagePayload({orders:[order]}));
+ });
+ const {connection}=makeConnection(remote);
+ await connection.refresh();
+ assert.deepEqual(await connection.readDelivery(order.hubOrderId),{status:'CHECK_REQUIRED',reason:'LOOKUP_FAILED'});
+ assert.equal((await connection.readDelivery(order.hubOrderId)).status,'READY');
+ assert.equal(queue,2);
+});
 test('Coupang delivery timeout resumes the same job and logout discards late receiver',async()=>{
  const order={...reviewOrder(),hubOrderId:'HR-CP-1234ABCD',platform:'COUPANG',shipmentId:'123',receiver:null};let queue=0,ready=false,release;
  const {connection}=makeConnection(makeRemoteSession(async url=>{
@@ -340,7 +363,8 @@ test('Coupang delivery timeout resumes the same job and logout discards late rec
   if(url.includes('/operations/'))return ready?Response.json({ok:true,order:{shipmentBoxId:'123',receiver:{name:'시험',address:'가상 주소'}}}):new Promise(resolve=>{release=resolve;});
   return Response.json(makePagePayload({orders:[order]}));
  }),{timeoutMs:20});
- await connection.refresh();assert.equal((await connection.readDelivery(order.hubOrderId)).status,'CHECK_REQUIRED');
+ await connection.refresh();
+ assert.deepEqual(await connection.readDelivery(order.hubOrderId),{status:'CHECK_REQUIRED',reason:'LOOKUP_DELAYED'});
  ready=true;assert.equal((await connection.readDelivery(order.hubOrderId)).status,'READY');assert.equal(queue,1);
  ready=false;const pending=connection.readDelivery(order.hubOrderId);await connection.disconnect();
  release(Response.json({ok:true,order:{shipmentBoxId:'123',receiver:{name:'DO NOT DISPLAY',address:'OLD'}}}));
