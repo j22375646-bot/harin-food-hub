@@ -53,11 +53,17 @@ const workflowFingerprints=new WeakMap();
 const worklistOrders=new WeakMap();
 const REGISTRATION_URL=`${HARIN_ORIGIN}/api/shipping/actions`;
 function validRegistrationIds(ids){return Array.isArray(ids)&&ids.length>0&&ids.length<=20&&ids.every(id=>typeof id==='string'&&/^HR-(?:C24|CP)-[A-F0-9]{8}$/.test(id))&&new Set(ids).size===ids.length;}
+function paymentBlockCode(order) {
+  if (order?.paymentState === 'UNPAID' || order?.stage === 'PAYMENT_PENDING') return 'PAYMENT_PENDING';
+  if (order?.stage === 'PAYMENT_CHECK_REQUIRED' || (order?.paymentMethod === 'BANK_DEPOSIT' && order?.paymentState !== 'PAID')) return 'PAYMENT_CHECK_REQUIRED';
+  return '';
+}
+
 function canRegister(order,partial){
   return partial===false&&['CAFE24','COUPANG'].includes(order?.platform)&&order.fulfillment==='SELLER'
     &&(order.platform==='CAFE24'?/^HR-C24-[A-F0-9]{8}$/:/^HR-CP-[A-F0-9]{8}$/).test(order.hubOrderId)
     &&order.shippingEligible===true&&order.shippingHistoryStatus==='READY'&&order.cancelled===false&&order.cancellationRequested===false
-    &&['PAID','PREPARING','READY_TO_SHIP'].includes(order.stage)&&typeof order.externalOrderId==='string'&&order.externalOrderId.length>0
+    &&!paymentBlockCode(order)&&['PAID','PREPARING','READY_TO_SHIP'].includes(order.stage)&&typeof order.externalOrderId==='string'&&order.externalOrderId.length>0
     &&(order.platform!=='COUPANG'||typeof order.shipmentId==='string'&&order.shipmentId.length>0)
     &&order.invoice?.status==='ISSUED'&&typeof order.invoice.number==='string'&&/^\d{13}$/.test(order.invoice.number);
 }
@@ -131,6 +137,8 @@ function projectPreflight(order, partial) {
     : ['CAFE24', 'COUPANG'].includes(order?.platform) ? 'HUB' : 'UNKNOWN';
   if (order?.cancelled === true || order?.stage === 'CANCELLED') codes.push('CANCELLED');
   if (order?.cancellationRequested === true) codes.push('CANCEL_REQUEST');
+  const paymentBlock = paymentBlockCode(order);
+  if (paymentBlock) codes.push(paymentBlock);
   if (['SHIPPING', 'DELIVERED', 'WAITING_FOR_CARRIER'].includes(order?.stage)
     || ['IN_TRANSIT', 'DELIVERED'].includes(order?.listDeliveryBadge?.status)) codes.push('SHIPPED');
   if ([order?.invoiceNumber, order?.issuedInvoiceNumber].some(value => value != null && value !== '') || order?.invoice != null) codes.push('INVOICE_EXISTS');
@@ -138,7 +146,7 @@ function projectPreflight(order, partial) {
   if (route === 'NAVER') codes.push('NAVER_ROUTE');
   if (route === 'COUPANG_ROCKET') codes.push('ROCKET_ROUTE');
   if (route === 'UNKNOWN' || !['SELLER', 'ROCKET_GROWTH'].includes(order?.fulfillment)) codes.push('ROUTE_UNKNOWN');
-  if (!['PAID','PREPARING','READY_TO_SHIP'].includes(order?.stage) && !codes.includes('SHIPPED') && !codes.includes('CANCELLED')) codes.push('STAGE_UNKNOWN');
+  if (!paymentBlock && !['PAID','PREPARING','READY_TO_SHIP'].includes(order?.stage) && !codes.includes('SHIPPED') && !codes.includes('CANCELLED')) codes.push('STAGE_UNKNOWN');
   if (typeof order?.cancelled !== 'boolean' || typeof order?.cancellationRequested !== 'boolean') codes.push('CANCEL_UNKNOWN');
   if (typeof order?.invoiceNumber !== 'string' || typeof order?.issuedInvoiceNumber !== 'string') codes.push('INVOICE_UNKNOWN');
   const hubIdPattern = order?.platform === 'CAFE24' ? /^HR-C24-[A-F0-9]{8}$/ : /^HR-CP-[A-F0-9]{8}$/;
@@ -198,6 +206,8 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     platform: safeString(order?.platform),
     productName: safeString(order?.productName),
     stage: safeString(order?.stage),
+    paymentMethod: order?.paymentMethod === 'BANK_DEPOSIT' ? order.paymentMethod : null,
+    paymentState: ['UNPAID','PAID','UNKNOWN'].includes(order?.paymentState) ? order.paymentState : null,
     quantity: safeFiniteNumber(order?.quantity),
     amount: safeFiniteNumber(order?.amount),
     orderedAt: order?.orderedAt === null ? null : safeString(order?.orderedAt),
@@ -208,7 +218,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     ...(projectVisual(order)?{visual:projectVisual(order)}:{}),
     });
     const inputs={};
-    for(const key of ['hubOrderId','platform','fulfillment','externalOrderId','shipmentId','productName','quantity','amount','items','packagingInstructions','gifts','receiver','invoiceNumber','issuedInvoiceNumber','invoice','stage','cancelled','cancellationRequested'])inputs[key]=order?.[key]??null;
+    for(const key of ['hubOrderId','platform','fulfillment','externalOrderId','shipmentId','productName','quantity','amount','items','packagingInstructions','gifts','receiver','invoiceNumber','issuedInvoiceNumber','invoice','stage','paymentMethod','paymentState','cancelled','cancellationRequested'])inputs[key]=order?.[key]??null;
     rawOrderRows.set(projected,order);
     shipmentFingerprints.set(projected,createHash('sha256').update(JSON.stringify(inputs)).digest('hex'));
     worklistOrders.set(projected,{hubOrderId:projected.hubOrderId,platform:projected.platform,externalOrderId:safeString(order?.externalOrderId),productName:projected.productName,stage:projected.stage,amount:projected.amount,items:order?.items,packagingInstructions:order?.packagingInstructions,gifts:order?.gifts,receiver:projected.details.receiver,invoice:projected.details.invoice});

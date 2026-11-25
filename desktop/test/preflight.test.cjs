@@ -5,6 +5,14 @@ const {projectOrdersPayload} = require('../hub-connection.cjs');
 const base = () => ({hubOrderId:'HR-C24-1234ABCD',externalOrderId:'C1',platform:'CAFE24',fulfillment:'SELLER',stage:'PAID',cancelled:false,cancellationRequested:false,shippingHistoryStatus:'READY',shippingEligible:true,selectionEligible:true,invoiceNumber:'',issuedInvoiceNumber:'',invoice:null,quantity:2,receiver:{name:'PRIVATE-NAME',contact:'01012345678',postCode:'12345',address:'PRIVATE-ADDRESS'}});
 const check = (order,partial=false) => projectOrdersPayload({ok:true,orders:[order],total:1,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial},'2026-09-08T00:00:00Z').orders[0].preflight;
 
+test('Cafe24 payment evidence blocks shipping even if the response still reports a shippable stage', () => {
+  const order={...base(),paymentMethod:'BANK_DEPOSIT'};
+  assert.deepEqual(check({...order,paymentState:'UNPAID'}).codes,['PAYMENT_PENDING']);
+  assert.equal(check({...order,paymentState:'UNPAID'}).status,'BLOCKED');
+  assert.deepEqual(check({...order,paymentState:'UNKNOWN'}).codes,['PAYMENT_CHECK_REQUIRED']);
+  assert.equal(check({...order,paymentState:'PAID'}).status,'REVIEW_ONLY');
+});
+
 test('real order page preserves verified history and does not invent it when absent', () => {
   const {buildOrderPage} = require('../../lib/ui/phase28-adapters/orders.js');
   for (const history of ['READY', 'CHECK_REQUIRED', undefined]) {

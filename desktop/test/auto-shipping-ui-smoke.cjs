@@ -10,6 +10,26 @@ const {launchDesktop}=require('./launch.cjs');
   const seed=()=>page.evaluate(()=>applyHubResult({status:'READY',scope:'ACTIVE',channel:'ALL',total:2,offset:0,hasMore:false,hasPrevious:false,checkedAt:new Date().toISOString(),orders:[1,2].map(i=>({hubOrderId:`HR-C24-0000000${i}`,platform:'CAFE24',productName:`자동출고 시험 ${i}`,stage:'PREPARING',amount:30000,quantity:1,issueAndRegisterEligible:true,registrationEligible:false,preflight:{status:'REVIEW_ONLY',route:'HUB',codes:[]},details:{cancelled:false,cancellationRequested:false,items:[]}}))}));
   await seed();await page.getByRole('button',{name:'주문·배송',exact:true}).click();
   const auto=page.locator('#selection-auto-ship');assert.equal(await auto.count(),1);
+  const readyPage=await page.evaluate(()=>connectionResult);
+  await page.evaluate(result=>{
+    const [unpaid,paid]=result.orders;
+    applyHubResult({...result,orders:[
+      {...unpaid,stage:'PAYMENT_PENDING',paymentMethod:'BANK_DEPOSIT',paymentState:'UNPAID',issueAndRegisterEligible:false,preflight:{status:'BLOCKED',route:'HUB',codes:['PAYMENT_PENDING']}},
+      {...paid,paymentMethod:'BANK_DEPOSIT',paymentState:'PAID'}
+    ]});
+  },readyPage);
+  const unpaid=page.locator('.order-item').filter({hasText:'자동출고 시험 1'});
+  const paid=page.locator('.order-item').filter({hasText:'자동출고 시험 2'});
+  assert.equal(await unpaid.getByText('무통장입금',{exact:true}).count(),1);
+  assert.equal(await unpaid.getByText('입금전',{exact:true}).count(),1);
+  assert.equal(await paid.getByText('입금완료',{exact:true}).count(),1);
+  await unpaid.locator('.order-select').check();
+  assert.equal(await auto.isDisabled(),true);
+  await paid.locator('.order-select').check();
+  assert.equal(await auto.isDisabled(),true);
+  await unpaid.locator('.order-select').uncheck();
+  assert.equal(await auto.isEnabled(),true);
+  await seed();
   await app.evaluate(({ipcMain})=>{
     globalThis.autoCalls=0;ipcMain.removeHandler('moaon-hub:issue-and-register');
     ipcMain.handle('moaon-hub:issue-and-register',async(_event,ids)=>{globalThis.autoCalls++;await new Promise(resolve=>setTimeout(resolve,100));return {status:'PARTIAL',results:ids.map((hubOrderId,i)=>({hubOrderId,phase:i?'ISSUE':'REGISTER',status:i?'PENDING':'REGISTERED',trackingStatus:i?undefined:'PENDING'}))};});

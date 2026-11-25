@@ -713,6 +713,8 @@ test('orders payload is deeply frozen, limited to 20, and excludes non-delivery 
     platform: 'CAFE24',
     productName: '상품 1',
     stage: 'PAID',
+    paymentMethod: null,
+    paymentState: null,
     quantity: null,
     amount: null,
     orderedAt: '2026-09-01T01:02:03.000Z',

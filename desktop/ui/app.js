@@ -18,6 +18,8 @@ const scopeDetails = Object.freeze({
 });
 const scopeByAction = Object.freeze(Object.fromEntries(Object.entries(scopeDetails).map(([scope, detail]) => [detail.action, scope])));
 const stageLabels = Object.freeze({
+  PAYMENT_PENDING: '입금전',
+  PAYMENT_CHECK_REQUIRED: '입금 확인 필요',
   PAID: '결제완료',
   PREPARING: '준비중',
   READY_TO_SHIP: '출고대기',
@@ -542,7 +544,7 @@ function showOrderDetail(order, button, options = {}) {
   productText.append(makeElement('h2','',bundled?'묶음 주문':order.productName||order.product||'상품 확인 필요'));
   const option=isSampleMode()?order.option:order.details?.items?.[0]?.option;if(option&&!bundled)productText.append(makeElement('span','',option));
   const present=giftBadge(order),timing=timingBadge(order);
-  const badges=makeElement('div','detail-badges');if(present)badges.append(present);if(timing)badges.append(timing);const statusView=shippingStatusView(order,true),statusBadge=makeElement('span','detail-status-badge',statusView.label),channelBadge=makeElement('span','detail-channel-badge',({NAVER:'네이버 · 별도 발급',COUPANG:'쿠팡',CAFE24:'Cafe24'})[order.platform]||'채널 확인 필요');statusBadge.dataset.state=statusView.state;channelBadge.dataset.channel=order.platform||'UNKNOWN';badges.append(statusBadge,channelBadge);productText.append(badges);
+  const badges=makeElement('div','detail-badges');if(present)badges.append(present);if(timing)badges.append(timing);const statusView=shippingStatusView(order,true),statusBadge=makeElement('span','detail-status-badge',statusView.label),channelBadge=makeElement('span','detail-channel-badge',({NAVER:'네이버 · 별도 발급',COUPANG:'쿠팡',CAFE24:'Cafe24'})[order.platform]||'채널 확인 필요');statusBadge.dataset.state=statusView.state;channelBadge.dataset.channel=order.platform||'UNKNOWN';badges.append(statusBadge,channelBadge,...paymentBadges(order,statusView.state));productText.append(badges);
   productHero.append(productThumbnail(order),productText);body.append(productHero);if(bundled)body.append(bundleProducts(order.details.items));
   const facts=makeElement('dl','detail-facts');
   const fact=(title,value)=>facts.append(makeElement('dt','',title),makeElement('dd','',value));
@@ -612,6 +614,8 @@ function showOrderDetail(order, button, options = {}) {
     const preflightLabels = {BLOCKED:'출고 대상에서 제외',EXTERNAL:'별도 플랫폼에서 처리',CHECK_REQUIRED:'출고 전 정보 확인 필요',REVIEW_ONLY:'발급 전 재확인 후보'};
     const reasonLabels = {CANCELLED:'취소된 주문',CANCEL_REQUEST:'취소·반품 요청 먼저 확인',SHIPPED:'배송 진행 또는 완료 상태',INVOICE_EXISTS:'기존 송장 기록 확인',NAVER_ROUTE:'네이버에서 송장 처리',ROCKET_ROUTE:'로켓그로스는 쿠팡에서 출고',ROUTE_UNKNOWN:'처리 경로 확인 필요',STAGE_UNKNOWN:'주문 단계 확인 필요',CANCEL_UNKNOWN:'취소 여부 확인 필요',INVOICE_UNKNOWN:'송장 이력 확인 필요',ORDER_ID:'주문 식별번호 확인 필요',SERVER_CHECK:'웹 허브의 출고 제한 확인 필요',DELIVERY_INFO:'배송정보 누락 또는 형식 확인 필요',QUANTITY:'상품 수량 확인 필요',PARTIAL:'일부 채널 자료 누락'};
     reasonLabels.SHIPMENT_ID='쿠팡 배송묶음 번호 확인 필요';
+    reasonLabels.PAYMENT_PENDING='입금전 · 송장 발급 불가';
+    reasonLabels.PAYMENT_CHECK_REQUIRED='카페24에서 입금 상태 확인';
     reasonLabels.HISTORY_UNAVAILABLE = '송장 이력 조회 상태 확인 필요';
     const checkSection = makeElement('section', 'detail-section preflight-summary');
     checkSection.dataset.state = preflight?.status || 'CHECK_REQUIRED';
@@ -866,6 +870,12 @@ function createOrderRow(order) {
     const delivery={RESERVED:'예약',IN_TRANSIT:'배송중',DELIVERED:'배송완료'};
     const stateView=shippingStatusView(order),status=makeElement('span','delivery-badge',stateView.label);
     status.dataset.state=stateView.state;
+    const payments=paymentBadges(order,stateView.state);
+    if(payments.length){
+      const badges=makeElement('span','order-payment-badges');
+      badges.append(...payments);
+      primary.append(badges);
+    }
     secondary.append(channelBadge);
     status.classList.add('order-state');
     button.append(status);
@@ -955,7 +965,7 @@ function renderSelection(){
   let reason=document.getElementById('selection-block-reason');if(!reason){reason=makeElement('div','selection-block-reason');reason.id='selection-block-reason';reason.setAttribute('role','status');bar.append(reason);}else bar.append(reason);
   const blocked=selected.filter(o=>!o?.issueAndRegisterEligible),ready=selected.filter(o=>o?.issueAndRegisterEligible===true);
   let prepare=document.getElementById('selection-prepare-delivery');if(!prepare){prepare=makeElement('button','secondary-action','배송정보 일괄 준비');prepare.id='selection-prepare-delivery';prepare.type='button';prepare.onclick=()=>void prepareSelectedDelivery();bar.prepend(prepare);}prepare.hidden=selectedScope!=='ACTIVE';prepare.disabled=orderToolsBusy()||displayMode!=='live'||count<1||count>20||!selected.some(o=>o&&['CAFE24','COUPANG'].includes(o.platform));
-  const names={DELIVERY_INFO:'받는 분·주소·연락처 확인',HISTORY_UNAVAILABLE:'송장 이력 조회 확인',SHIPMENT_ID:'쿠팡 배송묶음 번호 확인',SERVER_CHECK:'서버 출고 조건 확인',PARTIAL:'누락 채널 재조회',NAVER_ROUTE:'네이버에서 별도 발급',ROCKET_ROUTE:'로켓그로스는 쿠팡에서 처리',INVOICE_EXISTS:'기존 송장 확인',CANCELLED:'취소 주문 제외',CANCEL_REQUEST:'취소 요청 확인',INVOICE_UNKNOWN:'송장 존재 여부 확인',CANCEL_UNKNOWN:'취소 여부 확인',SHIPPED:'이미 배송 진행 중',STAGE_UNKNOWN:'주문 상태 확인',ORDER_ID:'주문번호 확인',QUANTITY:'수량 확인',ROUTE_UNKNOWN:'출고 경로 확인'};
+  const names={PAYMENT_PENDING:'입금전 · 송장 발급 불가',PAYMENT_CHECK_REQUIRED:'카페24에서 입금 상태 확인',DELIVERY_INFO:'받는 분·주소·연락처 확인',HISTORY_UNAVAILABLE:'송장 이력 조회 확인',SHIPMENT_ID:'쿠팡 배송묶음 번호 확인',SERVER_CHECK:'서버 출고 조건 확인',PARTIAL:'누락 채널 재조회',NAVER_ROUTE:'네이버에서 별도 발급',ROCKET_ROUTE:'로켓그로스는 쿠팡에서 처리',INVOICE_EXISTS:'기존 송장 확인',CANCELLED:'취소 주문 제외',CANCEL_REQUEST:'취소 요청 확인',INVOICE_UNKNOWN:'송장 존재 여부 확인',CANCEL_UNKNOWN:'취소 여부 확인',SHIPPED:'이미 배송 진행 중',STAGE_UNKNOWN:'주문 상태 확인',ORDER_ID:'주문번호 확인',QUANTITY:'수량 확인',ROUTE_UNKNOWN:'출고 경로 확인'};
   const reasonKey=JSON.stringify([selectedScope,[...selectedOrderIds].sort()]);
   if(!count||dismissedSelectionReason!==reasonKey)dismissedSelectionReason=null;
   if(!count||expandedSelectionReason!==reasonKey)expandedSelectionReason=null;
@@ -1281,6 +1291,8 @@ function applyHubResult(result,options={}) {
     displayedOrders = Object.freeze(result.orders.map((order) => Object.freeze({
       hubOrderId: typeof order.hubOrderId === 'string' ? order.hubOrderId : '', platform: typeof order.platform === 'string' ? order.platform : '',
       productName: typeof order.productName === 'string' ? order.productName : '', stage: typeof order.stage === 'string' ? order.stage : '',
+      paymentMethod: order.paymentMethod,
+      paymentState: order.paymentState,
       quantity: typeof order.quantity === 'number' && Number.isFinite(order.quantity) ? order.quantity : null,
       amount: typeof order.amount === 'number' && Number.isFinite(order.amount) ? order.amount : null,
       orderedAt: typeof order.orderedAt === 'string' ? order.orderedAt : null,
@@ -1940,10 +1952,23 @@ function installFloatingSelection(bar){
 
 function timingBadge(order){const timing=order.visual?.timing;if(!timing)return null;const badge=makeElement('span','shipping-timing-badge',timing.label);badge.dataset.timing=timing.type;badge.title=timing.detail;return badge;}
 
+function paymentBadges(order, visibleState) {
+  if(order.paymentMethod!=='BANK_DEPOSIT')return [];
+  const method=makeElement('span','delivery-badge order-payment-badge','무통장입금');
+  method.dataset.state='BANK_DEPOSIT';
+  const state=order.paymentState==='PAID'?'DEPOSIT_PAID'
+    :order.paymentState==='UNPAID'?'PAYMENT_PENDING':'PAYMENT_CHECK_REQUIRED';
+  if(state===visibleState||order.stage==='CANCELLED')return [method];
+  const badge=makeElement('span','delivery-badge order-payment-badge',state==='DEPOSIT_PAID'?'입금완료':stageLabel(state));
+  badge.dataset.state=state;
+  return [method,badge];
+}
+
 function shippingStatusView(order,detail=false){
  const stage=order.stage,invoice=order.details?.invoice?.status,delivery=order.details?.delivery?.status;
  if(stage==='CANCELLED'||order.details?.cancelled===true)return {state:'CANCELLED',label:'취소'};
  if(order.details?.cancellationRequested===true)return {state:'CANCEL_REQUEST',label:'취소·반품 요청'};
+ if(['PAYMENT_PENDING','PAYMENT_CHECK_REQUIRED'].includes(stage))return {state:stage,label:stageLabel(stage)};
  if(stage==='DELIVERED'||delivery==='DELIVERED')return {state:'DELIVERED',label:'배송완료'};
  if(['SHIPPING','IN_TRANSIT'].includes(stage)||delivery==='IN_TRANSIT')return {state:'IN_TRANSIT',label:'배송중'};
  if(invoice==='REGISTERED')return {state:'REGISTERED',label:detail?'송장 등록 완료':'배송대기중'};
