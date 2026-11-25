@@ -106,6 +106,12 @@ function isAllowedRemoteRequest(details = {}, context = {}) {
   if (url.username || url.password) return false;
 
   const method = details.method.toUpperCase();
+  if(context.depositPermit?.url===details.url&&context.depositPermit.method===method&&isMainProcessRequest(details.webContentsId)){
+    const path='/api/moaon/businesses/'+require('./shipping-progress-contract.cjs').TENANT+'/cafe24-deposit';
+    if(url.origin===HARIN_ORIGIN&&url.pathname===path&&!url.hash){
+      return method==='POST'&&!url.search||method==='GET'&&/^\?orderId=\d{8}-\d{7}&hubOrderId=HR-C24-[A-F0-9]{8}$/.test(url.search);
+    }
+  }
   if(context.assistantAutomationPermit?.url===details.url&&context.assistantAutomationPermit.method===method&&details.url===HARIN_ORIGIN+'/api/moaon/assistant/automation'&&method==='POST')return isMainProcessRequest(details.webContentsId);
   if(context.assistantAccessPermit?.url===details.url&&context.assistantAccessPermit.method===method&&details.url===HARIN_ORIGIN+'/api/moaon/assistant/access'&&method==='POST')return isMainProcessRequest(details.webContentsId);
   if(context.keyPermit?.url===details.url&&context.keyPermit.method===method&&details.url===HARIN_ORIGIN+'/api/moaon/connections'&&method==='POST')return isMainProcessRequest(details.webContentsId);

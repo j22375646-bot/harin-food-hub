@@ -26,6 +26,7 @@ const {createShipmentTransport}=require('./shipment-transport.cjs');
 const {createBusinessTransport}=require('./business-transport.cjs');
 const {createCredentialTransport,validCredentialInput}=require('./credential-transport.cjs');
 const {createProgressTransport}=require('./shipping-progress-transport.cjs');
+const DEPOSIT_URL=HARIN_ORIGIN+'/api/moaon/businesses/'+require('./shipping-progress-contract.cjs').TENANT+'/cafe24-deposit';
 const {createFinanceTransport}=require('./finance-transport.cjs');
 const {createSettlementTransport,settlementUrl}=require('./settlement-transport.cjs');
 const {createAssistantTransport,ASSISTANT_URL}=require('./assistant-transport.cjs');
@@ -338,6 +339,51 @@ function createHubConnection({
   let cleanupFailed = initialCleanupPending;
   let generation = 0;
   let credentialPermit=null;
+  let depositPermit=null;
+  async function confirmCafe24Deposit(id) {
+    if(reviewingShipment||disconnecting||cleanupFailed||isLoginWindowActive())return {status:'BUSY'};
+    const matches=loadedOrders.filter(row=>row.hubOrderId===id);
+    const row=matches[0],orderId=row?.details?.externalOrderId;
+    if(matches.length!==1||row.platform!=='CAFE24'||row.paymentMethod!=='BANK_DEPOSIT'||row.paymentState!=='UNPAID'
+      ||row.details.cancelled!==false||row.details.cancellationRequested!==false||!/^\d{8}-\d{7}$/.test(orderId))return {status:'INELIGIBLE'};
+    if(typeof showShipmentReview!=='function')return {status:'UNAVAILABLE'};
+    const expected=generation,parent=getMainWindow();
+    const current=()=>generation===expected&&!disconnecting&&!cleanupFailed&&!isLoginWindowActive()&&parent===getMainWindow()&&!parent?.isDestroyed();
+    async function request(url,method,data) {
+      const controller=new AbortController();
+      const deadline=setTimeout(()=>controller.abort(),42000);
+      depositPermit={url,method};
+      try{
+        const response=await getRemoteSession().fetch(url,{method,credentials:'include',redirect:'error',cache:'no-store',signal:controller.signal,
+          ...(data?{headers:{'Content-Type':'application/json',Origin:HARIN_ORIGIN},body:JSON.stringify(data)}:{})});
+        if(response.status===401)return {status:'LOGIN_REQUIRED'};
+        if(response.status===403)return {status:'FORBIDDEN'};
+        if(!response.ok)return {status:method==='POST'?'CHECK_REQUIRED':'UNAVAILABLE'};
+        return await readBoundedJson(response,controller);
+      }finally{clearTimeout(deadline);controller.abort();depositPermit=null;}
+    }
+    reviewingShipment=true;
+    let submitted=false;
+    try{
+      const target={orderId,hubOrderId:id};
+      const preview=await request(DEPOSIT_URL+'?'+new URLSearchParams(target),'GET');
+      if(!parent||!current())return {status:'DISCONNECTED'};
+      if(preview?.status==='PAID'){
+        const refreshed=await request(DEPOSIT_URL,'POST',{...target,refreshOnly:true});
+        return {status:current()&&refreshed?.status==='PAID'?'PAID':'CHECK_REQUIRED'};
+      }
+      if(preview?.status!=='READY')return {status:['CHECK_REQUIRED','UNAVAILABLE','INELIGIBLE','LOGIN_REQUIRED','FORBIDDEN'].includes(preview?.status)?preview.status:'UNAVAILABLE'};
+      if(preview.orderId!==orderId||!Number.isSafeInteger(preview.amount)||preview.amount<=0)return {status:'UNAVAILABLE'};
+      const answer=await showShipmentReview(parent,{title:'카페24 입금 확인',message:'통장에 아래 금액이 실제 입금됐나요?',
+        detail:`주문번호 ${orderId}\n${row.productName}\n입금 예정액 ${preview.amount.toLocaleString('ko-KR')}원\n확인하면 카페24 주문을 입금완료로 처리합니다.`,
+        buttons:['취소','입금완료 처리']});
+      if(answer?.response!==1||!current())return {status:'CANCELLED'};
+      submitted=true;
+      const result=await request(DEPOSIT_URL,'POST',{...target,amount:preview.amount,confirm:true});
+      return {status:current()&&['PAID','CHECK_REQUIRED','AMOUNT_CHANGED','INELIGIBLE','LOGIN_REQUIRED','FORBIDDEN'].includes(result?.status)?result.status:'CHECK_REQUIRED'};
+    }catch{return {status:submitted?'CHECK_REQUIRED':'UNAVAILABLE'};}
+    finally{reviewingShipment=false;}
+  }
   let progressPermit=null,progressScopeKey=null,progressLastAt=-Infinity;
   function invalidateGeneration(){generation+=1;teamReads.reset();credentialTransport.cancel();progressTransport.cancel();progressPermit=null;progressLastAt=-Infinity;credentialPermit=null;cancelInsightAi();cancelMarketAi();cancelGeneralChat();}
   const credentialTransport=createCredentialTransport({fetch:(url,options)=>getRemoteSession().fetch(url,options),authorize:options=>listBusinesses(options),permit:value=>{credentialPermit=value;},blocked:()=>Boolean(disconnecting||cleanupFailed||isLoginWindowActive()),timeoutMs:Math.min(timeoutMs*2,30000)});
@@ -1000,6 +1046,7 @@ function createHubConnection({
             collectionPermit,backgroundCsPermit,
             credentialPermit,
             progressPermit,
+            depositPermit,
             exportPermit,
             automaticRequestActive:automaticPermits.has(details.url),
             deliveryRequestActive:deliveryPermits.has(details.url),
@@ -2047,10 +2094,14 @@ function createHubConnection({
     const result=await readShippingHistory(shipmentDirectory);
     return expected===generation&&!disconnecting?result:{status:'CHECK_REQUIRED',orders:[]};
   }
-return Object.freeze({ cancelShippingProgress:()=>progressTransport.cancel(), readShippingProgress, generalChat,cancelGeneralChat,marketAi,cancelMarketAi,insightAi,cancelInsightAi,readEventPerformance, readBackgroundOrders, collectBackgroundOrders, collectBackgroundCs, assistantAutomation, assistantAccess, connectionCommand, teamCommand, keywordBid, deleteCalendarEntry, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readAssistant, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, readOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, continueShipping, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
+return Object.freeze({ confirmCafe24Deposit, cancelShippingProgress:()=>progressTransport.cancel(), readShippingProgress, generalChat,cancelGeneralChat,marketAi,cancelMarketAi,insightAi,cancelInsightAi,readEventPerformance, readBackgroundOrders, collectBackgroundOrders, collectBackgroundCs, assistantAutomation, assistantAccess, connectionCommand, teamCommand, keywordBid, deleteCalendarEntry, previewStockReceipts,readStock,saveStock,createCalendarEntry, readCredentialMetadata, saveServerCredential, readCalendarMonth, readInventory, readCs, readAssistant, readInsights, readSettlement, exportSelectedCsv, exportOrdersXlsx, applyOrderSearch, previewLabels, previewWorklist, collectOrders, checkOrderCollection, readOrderCollection, checkOrderFreshness, readTracking, refreshTracking, readServerShippingHistory, findOrder, restoreShippingHistory, readDelivery, readFinance, readOverview, readTodayCalendar, listBusinesses, connect, refresh, recheckPage, reviewShipment, confirmShipmentReview, issueShipment, issueAndRegister, continueShipping, registerInvoices, checkShipment, previewLabel, nextPage, previousPage, viewChannel, setOrderFilters, resetOrderFilters, viewActive, viewRegistered, viewInTransit, viewCompleted, disconnect, closeChildren });
 }
 
 function registerConnectionIpc({ ipcMain, getMainWindow, connection }) {
+  ipcMain.handle('moaon-hub:cafe24-deposit',(event,...args)=>{
+    if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||typeof args[0]!=='string'||!/^HR-C24-[A-F0-9]{8}$/.test(args[0]))throw Error('Invalid deposit request');
+    return connection.confirmCafe24Deposit(args[0]);
+  });
   ipcMain.handle('moaon-hub:shipping-progress-cancel',(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length)throw Error('Invalid progress cancel');connection.cancelShippingProgress();});
   ipcMain.handle('moaon-hub:shipping-progress-read',async(event,...args)=>{if(!isTrustedRenderer(event,getMainWindow())||args.length!==1||!validRegistrationIds(args[0]))throw Error('Invalid progress request');return connection.readShippingProgress(args[0]);});
   for(const [channel,method,write] of [['moaon-hub:read-credential-metadata','readCredentialMetadata',false],['moaon-hub:save-server-credential','saveServerCredential',true]]){

@@ -506,6 +506,35 @@ test('native review confirms server-read content then rereads without issuing',a
   const {connection}=makeConnection(makeRemoteSession(async(_url,options)=>{assert.equal(options.method,'GET');calls++;return new Response(JSON.stringify(makePagePayload({orders:[order]})),{status:200});}),{showShipmentReview:async(_parent,options)=>{dialogs++;assert.equal(options.defaultId,0);assert.equal(options.cancelId,0);assert.ok(options.detail.includes(order.hubOrderId));assert.ok(!options.detail.includes('01012345678'));return {response:1};}});
   await connection.refresh();assert.equal((await connection.confirmShipmentReview(order.hubOrderId)).status,'REVIEW_CONFIRMED');assert.equal(calls,3);assert.equal(dialogs,1);
 });
+test('bank deposit requires approval and only sends the live reviewed amount from Main',async()=>{
+  const order={...reviewOrder(),externalOrderId:'20261125-0000001',stage:'PAYMENT_PENDING',paymentMethod:'BANK_DEPOSIT',paymentState:'UNPAID',amount:0};
+  let approved=0,posts=0,dialogs=0;
+  const remote=makeRemoteSession(async(url,options)=>{
+    if(!url.includes('/cafe24-deposit'))return Response.json(makePagePayload({orders:[order]}));
+    let denied;
+    remote.beforeRequestHandler({url,method:options.method,webContentsId:0},result=>denied=result.cancel);
+    assert.equal(denied,false);
+    remote.beforeRequestHandler({url,method:options.method,webContentsId:7},result=>denied=result.cancel);
+    assert.equal(denied,true);
+    if(options.method==='GET')return Response.json({status:'READY',orderId:order.externalOrderId,amount:20000});
+    posts++;
+    assert.deepEqual(JSON.parse(options.body),{orderId:order.externalOrderId,hubOrderId:order.hubOrderId,amount:20000,confirm:true});
+    return Response.json({status:'PAID'});
+  });
+  const {connection}=makeConnection(remote,{showShipmentReview:async(_parent,options)=>{
+    dialogs++;
+    assert.match(options.detail,/20,000원/);
+    assert.ok(options.detail.includes(order.externalOrderId));
+    return {response:approved};
+  }});
+  await connection.refresh();
+  assert.equal((await connection.confirmCafe24Deposit(order.hubOrderId)).status,'CANCELLED');
+  assert.equal(posts,0);
+  approved=1;
+  assert.equal((await connection.confirmCafe24Deposit(order.hubOrderId)).status,'PAID');
+  assert.equal(posts,1);
+  assert.equal(dialogs,2);
+});
 test('native review cancellation and changed order never confirm',async()=>{
   for(const kind of ['cancel','change','disconnect']){
     let order=reviewOrder(),calls=0;

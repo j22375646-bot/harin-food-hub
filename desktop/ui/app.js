@@ -651,6 +651,42 @@ function showOrderDetail(order, button, options = {}) {
   }
   detailPanel.append(header, body);detailPanel.scrollTop=0;
   if (!isSampleMode()) {
+    if(order.platform==='CAFE24'&&order.paymentMethod==='BANK_DEPOSIT'&&order.paymentState==='UNPAID'
+      &&order.details?.cancelled===false&&order.details?.cancellationRequested===false){
+      const payment=makeElement('section','review-actions deposit-actions');
+      payment.setAttribute('aria-label','무통장입금');
+      const status=makeElement('span','review-result','통장 입금 내역을 확인해 주세요.');
+      status.setAttribute('role','status');
+      const confirm=makeElement('button','primary-action','입금 확인');
+      confirm.type='button';
+      confirm.addEventListener('click',async()=>{
+        if(confirm.disabled||orderToolsBusy()||displayMode!=='live'||selectedOrderId!==orderId(order))return;
+        confirm.disabled=true;
+        status.textContent='카페24 입금 정보를 확인하고 있습니다.';
+        let result;
+        try{result=await window.moaonHub.confirmCafe24Deposit(orderId(order));}
+        catch{result={status:'UNAVAILABLE'};}
+        const messages={
+          CANCELLED:'입금 처리를 취소했습니다.',
+          CHECK_REQUIRED:'카페24 반영을 확인하지 못했습니다. 입금 상태 다시 확인을 눌러 주세요.',
+          AMOUNT_CHANGED:'카페24 입금 예정액이 바뀌었습니다. 새 금액을 다시 확인해 주세요.',
+          INELIGIBLE:'현재 주문 상태에서는 입금완료로 처리할 수 없습니다.',
+          LOGIN_REQUIRED:'모아온에 다시 연결한 뒤 시도해 주세요.',
+          FORBIDDEN:'이 사업장의 입금 확인 권한이 필요합니다.',
+        };
+        if(result?.status==='PAID'){
+          status.textContent='카페24 입금완료 확인됨';
+          if(selectedOrderId===orderId(order))await recheckShippingSelection();
+          else if(displayMode==='live'&&!orderToolsBusy())await runHubAction('refresh');
+          return;
+        }
+        status.textContent=messages[result?.status]||'입금 정보를 확인하지 못했습니다. 다시 시도해 주세요.';
+        confirm.textContent=result?.status==='CHECK_REQUIRED'?'입금 상태 다시 확인':'입금 확인';
+        confirm.disabled=false;
+      });
+      payment.append(status,confirm);
+      detailPanel.append(payment);
+    }
     const actions = makeElement('section', 'review-actions');
     actions.setAttribute('aria-label', '주문 재확인');
     actions.append(makeElement('strong', 'review-result', '송장·출력'));
