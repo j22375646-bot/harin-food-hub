@@ -8,6 +8,7 @@ import unifiedOrdersModule from '../../../../lib/orders/unified-orders.js';
 import shippingLabelModule from '../../../../lib/orders/shipping-label.js';
 import mapLimitModule from '../../../../lib/async/map-limit.js';
 import receiverModule from '../../../../lib/cafe24/order-receiver.js';
+import paymentModule from '../../../../lib/cafe24/order-payment.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -67,7 +68,9 @@ export async function POST(request) {
         }
         let receiver = order.receiver || {};
         if (order.platform === 'CAFE24') {
-          const delivery = await cafe24Client.adminGet(cafe24Config.getConfig(), `/orders/${encodeURIComponent(order.externalOrderId)}/receivers`);
+          const config = cafe24Config.getConfig();
+          await paymentModule.verifyCafe24Payment(order, (pathname, params) => cafe24Client.adminGet(config, pathname, params));
+          const delivery = await cafe24Client.adminGet(config, `/orders/${encodeURIComponent(order.externalOrderId)}/receivers`);
           receiver = receiverFromCafe24(delivery.payload || {});
           if(!receiver)throw Object.assign(Error('카페24 배송지가 여러 개이거나 확인되지 않아 발급을 중단했습니다.'),{status:409});
         }

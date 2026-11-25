@@ -2,6 +2,7 @@ import authModule from '../../../../lib/dashboard-auth.js';
 import apiSafety from '../../../../lib/api/safety.js';
 import supabaseModule from '../../../../lib/cafe24/supabase.js';
 import cafe24Client from '../../../../lib/cafe24/client.js';
+import paymentModule from '../../../../lib/cafe24/order-payment.js';
 import cafe24Config from '../../../../lib/cafe24/config.js';
 import operationQueue from '../../../../lib/coupang/operation-queue.js';
 import unifiedOrdersModule from '../../../../lib/orders/unified-orders.js';
@@ -162,7 +163,11 @@ export async function POST(request) {
           }
         }
         let outcome;
-        if(order.platform==='CAFE24')outcome=await runCafe24(db,action,order,input);
+        if(order.platform==='CAFE24'){
+          const config=cafe24Config.getConfig();
+          await paymentModule.verifyCafe24Payment(order,(pathname,params)=>cafe24Client.adminGet(config,pathname,params));
+          outcome=await runCafe24(db,action,order,input);
+        }
         else if(order.platform==='COUPANG')outcome=await runCoupang(db,action,order,input);
         else throw Object.assign(new Error('네이버에서 송장을 발급하므로 허브 출고 작업에서 제외합니다.'),{status:409});
         results.push({hubOrderId,platform:order.platform,ok:true,status:outcome.status,requestId:outcome.requestId||null,reused:Boolean(outcome.reused),retried:Boolean(outcome.retried)});

@@ -7,8 +7,8 @@ const path=require('node:path');
 const orders=require('../lib/orders/unified-orders.js');
 const operationQueue=require('../lib/coupang/operation-queue.js');
 
-test('maps Cafe24, Coupang and Naver statuses into the five common stages',()=>{
-  assert.equal(orders.stageFor('CAFE24','N00'),'PAID');
+test('maps Cafe24, Coupang and Naver statuses into common stages',()=>{
+  assert.equal(orders.stageFor('CAFE24','N00'),'PAYMENT_PENDING');
   assert.equal(orders.stageFor('CAFE24','N21'),'READY_TO_SHIP');
   assert.equal(orders.stageFor('CAFE24','N40'),'DELIVERED');
   assert.equal(orders.stageFor('COUPANG','ACCEPT'),'PAID');
@@ -21,6 +21,44 @@ test('maps Cafe24, Coupang and Naver statuses into the five common stages',()=>{
   assert.equal(orders.stageFor('NAVER','DISPATCHED'),'READY_TO_SHIP');
   assert.equal(orders.stageFor('NAVER','DELIVERING'),'SHIPPING');
   assert.equal(orders.stageFor('NAVER','PURCHASE_DECIDED'),'DELIVERED');
+});
+
+test('keeps unpaid bank deposits visible but blocks shipping until Cafe24 reports payment',()=>{
+  const {buildOrderPage}=require('../lib/ui/phase28-adapters/orders.js');
+  const make=(paid,orderStatus,method=['cash'])=>orders.buildUnifiedOrders({
+    cafe24Orders:[{order_id:'C-PAYMENT',order_date:'2026-11-25T04:14:00Z',paid_amount:0,raw_data:{paid,payment_method:method}}],
+    cafe24OrderItems:[{order_id:'C-PAYMENT',product_name:'시험 상품',quantity:1,raw_data:{order_status:orderStatus}}]
+  });
+  const since=make('F','N00');
+  const page=buildOrderPage(since.orders,[],{stage:'ACTIVE'});
+  assert.equal(page.total,1);
+  assert.equal(page.orders[0].stage,'PAYMENT_PENDING');
+  assert.equal(page.orders[0].paymentMethod,'BANK_DEPOSIT');
+  assert.equal(page.orders[0].paymentState,'UNPAID');
+  assert.equal(page.orders[0].shippingEligible,false);
+  assert.equal(page.orders[0].selectionEligible,false);
+  assert.equal(make('F','N10').orders[0].shippingEligible,false);
+  assert.equal(make(undefined,'N10').orders[0].stage,'PAYMENT_CHECK_REQUIRED');
+  const paid=buildOrderPage(make('T','N10','cash').orders,[],{stage:'ACTIVE'});
+  assert.equal(paid.orders[0].paymentState,'PAID');
+  assert.equal(paid.orders[0].shippingEligible,true);
+  assert.notEqual(page.snapshot,paid.snapshot);
+  assert.equal(make('T','N10',['card']).orders[0].paymentMethod,null);
+});
+
+test('rechecks Cafe24 before shipping and refuses missing, mismatched and unpaid evidence',async()=>{
+  const {verifyCafe24Payment}=require('../lib/cafe24/order-payment.js');
+  const order={externalOrderId:'C-PAYMENT',paymentMethod:'BANK_DEPOSIT',paymentState:'PAID'};
+  const reply=(paid,id=order.externalOrderId)=>async(path,params)=>{
+    assert.equal(path,'/orders/C-PAYMENT');
+    assert.equal(params.fields,'order_id,paid,payment_method');
+    return {payload:{order:{order_id:id,paid,payment_method:['cash']}}};
+  };
+  await verifyCafe24Payment(order,reply('T'));
+  await assert.rejects(verifyCafe24Payment(order,reply('F')), /입금 전/);
+  await assert.rejects(verifyCafe24Payment(order,reply(undefined)), /입금 상태/);
+  await assert.rejects(verifyCafe24Payment(order,reply('T','different')), /입금 상태/);
+  await assert.rejects(verifyCafe24Payment(order,async()=>{throw new Error('timeout');}), {status:503});
 });
 
 test('네이버 판매자배송 주문의 옵션과 배송정보를 바로 표시한다',()=>{
