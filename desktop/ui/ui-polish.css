@@ -412,6 +412,9 @@ html[data-theme] .orders-page :is([data-state=CANCELLED],[data-state=RETURNED],[
 .orders-page .order-item>.order-row[aria-pressed=true]{border-color:var(--blue)}
 html[data-theme] .channel-badge[data-channel=CAFE24]{background:#e8f0f7;color:#315872;border:1px solid #a8bdcc;border-radius:7px;padding:4px 8px}
 html[data-theme=dark] .channel-badge[data-channel=CAFE24]{background:#293e4f;color:#c0dcec;border-color:#617f93}
+html[data-theme] .orders-page :is(.channel-badge,.detail-channel-badge)[data-channel=SK11ST]{background:var(--rose-soft);color:var(--rose);border:1px solid var(--rose);border-radius:7px;padding:4px 8px;white-space:nowrap}
+html[data-theme] .orders-page :is(.channel-badge,.detail-channel-badge)[data-channel=GMARKET]{background:var(--mint-soft);color:var(--mint);border:1px solid var(--mint);border-radius:7px;padding:4px 8px;white-space:nowrap}
+html[data-theme] .orders-page :is(.channel-badge,.detail-channel-badge)[data-channel=AUCTION]{background:var(--amber-soft);color:var(--amber);border:1px solid var(--amber);border-radius:7px;padding:4px 8px;white-space:nowrap}
 .preview-shell.is-sidebar-collapsed .primary-nav .nav-button{display:grid!important;grid-template-columns:1fr;place-items:center!important;position:relative;padding:0!important;gap:0!important;min-height:48px}
 .preview-shell.is-sidebar-collapsed .primary-nav .nav-button>span:not(.nav-icon){display:none!important}
 .preview-shell.is-sidebar-collapsed .primary-nav .nav-button .nav-icon{grid-area:1/1;justify-self:center;align-self:center;margin:0;width:24px;height:24px}

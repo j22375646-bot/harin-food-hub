@@ -13,6 +13,19 @@ test('Cafe24 payment evidence blocks shipping even if the response still reports
   assert.equal(check({...order,paymentState:'PAID'}).status,'REVIEW_ONLY');
 });
 
+test('Cafe24 marketplace orders keep their badge identity and use the external shipping route', () => {
+  for(const marketplace of ['SK11ST','GMARKET','AUCTION']){
+    const source={...base(),marketplace};
+    const page=projectOrdersPayload({ok:true,orders:[source],total:1,offset:0,nextOffset:null,snapshot:'a'.repeat(64),partial:false},'2026-11-27T05:00:00Z');
+    const row=page.orders[0];
+    assert.equal(row.marketplace,marketplace);
+    assert.equal(row.preflight.status,'EXTERNAL');
+    assert.ok(row.preflight.codes.includes('MARKETPLACE_ROUTE'));
+    assert.equal(row.issueAndRegisterEligible,false);
+    assert.equal(row.registrationEligible,false);
+  }
+});
+
 test('real order page preserves verified history and does not invent it when absent', () => {
   const {buildOrderPage} = require('../../lib/ui/phase28-adapters/orders.js');
   for (const history of ['READY', 'CHECK_REQUIRED', undefined]) {

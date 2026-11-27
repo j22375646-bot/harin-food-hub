@@ -62,6 +62,7 @@ function paymentBlockCode(order) {
 
 function canRegister(order,partial){
   return partial===false&&['CAFE24','COUPANG'].includes(order?.platform)&&order.fulfillment==='SELLER'
+    &&!marketplaceCode(order)
     &&(order.platform==='CAFE24'?/^HR-C24-[A-F0-9]{8}$/:/^HR-CP-[A-F0-9]{8}$/).test(order.hubOrderId)
     &&order.shippingEligible===true&&order.shippingHistoryStatus==='READY'&&order.cancelled===false&&order.cancellationRequested===false
     &&!paymentBlockCode(order)&&['PAID','PREPARING','READY_TO_SHIP'].includes(order.stage)&&typeof order.externalOrderId==='string'&&order.externalOrderId.length>0
@@ -132,9 +133,13 @@ function projectOrderDetails(order) {
 }
 
 // A stored-data review aid only. This result is never accepted as a write permit.
+function marketplaceCode(order) {
+  return order?.platform==='CAFE24'&&['SK11ST','GMARKET','AUCTION'].includes(order.marketplace)?order.marketplace:null;
+}
+
 function projectPreflight(order, partial) {
   const codes = [];
-  const route = order?.fulfillment === 'ROCKET_GROWTH' ? 'COUPANG_ROCKET' : order?.platform === 'NAVER' ? 'NAVER'
+  const route = marketplaceCode(order)?'MARKETPLACE':order?.fulfillment === 'ROCKET_GROWTH' ? 'COUPANG_ROCKET' : order?.platform === 'NAVER' ? 'NAVER'
     : ['CAFE24', 'COUPANG'].includes(order?.platform) ? 'HUB' : 'UNKNOWN';
   if (order?.cancelled === true || order?.stage === 'CANCELLED') codes.push('CANCELLED');
   if (order?.cancellationRequested === true) codes.push('CANCEL_REQUEST');
@@ -145,6 +150,7 @@ function projectPreflight(order, partial) {
   if ([order?.invoiceNumber, order?.issuedInvoiceNumber].some(value => value != null && value !== '') || order?.invoice != null) codes.push('INVOICE_EXISTS');
   const blocked = codes.length > 0;
   if (route === 'NAVER') codes.push('NAVER_ROUTE');
+  if (route === 'MARKETPLACE') codes.push('MARKETPLACE_ROUTE');
   if (route === 'COUPANG_ROCKET') codes.push('ROCKET_ROUTE');
   if (route === 'UNKNOWN' || !['SELLER', 'ROCKET_GROWTH'].includes(order?.fulfillment)) codes.push('ROUTE_UNKNOWN');
   if (!paymentBlock && !['PAID','PREPARING','READY_TO_SHIP'].includes(order?.stage) && !codes.includes('SHIPPED') && !codes.includes('CANCELLED')) codes.push('STAGE_UNKNOWN');
@@ -162,7 +168,7 @@ function projectPreflight(order, partial) {
   if (!Number.isSafeInteger(order?.quantity) || order.quantity <= 0) codes.push('QUANTITY');
   if (order?.platform==='COUPANG'&&order?.fulfillment==='SELLER'&&!(typeof order.shipmentId==='string'&&order.shipmentId.trim())) codes.push('SHIPMENT_ID');
   if (partial) codes.push('PARTIAL');
-  return Object.freeze({ status: blocked ? 'BLOCKED' : ['NAVER','COUPANG_ROCKET'].includes(route) ? 'EXTERNAL' : codes.length ? 'CHECK_REQUIRED' : 'REVIEW_ONLY', route, codes:Object.freeze(codes),...(codes.includes('SERVER_CHECK')&&typeof order?.shippingBlockedReason==='string'&&order.shippingBlockedReason.trim()?{serverReason:order.shippingBlockedReason.trim().slice(0,500)}:{}) });
+  return Object.freeze({ status: blocked ? 'BLOCKED' : ['NAVER','COUPANG_ROCKET','MARKETPLACE'].includes(route) ? 'EXTERNAL' : codes.length ? 'CHECK_REQUIRED' : 'REVIEW_ONLY', route, codes:Object.freeze(codes),...(codes.includes('SERVER_CHECK')&&typeof order?.shippingBlockedReason==='string'&&order.shippingBlockedReason.trim()?{serverReason:order.shippingBlockedReason.trim().slice(0,500)}:{}) });
 }
 
 function scopeTotals(payload){
@@ -205,6 +211,7 @@ function projectOrdersPayload(payload, checkedAt, options = {}) {
     const projected=Object.freeze({
     hubOrderId: safeString(order?.hubOrderId),
     platform: safeString(order?.platform),
+    ...(marketplaceCode(order)?{marketplace:marketplaceCode(order)}:{}),
     productName: safeString(order?.productName),
     stage: safeString(order?.stage),
     paymentMethod: order?.paymentMethod === 'BANK_DEPOSIT' ? order.paymentMethod : null,
@@ -344,7 +351,7 @@ function createHubConnection({
     if(reviewingShipment||disconnecting||cleanupFailed||isLoginWindowActive())return {status:'BUSY'};
     const matches=loadedOrders.filter(row=>row.hubOrderId===id);
     const row=matches[0],orderId=row?.details?.externalOrderId;
-    if(matches.length!==1||row.platform!=='CAFE24'||row.paymentMethod!=='BANK_DEPOSIT'||row.paymentState!=='UNPAID'
+    if(matches.length!==1||row.platform!=='CAFE24'||row.marketplace||row.paymentMethod!=='BANK_DEPOSIT'||row.paymentState!=='UNPAID'
       ||row.details.cancelled!==false||row.details.cancellationRequested!==false||!/^\d{8}-\d{7}$/.test(orderId))return {status:'INELIGIBLE'};
     if(typeof showShipmentReview!=='function')return {status:'UNAVAILABLE'};
     const expected=generation,parent=getMainWindow();

@@ -515,6 +515,17 @@ function trackingSection(order){
   return panel;
 }
 
+const marketplaceLabels=Object.freeze({SK11ST:'11번가',GMARKET:'G마켓',AUCTION:'옥션'});
+function makeOrderChannelBadge(order,{detail=false}={}){
+  const channel=order.platform||'UNKNOWN';
+  const marketplace=marketplaceLabels[order.marketplace];
+  const label=marketplace||({NAVER:detail?'네이버 · 별도 발급':'네이버',COUPANG:'쿠팡',CAFE24:'Cafe24'})[channel]||'채널 확인 필요';
+  const badge=makeElement(detail?'span':'strong',detail?'detail-channel-badge':'channel-badge',label);
+  badge.dataset.channel=marketplace?order.marketplace:channel;
+  if(marketplace)badge.title='카페24 마켓 연동으로 수집된 주문';
+  return badge;
+}
+
 function showOrderDetail(order, button, options = {}) {
   const mainScroller=document.querySelector('#main-content'),listScroll=mainScroller.scrollTop;
   document.querySelector('.orders-layout').classList.remove('is-detail-closed');
@@ -544,7 +555,7 @@ function showOrderDetail(order, button, options = {}) {
   productText.append(makeElement('h2','',bundled?'묶음 주문':order.productName||order.product||'상품 확인 필요'));
   const option=isSampleMode()?order.option:order.details?.items?.[0]?.option;if(option&&!bundled)productText.append(makeElement('span','',option));
   const present=giftBadge(order),timing=timingBadge(order);
-  const badges=makeElement('div','detail-badges');if(present)badges.append(present);if(timing)badges.append(timing);const statusView=shippingStatusView(order,true),statusBadge=makeElement('span','detail-status-badge',statusView.label),channelBadge=makeElement('span','detail-channel-badge',({NAVER:'네이버 · 별도 발급',COUPANG:'쿠팡',CAFE24:'Cafe24'})[order.platform]||'채널 확인 필요');statusBadge.dataset.state=statusView.state;channelBadge.dataset.channel=order.platform||'UNKNOWN';badges.append(statusBadge,channelBadge,...paymentBadges(order,statusView.state));productText.append(badges);
+  const badges=makeElement('div','detail-badges');if(present)badges.append(present);if(timing)badges.append(timing);const statusView=shippingStatusView(order,true),statusBadge=makeElement('span','detail-status-badge',statusView.label);statusBadge.dataset.state=statusView.state;badges.append(statusBadge,makeOrderChannelBadge(order,{detail:true}),...paymentBadges(order,statusView.state));productText.append(badges);
   productHero.append(productThumbnail(order),productText);body.append(productHero);if(bundled)body.append(bundleProducts(order.details.items));
   const facts=makeElement('dl','detail-facts');
   const fact=(title,value)=>facts.append(makeElement('dt','',title),makeElement('dd','',value));
@@ -616,6 +627,7 @@ function showOrderDetail(order, button, options = {}) {
     reasonLabels.SHIPMENT_ID='쿠팡 배송묶음 번호 확인 필요';
     reasonLabels.PAYMENT_PENDING='입금전 · 송장 발급 불가';
     reasonLabels.PAYMENT_CHECK_REQUIRED='카페24에서 입금 상태 확인';
+    reasonLabels.MARKETPLACE_ROUTE='판매처에서 송장·출고 처리';
     reasonLabels.HISTORY_UNAVAILABLE = '송장 이력 조회 상태 확인 필요';
     const checkSection = makeElement('section', 'detail-section preflight-summary');
     checkSection.dataset.state = preflight?.status || 'CHECK_REQUIRED';
@@ -651,7 +663,7 @@ function showOrderDetail(order, button, options = {}) {
   }
   detailPanel.append(header, body);detailPanel.scrollTop=0;
   if (!isSampleMode()) {
-    if(order.platform==='CAFE24'&&order.paymentMethod==='BANK_DEPOSIT'&&order.paymentState==='UNPAID'
+    if(order.platform==='CAFE24'&&!order.marketplace&&order.paymentMethod==='BANK_DEPOSIT'&&order.paymentState==='UNPAID'
       &&order.details?.cancelled===false&&order.details?.cancellationRequested===false){
       const payment=makeElement('section','review-actions deposit-actions');
       payment.setAttribute('aria-label','무통장입금');
@@ -896,13 +908,11 @@ function createOrderRow(order) {
   } else {
     const items=order.details?.items||[];
     const product = items.length>1?'묶음 주문':order.productName || '상품 정보 확인 필요';
-    const channel = order.platform || '채널 확인 필요';
+    const channel = marketplaceLabels[order.marketplace]||order.platform||'채널 확인 필요';
     const stage = stageLabel(order.stage);
     button.setAttribute('aria-label', `${id || '주문번호 확인 필요'}, ${product}, ${channel}, ${stage}, ${reviewLabels[reviewStatus(order)]}, 조회 전용 주문 상세 열기`);
     primary.append(makeElement('strong', '', product));
-    const channels={CAFE24:'Cafe24',NAVER:'네이버',COUPANG:'쿠팡'};
-    const channelBadge=makeElement('strong','channel-badge',channels[channel]||channel);
-    channelBadge.dataset.channel=channel;
+    const channelBadge=makeOrderChannelBadge(order);
     const delivery={RESERVED:'예약',IN_TRANSIT:'배송중',DELIVERED:'배송완료'};
     const stateView=shippingStatusView(order),status=makeElement('span','delivery-badge',stateView.label);
     status.dataset.state=stateView.state;
@@ -1327,6 +1337,7 @@ function applyHubResult(result,options={}) {
     displayedOrders = Object.freeze(result.orders.map((order) => Object.freeze({
       hubOrderId: typeof order.hubOrderId === 'string' ? order.hubOrderId : '', platform: typeof order.platform === 'string' ? order.platform : '',
       productName: typeof order.productName === 'string' ? order.productName : '', stage: typeof order.stage === 'string' ? order.stage : '',
+      marketplace:order.marketplace,
       paymentMethod: order.paymentMethod,
       paymentState: order.paymentState,
       quantity: typeof order.quantity === 'number' && Number.isFinite(order.quantity) ? order.quantity : null,
