@@ -315,6 +315,27 @@ test('Cafe24 Naver Pay checkout is shown as Cafe24 seller shipping, not Naver Sm
   assert.equal(order.externalOrderId,'20260902-0000013');
 });
 
+test('11st, Gmarket and Auction mirrors appear with their marketplace names and no Cafe24 shipping authorization',()=>{
+  const {buildOrderPage}=require('../lib/ui/phase28-adapters/orders.js');
+  const marketplaces=[['sk11st','11번가'],['gmarket','G마켓'],['auction','옥션']];
+  const center=orders.buildUnifiedOrders({
+    cafe24Orders:[...marketplaces.map(([code])=>code),'coupang','naver','unknown'].map(code=>({
+      order_id:code,order_date:'2026-11-26T07:46:13Z',raw_data:{order_place_id:code,paid:'T'}
+    })),
+    cafe24OrderItems:marketplaces.map(([code])=>({order_id:code,product_name:'시험 상품',quantity:1,raw_data:{order_status:'N20'}}))
+  });
+  const page=buildOrderPage(center.orders,[],{stage:'ACTIVE',platform:'CAFE24'});
+  assert.equal(page.total,3);
+  for(const [code,label] of marketplaces){
+    const row=page.orders.find(order=>order.externalOrderId===code);
+    assert.equal(row.marketplace,code.toUpperCase());
+    assert.equal(row.channelLabel,label);
+    assert.equal(row.shippingEligible,false);
+    assert.equal(row.selectionEligible,false);
+    assert.match(row.shippingBlockedReason,new RegExp(label));
+  }
+});
+
 test('hourly order collection is scheduled and the manual button is explicit',()=>{
   const vercel=JSON.parse(fs.readFileSync(path.join(__dirname,'..','vercel.json'),'utf8'));
   const center=fs.readFileSync(path.join(__dirname,'..','app','unified-orders-center.js'),'utf8');
