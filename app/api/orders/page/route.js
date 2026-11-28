@@ -42,7 +42,7 @@ export async function GET(request){
       ?await Promise.all([unified.loadUnifiedOrders({db,since:options.start}),orderEvents.loadOrderEvents(db)]).then(([center,eventResult])=>({center,eventResult}))
       :await orderReadModel.loadOrderReadModel(db);
     const dataMs=Date.now()-started;
-    if(eventResult.error)throw eventResult.error;
+    if(eventResult.error)throw eventResult.error;
     const failedChannels=(center.channels||[]).filter(channel=>channel.status==='FAILED');
     // Stored-row access is not evidence of upstream authentication/readiness.
     // Connector capabilities remain owned by the dashboard shell loader.
