@@ -40,8 +40,10 @@ test('strict dispatch loading rejects missing cancellation evidence instead of t
  for(const [platform,failedTable,operation] of [['CAFE24','cafe24_order_items',''],['COUPANG','coupang_returns',''],['COUPANG','coupang_operation_requests','ORDER_DETAIL']]) {
   const db={from(table){
    const filters={};
-   const q={then(resolve){return Promise.resolve({data:[],error:table===failedTable&&(!operation||filters.operation_type===operation)?{code:'TIMEOUT'}:null}).then(resolve);}};
-   for(const method of ['select','order','range','in','limit','neq','gte','lt'])q[method]=()=>q;
+   // One open order per channel so the dependent cancellation/claim reads run.
+   const rows={cafe24_orders:[{order_id:'C1',order_date:new Date().toISOString(),payment_status:'PAID',raw_data:{}}],coupang_orders:[{order_id:'O1',shipment_box_id:'B1',status:'ACCEPT',ordered_at:new Date().toISOString(),raw_data:{}}]}[table]||[];
+   const q={then(resolve){return Promise.resolve({data:rows,error:table===failedTable&&(!operation||filters.operation_type===operation)?{code:'TIMEOUT'}:null}).then(resolve);}};
+   for(const method of ['select','order','range','in','limit','neq','gte','lt','or'])q[method]=()=>q;
    q.eq=(key,value)=>{filters[key]=value;return q;};
    return q;
   }};

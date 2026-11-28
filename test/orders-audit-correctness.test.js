@@ -43,14 +43,8 @@ test('split shipment boxes retain distinct executable targets and reject ambiguo
 });
 
 test('database row caps do not hide the 1001st active order or its item',async()=>{
-  const records=Array.from({length:1201},(_,index)=>({order_id:`C-${index}`,order_date:'2026-09-06',payment_status:'PAID',paid_amount:10000,raw_data:{}}));
-  const tables={cafe24_orders:records,cafe24_order_items:[{order_id:'C-1200',external_item_id:'item-last',product_name:'마지막 주문 상품',quantity:1}]};
-  const db={from(table){
-    let start=0,end=999;
-    const query={then(resolve){return Promise.resolve({data:(tables[table]||[]).slice(start,end+1),error:null}).then(resolve);},range(a,b){start=a;end=b;return query;}};
-    for(const method of ['select','order','eq','in','limit','neq','gte','lt'])query[method]=()=>query;
-    return query;
-  }};
+  const records=Array.from({length:1201},(_,index)=>({order_id:`C-${index}`,order_date:new Date().toISOString(),payment_status:'PAID',paid_amount:10000,raw_data:{}}));
+  const db=readDatabase({cafe24_orders:records,cafe24_order_items:[{order_id:'C-1200',external_item_id:'item-last',product_name:'마지막 주문 상품',quantity:1}]});
   const center=await unified.loadUnifiedOrders({db});
   assert.equal(center.orders.length,1201);
   assert.equal(center.orders.find(order=>order.externalOrderId==='C-1200').productName,'마지막 주문 상품');

@@ -69,8 +69,10 @@ test('reuses the newest encrypted Coupang order detail instead of refetching rec
     assert.deepEqual(center.orders[0].receiver,{
       name:'쿠팡 수취인',contact:'050700000000',postCode:'12345',address:'서울시',addressDetail:'101호',message:'문 앞'
     });
-    const source=fs.readFileSync(path.join(__dirname,'..','lib','orders','unified-orders.js'),'utf8');
-    assert.match(source,/select\('operation_type,target_type,target_id,status,result_json,error_message,created_at'\)/);
+    // ORDER_DETAIL reads moved into the bounded order window loader.
+    const source=fs.readFileSync(path.join(__dirname,'..','lib','orders','order-window.js'),'utf8');
+    assert.match(source,/orderDetails:'operation_type,target_type,target_id,status,result_json,error_message,created_at'/);
+    assert.match(source,/select\(COLUMNS\.orderDetails\)/);
     assert.match(source,/\.in\('status',\['SUCCESS','CANCELLED','FAILED'\]\)/);
   }finally{
     if(previousSecret===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;

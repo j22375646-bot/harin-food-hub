@@ -35,7 +35,7 @@ export async function GET(request){
     const params=new URL(request.url).searchParams;
     const options=readOptions(params);
     const db=supabaseModule.getSupabase();
-    const [center,eventResult]=await Promise.all([unified.loadUnifiedOrders({db}),orderEvents.loadOrderEvents(db)]);
+    const [center,eventResult]=await Promise.all([unified.loadUnifiedOrders({db,since:options.start||null}),orderEvents.loadOrderEvents(db)]);
     if(eventResult.error)throw eventResult.error;
     const failedChannels=(center.channels||[]).filter(channel=>channel.status==='FAILED');
     // Stored-row access is not evidence of upstream authentication/readiness.
