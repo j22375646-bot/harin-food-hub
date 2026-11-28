@@ -24,7 +24,7 @@ export async function GET(request) {
     const platform=['NAVER','COUPANG','CAFE24'].includes(params.get('platform'))?params.get('platform'):'ALL';
     const stage=unifiedOrdersModule.STAGES.some(item=>item.id===params.get('stage'))?params.get('stage'):'ALL';
     const query=String(params.get('query')||'').trim().slice(0,100);
-    const center=await unifiedOrdersModule.loadUnifiedOrders({db:supabaseModule.getSupabase()});
+    const center=await unifiedOrdersModule.loadUnifiedOrders({db:supabaseModule.getSupabase(),since:dateParam(params.get('start'))||null});
     const rows=unifiedOrdersModule.filterUnifiedOrders(center.orders,{
       platform,stage,query,startDate:dateParam(params.get('start')),endDate:dateParam(params.get('end')),actionRequired:params.get('action')==='1'
     });

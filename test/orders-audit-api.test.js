@@ -88,7 +88,7 @@ test('authenticated pages stay bounded and two tabs converge after older event d
   const db={from(table){
     let start=0,end=999;
     const query={then(resolve){return Promise.resolve({data:(tables[table]||[]).slice(start,end+1),error:null}).then(resolve);},range(a,b){start=a;end=b;return query;}};
-    for(const method of ['select','order','eq','in','limit','neq','gte','lt','like'])query[method]=()=>query;
+    for(const method of ['select','order','eq','in','limit','neq','gte','lt','like','or'])query[method]=()=>query;
     return query;
   }};
   supabase.getSupabase=()=>db;

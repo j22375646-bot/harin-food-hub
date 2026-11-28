@@ -153,6 +153,7 @@ test('live issuance authenticates and queues one encrypted job for a canonical s
     const query={
       select(){return query;},order(){return query;},limit(n){end=n-1;return query;},range(a,b){start=a;end=b;return query;},
       eq(key,value){predicates.push(row=>row[key]===value);return query;},in(key,values){predicates.push(row=>values.includes(row[key]));return query;},
+      or(){return query;},
       insert(value){insert=value;return query;},single(){single=true;return query;},maybeSingle(){single=true;return query;},
       then(resolve){
         if(insert){jobs.push({...insert,id:'queued-job-1',created_at:new Date().toISOString()});return Promise.resolve({data:jobs.at(-1),error:null}).then(resolve);}

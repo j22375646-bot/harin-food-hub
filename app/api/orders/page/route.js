@@ -37,9 +37,11 @@ export async function GET(request){
     const params=new URL(request.url).searchParams;
     const options=readOptions(params);
     const db=supabaseModule.getSupabase();
-    const {center,eventResult}=await orderReadModel.loadOrderReadModel(db);
-    const dataMs=Date.now()-started;
-    if(eventResult.error)throw eventResult.error;
+    // A start date widens the order window, so it bypasses the shared default read.
+    const {center,eventResult}=options.start
+      ?await Promise.all([unified.loadUnifiedOrders({db,since:options.start}),orderEvents.loadOrderEvents(db)]).then(([center,eventResult])=>({center,eventResult}))
+      :await orderReadModel.loadOrderReadModel(db);
+    if(eventResult.error)throw eventResult.error;
     const failedChannels=(center.channels||[]).filter(channel=>channel.status==='FAILED');
     // Stored-row access is not evidence of upstream authentication/readiness.
     // Connector capabilities remain owned by the dashboard shell loader.
