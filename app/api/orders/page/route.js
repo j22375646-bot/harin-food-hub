@@ -41,6 +41,7 @@ export async function GET(request){
     const {center,eventResult}=options.start
       ?await Promise.all([unified.loadUnifiedOrders({db,since:options.start}),orderEvents.loadOrderEvents(db)]).then(([center,eventResult])=>({center,eventResult}))
       :await orderReadModel.loadOrderReadModel(db);
+    const dataMs=Date.now()-started;
     if(eventResult.error)throw eventResult.error;
     const failedChannels=(center.channels||[]).filter(channel=>channel.status==='FAILED');
     // Stored-row access is not evidence of upstream authentication/readiness.
